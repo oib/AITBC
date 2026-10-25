@@ -1080,7 +1080,7 @@ class TestHostForRoleRouting:
         """A call that can reach another node's wallet must not silently pick a side."""
         with (
             mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)),
-            pytest.raises(ValueError, match="either role or host"),
+            pytest.raises(mcp_server.ToolError, match="either role or host"),
         ):
             mcp_server._host_for_role("customer", "hub.aitbc")
 
@@ -1088,7 +1088,7 @@ class TestHostForRoleRouting:
         """The old fallthrough ran ``ssh … bogus-role`` — now refused."""
         with (
             mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)),
-            pytest.raises(ValueError, match="unknown role"),
+            pytest.raises(mcp_server.ToolError, match="unknown role"),
         ):
             mcp_server._host_for_role("bogus-role")
 
@@ -1096,13 +1096,13 @@ class TestHostForRoleRouting:
         """`-oProxyCommand=…` style values must never reach ssh argv."""
         with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
             for bad in ("-oProxyCommand=/bin/echo marker", "-F/dev/null", "-v"):
-                with pytest.raises(ValueError, match="invalid host"):
+                with pytest.raises(mcp_server.ToolError, match="invalid host"):
                     mcp_server._host_for_role(None, bad)
 
     def test_host_with_whitespace_or_equals_refused(self):
         with mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)):
             for bad in ("hub.aitbc -oBatchMode=no", "a=b", "hub .aitbc", " "):
-                with pytest.raises(ValueError, match="invalid host"):
+                with pytest.raises(mcp_server.ToolError, match="invalid host"):
                     mcp_server._host_for_role(None, bad)
 
     def test_envelope_carries_resolved_host_and_role(self):

@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -381,15 +382,15 @@ def _host_for_role(role: str | None, host: str | None = None) -> str:
     so a value cannot be parsed as an ssh option.
     """
     if host and role:
-        raise ValueError("pass either role or host, not both")
+        raise ToolError("pass either role or host, not both")
     if host:
         if not _HOST_PATTERN.fullmatch(host):
-            raise ValueError(f"invalid host override: {host!r}")
+            raise ToolError(f"invalid host override: {host!r}")
         return host
     if role:
         resolved = _role_hosts().get(role)
         if not resolved:
-            raise ValueError(f"unknown role: {role}")
+            raise ToolError(f"unknown role: {role}")
         return resolved
     return _default_host()
 
