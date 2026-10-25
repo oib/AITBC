@@ -460,3 +460,8 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   dropped them unconditionally, so `downgrade base` died on PostgreSQL with
   UndefinedObjectError at the second drop. `if_exists=True` added to the
   duplicated drops in `c3b2d6e7f8a9`, `b2a1c4d5e6f7` and `a58c1f3b3e87`.
+- Same finding in trading: `002_v0180_decimal_money_fields.downgrade()` ran
+  its `ALTER COLUMN … TYPE FLOAT` unguarded, but three of its four tables
+  are created by revision 003 — already dropped by `downgrade base` before
+  002 runs. The downgrade now applies upgrade()'s inspector guards
+  symmetrically.
