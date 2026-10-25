@@ -99,6 +99,23 @@ def _settlement_node_url(detail: str) -> str | None:
     return url or None
 
 
+def _settlement_url_allowed(url: str, config) -> bool:
+    """Allow the retry only against the configured hub or a loopback host.
+
+    The settlement URL arrives in a server-supplied 503 detail inside
+    fund-moving code — it must never redirect a signed escrow lock to a
+    foreign host.
+    """
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(url).hostname or "").lower()
+    if host in {"127.0.0.1", "localhost", "::1"}:
+        return True
+    hub = _hub_base_url(config).rstrip("/")
+    # `url` already had a trailing /rpc stripped by _settlement_node_url.
+    return url.rstrip("/") == hub or url.rstrip("/") == hub.removesuffix("/rpc")
+
+
 def _escrow_create(
     ctx,
     job_id: str,
@@ -197,6 +214,16 @@ def _escrow_create(
         if detail:
             settlement_url = _settlement_node_url(detail)
             if settlement_url and settlement_url.rstrip("/") != rpc_url.rstrip("/"):
+                # The named URL is server-supplied text in fund-moving client
+                # code: only ever retry against the configured hub or a
+                # loopback address — anything else could redirect a signed
+                # escrow lock to a foreign host.
+                if not _settlement_url_allowed(settlement_url, config):
+                    error(
+                        f"Escrow creation refused: settlement retry target {settlement_url} "
+                        "is not the configured hub or a loopback address — not retrying"
+                    )
+                    raise click.Abort() from e
                 warning(f"Escrow creation refused locally ({detail}) — retrying on the settlement node")
                 try:
                     result = _get_rpc_client(config, settlement_url, timeout=10).post("/rpc/escrow/create", json=payload)

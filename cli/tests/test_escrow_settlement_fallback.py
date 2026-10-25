@@ -65,7 +65,9 @@ def test_escrow_create_retries_on_settlement_node(monkeypatch):
     )
     monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
 
-    config = SimpleNamespace(hub_proposer_id="0xPROP", blockchain_rpc_api_key=None)
+    config = SimpleNamespace(
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+    )
     contract = esc_mod._escrow_create(
         SimpleNamespace(),
         job_id="j1",
@@ -97,7 +99,9 @@ def test_escrow_create_refusal_without_settlement_url_aborts(monkeypatch):
         lambda *a, **kw: ({"tx": "x"}, "sig"),
     )
     monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
-    config = SimpleNamespace(hub_proposer_id="0xPROP", blockchain_rpc_api_key=None)
+    config = SimpleNamespace(
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+    )
     with pytest.raises(click.Abort):
         esc_mod._escrow_create(
             SimpleNamespace(),
@@ -109,3 +113,47 @@ def test_escrow_create_refusal_without_settlement_url_aborts(monkeypatch):
             private_key="deadbeef",
             node_wallet="0xPROP",
         )
+
+
+def test_escrow_create_refuses_foreign_settlement_url(monkeypatch):
+    """A 503 naming a non-hub, non-loopback URL must NOT be retried."""
+    import click
+
+    foreign = "https://evil.example.net"
+
+    class _RefuseForeign:
+        def __init__(self, base_url, **kw):
+            self.base_url = base_url
+
+        def post(self, endpoint, json=None):
+            raise _HttpError(f"x; the settlement node is at {foreign}")
+
+    calls = []
+    orig = _RefuseForeign.post
+
+    def post(self, endpoint, json=None):
+        calls.append(self.base_url)
+        return orig(self, endpoint, json=json)
+
+    monkeypatch.setattr(_RefuseForeign, "post", post)
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _RefuseForeign(base_url))
+    monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
+    monkeypatch.setattr("aitbc_cli.utils.escrow.create_signed_escrow_lock", lambda *a, **kw: ({"tx": "x"}, "sig"))
+    monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
+    config = SimpleNamespace(
+        hub_proposer_id="0xPROP",
+        blockchain_rpc_api_key=None,
+        hub_discovery_url="https://hub.aitbc.bubuit.net",
+    )
+    with pytest.raises(click.Abort):
+        esc_mod._escrow_create(
+            SimpleNamespace(),
+            job_id="j1",
+            buyer="0xB",
+            provider="0xP",
+            amount=Decimal("0.002"),
+            config=config,
+            private_key="deadbeef",
+            node_wallet="0xPROP",
+        )
+    assert calls == ["http://127.0.0.1:8202"]  # never touched the foreign URL
