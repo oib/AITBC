@@ -434,3 +434,22 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - Offline tests per app run ``upgrade head`` / ``downgrade base`` on a
   temporary SQLite file plus postgresql-dialect compile assertions
   (``apps/{coordinator-api,gpu,edge,pool-hub,trading,governance}/tests``).
+### PG-TARGET-1 (stream 3) — disposable PostgreSQL cluster fixture; pool-hub + trading run real PG migrations (#436)
+
+- Docker/podman are absent on the nodes, so the testcontainers fixture in
+  `tests/conftest_testcontainers.py` never ran there. New
+  `aitbc.testing.pg_cluster` spins a throwaway cluster from the installed
+  server binaries (`initdb`/`pg_ctl` from PATH or
+  `/usr/lib/postgresql/*/bin`) into a `/var/tmp` dir, bound to a unix socket
+  only (`listen_addresses=''`), run as the `postgres` user when tests run as
+  root, stopped and deleted at teardown — the running service and `aitbc_*`
+  databases are never touched. `assert_local_pg_url` fails closed on any
+  non-local DSN (netloc or `host=` query param), so the fixture cannot be
+  pointed at a real database.
+- `aitbc.testing.pytest_pg` exposes `postgres_cluster`/`pg_url` fixtures;
+  suites opt in with `pytest_plugins` and `requires_postgres` skips cleanly
+  when binaries are missing.
+- Proof: `apps/pool-hub/tests/test_pg_migrations.py` and
+  `apps/trading/tests/test_pg_migrations.py` run `alembic upgrade head`,
+  a real insert, a real read and `downgrade base` on the throwaway cluster;
+  `tests/test_pg_cluster.py` covers the URL guard and raw insert/read.
