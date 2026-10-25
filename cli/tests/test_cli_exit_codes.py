@@ -284,3 +284,24 @@ def test_converted_messages_use_abort():
         joined = " ".join(abort_args)
         for needle in needles:
             assert needle in joined, f"{fname}: '{needle}' not inside an abort() call"
+
+
+def test_edge_sync_db_501_exits_nonzero(runner, monkeypatch):
+    """CLI-EXIT-2 follow-up: a 501 (unimplemented edge sync) must exit
+    non-zero — the broad `except Exception` used to swallow the abort."""
+    from aitbc_cli.commands import edge as edge_mod
+
+    class _Resp:
+        status_code = 501
+
+        def json(self):
+            return {"detail": "Edge database sync is not implemented"}
+
+    class _Client:
+        def post(self, path):
+            return _Resp()
+
+    monkeypatch.setattr(edge_mod, "get_edge_client", lambda: _Client())
+    result = runner.invoke(edge_mod.database, obj={"output_format": "table"}, args=["sync-db", "--database-id", "db-1"])
+    assert result.exit_code != 0
+    assert "not implemented" in result.output
