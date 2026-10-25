@@ -57,6 +57,10 @@ from .sync_validator import ImportResult
 
 logger = get_logger(__name__)
 
+# FORK-GUARD-1: keep False until a recipient-rule guard aligns the
+# parallel path with pure_state_transition for zero-value fresh recipients.
+_PARALLEL_V2V8_ENABLED: bool = False
+
 # Transaction types whose side effects (pools, stakes, GPU tables, bond rows,
 # governance parameters, burn semantics, etc.) are not modeled by the
 # pure/parallel delta map. They must be applied through the full
@@ -461,13 +465,15 @@ class BlockImportMixin(SyncBase):
                     bridge_lock_context = build_bridge_lock_context(session, self._chain_id, transactions)
             if (
                 settings.parallel_tx_validation
-                # v5/v6 included: their fail-closed gates are mirrored in
-                # pure_state_transition (escrow authority via escrow_context,
-                # bridge pseudo-sender + signature + refund lock binding), so
-                # the parallel path stays identical. v7/v8 add no apply rules
-                # for the types this path handles; upper bound stays explicit
-                # so a future version defaults to sequential until audited.
-                and 2 <= block_version <= 8
+                # FORK-GUARD-1: parallel import is disabled at v2-v8 — its
+                # prefetch pre-creates every raw `to` and apply_deltas
+                # creates recipients for non-MESSAGE deltas, so zero-value
+                # fresh-recipient txs diverge from the proposer's serial
+                # path (state-root mismatch; #432 pins GPU_MARKET->0x0 and
+                # MESSAGE->fresh). The sequential path reproduces
+                # pure_state_transition exactly; the divergence can only
+                # re-enable after a recipient-rule guard lands.
+                and _PARALLEL_V2V8_ENABLED
                 and escrow_context is not None
                 and (
                     block_version < 6
