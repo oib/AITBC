@@ -10,7 +10,7 @@ import click
 from ..config import get_config
 from ..utils import info, output, success
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, loopback_service_hint
 
 
 @click.group(
@@ -23,6 +23,11 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError
 def gpu():
     """Manage local GPUs: discover, register, unregister, update, and list GPU resources."""
     pass
+
+
+def _gpu_hint(config) -> str:
+    """Loopback hint suffix for GPU-service failures (CLI-LOOPBACK-1)."""
+    return loopback_service_hint(getattr(config, "gpu_service_url", ""), "GPU")
 
 
 @gpu.command(
@@ -42,7 +47,7 @@ def discover(ctx):
         success("GPU discovery completed")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        abort(ctx, f"Network error: {e}{_gpu_hint(config)}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error discovering GPUs: {e}", from_exception=e)
 
@@ -75,7 +80,7 @@ def register(ctx, gpu_id: str, specs: str | None):
         success(f"GPU {gpu_id} registered successfully")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        abort(ctx, f"Network error: {e}{_gpu_hint(config)}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error registering GPU: {e}", from_exception=e)
 
@@ -101,7 +106,7 @@ def unregister(ctx, gpu_id: str):
         success(f"GPU {gpu_id} unregistered successfully")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        abort(ctx, f"Network error: {e}{_gpu_hint(config)}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error unregistering GPU: {e}", from_exception=e)
 
@@ -148,7 +153,7 @@ def update(ctx, gpu_id: str, pricing: str | None, status: str | None):
         success(f"GPU {gpu_id} updated successfully")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        abort(ctx, f"Network error: {e}{_gpu_hint(config)}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error updating GPU: {e}", from_exception=e)
 

@@ -53,6 +53,23 @@ def normalize_base_url(url: str | None, default: str = "") -> str:
     return f"{service_root_url(url, default)}/v1"
 
 
+def loopback_service_hint(url: str | None, service: str) -> str:
+    """Trailing hint when a service URL still points at loopback (CLI-LOOPBACK-1).
+
+    On customer nodes ``localhost:<svc-port>`` is the wrong target — the
+    service runs on the shop/hub host — so a refused loopback connection
+    should name the fix rather than print a bare network error. Returns ""
+    for non-loopback URLs.
+    """
+    host = urlparse(str(url or "")).hostname or ""
+    if host not in ("localhost", "127.0.0.1", "::1", ""):
+        return ""
+    return (
+        f" — {service} URL is loopback ({url}); this host does not run it. "
+        "Set the service URL in config/env to a reachable host."
+    )
+
+
 def origin_base_url(url: str | None, default: str = "") -> str:
     """Reduce a URL to ``scheme://host[:port]``, dropping any path.
 
