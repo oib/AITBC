@@ -93,27 +93,9 @@ def leaf_tokens(toks, tree, root_opts, root_val):
     return node, toks[j:]
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument(
-        "--staging-dir",
-        default=default_staging_dir(),
-        help="staging checkout holding tasks/progress/SCENARIO-PLAY-1 (default: repo root or its parent)",
-    )
-    ap.add_argument("--out", default=None, help="report path (default: <staging>/tasks/progress/SCENARIO-COVERAGE-OPTIONS.md)")
-    args = ap.parse_args()
-
-    p1 = os.path.join(args.staging_dir, "tasks", "progress", "SCENARIO-PLAY-1")
-    trees = sorted(glob.glob(os.path.join(p1, "cli-tree-*.json")))
-    census_path = os.path.join(p1, "census.json")
-    if not trees or not os.path.exists(census_path):
-        sys.exit(f"missing SCENARIO-PLAY-1 inputs under {p1} (pass --staging-dir)")
-    tree = json.load(open(trees[-1]))
-    census = json.load(open(census_path))
-    out = args.out or os.path.join(args.staging_dir, "tasks", "progress", "SCENARIO-COVERAGE-OPTIONS.md")
-
-    # ---- leaf inventory ----------------------------------------------------
-    leaves = {}  # path-str -> node
+def _leaf_inventory(tree) -> dict:
+    """path-str -> leaf node for every visible, non-deprecated leaf."""
+    leaves = {}
 
     def walk(n):
         ch = n.get("children") or {}
@@ -124,22 +106,27 @@ def main() -> int:
             leaves[" ".join(n["path"][1:])] = n
 
     walk(tree)
+    return leaves
 
-    # ---- per-leaf option table ----------------------------------------------
-    # leaf -> option-name -> {'param':p, 'exercised':bool, 'secret':bool}
-    opt_state = {p: {} for p in leaves}
-    for path, node in leaves.items():
-        for p in node["params"]:
-            opt_state[path][p["name"]] = {
-                "param": p,
-                "exercised": False,
-                "secret": bool(SECRET_RE.search(p["name"]) or any(SECRET_RE.search(o) for o in p["opts"])),
-            }
 
-    # ---- re-tokenize census commands (same logic as census.py) ---------------
+def _scan_tokens(path, rest, optmap, pos_args, scenario, exercised_by) -> None:
+    """Mark every option/argument present in one command line's tokens."""
+    pos = 0
+    for t in rest:
+        if t.startswith("-") and len(t) > 1 and not re.match(r"^-\d", t):
+            name = t.split("=")[0]
+            if name in optmap:
+                exercised_by[(path, optmap[name])].add(scenario)
+        else:
+            if pos < len(pos_args):
+                exercised_by[(path, pos_args[pos]["name"])].add(scenario)
+            pos += 1
+
+
+def _mark_exercised(census, tree, leaves, opt_state) -> None:
+    """Flag each option seen in a verdict-ok scenario command line."""
     root_opts = {o for p in tree["params"] for o in p["opts"]}
     root_val = {o for p in tree["params"] if not p["flag"] and p["kind"] == "Option" for o in p["opts"]}
-
     exercised_by = collections.defaultdict(set)  # (path, optname) -> scenarios
     for row in census:
         if row["verdict"] != "ok" or not row.get("path"):
@@ -153,26 +140,16 @@ def main() -> int:
         node, rest = leaf_tokens(toks, tree, root_opts, root_val)
         if node is None or " ".join(node["path"][1:]) != path:
             continue
-        optmap = {}
-        for p in node["params"]:
-            for o in p["opts"]:
-                optmap[o] = p["name"]
-        pos = 0
+        optmap = {o: p["name"] for p in node["params"] for o in p["opts"]}
         pos_args = [p for p in node["params"] if p["kind"] == "Argument"]
-        for t in rest:
-            if t.startswith("-") and len(t) > 1 and not re.match(r"^-\d", t):
-                name = t.split("=")[0]
-                if name in optmap:
-                    exercised_by[(path, optmap[name])].add(row["scenario"])
-            else:
-                if pos < len(pos_args):
-                    exercised_by[(path, pos_args[pos]["name"])].add(row["scenario"])
-                pos += 1
+        _scan_tokens(path, rest, optmap, pos_args, row["scenario"], exercised_by)
     for (path, name), scs in exercised_by.items():
         opt_state[path][name]["exercised"] = True
         opt_state[path][name]["scenarios"] = sorted(scs)
 
-    # ---- stats + report -------------------------------------------------------
+
+def _report(leaves, opt_state):
+    """Return (lines, tot_opt, tot_ex, tot_req_unex, tot_sec_unex, by_group)."""
     tot_opt = tot_ex = tot_req_unex = tot_sec_unex = 0
     by_group = collections.defaultdict(lambda: [0, 0, 0])  # opt, exercised, req-unex
     lines = [
@@ -251,7 +228,47 @@ def main() -> int:
                 scs = ", ".join(st.get("scenarios", [])) or "—"
                 lines.append(f"| {label} | {p['kind']} | {flags or '—'} | {status} | {scs} |")
         lines.append("")
+    return lines, tot_opt, tot_ex, tot_req_unex, tot_sec_unex, by_group
 
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument(
+        "--staging-dir",
+        default=default_staging_dir(),
+        help="staging checkout holding tasks/progress/SCENARIO-PLAY-1 (default: repo root or its parent)",
+    )
+    ap.add_argument("--out", default=None, help="report path (default: <staging>/tasks/progress/SCENARIO-COVERAGE-OPTIONS.md)")
+    args = ap.parse_args()
+
+    p1 = os.path.join(args.staging_dir, "tasks", "progress", "SCENARIO-PLAY-1")
+    trees = sorted(glob.glob(os.path.join(p1, "cli-tree-*.json")))
+    census_path = os.path.join(p1, "census.json")
+    if not trees or not os.path.exists(census_path):
+        sys.exit(f"missing SCENARIO-PLAY-1 inputs under {p1} (pass --staging-dir)")
+    tree = json.load(open(trees[-1]))
+    census = json.load(open(census_path))
+    out = args.out or os.path.join(args.staging_dir, "tasks", "progress", "SCENARIO-COVERAGE-OPTIONS.md")
+
+    # ---- leaf inventory ----------------------------------------------------
+    leaves = _leaf_inventory(tree)  # path-str -> node
+
+    # ---- per-leaf option table ----------------------------------------------
+    # leaf -> option-name -> {'param':p, 'exercised':bool, 'secret':bool}
+    opt_state = {p: {} for p in leaves}
+    for path, node in leaves.items():
+        for p in node["params"]:
+            opt_state[path][p["name"]] = {
+                "param": p,
+                "exercised": False,
+                "secret": bool(SECRET_RE.search(p["name"]) or any(SECRET_RE.search(o) for o in p["opts"])),
+            }
+
+    # ---- re-tokenize census commands (same logic as census.py) ---------------
+    _mark_exercised(census, tree, leaves, opt_state)
+
+    # ---- stats + report -------------------------------------------------------
+    lines, tot_opt, tot_ex, tot_req_unex, tot_sec_unex, by_group = _report(leaves, opt_state)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w") as fh:
         fh.write("\n".join(lines) + "\n")
