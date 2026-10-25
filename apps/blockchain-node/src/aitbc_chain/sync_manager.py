@@ -730,6 +730,11 @@ class SyncManager:
 
         logger.info("Starting bulk pull", extra={"chain_id": chain_id, "source": source_url})
         imported = await state.chain_sync.bulk_import_from(source_url)
+        if self._island_monitor is not None:
+            try:
+                self._island_monitor.on_hub_observation()
+            except Exception:
+                pass
         return imported
 
 
