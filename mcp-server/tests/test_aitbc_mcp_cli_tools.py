@@ -706,6 +706,184 @@ def test_list_aitbc_ipfs_rentals_removed():
     assert not hasattr(mcp_server, "list_aitbc_ipfs_rentals")
 
 
+# --- MCP-SECRETS-1 (issue #419) -----------------------------------------------
+#
+# SM-03: a secret *value* as an MCP call argument lands in the agent
+# transcript, the MCP client log, the local ssh argv and the remote process
+# list. No tool schema may accept one. The generator skips secret-named
+# options by pattern (SECRET_VALUE_RE); curated tools keep only the file-path
+# forms. This gate scans every registered tool module — generated AND
+# curated — so a future secret parameter cannot slip back in either lane.
+
+
+def _generator_secret_policy():
+    """Load SECRET_VALUE_RE / path suffixes / allowlist from the generator.
+
+    Extracted with ``ast`` so the test never has to import the generator
+    (which pulls the whole CLI command tree) and cannot drift out of sync
+    with the real skip rule.
+    """
+    import ast
+    import re as _re
+
+    gen_path = MCP_SERVER_DIR.parent / "scripts" / "dev" / "generate_mcp_cli_tools.py"
+    tree = ast.parse(gen_path.read_text())
+    pattern = None
+    suffixes: tuple[str, ...] = ()
+    allowlist: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "SECRET_VALUE_RE":
+                    pattern = ast.literal_eval(node.value.args[0])
+                if isinstance(target, ast.Name) and target.id == "SECRET_PATH_SUFFIXES":
+                    suffixes = ast.literal_eval(node.value)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.target.id == "SECRET_PATH_SUFFIXES":
+                suffixes = ast.literal_eval(node.value)
+            if node.target.id == "SECRET_OPTION_ALLOWLIST":
+                allowlist = ast.literal_eval(node.value)
+    assert pattern is not None, "SECRET_VALUE_RE not found in generator"
+    assert suffixes, "SECRET_PATH_SUFFIXES not found in generator"
+    return _re.compile(pattern), tuple(suffixes), allowlist
+
+
+# Param names that match the generator's secret pattern but are NOT secret
+# values. One-line reason per entry — adding an entry is the deliberate act
+# the schema gate exists to force.
+SECRET_PARAM_TEST_ALLOWLIST = {
+    "show_secrets": "display toggle on `aitbc system config` — it controls whether stored secrets print in the output; the flag itself is not a secret value",
+}
+
+
+def _is_secret_param(name: str) -> bool:
+    regex, suffixes, allowlist = _generator_secret_policy()
+    if name.endswith(suffixes) or name in allowlist or name in SECRET_PARAM_TEST_ALLOWLIST:
+        return False
+    return regex.search(name) is not None
+
+
+def test_no_mcp_tool_schema_accepts_secret_values():
+    """Every mcp-server module's tool params are secret-value-free."""
+    import ast
+
+    modules = sorted(MCP_SERVER_DIR.glob("*.py"))
+    assert modules, "no mcp-server modules found"
+    offenders: list[str] = []
+    used_allowlist: set[str] = set()
+    for path in modules:
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            for arg in node.args.args + node.args.kwonlyargs:
+                name = arg.arg
+                if name in SECRET_PARAM_TEST_ALLOWLIST:
+                    used_allowlist.add(name)
+                    continue
+                if _is_secret_param(name):
+                    offenders.append(f"{path.name}::{node.name} exposes secret-value param '{name}'")
+    assert not offenders, "MCP tools must not accept secret values:\n" + "\n".join(offenders)
+    for name in SECRET_PARAM_TEST_ALLOWLIST:
+        assert name in used_allowlist, f"stale allow-list entry '{name}' — remove it or the param was renamed"
+
+
+def test_auth_login_drops_private_key_value():
+    """aitbc_auth_login keeps --private-key-file but never the raw value."""
+    import inspect
+
+    import aitbc_mcp_cli_tools_generated_auth as generated
+
+    params = inspect.signature(generated.aitbc_auth_login).parameters
+    assert "private_key" not in params, "raw private_key param reappeared on aitbc_auth_login"
+    assert "private_key_file" in params, "--private-key-file is the accepted form and must stay"
+
+    _clear()
+    result = json.loads(generated.aitbc_auth_login(wallet="w1", password_file="/tmp/pw", dry_run=True, role="hub"))
+    cmd = result["command"]
+    assert "--private-key" not in cmd
+    assert "--private-key-file" not in cmd  # unset — no phantom option
+
+
+def test_removed_secret_params_stay_removed():
+    """Spot-check the signatures of the highest-risk generated tools."""
+    import importlib
+    import inspect
+
+    gone = {
+        ("aitbc_mcp_cli_tools_generated_bridge", "aitbc_bridge_attest"): {"private_key"},
+        ("aitbc_mcp_cli_tools_generated_bridge", "aitbc_bridge_store_header"): {"admin_private_key"},
+        ("aitbc_mcp_cli_tools_generated_bridge", "aitbc_bridge_lock"): {"wallet_password"},
+        ("aitbc_mcp_cli_tools_generated_bridge", "aitbc_bridge_unlock"): {"wallet_password"},
+        ("aitbc_mcp_cli_tools_generated_network", "aitbc_network_force_sync"): {"admin_private_key"},
+        ("aitbc_mcp_cli_tools_generated_exchange", "aitbc_exchange_register"): {"api_key", "secret_key"},
+        ("aitbc_mcp_cli_tools_generated_http", "aitbc_http_call"): {"api_key"},
+        ("aitbc_mcp_cli_tools_generated_ipfs", "aitbc_ipfs_island_swarm_key"): {"api_key"},
+        ("aitbc_mcp_cli_tools_generated_ipfs", "aitbc_ipfs_download"): {"access_secret"},
+        ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_download"): {"access_secret"},
+        ("aitbc_mcp_cli_tools_generated_trade", "aitbc_trade_settle"): {"api_key", "secret"},
+        ("aitbc_mcp_cli_tools_generated_trade", "aitbc_trade_lock_escrow"): {"api_key"},
+    }
+    for (module_name, func_name), removed in gone.items():
+        params = inspect.signature(getattr(importlib.import_module(module_name), func_name)).parameters
+        leaked = removed & set(params)
+        assert not leaked, f"{func_name} re-exposes {leaked}"
+
+
+def test_rental_token_tools_use_file_forms():
+    """Curated HTTP tools keep working via MCP-host file paths."""
+    import inspect
+
+    import aitbc_mcp_rpc_tools as rpc_tools
+
+    get_params = inspect.signature(rpc_tools.get_ipfs_rental_token).parameters
+    assert "access_secret" not in get_params
+    assert "access_secret_file" in get_params
+
+    reg_params = inspect.signature(rpc_tools.register_ipfs_rental_token).parameters
+    assert "token" not in reg_params
+    assert "token_file" in reg_params
+
+    dl_params = inspect.signature(aitbc_mcp_cli_tools.download_market_ipfs).parameters
+    assert "access_secret" not in dl_params
+
+
+def test_secret_file_forms_scrub_the_value_from_output(tmp_path):
+    """The echoed command in _run_remote results must not leak the secret."""
+    secret = "fake-secret-value-for-tests"  # noqa: S105 - obviously fake fixture
+    secret_file = tmp_path / "access_secret"
+    secret_file.write_text(secret + "\n")
+
+    _clear()
+    import aitbc_mcp_rpc_tools as rpc_tools
+
+    out = rpc_tools.get_ipfs_rental_token(access_key="ak-test", access_secret_file=str(secret_file), role="hub")
+    assert secret not in out, "rental secret leaked into serialized tool output"
+    assert "***" in out
+    # The forwarded call did carry the secret on the remote argv (recorded
+    # follow-up: `aitbc http call` has no --params-file) — prove the relay
+    # still happened.
+    assert "access_secret" in _last_command()
+
+    token_file = tmp_path / "token.json"
+    token_file.write_text(
+        json.dumps({"access_key": "ak-test", "access_secret": secret, "rental_id": "r-1", "cid": "bafy-test"})
+    )
+    _clear()
+    out = rpc_tools.register_ipfs_rental_token(token_file=str(token_file), dry_run=True, role="hub")
+    assert secret not in out, "token secret leaked into dry-run output"
+
+    missing = rpc_tools.get_ipfs_rental_token(access_key="ak", access_secret_file=str(tmp_path / "nope"), role="hub")
+    assert "error" in json.loads(missing)
+
+
+def test_scrub_secrets_unit():
+    import aitbc_mcp_rpc_tools as rpc_tools
+
+    assert rpc_tools._scrub_secrets('{"command": "--x=fake-token"}', ["fake-token"]) == '{"command": "--x=***"}'
+    assert rpc_tools._scrub_secrets("plain", [None, ""]) == "plain"
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()

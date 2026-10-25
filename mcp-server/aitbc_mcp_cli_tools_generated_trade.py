@@ -394,9 +394,6 @@ def aitbc_trade_list(
 def aitbc_trade_lock_escrow(
     trade_id: Annotated[str, Field(description="Trade ID to lock escrow for")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
-    api_key: Annotated[
-        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
-    ] = None,
     timeout_opt: Annotated[int | None, Field(description="Escrow timeout in seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -408,7 +405,7 @@ def aitbc_trade_lock_escrow(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url", "api_key": "api-key", "timeout_opt": "timeout"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "timeout_opt": "timeout"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -534,9 +531,6 @@ def aitbc_trade_match_all(
 def aitbc_trade_refund(
     trade_id: Annotated[str, Field(description="Trade ID to refund")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
-    api_key: Annotated[
-        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
-    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -547,7 +541,7 @@ def aitbc_trade_refund(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url", "api_key": "api-key"},
+        values={"trade_id": "trade-id", "node_url": "node-url"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -694,11 +688,7 @@ def aitbc_trade_search(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_settle(
     trade_id: Annotated[str, Field(description="Trade ID to settle")],
-    secret: Annotated[str, Field(description="HTLC secret to reveal")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
-    api_key: Annotated[
-        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
-    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -709,7 +699,7 @@ def aitbc_trade_settle(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "secret": "secret", "node_url": "node-url", "api_key": "api-key"},
+        values={"trade_id": "trade-id", "node_url": "node-url"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -748,9 +738,6 @@ def aitbc_trade_settle(
 def aitbc_trade_settlement_status(
     trade_id: Annotated[str, Field(description="Trade ID to check")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
-    api_key: Annotated[
-        str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
-    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -761,7 +748,7 @@ def aitbc_trade_settlement_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url", "api_key": "api-key"},
+        values={"trade_id": "trade-id", "node_url": "node-url"},
     )
     args = None
     target = _host_for_role(role, host)

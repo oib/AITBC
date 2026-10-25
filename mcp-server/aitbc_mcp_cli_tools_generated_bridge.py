@@ -27,7 +27,6 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_attest(
-    private_key: Annotated[str, Field(description="Validator private key hex to sign with")],
     header_file: Annotated[str | None, Field(description="JSON file with a block header to attest")] = None,
     source_rpc: Annotated[
         str | None, Field(description="RPC URL to fetch the block from (alternative to --header-file)")
@@ -52,7 +51,6 @@ def aitbc_bridge_attest(
             "source_rpc": "source-rpc",
             "height": "height",
             "chain_id": "chain-id",
-            "private_key": "private-key",
             "proposer": "proposer",
             "target_rpc": "target-rpc",
             "output_path": "output",
@@ -123,7 +121,6 @@ def aitbc_bridge_confirm(
     confirmer: Annotated[str, Field(description="Confirmer address")],
     proof_file: Annotated[str, Field(description="JSON file containing the lock proof")],
     signature: Annotated[str | None, Field(description="Confirmer signature (hex)")] = None,
-    confirmer_private_key: Annotated[str | None, Field(description="Private key to sign the confirm request")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -139,7 +136,6 @@ def aitbc_bridge_confirm(
             "transfer_id": "transfer-id",
             "confirmer": "confirmer",
             "signature": "signature",
-            "confirmer_private_key": "confirmer-private-key",
             "proof_file": "proof-file",
             "rpc_url": "rpc-url",
         },
@@ -265,7 +261,6 @@ def aitbc_bridge_ingest_header(
     height: Annotated[int | None, Field(description="Block height to ingest (default: latest)")] = None,
     chain_id: Annotated[str | None, Field(description="Source chain ID (default: source node's default)")] = None,
     re_sign: Annotated[bool | None, Field(description="Replace the source signature with a local validator signature")] = None,
-    private_key: Annotated[str | None, Field(description="Private key hex for re-signing (requires --re-sign)")] = None,
     proposer: Annotated[
         str | None, Field(description="Proposer address for the new signature (defaults to address of --private-key)")
     ] = None,
@@ -285,7 +280,6 @@ def aitbc_bridge_ingest_header(
             "target_rpc": "target-rpc",
             "height": "height",
             "chain_id": "chain-id",
-            "private_key": "private-key",
             "proposer": "proposer",
             "output_path": "output",
         },
@@ -353,7 +347,6 @@ def aitbc_bridge_lock(
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the lock with (generates issued_at/nonce itself)")
     ] = None,
-    wallet_password: Annotated[str | None, Field(description="Password if the wallet is encrypted")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -376,7 +369,6 @@ def aitbc_bridge_lock(
             "issued_at": "issued-at",
             "nonce": "nonce",
             "wallet_name": "wallet-name",
-            "wallet_password": "wallet-password",
             "rpc_url": "rpc-url",
         },
     )
@@ -552,10 +544,6 @@ def aitbc_bridge_register_validator(
     chain_id: Annotated[str, Field(description="Chain ID the validator serves")],
     address: Annotated[str, Field(description="Validator's checksum address (0x...)")],
     public_key: Annotated[str, Field(description="Validator's secp256k1 public key hex (0x...)")],
-    private_key: Annotated[str, Field(description="Validator's private key hex (for signing the registration request)")],
-    admin_private_key: Annotated[
-        str | None, Field(description="Bridge admin private key hex (required when bridge_release_enabled=true)")
-    ] = None,
     admin_address: Annotated[
         str | None, Field(description="Bridge admin address (defaults to address of admin-private-key)")
     ] = None,
@@ -575,8 +563,6 @@ def aitbc_bridge_register_validator(
             "chain_id": "chain-id",
             "address": "address",
             "public_key": "public-key",
-            "private_key": "private-key",
-            "admin_private_key": "admin-private-key",
             "admin_address": "admin-address",
             "epoch": "epoch",
             "rpc_url": "rpc-url",
@@ -643,10 +629,6 @@ def aitbc_bridge_security_status(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_sign_proof(
     proof_file: Annotated[str, Field(description="Unsigned proof JSON file")],
-    private_key: Annotated[
-        list[str],
-        Field(description="Private key hex to sign with (use multiple times for multi-sig; first becomes proposer_signature)"),
-    ],
     output_path: Annotated[str | None, Field(description="Output file (defaults to proof-file)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -658,7 +640,7 @@ def aitbc_bridge_sign_proof(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proof_file": "proof-file", "private_key": "private-key", "output_path": "output"},
+        values={"proof_file": "proof-file", "output_path": "output"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -808,7 +790,6 @@ def aitbc_bridge_stop(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_store_header(
     proof_file: Annotated[str, Field(description="Signed proof JSON file")],
-    admin_private_key: Annotated[str, Field(description="Private key of a configured bridge admin")],
     admin_address: Annotated[str | None, Field(description="Admin address (defaults to address of admin-private-key)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL of the target node")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -821,12 +802,7 @@ def aitbc_bridge_store_header(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={
-            "proof_file": "proof-file",
-            "admin_private_key": "admin-private-key",
-            "admin_address": "admin-address",
-            "rpc_url": "rpc-url",
-        },
+        values={"proof_file": "proof-file", "admin_address": "admin-address", "rpc_url": "rpc-url"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -869,7 +845,6 @@ def aitbc_bridge_unlock(
         str | None, Field(description="Sender signature authorizing the unlock (hex); or use --wallet-name")
     ] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet to sign the unlock with")] = None,
-    wallet_password: Annotated[str | None, Field(description="Password if the wallet is encrypted")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -886,7 +861,6 @@ def aitbc_bridge_unlock(
             "sender": "sender",
             "signature": "signature",
             "wallet_name": "wallet-name",
-            "wallet_password": "wallet-password",
             "rpc_url": "rpc-url",
         },
     )

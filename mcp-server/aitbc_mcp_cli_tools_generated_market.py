@@ -78,7 +78,6 @@ def aitbc_market_cancel(
 def aitbc_market_download(
     rental_id: Annotated[str | None, Field(description="Market job ID for a paid rental")] = None,
     access_key: Annotated[str | None, Field(description="Rental access key")] = None,
-    access_secret: Annotated[str | None, Field(description="Rental access secret")] = None,
     cid: Annotated[str | None, Field(description="Free CID retrieval (bypasses access token)")] = None,
     output_path: Annotated[str | None, Field(description="Write retrieved content to this path")] = None,
     wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")] = None,
@@ -92,13 +91,7 @@ def aitbc_market_download(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
-        values={
-            "rental_id": "rental-id",
-            "access_key": "access-key",
-            "access_secret": "access-secret",
-            "cid": "cid",
-            "output_path": "output-path",
-        },
+        values={"rental_id": "rental-id", "access_key": "access-key", "cid": "cid", "output_path": "output-path"},
     )
     args = None
     target = _host_for_role(role, host)

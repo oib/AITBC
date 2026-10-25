@@ -31,7 +31,6 @@ def aitbc_ipfs_download(
     output_path: Annotated[str | None, Field(description="Write retrieved content to this path")] = None,
     wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")] = None,
     access_key: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")] = None,
-    access_secret: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")] = None,
     rental_id: Annotated[str | None, Field(description="Deprecated; use `aitbc market download` instead")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -43,13 +42,7 @@ def aitbc_ipfs_download(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
-        values={
-            "cid": "cid",
-            "output_path": "output",
-            "access_key": "access-key",
-            "access_secret": "access-secret",
-            "rental_id": "rental-id",
-        },
+        values={"cid": "cid", "output_path": "output", "access_key": "access-key", "rental_id": "rental-id"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -159,9 +152,6 @@ def aitbc_ipfs_island_swarm_key(
     coordinator_url: Annotated[str | None, Field(description="Coordinator API base URL")] = None,
     chain_id: Annotated[str | None, Field(description="Blockchain chain ID (auto-detected from RPC if omitted)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL for chain ID auto-detection")] = None,
-    api_key: Annotated[
-        str | None, Field(description="Coordinator API key (default from config / AITBC_API_KEY / MINER_API_KEYS)")
-    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -183,7 +173,6 @@ def aitbc_ipfs_island_swarm_key(
             "coordinator_url": "coordinator-url",
             "chain_id": "chain-id",
             "rpc_url": "rpc-url",
-            "api_key": "api-key",
             "password_file": "password-file",
             "output_path": "output",
         },

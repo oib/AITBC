@@ -8,7 +8,9 @@ without making the main file unmanageable.
 from __future__ import annotations
 
 import json
+import re
 from decimal import Decimal
+from pathlib import Path
 
 from typing import Annotated, Any
 
@@ -2089,15 +2091,50 @@ def force_sync_chain(
     return _http_write_tool(role, host, "blockchain-rpc", "force-sync", peer_data, dry_run, confirm)
 
 
+def _read_secret_file(path_str: str) -> tuple[str | None, str | None]:
+    """Read a secret-holding file on the MCP host; return (content, error).
+
+    MCP-SECRETS-1: secret values must never appear as MCP call arguments —
+    they would land in the agent transcript and the client log. The path
+    forms below read the file locally on the MCP host and forward only the
+    content to the remote service.
+    """
+    try:
+        path = Path(path_str).expanduser()
+        return path.read_text().strip(), None
+    except OSError as exc:
+        return None, f"cannot read secret file {path_str!r}: {exc}"
+
+
+# Dict keys whose values are secrets — scrubbed from serialized tool output.
+_SECRET_KEY_RE = re.compile(r"secret|password|private_key|api_key|mnemonic|seed_phrase", re.IGNORECASE)
+
+
+def _scrub_secrets(serialized: str, values: list[str | None]) -> str:
+    """Replace secret values with ``***`` in a serialized tool result.
+
+    ``_run_remote`` echoes the executed command into the result, so a secret
+    forwarded on the remote command line would otherwise land right back in
+    the transcript. The remote argv exposure itself is tracked as a
+    follow-up (``aitbc http call`` has no ``--params-file``/``--body-file``).
+    """
+    for value in values:
+        if value:
+            serialized = serialized.replace(value, "***")
+    return serialized
+
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_ipfs_rental_token(
     access_key: Annotated[
         str,
         Field(description="The rental access key (public identifier)."),
     ],
-    access_secret: Annotated[
+    access_secret_file: Annotated[
         str,
-        Field(description="The rental access secret."),
+        Field(
+            description="Path on the MCP host to a file containing the rental access secret (the value itself is never an MCP argument)."
+        ),
     ],
     role: Annotated[
         NodeRole | None,
@@ -2109,21 +2146,32 @@ def get_ipfs_rental_token(
     ] = None,
 ) -> str:
     """Validate an IPFS rental access token and return its CID and metadata."""
-    return _http_read_tool(
-        role,
-        host,
-        "market",
-        f"v1/market/ipfs/rental/{access_key}",
-        {"access_secret": access_secret},
+    access_secret, error = _read_secret_file(access_secret_file)
+    if error:
+        return _json({"error": error})
+    return _scrub_secrets(
+        _http_read_tool(
+            role,
+            host,
+            "market",
+            f"v1/market/ipfs/rental/{access_key}",
+            {"access_secret": access_secret},
+        ),
+        [access_secret],
     )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def register_ipfs_rental_token(
-    token: Annotated[
-        dict[str, Any],
+    token_file: Annotated[
+        str,
         Field(
-            description="IPFS rental token data (access_key, access_secret, rental_id, offer_id, cid, buyer_address, provider_address, escrow_contract_id, status, expires_at, disk_quota_mb, size, ipfs_api, public_endpoint)."
+            description=(
+                "Path on the MCP host to a JSON file with the IPFS rental token data "
+                "(access_key, access_secret, rental_id, offer_id, cid, buyer_address, provider_address, "
+                "escrow_contract_id, status, expires_at, disk_quota_mb, size, ipfs_api, public_endpoint). "
+                "The token dict itself is never an MCP argument."
+            )
         ),
     ],
     dry_run: Annotated[
@@ -2144,12 +2192,25 @@ def register_ipfs_rental_token(
     ] = None,
 ) -> str:
     """Register an IPFS rental access token with the market service."""
-    return _http_write_tool(
-        role,
-        host,
-        "market",
-        "v1/market/ipfs/rental-token",
-        token,
-        dry_run,
-        confirm,
+    token_json, error = _read_secret_file(token_file)
+    if error:
+        return _json({"error": error})
+    try:
+        token = json.loads(token_json or "")
+    except json.JSONDecodeError as exc:
+        return _json({"error": f"token file {token_file!r} is not valid JSON: {exc}"})
+    if not isinstance(token, dict):
+        return _json({"error": f"token file {token_file!r} must contain a JSON object"})
+    secret_values = [str(v) for k, v in token.items() if _SECRET_KEY_RE.search(str(k))]
+    return _scrub_secrets(
+        _http_write_tool(
+            role,
+            host,
+            "market",
+            "v1/market/ipfs/rental-token",
+            token,
+            dry_run,
+            confirm,
+        ),
+        secret_values,
     )

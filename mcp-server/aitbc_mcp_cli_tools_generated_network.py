@@ -28,7 +28,6 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_force_sync(
     peer_url: Annotated[str, Field(description="Peer base URL to import the chain from")],
-    admin_private_key: Annotated[str, Field(description="Bridge admin private key hex for the destructive-op signature")],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     admin_address: Annotated[
         str | None, Field(description="Admin address (defaults to address derived from --admin-private-key)")
@@ -43,12 +42,7 @@ def aitbc_network_force_sync(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={
-            "rpc_url": "rpc-url",
-            "peer_url": "peer-url",
-            "admin_private_key": "admin-private-key",
-            "admin_address": "admin-address",
-        },
+        values={"rpc_url": "rpc-url", "peer_url": "peer-url", "admin_address": "admin-address"},
     )
     args = None
     target = _host_for_role(role, host)
