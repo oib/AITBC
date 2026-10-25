@@ -55,3 +55,17 @@ def test_cancel_for_unknown_order_is_ignored():
     out, ids = _apply_cancels(rows)
     assert ids == {"exchange_buy_1"}  # recorded but nothing to mark
     assert out[0]["payload"]["status"] == "cancelled"  # unchanged
+
+
+def test_cancel_marks_all_rows_with_same_order_id():
+    """NITS-B-1: a duplicated order_id — every matching row is cancelled
+    and the fill uses the first."""
+    import copy
+
+    buy1 = {"payload": {"action": "buy", "order_id": "o1", "pair": "AIT/ETH", "side": "buy", "status": "open"}}
+    buy2 = {"payload": {"action": "buy", "order_id": "o1", "pair": "AIT/EUR", "side": "buy", "status": "open"}}
+    cancel = {"payload": {"action": "cancel", "order_id": "o1", "status": "cancelled"}}
+    rows, ids = _apply_cancels([copy.deepcopy(buy1), copy.deepcopy(buy2), copy.deepcopy(cancel)])
+    assert rows[0]["payload"]["status"] == "cancelled"
+    assert rows[1]["payload"]["status"] == "cancelled"
+    assert rows[2]["payload"]["pair"] == "AIT/ETH"
