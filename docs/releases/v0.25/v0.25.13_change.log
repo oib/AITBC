@@ -1,0 +1,23 @@
+# v0.25.13 — post-v0.25.12 work
+
+**Baseline**: `v0.25.12` finalised at `a63b94a90` (2026-10-21). Sections below cover commits accrued on `main` after it, per the release-tag policy (`AGENTS.md`: the version's changelog is finalised in the tagged commit; later entries go to the next version's log).
+**Date**: 2026-10-25.
+**Tag**: `v0.25.13` (pending).
+
+### MCP-GROUPS-1 — MCP CLI pivot allow-list derived from the generated group list
+
+- `02f0da5e5` — `aitbc_dispute_*`/`aitbc_energy_*` read tools and the generic
+  `run_aitbc_cli`/`read_aitbc_cli`/`list_aitbc_cli_group` pivots answered
+  `unknown aitbc group` for ten real CLI groups (`agent-task`, `dispute`,
+  `energy`, `eth`, `health`, `liquidity-stake`, `operations`, `service`,
+  `stake`, `unstake`): `ALL_AITBC_GROUPS` was a hand-maintained literal
+  frozen ten groups behind the generated tool modules (SM-06). The
+  generator now emits `aitbc_mcp_cli_tools_generated_groups.py`
+  (`GENERATED_AITBC_GROUPS`) in the same `--split-by-group` run — covered
+  by the existing `mcp-cli-drift` gate — and the server derives the
+  allow-list from it plus a curated-only set (`update`, covered by the
+  hand-written `aitbc_update` tool). Destructive-leaf gating is unchanged:
+  every mutating leaf in the newly allowed groups was already classified
+  by `DESTRUCTIVE_AITBC_SUBCOMMANDS`/`DESTRUCTIVE_AITBC_PATHS`. New tests
+  pin three-way consistency (emitted tool modules == group list ⊆
+  allow-list == live CLI tree) so a future group cannot silently drift.
