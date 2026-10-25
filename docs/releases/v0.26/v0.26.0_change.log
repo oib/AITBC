@@ -361,3 +361,13 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 ### AIJOBS-STATUS-1
 
 - coordinator-api: `?status=`/`job_status` on `GET /v1/jobs`, `GET /v1/jobs/history` and `POST /v1/miners/{id}/jobs` no longer silently drops unknown values — `pending` aliases to QUEUED, `all`/`any`/`*` disable the filter, anything else answers HTTP 400 listing the valid JobState values. Fixes `aitbc ai jobs --status pending` returning the unfiltered list (#444).
+
+
+### FORK-GUARD-1
+
+- The v2–v8 parallel-import path is disabled (option A): its prefetch
+  pre-created zero-value recipients the proposer never creates, so
+  GPU_MARKET→0x0 and MESSAGE→fresh blocks were rejected on state-root
+  mismatch. The serial path reproduces `pure_state_transition` exactly;
+  the 6 strict xfails in `test_importer_parallel_v2v8_parity.py` now
+  pass. v9+ is unchanged.
