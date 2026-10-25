@@ -50,8 +50,8 @@ def test_trading_migrations_on_throwaway_cluster(postgres_cluster, monkeypatch) 
         with conn, conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO island_registry (chain_id, endpoint, status)
-                VALUES ('pg-probe-chain', 'http://127.0.0.1:8202', 'active')
+                INSERT INTO island_registry (chain_id, endpoint, status, registered_at, last_sync)
+                VALUES ('pg-probe-chain', 'http://127.0.0.1:8202', 'active', now(), now())
                 """
             )
             cur.execute("SELECT endpoint FROM island_registry WHERE chain_id = 'pg-probe-chain'")

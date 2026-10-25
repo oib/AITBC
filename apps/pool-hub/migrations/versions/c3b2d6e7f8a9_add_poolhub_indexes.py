@@ -43,5 +43,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # if_exists=True: upgrade() uses if_not_exists, so this migration may not
+    # have created an index already built by an earlier revision
+    # (ix_sla_violations_* come from b2a1c4d5e6f7). Dropping unconditionally
+    # made `downgrade base` fail on PostgreSQL with UndefinedObjectError
+    # (found by the PG-TARGET-1 throwaway-cluster fixture run).
     for index_name, _table_name, _column_name in reversed(_INDEXES):
         op.drop_index(index_name, table_name=_table_name, if_exists=True)
