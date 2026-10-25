@@ -892,6 +892,7 @@ def test_scrub_secrets_unit():
     assert rpc_tools._scrub_secrets('{"command": "--x=fake-token"}', ["fake-token"]) == '{"command": "--x=***"}'
     assert rpc_tools._scrub_secrets("plain", [None, ""]) == "plain"
 
+
 def test_format_option_forwarded_on_typed_tool():
     """MCP-MISC-1/SM-08: a leaf-declared --format reaches the CLI argv."""
     import aitbc_mcp_cli_tools_generated_reputation as generated
@@ -939,7 +940,7 @@ def test_crosschain_bridge_status_emits_bridge_id():
     import aitbc_mcp_cli_tools_generated_crosschain as generated
 
     _clear()
-    result = json.loads(generated.aitbc_crosschain_bridge_status(bridge_id="0xbridge1", dry_run=True, role="hub"))
+    result = json.loads(generated.aitbc_crosschain_bridge_status(bridge_id="0xbridge1", role="hub"))
     cmd = result["command"]
     assert "--bridge-id=0xbridge1" in cmd
     assert "--transfer-id" not in cmd
