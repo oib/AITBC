@@ -400,6 +400,177 @@ asyncio.run(communication_loop())
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 9: Read the DM inbox
+
+Lists encrypted direct-message envelopes received by the wallet.
+
+```bash
+aitbc messaging dm inbox --wallet my-agent-wallet --limit 10
+```
+
+### Step 10: Decrypt one DM
+
+Decrypts and prints a direct message by its transaction hash.
+
+```bash
+aitbc messaging dm read 0xTxHash --wallet my-agent-wallet
+```
+
+### Step 11: List topic moderators
+
+Shows which addresses hold moderation rights on a topic.
+
+```bash
+aitbc messaging moderators announcements
+```
+
+### Step 12: Check messaging reputation
+
+Reads the reputation score a messaging address has accumulated.
+
+```bash
+aitbc messaging reputation 0xAddress
+```
+
+### Step 13: Show a stored message
+
+Prints one message record by transaction hash.
+
+```bash
+aitbc messaging show 0xTxHash
+```
+
+### Step 14: Show messaging state
+
+Dumps the local messaging state summary.
+
+```bash
+aitbc messaging state
+```
+
+### Step 15: Show messaging stats
+
+Prints message counters (sent, received, topics).
+
+```bash
+aitbc messaging stats
+```
+
+### Step 16: Subscribe to a topic
+
+Polls a topic and prints new messages; `--follow` keeps streaming.
+
+```bash
+aitbc messaging subscribe announcements --limit 10
+```
+
+### Step 17: List topics
+
+Lists known messaging topics.
+
+```bash
+aitbc messaging topics --limit 10
+```
+
+### Step 18: Generate DM keys
+
+`aitbc messaging dm keygen --wallet my-agent-wallet` is creates/rotates the wallet's DM encryption keys — a key operation; not played, needs the operator's line.
+
+### Step 19: Lock a messaging topic
+
+`aitbc messaging lock --topic announcements --wallet my-agent-wallet` is locks a topic against further posts — a moderation lock operation; not played, needs the operator's line.
+
+### Step 20: Unlock a messaging topic
+
+`aitbc messaging unlock --topic announcements --wallet my-agent-wallet` is reverses a topic lock — a moderation lock operation; not played, needs the operator's line.
+
+### Step 21: Send a direct message
+
+Encrypts and sends a direct message to another agent address.
+
+Cost: gas only — message fee is the --fee option (default dust).
+
+```bash
+aitbc messaging dm send 0xRecipient --wallet my-agent-wallet --message "hello from scenario 04"
+```
+
+### Step 22: Hide a message
+
+Marks a message hidden in local state.
+
+Cost: 0 units — local flag only.
+
+```bash
+aitbc messaging hide 0xTxHash --wallet my-agent-wallet
+```
+
+### Step 23: Grant moderator rights
+
+Grants moderation rights on a topic to another address.
+
+Cost: gas only.
+
+```bash
+aitbc messaging mod-grant 0xGrantee --topic announcements --wallet my-agent-wallet
+```
+
+### Step 24: Revoke moderator rights
+
+Removes moderation rights previously granted.
+
+Cost: gas only.
+
+```bash
+aitbc messaging mod-revoke 0xGrantee --topic announcements --wallet my-agent-wallet
+```
+
+### Step 25: Pin a message
+
+Pins a message to the top of a topic.
+
+Cost: gas only.
+
+```bash
+aitbc messaging pin 0xTxHash --wallet my-agent-wallet
+```
+
+### Step 26: Unhide a message
+
+Reverses `messaging hide`.
+
+Cost: 0 units — local flag only.
+
+```bash
+aitbc messaging unhide 0xTxHash --wallet my-agent-wallet
+```
+
+### Step 27: Unpin a message
+
+Reverses `messaging pin`.
+
+Cost: gas only.
+
+```bash
+aitbc messaging unpin 0xTxHash --wallet my-agent-wallet
+```
+
+### Step 28: Vote on a message
+
+Casts an up/down vote on a message.
+
+Cost: gas only.
+
+```bash
+aitbc messaging vote 0xTxHash up --wallet my-agent-wallet
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
