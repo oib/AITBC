@@ -148,6 +148,65 @@ aitbc bridge security-status
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 9: Bridge balance on a chain
+
+Reads the bridge contract balance on a chain.
+
+```bash
+aitbc bridge balance --chain-id ait-mainnet
+```
+
+### Step 10: List bridge deposits
+
+Lists recorded bridge deposit ledger rows.
+
+```bash
+aitbc bridge deposits --limit 10
+```
+
+### Step 11: Bridge oracle status
+
+Reads the bridge oracle's reported state.
+
+```bash
+aitbc bridge oracle-status
+```
+
+### Step 12: Generate a transfer proof
+
+Builds the merkle proof for a transfer.
+
+```bash
+aitbc bridge proof --transfer-id 42 --output /tmp/proof.json
+```
+
+### Step 13: Attest a header
+
+`aitbc bridge attest --private-key 0xKey` is signs a bridge header attestation — validator key operation; not played, needs the operator's line.
+
+### Step 14: Ingest a source header
+
+`aitbc bridge ingest-header --height 100` is ingests/re-signs a source-chain header — validator operation; not played, needs the operator's line.
+
+### Step 15: Register a bridge validator
+
+`aitbc bridge register-validator --chain-id ait-mainnet --address 0xV --public-key 0xP --private-key 0xK` is registers a validator on the bridge contract — validator key operation; not played, needs the operator's line.
+
+### Step 16: Sign a stored proof
+
+`aitbc bridge sign-proof --proof-file /tmp/proof.json --private-key 0xK` is signs a proof with a private key — key operation; not played, needs the operator's line.
+
+### Step 17: Store a signed header
+
+`aitbc bridge store-header --proof-file /tmp/proof.json --admin-private-key 0xK` is writes a signed header via the admin key — key operation; not played, needs the operator's line.
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
