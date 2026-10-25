@@ -1011,7 +1011,8 @@ def aitbc_market_hermes(
     max_time: Annotated[int | None, Field(description="Maximum wall-clock execution time in seconds (default 300).")] = None,
     track: Annotated[bool | None, Field(description="Create a coordinator job record after a successful run")] = None,
     proposer_id: Annotated[
-        str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
+        str | None,
+        Field(description="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)"),
     ] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
@@ -1083,7 +1084,10 @@ def aitbc_market_host(
     cid_or_file: Annotated[str, Field(description="The Cid or local file path.")],
     days: Annotated[int | None, Field(description="Rental duration in days")] = None,
     pin: Annotated[bool | None, Field(description="Pin the CID after paying the rental")] = None,
-    proposer_id: Annotated[str | None, Field(description="Override hub proposer address for escrow")] = None,
+    proposer_id: Annotated[
+        str | None,
+        Field(description="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)"),
+    ] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
     market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
@@ -1855,7 +1859,8 @@ def aitbc_market_run(
     pin: Annotated[bool | None, Field(description="Pin the CID for IPFS hosting (default: pin)")] = None,
     track: Annotated[bool | None, Field(description="Create a coordinator job record after a successful run")] = None,
     proposer_id: Annotated[
-        str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
+        str | None,
+        Field(description="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)"),
     ] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
