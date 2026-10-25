@@ -96,6 +96,24 @@ def _recreate_without_fks(table_name: str, connection: sa.Connection) -> None:
     connection.execute(sa.text(f'DROP TABLE "{table_name}_old"'))
 
 
+# The incorrect constraints point at one of these two tables.
+_WRONG_REFERENTS = {"agent_reputation", "ai_agent_workflows"}
+
+
+def _drop_wrong_fks_sqlalchemy(bind: sa.Connection, table_name: str) -> None:
+    """Dialect-agnostic path (PostgreSQL): drop the FK constraints by name.
+
+    PostgreSQL supports ``ALTER TABLE … DROP CONSTRAINT`` directly, so there
+    is no need for the table-recreation dance SQLite requires.
+    """
+    inspector = sa.inspect(bind)
+    if table_name not in inspector.get_table_names():
+        return
+    for fk in inspector.get_foreign_keys(table_name):
+        if fk.get("referred_table") in _WRONG_REFERENTS and fk.get("name"):
+            op.drop_constraint(fk["name"], table_name, type_="foreignkey")
+
+
 def upgrade() -> None:
     if context.is_offline_mode():
         # Offline SQL generation has no live database to introspect, and the
@@ -103,8 +121,12 @@ def upgrade() -> None:
         # incorrect foreign keys, so there is nothing to emit here.
         return
     bind = op.get_bind()
-    for table in TABLES:
-        _recreate_without_fks(table, bind)
+    if bind.dialect.name == "sqlite":
+        for table in TABLES:
+            _recreate_without_fks(table, bind)
+    else:
+        for table in TABLES:
+            _drop_wrong_fks_sqlalchemy(bind, table)
 
 
 def downgrade() -> None:
