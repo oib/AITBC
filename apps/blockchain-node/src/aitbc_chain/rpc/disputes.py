@@ -29,6 +29,18 @@ from .auth import get_authenticated_address
 _logger = get_logger(__name__)
 
 
+def _raise_for_failed_dispute_call(result: dict[str, Any], fallback_detail: str) -> None:
+    """Map a service-level ``{"success": False}`` result to an HTTPException.
+
+    A "not found" error is a 404 (unknown dispute id); any other failure
+    stays a 500. Keeps the evidence/votes reads consistent with
+    ``get_dispute`` instead of leaking a 500 for a missing resource.
+    """
+    detail = result.get("error") or fallback_detail
+    status_code = 404 if "not found" in str(detail).lower() else 500
+    raise HTTPException(status_code=status_code, detail=detail)
+
+
 async def file_dispute(
     request: FileDisputeRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
 ) -> FileDisputeResponse:
@@ -288,7 +300,7 @@ async def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
     try:
         result = dispute_resolution_service.get_dispute_evidence(dispute_id)
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get dispute evidence"))
+            _raise_for_failed_dispute_call(result, "Failed to get dispute evidence")
         evidence_list = []
         for e in result["evidence"]:
             evidence_list.append(
@@ -321,7 +333,7 @@ async def get_arbitration_votes(dispute_id: int) -> list[GetArbitrationVotesResp
     try:
         result = dispute_resolution_service.get_arbitration_votes(dispute_id)
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "Failed to get arbitration votes"))
+            _raise_for_failed_dispute_call(result, "Failed to get arbitration votes")
         return [GetArbitrationVotesResponse(**v) for v in result["votes"]]
     except HTTPException:
         raise
