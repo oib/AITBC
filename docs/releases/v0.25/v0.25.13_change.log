@@ -89,3 +89,7 @@
 ### ESCROW-RELEASE-2 review fixes
 
 - fix(cli): release-relay edge cases from the #461 review — a non-positive or unparseable metered amount skips the relay (it would 400 terminally) and goes straight to the rpc as before; a transport failure (timeout/connection, no HTTP status) retries the relay once before falling back — the relay dedups on job_id so a repost cannot double-release; and a bare `{"detail":"Forbidden"}` 403 (middleware deny-by-default on a coordinator missing the route's security-matrix entry) is a skip/fallback like a 404, while 403s carrying a real refusal reason stay terminal. Refs #461
+
+### ESCROW-RELEASE-3 release relay 425 retry
+
+- fix(cli): a relay `425 "lock not yet sealed"` (chain gate `_ensure_lock_sealed`, `Retry-After: 5` — the ESCROW_LOCK is still in mempool) is no longer treated as a terminal business refusal: `_release_via_relay` now waits and reposts the same body — honouring `Retry-After` (default 5 s, 10 s per-wait cap, ~24 s total budget) — safe because the relay dedups on `job_id`. If the bound is exhausted the failure is reported as a named *retryable* condition ("not yet sealed — rerun `market escrow release`"), still without an rpc fallback (the rpc would 425 identically and a customer node cannot authenticate it). Business 4xx handling unchanged. Refs #469
