@@ -206,6 +206,110 @@ def test_relay_404_falls_back_undeployed_endpoint(monkeypatch):
     assert rpc.posts[0]["endpoint"] == "/rpc/escrow/j1/release"
 
 
+def test_relay_bare_forbidden_403_falls_back(monkeypatch):
+    """A bare {"detail": "Forbidden"} 403 is the middleware deny-by-default on
+    a coordinator missing the route's security-matrix entry — a deployment
+    gap, not a business refusal — so the rpc fallback still fires."""
+    relay, rpc = _wire(monkeypatch)
+    relay.exc = _StatusError(403, "Forbidden")
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result == {"tx_hash": "0xrpc", "released_amount": "0.5"}
+    assert rpc.posts[0]["endpoint"] == "/rpc/escrow/j1/release"
+    assert any("relay unavailable" in f and "403" in f for f in failures)
+
+
+def test_relay_business_403_with_detail_stays_terminal(monkeypatch):
+    """A 403 carrying a real refusal reason (not the bare middleware word)
+    remains terminal — only the exact 'Forbidden' string is a skip."""
+    relay, rpc = _wire(monkeypatch)
+    relay.exc = _StatusError(403, "client credential cannot release another buyer's escrow")
+    result, _ = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result is None
+    assert rpc.posts == []
+
+
+# --- amount validation: invalid amounts never reach the relay ---------------
+
+
+def test_zero_amount_skips_relay_goes_rpc(monkeypatch):
+    """A zero metered amount would 400 terminally at the relay — the helper
+    must send it straight to the rpc, which reports the refusal itself."""
+    relay, rpc = _wire(monkeypatch)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0")
+    assert result == {"tx_hash": "0xrpc", "released_amount": "0.5"}
+    assert relay.posts == []
+    assert rpc.posts[0]["json"] == {"amount": "0"}
+    assert any("not positive" in f for f in failures)
+
+
+def test_unparseable_amount_skips_relay_goes_rpc(monkeypatch):
+    relay, rpc = _wire(monkeypatch)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="abc")
+    assert result == {"tx_hash": "0xrpc", "released_amount": "0.5"}
+    assert relay.posts == []
+    assert any("not a number" in f for f in failures)
+
+
+# --- one retry on transport failure -------------------------------------------
+
+
+def test_relay_retried_once_on_connection_error(monkeypatch):
+    """A timeout/connection error gets one retry before the rpc fallback —
+    the relay dedups on job_id so a repost cannot double-release."""
+
+    class _FlakyRelay(_RelayClient):
+        attempts = 0
+
+        def post(self, endpoint, json=None):
+            type(self).attempts += 1
+            self.posts.append(dict(json))
+            if type(self).attempts == 1:
+                raise ConnectionError("refused")
+            return {"success": True, "tx_hash": "0xrel"}
+
+    relay, rpc = _wire(monkeypatch, relay_cls=_FlakyRelay)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result == {"success": True, "tx_hash": "0xrel"}
+    assert _FlakyRelay.attempts == 2
+    assert len(relay.posts) == 2
+    assert rpc.posts == []
+
+
+def test_relay_two_connection_errors_then_falls_back(monkeypatch):
+    """Both attempts failing on transport → rpc fallback, exactly two tries."""
+
+    class _DeadRelay(_RelayClient):
+        attempts = 0
+
+        def post(self, endpoint, json=None):
+            type(self).attempts += 1
+            raise ConnectionError("refused")
+
+    relay, rpc = _wire(monkeypatch, relay_cls=_DeadRelay)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result == {"tx_hash": "0xrpc", "released_amount": "0.5"}
+    assert _DeadRelay.attempts == 2
+    assert rpc.posts[0]["endpoint"] == "/rpc/escrow/j1/release"
+    assert any("relay unavailable" in f for f in failures)
+
+
+def test_relay_http_error_not_retried(monkeypatch):
+    """A statused failure (e.g. 502) is NOT retried — only transport errors."""
+
+    class _ErrorRelay(_RelayClient):
+        attempts = 0
+
+        def post(self, endpoint, json=None):
+            type(self).attempts += 1
+            raise _StatusError(502, "the escrow release relay could not reach the settlement node")
+
+    relay, rpc = _wire(monkeypatch, relay_cls=_ErrorRelay)
+    result, _ = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result is not None
+    assert _ErrorRelay.attempts == 1
+    assert rpc.posts[0]["endpoint"] == "/rpc/escrow/j1/release"
+
+
 def test_amount_unreadable_falls_back(monkeypatch):
     """No amount argument and no readable escrow row → straight to rpc."""
     relay, rpc = _wire(monkeypatch)
