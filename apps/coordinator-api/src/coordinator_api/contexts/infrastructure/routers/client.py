@@ -18,7 +18,7 @@ from ...market.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailabl
 from ...payments.acceptance import PENDING_ACCEPTANCE
 from ...payments.provider_binding import same_address
 from ...payments.services.payments import PaymentService, _computation_is_correct
-from ....custom_types import JobState
+from ....custom_types import JobState, job_state_filter_help, parse_job_state_filter
 from ....schemas import JobCreate, JobPaymentCreate, JobRejection, JobResult, JobView
 from ....services import JobService
 from ....storage import get_session
@@ -194,10 +194,17 @@ async def get_job_history(
     service = JobService(session)
     filters = {}
     if status:
+        # `status` here is the query parameter (shadowing fastapi.status), so
+        # the status code is the literal HTTP 400.
         try:
-            filters["state"] = JobState(status.upper())
+            state = parse_job_state_filter(status)
         except ValueError:
-            pass
+            raise HTTPException(
+                status_code=400,
+                detail=f"invalid status filter {status!r} ({job_state_filter_help()})",
+            ) from None
+        if state is not None:
+            filters["state"] = state
     if job_type:
         filters["job_type"] = job_type  # type: ignore[assignment]
     try:
@@ -324,10 +331,17 @@ async def list_jobs(
     service = JobService(session)
     filters = {}
     if status:
+        # `status` here is the query parameter (shadowing fastapi.status), so
+        # the status code is the literal HTTP 400.
         try:
-            filters["state"] = JobState(status.upper())
+            state = parse_job_state_filter(status)
         except ValueError:
-            pass
+            raise HTTPException(
+                status_code=400,
+                detail=f"invalid status filter {status!r} ({job_state_filter_help()})",
+            ) from None
+        if state is not None:
+            filters["state"] = state
     if job_type:
         filters["job_type"] = job_type  # type: ignore[assignment]
     jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
