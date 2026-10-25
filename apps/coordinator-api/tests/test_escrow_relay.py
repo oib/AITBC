@@ -197,3 +197,11 @@ class TestEscrowRelay:
         assert row.client_id == "client-1"
         assert row.contract_id == "0xrow"
         assert len(row.lock_hash) == 64
+
+
+def test_relay_route_registered_in_security_matrix():
+    """/v1/escrow/relay must not fall to middleware deny-by-default (403 'Forbidden')."""
+    from aitbc.auth.security_matrix import ROUTE_SECURITY_MATRIX, get_auth_level, AuthLevel
+
+    assert get_auth_level("/v1/escrow/relay") == AuthLevel.ADMIN_OR_CLIENT
+    assert ROUTE_SECURITY_MATRIX["/v1/escrow/relay"] == AuthLevel.ADMIN_OR_CLIENT
