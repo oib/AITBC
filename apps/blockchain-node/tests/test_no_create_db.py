@@ -104,6 +104,8 @@ def test_unrelated_file_not_found_stays_unhandled(tmp_path, monkeypatch):
         raise FileNotFoundError("some other file")
 
     resp = TestClient(app).get("/probe-unrelated-fnf")
-    # a widened handler (FileNotFoundError) would echo the message — this
-    # fails on that mutation: the unrelated message must not leak either
+    # widening the handler to FileNotFoundError must fail: it would apply
+    # the chain-db detail to an unrelated error, and the message echo
+    # variant would leak "some other file" — assert both
+    assert "chain db missing" not in resp.text
     assert "some other file" not in resp.text
