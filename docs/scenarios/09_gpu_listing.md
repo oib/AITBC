@@ -339,6 +339,33 @@ asyncio.run(main())
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 9: Register a GPU on-chain
+
+Registers a GPU on the on-chain registry so it can be rented.
+
+Cost: gas only; --price-per-hour is in units (3_600_000 = 0.1 AIT at UNITS_PER_AIT = 36_000_000).
+
+```bash
+aitbc gpu-onchain register --gpu-id gpu-01 --miner-id 0xMiner --model rtx-4090 --memory-gb 24 --price-per-hour 3600000 --wallet my-agent-wallet
+```
+
+### Step 10: Deregister a GPU
+
+Removes a GPU from the on-chain registry.
+
+Cost: 0 units — gas only.
+
+```bash
+aitbc gpu-onchain deregister --gpu-id gpu-01 --wallet my-agent-wallet
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
