@@ -18,7 +18,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import get_config
 from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
-from ...utils.http_client import AITBCHTTPClient, get_logger
+from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -27,7 +27,7 @@ from ...auth import AuthManager
 
 from ._group import market
 from . import get_chain_id, get_market_wallet, get_next_nonce
-from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
+from .escrow import _escrow_create, _post_escrow_rpc
 
 
 def _compute_plugin_id(service_type: str, model: str) -> str:
@@ -58,7 +58,21 @@ def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str
         hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
         hub_url = normalize_hub_base(hub_host) or hub_host
         client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-        job_tx_hash: str | None = client.post("/rpc/transactions/market", json=job_data).get("transaction_hash")
+        try:
+            job_tx_hash: str | None = client.post("/rpc/transactions/market", json=job_data).get("transaction_hash")
+        except Exception as e:
+            # The nonce read is sealed-state only: the escrow lock can still be
+            # pending in the mempool at nonce N when this record also claims N.
+            # Only the occupied-slot refusal gets one re-signed retry at N+1 —
+            # any other 400 is a payload problem a bumped nonce cannot fix.
+            detail = http_error_detail(e) or str(e)
+            if http_response_status(e) == 400 and "already occupied" in detail:
+                job_data["nonce"] = int(job_data.get("nonce", 0)) + 1
+                job_data.pop("signature", None)
+                job_data["signature"] = sign_transaction_data(job_data, private_key)
+                job_tx_hash = client.post("/rpc/transactions/market", json=job_data).get("transaction_hash")
+            else:
+                raise
         info(f"Job recorded on-chain: {job_tx_hash}")
         return job_tx_hash
     except Exception as e:
@@ -277,11 +291,10 @@ def _run_ollama(
 
     # Release metered escrow for actual tokens used
     if contract_id:
-        rpc_url = _get_blockchain_rpc_url(config)
-        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
-        release_result = rpc_client.post(
+        release_result, release_failures = _post_escrow_rpc(
+            config,
             f"/rpc/escrow/{job_id}/release",
-            json={
+            {
                 "amount": str(actual_cost),
                 "tokens_used": tokens_used,
                 "job_id": job_id,
@@ -295,8 +308,13 @@ def _run_ollama(
             refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
             if refunded_amount > 0:
                 info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        else:
+        elif release_result:
             warning("Escrow release submitted but no tx_hash returned")
+        else:
+            warning(
+                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
+                f"retry with `aitbc market escrow release --job-id {job_id}`"
+            )
     else:
         warning("No escrow contract — payment not released")
 
@@ -465,10 +483,8 @@ def _run_whisper(
 
     # Release metered escrow with job TX hash as proof
     if contract_id:
-        rpc_url = _get_blockchain_rpc_url(config)
-        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
-        release_result = rpc_client.post(
-            f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
+        release_result, release_failures = _post_escrow_rpc(
+            config, f"/rpc/escrow/{job_id}/release", {"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
         if release_result and release_result.get("tx_hash"):
             released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
@@ -478,8 +494,13 @@ def _run_whisper(
             refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
             if refunded_amount > 0:
                 info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        else:
+        elif release_result:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+        else:
+            warning(
+                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
+                f"retry with `aitbc market escrow release --job-id {job_id}`"
+            )
 
     output(
         {
@@ -621,10 +642,8 @@ def _run_ffmpeg(
 
     # Release metered escrow with job TX hash as proof
     if contract_id:
-        rpc_url = _get_blockchain_rpc_url(config)
-        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
-        release_result = rpc_client.post(
-            f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
+        release_result, release_failures = _post_escrow_rpc(
+            config, f"/rpc/escrow/{job_id}/release", {"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
         if release_result and release_result.get("tx_hash"):
             released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
@@ -634,8 +653,13 @@ def _run_ffmpeg(
             refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
             if refunded_amount > 0:
                 info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        else:
+        elif release_result:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+        else:
+            warning(
+                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
+                f"retry with `aitbc market escrow release --job-id {job_id}`"
+            )
 
     output(
         {
@@ -762,10 +786,8 @@ def _run_hermes(
 
     # Release metered escrow with job TX hash as proof
     if contract_id:
-        rpc_url = _get_blockchain_rpc_url(config)
-        rpc_client = _get_rpc_client(config, rpc_url, timeout=10)
-        release_result = rpc_client.post(
-            f"/rpc/escrow/{job_id}/release", json={"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
+        release_result, release_failures = _post_escrow_rpc(
+            config, f"/rpc/escrow/{job_id}/release", {"amount": str(actual_cost), "job_tx_hash": job_tx_hash}
         )
         if release_result and release_result.get("tx_hash"):
             released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
@@ -775,8 +797,13 @@ def _run_hermes(
             refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
             if refunded_amount > 0:
                 info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        else:
+        elif release_result:
             warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+        else:
+            warning(
+                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
+                f"retry with `aitbc market escrow release --job-id {job_id}`"
+            )
 
     click.echo(f"\n{result_text}\n")
     output(
