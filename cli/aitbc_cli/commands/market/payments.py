@@ -7,6 +7,7 @@ from ...utils.http_client import AITBCHTTPClient, http_error_detail, http_respon
 
 from ._group import market
 from .escrow import _client_token, _coordinator_base_url
+from ...utils.error_handling import abort
 
 
 @market.command(
@@ -47,7 +48,7 @@ def payment(ctx, job_id: str | None, payment_id: str | None):
         if status == 403:
             error(f"HTTP 403: the stored credential does not own this job's payment ({detail or 'not authorized'}).")
         elif status == 404:
-            error("No payment found (404).")
+            abort(None, "No payment found (404).")
         elif status is not None:
             error(f"HTTP {status} from coordinator: {detail or exc}")
         else:

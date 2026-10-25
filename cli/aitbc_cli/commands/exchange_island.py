@@ -63,7 +63,7 @@ def safe_load_credentials():
         return load_island_credentials()
     except FileNotFoundError as e:
         error(f"Island credentials not found: {e}")
-        error("Run 'aitbc node island join' to join an island first")
+        abort(None, "Run 'aitbc node island join' to join an island first")
         return None
 
 

@@ -16,6 +16,7 @@ from ...utils.wallet_secret import wallet_password_options
 from ...config import get_config
 from ...utils import error, info, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
+from ...utils.error_handling import abort
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -453,9 +454,9 @@ def escrow_status(ctx, job_id: str):
             # Surface the actual failure — the old code folded every error into
             # "No escrow found", so a missing RPC API key (403) read exactly
             # like an absent row. Name the response so the fix is obvious.
-            error(f"Escrow status query failed for job {job_id}: " + "; ".join(failures))
+            abort(None, f"Escrow status query failed for job {job_id}: " + "; ".join(failures))
         else:
-            error(f"No escrow found for job {job_id}")
+            abort(None, f"No escrow found for job {job_id}")
     except Exception as e:
         error(f"Error checking escrow status: {e}")
         raise click.Abort() from e
@@ -496,4 +497,4 @@ def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, passwor
     except click.Abort:
         raise
     except Exception as e:
-        error(f"Error creating escrow: {e}")
+        abort(None, f"Error creating escrow: {e}")

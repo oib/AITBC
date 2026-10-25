@@ -2,7 +2,8 @@
 Wallet-related exchange commands.
 """
 
-from aitbc_cli.utils import error, output, success
+from aitbc_cli.utils import output, success
+from ...utils.error_handling import abort
 
 
 def balance_command(ctx):
@@ -12,7 +13,7 @@ def balance_command(ctx):
         output(balance_data, title="Wallet Balance")
         success("Wallet balance retrieved")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def info_command(ctx):
@@ -22,4 +23,4 @@ def info_command(ctx):
         output(wallet_info, title="Wallet Information")
         success("Wallet information retrieved")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")

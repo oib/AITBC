@@ -13,6 +13,7 @@ import click
 
 from ..utils import error, output, success
 from ..utils.http_client import get_logger
+from ..utils.error_handling import abort
 
 logger = get_logger(__name__)
 
@@ -87,7 +88,7 @@ def _control_services(
     try:
         services = _role_services(role)
     except RuntimeError as e:
-        error(str(e))
+        abort(None, str(e))
         return 1
 
     prefix = _systemctl_prefix()
