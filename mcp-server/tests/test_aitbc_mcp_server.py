@@ -1125,3 +1125,217 @@ class TestHostForRoleRouting:
             ctx = mcp_server._execution_context("ad-hoc.example")
         assert ctx["resolved_host"] == "ad-hoc.example"
         assert ctx["role_used"] is None
+
+class TestResultEnvelopeStatus:
+    """SM-07/SM-09: every command-result envelope carries the failure signal.
+
+    SP-13-class CLI commands exit 0 while printing an error; through MCP they
+    arrived as success-status results with the error only in the body, so an
+    agent could not tell the call failed.  ``_run_remote`` now stamps ``ok``
+    and ``exit_code`` on every envelope, ``error_hint`` when a body pattern —
+    not the return code — made ``ok`` false, and ``timed_out`` on timeouts.
+    """
+
+    def _run(self, stdout="", stderr="", rc=0):
+        server = _load_isolated_server()
+
+        def fake_run(*a, **k):
+            return subprocess.CompletedProcess(a[0], rc, stdout, stderr)
+
+        with mock.patch.object(server.subprocess, "run", fake_run):
+            return server._run_remote("localhost", "aitbc probe")
+
+    def test_clean_run_marks_ok(self):
+        result = self._run('{"height": 5005}\n')
+        assert result["ok"] is True
+        assert result["exit_code"] == 0
+        assert "error_hint" not in result
+
+    def test_nonzero_exit_marks_not_ok(self):
+        result = self._run("", "boom\n", rc=2)
+        assert result["ok"] is False
+        assert result["exit_code"] == 2
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "Error getting transaction status: GET request failed: 404 Client Error\n",
+            "Error listing proposals: http://localhost:8105/v1/governance/proposals\n",
+            "Network error: GET request failed: Retry attempts exhausted\n",
+            "Webhook test failed: POST request failed\n",
+            "Authentication failed for node aitbc-primary\n",
+            "Explorer API unavailable: GET request failed: 400 Client Error\n",
+            "Market service not available at http://127.0.0.1:8102\n",
+            "Wallet 'missing-wallet' not found\n",
+            "Transaction 0xdeadbeef not found\n",
+            "Request req-123 not found.\n",
+            "Block at height 128452 not found\n",
+            "No stored credential found for 'client' in 'default'\n",
+            "jobs failed\n",
+            "✗ Job failed\n",
+            "Traceback (most recent call last):\n  File ...\n",
+            "Usage: aitbc wallet [OPTIONS]\n",
+            "Error: No such command 'nope'\n",
+            '{"summary": {"error": "Could not fetch job data"}}\n',
+            '{"status": "unreachable ([Errno 111] Connection refused)"}\n',
+            # error may sit below a banner within the scan window
+            "───── AITBC Dashboard ─────\nRefreshing every 5s\n\nError fetching data: 401\n",
+        ],
+    )
+    def test_exit_zero_error_body_marks_not_ok(self, body):
+        result = self._run(body)
+        assert result["ok"] is False
+        assert result["exit_code"] == 0
+        assert result.get("error_hint")
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            '{"failed": 0, "jobs": 3}\n',  # JSON key, not a failure report
+            "items processed; Failed: 0\n",  # zero-failure statistic
+            "5 passed, 0 failed\n",
+            "No agents found\n",
+            "No alerts found\n",
+            "No stored credentials for environment 'default'\n",
+            "No open orders for AIT/ETH\n",
+            '{"error": null, "data": []}\n',
+            '{"message": "No chains found", "hint": "pass --node-url ..."}\n',
+            "Pending transactions: 0\n",
+        ],
+    )
+    def test_clean_read_stays_ok(self, body):
+        """A false ok:false on a successful read is worse than no flag."""
+        result = self._run(body)
+        assert result["ok"] is True, body
+
+    def test_error_on_stderr_marks_not_ok(self):
+        result = self._run("[1, 2]\n", "Failed to collect metrics: GET request failed: 401\n")
+        assert result["ok"] is False
+        assert result["error_hint"].startswith("Failed to collect metrics")
+
+    def test_error_hint_omitted_when_returncode_flags(self):
+        result = self._run("", "Error: whatever\n", rc=1)
+        assert result["ok"] is False
+        assert "error_hint" not in result
+
+    def test_timeout_decodes_bytes_partial_output(self):
+        """SM-09: TimeoutExpired stdout stays bytes even with text=True."""
+        server = _load_isolated_server()
+
+        def raise_timeout(*a, **k):
+            exc = subprocess.TimeoutExpired(["aitbc"], 5)
+            exc.stdout = b'{"partial": "\xe2\x80'  # truncated utf-8
+            exc.stderr = b"partial err line"
+            raise exc
+
+        with mock.patch.object(server.subprocess, "run", raise_timeout):
+            result = server._run_remote("localhost", "aitbc probe", timeout=5)
+        assert result["ok"] is False
+        assert result["exit_code"] == -1
+        assert result["timed_out"] is True
+        assert isinstance(result["stdout"], str)
+        assert "b'" not in result["stdout"]  # never a bytes repr
+        assert "timeout after 5s" in result["stderr"]
+        assert "partial err line" in result["stderr"]
+
+    def test_timeout_without_partial_output(self):
+        server = _load_isolated_server()
+
+        def raise_timeout(*a, **k):
+            raise subprocess.TimeoutExpired(["aitbc"], 7)
+
+        with mock.patch.object(server.subprocess, "run", raise_timeout):
+            result = server._run_remote("localhost", "aitbc probe", timeout=7)
+        assert result["ok"] is False
+        assert result["timed_out"] is True
+        assert result["stdout"] == ""
+        assert result["stderr"] == "timeout after 7s"
+
+    def test_json_stamps_ok_on_error_envelopes(self):
+        assert json.loads(mcp_server._json({"error": "nope"}))["ok"] is False
+        assert json.loads(mcp_server._json({"dry_run": True, "command": "x"}))["ok"] is True
+        # explicit ok wins over the convention stamp
+        assert json.loads(mcp_server._json({"error": "degraded", "ok": True}))["ok"] is True
+
+    def test_destructive_refusal_envelope_is_not_ok(self):
+        result = json.loads(mcp_server.read_aitbc_cli(group="monitor", subcommand=["alerts"], host="node2"))
+        assert result["ok"] is False
+
+
+class TestDestructivePathSplitting:
+    """SM-05: the destructive-path gate must see the *effective* command path.
+
+    Click consumes leading positionals as path tokens, so ``subcommand``
+    tokens and ``args`` are interchangeable spellings of the same path —
+    the gate must classify all of them identically.
+    """
+
+    @pytest.mark.parametrize(
+        ("group", "subcommand", "args"),
+        [
+            ("monitor", ["alerts"], ["list"]),  # previously refused spelling
+            ("monitor", ["alerts", "list"], None),  # the escape
+            ("monitor", ["alerts", "test"], None),  # webhook POST leaf
+            ("monitor", ["alerts list"], None),  # whitespace inside one element
+            ("monitor", "alerts list", None),  # string spelling
+            ("monitor", None, ["alerts", "remove"]),  # args wholly supply the path
+            ("monitor", ["alerts"], ["remove"]),
+            ("monitor", ["webhooks", "test"], None),
+            ("wallet", ["export", "mywallet"], None),
+            ("wallet", ["export"], ["mywallet"]),
+            ("trade", ["match", "x"], None),
+            ("dispute", ["file", "x"], None),
+            ("sync", ["bulk", "x"], None),
+            ("crosschain", ["bridge", "x"], None),
+            ("edge", ["island", "bridge", "x"], None),
+            ("ai", ["service", "test", "x"], None),
+            ("start", ["node"], None),  # deeper token under a bare leaf
+            ("ai", None, ["submit"]),  # args-only destructive leaf
+            ("market", None, ["create"]),
+        ],
+    )
+    def test_destructive_path_all_spellings(self, group, subcommand, args):
+        assert mcp_server._is_aitbc_subcommand_destructive(subcommand, group, args), f"{group} {subcommand} {args}"
+
+    @pytest.mark.parametrize(
+        ("group", "subcommand", "args"),
+        [
+            ("monitor", ["campaigns"], None),
+            ("monitor", ["campaign-stats"], ["cmp-1"]),
+            ("market", ["match"], None),
+            ("market", ["list"], None),
+            ("prometheus", ["alerts"], None),
+            ("analytics", ["alerts"], None),
+            ("sync", ["status"], None),
+            ("trade", ["discover"], None),
+            ("wallet", ["balance"], ["genesis"]),
+            ("ai", ["status"], ["job-abc123"]),
+            ("version", None, None),
+            ("monitor", ["history"], None),
+        ],
+    )
+    def test_read_paths_stay_open(self, group, subcommand, args):
+        assert not mcp_server._is_aitbc_subcommand_destructive(subcommand, group, args), f"{group} {subcommand} {args}"
+
+    def test_read_tool_rejects_split_path_spelling(self):
+        """The SM-05 escape: read_aitbc_cli must refuse deeper path tokens too."""
+        result = json.loads(mcp_server.read_aitbc_cli(group="monitor", subcommand=["alerts", "list"], host="node2"))
+        assert "error" in result
+        assert "destructive" in result["error"]
+
+    def test_read_tool_rejects_args_only_path(self):
+        result = json.loads(mcp_server.read_aitbc_cli(group="monitor", subcommand=None, args=["alerts", "list"], host="node2"))
+        assert "error" in result
+        assert "destructive" in result["error"]
+
+    def test_run_tool_requires_confirm_for_split_path(self):
+        result = json.loads(
+            mcp_server.run_aitbc_cli(
+                group="monitor",
+                subcommand=["alerts", "test"],
+                host="node2",
+                dry_run=False,
+                confirm=False,
+            )
+        )
+        assert result.get("error") == "Confirmation required"
