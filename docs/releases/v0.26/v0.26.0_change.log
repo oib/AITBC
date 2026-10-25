@@ -246,3 +246,13 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   boot while ``DATABASE_URL``/``SQLITE_URL`` disagrees with
   ``effective_url`` (the deployed-env divergence that once advanced a
   schema nothing read).
+
+
+### CLI-ARRAY-1
+
+- `governance get --proposal-id` and `reputation leaderboard` printed
+  "returned a JSON array, not an object" when the service answered a
+  bare array. Both callers now use `get_json` and accept either shape:
+  `get` selects the matching `proposal_id` from a list (clear not-found
+  when absent) and the leaderboard renders the list; dict handling is
+  unchanged. Missing-id cases exit non-zero via the shared abort path.

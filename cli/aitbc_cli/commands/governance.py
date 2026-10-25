@@ -14,8 +14,10 @@ service handles on-chain tx submission when ``enable_onchain_submission``
 is enabled in its config.
 """
 
+import builtins
 import json
 import uuid
+from typing import Any
 
 import click
 
@@ -463,7 +465,19 @@ def get(ctx, proposal_id: str, format: str):
     """Get details of a specific governance proposal."""
     try:
         client = _get_client(ctx)
-        result = client.get(f"/v1/governance/proposals/{proposal_id}")
+        # The governance service answers an object for this route, but has
+        # also been observed returning a JSON array of proposals — accept
+        # both shapes and pick the one matching the requested id.
+        payload = client.get_json(f"/v1/governance/proposals/{proposal_id}")
+        result: dict[str, Any] | None = payload if isinstance(payload, dict) else None
+        if result is None and isinstance(payload, builtins.list):
+            candidates: builtins.list[Any] = payload
+            for p in candidates:
+                if isinstance(p, dict) and p.get("proposal_id") == proposal_id:
+                    result = p
+                    break
+        if result is None:
+            abort(ctx, f"Proposal {proposal_id} not found")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
