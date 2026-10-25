@@ -75,8 +75,10 @@ def test_heal_revision_rewrites_lowercase_rows(tmp_path: Path) -> None:
         con.commit()
     finally:
         con.close()
-    # Re-stamp back one revision then forward again so the heal re-runs.
-    _run_alembic(tmp_path, "downgrade", "-1", db_name=db_path.name)
+    # Re-stamp back below the heal then forward again so it re-runs —
+    # target the heal's down_revision, not a relative -1 (more recent
+    # migrations can sit above the heal).
+    _run_alembic(tmp_path, "downgrade", "c3a91f7e5b02", db_name=db_path.name)
     _run_alembic(tmp_path, "upgrade", "head", db_name=db_path.name)
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
