@@ -336,3 +336,25 @@ def test_escrow_degraded_error_is_dual_typed():
 
     assert issubclass(ce.EscrowDegradedError, ce.EscrowRPCError)
     assert issubclass(ce.EscrowDegradedError, IslandDegradedError)
+
+
+def test_tick_exports_silences_to_prometheus():
+    """The gauges must appear in the exporter's REGISTRY output — the
+    defect comment 2819 caught: getter-only globals never reached :9009.
+    Fails if the .set() publish lines are removed from tick()."""
+    import time as _t
+    from prometheus_client import REGISTRY, generate_latest
+    from aitbc_chain.island_monitor import IslandMonitor
+
+    m = IslandMonitor(beacon_interval=60.0, is_hub_self=False, validator_count=4)
+    m.last_hub_observation_at = _t.monotonic() - 300
+    m.last_gossip_block_at = _t.monotonic() - 120
+    m.tick(100)
+    out = generate_latest(REGISTRY).decode()
+    import re
+
+    hub = re.search(r"^aitbc_island_hub_silence_seconds ([0-9.eE+-]+)", out, re.M)
+    gos = re.search(r"^aitbc_island_gossip_silence_seconds ([0-9.eE+-]+)", out, re.M)
+    assert hub and gos, "gauges missing from REGISTRY export"
+    assert 295 <= float(hub.group(1)) <= 305
+    assert 115 <= float(gos.group(1)) <= 125

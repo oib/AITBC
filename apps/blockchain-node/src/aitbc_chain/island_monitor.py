@@ -9,8 +9,11 @@ flag that defaults OFF.
 
 from __future__ import annotations
 
+import logging
 import os
 import time
+
+logger = logging.getLogger(__name__)
 from typing import Any
 from dataclasses import dataclass, field
 
@@ -39,6 +42,28 @@ def build_monitor_from_settings() -> IslandMonitor | None:
 
 _hub_silence_gauge = 0.0
 _gossip_silence_gauge = 0.0
+
+try:
+    from prometheus_client import REGISTRY as _REGISTRY
+    from prometheus_client import Gauge as _PromGauge
+
+    def _gauge_or_existing(name: str, doc: str):
+        try:
+            return _PromGauge(name, doc)
+        except ValueError:  # duplicate registration (module reload) — reuse the live series
+            return _REGISTRY._names_to_collectors.get(name)
+
+    _HUB_SILENCE_PROM = _gauge_or_existing(
+        "aitbc_island_hub_silence_seconds",
+        "Seconds since any path last observed the island hub (gossip or pull).",
+    )
+    _GOSSIP_SILENCE_PROM = _gauge_or_existing(
+        "aitbc_island_gossip_silence_seconds",
+        "Seconds since the gossip layer last delivered a block.",
+    )
+except Exception:  # pragma: no cover — metrics must never break the monitor
+    _HUB_SILENCE_PROM = None
+    _GOSSIP_SILENCE_PROM = None
 
 
 def island_hub_silence_seconds() -> float:
@@ -85,6 +110,12 @@ class IslandMonitor:
         global _hub_silence_gauge, _gossip_silence_gauge
         _hub_silence_gauge = now - self.last_hub_observation_at
         _gossip_silence_gauge = now - self.last_gossip_block_at
+        try:
+            if _HUB_SILENCE_PROM is not None:
+                _HUB_SILENCE_PROM.set(_hub_silence_gauge)
+                _GOSSIP_SILENCE_PROM.set(_gossip_silence_gauge)
+        except Exception:  # pragma: no cover — defensive; never crash tick
+            logger.exception("island gauge publish failed")
         self._tier = evaluate_island_state(
             seconds_since_gossip_block=_gossip_silence_gauge,
             seconds_since_hub_observation=_hub_silence_gauge,
