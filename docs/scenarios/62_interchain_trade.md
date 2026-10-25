@@ -96,7 +96,7 @@ until interrupted.
 ```bash
 aitbc trade list
 aitbc trade list --status pending --source-chain ait-mainnet
-aitbc trade get    --trade-id <trade-id>
+aitbc trade get    <trade-id>
 aitbc trade status --trade-id <trade-id>
 aitbc trade history --source-chain ait-mainnet --limit 20
 ```
@@ -107,7 +107,7 @@ aitbc trade history --source-chain ait-mainnet --limit 20
 aitbc trade create --source-chain ait-mainnet --dest-chain ait-side \
     --sender 0x<src> --recipient 0x<dst> --amount 36000000 \
     --offer-id <offer-id> --price 1.0 --quantity 1
-aitbc trade match     --trade-id <trade-id>
+aitbc trade match     <trade-id>
 aitbc trade match-all
 ```
 
@@ -142,7 +142,7 @@ read-only check to run between them.
 
 ## Verification
 
-- `aitbc trade get --trade-id <id>` moves through `pending → matched →
+- `aitbc trade get <id>` moves through `pending → matched →
   locked → settled` (or `refunded`).
 - `aitbc trade history` lists the trade with its final state.
 
