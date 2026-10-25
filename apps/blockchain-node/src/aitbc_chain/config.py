@@ -749,6 +749,9 @@ class ChainSettings(BaseSettings):
     # Validator set: JSON list of {"address": "...", "stake": "1000"} objects.
     # Used by MultiValidatorPoA to select proposers and validate attestations.
     validator_set: str = ""
+    # DEAD-ISLAND-GOSSIP-1 (#393): the island hub's proposer id.
+    # Empty disables the island liveness monitor (detection-only default).
+    island_hub_proposer_id: str = ""
     # Validator keys controlled by this node: JSON mapping address -> private key.
     # May be set in blockchain-secrets.env. The mapping is used to sign blocks and
     # produce attestations. Keep this value out of the repository.
