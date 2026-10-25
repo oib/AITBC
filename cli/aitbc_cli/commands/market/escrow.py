@@ -14,7 +14,7 @@ from aitbc.utils.units import units_to_ait
 from ...auth import AuthManager
 from ...utils.wallet_secret import wallet_password_options
 from ...config import get_config
-from ...utils import error, info, output, success
+from ...utils import error, info, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
 
 # Initialize logger
@@ -77,6 +77,21 @@ def _http_503_detail(exc: BaseException) -> str | None:
     if http_response_status(exc) != 503:
         return None
     return http_error_detail(exc)
+
+
+def _settlement_node_url(detail: str) -> str | None:
+    """Extract the settlement-node URL the node names in its 503 detail.
+
+    The node appends ``"; the settlement node is at <url>"`` when it knows
+    the settlement-capable RPC (``HUB_RPC_URL``). Return None when the
+    detail names none.
+    """
+    marker = "the settlement node is at "
+    idx = detail.find(marker)
+    if idx < 0:
+        return None
+    url = detail[idx + len(marker) :].strip().rstrip(".")
+    return url or None
 
 
 def _escrow_create(
@@ -153,26 +168,40 @@ def _escrow_create(
         error(f"Failed to build escrow lock transaction: {e}")
         raise click.Abort() from e
 
+    payload = {
+        "job_id": job_id,
+        "buyer": buyer,
+        "provider": provider,
+        "amount": str(amount) if amount else "0",
+        "lock_tx": {**lock_tx, "signature": signature},
+        "lock_signature": signature,
+    }
     try:
         http_client = _get_rpc_client(config, rpc_url, timeout=10)
-        result = http_client.post(
-            "/rpc/escrow/create",
-            json={
-                "job_id": job_id,
-                "buyer": buyer,
-                "provider": provider,
-                "amount": str(amount) if amount else "0",
-                "lock_tx": {**lock_tx, "signature": signature},
-                "lock_signature": signature,
-            },
-        )
+        result = http_client.post("/rpc/escrow/create", json=payload)
         contract_id = result.get("contract_id") if isinstance(result, dict) else None
         if contract_id:
             success(f"Escrow created: contract_id={contract_id}")
         return contract_id
     except Exception as e:
         detail = _http_503_detail(e)
+        # A settlement-incapable node names its settlement node in the 503
+        # detail ("the settlement node is at <url>"). Retry the create there
+        # once — the same refusal is already encoded in the response, so the
+        # retry can only help a wrong-routed caller.
         if detail:
+            settlement_url = _settlement_node_url(detail)
+            if settlement_url and settlement_url.rstrip("/") != rpc_url.rstrip("/"):
+                warning(f"Escrow creation refused locally ({detail}) — retrying on the settlement node")
+                try:
+                    result = _get_rpc_client(config, settlement_url, timeout=10).post("/rpc/escrow/create", json=payload)
+                    contract_id = result.get("contract_id") if isinstance(result, dict) else None
+                    if contract_id:
+                        success(f"Escrow created: contract_id={contract_id}")
+                    return contract_id
+                except Exception as e2:
+                    error(f"Escrow creation failed on the settlement node: {e2}")
+                    raise click.Abort() from e2
             error(f"Escrow creation refused: {detail}")
         else:
             error(f"Escrow creation failed: {e}")
