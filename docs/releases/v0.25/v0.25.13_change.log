@@ -44,3 +44,7 @@
   for `customer`/`shop`/`hub`/`follower`/`customer2` resolves to
   node0/node2/hub/node1/hub1 with distinct wallet names; role+host and the
   option-looking host are refused without any ssh.
+
+### ESCROW-ROUTE-1
+
+- fix(cli): relay buyer-signed market escrow creates through the coordinator (`POST /v1/escrow/relay`) before the settlement-node retry, so customer nodes blocked by the hub nginx `/rpc/escrow/` allowlist can create escrows once the relay endpoint ships; a 404 (older coordinator) or missing client credential falls through to the existing hub/loopback retry. Refs #442
