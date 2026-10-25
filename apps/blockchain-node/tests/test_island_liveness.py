@@ -199,3 +199,44 @@ def test_sync_manager_health_shape_off(monkeypatch):
         assert m.island_health()["degraded"] == "monitor-off"
     else:
         assert "degraded" in m.island_health()
+
+
+# ── out-of-process consumer helper (#393): fail-open contract ─────────
+
+
+def test_defer_helper_connection_refused_fails_open():
+    """Nothing on the port (pre-deploy shape): must answer False, fast."""
+    from aitbc.island_deferral import island_degraded
+    import socket
+
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    free_port = s.getsockname()[1]
+    s.close()
+    assert island_degraded(port=free_port, timeout=0.5) is False
+
+
+def test_defer_helper_flag_off_never_reads(monkeypatch):
+    monkeypatch.delenv("ISLAND_DEFER_ENABLED", raising=False)
+    import importlib
+    from aitbc import island_deferral
+
+    importlib.reload(island_deferral)
+    called = []
+    monkeypatch.setattr(island_deferral, "island_degraded", lambda **kw: called.append(1) or True)
+    assert island_deferral.should_defer("offer-publish") is False
+    assert called == []  # flag off: no network read at all
+
+
+def test_defer_helper_flag_on_degraded():
+    import importlib
+    import os
+
+    os.environ["ISLAND_DEFER_ENABLED"] = "true"
+    from aitbc import island_deferral
+
+    importlib.reload(island_deferral)
+    island_deferral.island_degraded = lambda **kw: True
+    assert island_deferral.should_defer("offer-publish") is True
+    os.environ.pop("ISLAND_DEFER_ENABLED", None)
+    importlib.reload(island_deferral)
