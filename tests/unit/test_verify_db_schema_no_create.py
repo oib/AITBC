@@ -75,3 +75,13 @@ def test_reader_helpers_refuse_missing_path(tmp_path):
     with pytest.raises(sqlite3.OperationalError):
         v._actual_tables(ghost)
     assert not ghost.exists()
+
+
+def test_actual_columns_refuses_missing_path(tmp_path):
+    """_actual_columns (mode=ro at :94) must also refuse + not create —
+    the open site the earlier file missed."""
+    v = _load()
+    ghost = tmp_path / "g3.db"
+    with pytest.raises(sqlite3.OperationalError):
+        v._actual_columns(ghost, "t")
+    assert not ghost.exists()
