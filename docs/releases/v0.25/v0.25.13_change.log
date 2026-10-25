@@ -66,3 +66,5 @@
   querying `/v1/bridge/sell/list` on the hub loopback. `aitbc wallet bridge
   sell status` reports the lock row's status with `quote_status`
   alongside. Refs #451
+### ESCROW-ROUTE-1 relay
+- feat(coordinator): `POST /v1/escrow/relay` relays a buyer-signed `/rpc/escrow/create` payload to the settlement node from inside the nginx allowlist — the market-escrow counterpart of `POST /v1/payments`, which requires an owned coordinator job and cannot serve locally-minted market job_ids. The JWT subject's bound wallet must equal `buyer` (admin exempt), non-admin amounts are capped at `ESCROW_RELAY_MAX_UNITS` compute units (default 360,000,000 = 10 AIT), replays of the same lock or (client_id, job_id) return the stored `contract_id` without a second chain call (new `escrow_relay` table, alembic `b1e2f3a4c5d6`), chain 4xx pass through at the same status while timeouts/5xx map to 502, and each relay writes one audit log line (client_id, job_id, contract_id — never signature content). Rate-limited 30/min per client credential on top of the existing per-client limits. Refs #442
