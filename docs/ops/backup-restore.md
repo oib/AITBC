@@ -99,7 +99,10 @@ heights spread across the range and all four matched.
 4. Confirm the node resumes: `curl -s http://127.0.0.1:8202/rpc/height` should
    report the restored height and then advance as sync catches up.
 5. Restore the other data types from the same backup generation:
-   `postgres_*.sql.gz` via `psql`, `keystore.tar.gz`/`wallets.tar.gz` into
+   `postgres_*.sql.gz` via `psql` — **owner roles first**: every role
+   that owns an object in the dump must exist before the load
+   (`create role <owner>` in the restore cluster), same class as the
+   node0 table-ownership repair; `keystore.tar.gz`/`wallets.tar.gz` into
    place (check ownership and modes), `etc-aitbc.tar.gz` into `/etc/aitbc`
    with per-service review, `redis.rdb` into the redis dir before redis
    starts.
@@ -107,8 +110,10 @@ heights spread across the range and all four matched.
 Nightly artifacts under `/var/backups/aitbc/` are `sqlite3 .dump` output —
 SQL text, not a DB file. Rebuild from them with
 `zcat chain_<name>.db.gz | sqlite3 restored.db`, then run the same
-verification block. Operator file copies (like the drill file) can be used
-directly.
+verification block — opening the `.gz` directly reports "not a database".
+Operator file copies (like the drill file) and the coordinator.db nightly
+`.gz` are **binary** copies and load as-is (`PRAGMA integrity_check` +
+alembic head check).
 
 ## Off-site pull
 
