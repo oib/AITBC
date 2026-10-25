@@ -33,37 +33,54 @@ def build_monitor_from_settings() -> IslandMonitor | None:
     if not hub_id:
         return None
     vals = [v for v in (settings.validator_set or "").split(",") if v.strip()]
-    return IslandMonitor(
+    monitor = IslandMonitor(
         beacon_interval=float(getattr(settings, "max_empty_block_interval", 60.0)),
         is_hub_self=(settings.proposer_id or "").lower() == hub_id.lower(),
         validator_count=len(vals) or 1,
     )
+    publish_silence_gauges(monitor)
+    return monitor
 
 
 _hub_silence_gauge = 0.0
 _gossip_silence_gauge = 0.0
 
-try:
-    from prometheus_client import REGISTRY as _REGISTRY
-    from prometheus_client import Gauge as _PromGauge
+HUB_SILENCE_METRIC = "aitbc_island_hub_silence_seconds"
+GOSSIP_SILENCE_METRIC = "aitbc_island_gossip_silence_seconds"
 
-    def _gauge_or_existing(name: str, doc: str):
-        try:
-            return _PromGauge(name, doc)
-        except ValueError:  # duplicate registration (module reload) — reuse the live series
-            return _REGISTRY._names_to_collectors.get(name)
 
-    _HUB_SILENCE_PROM = _gauge_or_existing(
-        "aitbc_island_hub_silence_seconds",
-        "Seconds since any path last observed the island hub (gossip or pull).",
-    )
-    _GOSSIP_SILENCE_PROM = _gauge_or_existing(
-        "aitbc_island_gossip_silence_seconds",
-        "Seconds since the gossip layer last delivered a block.",
-    )
-except Exception:  # pragma: no cover — metrics must never break the monitor
-    _HUB_SILENCE_PROM = None
-    _GOSSIP_SILENCE_PROM = None
+def _now() -> float:
+    return time.monotonic()
+
+
+def _gauge_or_existing(name: str, doc: str) -> Any:
+    from prometheus_client import REGISTRY, Gauge
+
+    try:
+        return Gauge(name, doc)
+    except ValueError:  # duplicate registration (module reload, rebuilt monitor) — reuse the live series
+        return REGISTRY._names_to_collectors.get(name)
+
+
+def publish_silence_gauges(monitor: IslandMonitor) -> None:
+    """Register both silence gauges and bind them to `monitor`.
+
+    Values are computed at scrape time, so they keep growing when no gossip
+    block (and therefore no tick) arrives. Registration is lazy: a
+    monitor-off process never calls this and exports neither series. A
+    rebuilt monitor replaces the callbacks on the reused collectors.
+    """
+    try:
+        _gauge_or_existing(
+            HUB_SILENCE_METRIC,
+            "Seconds since any path last observed the island hub (gossip or pull).",
+        ).set_function(monitor.hub_silence_seconds)
+        _gauge_or_existing(
+            GOSSIP_SILENCE_METRIC,
+            "Seconds since the gossip layer last delivered a block.",
+        ).set_function(monitor.gossip_silence_seconds)
+    except Exception:  # metrics must never break the monitor
+        logger.exception("island gauge publish failed")
 
 
 def island_hub_silence_seconds() -> float:
@@ -78,16 +95,17 @@ def island_gossip_silence_seconds() -> float:
 class IslandMonitor:
     """Feeds evaluate_island_state from this node's own observations.
 
-    Callers record events; `tick()` re-evaluates and refreshes the gauges
-    and the health payload. validator_count reads len(VALIDATOR_SET) at
-    call time, never an env constant.
+    Callers record events; `tick()` re-evaluates the tier and refreshes the
+    health payload. The exported gauges read the silences at scrape time.
+    validator_count reads len(VALIDATOR_SET) at call time, never an env
+    constant.
     """
 
     beacon_interval: float
     is_hub_self: bool
     validator_count: int
-    last_gossip_block_at: float = field(default_factory=time.monotonic)
-    last_hub_observation_at: float = field(default_factory=time.monotonic)
+    last_gossip_block_at: float = field(default_factory=_now)
+    last_hub_observation_at: float = field(default_factory=_now)
     consecutive_missed_hub_slots: int = 0
     head_height: int = 0
     _last_eval_head: int = 0
@@ -105,17 +123,16 @@ class IslandMonitor:
     def on_hub_observation(self) -> None:
         self.last_hub_observation_at = time.monotonic()
 
+    def hub_silence_seconds(self) -> float:
+        return _now() - self.last_hub_observation_at
+
+    def gossip_silence_seconds(self) -> float:
+        return _now() - self.last_gossip_block_at
+
     def tick(self, head_height: int) -> Tier:
-        now = time.monotonic()
         global _hub_silence_gauge, _gossip_silence_gauge
-        _hub_silence_gauge = now - self.last_hub_observation_at
-        _gossip_silence_gauge = now - self.last_gossip_block_at
-        try:
-            if _HUB_SILENCE_PROM is not None:
-                _HUB_SILENCE_PROM.set(_hub_silence_gauge)
-                _GOSSIP_SILENCE_PROM.set(_gossip_silence_gauge)
-        except Exception:  # pragma: no cover — defensive; never crash tick
-            logger.exception("island gauge publish failed")
+        _hub_silence_gauge = self.hub_silence_seconds()
+        _gossip_silence_gauge = self.gossip_silence_seconds()
         self._tier = evaluate_island_state(
             seconds_since_gossip_block=_gossip_silence_gauge,
             seconds_since_hub_observation=_hub_silence_gauge,
