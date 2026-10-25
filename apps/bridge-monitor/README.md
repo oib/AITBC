@@ -74,6 +74,9 @@ cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
 | `BRIDGE_STUCK_PAYOUT_BLOCKS` | `rebroadcast×max` | head-of-line blocking alert horizon |
 | `BRIDGE_QUEUE_ALERT_DEPTH` | `5` | `PENDING_RETRY` depth alert |
 | `BRIDGE_POLL_INTERVAL` | `30` | poll cadence (seconds); `BRIDGE_KICK_FILE`/`BRIDGE_BURST_*` accelerate demand-triggered polls |
+| `BRIDGE_CYCLE_TIMEOUT_SECONDS` | `300` | bound on one block-scan pass — a breach holds the cursor and alerts; a cycle exceeding it also logs `ALERT` |
+| `BRIDGE_HEAD_STALL_SECONDS` | `600` | alert when the ETH endpoint keeps serving the same head (stale LB backend) — deposits sealing on-chain are then not being scanned |
+| `ETH_RPC_TIMEOUT` | `10` | per-request timeout (seconds) for the Ethereum RPC provider |
 | `AIT_USD_FIXED_PRICE` | unset | pins the AIT/USD quote (oracle bypass) |
 | `BLOCKCHAIN_RPC_URL` | `http://127.0.0.1:8202` | node RPC — balance, nonce, and submit all share this endpoint |
 | `BRIDGE_MONITOR_ENV` | `/etc/aitbc/aitbc-bridge-monitor.env` | env file loaded by `admin.py` |

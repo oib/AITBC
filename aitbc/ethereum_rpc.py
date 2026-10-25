@@ -38,7 +38,7 @@ class EthereumConfig:
     rpc_url: str | None = field(default_factory=lambda: os.getenv("ETH_RPC_URL"))
     infura_key: str | None = field(default_factory=lambda: os.getenv("INFURA_API_KEY"))
     alchemy_key: str | None = field(default_factory=lambda: os.getenv("ALCHEMY_API_KEY"))
-    timeout: int = 10
+    timeout: int = field(default_factory=lambda: int(os.getenv("ETH_RPC_TIMEOUT", "10")))
     max_retries: int = 3
 
     def get_rpc_urls(self) -> list[str]:
