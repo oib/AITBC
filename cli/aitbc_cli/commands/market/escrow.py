@@ -647,9 +647,11 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
             return result
         # Never return silently: name each refusal so a 403 API-key or a 503
         # settlement refusal is diagnosable instead of reading as "no escrow".
+        # And never exit 0 after the error — the exit-code guard requires a
+        # nonzero exit on a failed refund.
         suffix = f": {'; '.join(failures)}" if failures else ""
         error(f"Failed to refund escrow for job {job_id}{suffix}")
-        return None
+        raise click.Abort()
     except Exception as e:
         error(f"Error refunding escrow: {e}")
         raise click.Abort() from e
