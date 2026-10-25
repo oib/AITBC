@@ -56,6 +56,15 @@ def test_network_info_schema(_network_info_settings) -> None:
     assert "/rpc/join" in str(data["join"])
 
 
+def test_network_info_and_head_allow_head_requests(_network_info_settings) -> None:
+    """Uptime monitors probe with HEAD — FastAPI does not auto-add it."""
+    with TestClient(create_app()) as client:
+        for path in ("/rpc/network-info", "/rpc/head"):
+            response = client.head(path)
+            assert response.status_code == 200, path
+            assert not response.content
+
+
 def test_network_info_does_not_leak_secrets(_network_info_settings) -> None:
     data = _fetch_network_info()
     flat = str(data)
