@@ -2,6 +2,7 @@
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -239,6 +240,33 @@ def verify(ctx, chain_id: str):
         ctx.exit(1)
 
 
+def _sealed_genesis_block(db_path: Path, chain_id: str) -> dict[str, Any] | None:
+    """Read block 0 from the chain DB read-only when the genesis file has no block record (CLI-POLISH-1)."""
+    if not db_path.exists():
+        return None
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            row = conn.execute(
+                "SELECT height, hash, parent_hash, proposer, timestamp, tx_count FROM block WHERE height=0 AND chain_id=?",
+                (chain_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return None
+    if row is None:
+        return None
+    return {
+        "height": row[0],
+        "hash": row[1],
+        "parent_hash": row[2],
+        "proposer": row[3],
+        "timestamp": str(row[4]) if row[4] is not None else None,
+        "tx_count": row[5],
+    }
+
+
 @genesis.command(
     epilog="""Examples:
 
@@ -290,25 +318,34 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
         block = genesis_data.get("block", {})
         allocations = genesis_data.get("allocations", [])
 
-        output(
-            {
-                "chain_id": genesis_data.get("chain_id"),
-                "genesis_block": {
-                    "height": block.get("height"),
-                    "hash": block.get("hash"),
-                    "parent_hash": block.get("parent_hash"),
-                    "proposer": block.get("proposer"),
-                    "timestamp": block.get("timestamp"),
-                    "tx_count": block.get("tx_count"),
-                },
-                "allocations": [
-                    {"address": alloc.get("address"), "balance": alloc.get("balance"), "nonce": alloc.get("nonce")}
-                    for alloc in allocations[:5]  # Show first 5
-                ],
-                "total_allocations": len(allocations),
-            },
-            ctx.obj.get("output_format", "table"),
-        )
+        genesis_block = {
+            "height": block.get("height"),
+            "hash": block.get("hash"),
+            "parent_hash": block.get("parent_hash"),
+            "proposer": block.get("proposer"),
+            "timestamp": block.get("timestamp"),
+            "tx_count": block.get("tx_count"),
+        }
+        note = None
+        if not any(v is not None for v in genesis_block.values()):
+            sealed = _sealed_genesis_block(Path(data_dir) / chain_id / "chain.db", chain_id)
+            if sealed:
+                genesis_block = sealed
+            else:
+                note = "genesis file carries no block record and block 0 is not sealed in the chain DB yet"
+
+        result: dict[str, Any] = {
+            "chain_id": genesis_data.get("chain_id"),
+            "genesis_block": genesis_block,
+            "allocations": [
+                {"address": alloc.get("address"), "balance": alloc.get("balance"), "nonce": alloc.get("nonce")}
+                for alloc in allocations[:5]  # Show first 5
+            ],
+            "total_allocations": len(allocations),
+        }
+        if note:
+            result["note"] = note
+        output(result, ctx.obj.get("output_format", "table"))
 
     except Exception as e:
         error(f"Failed to read genesis info: {e}")

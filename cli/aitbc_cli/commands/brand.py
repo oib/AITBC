@@ -16,7 +16,13 @@ from ..utils import output
 def _get_brand() -> BrandSettings:
     active = os.getenv("AITBC_ACTIVE_PLUGIN")
     if active:
-        return PluginManager(os.getenv("AITBC_PLUGINS_DIR", "/opt/aitbc/plugins")).load(active).brand
+        plugins_dir = os.getenv("AITBC_PLUGINS_DIR", "/opt/aitbc/plugins")
+        try:
+            return PluginManager(plugins_dir).load(active).brand
+        except FileNotFoundError as exc:
+            raise click.ClickException(
+                f"Plugin '{active}' not found in {plugins_dir}. Create it with: aitbc plugin create {active}"
+            ) from exc
     return BrandSettings.from_env()
 
 
