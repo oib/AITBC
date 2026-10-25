@@ -266,3 +266,12 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   (shared `LOGIN_HINT` + `is_unauthorized` in `utils/error_handling`).
   `zk health`/`zk circuits` are unchanged: their coordinator endpoints
   answer 401 without a login — auth is genuinely required there.
+### CLI-NODEREG-1
+
+- `analytics *`, `blockchain status` and `node chains` printed
+  "Authentication failed for node aitbc-primary" on hosts whose
+  multichain registry still names the retired aitbc-primary/secondary
+  entries on a dead port, even though the local RPC was healthy.
+  `load_multichain_config` now always offers the configured
+  `blockchain_rpc_url` (default 127.0.0.1:8202) as a `local-rpc`
+  fallback node, so a stale registry no longer blinds read commands.

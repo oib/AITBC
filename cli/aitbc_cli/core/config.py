@@ -55,9 +55,26 @@ def load_multichain_config(config_path: str | None = None) -> MultiChainConfig:
         with open(config_file) as f:
             config_data = yaml.safe_load(f)
 
-        return MultiChainConfig(**config_data)
+        return _with_local_rpc_fallback(MultiChainConfig(**config_data))
     except Exception as e:
         raise ValueError(f"Failed to load configuration from {config_path}: {e}") from e
+
+
+def _with_local_rpc_fallback(config: MultiChainConfig) -> MultiChainConfig:
+    """Always offer the node's own configured RPC as a registry entry.
+
+    A stale registry (e.g. ``aitbc-primary`` pointing at a dead port from
+    an older deployment) must not blind read commands when the local RPC
+    answers — the CLI's ``blockchain_rpc_url`` becomes a ``local-rpc``
+    fallback node (CLI-NODEREG-1). Imported lazily to avoid a config
+    module cycle.
+    """
+    from aitbc_cli.config import get_config
+
+    endpoint = (getattr(get_config(), "blockchain_rpc_url", "") or "http://127.0.0.1:8202").rstrip("/")
+    if endpoint and all(node.endpoint != endpoint for node in config.nodes.values()):
+        config.nodes.setdefault("local-rpc", NodeConfig(id="local-rpc", endpoint=endpoint))
+    return config
 
 
 def save_multichain_config(config: MultiChainConfig, config_path: str | None = None) -> None:
