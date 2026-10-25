@@ -121,6 +121,19 @@ AGENT_EXECUTOR_SWEEP_INTERVAL = int(os.environ.get("AGENT_EXECUTOR_SWEEP_INTERVA
 AITBC_CLI = "/opt/aitbc/venv/bin/aitbc"
 
 
+async def offer_publish_cycle(ollama_models: list[str]) -> bool:
+    """One offer-publish cycle. When the island reports degraded (flag
+    ISLAND_DEFER_ENABLED on the miner's own env, default off) the submits
+    are skipped and one line is logged with the deferred count."""
+    from aitbc.island_deferral import should_defer
+
+    if should_defer("offer-publish"):
+        logger.info("Deferred %d default offer(s) — island-degraded", len(DEFAULT_SOFTWARE_OFFERS))
+        return False
+    await asyncio.to_thread(publish_default_offers, ollama_models)
+    return True
+
+
 def publish_default_offers(ollama_models: list[str]) -> None:
     """Publish default Whisper, FFmpeg and Ollama software offers.
 
@@ -928,7 +941,7 @@ async def main():
                 send_pool_hub_heartbeat()
                 last_pool_hub_heartbeat = current_time
             if current_time - last_offer_publish >= OFFER_PUBLISH_INTERVAL:
-                await asyncio.to_thread(publish_default_offers, models)
+                await offer_publish_cycle(models)
                 last_offer_publish = current_time
             if current_time - last_ipfs_sweep >= IPFS_PIN_SWEEP_INTERVAL:
                 try:
