@@ -25,7 +25,7 @@ X-Api-Key: <market admin api key>
 
 Note the header is `X-Api-Key`, **not** `Authorization: Bearer` — Bearer JWTs are the coordinator-api's customer auth scheme and are not used here. When `settings.auth_enabled` is false the dependency is a no-op; when the service's `api_key` setting is unset the gated route returns `501 API key not configured`. All other endpoints on this service are currently unauthenticated.
 
-The market-service calls the blockchain node's escrow RPC with its own `BLOCKCHAIN_RPC_API_KEY` (`X-API-Key` header) — that key is service-to-service and is not a customer credential.
+The market-service calls the blockchain node's escrow RPC with its own `BLOCKCHAIN_RPC_API_KEY` (`X-API-Key` header) — that key is service-to-service and is not a customer credential. Customer-facing escrow create/release go through the coordinator's JWT relays instead (`POST /v1/escrow/relay`, `POST /v1/escrow/release`, buyer-bound to the JWT `sub`); see [escrow-relays runbook](../ops/escrow-relays.md). Direct `/rpc/escrow/*` stays for settlement-node internal ops and refund.
 
 The coordinator-api GPU routes use the coordinator's own auth: miner routes need a miner JWT or `X-Api-Key`/`X-Miner-ID` (`MinerDep`); booking routes accept any authenticated user (`AuthDep`).
 

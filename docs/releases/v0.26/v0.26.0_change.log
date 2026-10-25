@@ -550,3 +550,13 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   it. Regression findings: SM-07/SM-08 were staging artifacts — the
   server already stamps ok/exit_code and the typed tool already
   forwards `--format`; only the replay classifier needed updating.
+
+
+### ESCROW-DOCS-1
+
+- New runbook `docs/ops/escrow-relays.md`: the node-wallet `to` rule,
+  the two JWT relays (create + release, buyer-bound, 360,000,000-unit
+  cap, dedup), refund as a settlement-node operation, and the named
+  errors. `market-api.md` corrected to describe the relay split; the
+  route security matrix gained `/v1/escrow/*` rows; scenarios 34/44
+  note the planned CLI-uses-relay path and the settlement-node refund.
