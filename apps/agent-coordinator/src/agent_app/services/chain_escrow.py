@@ -31,6 +31,15 @@ class EscrowRPCError(RuntimeError):
     """Raised when the chain escrow RPC rejects or fails a submission."""
 
 
+from aitbc.island_deferral import IslandDegradedError as _IslandDegradedError
+
+
+class EscrowDegradedError(_IslandDegradedError, EscrowRPCError):
+    """Deferred submit under island-degraded — dual-typed below so existing
+    `except EscrowRPCError` paths log + retry (that IS the deferral) while
+    code that must distinguish catches IslandDegradedError."""
+
+
 class ChainEscrowClient:
     """Synchronous client for the blockchain escrow RPC.
 
@@ -57,10 +66,10 @@ class ChainEscrowClient:
         self._client.close()
 
     def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        from aitbc.island_deferral import IslandDegradedError, should_defer
+        from aitbc.island_deferral import should_defer
 
         if should_defer("escrow-submit"):
-            raise IslandDegradedError(f"island-degraded: escrow submit deferred ({path})")
+            raise EscrowDegradedError(f"island-degraded: escrow submit deferred ({path})")
         try:
             response = self._client.post(path, json=body)
         except httpx.HTTPError as e:
