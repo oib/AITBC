@@ -59,7 +59,7 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
     order is a no-op. Returns (rows, cancelled order_ids).
     """
     cancels: dict[str, dict[str, Any]] = {}
-    originals: dict[str, dict[str, Any]] = {}
+    originals: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         payload = row.get("payload") or row
         if not isinstance(payload, dict):
@@ -68,15 +68,17 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
         if payload.get("action") == "cancel":
             cancels.setdefault(oid, payload)
         elif oid:
-            originals[oid] = payload
+            originals.setdefault(oid, []).append(payload)
     cancelled_ids = set(cancels)
     for oid, cancel in cancels.items():
-        orig = originals.get(oid)
-        if orig is not None:
+        for orig in originals.get(oid, []):
             orig["status"] = "cancelled"
+        # Fill the cancel row from the FIRST matching order row.
+        first = next(iter(originals.get(oid, [])), None)
+        if first is not None:
             for key in ("pair", "side", "user_id"):
-                if not cancel.get(key) and orig.get(key):
-                    cancel[key] = orig[key]
+                if not cancel.get(key) and first.get(key):
+                    cancel[key] = first[key]
     return rows, cancelled_ids
 
 
