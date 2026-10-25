@@ -428,6 +428,109 @@ def _execution_context(host: str) -> dict[str, str]:
     return {**base, "target": _ssh_target(host), "mode": "ssh"}
 
 
+def _decode_partial(value: Any) -> str:
+    """Decode captured subprocess output to text.
+
+    ``TimeoutExpired.stdout``/``.stderr`` stay ``bytes`` even with
+    ``text=True`` (the exception is raised before decoding); stringifying
+    them via ``default=str`` would emit ``b'\\xe2…'`` garbage (SM-09).
+    """
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+# Lines of each stream scanned for error patterns when stamping ``ok`` — deep
+# enough to cover banner/wrapper lines, shallow enough that log-content reads
+# mentioning errors well into the body do not flip the flag.
+_RESULT_SCAN_LINES = 15
+
+# First-line failure markers for the SP-13 class: CLI commands that exit 0
+# while reporting an error in the body.  Deliberately narrow — a false
+# ``ok:false`` on a successful read is worse than a missed flag, so every
+# pattern is an explicit failure phrase:
+#   - ``(?:^|(?<!\d)\s)failed\b(?!\s*[:,]?\s*\d)`` needs whitespace/line-start
+#     before ``failed`` (JSON keys like ``"failed": 0`` never match) and
+#     refuses the statistic forms ``failed: 0`` / ``0 failed, 5 passed`` /
+#     ``0 failed`` — a *count* of failures is data, "… failed: <reason>" is a
+#     report;
+#   - the credential pattern pins ``found`` so the clean auth-status line
+#     "No stored credentials for environment …" does not match;
+#   - ``No <n> found`` forms are skipped entirely ("No agents found" is a
+#     legitimate empty-list result).
+_ERROR_LINE_PATTERNS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"^Error\b",
+        r"^Network error\b",
+        r"(?:^|(?<!\d)\s)failed\b(?!\s*[:,]?\s*\d)",
+        r"\bnot found\b",
+        r"\bunavailable\b|\bunreachable\b|not available",
+        r"Connection refused|\[Errno \d+\]",
+        r"^No stored credential found",
+        r"^Traceback \(most recent call last\)",
+        "✗",
+        r'"error"\s*:\s*"[^"]',
+        r"^Usage:",
+        r"No such command|Got unexpected extra",
+    )
+)
+
+
+def _error_hint(result: dict[str, Any]) -> str | None:
+    """First error-pattern line in the head of stdout/stderr, trimmed.
+
+    Returns ``None`` when no pattern matches; used to stamp ``ok:false`` on
+    exit-0-with-error results (SP-13 / SM-07).
+    """
+    for stream in ("stdout", "stderr"):
+        for line in str(result.get(stream) or "").splitlines()[:_RESULT_SCAN_LINES]:
+            stripped = line.strip()
+            if stripped and any(p.search(stripped) for p in _ERROR_LINE_PATTERNS):
+                return stripped[:200]
+    return None
+
+
+def _result_status(result: dict[str, Any]) -> dict[str, Any]:
+    """Stamp the failure signal onto a command-result envelope.
+
+    Every envelope carrying ``returncode`` gets ``ok`` and ``exit_code``:
+    ``ok`` is ``returncode == 0`` *and* no error pattern in the first lines of
+    stdout/stderr (exit-0-with-error, SP-13/SM-07).  When the pattern — not
+    the return code — made ``ok`` false, ``error_hint`` names the line.
+    """
+    if "returncode" not in result:
+        return result
+    rc = result["returncode"]
+    result["exit_code"] = rc
+    hint = _error_hint(result)
+    if rc != 0:
+        result["ok"] = False
+    elif hint is not None:
+        result["ok"] = False
+        result["error_hint"] = hint
+    else:
+        result["ok"] = True
+    return result
+
+
+def _timeout_result(context: dict[str, str], command: str, timeout: int, e: subprocess.TimeoutExpired) -> dict[str, Any]:
+    stderr_parts = [f"timeout after {timeout}s"]
+    partial_err = _decode_partial(e.stderr)
+    if partial_err.strip():
+        stderr_parts.append(partial_err.strip())
+    return {
+        **context,
+        "command": command,
+        "returncode": -1,
+        "timed_out": True,
+        "stdout": _decode_partial(e.stdout),
+        "stderr": "\n".join(stderr_parts),
+    }
+
+
 def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
     """Run a single command on an AITBC host, using a local shell when possible."""
     context = _execution_context(host)
@@ -443,60 +546,68 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
                 # server speaks the stdio protocol on it.
                 stdin=subprocess.DEVNULL,
             )
-            return {
+            return _result_status(
+                {
+                    **context,
+                    "command": command,
+                    "returncode": res.returncode,
+                    "stdout": res.stdout,
+                    "stderr": res.stderr,
+                }
+            )
+        except subprocess.TimeoutExpired as e:
+            return _result_status(_timeout_result(context, command, timeout, e))
+        except FileNotFoundError as e:
+            return _result_status(
+                {
+                    **context,
+                    "command": command,
+                    "returncode": -1,
+                    "stdout": "",
+                    "stderr": f"command not found: {e.filename}",
+                }
+            )
+
+    cmd = ["ssh"] + _ssh_opts(host) + [context["target"], "--", command]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
+        return _result_status(
+            {
                 **context,
                 "command": command,
                 "returncode": res.returncode,
                 "stdout": res.stdout,
                 "stderr": res.stderr,
             }
-        except subprocess.TimeoutExpired as e:
-            return {
-                **context,
-                "command": command,
-                "returncode": -1,
-                "stdout": e.stdout or "",
-                "stderr": f"timeout after {timeout}s",
-            }
-        except FileNotFoundError as e:
-            return {
+        )
+    except subprocess.TimeoutExpired as e:
+        return _result_status(_timeout_result(context, command, timeout, e))
+    except FileNotFoundError:
+        return _result_status(
+            {
                 **context,
                 "command": command,
                 "returncode": -1,
                 "stdout": "",
-                "stderr": f"command not found: {e.filename}",
+                "stderr": "ssh not found on MCP host",
             }
-
-    cmd = ["ssh"] + _ssh_opts(host) + [context["target"], "--", command]
-    try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
-        return {
-            **context,
-            "command": command,
-            "returncode": res.returncode,
-            "stdout": res.stdout,
-            "stderr": res.stderr,
-        }
-    except subprocess.TimeoutExpired as e:
-        return {
-            **context,
-            "command": command,
-            "returncode": -1,
-            "stdout": e.stdout or "",
-            "stderr": f"timeout after {timeout}s",
-        }
-    except FileNotFoundError:
-        return {
-            **context,
-            "command": command,
-            "returncode": -1,
-            "stdout": "",
-            "stderr": "ssh not found on MCP host",
-        }
+        )
 
 
 def _json(result: Any) -> str:
-    """Serialize a result to a pretty-printed JSON string."""
+    """Serialize a result to a pretty-printed JSON string.
+
+    Envelope convention: a top-level ``"error"`` key means the call failed, so
+    ``ok`` is stamped ``False`` when the caller did not set it; a ``dry_run``
+    envelope is a well-formed preview and gets ``ok: true``.  Command-result
+    envelopes carry ``ok``/``exit_code``/``timed_out`` from
+    :func:`_result_status`.
+    """
+    if isinstance(result, dict) and "ok" not in result:
+        if "error" in result:
+            result["ok"] = False
+        elif result.get("dry_run"):
+            result["ok"] = True
     return json.dumps(result, indent=2, default=str)
 
 
@@ -848,17 +959,61 @@ def _subcommand_tokens(subcommand: str | list[str] | None) -> list[str]:
     return [str(token) for token in subcommand]
 
 
+# Destructive paths as token tuples for prefix matching.  Every entry is a
+# leaf command (verified against the Click tree), so any longer token path can
+# only be positional-argument spellings of the same mutating leaf — e.g.
+# ``monitor alerts remove`` — never a deeper read subcommand.
+_DESTRUCTIVE_PATH_TOKENS = tuple(tuple(path.split()) for path in DESTRUCTIVE_AITBC_PATHS)
+
+
+def _split_path_tokens(elements: list[str]) -> list[str]:
+    """Flatten path elements, splitting embedded whitespace per element.
+
+    ``["alerts", "list"]``, ``["alerts list"]`` and the string ``"alerts
+    list"`` must classify identically — a token-splitting difference must not
+    bypass the gate (SM-05).  An element that fails ``shlex.split`` (unbalanced
+    quote) is kept as one token.
+    """
+    tokens: list[str] = []
+    for el in elements:
+        try:
+            parts = shlex.split(el)
+        except ValueError:
+            parts = [el]
+        tokens.extend(parts or [el])
+    return tokens
+
+
 def _is_aitbc_subcommand_destructive(
     subcommand: str | list[str] | None,
     group: str | None = None,
+    args: list[str] | None = None,
 ) -> bool:
-    """Return True when a subcommand is known to mutate state."""
-    tokens = _subcommand_tokens(subcommand)
-    if any(token in DESTRUCTIVE_AITBC_SUBCOMMANDS for token in tokens):
+    """Return True when the effective command path is known to mutate state.
+
+    The effective path is ``group + subcommand tokens + positional args``:
+    Click consumes leading positionals as further path tokens, so ``args`` can
+    continue — or, when ``subcommand`` is None/empty, wholly supply — the
+    command path (``args=["alerts", "remove"]`` runs ``monitor alerts
+    remove``).  Both the per-token set and the path set are checked over the
+    full effective path; path entries match as a token prefix, so deeper
+    spellings of a destructive leaf (``monitor alerts test``) cannot escape.
+
+    Trade-off: a positional *argument* equal to a destructive word (e.g. a
+    resource literally named ``send``) over-gates the read — it is refused
+    here and can still run via ``run_aitbc_cli`` with ``confirm=true``.  For a
+    safety gate that direction is correct; ids in practice are hex/numeric.
+    """
+    tokens = _split_path_tokens([str(t) for t in _subcommand_tokens(subcommand)] + [str(a) for a in (args or [])])
+    # The group token itself is never scanned: ``trade`` is a group name *and*
+    # a destructive leaf elsewhere, and scanning it would gate every read in
+    # that group.
+    if any(token.lower() in DESTRUCTIVE_AITBC_SUBCOMMANDS for token in tokens):
         return True
-    if not tokens and not group:
+    path = ([str(group).lower()] if group else []) + [token.lower() for token in tokens]
+    if not path:
         return False
-    return " ".join([group, *tokens] if group else tokens) in DESTRUCTIVE_AITBC_PATHS
+    return any(path[: len(dp)] == list(dp) for dp in _DESTRUCTIVE_PATH_TOKENS)
 
 
 def _run_aitbc_cli(
@@ -1513,7 +1668,7 @@ def run_aitbc_cli(
         command = _build_aitbc_cli_command(group, subcommand, args, options, output_format, group_options=group_options)
     except ValueError as e:
         return _json({"error": f"invalid subcommand or options: {e}"})
-    destructive = _is_aitbc_subcommand_destructive(subcommand, group)
+    destructive = _is_aitbc_subcommand_destructive(subcommand, group, args)
 
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1604,7 +1759,7 @@ def read_aitbc_cli(
                 "allowed_groups": sorted(ALL_AITBC_GROUPS),
             }
         )
-    if _is_aitbc_subcommand_destructive(subcommand, group):
+    if _is_aitbc_subcommand_destructive(subcommand, group, args):
         return _json(
             {
                 "error": "subcommand is destructive",
