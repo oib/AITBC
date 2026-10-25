@@ -297,3 +297,11 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   Market commands already try the hub before the local service
   (`_candidate_bases`), and `agent-msg peers` honours the explicit
   `--coordinator-url` before the hub-resolved default.
+### CLI-POLISH-1
+
+- `brand show` with a missing `AITBC_ACTIVE_PLUGIN` printed a raw
+  FileNotFoundError traceback; `_get_brand` now raises a ClickException
+  that names the plugin and `aitbc plugin create <name>`.
+- `genesis info` printed all-null `genesis_block` fields when the
+  genesis file carries no block record; it now reads block 0 from the
+  chain DB (read-only) and falls back to a note when it is not sealed.
