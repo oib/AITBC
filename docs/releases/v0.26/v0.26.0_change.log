@@ -305,3 +305,16 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - `genesis info` printed all-null `genesis_block` fields when the
   genesis file carries no block record; it now reads block 0 from the
   chain DB (read-only) and falls back to a note when it is not sealed.
+### PLAY2-ERRORS-1 — classify and fix the errors the scenario-play C0 replay left (CLI + bridge monitor; #437)
+
+- Phase 0 classified six replay errors: `ai status`/`results` 404 and the
+  `zk`/`tee` 401s are correct behaviour (placeholder id, service-level
+  auth); `ai service test` is correctly gated on MCP (it POSTs);
+  `test_cli_basic` archive failures are environmental.
+- Fix: `resource status` called ``client.get()`` which raises ``TypeError``
+  on the ``/v1/agent-performance/resources`` JSON array before its own
+  list-normalisation ran — now uses ``get_json()``; canned-shape tests in
+  ``cli/tests/test_resource_status.py``.
+- Fix (cosmetic): ``bridge_monitor``'s "broadcast as" log printed the
+  derived envelope hash while the chain stores the RPC-returned hash —
+  it now logs ``posted``. Service code; deploy needs a hub restart.
