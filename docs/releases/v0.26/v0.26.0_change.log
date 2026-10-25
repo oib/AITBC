@@ -540,3 +540,13 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   stream-3 throwaway cluster, verifies counts and keys, reruns to see the
   nonempty refusal, and checks `--allow-nonempty` preserves target-only
   rows.
+
+
+### TAIL-B-1
+
+- `test_heal_revision_rewrites_lowercase_rows` is head-independent: it
+  downgrades to the heal's `down_revision` (`c3a91f7e5b02`) instead of
+  a relative `-1`, so migrations landed above the heal no longer break
+  it. Regression findings: SM-07/SM-08 were staging artifacts — the
+  server already stamps ok/exit_code and the typed tool already
+  forwards `--format`; only the replay classifier needed updating.
