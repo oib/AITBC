@@ -71,3 +71,8 @@
 ### OPTION-DOCS-1
 
 - docs(scenarios): option-level CLI coverage census lands as scripts/dev/gen_option_coverage.py (reads the staging SCENARIO-PLAY-1 census + cli-tree dump, emits the per-option exercise report). The census fix masking <placeholder> tokens before the shell-operator split revealed only 5 truly undocumented required options; docs gained a worked 'aitbc market host' example (scenario 11) and 'aitbc wallet bridge deposit/withdraw' entry-point lines (scenario 59). Required-but-undocumented options: 0. Refs #450
+
+### fix(cli): paid-job escrow to resolves node_wallet, not proposer id (Refs #455)
+
+- `market run`/`market hermes` no longer seed the escrow `to` from HUB_PROPOSER_ID; the explicit `--proposer` flag remains the only caller-side override and `_escrow_create` resolves the custody wallet from the node RPC /health (warned HUB_PROPOSER_ID fallback).
+- `agent-task hire` settlement wallet order is now coordinator escrow-config → /health node_wallet → warned HUB_PROPOSER_ID.

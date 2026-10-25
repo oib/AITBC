@@ -410,7 +410,11 @@ def _run_ipfs_hosting(
 @click.option("--cid-or-file", "cid_or_file", required=True, help="The Cid or local file path.")
 @click.option("--days", type=int, default=1, help="Rental duration in days")
 @click.option("--pin/--no-pin", default=True, help="Pin the CID after paying the rental")
-@click.option("--proposer-id", "proposer_id", help="Override hub proposer address for escrow")
+@click.option(
+    "--proposer-id",
+    "proposer_id",
+    help="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)",
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def host(
