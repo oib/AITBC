@@ -1,0 +1,18 @@
+# v0.28.0 — post-reset tasks (staging)
+
+**Tag**: `v0.28.0` (pending).
+
+
+### ISLAND-FOLLOWUP-1
+
+- `IslandHubSilent` summary corrected to "25+ minutes": the 600 s gauge
+  boundary plus `for: 15m` makes the earliest fire ~25 minutes, not the
+  15 the old text implied. `IslandGossipSilent` renamed to
+  `IslandImportSilent` and reworded to "No block import": the feed runs
+  on every accepted import (gossip, subscription sync, pull), verified
+  live 25 Oct — node0 imported 997 blocks via subscription and 0 via
+  gossip in 24 h with no false alert. Gauge names unchanged
+  (`aitbc_island_gossip_silence_seconds` still measures import silence);
+  expressions, thresholds and `for:` values unchanged. promtool
+  check + test green on node2 (island section; two BridgeSet failures
+  pre-exist on main).
