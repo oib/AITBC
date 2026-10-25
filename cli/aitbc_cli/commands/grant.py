@@ -6,8 +6,9 @@ import os
 
 import click
 
-from ..utils import error, output
+from ..utils import output
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.error_handling import abort
 
 COORDINATOR_API_URL = "http://localhost:8203"
 
@@ -66,9 +67,9 @@ def create(
         result = client.post("/v1/grants", json=payload)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error creating grant: {e}")
+        abort(None, f"Error creating grant: {e}")
 
 
 @grant.command(
@@ -104,9 +105,9 @@ def list_grants(
         result = client.get("/v1/grants", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error listing grants: {e}")
+        abort(None, f"Error listing grants: {e}")
 
 
 @grant.command(
@@ -128,9 +129,9 @@ def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
         result = client.post(f"/v1/grants/{grant_id}/vote", json={"vote": vote, "voting_power": voting_power})
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error voting on grant: {e}")
+        abort(None, f"Error voting on grant: {e}")
 
 
 @grant.command(
@@ -156,6 +157,6 @@ def disburse(ctx, grant_id: str, milestone_id: str | None, amount: str | None, f
         )
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error disbursing grant: {e}")
+        abort(None, f"Error disbursing grant: {e}")

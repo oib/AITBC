@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 
 from ._group import market
 from . import get_wallet_address
+from ...utils.error_handling import abort
 
 
 def _market_base_url(override_url: str | None = None) -> str:
@@ -200,7 +201,7 @@ def sync_ratings(ctx, remote_url: str, limit: int):
                 )
                 info(f"Marked {mark_response.get('marked_synced', 0)} local ratings as synced")
             else:
-                error(f"Failed to sync ratings to remote: {sync_response}")
+                abort(None, f"Failed to sync ratings to remote: {sync_response}")
         else:
             info("No unsynced ratings found locally")
 
