@@ -184,7 +184,7 @@ aitbc agent register-identity --agent-id agent_a1b2c3d4 --agent-address 0x1a2b3c
   "identity_id": "id_abc123",
   "agent_id": "agent_a1b2c3d4",
   "agent_address": "0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4",
-  "chain_id": "ait-mainnet",
+  "chain_id": "bc-2",
   "status": "registered",
   "is_verified": false
 }

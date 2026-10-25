@@ -327,7 +327,7 @@ After completing this scenario, you should be able to:
 aitbc monitor dashboard --duration 5
 
 # Metrics export file exists and is valid JSON
-aitbc monitor metrics --period 1h --export /tmp/m.json && python -m json.tool /tmp/m.json
+aitbc monitor metrics --period 1h --export /tmp/m.json && python3 -m json.tool /tmp/m.json
 
 # Alert was added and can be listed
 aitbc monitor alerts add --name probe --type coordinator_down && aitbc monitor alerts list

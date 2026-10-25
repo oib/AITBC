@@ -30,7 +30,7 @@ breadcrumb: Home > Scenarios > Genesis Deployment
 > `unified_genesis.py` path via `aitbc genesis init`, which cannot emit the
 > canonical bc-2 genesis document. The only supported builder is
 > `apps/blockchain-node/src/aitbc_chain/genesis_builder.py`, driven by
-> `scripts/ops/build-genesis.py`; the `ait-mainnet` chain id below is an
+> `scripts/ops/build-genesis.py`; the `bc-2` chain id below is an
 > old-chain example.
 
 This scenario demonstrates how to initialize a blockchain's genesis block, verify its integrity, and inspect genesis configuration. The genesis block is the first block in a chain and defines the initial state — including token allocations, the proposer, and the chain ID.
@@ -63,7 +63,7 @@ Before an AI agent can send transactions or participate in consensus, a blockcha
 
 ### Setup Required
 
-- Set the `CHAIN_ID` environment variable or configure it in the AITBC config (e.g., `ait-mainnet`)
+- Set the `CHAIN_ID` environment variable or configure it in the AITBC config (e.g., `bc-2`)
 - Ensure the data directory `/var/lib/aitbc/data/` exists
 
 ---
@@ -76,7 +76,7 @@ The `init` command runs the unified genesis generation script (`unified_genesis.
 
 ```bash
 # Initialize genesis with auto-detected chain ID and a genesis wallet
-aitbc genesis init --chain-id ait-mainnet --create-wallet
+aitbc genesis init --chain-id bc-2 --create-wallet
 ```
 
 You will be prompted for a wallet password (or provide it with `--password`).
@@ -84,7 +84,7 @@ You will be prompted for a wallet password (or provide it with `--password`).
 **Expected output:**
 
 ```
-Running genesis generation for ait-mainnet...
+Running genesis generation for bc-2...
 Genesis generation completed successfully
 ```
 
@@ -105,7 +105,7 @@ Genesis generation completed successfully
 If a genesis already exists, use `--force` to overwrite it:
 
 ```bash
-aitbc genesis init --chain-id ait-mainnet --create-wallet --force
+aitbc genesis init --chain-id bc-2 --create-wallet --force
 ```
 
 ### Step 3: Verify Genesis Integrity
@@ -117,14 +117,14 @@ The `verify` command checks three things:
 3. The genesis wallet exists at `/var/lib/aitbc/keystore/genesis.json`
 
 ```bash
-aitbc genesis verify --chain-id ait-mainnet
+aitbc genesis verify --chain-id bc-2
 ```
 
 **Expected output:**
 
 ```
-✓ Genesis config found: /var/lib/aitbc/data/ait-mainnet/genesis.json
-chain_id           ait-mainnet
+✓ Genesis config found: /var/lib/aitbc/data/bc-2/genesis.json
+chain_id           bc-2
 genesis_hash       0x0000000000000000000000000000000000000000000000000000000000000000
 proposer           0x0000000000000000000000000000000000000000
 allocations_count  3
@@ -143,13 +143,13 @@ public_key  -----BEGIN PUBLIC-----
 The `info` command displays detailed genesis block data including block hash, parent hash, proposer, timestamp, and the first 5 token allocations.
 
 ```bash
-aitbc genesis info --chain-id ait-mainnet
+aitbc genesis info --chain-id bc-2
 ```
 
 **Expected output:**
 
 ```
-chain_id  ait-mainnet
+chain_id  bc-2
 genesis_block
   height        0
   hash          0x0000000000000000000000000000000000000000000000000000000000000000
@@ -177,7 +177,7 @@ For follower nodes joining an existing network, use `sync-from-hub` to fetch the
 
 ```bash
 aitbc genesis sync-from-hub \
-  --chain-id ait-mainnet \
+  --chain-id bc-2 \
   --rpc-url http://localhost:8202
 ```
 
@@ -185,18 +185,18 @@ aitbc genesis sync-from-hub \
 
 ```
 Fetching genesis from hub: http://localhost:8202
-Chain ID: ait-mainnet
-✓ Genesis synced successfully: /var/lib/aitbc/data/ait-mainnet/genesis.json
-chain_id      ait-mainnet
+Chain ID: bc-2
+✓ Genesis synced successfully: /var/lib/aitbc/data/bc-2/genesis.json
+chain_id      bc-2
 genesis_hash  0x0000000000000000000000000000000000000000000000000000000000000000
 timestamp     2026-06-25T12:00:00Z
-file_path     /var/lib/aitbc/data/ait-mainnet/genesis.json
+file_path     /var/lib/aitbc/data/bc-2/genesis.json
 ```
 
 Use `--force` to overwrite an existing genesis file:
 
 ```bash
-aitbc genesis sync-from-hub --chain-id ait-mainnet --force
+aitbc genesis sync-from-hub --chain-id bc-2 --force
 ```
 
 ---
@@ -311,19 +311,19 @@ Verify that genesis was correctly deployed:
 
 ```bash
 # Verify genesis block and accounts exist in the database
-aitbc genesis verify --chain-id ait-mainnet
+aitbc genesis verify --chain-id bc-2
 
 # Inspect genesis configuration
-aitbc genesis info --chain-id ait-mainnet
+aitbc genesis info --chain-id bc-2
 
 # Verify the genesis file exists
-ls -la /var/lib/aitbc/data/ait-mainnet/genesis.json
+ls -la /var/lib/aitbc/data/bc-2/genesis.json
 
 # Verify the genesis wallet exists
 ls -la /var/lib/aitbc/keystore/genesis.json
 
 # Check the blockchain node is running and reporting the correct chain ID
-curl -fsS http://localhost:8202/health | python -m json.tool
+curl -fsS http://localhost:8202/health | python3 -m json.tool
 ```
 
 ---
