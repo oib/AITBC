@@ -108,6 +108,26 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 detail=f"release amount exceeds the escrow's locked amount of {raw} AIT",
             )
 
+    async def _post_release(self, client: AsyncAITBCHTTPClient, job_id: str, forward: dict[str, Any]) -> dict[str, Any]:
+        """POST the release to the settlement node; 4xx pass through, else 502."""
+        try:
+            return await client.post(
+                f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
+                json=forward,
+            )
+        except Exception as exc:
+            code, detail = _chain_detail(exc, "the node refused the escrow release")
+            if code is not None and 400 <= code < 500:
+                # Chain 4xx: the node's refusal is a domain message safe to
+                # pass through at the same status code.
+                raise HTTPException(status_code=code, detail=detail) from exc
+            # Timeout / 5xx / ambiguous post-send failure: the release may
+            # still have landed — the replay dedup makes a retry safe.
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="the escrow release relay could not reach the settlement node; the request can be retried",
+            ) from exc
+
     def _stored_result(self, row: EscrowReleaseRelay) -> dict[str, Any]:
         return {
             "success": True,
@@ -197,23 +217,7 @@ class EscrowReleaseRelayService(EscrowRelayService):
         if job_tx_hash is not None:
             forward["job_tx_hash"] = job_tx_hash
 
-        try:
-            chain_response = await client.post(
-                f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
-                json=forward,
-            )
-        except Exception as exc:
-            code, detail = _chain_detail(exc, "the node refused the escrow release")
-            if code is not None and 400 <= code < 500:
-                # Chain 4xx: the node's refusal is a domain message safe to
-                # pass through at the same status code.
-                raise HTTPException(status_code=code, detail=detail) from exc
-            # Timeout / 5xx / ambiguous post-send failure: the release may
-            # still have landed — the replay dedup makes a retry safe.
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="the escrow release relay could not reach the settlement node; the request can be retried",
-            ) from exc
+        chain_response = await self._post_release(client, job_id, forward)
 
         tx_hash = chain_response.get("tx_hash") if isinstance(chain_response, dict) else None
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
