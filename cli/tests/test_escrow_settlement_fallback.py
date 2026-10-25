@@ -157,3 +157,210 @@ def test_escrow_create_refuses_foreign_settlement_url(monkeypatch):
             node_wallet="0xPROP",
         )
     assert calls == ["http://127.0.0.1:8202"]  # never touched the foreign URL
+
+
+# --- ESCROW-ROUTE-1: coordinator relay ------------------------------------
+#
+# Market escrows carry a locally-minted job_id with no coordinator job row,
+# so POST /v1/payments cannot serve them. The CLI relays the buyer-signed
+# lock to POST /v1/escrow/relay when a client credential exists — the
+# coordinator submits /rpc/escrow/create from the hub, inside the nginx
+# allowlist. A 404 (older coordinator without the endpoint) falls through
+# to the settlement-node retry.
+
+
+class _RespStatus:
+    def __init__(self, status_code: int, detail: str = ""):
+        self.status_code = status_code
+        self._detail = detail
+
+    def json(self):
+        return {"detail": self._detail}
+
+
+class _StatusError(RuntimeError):
+    def __init__(self, status_code: int, detail: str = ""):
+        super().__init__(f"HTTP {status_code}")
+        self.response = _RespStatus(status_code, detail)
+
+
+class _RelayClient:
+    """Stub AITBCHTTPClient for the coordinator relay; records posts."""
+
+    instances: list = []
+
+    def __init__(self, base_url, **kw):
+        self.base_url = base_url
+        self.kw = kw
+        self.posts = []
+        _RelayClient.instances.append(self)
+
+    def post(self, endpoint, json=None):
+        self.posts.append((endpoint, json))
+        if endpoint == "/v1/escrow/relay":
+            return {"contract_id": "contract-relay"}
+        raise AssertionError(f"unexpected endpoint {endpoint}")
+
+
+def _ctx(api_key="tok", url="http://coord:8203"):
+    return SimpleNamespace(obj={"api_key": api_key, "url": url})
+
+
+def _config():
+    return SimpleNamespace(
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+    )
+
+
+def _patch_lock_signing(monkeypatch):
+    monkeypatch.setattr(
+        "aitbc_cli.utils.escrow.create_signed_escrow_lock",
+        lambda *a, **kw: ({"tx": "x"}, "sig"),
+    )
+    monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
+
+
+def test_escrow_create_relays_via_coordinator(monkeypatch):
+    """Local RPC refuses; coordinator relay creates the escrow — the node
+    RPC and the settlement node are never needed beyond the first try."""
+
+    class _RefuseLocalOnly:
+        def __init__(self, base_url, **kw):
+            self.base_url = base_url
+
+        def post(self, endpoint, json=None):
+            raise _StatusError(503, DETAIL)
+
+    _RelayClient.instances = []
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _RefuseLocalOnly(base_url))
+    monkeypatch.setattr(esc_mod, "AITBCHTTPClient", _RelayClient)
+    monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
+    _patch_lock_signing(monkeypatch)
+
+    contract = esc_mod._escrow_create(
+        _ctx(),
+        job_id="sw_job_1",
+        buyer="0xB",
+        provider="0xP",
+        amount=Decimal("0.002"),
+        config=_config(),
+        private_key="deadbeef",
+        node_wallet="0xPROP",
+    )
+    assert contract == "contract-relay"
+    assert len(_RelayClient.instances) == 1
+    relay = _RelayClient.instances[0]
+    assert relay.base_url == "http://coord:8203"
+    assert relay.posts[0][0] == "/v1/escrow/relay"
+    assert relay.posts[0][1]["job_id"] == "sw_job_1"
+    assert relay.posts[0][1]["lock_tx"]["signature"] == "sig"
+
+
+def test_escrow_create_relay_404_falls_back_to_settlement(monkeypatch):
+    """A coordinator that does not serve /v1/escrow/relay (404) falls
+    through to the settlement-node retry unchanged."""
+
+    class _NoRelay(_RelayClient):
+        def post(self, endpoint, json=None):
+            self.posts.append((endpoint, json))
+            raise _StatusError(404, "Not Found")
+
+    class _RefuseLocal:
+        def __init__(self, base_url, **kw):
+            self.base_url = base_url
+
+        def post(self, endpoint, json=None):
+            assert endpoint == "/rpc/escrow/create"
+            if "hub.aitbc" in self.base_url:
+                return {"contract_id": "contract-9"}
+            raise _StatusError(503, DETAIL)
+
+    _RelayClient.instances = []
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _RefuseLocal(base_url))
+    monkeypatch.setattr(esc_mod, "AITBCHTTPClient", _NoRelay)
+    monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
+    _patch_lock_signing(monkeypatch)
+
+    contract = esc_mod._escrow_create(
+        _ctx(),
+        job_id="j1",
+        buyer="0xB",
+        provider="0xP",
+        amount=Decimal("0.002"),
+        config=_config(),
+        private_key="deadbeef",
+        node_wallet="0xPROP",
+    )
+    assert contract == "contract-9"
+
+
+def test_escrow_create_no_token_skips_relay(monkeypatch):
+    """Without a client credential the relay is skipped entirely — no
+    coordinator client is constructed."""
+
+    class _RefuseLocal:
+        def __init__(self, base_url, **kw):
+            self.base_url = base_url
+
+        def post(self, endpoint, json=None):
+            if "hub.aitbc" in self.base_url:
+                return {"contract_id": "contract-9"}
+            raise _StatusError(503, DETAIL)
+
+    _RelayClient.instances = []
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _RefuseLocal(base_url))
+    monkeypatch.setattr(esc_mod, "AITBCHTTPClient", _RelayClient)
+    # No stored client credential either — _client_token must return None.
+    monkeypatch.setattr(esc_mod, "AuthManager", lambda: SimpleNamespace(get_credential=lambda name: None))
+    monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
+    _patch_lock_signing(monkeypatch)
+
+    contract = esc_mod._escrow_create(
+        _ctx(api_key=None),
+        job_id="j1",
+        buyer="0xB",
+        provider="0xP",
+        amount=Decimal("0.002"),
+        config=_config(),
+        private_key="deadbeef",
+        node_wallet="0xPROP",
+    )
+    assert contract == "contract-9"
+    assert _RelayClient.instances == []
+
+
+def test_escrow_create_relay_error_still_tries_settlement(monkeypatch):
+    """A relay failure (non-404) warns and still retries the settlement
+    node named in the 503 detail."""
+
+    class _BadRelay(_RelayClient):
+        def post(self, endpoint, json=None):
+            self.posts.append((endpoint, json))
+            raise _StatusError(502, "bad gateway")
+
+    class _RefuseLocal:
+        def __init__(self, base_url, **kw):
+            self.base_url = base_url
+
+        def post(self, endpoint, json=None):
+            if "hub.aitbc" in self.base_url:
+                return {"contract_id": "contract-9"}
+            raise _StatusError(503, DETAIL)
+
+    _RelayClient.instances = []
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _RefuseLocal(base_url))
+    monkeypatch.setattr(esc_mod, "AITBCHTTPClient", _BadRelay)
+    monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
+    _patch_lock_signing(monkeypatch)
+
+    contract = esc_mod._escrow_create(
+        _ctx(),
+        job_id="j1",
+        buyer="0xB",
+        provider="0xP",
+        amount=Decimal("0.002"),
+        config=_config(),
+        private_key="deadbeef",
+        node_wallet="0xPROP",
+    )
+    assert contract == "contract-9"
