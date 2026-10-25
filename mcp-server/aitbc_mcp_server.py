@@ -2312,21 +2312,6 @@ def check_aitbc_system_health(
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
-def list_aitbc_ipfs_rentals(
-    role: Annotated[
-        NodeRole | None,
-        Field(description="Node role to query."),
-    ] = None,
-    host: Annotated[
-        str | None,
-        Field(description="Override the host for this call."),
-    ] = None,
-) -> str:
-    """List active IPFS hosting rentals."""
-    return _aitbc_cli_read_tool(role, host, "ipfs", "rentals")
-
-
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_aitbc_ipfs_pins(
     role: Annotated[
         NodeRole | None,

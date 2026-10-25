@@ -362,7 +362,7 @@ def list_node_islands(
     ] = None,
 ) -> str:
     """List all known islands from a node's island manager."""
-    return _aitbc_cli_read_tool(role, host, "node", "island-list-islands")
+    return _aitbc_cli_read_tool(role, host, "node", ["island", "list-islands"])
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -532,27 +532,35 @@ def upload_ipfs(
     return _run_aitbc_cli_write(role, host, "ipfs", "upload", None, options, dry_run, confirm)
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def download_ipfs(
     cid: Annotated[str, Field(description="CID to download.")],
     output: Annotated[str | None, Field(description="Write retrieved content to this remote path.")] = None,
     wait: Annotated[bool, Field(description="Wait for the CID to become available on the network.")] = False,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
         NodeRole | None,
-        Field(description="Node role to query."),
+        Field(description="Node role to run the command on."),
     ] = None,
     host: Annotated[
         str | None,
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Download IPFS content by CID."""
+    """Download IPFS content by CID.
+
+    Writes the retrieved content to a file on the remote host (a tempfile when
+    ``output`` is not given), so it is gated like ``aitbc_ipfs_download``.
+    """
     subcommand_options: dict[str, str | None] = {"cid": cid}
     if output is not None:
         subcommand_options["output"] = output
     if wait:
         subcommand_options["wait"] = None
-    return _aitbc_cli_read_tool(role, host, "ipfs", "download", options=subcommand_options, timeout=120)
+    return _run_aitbc_cli_write(
+        role, host, "ipfs", "download", None, None, dry_run, confirm, timeout=120, subcommand_options=subcommand_options
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -786,13 +794,15 @@ def run_market_offer(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def download_market_ipfs(
     cid: Annotated[str | None, Field(description="Free CID to retrieve.")] = None,
     rental_id: Annotated[str | None, Field(description="Market job ID for a paid rental.")] = None,
     access_key: Annotated[str | None, Field(description="Rental access key.")] = None,
     access_secret: Annotated[str | None, Field(description="Rental access secret.")] = None,
     output: Annotated[str | None, Field(description="Output file path.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
         NodeRole | None,
         Field(description="Node role to run the command on."),
@@ -802,7 +812,11 @@ def download_market_ipfs(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Download IPFS content by CID, market job ID, or access token."""
+    """Download IPFS content by CID, market job ID, or access token.
+
+    Writes the retrieved content to a file on the remote host (a tempfile when
+    ``output`` is not given), so it is gated like ``aitbc_market_download``.
+    """
     subcommand_options: dict[str, str | None] = {}
     if cid:
         subcommand_options["cid"] = cid
@@ -814,11 +828,15 @@ def download_market_ipfs(
         subcommand_options["access-secret"] = access_secret
     if output:
         subcommand_options["output"] = output
-    return _aitbc_cli_read_tool(
+    return _run_aitbc_cli_write(
         role,
         host,
         "market",
         "download",
+        None,
+        None,
+        dry_run,
+        confirm,
         group_options={},
         subcommand_options=subcommand_options,
     )
