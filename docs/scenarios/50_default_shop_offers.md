@@ -103,6 +103,46 @@ Expected result:
 - A generated response is printed.
 - `Payment released: ... AIT`
 
+<!-- COVERAGE-LEFT-1: market leaves that lost their home when scenario 08 was archived (issue #445) -->
+
+### 6. Read-only market views
+
+These only read the marketplace service or chain state:
+
+```bash
+aitbc market providers
+aitbc market jobs
+aitbc market match
+aitbc market offer-list
+aitbc market payment
+aitbc market status --order-id <order-id>
+aitbc market ratings --service-id <service-id>
+aitbc market gpu status --job-id <job-id>
+aitbc market gpu quote --gpu-id <gpu-id> --buyer-id <buyer-id>
+aitbc market exchange price
+aitbc market exchange status
+aitbc market exchange list-deposits
+```
+
+### 7. Fund-moving and state-changing market calls
+
+Documented for coverage; each moves funds or mutates market/service state — not played, needs the operator's line.
+
+- `aitbc market cancel --job-id <job-id>` — cancels a market job.
+- `aitbc market escrow create --job-id <job-id> --buyer <addr> --provider <addr>` — locks buyer funds in escrow.
+- `aitbc market escrow release --job-id <job-id>` — releases escrowed funds to the provider.
+- `aitbc market gpu buy --gpu-id <id> --buyer-id <id> --job-id <id> --duration-hours <n>` — paid GPU purchase.
+- `aitbc market gpu refund --job-id <job-id>` — refunds a GPU job payment.
+- `aitbc market gpu release --job-id <job-id>` — releases a GPU job payment.
+- `aitbc market exchange deposit-eth --amount <units>` — deposits ETH into the exchange.
+- `aitbc market exchange mint-ait --deposit-id <id>` — mints AIT against a deposit.
+- `aitbc market exchange withdraw-eth --amount <units> --address <addr>` — withdraws ETH from the exchange.
+- `aitbc market hermes --offer-id-or-plugin-id <id> --prompt <text>` — paid Hermes job.
+- `aitbc market offer-cancel --order-ids <ids>` — cancels published offers.
+- `aitbc market offer-disable --plugin-id <id>` — disables an offer plugin.
+- `aitbc market rate --service-id <id> --rating <n>` — writes a service rating.
+- `aitbc market sync-ratings --remote-url <url>` — pulls/pushes rating state.
+
 ## Validation
 
 - `aitbc market list` shows the default offers with `Status: active`.
