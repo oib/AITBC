@@ -44,8 +44,11 @@ def build_monitor_from_settings() -> IslandMonitor | None:
 
 _hub_silence_gauge = 0.0
 _gossip_silence_gauge = 0.0
+_import_silence_gauge = 0.0
 
 HUB_SILENCE_METRIC = "aitbc_island_hub_silence_seconds"
+IMPORT_SILENCE_METRIC = "aitbc_island_import_silence_seconds"
+# Deprecated alias kept for one release — same series, old name (ISLAND-GAUGE-RENAME-1).
 GOSSIP_SILENCE_METRIC = "aitbc_island_gossip_silence_seconds"
 
 
@@ -76,9 +79,13 @@ def publish_silence_gauges(monitor: IslandMonitor) -> None:
             "Seconds since any path last observed the island hub (gossip or pull).",
         ).set_function(monitor.hub_silence_seconds)
         _gauge_or_existing(
+            IMPORT_SILENCE_METRIC,
+            "Seconds since this node last accepted a block import on any transport.",
+        ).set_function(monitor.import_silence_seconds)
+        _gauge_or_existing(
             GOSSIP_SILENCE_METRIC,
-            "Seconds since the gossip layer last delivered a block.",
-        ).set_function(monitor.gossip_silence_seconds)
+            "Deprecated alias of aitbc_island_import_silence_seconds; removed next release.",
+        ).set_function(monitor.import_silence_seconds)
     except Exception:  # metrics must never break the monitor
         logger.exception("island gauge publish failed")
 
@@ -87,8 +94,12 @@ def island_hub_silence_seconds() -> float:
     return _hub_silence_gauge
 
 
+def island_import_silence_seconds() -> float:
+    return _import_silence_gauge or _gossip_silence_gauge
+
+
 def island_gossip_silence_seconds() -> float:
-    return _gossip_silence_gauge
+    return island_import_silence_seconds()
 
 
 @dataclass
@@ -126,13 +137,17 @@ class IslandMonitor:
     def hub_silence_seconds(self) -> float:
         return _now() - self.last_hub_observation_at
 
-    def gossip_silence_seconds(self) -> float:
+    def import_silence_seconds(self) -> float:
         return _now() - self.last_gossip_block_at
 
+    # Deprecated alias — the feed is every accepted import, not gossip only.
+    gossip_silence_seconds = import_silence_seconds
+
     def tick(self, head_height: int) -> Tier:
-        global _hub_silence_gauge, _gossip_silence_gauge
+        global _hub_silence_gauge, _gossip_silence_gauge, _import_silence_gauge
         _hub_silence_gauge = self.hub_silence_seconds()
-        _gossip_silence_gauge = self.gossip_silence_seconds()
+        _import_silence_gauge = self.import_silence_seconds()
+        _gossip_silence_gauge = _import_silence_gauge
         self._tier = evaluate_island_state(
             seconds_since_gossip_block=_gossip_silence_gauge,
             seconds_since_hub_observation=_hub_silence_gauge,
