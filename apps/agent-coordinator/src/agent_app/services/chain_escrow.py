@@ -57,6 +57,10 @@ class ChainEscrowClient:
         self._client.close()
 
     def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        from aitbc.island_deferral import IslandDegradedError, should_defer
+
+        if should_defer("escrow-submit"):
+            raise IslandDegradedError(f"island-degraded: escrow submit deferred ({path})")
         try:
             response = self._client.post(path, json=body)
         except httpx.HTTPError as e:
