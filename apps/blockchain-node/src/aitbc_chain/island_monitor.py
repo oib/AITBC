@@ -11,11 +11,31 @@ from __future__ import annotations
 
 import os
 import time
+from typing import Any
 from dataclasses import dataclass, field
 
 from aitbc_chain.island_liveness import Tier, evaluate_island_state
 
 ISLAND_DEFER_ENABLED = os.getenv("ISLAND_DEFER_ENABLED", "").lower() in ("1", "true", "yes")
+
+
+def build_monitor_from_settings() -> IslandMonitor | None:
+    """The monitor's single construction site. Returns None unless
+    island_hub_proposer_id is configured — flag-off by construction: an
+    unconfigured node takes no monitor path at all. validator_count reads
+    len(VALIDATOR_SET) at call time, never an env constant."""
+    from aitbc_chain.config import settings
+
+    hub_id = (settings.island_hub_proposer_id or "").strip()
+    if not hub_id:
+        return None
+    vals = [v for v in (settings.validator_set or "").split(",") if v.strip()]
+    return IslandMonitor(
+        beacon_interval=float(getattr(settings, "max_empty_block_interval", 60.0)),
+        is_hub_self=(settings.proposer_id or "").lower() == hub_id.lower(),
+        validator_count=len(vals) or 1,
+    )
+
 
 _hub_silence_gauge = 0.0
 _gossip_silence_gauge = 0.0
@@ -77,7 +97,7 @@ class IslandMonitor:
         self._last_eval_head = head_height
         return self._tier
 
-    def health(self) -> dict:
+    def health(self) -> dict[str, Any]:
         return {
             "degraded": "none" if self._tier is Tier.HEALTHY else self._tier.value,
             "hub_silence_seconds": round(_hub_silence_gauge, 1),
