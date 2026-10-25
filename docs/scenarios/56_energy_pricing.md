@@ -127,6 +127,21 @@ verified live on the fleet.
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### 6. Read the provider AIT/EUR rate
+
+Prints the provider's configured AIT-per-EUR rate; with `--publish` it would write on-chain — this pass reads only.
+
+```bash
+aitbc energy provider rate
+```
+
+---
+
 ## Verification
 
 - `provider profile --resource-id …` returns the registered TBP and tariff.
