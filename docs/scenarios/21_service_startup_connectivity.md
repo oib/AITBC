@@ -98,6 +98,105 @@ aitbc bridge health
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 5: System architect overview
+
+Prints the service architecture map.
+
+```bash
+aitbc system architect
+```
+
+### Step 6: Audit service configuration
+
+Runs the configuration audit across services.
+
+```bash
+aitbc system audit
+```
+
+### Step 7: Show service config
+
+Prints resolved configuration for services (no secrets without --show-secrets).
+
+```bash
+aitbc system config
+```
+
+### Step 8: List cron entries
+
+Shows scheduled jobs the CLI manages.
+
+```bash
+aitbc system cron
+```
+
+### Step 9: List env var names
+
+Lists the environment variable names a service consumes.
+
+```bash
+aitbc system env-names --service aitbc-coordinator-api
+```
+
+### Step 10: Read a managed file
+
+Prints a managed config file.
+
+```bash
+aitbc system file --path /etc/aitbc/aitbc-coordinator-api.env
+```
+
+### Step 11: Managed file metadata
+
+Shows size/mtime metadata for a managed file.
+
+```bash
+aitbc system file-info --path /etc/aitbc/aitbc-coordinator-api.env
+```
+
+### Step 12: Read service logs
+
+Tails a service's journal.
+
+```bash
+aitbc system logs --service aitbc-coordinator-api -n 20
+```
+
+### Step 13: Show a service unit
+
+Prints systemd properties for a service.
+
+```bash
+aitbc system show --service aitbc-coordinator-api
+```
+
+### Step 14: Dump a service env file
+
+`aitbc system cat --service aitbc-coordinator-api` is prints the raw env file including secrets — env/key material; not played, needs the operator's line.
+
+### Step 15: Set service env vars
+
+`aitbc system env-set aitbc-coordinator-api KEY=VALUE` is rewrites a service env file — env mutation; not played, needs the operator's line.
+
+### Step 16: Run a script on a service
+
+`aitbc system run-script --path /tmp/script.sh` is executes an arbitrary script — service control; not played, needs the operator's line.
+
+### Step 17: Start a service
+
+`aitbc system start --service aitbc-coordinator-api` is starts a systemd unit — service control; not played, needs the operator's line.
+
+### Step 18: Stop a service
+
+`aitbc system stop --service aitbc-coordinator-api` is stops a systemd unit — service control; not played, needs the operator's line.
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:

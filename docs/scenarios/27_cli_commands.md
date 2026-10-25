@@ -106,6 +106,41 @@ aitbc messaging send --wallet my-wallet --message "hello" --topic broadcast   # 
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 8: Log out of an auth session
+
+Clears the stored CLI auth credential.
+
+```bash
+aitbc auth logout
+```
+
+### Step 9: Allocate agent resources
+
+Reserves a resource allocation for an agent.
+
+Cost: 0 units — reservation record only.
+
+```bash
+aitbc resource allocate --agent-id agent-001 --cpu-cores 4 --memory-gb 8
+```
+
+### Step 10: Optimize agent resources
+
+Runs the resource optimizer against a target metric.
+
+Cost: 0 units — recommendation/adjustment only.
+
+```bash
+aitbc resource optimize --agent-id agent-001 --target-metric latency
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
