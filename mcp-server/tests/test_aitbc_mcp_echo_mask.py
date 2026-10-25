@@ -401,3 +401,22 @@ def test_deny_name_tables_match_aitbc_cli() -> None:
             assert mask._field_name_denied(name, deny_conn_strings=flag) == cli_system._field_name_denied(
                 name, deny_conn_strings=flag
             ), name
+
+
+def test_unbalanced_single_quoted_json_body_masked() -> None:
+    masked = mask.mask_command(f"aitbc http call x --body={{'api_key': '{FAKE}}}")
+    assert FAKE not in masked
+    assert MARKER in masked
+
+
+def test_fallback_leaves_hashes_and_prose_visible() -> None:
+    command = f"aitbc explorer tx {TX_HASH} --note='invalid token provided --to={ADDRESS}"
+    masked = mask.mask_command(command)
+    assert TX_HASH in masked
+    assert ADDRESS in masked
+    assert "invalid token provided" in masked
+
+
+def test_balanced_json_body_untouched_by_loose_pair() -> None:
+    command = 'aitbc http call x --body=\'{"name": "fake-job", "count": 3}\''
+    assert mask.mask_command(command) == command
