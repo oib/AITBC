@@ -364,7 +364,7 @@ aitbc node island list-islands
 aitbc node island island-info --island-id <your_island_id>
 
 # Verify island credentials were stored
-cat /var/lib/aitbc/island_credentials.json | python -m json.tool
+cat /var/lib/aitbc/island_credentials.json | python3 -m json.tool
 
 # Verify validator keys exist (required for joining)
 ls -la /var/lib/aitbc/keystore/validator_keys.json

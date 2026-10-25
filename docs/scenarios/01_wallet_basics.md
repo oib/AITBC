@@ -342,7 +342,7 @@ aitbc wallet list
 cat ~/.aitbc/config.yaml | grep active_wallet
 
 # Verify a backup file exists and contains valid JSON
-cat /tmp/my-agent-backup.json | python -m json.tool
+cat /tmp/my-agent-backup.json | python3 -m json.tool
 
 # Verify the restored wallet matches the original
 aitbc wallet list

@@ -318,3 +318,14 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - Fix (cosmetic): ``bridge_monitor``'s "broadcast as" log printed the
   derived envelope hash while the chain stores the RPC-returned hash —
   it now logs ``posted``. Service code; deploy needs a hub restart.
+
+
+### SCEN-DOCS-1
+
+- Scenario docs pass: stale chain ids (`ait-mainnet`/`ait-hub`/
+  `ait-devnet`/`ait-testnet`) corrected to `bc-2`; retired
+  `messaging send --recipient`/`messaging topic` calls rewritten to the
+  current `send --wallet --message [--topic]`/`topics` interface;
+  `gpu list` → `gpu list-gpus`; `python -m json.tool` → `python3`.
+  Scenario 08 (removed `market bid` group) retired to
+  `docs/archive/scenarios`; README count corrected 58 → 51.

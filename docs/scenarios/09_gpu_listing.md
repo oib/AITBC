@@ -158,7 +158,7 @@ aitbc gpu-onchain register \
   "price_per_hour": 0.075,
   "registered_by": "0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4",
   "status": "registered",
-  "chain_id": "ait-mainnet"
+  "chain_id": "bc-2"
 }
 ```
 
@@ -207,7 +207,7 @@ aitbc gpu-onchain allocate \
   "total_cost": 0.30,
   "allocated_by": "0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4",
   "status": "allocated",
-  "chain_id": "ait-mainnet"
+  "chain_id": "bc-2"
 }
 ```
 

@@ -66,8 +66,8 @@ An AI inference agent needs to join the the network to advertise its compute cap
 Register an agent on the cross-chain network. The `register` subcommand takes required options: `--agent-id`, `--name`, `--chain-id`, and `--endpoint`. Optional flags let you declare capabilities, an initial reputation score, and a version string.
 
 ```bash
-# Register an inference agent on the ait-hub chain
-aitbc agent-comm register --agent-id agent_infer_01 --name "Inference Agent" --chain-id ait-hub --endpoint http://localhost:8107 \
+# Register an inference agent on the bc-2 chain
+aitbc agent-comm register --agent-id agent_infer_01 --name "Inference Agent" --chain-id bc-2 --endpoint http://localhost:8107 \
     --capabilities "inference,gpu_compute,model_serving" \
     --reputation 0.7 \
     --version 1.2.0
@@ -80,7 +80,7 @@ Agent agent_infer_01 registered successfully!
 
 Agent ID      agent_infer_01
 Name          Inference Agent
-Chain ID      ait-hub
+Chain ID      bc-2
 Status        active
 Capabilities  inference, gpu_compute, model_serving
 Reputation    0.70
@@ -97,7 +97,7 @@ List all agents known to the coordinator network. You can filter by chain ID, st
 aitbc agent-comm list
 
 # Filter by chain and capabilities, output as JSON
-aitbc agent-comm list --chain-id ait-hub --capabilities inference --format json
+aitbc agent-comm list --chain-id bc-2 --capabilities inference --format json
 ```
 
 **Expected output:**
@@ -105,8 +105,8 @@ aitbc agent-comm list --chain-id ait-hub --capabilities inference --format json
 ```
 Registered Agents
 Agent ID          Name             Chain ID   Status    Reputation   Capabilities           Last Seen
-agent_infer_01    Inference Agent  ait-hub    active    0.70         inference, gpu_co...   2026-06-25 10:15:00
-agent_train_02    Training Agent   ait-hub    active    0.65         training, gpu_com...   2026-06-25 10:14:55
+agent_infer_01    Inference Agent  bc-2    active    0.70         inference, gpu_co...   2026-06-25 10:15:00
+agent_train_02    Training Agent   bc-2    active    0.65         training, gpu_com...   2026-06-25 10:14:55
 ```
 
 ### Step 3: Discover Agents on a Specific Chain
@@ -114,17 +114,17 @@ agent_train_02    Training Agent   ait-hub    active    0.65         training, g
 Discover agents on a target chain, optionally filtering by required capabilities.
 
 ```bash
-# Discover all agents on ait-hub
-aitbc agent-comm discover --chain-id ait-hub
+# Discover all agents on bc-2
+aitbc agent-comm discover --chain-id bc-2
 
 # Discover agents with specific capabilities
-aitbc agent-comm discover --chain-id ait-hub --capabilities "inference,gpu_compute"
+aitbc agent-comm discover --chain-id bc-2 --capabilities "inference,gpu_compute"
 ```
 
 **Expected output:**
 
 ```
-Agents on Chain ait-hub
+Agents on Chain bc-2
 Agent ID          Name             Status    Reputation   Capabilities                       Endpoint              Version
 agent_infer_01    Inference Agent  active    0.70         inference, gpu_compute, model...   http://localhost:8107 1.2.0
 agent_train_02    Training Agent   active    0.65         training, gpu_compute              http://localhost:9002 1.0.0
@@ -146,7 +146,7 @@ Agent Status: agent_infer_01
 Metric                   Value
 Agent ID                 agent_infer_01
 Name                     Inference Agent
-Chain ID                 ait-hub
+Chain ID                 bc-2
 Status                   active
 Reputation               0.700
 Capabilities             inference, gpu_compute, model_serving
@@ -183,7 +183,7 @@ Discovery Cache Size       2
 
 Agents by Chain
 Chain ID   Total Agents   Active Agents
-ait-hub    2              2
+bc-2    2              2
 ```
 
 ---
@@ -300,7 +300,7 @@ Verify that the agent was registered successfully:
 
 ```bash
 # Check the agent appears in the list
-aitbc agent-comm list --chain-id ait-hub --format json
+aitbc agent-comm list --chain-id bc-2 --format json
 
 # Check detailed status
 aitbc agent-comm status --agent-id agent_infer_01

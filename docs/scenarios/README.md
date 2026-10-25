@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-58 operator plays of **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Each play is driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
+51 operator plays of **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Each play is driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
 
 The closed economic loop these plays sit on (tokens → job → GPU → escrow → reputation) is documented in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md). Features that are CLI shells or roadmap items are **not** given scenarios until they join that loop.
 
@@ -33,7 +33,6 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 05 | [Island Creation](./05_island_creation.md) | Create and join blockchain islands | `aitbc node island` |
 | 06 | [Basic Trading](./06_basic_trading.md) | Buy/sell on the island exchange | `aitbc exchange-island` |
 | 07 | [AI Job Submission](./07_ai_job_submission.md) | Submit and monitor AI jobs | `aitbc ai` |
-| 08 | [Market Offers and Price Discovery](./08_market_bidding.md) | Discover, rank and pay for compute offers | `aitbc market list` / `match` / `run` / `rate` |
 | 09 | [GPU Listing](./09_gpu_listing.md) | Register local GPUs; on-chain GPU records | `aitbc gpu`, `aitbc gpu-onchain` |
 | 10 | [Agent SDK Identity](./10_agent_sdk_identity.md) | Create and configure agents | `aitbc agent` |
 | 11 | [IPFS Storage](./11_ipfs_storage.md) | Store and retrieve content-addressed artifacts | `aitbc ipfs`, `aitbc oracle` |
@@ -47,7 +46,7 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 19 | [Security Setup](./19_security_setup.md) | Audit, scan, and patch | `aitbc security` |
 | 20 | [Cross-Chain Transfer](./20_cross_chain_transfer.md) | Swaps and bridge operations | `aitbc crosschain`, `aitbc bridge` |
 
-GPU **software offers** (Ollama/Whisper/FFmpeg) use `aitbc market`. Scenario 08 targeted the old `aitbc market` **chain-listing** group, which no longer exists in the CLI — the scenario is stale pending rework and its commands will not run. Scenario 34 is the live shop-offer path.
+GPU **software offers** (Ollama/Whisper/FFmpeg) use `aitbc market`. Scenario 08 targeted the removed `aitbc market` **chain-listing** group and has been retired to `docs/archive/scenarios`. Scenario 34 is the live shop-offer path.
 
 ### Intermediate Scenarios (Live Operator Plays)
 
@@ -120,7 +119,7 @@ Several CLI groups are **hub-only services**. When the service is not reachable,
 
 Scenario files that touch these groups include a note near the top. Live product-path scenarios (e.g. 34, 07, 48) produce real on-chain/coordinator data when the services are running.
 
-**Registered groups:** the CLI currently registers ~70 top-level groups, including `agent`, `agent-comm`, `agent-msg`, `agent-task`, `gpu`, `gpu-onchain`, `tee`, `zk`, `health`, `http`, `dispute`, `bond`, `crosschain`, and `exchange-island`. `aitbc --help` is the authoritative list. Removed/absent groups documented in these scenarios: `aitbc market` (scenario 08).
+**Registered groups:** the CLI currently registers ~70 top-level groups, including `agent`, `agent-comm`, `agent-msg`, `agent-task`, `gpu`, `gpu-onchain`, `tee`, `zk`, `health`, `http`, `dispute`, `bond`, `crosschain`, and `exchange-island`. `aitbc --help` is the authoritative list. Removed/absent groups: `aitbc market` (scenario 08, retired to `docs/archive/scenarios`).
 
 ## See Also
 
