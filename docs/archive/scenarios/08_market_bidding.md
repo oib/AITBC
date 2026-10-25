@@ -338,6 +338,169 @@ if chosen:
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 7: List ETH deposits
+
+Shows recorded ETH deposits pending mint.
+
+```bash
+aitbc market exchange list-deposits --limit 10
+```
+
+### Step 8: Read the mint exchange price
+
+Prints the current ETH→AIT mint rate.
+
+```bash
+aitbc market exchange price
+```
+
+### Step 9: Check mint service status
+
+Reads the market exchange service status.
+
+```bash
+aitbc market exchange status
+```
+
+### Step 10: Check a GPU job escrow
+
+Shows the escrow state of a GPU rental job.
+
+```bash
+aitbc market gpu status --job-id job-001
+```
+
+### Step 11: List service offers
+
+Lists marketplace offers, optionally filtered by service type.
+
+```bash
+aitbc market offer-list --status active
+```
+
+### Step 12: Look up a payment
+
+Reads the payment record for a job.
+
+```bash
+aitbc market payment --job-id job-001
+```
+
+### Step 13: Check an order status
+
+Shows the lifecycle state of a market order.
+
+```bash
+aitbc market status --order-id ord-123
+```
+
+### Step 14: Create an escrow
+
+Locks job funds in escrow until release or refund.
+
+Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked.
+
+```bash
+aitbc market escrow create --job-id job-001 --buyer 0xBuyer --provider 0xProvider --amount 36000000
+```
+
+### Step 15: Release an escrow
+
+Pays the escrowed amount to the provider.
+
+Cost: 0 units — releases already-locked funds.
+
+```bash
+aitbc market escrow release --job-id job-001
+```
+
+### Step 16: Deposit ETH for minting
+
+Deposits ETH into the mint contract; the deposit is later minted as AIT.
+
+Cost: 0.001 ETH = 1_000_000_000_000_000 wei.
+
+```bash
+aitbc market exchange deposit-eth --amount 0.001
+```
+
+### Step 17: Mint AIT from a deposit
+
+Mints the AIT corresponding to a confirmed deposit.
+
+Cost: 0 units — mints against the recorded deposit.
+
+```bash
+aitbc market exchange mint-ait --deposit-id dep-123
+```
+
+### Step 18: Withdraw ETH
+
+Withdraws ETH from the exchange to an address.
+
+Cost: 0.001 ETH = 1_000_000_000_000_000 wei.
+
+```bash
+aitbc market exchange withdraw-eth --amount 0.001 --address 0xRecipient
+```
+
+### Step 19: Refund a GPU job
+
+Refunds the buyer on a failed GPU rental.
+
+Cost: 0 units — funds return to the buyer.
+
+```bash
+aitbc market gpu refund --job-id job-001 --reason "provider offline" --yes
+```
+
+### Step 20: Release a GPU job escrow
+
+Releases the GPU rental escrow to the provider.
+
+Cost: 0 units — releases already-locked funds.
+
+```bash
+aitbc market gpu release --job-id job-001 --yes
+```
+
+### Step 21: Cancel open offers
+
+Cancels one or more open marketplace offers.
+
+Cost: 0 units — frees locked offer collateral.
+
+```bash
+aitbc market offer-cancel --order-ids ord-123
+```
+
+### Step 22: Disable an offer plugin
+
+Disables a service-offer plugin on the shop node.
+
+Cost: 0 units — local config only.
+
+```bash
+aitbc market offer-disable --plugin-id whisper
+```
+
+### Step 23: Sync ratings from a peer
+
+Pulls marketplace ratings from a remote node into the local cache.
+
+Cost: 0 units — sync only.
+
+```bash
+aitbc market sync-ratings --remote-url http://hub.example:8102
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
