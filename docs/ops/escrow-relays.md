@@ -37,9 +37,20 @@ escrow. A relay refusal (buyer mismatch, amount over the lock, unknown
 job) is final — the CLI must not fall back to the rpc on a 4xx, only on
 an unreachable relay or a missing credential.
 
-> **Planned**: the CLI release call sites are being wired to the relay
-> under ESCROW-RELEASE-2; until that lands, a release from a customer
-> node still fails on the rpc with the named API-key error.
+- **425 "lock not yet sealed" is retryable, not a refusal**: the chain's
+  `_ensure_lock_sealed` gate answers 425 (`Retry-After: 5`) while the
+  ESCROW_LOCK is still in mempool, and the relay passes the 425 through
+  (dropping the header). The CLI waits and reposts the same body —
+  `Retry-After`-paced, default 5 s, 10 s per-wait cap, ~24 s total —
+  which is safe because the relay dedups on `job_id`. If the bound is
+  exhausted the failure is reported as a named retryable condition and
+  the rpc fallback still does not fire (it would 425 identically);
+  rerun `market escrow release` once the lock seals.
+- **`amount` is currently required** by the request schema (422 when
+  omitted); the bare-release CLI sites read the escrow's locked amount
+  over the local→hub GET to fill it. Making `amount` optional so the
+  chain releases the full lock server-side is proposed under
+  ESCROW-RELEASE-3 (#469) pending the director's comment.
 
 ## Refund — stays on the settlement node
 
