@@ -192,7 +192,13 @@ aitbc wallet transactions --name test-wallet-3
 aitbc account get --address 0xA54B82312beb65D0E90c21717ea372396991Fa36
 ```
 
-**Expected output:** provider balance includes the 0.9750 AIT release (1.0 minus fee); an `ESCROW_RELEASE` tx; `account get` shows compute-seconds (3510 per 0.975 AIT).
+`aitbc account list` on the same RPC is a read-only counterpart that lists the accounts the node knows:
+
+```bash
+aitbc account list
+```
+
+**Expected output:** provider balance includes the 0.9750 AIT release (1.0 minus fee); an `ESCROW_RELEASE` tx; `account get` shows compute-seconds (3510 per 0.975 AIT). `account list` returns a table of on-chain accounts.
 
 Live replay 2026-08-20: job `4ad8e281871640fa8b1b25716c92c2c8`, release `0xa6dab9b7…` in hub block **7548**, `test-wallet-3` **1.9500 AIT** after two releases.
 
