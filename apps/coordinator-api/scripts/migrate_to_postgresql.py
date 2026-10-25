@@ -416,8 +416,8 @@ def main(argv: list[str] | None = None) -> int:
                 src_pks = {
                     _canon_pk(r)
                     for r in source_conn.execute(
-                        f'SELECT {", ".join(chr(34) + c + chr(34) for c in _pk_columns(table))} FROM "{name}"'
-                    )  # nosec B608 — reflected names only
+                        f'SELECT {", ".join(chr(34) + c + chr(34) for c in _pk_columns(table))} FROM "{name}"'  # nosec B608 — reflected names only
+                    )
                 }
                 expected = src_pks | baseline_pks[name]
                 if src_pks - tgt_pks:
