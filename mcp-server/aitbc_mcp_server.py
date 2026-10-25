@@ -40,6 +40,8 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
+from aitbc_mcp_cli_tools_generated_groups import GENERATED_AITBC_GROUPS
+
 mcp = MCPServer("aitbc", log_level=os.getenv("AITBC_MCP_LOG_LEVEL", "INFO"))
 
 
@@ -492,78 +494,22 @@ def _safe_command(command: str) -> tuple[bool, list[str]]:
 # AITBC CLI pivot helpers
 # ---------------------------------------------------------------------------
 
-# Live/validated top-level aitbc CLI groups (from ``aitbc --help`` without
-# ``--show-deprecated``).  The generic ``run_aitbc_cli`` tool is restricted to
-# these groups; typed wrappers are provided for the most common subcommands.
-ALL_AITBC_GROUPS = {
-    "account",
-    "agent",
-    "agent-comm",
-    "agent-msg",
-    "agent-wallet",
-    "ai",
-    "analytics",
-    "auth",
-    "blockchain",
-    "bond",
-    "bootstrap",
-    "brand",
-    "bridge",
-    "cluster",
-    "coin-requests",
-    "compliance",
-    "confidential",
-    "config",
-    "contract",
-    "crosschain",
-    "dashboard",
-    "deploy",
-    "developer",
-    "economics",
-    "edge",
-    "exchange",
-    "exchange-island",
-    "explorer",
-    "genesis",
-    "governance",
-    "gpu",
-    "http",
-    "gpu-onchain",
-    "grant",
-    "ipfs",
-    "list",
-    "market",
-    "messaging",
-    "mining",
-    "monitor",
-    "network",
-    "node",
-    "oracle",
-    "performance",
-    "platform",
-    "plugin",
-    "pool-hub",
-    "prometheus",
-    "reinvest",
-    "reputation",
-    "resource",
-    "script",
-    "security",
-    "simulate",
-    "start",
-    "stop",
-    "restart",
-    "sync",
-    "system",
-    "tee",
-    "trade",
-    "transactions",
-    "update",
-    "version",
-    "wallet",
-    "workflow",
-    "zk",
-}
+# Top-level aitbc CLI groups the generic ``run_aitbc_cli`` / ``read_aitbc_cli``
+# / ``list_aitbc_cli_group`` pivots may target.  ``GENERATED_AITBC_GROUPS`` is
+# emitted by ``scripts/dev/generate_mcp_cli_tools.py --split-by-group`` next to
+# the per-group tool modules, so the allow-list can never drift behind the set
+# of groups that actually have generated MCP tools (SM-06 / MCP-GROUPS-1: ten
+# groups, including ``dispute`` and ``energy``, were registered as tools but
+# rejected by this gate).  Which commands get tools — and therefore which
+# groups land here — stays a policy decision in this generator's
+# FORCE_SKIP/FORCE_DESTRUCTIVE lists, not in this set.
+#
+# ``_CURATED_ONLY_AITBC_GROUPS`` covers real CLI groups whose tools are all
+# hand-written and therefore have no generated module: ``update`` is a bare
+# top-level command wrapped by the curated ``aitbc_update`` tool in
+# ``aitbc_mcp_cli_tools.py``.
+_CURATED_ONLY_AITBC_GROUPS = frozenset({"update"})
+ALL_AITBC_GROUPS = GENERATED_AITBC_GROUPS | _CURATED_ONLY_AITBC_GROUPS
 
 # Subcommands that are known to mutate state.  The generic ``run_aitbc_cli``
 # tool treats these as destructive and requires dry_run=false and confirm=true.
