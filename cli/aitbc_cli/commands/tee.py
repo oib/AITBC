@@ -25,13 +25,20 @@ from typing import Any
 from ..auth import AuthManager
 from ..config import get_config
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import LOGIN_HINT, abort, is_unauthorized
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
 def _looks_like_jwt(token: str) -> bool:
     """A JWT is three base64url segments separated by dots."""
     return token.startswith("ey") and token.count(".") == 2
+
+
+def _abort_for_api_error(ctx, e: NetworkError) -> None:
+    """Abort with the login hint on a 401, else the coordinator error."""
+    if is_unauthorized(e):
+        abort(ctx, LOGIN_HINT)
+    abort(ctx, f"Coordinator API error: {e}", from_exception=e)
 
 
 def _api_client(ctx) -> AITBCHTTPClient | None:
@@ -49,7 +56,7 @@ def _api_client(ctx) -> AITBCHTTPClient | None:
     if not token:
         token = config.api_key or ""
     if not token:
-        token = AuthManager().get_credential("client")
+        token = AuthManager().get_credential("client", quiet=True)
     headers: dict[str, str] | None = None
     client_kwargs: dict[str, Any] = {"base_url": url, "timeout": config.timeout, "headers": headers}
     if token and _looks_like_jwt(token):
@@ -121,7 +128,7 @@ def attest(ctx, enclave_id: str, measurement: str, key_file: str):
             )
         output(result, ctx.obj.get("output_format", "table"), title="TEE Attestation")
     except NetworkError as e:
-        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+        _abort_for_api_error(ctx, e)
     except Exception as e:
         abort(ctx, f"Error generating attestation for {enclave_id}: {e}", from_exception=e)
 
@@ -314,7 +321,7 @@ def register(ctx, enclave_id: str, public_key: str, agent_id: str):
         )
         output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Registration")
     except NetworkError as e:
-        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+        _abort_for_api_error(ctx, e)
     except Exception as e:
         abort(ctx, f"Error registering enclave {enclave_id}: {e}", from_exception=e)
 
@@ -338,6 +345,6 @@ def status(ctx, enclave_id: str):
         result = client.get(f"/v1/tee/enclaves/{enclave_id}")
         output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Status")
     except NetworkError as e:
-        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+        _abort_for_api_error(ctx, e)
     except Exception as e:
         abort(ctx, f"Error fetching enclave {enclave_id}: {e}", from_exception=e)

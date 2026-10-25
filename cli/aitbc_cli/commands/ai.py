@@ -20,7 +20,7 @@ from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
 from ..utils.chain_id import resolve_chain_id
 from ..utils.escrow import create_signed_escrow_lock, get_buyer_nonce, get_node_wallet
-from ..utils.error_handling import CLIError, abort
+from ..utils.error_handling import CLIError, LOGIN_HINT, abort, is_unauthorized
 from ..utils.http_client import (
     AITBCHTTPClient,
     NetworkError,
@@ -44,7 +44,7 @@ def _auth_headers(ctx) -> dict[str, str] | None:
     if not token:
         from ..auth import AuthManager
 
-        token = AuthManager().get_credential("client")
+        token = AuthManager().get_credential("client", quiet=True)
     if token:
         return {"Authorization": f"Bearer {token}"}
     return None
@@ -54,9 +54,16 @@ def _require_auth_headers(ctx) -> dict[str, str]:
     """_auth_headers, or abort with the login hint for commands that mutate."""
     headers = _auth_headers(ctx)
     if not headers:
-        abort(ctx, "Authentication required. Run `aitbc auth login --wallet <name>` first.")
+        abort(ctx, LOGIN_HINT)
         raise AssertionError("unreachable: abort always raises")
     return headers
+
+
+def _abort_for_network(ctx, e: NetworkError) -> None:
+    """Abort with the login hint on a 401, else the usual network error."""
+    if is_unauthorized(e):
+        abort(ctx, LOGIN_HINT)
+    abort(ctx, f"Network error: {e}", from_exception=e)
 
 
 def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
@@ -904,7 +911,7 @@ def pay(
         output(payment_result, ctx.obj.get("output_format", format))
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error paying for job: {e}", from_exception=e)
 
@@ -940,7 +947,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="AI Jobs")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error listing jobs: {e}", from_exception=e)
 
@@ -975,7 +982,7 @@ def status(ctx, job_id, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Job Status: {job_id}")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error getting job status: {e}", from_exception=e)
 
@@ -1008,7 +1015,7 @@ def accept(ctx, job_id, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format))
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error accepting job: {e}", from_exception=e)
 
@@ -1051,7 +1058,7 @@ def refund(ctx, job_id, reason, coordinator_url):
         output(result, resolve_output_format(ctx, "table"))
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error refunding job: {e}", from_exception=e)
 
@@ -1123,7 +1130,7 @@ def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
         output(counts, ctx.obj.get("output_format", format), title="ZK refund sweep")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error running refund sweep: {e}", from_exception=e)
 
@@ -1166,7 +1173,7 @@ def list(ctx, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="AI Services")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error listing services: {e}", from_exception=e)
 
@@ -1201,7 +1208,7 @@ def service_status(ctx, name, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Service Status: {name}")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error getting service status: {e}", from_exception=e)
 
@@ -1237,7 +1244,7 @@ def test(ctx, name, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Service Test: {name}")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error testing service: {e}", from_exception=e)
 
@@ -1272,7 +1279,7 @@ def results(ctx, job_id, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title=f"Job Results: {job_id}")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error getting job results: {e}", from_exception=e)
 
@@ -1343,7 +1350,7 @@ def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund,
         output(result, resolve_output_format(ctx, format))
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error cancelling job: {e}", from_exception=e)
 
@@ -1374,7 +1381,7 @@ def stats(ctx, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="AI Service Statistics")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error getting statistics: {e}", from_exception=e)
 
@@ -1415,6 +1422,6 @@ def distribution_stats(ctx, coordinator_url, format):
         output(result, ctx.obj.get("output_format", format), title="Task Distribution Statistics")
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_for_network(ctx, e)
     except Exception as e:
         abort(ctx, f"Error getting distribution statistics: {e}", from_exception=e)

@@ -256,3 +256,13 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `get` selects the matching `proposal_id` from a list (clear not-found
   when absent) and the leaderboard renders the list; dict handling is
   unchanged. Missing-id cases exit non-zero via the shared abort path.
+
+### CLI-AUTHHINT-1
+
+- Commands needing a login printed "No stored credential found for
+  'client' in 'default'" and then a raw 401. Credential lookups in
+  `ai`/`tee` are now quiet, and a 401 aborts with one line: "No login
+  for this environment. Run: aitbc auth login --wallet <name>"
+  (shared `LOGIN_HINT` + `is_unauthorized` in `utils/error_handling`).
+  `zk health`/`zk circuits` are unchanged: their coordinator endpoints
+  answer 401 without a login — auth is genuinely required there.
