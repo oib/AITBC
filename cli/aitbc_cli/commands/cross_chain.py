@@ -25,7 +25,7 @@ from tabulate import tabulate
 
 from aitbc.utils import ait_to_units, format_ait
 
-from ..utils import DECIMAL, error, output, success
+from ..utils import DECIMAL, output, success, warning
 from ..utils.wallet_secret import wallet_password_options
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -94,7 +94,7 @@ def _wait_for_terminal_status(client: AITBCHTTPClient, path: str, timeout_second
         try:
             last_data = client.get(path)
         except NetworkError as e:
-            error(f"Status poll failed: {e}")
+            warning(f"Status poll failed: {e}")
             return last_data
         status = last_data.get("status")
         if status != last_status:
@@ -174,7 +174,7 @@ def rates(
             else:
                 output("No configured swap rates; same-asset pairs settle at parity (1.0)")
     except Exception as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -279,7 +279,7 @@ def swap(
         if wait and swap_id:
             _wait_for_terminal_status(http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap")
     except Exception as e:
-        error(f"Swap failed: {e}")
+        abort(ctx, f"Swap failed: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -326,9 +326,9 @@ def status(ctx, swap_id: str, rpc_url: str | None, wait: bool, timeout: int):
         }
         output(details, ctx.obj["output_format"])
         if swap_data.get("error"):
-            error(f"Error: {swap_data['error']}")
+            abort(ctx, f"Error: {swap_data['error']}")
     except Exception as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -376,7 +376,7 @@ def swaps(ctx, user_address: str | None, status: str | None, limit: int, rpc_url
         else:
             success("No cross-chain swaps found")
     except Exception as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -465,7 +465,7 @@ def bridge(
         if wait and bridge_id:
             _wait_for_terminal_status(http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge")
     except Exception as e:
-        error(f"Bridge failed: {e}")
+        abort(ctx, f"Bridge failed: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -513,7 +513,7 @@ def bridge_status(ctx, bridge_id: str, rpc_url: str | None, wait: bool, timeout:
         }
         output(details, ctx.obj["output_format"])
     except Exception as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -551,7 +551,7 @@ def confirm(
         proof_result = http_client.get(f"/rpc/bridge/transfer/{transfer_id}/proof", params=params)
         proof = proof_result.get("proof")
         if not proof:
-            error("No proof returned — the lock may not be sealed in a block yet")
+            abort(ctx, "No proof returned — the lock may not be sealed in a block yet")
             return
 
         sign_data = {"transfer_id": transfer_id, "confirmer": address}
@@ -572,7 +572,7 @@ def confirm(
             ctx.obj["output_format"],
         )
     except Exception as e:
-        error(f"Confirm failed: {e}")
+        abort(ctx, f"Confirm failed: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -615,7 +615,7 @@ def pools(ctx, rpc_url: str | None):
         else:
             output(pools_data.get("detail") or "No cross-chain liquidity pools found")
     except Exception as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)
 
 
 @cross_chain.command(
@@ -654,4 +654,4 @@ def stats(ctx, rpc_url: str | None):
             ctx.obj["output_format"],
         )
     except Exception as e:
-        error(f"Network error: {e}")
+        abort(ctx, f"Network error: {e}", from_exception=e)

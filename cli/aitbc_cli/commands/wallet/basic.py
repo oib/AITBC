@@ -64,7 +64,7 @@ def create(
     wallet_path = wallet_dir / f"{name}.json"
 
     if wallet_path.exists():
-        error(f"Wallet '{name}' already exists")
+        abort(ctx, f"Wallet '{name}' already exists")
         return
 
     if no_encrypt and (password is not None or password_file or password_stdin):
@@ -168,7 +168,7 @@ def list(ctx):
                 wallet_address = wallet.get("address", "")
                 output(f"{wallet_name}: {wallet_address}")
     except Exception as e:
-        error(f"Failed to list wallets: {str(e)}")
+        abort(ctx, f"Failed to list wallets: {str(e)}")
 
 
 @wallet.command(
@@ -186,7 +186,7 @@ def switch(ctx, name: str, password: str | None, password_file: str | None, pass
     wallet_path = report.path or wallet_dir / f"{name}.json"
 
     if not wallet_path.exists():
-        error(f"Wallet '{name}' does not exist")
+        abort(ctx, f"Wallet '{name}' does not exist")
         return
     service_note = service_dir_wallet_note(report)
     if service_note:
@@ -239,7 +239,7 @@ def delete(ctx, name: str, confirm: bool):
     wallet_path = wallet_dir / f"{name}.json"
 
     if not wallet_path.exists():
-        error(f"Wallet '{name}' does not exist in {wallet_dir}")
+        abort(ctx, f"Wallet '{name}' does not exist in {wallet_dir}")
         return
 
     if not confirm:
@@ -280,7 +280,7 @@ def backup(ctx, name: str, destination: str | None):
     wallet_path = wallet_dir / f"{name}.json"
 
     if not wallet_path.exists():
-        error(f"Wallet '{name}' does not exist in {wallet_dir}")
+        abort(ctx, f"Wallet '{name}' does not exist in {wallet_dir}")
         return
 
     if not destination:
@@ -336,11 +336,11 @@ def restore(ctx, backup_path: str, name: str, force: bool, password_file: str | 
     wallet_path = wallet_dir / f"{name}.json"
 
     if wallet_path.exists() and not force:
-        error(f"Wallet '{name}' already exists. Use --force to override.")
+        abort(ctx, f"Wallet '{name}' already exists. Use --force to override.")
         return
 
     if not Path(backup_path).exists():
-        error(f"Backup file '{backup_path}' not found")
+        abort(ctx, f"Backup file '{backup_path}' not found")
         return
 
     # Load and verify backup
@@ -471,7 +471,7 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
     config_file = Path.home() / ".aitbc" / "config.yaml"
 
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found. Use 'aitbc wallet create' to create one.")
+        abort(ctx, f"Wallet '{wallet_name}' not found. Use 'aitbc wallet create' to create one.")
         return
 
     password = resolve_wallet_password(
@@ -582,12 +582,12 @@ def balance(ctx, name: str | None):
     """Check the AITBC balance of a wallet from the blockchain RPC."""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
-        error("No wallet specified. Use --wallet-name or provide wallet name as argument")
+        abort(ctx, "No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
 
     address = _resolve_wallet_address(ctx, wallet_name)
     if not address:
-        error(f"Wallet '{wallet_name}' not found in daemon or file wallets")
+        abort(ctx, f"Wallet '{wallet_name}' not found in daemon or file wallets")
         raise click.Abort() from None
 
     canonical = to_eip55(address)
@@ -604,10 +604,10 @@ def balance(ctx, name: str | None):
         if "404" in str(e) or "Not Found" in str(e):
             account_data = {"balance": 0, "nonce": 0}
         else:
-            error(f"Failed to query balance for {canonical}: {e}")
+            abort(ctx, f"Failed to query balance for {canonical}: {e}", from_exception=e)
             raise click.Abort() from e
     except Exception as e:
-        error(f"Failed to query balance for {canonical}: {e}")
+        abort(ctx, f"Failed to query balance for {canonical}: {e}", from_exception=e)
         raise click.Abort() from e
 
     balance_data = {
@@ -643,7 +643,7 @@ def transactions(ctx, name: str | None, limit: int):
     """List recent blockchain transactions for the active or named wallet."""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
-        error("No wallet specified. Use --wallet-name or provide wallet name as argument")
+        abort(ctx, "No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
 
     try:
@@ -659,12 +659,12 @@ def transactions(ctx, name: str | None, limit: int):
                 break
 
         if not wallet_info:
-            error(f"Wallet '{wallet_name}' not found")
+            abort(ctx, f"Wallet '{wallet_name}' not found")
             return
 
         address = wallet_info.get("metadata", {}).get("address")
         if not address:
-            error(f"Could not get address for wallet '{wallet_name}'")
+            abort(ctx, f"Could not get address for wallet '{wallet_name}'")
             return
 
         # Get transactions from blockchain RPC
@@ -698,7 +698,7 @@ def transactions(ctx, name: str | None, limit: int):
             title=f"Transactions: {wallet_name}",
         )
     except Exception as e:
-        error(f"Error getting transactions: {e}")
+        abort(ctx, f"Error getting transactions: {e}", from_exception=e)
         raise click.Abort() from e
 
 
@@ -721,7 +721,7 @@ def earn(
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
+        abort(ctx, wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -780,7 +780,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
     wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
-        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
+        abort(ctx, wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -796,7 +796,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
 
     balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount:
-        error(f"Insufficient balance. Available: {balance}, Required: {amount}")
+        abort(ctx, f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
         return
 
@@ -840,14 +840,14 @@ def address(ctx, name: str | None, password: str | None, password_file: str | No
     """Display the public address of the active or named wallet."""
     wallet_name = name or ctx.obj["wallet_name"]
     if not wallet_name:
-        error("No wallet specified. Use --wallet-name or provide wallet name as argument")
+        abort(ctx, "No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
 
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = find_wallet_file(wallet_name) or wallet_dir / f"{wallet_name}.json"
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -901,7 +901,7 @@ def send(
     wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
         raise click.Abort()
 
     password = resolve_wallet_password(
@@ -923,7 +923,7 @@ def send(
         to_address = resolved_to
     to_address = to_eip55(to_address)
     if not to_address.startswith("0x"):
-        error(f"Invalid recipient address: {to_address}")
+        abort(ctx, f"Invalid recipient address: {to_address}")
         raise click.Abort()
 
     # Resolve the RPC endpoint: --rpc-url wins, then a group-injected override
@@ -938,7 +938,7 @@ def send(
     if not rpc_url:
         rpc_url = get_config().blockchain_rpc_url
         if not rpc_url:
-            error("No RPC endpoint configured. Pass --rpc-url or set blockchain_rpc_url in the CLI config")
+            abort(ctx, "No RPC endpoint configured. Pass --rpc-url or set blockchain_rpc_url in the CLI config")
             raise click.Abort()
 
     # Get chain_id: an explicit --chain-id or CHAIN_ID wins over the lookup;
@@ -982,7 +982,7 @@ def send(
 
         private_key_hex = wallet_data.get("private_key")
         if not private_key_hex:
-            error("Wallet does not contain private key")
+            abort(ctx, "Wallet does not contain private key")
             raise click.Abort()
 
         # Remove 0x prefix if present for eth_keys
@@ -990,7 +990,7 @@ def send(
             private_key_hex = private_key_hex[2:]
         private_key = keys.PrivateKey(bytes.fromhex(private_key_hex))
     except Exception as e:
-        error(f"Error loading private key: {e}")
+        abort(ctx, f"Error loading private key: {e}", from_exception=e)
         raise click.Abort() from e
 
     # Create transaction with modern payload format
@@ -1027,7 +1027,7 @@ def send(
         result = http_client.post("/rpc/transaction", json=transaction)
         tx_hash = result.get("transaction_hash")
     except Exception as e:
-        error(f"Error submitting transaction: {e}")
+        abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
         raise click.Abort() from e
 
     receipt = None
@@ -1102,7 +1102,7 @@ def request_payment(
     wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(
@@ -1149,7 +1149,7 @@ def stats(ctx, password: str | None, password_file: str | None, password_stdin: 
     wallet_path = ctx.obj["wallet_sign_path"]
 
     if not wallet_path.exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
         return
 
     password = resolve_wallet_password(

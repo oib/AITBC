@@ -10,7 +10,7 @@ import click
 from rich.console import Console
 
 from ..auth import AuthManager, ExpiredAdminToken  # noqa: F401 — AuthManager stays re-exported; tests patch it here
-from ..utils import error, output, success
+from ..utils import output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import (
     AITBCHTTPClient,
@@ -166,7 +166,7 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
 
     if action == "add":
         if not name or not alert_type:
-            error("Alert name and type required (--name, --type)")
+            abort(ctx, "Alert name and type required (--name, --type)")
             return
         alert = {
             "name": name,
@@ -190,7 +190,7 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
 
     elif action == "remove":
         if not name:
-            error("Alert name required (--name)")
+            abort(ctx, "Alert name required (--name)")
             return
         existing = [a for a in existing if a["name"] != name]
         with open(alerts_file, "w") as f:
@@ -199,11 +199,11 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
 
     elif action == "test":
         if not name:
-            error("Alert name required (--name)")
+            abort(ctx, "Alert name required (--name)")
             return
         alert = next((a for a in existing if a["name"] == name), None)  # type: ignore[arg-type]
         if not alert:
-            error(f"Alert '{name}' not found")
+            abort(ctx, f"Alert '{name}' not found")
             return
         webhook_url = alert.get("webhook")
         if webhook_url and isinstance(webhook_url, str):
@@ -220,7 +220,7 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
                 )
                 output({"status": "sent", "response": resp}, ctx.obj["output_format"])
             except Exception as e:
-                error(f"Webhook test failed: {e}")
+                abort(ctx, f"Webhook test failed: {e}", from_exception=e)
         else:
             output({"status": "no_webhook", "alert": alert}, ctx.obj["output_format"])
 
@@ -294,7 +294,7 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
 
     if action == "add":
         if not name or not url:
-            error("Webhook name and URL required (--name, --url)")
+            abort(ctx, "Webhook name and URL required (--name, --url)")
             return
         webhook = {
             "name": name,
@@ -317,7 +317,7 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
 
     elif action == "remove":
         if not name:
-            error("Webhook name required (--name)")
+            abort(ctx, "Webhook name required (--name)")
             return
         existing = [w for w in existing if w["name"] != name]
         with open(webhooks_file, "w") as f:
@@ -326,11 +326,11 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
 
     elif action == "test":
         if not name:
-            error("Webhook name required (--name)")
+            abort(ctx, "Webhook name required (--name)")
             return
         wh = next((w for w in existing if w["name"] == name), None)
         if not wh:
-            error(f"Webhook '{name}' not found")
+            abort(ctx, f"Webhook '{name}' not found")
             return
         webhook_url = wh.get("url")
         if webhook_url and isinstance(webhook_url, str):
@@ -347,9 +347,9 @@ def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | 
                 )
                 output({"status": "sent", "response": resp}, ctx.obj["output_format"])
             except Exception as e:
-                error(f"Webhook test failed: {e}")
+                abort(ctx, f"Webhook test failed: {e}", from_exception=e)
         else:
-            error(f"Webhook '{name}' has no valid URL")
+            abort(ctx, f"Webhook '{name}' has no valid URL")
 
 
 CAMPAIGNS_DIR = Path.home() / ".aitbc" / "campaigns"
@@ -450,7 +450,7 @@ def campaign_stats(ctx, campaign_id: str | None):
     if campaign_id:
         campaign = next((c for c in campaign_list if c["id"] == campaign_id), None)
         if not campaign:
-            error(f"Campaign '{campaign_id}' not found")
+            abort(ctx, f"Campaign '{campaign_id}' not found")
             ctx.exit(1)
             return
         targets = [campaign]
@@ -588,6 +588,6 @@ def sweepers(ctx, show_config: bool):
 
     degraded = data.get("degraded") or []
     if degraded:
-        error(f"Enabled but not running: {', '.join(degraded)}")
+        abort(ctx, f"Enabled but not running: {', '.join(degraded)}")
     else:
         success("All enabled sweepers are running")

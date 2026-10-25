@@ -290,6 +290,11 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
         client.get("/v1/tasks/status")
         return True
     except Exception:
+        if ctx is not None:
+            abort(
+                ctx,
+                "The agent-coordinator service is not running. Start it with: `sudo systemctl start aitbc-agent-coordinator`",
+            )
         info("The agent-coordinator service is not running. Start it with: `sudo systemctl start aitbc-agent-coordinator`")
         return False
 
