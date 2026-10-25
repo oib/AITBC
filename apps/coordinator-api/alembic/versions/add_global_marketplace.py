@@ -223,10 +223,10 @@ def upgrade() -> None:
             average_response_time, request_rate, error_rate, created_at, updated_at
         )
         VALUES
-        ('region_us_east_1', 'us-east-1', 'US East (N. Virginia)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        ('region_us_west_1', 'us-west-1', 'US West (N. California)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        ('region_eu_west_1', 'eu-west-1', 'EU West (Ireland)', 'europe', 'EUR', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        ('region_ap_south_1', 'ap-south-1', 'AP South (Mumbai)', 'asia_pacific', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'active', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ('region_us_east_1', 'us-east-1', 'US East (N. Virginia)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'ACTIVE', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('region_us_west_1', 'us-west-1', 'US West (N. California)', 'north_america', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'ACTIVE', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('region_eu_west_1', 'eu-west-1', 'EU West (Ireland)', 'europe', 'EUR', 'UTC', 'en', 1.0, 1000, 1.0, 'ACTIVE', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('region_ap_south_1', 'ap-south-1', 'AP South (Mumbai)', 'asia_pacific', 'USD', 'UTC', 'en', 1.0, 1000, 1.0, 'ACTIVE', 1.0, NULL, 'https://api.aitbc.dev/v1', 'wss://ws.aitbc.dev/v1', NULL, 0.0, 0.0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     """)
 
     # Insert default global marketplace configurations
