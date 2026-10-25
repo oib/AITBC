@@ -329,3 +329,7 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `gpu list` → `gpu list-gpus`; `python -m json.tool` → `python3`.
   Scenario 08 (removed `market bid` group) retired to
   `docs/archive/scenarios`; README count corrected 58 → 51.
+
+### PLAY3 new scenarios
+
+- Add operator plays 60-74 documenting the previously uncovered CLI groups: `edge` (60), `node` (61), `trade` (62), `config` (63), `operations` (64), `simulate` (65), `workflow` (66), `grant` (67), `performance` (68), `cluster` (69), `script` (70), `reinvest` (71), `developer` (72), `contract` (73), `confidential` (74). Destructive/spend leaves are marked "not played, needs the operator's line"; known CLI gaps (`simulate run/status/result`, `performance optimize/tune`) and stub output (`cluster`) are documented. Refs #438.
