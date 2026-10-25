@@ -9,6 +9,7 @@ import click
 from eth_utils import to_checksum_address
 
 from ...utils import DECIMAL, error, output, success
+from ...utils.error_handling import abort
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import wallet
@@ -31,12 +32,10 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
     multisig_path = wallet_dir / f"{name}_multisig.json"
 
     if multisig_path.exists():
-        error(f"Multisig wallet '{name}' already exists")
-        return
+        abort(None, f"Multisig wallet '{name}' already exists")
 
     if threshold > len(signers):
-        error(f"Threshold ({threshold}) cannot exceed number of signers ({len(signers)})")
-        return
+        abort(None, f"Threshold ({threshold}) cannot exceed number of signers ({len(signers)})")
 
     import secrets
 
@@ -84,8 +83,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, de
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
     if not multisig_path.exists():
-        error(f"Multisig wallet '{wallet_name}' not found")
-        return
+        abort(None, f"Multisig wallet '{wallet_name}' not found")
 
     with open(multisig_path) as f:
         ms_data = json.load(f)
@@ -142,8 +140,7 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
     if not multisig_path.exists():
-        error(f"Multisig wallet '{wallet_name}' not found")
-        return
+        abort(None, f"Multisig wallet '{wallet_name}' not found")
 
     with open(multisig_path) as f:
         ms_data = json.load(f)
@@ -162,8 +159,7 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
         return
 
     if signer in tx["signatures"]:
-        error(f"'{signer}' has already signed this transaction")
-        return
+        abort(None, f"'{signer}' has already signed this transaction")
 
     tx["signatures"].append(signer)
 

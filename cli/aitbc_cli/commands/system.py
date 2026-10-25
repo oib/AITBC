@@ -20,7 +20,8 @@ import click
 from aitbc.utils.units import ait_to_units, format_ait
 
 from ..config import get_config
-from ..utils import error, output, success, warning, OUTPUT_FORMAT_OPTION
+from ..utils import output, success, warning, OUTPUT_FORMAT_OPTION
+from ..utils.error_handling import abort
 from ..utils.address import to_canonical
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.output import resolve_output_format
@@ -410,9 +411,10 @@ def status(ctx, service: str | None):
             success("System Status:")
             output(status_data, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
-            error(f"Network error: {e}")
+            abort(None, f"Network error: {e}", from_exception=e)
         except Exception as e:
-            error(f"Error fetching status: {e}")
+            abort(None, f"Error fetching status: {e}")
+            return
         return
 
     service_name = _service_unit_name(service)
@@ -1294,7 +1296,7 @@ def config(ctx, show_secrets: bool):
     config_path = Path("/etc/aitbc/blockchain.env")
 
     if not config_path.exists():
-        error(f"Configuration file not found: {config_path}")
+        abort(None, f"Configuration file not found: {config_path}")
         return
 
     try:
@@ -1314,7 +1316,8 @@ def config(ctx, show_secrets: bool):
         success("System Configuration:")
         output(config_data, ctx.obj.get("output_format", "table"))
     except Exception as e:
-        error(f"Error reading configuration: {e}")
+        abort(None, f"Error reading configuration: {e}")
+        return
 
 
 # Allowed read-only file prefixes for ``aitbc system file --path``.
