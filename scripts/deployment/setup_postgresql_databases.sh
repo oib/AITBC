@@ -63,6 +63,19 @@ setup_database() {
     sudo -u postgres psql -d ${db_name} -c "ALTER SCHEMA public OWNER TO ${db_user};" 2>/dev/null || true
     sudo -u postgres psql -d ${db_name} -c "GRANT CREATE ON SCHEMA public TO ${db_user};" 2>/dev/null || true
 
+    # Guard (BACKUP-PG-OWNER-1): reassign public-schema tables owned by a
+    # foreign role (e.g. tables created by an early `sudo -u postgres` run)
+    # to ${db_user}, so same-named-role operations — migrations, restores,
+    # role-scoped dumps — see the whole schema. Idempotent.
+    foreign_tables=$(sudo -u postgres psql -d "${db_name}" -tAc \
+        "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tableowner <> '${db_user}'" 2>/dev/null || echo 0)
+    if [ "${foreign_tables}" != "0" ]; then
+        echo "Reassigning ${foreign_tables} foreign-owned table(s) in ${db_name} to ${db_user}"
+        sudo -u postgres psql -d "${db_name}" -tAc \
+            "SELECT 'ALTER TABLE ' || quote_ident(tablename) || ' OWNER TO ${db_user};' FROM pg_tables WHERE schemaname='public' AND tableowner <> '${db_user}'" \
+            | sudo -u postgres psql -d "${db_name}" >/dev/null 2>&1 || true
+    fi
+
     # Store password in credentials directory
     mkdir -p "$CREDENTIALS_DIR"
     echo "$db_password" > "$CREDENTIALS_DIR/postgres_${db_user}_password"
