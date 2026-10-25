@@ -194,20 +194,10 @@ _ALL_CASES = _DIVERGENT_CASES + _AGREEING_CASES
 
 @pytest.mark.parametrize("tx_id,tx_factory", _DIVERGENT_CASES, ids=[c[0] for c in _DIVERGENT_CASES])
 @pytest.mark.parametrize("block_version", [2, 5, 8], ids=["v2", "v5", "v8"])
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "#432: the parallel prefetch creates a balance=0,nonce=0 recipient "
-        "row for a zero-value tx to a fresh address (the tx's `to`), the "
-        "sequential path and the proposer never create it, so the import "
-        "rejects the block on 'State root mismatch'. Dormant: bc-2 has no "
-        "v2-v8 blocks. Un-xfail when the prefetch/delta guard lands."
-    ),
-)
 def test_parallel_diverges_on_zero_value_fresh_recipient(tmp_path, monkeypatch, tx_id, tx_factory, block_version):
-    """Documents #432: forced-parallel import of a valid v2-v8 block
-    containing a zero-value tx to a fresh address fails where the
-    sequential path and the proposer agree."""
+    """#432 → FORK-GUARD-1: the v2-v8 parallel gate is disabled, so the
+    import takes the serial path and agrees with the proposer. Was
+    xfail(strict) while parallel was selectable."""
     _assert_paths_agree(tmp_path, monkeypatch, tx_factory(), block_version)
 
 
