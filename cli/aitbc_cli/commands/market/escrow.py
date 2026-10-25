@@ -3,7 +3,7 @@ Escrow subgroup and escrow-related helpers
 """
 
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 import click
@@ -168,14 +168,19 @@ def _release_via_relay(
     - ``result`` set → the relay released the escrow; done.
     - ``terminal_refusal`` set → the relay refused on business grounds
       (buyer mismatch 403, already refunded 409, amount over the lock or
-      invalid 400, or any other 4xx except 401/404). Do NOT fall back to
-      the rpc — retrying a business refusal on the unauthenticated rpc
-      path would bypass the JWT binding that is the relay's purpose.
+      invalid 400, or any other 4xx except 401/404 and a bare
+      ``{"detail": "Forbidden"}`` 403). Do NOT fall back to the rpc —
+      retrying a business refusal on the unauthenticated rpc path would
+      bypass the JWT binding that is the relay's purpose.
     - ``(None, None, skip_reason)`` → the relay could not answer: no
-      stored credential, escrow amount unreadable, 401 (JWT rejected),
-      404 (relay not deployed or escrow absent — the rpc retry reports an
-      absent escrow identically), 5xx or a connection failure. The caller
-      may fall back to :func:`_post_escrow_rpc`; ``skip_reason`` names why.
+      stored credential, escrow amount unreadable or not positive, 401
+      (JWT rejected), 404 (relay not deployed or escrow absent — the rpc
+      retry reports an absent escrow identically), bare-Forbidden 403
+      (middleware deny-by-default on a coordinator missing the matrix
+      entry), 5xx or a connection failure. Transport failures get one
+      retry first — the relay dedups on job_id so a repost cannot
+      double-release. The caller may fall back to
+      :func:`_post_escrow_rpc`; ``skip_reason`` names why.
     """
     token = _client_token(ctx)
     if not token:
@@ -191,6 +196,16 @@ def _release_via_relay(
         amount = _escrow_locked_amount(config, job_id)
         if amount is None:
             return None, None, "escrow amount unreadable for the release relay body"
+    # The relay requires a positive amount (400 'escrow amount must be
+    # positive' — a terminal refusal). A zero or unparseable metered amount
+    # must go straight to the rpc path, which reports the same refusal
+    # without a pointless relay round-trip.
+    try:
+        amount_dec = Decimal(str(amount))
+    except (InvalidOperation, ValueError, TypeError):
+        return None, None, f"amount {amount!r} is not a number the release relay accepts"
+    if not amount_dec.is_finite() or amount_dec <= 0:
+        return None, None, f"amount {amount!r} is not positive — the release relay requires > 0"
     body: dict[str, Any] = {"job_id": job_id, "amount": str(amount)}
     if job_tx_hash:
         body["job_tx_hash"] = job_tx_hash
@@ -199,14 +214,31 @@ def _release_via_relay(
         timeout=timeout,
         headers={"Authorization": f"Bearer {token}"},
     )
-    try:
-        result = client.post("/v1/escrow/release", json=body)
-    except Exception as exc:
-        status = http_response_status(exc)
-        detail = http_error_detail(exc) or str(exc)
-        if status is not None and 400 <= status < 500 and status not in (401, 404):
+    result: Any = None
+    last_exc: Exception | None = None
+    # One retry on a transport failure (timeout/connection — no HTTP status):
+    # the relay POST is idempotent (the coordinator dedups on job_id and an
+    # already-released escrow returns its stored tx_hash), so a second
+    # attempt can never double-release.
+    for _attempt in range(2):
+        try:
+            result = client.post("/v1/escrow/release", json=body)
+            last_exc = None
+            break
+        except Exception as exc:
+            last_exc = exc
+            if http_response_status(exc) is not None:
+                break
+    if last_exc is not None:
+        status = http_response_status(last_exc)
+        detail = http_error_detail(last_exc) or str(last_exc)
+        # A bare {"detail": "Forbidden"} 403 is the middleware deny-by-default
+        # on an older coordinator missing the route's security-matrix entry —
+        # a deployment gap, not a business refusal: fall back like a 404.
+        middleware_deny = status == 403 and detail.strip() == "Forbidden"
+        if status is not None and 400 <= status < 500 and status not in (401, 404) and not middleware_deny:
             return None, f"coordinator release relay refused: HTTP {status} {detail}", None
-        label = f"HTTP {status} {detail}" if status is not None else str(exc)
+        label = f"HTTP {status} {detail}" if status is not None else str(last_exc)
         return None, None, f"coordinator release relay unavailable ({label})"
     return (result if isinstance(result, dict) else {"success": True}), None, None
 
