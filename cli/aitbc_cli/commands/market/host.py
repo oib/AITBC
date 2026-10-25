@@ -29,7 +29,7 @@ from ..ipfs import (
 )
 from ._group import market
 from . import get_chain_id, get_market_wallet
-from .escrow import _escrow_create, _post_escrow_rpc
+from .escrow import _escrow_create, _post_escrow_release, _post_escrow_rpc
 from .jobs import _resolve_offer, _track_coordinator_job
 
 logger = get_logger(__name__)
@@ -91,7 +91,7 @@ def _confirm_market_pin(job_id: str, size: int | None = None) -> dict[str, Any] 
 def _release_market_payment(ctx: click.Context, job_id: str) -> dict[str, Any] | None:
     """Release escrow for a completed job via the customer blockchain (hub fallback), then sync the market record."""
     config = get_config()
-    release_result, failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/release", {}, timeout=20)
+    release_result, failures = _post_escrow_release(ctx, config, job_id, timeout=20)
     if release_result is None:
         warning(f"Escrow release failed ({'; '.join(failures)}) — the escrow stays locked")
     tx_hash = release_result.get("tx_hash") if isinstance(release_result, dict) else None

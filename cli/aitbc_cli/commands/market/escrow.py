@@ -133,6 +133,118 @@ def _post_escrow_rpc(config, path: str, payload: dict[str, Any], timeout: int = 
     return None, failures
 
 
+def _escrow_locked_amount(config, job_id: str, timeout: int = 10) -> str | None:
+    """Read the escrow's locked AIT amount via the local→hub GET.
+
+    The release relay requires an explicit ``amount`` where the chain route
+    treats a missing amount as "pay the whole lock". GET endpoints are not
+    nginx-allowlisted, so a customer node can read the row even when it
+    cannot POST the release itself.
+    """
+    for base in dict.fromkeys(b for b in (_get_blockchain_rpc_url(config), _hub_base_url(config)) if b):
+        try:
+            row = _get_rpc_client(config, base, timeout=timeout).get(f"/rpc/escrow/{job_id}")
+        except Exception:
+            logger.debug("Escrow GET %s failed on %s", job_id, base, exc_info=True)
+            continue
+        if isinstance(row, dict) and row.get("amount") is not None:
+            return str(row["amount"])
+    return None
+
+
+def _release_via_relay(
+    ctx,
+    config,
+    job_id: str,
+    *,
+    amount: Any = None,
+    job_tx_hash: str | None = None,
+    timeout: int = 30,
+) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    """Try the coordinator ``POST /v1/escrow/release`` relay.
+
+    Returns ``(result, terminal_refusal, skip_reason)``:
+
+    - ``result`` set → the relay released the escrow; done.
+    - ``terminal_refusal`` set → the relay refused on business grounds
+      (buyer mismatch 403, already refunded 409, amount over the lock or
+      invalid 400, or any other 4xx except 401/404). Do NOT fall back to
+      the rpc — retrying a business refusal on the unauthenticated rpc
+      path would bypass the JWT binding that is the relay's purpose.
+    - ``(None, None, skip_reason)`` → the relay could not answer: no
+      stored credential, escrow amount unreadable, 401 (JWT rejected),
+      404 (relay not deployed or escrow absent — the rpc retry reports an
+      absent escrow identically), 5xx or a connection failure. The caller
+      may fall back to :func:`_post_escrow_rpc`; ``skip_reason`` names why.
+    """
+    token = _client_token(ctx)
+    if not token:
+        return (
+            None,
+            None,
+            (
+                "no stored client credential for the coordinator release relay "
+                "(`aitbc auth login` as the escrow buyer enables it)"
+            ),
+        )
+    if amount is None:
+        amount = _escrow_locked_amount(config, job_id)
+        if amount is None:
+            return None, None, "escrow amount unreadable for the release relay body"
+    body: dict[str, Any] = {"job_id": job_id, "amount": str(amount)}
+    if job_tx_hash:
+        body["job_tx_hash"] = job_tx_hash
+    client = AITBCHTTPClient(
+        base_url=_coordinator_base_url(ctx),
+        timeout=timeout,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    try:
+        result = client.post("/v1/escrow/release", json=body)
+    except Exception as exc:
+        status = http_response_status(exc)
+        detail = http_error_detail(exc) or str(exc)
+        if status is not None and 400 <= status < 500 and status not in (401, 404):
+            return None, f"coordinator release relay refused: HTTP {status} {detail}", None
+        label = f"HTTP {status} {detail}" if status is not None else str(exc)
+        return None, None, f"coordinator release relay unavailable ({label})"
+    return (result if isinstance(result, dict) else {"success": True}), None, None
+
+
+def _post_escrow_release(
+    ctx,
+    config,
+    job_id: str,
+    *,
+    amount: Any = None,
+    job_tx_hash: str | None = None,
+    timeout: int = 10,
+    relay_timeout: int = 30,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Release an escrow: coordinator JWT relay first, local→hub rpc fallback.
+
+    Same ``(result, failures)`` contract as :func:`_post_escrow_rpc`. A
+    relay business refusal is terminal — the failures list carries the
+    relay's detail and the rpc is never tried, so a refusal is never
+    laundered through a weaker-auth path.
+    """
+    result, refusal, skip_reason = _release_via_relay(
+        ctx, config, job_id, amount=amount, job_tx_hash=job_tx_hash, timeout=relay_timeout
+    )
+    if refusal is not None:
+        return None, [refusal]
+    if result is not None:
+        return result, []
+    failures: list[str] = [skip_reason] if skip_reason else []
+    payload: dict[str, Any] = {}
+    if amount is not None:
+        payload["amount"] = str(amount)
+    if job_tx_hash:
+        payload["job_tx_hash"] = job_tx_hash
+    rpc_result, rpc_failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/release", payload, timeout=timeout)
+    return rpc_result, failures + rpc_failures
+
+
 def _settlement_url_allowed(url: str, config) -> bool:
     """Allow the retry only against the configured hub or a loopback host.
 
@@ -314,7 +426,7 @@ def escrow_release(ctx, job_id: str):
     """Release escrow funds to the provider after job completion."""
     try:
         config = get_config()
-        result, failures = _post_escrow_rpc(config, f"/rpc/escrow/{job_id}/release", {})
+        result, failures = _post_escrow_release(ctx, config, job_id)
         if result:
             success(f"Escrow released for job {job_id}")
             output(result, ctx.obj.get("output_format", "table"))
