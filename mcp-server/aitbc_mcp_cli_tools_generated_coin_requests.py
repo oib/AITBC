@@ -29,6 +29,9 @@ from aitbc_mcp_server import (
 def aitbc_coin_requests_approve(
     request_id: Annotated[str, Field(description="The Request id.")],
     reason: Annotated[str | None, Field(description="Reason for approval")] = None,
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -41,6 +44,11 @@ def aitbc_coin_requests_approve(
         flags={},
         values={"request_id": "request-id", "reason": "reason"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -49,6 +57,7 @@ def aitbc_coin_requests_approve(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -70,6 +79,7 @@ def aitbc_coin_requests_approve(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -77,6 +87,9 @@ def aitbc_coin_requests_approve(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_coin_requests_execute(
     request_id: Annotated[str, Field(description="The Request id.")],
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -89,6 +102,11 @@ def aitbc_coin_requests_execute(
         flags={},
         values={"request_id": "request-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -97,6 +115,7 @@ def aitbc_coin_requests_execute(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -118,6 +137,7 @@ def aitbc_coin_requests_execute(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -126,6 +146,9 @@ def aitbc_coin_requests_execute(
 def aitbc_coin_requests_list(
     status: Annotated[str | None, Field(description="Filter by status (pending, approved, rejected, expired)")] = None,
     sender: Annotated[str | None, Field(description="Filter by sender")] = None,
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -136,6 +159,11 @@ def aitbc_coin_requests_list(
         flags={},
         values={"status": "status", "sender": "sender"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -144,6 +172,7 @@ def aitbc_coin_requests_list(
         subcommand=["list"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -157,6 +186,9 @@ def aitbc_coin_requests_reconcile(
     chain_id: Annotated[
         str | None, Field(description="Island to query; omit to let the node answer for its own chain")
     ] = None,
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -169,6 +201,11 @@ def aitbc_coin_requests_reconcile(
         flags={"annotate": "annotate"},
         values={"rpc_url": "rpc-url", "chain_id": "chain-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -177,6 +214,7 @@ def aitbc_coin_requests_reconcile(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -198,6 +236,7 @@ def aitbc_coin_requests_reconcile(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -206,6 +245,9 @@ def aitbc_coin_requests_reconcile(
 def aitbc_coin_requests_reject(
     request_id: Annotated[str, Field(description="The Request id.")],
     reason: Annotated[str, Field(description="Reason for rejection")],
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -218,6 +260,11 @@ def aitbc_coin_requests_reject(
         flags={},
         values={"request_id": "request-id", "reason": "reason"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -226,6 +273,7 @@ def aitbc_coin_requests_reject(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -247,6 +295,7 @@ def aitbc_coin_requests_reject(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -261,6 +310,9 @@ def aitbc_coin_requests_reopen(
     chain_id: Annotated[
         str | None, Field(description="Island to query; omit to let the node answer for its own chain")
     ] = None,
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -273,6 +325,11 @@ def aitbc_coin_requests_reopen(
         flags={"force": "force"},
         values={"request_id": "request-id", "rpc_url": "rpc-url", "chain_id": "chain-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -281,6 +338,7 @@ def aitbc_coin_requests_reopen(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -302,6 +360,7 @@ def aitbc_coin_requests_reopen(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -313,6 +372,9 @@ def aitbc_coin_requests_request(
     sender: Annotated[str | None, Field(description="Sender id (defaults to hostname-wallet-suffix).")] = None,
     recipient: Annotated[str | None, Field(description="Recipient agent id.")] = None,
     request_id: Annotated[str | None, Field(description="Request id (defaults to a unique value).")] = None,
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -331,6 +393,11 @@ def aitbc_coin_requests_request(
             "request_id": "request-id",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -339,6 +406,7 @@ def aitbc_coin_requests_request(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -360,6 +428,7 @@ def aitbc_coin_requests_request(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -367,6 +436,9 @@ def aitbc_coin_requests_request(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_coin_requests_show(
     request_id: Annotated[str, Field(description="The Request id.")],
+    db_path: Annotated[
+        str | None, Field(description="Read/write a specific ledger sqlite file instead of the configured AGENT_DB_PATH")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -377,6 +449,11 @@ def aitbc_coin_requests_show(
         flags={},
         values={"request_id": "request-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"db_path": "db"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -385,5 +462,6 @@ def aitbc_coin_requests_show(
         subcommand=["show"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )

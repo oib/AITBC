@@ -31,6 +31,17 @@ def aitbc_wallet_address(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -41,6 +52,11 @@ def aitbc_wallet_address(
         flags={},
         values={"name": "name", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -49,6 +65,7 @@ def aitbc_wallet_address(
         subcommand=["address"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -57,6 +74,17 @@ def aitbc_wallet_address(
 def aitbc_wallet_backup(
     name: Annotated[str, Field(description="Wallet name.")],
     destination: Annotated[str | None, Field(description="Destination path for backup file")] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -69,6 +97,11 @@ def aitbc_wallet_backup(
         flags={},
         values={"name": "name", "destination": "destination"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -77,6 +110,7 @@ def aitbc_wallet_backup(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -98,6 +132,7 @@ def aitbc_wallet_backup(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -105,6 +140,17 @@ def aitbc_wallet_backup(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_balance(
     name: Annotated[str | None, Field(description="Wallet name.")] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -115,6 +161,11 @@ def aitbc_wallet_balance(
         flags={},
         values={"name": "name"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -123,6 +174,7 @@ def aitbc_wallet_balance(
         subcommand=["balance"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -134,6 +186,16 @@ def aitbc_wallet_bridge_deposit(
     eth_rpc_url: Annotated[str | None, Field(description="Ethereum RPC URL.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -152,6 +214,11 @@ def aitbc_wallet_bridge_deposit(
             "password_file": "password-file",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -160,6 +227,7 @@ def aitbc_wallet_bridge_deposit(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -181,6 +249,7 @@ def aitbc_wallet_bridge_deposit(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -189,6 +258,17 @@ def aitbc_wallet_bridge_deposit(
 def aitbc_wallet_bridge_float(
     hub_url: Annotated[
         str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -200,6 +280,11 @@ def aitbc_wallet_bridge_float(
         flags={},
         values={"hub_url": "hub-url"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -208,6 +293,7 @@ def aitbc_wallet_bridge_float(
         subcommand=["bridge", "float"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -219,6 +305,16 @@ def aitbc_wallet_bridge_sell_lock(
     hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for status lookup.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -232,6 +328,11 @@ def aitbc_wallet_bridge_sell_lock(
         flags={},
         values={"quote_id": "quote-id", "wallet_name": "wallet-name", "hub_url": "hub-url", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -240,6 +341,7 @@ def aitbc_wallet_bridge_sell_lock(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -261,6 +363,7 @@ def aitbc_wallet_bridge_sell_lock(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -273,6 +376,16 @@ def aitbc_wallet_bridge_sell_quote(
     hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL for the quote routes.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -292,6 +405,11 @@ def aitbc_wallet_bridge_sell_quote(
             "password_file": "password-file",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -300,6 +418,7 @@ def aitbc_wallet_bridge_sell_quote(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -321,6 +440,7 @@ def aitbc_wallet_bridge_sell_quote(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -329,6 +449,17 @@ def aitbc_wallet_bridge_sell_quote(
 def aitbc_wallet_bridge_sell_status(
     identifier: Annotated[str, Field(description="Quote id, lock id, or lock transaction hash.")],
     hub_url: Annotated[str | None, Field(description="Hub wallet-service base URL.")] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -341,6 +472,11 @@ def aitbc_wallet_bridge_sell_status(
         flags={},
         values={"identifier": "id", "hub_url": "hub-url"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -349,6 +485,7 @@ def aitbc_wallet_bridge_sell_status(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -370,6 +507,7 @@ def aitbc_wallet_bridge_sell_status(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -384,6 +522,17 @@ def aitbc_wallet_bridge_settlements(
     hub_url: Annotated[
         str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
     ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -396,6 +545,11 @@ def aitbc_wallet_bridge_settlements(
         flags={},
         values={"state": "state", "kind": "kind", "limit": "limit", "hub_url": "hub-url"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -404,6 +558,7 @@ def aitbc_wallet_bridge_settlements(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -425,6 +580,7 @@ def aitbc_wallet_bridge_settlements(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -444,6 +600,17 @@ def aitbc_wallet_bridge_status(
     hub_url: Annotated[
         str | None, Field(description="Hub wallet-service base URL (default: configured wallet daemon)")
     ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -454,6 +621,11 @@ def aitbc_wallet_bridge_status(
         flags={"today": "today", "last_24h": "24h"},
         values={"ait_tx_hash": "ait-tx-hash", "hub_url": "hub-url"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -462,6 +634,7 @@ def aitbc_wallet_bridge_status(
         subcommand=["bridge", "status"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -473,6 +646,16 @@ def aitbc_wallet_bridge_withdraw(
     wallet_name: Annotated[str | None, Field(description="Source wallet name for AIT signing.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -491,6 +674,11 @@ def aitbc_wallet_bridge_withdraw(
             "password_file": "password-file",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -499,6 +687,7 @@ def aitbc_wallet_bridge_withdraw(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -520,6 +709,7 @@ def aitbc_wallet_bridge_withdraw(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -531,6 +721,17 @@ def aitbc_wallet_create(
     no_encrypt: Annotated[bool | None, Field(description="Skip wallet encryption (not recommended)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -544,6 +745,11 @@ def aitbc_wallet_create(
         flags={"no_encrypt": "no-encrypt"},
         values={"name": "name", "wallet_type": "type", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -552,6 +758,7 @@ def aitbc_wallet_create(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -573,6 +780,7 @@ def aitbc_wallet_create(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -584,6 +792,17 @@ def aitbc_wallet_earn(
     desc: Annotated[str | None, Field(description="Description of the work")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -597,6 +816,11 @@ def aitbc_wallet_earn(
         flags={},
         values={"amount": "amount", "job_id": "job-id", "desc": "desc", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -605,6 +829,7 @@ def aitbc_wallet_earn(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -626,6 +851,7 @@ def aitbc_wallet_earn(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -637,6 +863,17 @@ def aitbc_wallet_eth_balance(
     eth_rpc_url: Annotated[
         str | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
     ] = None,
+    wallet_name_2: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -647,6 +884,11 @@ def aitbc_wallet_eth_balance(
         flags={},
         values={"address": "address", "wallet_name": "wallet", "eth_rpc_url": "eth-rpc-url"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name_2": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -655,6 +897,7 @@ def aitbc_wallet_eth_balance(
         subcommand=["eth-balance"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -684,6 +927,14 @@ def aitbc_wallet_eth_send(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    wallet_name_2: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -705,6 +956,11 @@ def aitbc_wallet_eth_send(
             "password_file": "password-file",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name_2": "wallet-name", "wallet_path": "wallet-path"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -713,6 +969,7 @@ def aitbc_wallet_eth_send(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -734,6 +991,7 @@ def aitbc_wallet_eth_send(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -741,6 +999,17 @@ def aitbc_wallet_eth_send(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_export(
     destination: Annotated[str | None, Field(description="Destination file path (default: wallet_name_export.json)")] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -753,6 +1022,11 @@ def aitbc_wallet_export(
         flags={},
         values={"destination": "destination"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -761,6 +1035,7 @@ def aitbc_wallet_export(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -782,6 +1057,7 @@ def aitbc_wallet_export(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -791,6 +1067,17 @@ def aitbc_wallet_info(
     name: Annotated[str | None, Field(description="Wallet name (defaults to the active wallet)")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -802,6 +1089,11 @@ def aitbc_wallet_info(
         flags={},
         values={"name": "name", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -810,6 +1102,7 @@ def aitbc_wallet_info(
         subcommand=["info"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -818,6 +1111,17 @@ def aitbc_wallet_info(
 def aitbc_wallet_inspect(
     wallet_file: Annotated[str, Field(description="Path to the wallet JSON file")],
     field: Annotated[str | None, Field(description="Print a single public field (e.g. address)")] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -830,6 +1134,11 @@ def aitbc_wallet_inspect(
         flags={},
         values={"wallet_file": "path", "field": "field"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -838,6 +1147,7 @@ def aitbc_wallet_inspect(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -859,6 +1169,7 @@ def aitbc_wallet_inspect(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -869,6 +1180,17 @@ def aitbc_wallet_liquidity_claim(
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -882,6 +1204,11 @@ def aitbc_wallet_liquidity_claim(
         flags={},
         values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -890,6 +1217,7 @@ def aitbc_wallet_liquidity_claim(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -911,6 +1239,7 @@ def aitbc_wallet_liquidity_claim(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -924,6 +1253,17 @@ def aitbc_wallet_liquidity_stake(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -936,6 +1276,11 @@ def aitbc_wallet_liquidity_stake(
         flags={},
         values={"amount": "amount", "pool": "pool", "lock_days": "lock-days", "fee": "fee", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -944,6 +1289,7 @@ def aitbc_wallet_liquidity_stake(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -965,6 +1311,7 @@ def aitbc_wallet_liquidity_stake(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -975,6 +1322,17 @@ def aitbc_wallet_liquidity_unstake(
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -988,6 +1346,11 @@ def aitbc_wallet_liquidity_unstake(
         flags={},
         values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -996,6 +1359,7 @@ def aitbc_wallet_liquidity_unstake(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1017,18 +1381,35 @@ def aitbc_wallet_liquidity_unstake(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_list(
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all locally stored wallets and their active chain addresses."""
     options: dict[str, Any] = {}
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1037,6 +1418,7 @@ def aitbc_wallet_list(
         subcommand=["list"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1046,6 +1428,17 @@ def aitbc_wallet_multisig_create(
     signers: Annotated[list[str], Field(description="One or more signer addresses.")],
     threshold: Annotated[int, Field(description="Required signatures to approve")],
     name: Annotated[str, Field(description="Multisig wallet name")],
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1058,6 +1451,11 @@ def aitbc_wallet_multisig_create(
         flags={},
         values={"signers": "signers", "threshold": "threshold", "name": "name"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1066,6 +1464,7 @@ def aitbc_wallet_multisig_create(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1087,6 +1486,7 @@ def aitbc_wallet_multisig_create(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1097,6 +1497,17 @@ def aitbc_wallet_multisig_propose(
     to_address: Annotated[str, Field(description="Destination address.")],
     amount: Annotated[str, Field(description="Amount of AIT.")],
     description: Annotated[str | None, Field(description="Transaction description")] = None,
+    wallet_name_2: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1109,6 +1520,11 @@ def aitbc_wallet_multisig_propose(
         flags={},
         values={"wallet_name": "wallet", "to_address": "to-address", "amount": "amount", "description": "description"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name_2": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1117,6 +1533,7 @@ def aitbc_wallet_multisig_propose(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1138,6 +1555,7 @@ def aitbc_wallet_multisig_propose(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1147,6 +1565,17 @@ def aitbc_wallet_multisig_sign(
     wallet_name: Annotated[str, Field(description="Multisig wallet name")],
     tx_id: Annotated[str, Field(description="Transaction ID.")],
     signer: Annotated[str, Field(description="Signer address")],
+    wallet_name_2: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1159,6 +1588,11 @@ def aitbc_wallet_multisig_sign(
         flags={},
         values={"wallet_name": "wallet", "tx_id": "tx-id", "signer": "signer"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name_2": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1167,6 +1601,7 @@ def aitbc_wallet_multisig_sign(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1188,6 +1623,7 @@ def aitbc_wallet_multisig_sign(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1199,6 +1635,17 @@ def aitbc_wallet_request_payment(
     description: Annotated[str | None, Field(description="Transaction description")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1217,6 +1664,11 @@ def aitbc_wallet_request_payment(
             "password_file": "password-file",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1225,6 +1677,7 @@ def aitbc_wallet_request_payment(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1246,6 +1699,7 @@ def aitbc_wallet_request_payment(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1261,6 +1715,17 @@ def aitbc_wallet_restore(
             description="Path to a file containing only the wallet password (mode 0600, owned by you) — encrypts a plaintext backup on restore"
         ),
     ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1273,6 +1738,11 @@ def aitbc_wallet_restore(
         flags={"force": "force"},
         values={"backup_path": "backup-path", "name": "name", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1281,6 +1751,7 @@ def aitbc_wallet_restore(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1302,6 +1773,7 @@ def aitbc_wallet_restore(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1319,6 +1791,17 @@ def aitbc_wallet_send(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1337,6 +1820,11 @@ def aitbc_wallet_send(
             "rpc_url": "rpc-url",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1345,6 +1833,7 @@ def aitbc_wallet_send(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1366,6 +1855,7 @@ def aitbc_wallet_send(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1376,6 +1866,17 @@ def aitbc_wallet_spend(
     description: Annotated[str, Field(description="Free-form description.")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1389,6 +1890,11 @@ def aitbc_wallet_spend(
         flags={},
         values={"amount": "amount", "description": "description", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1397,6 +1903,7 @@ def aitbc_wallet_spend(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1418,6 +1925,7 @@ def aitbc_wallet_spend(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1428,6 +1936,17 @@ def aitbc_wallet_stake(
     duration: Annotated[int | None, Field(description="Staking duration in days")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1441,6 +1960,11 @@ def aitbc_wallet_stake(
         flags={},
         values={"amount": "amount", "duration": "duration", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1449,6 +1973,7 @@ def aitbc_wallet_stake(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1470,6 +1995,7 @@ def aitbc_wallet_stake(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1478,6 +2004,17 @@ def aitbc_wallet_stake(
 def aitbc_wallet_stats(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1489,6 +2026,11 @@ def aitbc_wallet_stats(
         flags={},
         values={"password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1497,6 +2039,7 @@ def aitbc_wallet_stats(
         subcommand=["stats"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1506,6 +2049,17 @@ def aitbc_wallet_switch(
     name: Annotated[str, Field(description="Wallet name.")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1519,6 +2073,11 @@ def aitbc_wallet_switch(
         flags={},
         values={"name": "name", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1527,6 +2086,7 @@ def aitbc_wallet_switch(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1548,6 +2108,7 @@ def aitbc_wallet_switch(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1556,6 +2117,17 @@ def aitbc_wallet_switch(
 def aitbc_wallet_transactions(
     name: Annotated[str | None, Field(description="Wallet name.")] = None,
     limit: Annotated[int | None, Field(description="Number of transactions to show")] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1566,6 +2138,11 @@ def aitbc_wallet_transactions(
         flags={},
         values={"name": "name", "limit": "limit"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1574,6 +2151,7 @@ def aitbc_wallet_transactions(
         subcommand=["transactions"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1583,6 +2161,17 @@ def aitbc_wallet_unstake(
     stake_id: Annotated[str, Field(description="Numeric stake ID returned by 'stake'.")],
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
+    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    use_daemon: Annotated[
+        bool | None,
+        Field(
+            description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
+        ),
+    ] = None,
+    chain_id: Annotated[
+        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1596,6 +2185,11 @@ def aitbc_wallet_unstake(
         flags={},
         values={"stake_id": "stake-id", "password_file": "password-file"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_daemon": "use-daemon"},
+        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1604,6 +2198,7 @@ def aitbc_wallet_unstake(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1625,5 +2220,6 @@ def aitbc_wallet_unstake(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )

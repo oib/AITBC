@@ -30,6 +30,11 @@ def aitbc_market_cancel(
     job_id: Annotated[str, Field(description="Market job ID to cancel")],
     reason: Annotated[str | None, Field(description="Reason for cancellation")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -42,6 +47,11 @@ def aitbc_market_cancel(
         flags={},
         values={"job_id": "job-id", "reason": "reason", "output_format": "format"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -50,6 +60,7 @@ def aitbc_market_cancel(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -71,6 +82,7 @@ def aitbc_market_cancel(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -83,6 +95,11 @@ def aitbc_market_download(
     output_path: Annotated[str | None, Field(description="Write retrieved content to this path")] = None,
     wait: Annotated[bool | None, Field(description="Wait for the CID to become available on the network")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -101,6 +118,11 @@ def aitbc_market_download(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -109,6 +131,7 @@ def aitbc_market_download(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -130,6 +153,7 @@ def aitbc_market_download(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -144,6 +168,7 @@ def aitbc_market_escrow_create(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -163,6 +188,11 @@ def aitbc_market_escrow_create(
             "password_file": "password-file",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet_path": "wallet-path"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -171,6 +201,7 @@ def aitbc_market_escrow_create(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -192,6 +223,7 @@ def aitbc_market_escrow_create(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -200,6 +232,11 @@ def aitbc_market_escrow_create(
 def aitbc_market_escrow_refund(
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
     reason: Annotated[str | None, Field(description="Reason for refund")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -212,6 +249,11 @@ def aitbc_market_escrow_refund(
         flags={},
         values={"job_id": "job-id", "reason": "reason"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -220,6 +262,7 @@ def aitbc_market_escrow_refund(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -241,6 +284,7 @@ def aitbc_market_escrow_refund(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -248,6 +292,11 @@ def aitbc_market_escrow_refund(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_escrow_release(
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -260,6 +309,11 @@ def aitbc_market_escrow_release(
         flags={},
         values={"job_id": "job-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -268,6 +322,7 @@ def aitbc_market_escrow_release(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -289,6 +344,7 @@ def aitbc_market_escrow_release(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -296,6 +352,11 @@ def aitbc_market_escrow_release(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_escrow_status(
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -306,6 +367,11 @@ def aitbc_market_escrow_status(
         flags={},
         values={"job_id": "job-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -314,6 +380,7 @@ def aitbc_market_escrow_status(
         subcommand=["escrow", "status"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -328,6 +395,11 @@ def aitbc_market_exchange_deposit_eth(
         str | None, Field(description="Sepolia ETH bridge deposit address (default: BRIDGE_ETH_ADDRESS env var)")
     ] = None,
     gas_limit: Annotated[int | None, Field(description="Gas limit for the deposit transaction")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -340,6 +412,11 @@ def aitbc_market_exchange_deposit_eth(
         flags={},
         values={"amount": "amount", "ait_address": "ait-address", "bridge_address": "bridge-address", "gas_limit": "gas"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -348,6 +425,7 @@ def aitbc_market_exchange_deposit_eth(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -369,6 +447,7 @@ def aitbc_market_exchange_deposit_eth(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -377,6 +456,11 @@ def aitbc_market_exchange_deposit_eth(
 def aitbc_market_exchange_list_deposits(
     status: Annotated[str | None, Field(description="Filter by status (pending, verified, completed, rejected)")] = None,
     limit: Annotated[int | None, Field(description="Maximum number of results")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -387,6 +471,11 @@ def aitbc_market_exchange_list_deposits(
         flags={},
         values={"status": "status", "limit": "limit"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -395,6 +484,7 @@ def aitbc_market_exchange_list_deposits(
         subcommand=["exchange", "list-deposits"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -402,6 +492,11 @@ def aitbc_market_exchange_list_deposits(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_exchange_mint_ait(
     deposit_id: Annotated[str, Field(description="The Deposit id.")],
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -414,6 +509,11 @@ def aitbc_market_exchange_mint_ait(
         flags={},
         values={"deposit_id": "deposit-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -422,6 +522,7 @@ def aitbc_market_exchange_mint_ait(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -443,18 +544,29 @@ def aitbc_market_exchange_mint_ait(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_exchange_price(
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the current ETH-AIT exchange rate."""
     options: dict[str, Any] = {}
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -463,18 +575,29 @@ def aitbc_market_exchange_price(
         subcommand=["exchange", "price"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_exchange_status(
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the current bridge service status."""
     options: dict[str, Any] = {}
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -483,6 +606,7 @@ def aitbc_market_exchange_status(
         subcommand=["exchange", "status"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -491,6 +615,11 @@ def aitbc_market_exchange_status(
 def aitbc_market_exchange_withdraw_eth(
     amount: Annotated[str, Field(description="Amount of AIT.")],
     address: Annotated[str, Field(description="Blockchain address to fund.")],
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -503,6 +632,11 @@ def aitbc_market_exchange_withdraw_eth(
         flags={},
         values={"amount": "amount", "address": "address"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -511,6 +645,7 @@ def aitbc_market_exchange_withdraw_eth(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -532,6 +667,7 @@ def aitbc_market_exchange_withdraw_eth(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -619,6 +755,11 @@ def aitbc_market_gpu_quote(
     max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")] = None,
     settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")] = None,
     json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -638,6 +779,11 @@ def aitbc_market_gpu_quote(
             "settlement": "settlement",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -646,6 +792,7 @@ def aitbc_market_gpu_quote(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -667,6 +814,7 @@ def aitbc_market_gpu_quote(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -738,6 +886,11 @@ def aitbc_market_gpu_release(
     job_id: Annotated[str, Field(description="Job ID")],
     yes: Annotated[bool | None, Field(description="Skip confirmation prompt")] = None,
     json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -750,6 +903,11 @@ def aitbc_market_gpu_release(
         flags={"yes": "yes", "json_output": "json-output"},
         values={"job_id": "job-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -758,6 +916,7 @@ def aitbc_market_gpu_release(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -779,6 +938,7 @@ def aitbc_market_gpu_release(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -787,6 +947,11 @@ def aitbc_market_gpu_release(
 def aitbc_market_gpu_status(
     job_id: Annotated[str, Field(description="Job ID")],
     json_output: Annotated[bool | None, Field(description="Output raw JSON")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -799,6 +964,11 @@ def aitbc_market_gpu_status(
         flags={"json_output": "json-output"},
         values={"job_id": "job-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -807,6 +977,7 @@ def aitbc_market_gpu_status(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -828,6 +999,7 @@ def aitbc_market_gpu_status(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -842,6 +1014,11 @@ def aitbc_market_hermes(
         str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
     ] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -860,6 +1037,11 @@ def aitbc_market_hermes(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -868,6 +1050,7 @@ def aitbc_market_hermes(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -889,6 +1072,7 @@ def aitbc_market_hermes(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -901,6 +1085,11 @@ def aitbc_market_host(
     pin: Annotated[bool | None, Field(description="Pin the CID after paying the rental")] = None,
     proposer_id: Annotated[str | None, Field(description="Override hub proposer address for escrow")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -919,6 +1108,11 @@ def aitbc_market_host(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -927,6 +1121,7 @@ def aitbc_market_host(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -948,6 +1143,7 @@ def aitbc_market_host(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -960,6 +1156,11 @@ def aitbc_market_jobs(
     offer_id: Annotated[str | None, Field(description="Filter by offer ID")] = None,
     limit: Annotated[int | None, Field(description="Maximum jobs to return")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -977,6 +1178,11 @@ def aitbc_market_jobs(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -985,6 +1191,7 @@ def aitbc_market_jobs(
         subcommand=["jobs"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1002,6 +1209,11 @@ def aitbc_market_list(
     ] = None,
     mine: Annotated[bool | None, Field(description="Show only offers published by the local wallet/node")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1018,6 +1230,11 @@ def aitbc_market_list(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1026,6 +1243,7 @@ def aitbc_market_list(
         subcommand=["list"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1033,6 +1251,11 @@ def aitbc_market_list(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_match(
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1043,6 +1266,11 @@ def aitbc_market_match(
         flags={},
         values={"output_format": "format"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1051,6 +1279,7 @@ def aitbc_market_match(
         subcommand=["match"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1071,6 +1300,11 @@ def aitbc_market_offer(
     gpu_offer_id: Annotated[str | None, Field(description="GPU market offer ID for cross-reference")] = None,
     disk_quota_mb: Annotated[
         int | None, Field(description="Per-customer disk quota in MB (default 100 for IPFS, unset for GPU services)")
+    ] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1095,6 +1329,11 @@ def aitbc_market_offer(
             "disk_quota_mb": "disk-quota-mb",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1103,6 +1342,7 @@ def aitbc_market_offer(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1124,6 +1364,7 @@ def aitbc_market_offer(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1136,6 +1377,11 @@ def aitbc_market_offer_cancel(
             description="On-chain listing id to cancel (the listing_id field of /rpc/market/listings, e.g. tx_297); repeat for several."
         ),
     ],
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1148,6 +1394,11 @@ def aitbc_market_offer_cancel(
         flags={},
         values={"order_ids": "order-ids"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1156,6 +1407,7 @@ def aitbc_market_offer_cancel(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1177,6 +1429,7 @@ def aitbc_market_offer_cancel(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1185,6 +1438,11 @@ def aitbc_market_offer_cancel(
 def aitbc_market_offer_disable(
     plugin_id: Annotated[str, Field(description="Plugin ID to disable")],
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1197,6 +1455,11 @@ def aitbc_market_offer_disable(
         flags={},
         values={"plugin_id": "plugin-id", "output_format": "format"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1205,6 +1468,7 @@ def aitbc_market_offer_disable(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1226,6 +1490,7 @@ def aitbc_market_offer_disable(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1235,6 +1500,11 @@ def aitbc_market_offer_list(
     service_type: Annotated[str | None, Field(description="Filter by service type")] = None,
     status: Annotated[str | None, Field(description="Filter by status (active/inactive)")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1247,6 +1517,11 @@ def aitbc_market_offer_list(
         flags={},
         values={"service_type": "service-type", "status": "status", "output_format": "format"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1255,6 +1530,7 @@ def aitbc_market_offer_list(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1276,6 +1552,7 @@ def aitbc_market_offer_list(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1284,6 +1561,11 @@ def aitbc_market_offer_list(
 def aitbc_market_payment(
     job_id: Annotated[str | None, Field(description="Coordinator job ID")] = None,
     payment_id: Annotated[str | None, Field(description="Payment record ID")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1296,6 +1578,11 @@ def aitbc_market_payment(
         flags={},
         values={"job_id": "job-id", "payment_id": "payment-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1304,6 +1591,7 @@ def aitbc_market_payment(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1325,6 +1613,7 @@ def aitbc_market_payment(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1338,6 +1627,11 @@ def aitbc_market_process(
     resolution: Annotated[str | None, Field(description="Target resolution (e.g. 1080p, 720p, 480p)")] = None,
     bitrate: Annotated[str | None, Field(description="Target bitrate (e.g. 5M, 10M)")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1358,6 +1652,11 @@ def aitbc_market_process(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1366,6 +1665,7 @@ def aitbc_market_process(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1387,6 +1687,7 @@ def aitbc_market_process(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1394,6 +1695,11 @@ def aitbc_market_process(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_providers(
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1404,6 +1710,11 @@ def aitbc_market_providers(
         flags={},
         values={"output_format": "format"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1412,6 +1723,7 @@ def aitbc_market_providers(
         subcommand=["providers"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1423,6 +1735,11 @@ def aitbc_market_rate(
     comment: Annotated[str | None, Field(description="Optional comment/review text")] = None,
     reviewer_id: Annotated[str | None, Field(description="Reviewer ID (defaults to wallet address)")] = None,
     market_url: Annotated[str | None, Field(description="Override the market service URL")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1441,6 +1758,11 @@ def aitbc_market_rate(
             "market_url": "market-url",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1449,6 +1771,7 @@ def aitbc_market_rate(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1470,6 +1793,7 @@ def aitbc_market_rate(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1480,6 +1804,11 @@ def aitbc_market_ratings(
     limit: Annotated[int | None, Field(description="Number of ratings to return")] = None,
     offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
     market_url: Annotated[str | None, Field(description="Override the market service URL")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1490,6 +1819,11 @@ def aitbc_market_ratings(
         flags={},
         values={"service_id": "service-id", "limit": "limit", "offset": "offset", "market_url": "market-url"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1498,6 +1832,7 @@ def aitbc_market_ratings(
         subcommand=["ratings"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1523,6 +1858,11 @@ def aitbc_market_run(
         str | None, Field(description="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
     ] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1550,6 +1890,11 @@ def aitbc_market_run(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1558,6 +1903,7 @@ def aitbc_market_run(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1579,6 +1925,7 @@ def aitbc_market_run(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1586,6 +1933,11 @@ def aitbc_market_run(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_market_status(
     order_id: Annotated[str, Field(description="The Order id.")],
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1596,6 +1948,11 @@ def aitbc_market_status(
         flags={},
         values={"order_id": "order-id"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1604,6 +1961,7 @@ def aitbc_market_status(
         subcommand=["status"],
         args=args,
         options=options,
+        group_options=group_options,
         timeout=timeout,
     )
 
@@ -1612,6 +1970,11 @@ def aitbc_market_status(
 def aitbc_market_sync_ratings(
     remote_url: Annotated[str, Field(description="Remote market service URL (default: $AITBC_MARKET_URL)")],
     limit: Annotated[int | None, Field(description="Number of ratings to sync")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1624,6 +1987,11 @@ def aitbc_market_sync_ratings(
         flags={},
         values={"remote_url": "remote-url", "limit": "limit"},
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1632,6 +2000,7 @@ def aitbc_market_sync_ratings(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1653,6 +2022,7 @@ def aitbc_market_sync_ratings(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
 
@@ -1665,6 +2035,11 @@ def aitbc_market_transcribe(
     task: Annotated[Literal["transcribe", "translate"] | None, Field(description="transcribe or translate to English")] = None,
     fmt: Annotated[Literal["text", "srt", "json"] | None, Field(description="Output format")] = None,
     output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
+    market_wallet: Annotated[str | None, Field(description="Wallet name for market payments")] = None,
+    market_wallet_path: Annotated[str | None, Field(description="Direct wallet file path (overrides --wallet)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1684,6 +2059,11 @@ def aitbc_market_transcribe(
             "output_format": "format",
         },
     )
+    group_options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"market_wallet": "wallet", "market_wallet_path": "wallet-path", "password_file": "password-file"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -1692,6 +2072,7 @@ def aitbc_market_transcribe(
         args=args,
         options=options,
         output_format="json",
+        group_options=group_options,
     )
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
@@ -1713,5 +2094,6 @@ def aitbc_market_transcribe(
             options=options,
             output_format="json",
             timeout=timeout,
+            group_options=group_options,
         )
     )
