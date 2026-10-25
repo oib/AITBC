@@ -167,8 +167,12 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="job_id is required",
             )
-        amount_units = self._amount_units(body.get("amount"))
         job_tx_hash = body.get("job_tx_hash")
+        # ``amount`` is optional: when omitted the relay releases the full
+        # locked amount. It is derived AFTER the ownership check (below) —
+        # a caller who is not the buyer must get 403, not data.
+        amount_provided = body.get("amount") is not None
+        amount_units: int | None = None
 
         client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
 
@@ -211,9 +215,15 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 detail=f"Escrow for job_id={job_id} has already been refunded",
             )
 
-        self._check_amount_within_lock(is_admin, amount_units, escrow, job_id)
+        # Derive the amount only after ownership has passed: an omitted
+        # amount means "release the full lock" — the chain's own rule.
+        if amount_provided:
+            amount_units = self._amount_units(body.get("amount"))
+            self._check_amount_within_lock(is_admin, amount_units, escrow, job_id)
 
-        forward: dict[str, Any] = {"amount": str(body.get("amount"))}
+        forward: dict[str, Any] = {}
+        if amount_provided:
+            forward["amount"] = str(body.get("amount"))
         if job_tx_hash is not None:
             forward["job_tx_hash"] = job_tx_hash
 
