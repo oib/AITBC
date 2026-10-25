@@ -4,6 +4,7 @@ How to refund a job payment whose escrow is still held on-chain. There is
 **no automatic refund sweeper** — refunds are deliberate operator or client
 actions. Mechanisms verified against the code on `main`; cite points are
 file:line.
+For artefact formats and restore steps see the [backup-restore runbook](backup-restore.md).
 
 Companion docs: `docs/ops/escrow-settlement-ops.md` (the full pipeline and
 alerts), `docs/ops/escrow-routing.md` (escrow rows exist only on the node
