@@ -26,6 +26,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from aitbc.network import AsyncAITBCHTTPClient
@@ -115,6 +116,25 @@ class EscrowReleaseRelayService(EscrowRelayService):
             "duplicate": True,
         }
 
+    def _insert_or_existing(self, row: EscrowReleaseRelay) -> EscrowReleaseRelay | None:
+        """Insert *row*; on a concurrent duplicate insert return the stored row instead.
+
+        Two simultaneous releases can both pass the dedup lookup — the loser
+        hits the unique job_id index. It must not surface a 500: the stored
+        row is the correct replay result.
+        """
+        self.session.add(row)
+        try:
+            self.session.commit()
+            return None
+        except IntegrityError:
+            self.session.rollback()
+            return (
+                self.session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == row.job_id))
+                .scalars()
+                .first()
+            )
+
     async def release(self, client_id: str, is_admin: bool, body: dict[str, Any]) -> dict[str, Any]:
         """Validate, dedup and forward the escrow release to the chain.
 
@@ -130,6 +150,21 @@ class EscrowReleaseRelayService(EscrowRelayService):
         amount_units = self._amount_units(body.get("amount"))
         job_tx_hash = body.get("job_tx_hash")
 
+        client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
+
+        # Ownership first: the buyer check must run before any dedup or
+        # already-released return, or a logged-in caller who merely knows a
+        # job_id could read that escrow's tx_hash/contract_id.
+        escrow = await self._fetch_escrow(client, job_id)
+        buyer = escrow.get("buyer")
+        if not is_admin:
+            if not isinstance(buyer, str) or not buyer:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="the settlement node did not report the escrow buyer",
+                )
+            self._check_buyer_binding(client_id, buyer)
+
         # Dedup: a prior relay row settles the job — return it without a
         # chain call so a replayed request can never double-release.
         existing: EscrowReleaseRelay | None = (
@@ -138,9 +173,6 @@ class EscrowReleaseRelayService(EscrowRelayService):
         if existing is not None:
             return self._stored_result(existing)
 
-        client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
-
-        escrow = await self._fetch_escrow(client, job_id)
         state = escrow.get("state")
         if state == "released" or escrow.get("released_at"):
             # Already settled on-chain: record the outcome and return it —
@@ -151,23 +183,14 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 tx_hash=escrow.get("release_tx_hash"),
                 contract_id=escrow.get("contract_id"),
             )
-            self.session.add(row)
-            self.session.commit()
-            return self._stored_result(row)
+            stored = self._insert_or_existing(row)
+            return self._stored_result(stored if stored is not None else row)
         if state == "refunded" or escrow.get("refunded_at"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Escrow for job_id={job_id} has already been refunded",
             )
 
-        buyer = escrow.get("buyer")
-        if not is_admin:
-            if not isinstance(buyer, str) or not buyer:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="the settlement node did not report the escrow buyer",
-                )
-            self._check_buyer_binding(client_id, buyer)
         self._check_amount_within_lock(is_admin, amount_units, escrow, job_id)
 
         forward: dict[str, Any] = {"amount": str(body.get("amount"))}
@@ -195,8 +218,11 @@ class EscrowReleaseRelayService(EscrowRelayService):
         tx_hash = chain_response.get("tx_hash") if isinstance(chain_response, dict) else None
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
         row = EscrowReleaseRelay(client_id=client_id, job_id=job_id, tx_hash=tx_hash, contract_id=contract_id)
-        self.session.add(row)
-        self.session.commit()
+        stored = self._insert_or_existing(row)
+        if stored is not None:
+            # Concurrent identical release: the row landed first — the chain
+            # call may or may not have sealed; return the stored result.
+            return self._stored_result(stored)
         # Audit: one line per relay — client, job and the tx, never payload detail.
         logger.info(
             "Escrow release relayed: client_id=%s job_id=%s contract_id=%s tx_hash=%s",

@@ -142,8 +142,9 @@ class TestEscrowReleaseRelay:
         assert second.json()["tx_hash"] == "0xrel9"
         assert second.json()["duplicate"] is True
         assert mock_client.post.call_count == 1
-        # The replay never re-read the escrow row either.
-        assert mock_client.get.call_count == 1
+        # The replay re-reads the escrow for the ownership check (which runs
+        # before dedup) but never re-posts the release.
+        assert mock_client.get.call_count == 2
 
     def test_release_already_released_on_chain(self, client, db_session):
         """An escrow the chain already released returns its tx without a
@@ -240,3 +241,57 @@ def test_release_route_registered_in_security_matrix():
 
     assert get_auth_level("/v1/escrow/release") == AuthLevel.ADMIN_OR_CLIENT
     assert ROUTE_SECURITY_MATRIX["/v1/escrow/release"] == AuthLevel.ADMIN_OR_CLIENT
+
+    def test_dedup_result_requires_ownership(self, client, db_session):
+        """A caller who knows the job_id but isn't the buyer must 403 —
+        even when a relay row already exists (ownership runs before dedup).
+        """
+        db_session.add(
+            EscrowReleaseRelay(
+                client_id="other-client",
+                job_id="mkt_job_1",
+                tx_hash="0xstored",
+                contract_id="0xc1",
+            )
+        )
+        db_session.commit()
+        _bind_wallet(db_session, "client-1", OTHER_BUYER)
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 403
+
+    def test_concurrent_duplicate_insert_returns_stored_not_500(self, client, db_session):
+        """Loser of a same-job_id insert race gets the stored result, not a 500."""
+        db_session.add(
+            EscrowReleaseRelay(
+                client_id="other-client",
+                job_id="mkt_job_1",
+                tx_hash="0xwinner",
+                contract_id="0xc1",
+            )
+        )
+        db_session.commit()
+        _bind_wallet(db_session, "client-1", BUYER)
+
+        # The dedup lookup must miss (row inserted "after" it): hide the
+        # seeded row from the first select by making commit() raise on the
+        # service's insert attempt — but only for the EscrowReleaseRelay add,
+        # which is the first commit in this request.
+        original_commit = db_session.commit
+        calls = {"n": 0}
+
+        def racy_commit():
+            calls["n"] += 1
+            if calls["n"] == 1:
+                from sqlalchemy.exc import IntegrityError
+
+                raise IntegrityError("INSERT", {}, Exception("unique job_id"))
+            return original_commit()
+
+        mock_client = _chain_client_mock()
+        with patch.object(db_session, "commit", side_effect=racy_commit), patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["tx_hash"] == "0xwinner"
+        assert resp.json()["duplicate"] is True
