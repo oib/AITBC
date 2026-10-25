@@ -296,7 +296,10 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
 
         http_client = _coordinator_client(ctx)
         try:
-            resp = http_client.get(_reputation_endpoint("/leaderboard"), params=params)
+            # The endpoint answers a bare array on some deployments and an
+            # object with a "leaderboard" key on others — get_json accepts
+            # both shapes; get() would raise on the array form.
+            resp = http_client.get_json(_reputation_endpoint("/leaderboard"), params=params)
         except NetworkError as e:
             if http_response_status(e) is not None:
                 raise
