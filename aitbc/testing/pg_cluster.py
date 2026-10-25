@@ -113,7 +113,7 @@ class LocalPostgresCluster:
         self.bin_dir = bin_dir or find_postgres_bin()
         if self.bin_dir is None:
             raise PostgresUnavailableError("no initdb/pg_ctl/postgres/psql binaries found")
-        self.base_dir = base_dir or "/var/tmp"
+        self.base_dir = base_dir or "/var/tmp"  # nosec B108 — test fixture scratch root per operator prompt
         self._dir: Path | None = None
         self.port: int | None = None
 
