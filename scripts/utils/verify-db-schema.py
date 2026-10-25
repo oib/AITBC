@@ -82,7 +82,7 @@ def _suppress_import_noise():
 
 
 def _actual_tables(db_path: Path) -> set[str]:
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name != 'sqlite_sequence'")
         return {row[0] for row in cur.fetchall()}
@@ -91,7 +91,7 @@ def _actual_tables(db_path: Path) -> set[str]:
 
 
 def _actual_columns(db_path: Path, table: str) -> set[str]:
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         cur = conn.execute(f'PRAGMA table_info("{table}")')
         return {row[1] for row in cur.fetchall()}
@@ -216,7 +216,7 @@ def _render_default_clause(col, dialect) -> str:
 def _add_missing_column(db_path: Path, table: str, col, dialect, quote) -> str | None:
     coltype = col.type.compile(dialect=dialect)
     default = _render_default_clause(col, dialect)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(f"file:{db_path}?mode=rw", uri=True)
     try:
         if not default and col.nullable is False:
             # The table name is a known identifier from SQLModel metadata and is
