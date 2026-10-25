@@ -26,6 +26,8 @@ function applyNetworkInfo(data) {
     if (data.contact_email) {
         document.getElementById('contact-email').textContent = data.contact_email;
         document.getElementById('contact-email-link').href = 'mailto:' + data.contact_email;
+    } else {
+        document.getElementById('contact-email').textContent = 'not published';
     }
 }
 
@@ -37,6 +39,7 @@ function markNetworkInfoUnknown() {
     document.getElementById('meta-chain-id').textContent = 'unknown';
     document.getElementById('meta-role').textContent = 'unknown';
     document.getElementById('contact-email').textContent = 'unknown';
+    document.getElementById('contact-email-link').removeAttribute('href');
 }
 
 // ── Live network facts strip ──────────────────────────────────────────
