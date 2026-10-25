@@ -713,18 +713,13 @@ def _parse_argument(param: click.Argument, order: int, seen_names: set[str]) -> 
     }
 
 
-def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
-    """Extract parameters for one command."""
-    options: list[dict[str, Any]] = []
-    positional: list[dict[str, Any]] = []
-    seen_names: set[str] = set()
-    path_skips = SKIP_OPTIONS_BY_PATH.get(path, frozenset())
+def _choose_format_options(cmd: click.Command) -> dict[str, click.Option]:
+    """Deduplicate twin --format/--output options sharing one param name.
 
-    # OUTPUT_FORMAT_OPTION (cli/aitbc_cli/utils/output.py) attaches ``--format``
-    # and ``--output`` as two click.Option objects sharing one param name on 18
-    # commands. Emit a single tool parameter for each param name, preferring
-    # the ``--format`` spelling — the leaf accepts both and ``--format`` is the
-    # spelling the scenarios use.
+    OUTPUT_FORMAT_OPTION (cli/aitbc_cli/utils/output.py) attaches ``--format``
+    and ``--output`` as two click.Option objects on 18 commands. Emit a single
+    tool parameter per param name, preferring the ``--format`` spelling — the
+    leaf accepts both and ``--format`` is the spelling the scenarios use."""
     chosen: dict[str, click.Option] = {}
     for param in cmd.params:
         if not isinstance(param, click.Option):
@@ -732,6 +727,17 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
         key = param.name or ""
         if key not in chosen or "--format" in param.opts:
             chosen[key] = param
+    return chosen
+
+
+def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
+    """Extract parameters for one command."""
+    options: list[dict[str, Any]] = []
+    positional: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+    path_skips = SKIP_OPTIONS_BY_PATH.get(path, frozenset())
+
+    chosen = _choose_format_options(cmd)
 
     for i, param in enumerate(cmd.params):
         if isinstance(param, click.Option):
