@@ -85,8 +85,18 @@ def downgrade() -> None:
     bind = op.get_bind()
     if bind.dialect.name == "sqlite":
         return
+    # Mirror upgrade()'s guards: trade_agreements, trade_settlements and
+    # trading_analytics are created by 003, so on the way down they are
+    # already gone and altering them aborts the downgrade on PostgreSQL.
+    inspector = sa.inspect(bind)
+    existing_tables = set(inspector.get_table_names())
     for table_name, columns in _MONEY_COLUMNS:
+        if table_name not in existing_tables:
+            continue
+        existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
         for col_name, _, _ in columns:
+            if col_name not in existing_cols:
+                continue
             op.alter_column(
                 table_name,
                 col_name,
