@@ -42,6 +42,7 @@ from .bridge_db import (
     get_latest_sell_quote_by_shop,
     get_sell_lock_by_ait_tx_hash,
     get_sell_lock_by_id,
+    get_sell_lock_by_quote_id,
     get_sell_quote,
     get_withdrawal_by_ait_tx_hash,
     insert_sell_quote,
@@ -957,10 +958,14 @@ async def bridge_sell_status(identifier: str) -> dict[str, Any]:
     if quote:
         # The escrow address is env-config, not a quote column — the lock CLI
         # needs it to build the lock TRANSFER.
+        lock = get_sell_lock_by_quote_id(identifier)
         return {
             "kind": "quote",
             "escrow_address": os.getenv("AIT_SELL_ESCROW", ""),
             **_normalize_sell_quote(quote),
+            # The quote row stays 'locked' once a lock is recorded — the live
+            # state lives on the lock row (settled/refunded/...), so embed it.
+            "lock": _normalize_sell_lock(lock) if lock else None,
         }
     lock = get_sell_lock_by_ait_tx_hash(identifier) or get_sell_lock_by_id(identifier)
     if lock:

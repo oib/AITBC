@@ -1460,6 +1460,37 @@ class TestSellRoutes:
         assert resp.status_code == 200
         assert len(resp.json()["quotes"]) == 1
 
+    def test_status_embeds_settled_lock_row(self, client):
+        """SELL-59-FINDINGS-1: the quote row stays 'locked' once a lock is
+        recorded — sell status must surface the lock row's live state."""
+        quote_id = _insert_quote()
+        tx_hash = "0x" + "e7" * 32
+        insert_sell_lock(
+            ait_tx_hash=tx_hash,
+            quote_id=quote_id,
+            shop_ait_address=SHOP_AIT,
+            shop_eth_address=SHOP_ETH,
+            amount_ait=Decimal("10"),
+            eth_amount=Decimal("0.00093"),
+            status="locked",
+        )
+        update_sell_lock_status(tx_hash, "settled", settle_tx_hash="0x" + "f8" * 32)
+
+        resp = client.get(f"/v1/bridge/sell/status/{quote_id}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["kind"] == "quote"
+        assert body["status"] == "quoted"  # quote row untouched by the lock
+        assert body["lock"]["status"] == "settled"
+        assert body["lock"]["ait_tx_hash"] == tx_hash
+        assert body["lock"]["settle_tx_hash"] == "0x" + "f8" * 32
+
+    def test_status_quote_without_lock_has_null_lock(self, client):
+        quote_id = _insert_quote()
+        resp = client.get(f"/v1/bridge/sell/status/{quote_id}")
+        assert resp.status_code == 200
+        assert resp.json()["lock"] is None
+
     def test_quote_open_cap_429(self, client, monkeypatch):
         monkeypatch.setenv("SELL_MAX_OPEN_QUOTES_PER_SHOP", "2")
         monkeypatch.setenv("SELL_QUOTE_MIN_INTERVAL_SECONDS", "0")

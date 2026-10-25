@@ -52,3 +52,17 @@
 - `generate_mcp_cli_tools.py --check` now formats emitted output in memory (same `ruff format` pipeline as the write path) before comparing, and verifies the committed split-by-group layout (mode `all`) like `scripts/ci/check-mcp-cli-drift.sh`; previously it compared raw unformatted text against the formatted committed files and failed on every tree. New unit test `tests/unit/test_generate_mcp_cli_tools_check.py` pins the format-then-compare behaviour. (Refs #443)
 
 ### BRIDGE-MONITOR-1: bridge-monitor misses sealed deposits while idle and SUBMITTED rows never flip after seal. Poll-loop watchdog (BRIDGE-MONITOR-1): every cycle now logs a heartbeat ("poll cycle done in Xs"), the block scan is bounded by BRIDGE_CYCLE_TIMEOUT_SECONDS (default 300, cursor holds and ALERTs on breach), a cycle exceeding the limit logs ALERT, and a frozen ETH head (stale LB backend answering fine but never advancing — the shape of the 25 Oct miss) alerts after BRIDGE_HEAD_STALL_SECONDS (600). ETH_RPC_TIMEOUT (10) makes the provider request timeout tunable. Status lag: the retry path stored the *derived* envelope hash in ait_tx_hash and never adopted the hash the RPC actually returned, so the seal probe keyed on a hash that can never seal — deposits stayed SUBMITTED after the payout landed (P8/C2). Both submit paths now share _adopt_posted_hash, which stores the chain-reported hash; envelope_hash keeps the derived anchor. Refs #448
+
+### SELL-59-FINDINGS-1
+
+- `aitbc wallet bridge sell` `--hub-url` now normalizes to the bare origin
+  (`scheme://host[:port]`): the hub nginx mounts `/v1/bridge/*` at the root,
+  so a path-suffixed URL such as `https://hub/wallet` silently 404d. Shared
+  by the wallet bridge sell/status/float/settlements leaves and `exchange
+  sell_admin`; scheme-less input gets `https://`.
+- `GET /v1/bridge/sell/status/<quote_id>` embeds the quote's lock row
+  (`lock`, or `null`): the quote row freezes at `locked` once a lock is
+  recorded, so the settled/released/refunded state was invisible without
+  querying `/v1/bridge/sell/list` on the hub loopback. `aitbc wallet bridge
+  sell status` reports the lock row's status with `quote_status`
+  alongside. Refs #451
