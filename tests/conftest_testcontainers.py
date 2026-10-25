@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """
 Test database setup using Testcontainers for integration tests.
+
+Docker/podman are absent on the AITBC nodes, so these container fixtures can
+never run there. PG-TARGET-1 stream 3 adds a local alternative that needs no
+container runtime: ``pytest_plugins = ["aitbc.testing.pytest_pg"]`` gives a
+suite a ``postgres_cluster`` session fixture (throwaway initdb cluster on a
+unix socket under /var/tmp) and a ``pg_url`` factory — see
+``aitbc/testing/pg_cluster.py``, ``tests/test_pg_cluster.py``,
+``apps/pool-hub/tests/test_pg_migrations.py`` and
+``apps/trading/tests/test_pg_migrations.py``.
 """
 
 import os
