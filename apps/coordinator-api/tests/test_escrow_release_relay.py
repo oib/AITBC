@@ -234,14 +234,6 @@ class TestEscrowReleaseRelay:
         assert row.tx_hash == "0xrow"
         assert row.contract_id == "0xc9"
 
-
-def test_release_route_registered_in_security_matrix():
-    """/v1/escrow/release must not fall to middleware deny-by-default (403 'Forbidden')."""
-    from aitbc.auth.security_matrix import ROUTE_SECURITY_MATRIX, AuthLevel, get_auth_level
-
-    assert get_auth_level("/v1/escrow/release") == AuthLevel.ADMIN_OR_CLIENT
-    assert ROUTE_SECURITY_MATRIX["/v1/escrow/release"] == AuthLevel.ADMIN_OR_CLIENT
-
     def test_dedup_result_requires_ownership(self, client, db_session):
         """A caller who knows the job_id but isn't the buyer must 403 —
         even when a relay row already exists (ownership runs before dedup).
@@ -262,32 +254,28 @@ def test_release_route_registered_in_security_matrix():
         assert resp.status_code == 403
 
     def test_concurrent_duplicate_insert_returns_stored_not_500(self, client, db_session):
-        """Loser of a same-job_id insert race gets the stored result, not a 500."""
-        db_session.add(
-            EscrowReleaseRelay(
-                client_id="other-client",
-                job_id="mkt_job_1",
-                tx_hash="0xwinner",
-                contract_id="0xc1",
-            )
-        )
-        db_session.commit()
+        """Loser of a same-job_id insert race gets the stored result, not a 500.
+
+        The winning row must NOT exist when the dedup select runs (or the
+        test never reaches the insert path). It lands inside the patched
+        commit() via an independent connection — simulating the concurrent
+        insert — just before the unique-violation error is raised.
+        """
         _bind_wallet(db_session, "client-1", BUYER)
 
-        # The dedup lookup must miss (row inserted "after" it): hide the
-        # seeded row from the first select by making commit() raise on the
-        # service's insert attempt — but only for the EscrowReleaseRelay add,
-        # which is the first commit in this request.
-        original_commit = db_session.commit
-        calls = {"n": 0}
-
         def racy_commit():
-            calls["n"] += 1
-            if calls["n"] == 1:
-                from sqlalchemy.exc import IntegrityError
+            # The other client lands first — committed on a SEPARATE
+            # connection so the service session's rollback cannot remove it.
+            engine = db_session.get_bind()
+            with engine.begin() as conn:
+                conn.execute(
+                    EscrowReleaseRelay.__table__.insert().values(
+                        client_id="other-client", job_id="mkt_job_1", tx_hash="0xwinner", contract_id="0xc1"
+                    )
+                )
+            from sqlalchemy.exc import IntegrityError
 
-                raise IntegrityError("INSERT", {}, Exception("unique job_id"))
-            return original_commit()
+            raise IntegrityError("INSERT", {}, Exception("unique job_id"))
 
         mock_client = _chain_client_mock()
         with patch.object(db_session, "commit", side_effect=racy_commit), patch(PATCH_TARGET, return_value=mock_client):
@@ -295,3 +283,11 @@ def test_release_route_registered_in_security_matrix():
         assert resp.status_code == 200, resp.text
         assert resp.json()["tx_hash"] == "0xwinner"
         assert resp.json()["duplicate"] is True
+
+
+def test_release_route_registered_in_security_matrix():
+    """/v1/escrow/release must not fall to middleware deny-by-default (403 'Forbidden')."""
+    from aitbc.auth.security_matrix import ROUTE_SECURITY_MATRIX, AuthLevel, get_auth_level
+
+    assert get_auth_level("/v1/escrow/release") == AuthLevel.ADMIN_OR_CLIENT
+    assert ROUTE_SECURITY_MATRIX["/v1/escrow/release"] == AuthLevel.ADMIN_OR_CLIENT
