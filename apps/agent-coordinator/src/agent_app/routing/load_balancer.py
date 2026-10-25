@@ -510,6 +510,16 @@ class TaskDistributor:
         chain_id: str | None = None,
     ) -> None:
         """Submit task for distribution"""
+        from fastapi import HTTPException
+
+        from aitbc.island_deferral import should_defer
+
+        if should_defer("job-submit"):
+            raise HTTPException(
+                status_code=503,
+                detail="island-degraded: job submission deferred",
+                headers={"Retry-After": "60"},
+            )
         task_info = {
             "task_data": task_data,
             "priority": priority,
