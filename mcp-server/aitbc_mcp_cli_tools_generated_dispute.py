@@ -28,6 +28,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_dispute_active(
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -36,7 +37,7 @@ def aitbc_dispute_active(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -58,6 +59,7 @@ def aitbc_dispute_arbitrator_authorize(
         str | None, Field(description="Owner signature authorising the change; required by nodes that enforce it.")
     ] = None,
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -68,7 +70,7 @@ def aitbc_dispute_arbitrator_authorize(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"revoke": "revoke"},
-        values={"owner_signature": "signature", "node_url": "node-url"},
+        values={"owner_signature": "signature", "node_url": "node-url", "format": "format"},
     )
     args = [arbitrator_address] if arbitrator_address is not None else []
     target = _host_for_role(role, host)
@@ -106,6 +108,7 @@ def aitbc_dispute_arbitrator_authorize(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_dispute_arbitrator_list(
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -114,7 +117,7 @@ def aitbc_dispute_arbitrator_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -132,6 +135,7 @@ def aitbc_dispute_arbitrator_list(
 def aitbc_dispute_arbitrator_queue(
     arbitrator_address: Annotated[str, Field(description="Positional argument: arbitrator_address")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -142,7 +146,7 @@ def aitbc_dispute_arbitrator_queue(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "format": "format"},
     )
     args = [arbitrator_address] if arbitrator_address is not None else []
     target = _host_for_role(role, host)
@@ -181,6 +185,7 @@ def aitbc_dispute_arbitrator_queue(
 def aitbc_dispute_auto_adjudicate(
     assume_yes: Annotated[bool | None, Field(description="Skip the confirmation prompt.")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -191,7 +196,7 @@ def aitbc_dispute_auto_adjudicate(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"assume_yes": "yes"},
-        values={"coordinator_url": "coordinator-url"},
+        values={"coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -233,6 +238,7 @@ def aitbc_dispute_evidence_add(
     evidence_type: Annotated[str, Field(description="Evidence category, e.g. transcript or receipt.")],
     description: Annotated[str, Field(description="What the evidence shows.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -249,6 +255,7 @@ def aitbc_dispute_evidence_add(
             "evidence_type": "evidence-type",
             "description": "description",
             "node_url": "node-url",
+            "format": "format",
         },
     )
     args = None
@@ -288,6 +295,7 @@ def aitbc_dispute_evidence_add(
 def aitbc_dispute_evidence_list(
     dispute_id: Annotated[str, Field(description="Positional argument: dispute_id")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -296,7 +304,7 @@ def aitbc_dispute_evidence_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "format": "format"},
     )
     args = [dispute_id] if dispute_id is not None else []
     return _aitbc_cli_read_tool(
@@ -316,6 +324,7 @@ def aitbc_dispute_evidence_verify(
     evidence_id: Annotated[int, Field(description="Evidence entry to rule on.")],
     reject: Annotated[bool | None, Field(description="Mark the evidence as not verified instead of verified.")] = None,
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -326,7 +335,7 @@ def aitbc_dispute_evidence_verify(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"reject": "reject"},
-        values={"dispute_id": "dispute-id", "evidence_id": "evidence-id", "node_url": "node-url"},
+        values={"dispute_id": "dispute-id", "evidence_id": "evidence-id", "node_url": "node-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -369,6 +378,7 @@ def aitbc_dispute_file(
     reason: Annotated[str, Field(description="Why the dispute is being filed.")],
     evidence_hash: Annotated[str, Field(description="Hash of the supporting evidence.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -386,6 +396,7 @@ def aitbc_dispute_file(
             "reason": "reason",
             "evidence_hash": "evidence-hash",
             "node_url": "node-url",
+            "format": "format",
         },
     )
     args = None
@@ -425,6 +436,7 @@ def aitbc_dispute_file(
 def aitbc_dispute_get(
     dispute_id: Annotated[str, Field(description="Positional argument: dispute_id")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -433,7 +445,7 @@ def aitbc_dispute_get(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "format": "format"},
     )
     args = [dispute_id] if dispute_id is not None else []
     return _aitbc_cli_read_tool(
@@ -457,6 +469,7 @@ def aitbc_dispute_resolve(
     reason: Annotated[str, Field(description="The ruling, recorded on the settlement (1-500 characters).")],
     assume_yes: Annotated[bool | None, Field(description="Skip the confirmation prompt.")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -467,7 +480,7 @@ def aitbc_dispute_resolve(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"assume_yes": "yes"},
-        values={"outcome": "outcome", "reason": "reason", "coordinator_url": "coordinator-url"},
+        values={"outcome": "outcome", "reason": "reason", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = [job_id] if job_id is not None else []
     target = _host_for_role(role, host)
@@ -506,6 +519,7 @@ def aitbc_dispute_resolve(
 def aitbc_dispute_user(
     user_address: Annotated[str, Field(description="Positional argument: user_address")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -516,7 +530,7 @@ def aitbc_dispute_user(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "format": "format"},
     )
     args = [user_address] if user_address is not None else []
     target = _host_for_role(role, host)
@@ -557,6 +571,7 @@ def aitbc_dispute_vote(
     vote: Annotated[Literal["plaintiff", "defendant"], Field(description="Which side the vote favours.")],
     reasoning: Annotated[str, Field(description="Why the arbitrator ruled this way; recorded with the vote.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -567,7 +582,13 @@ def aitbc_dispute_vote(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"dispute_id": "dispute-id", "vote": "vote", "reasoning": "reasoning", "node_url": "node-url"},
+        values={
+            "dispute_id": "dispute-id",
+            "vote": "vote",
+            "reasoning": "reasoning",
+            "node_url": "node-url",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -606,6 +627,7 @@ def aitbc_dispute_vote(
 def aitbc_dispute_votes(
     dispute_id: Annotated[str, Field(description="Positional argument: dispute_id")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -614,7 +636,7 @@ def aitbc_dispute_votes(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "format": "format"},
     )
     args = [dispute_id] if dispute_id is not None else []
     return _aitbc_cli_read_tool(

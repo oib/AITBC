@@ -892,6 +892,58 @@ def test_scrub_secrets_unit():
     assert rpc_tools._scrub_secrets('{"command": "--x=fake-token"}', ["fake-token"]) == '{"command": "--x=***"}'
     assert rpc_tools._scrub_secrets("plain", [None, ""]) == "plain"
 
+def test_format_option_forwarded_on_typed_tool():
+    """MCP-MISC-1/SM-08: a leaf-declared --format reaches the CLI argv."""
+    import aitbc_mcp_cli_tools_generated_reputation as generated
+
+    _clear()
+    result = json.loads(generated.aitbc_reputation_metrics(format="table", role="hub"))
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert "--format=table" in cmd
+    # The global --output=json default is still emitted; the leaf wins where
+    # it declares its own format option.
+    assert "--output=json" in cmd
+
+
+def test_format_option_omitted_when_unset():
+    import aitbc_mcp_cli_tools_generated_reputation as generated
+
+    _clear()
+    result = json.loads(generated.aitbc_reputation_metrics(role="hub"))
+    assert result["returncode"] == 0
+    assert "--format" not in _last_command()
+
+
+def test_output_format_option_deduped_to_single_param():
+    """OUTPUT_FORMAT_OPTION declares --output and --format on one param name;
+    the generated tool must emit exactly one flag (--format preferred)."""
+    import inspect
+
+    import aitbc_mcp_cli_tools_generated_blockchain as generated
+
+    params = inspect.signature(generated.aitbc_blockchain_height).parameters
+    assert list(params).count("output_format") == 1
+
+    _clear()
+    result = json.loads(generated.aitbc_blockchain_height(output_format="yaml", role="hub"))
+    assert result["returncode"] == 0
+    cmd = _last_command()
+    assert cmd.count("--format=") == 1
+    assert "--format=yaml" in cmd
+
+
+def test_crosschain_bridge_status_emits_bridge_id():
+    """MCP-MISC-1/SM-10: the canonical --bridge-id spelling reaches the argv,
+    not the --transfer-id alias."""
+    import aitbc_mcp_cli_tools_generated_crosschain as generated
+
+    _clear()
+    result = json.loads(generated.aitbc_crosschain_bridge_status(bridge_id="0xbridge1", dry_run=True, role="hub"))
+    cmd = result["command"]
+    assert "--bridge-id=0xbridge1" in cmd
+    assert "--transfer-id" not in cmd
+
 
 if __name__ == "__main__":
     test_buy_ait_exchange()
@@ -918,4 +970,8 @@ if __name__ == "__main__":
     test_nested_market_escrow_create()
     test_set_aitbc_config()
     test_login_aitbc()
+    test_format_option_forwarded_on_typed_tool()
+    test_format_option_omitted_when_unset()
+    test_output_format_option_deduped_to_single_param()
+    test_crosschain_bridge_status_emits_bridge_id()
     print("All aitbc_mcp_cli_tools tests passed")

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -31,6 +31,7 @@ from aitbc_mcp_server import (
 def aitbc_ai_accept(
     job_id: Annotated[str, Field(description="Job ID to accept")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -41,7 +42,7 @@ def aitbc_ai_accept(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"job_id": "job-id", "coordinator_url": "coordinator-url"},
+        values={"job_id": "job-id", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -86,6 +87,7 @@ def aitbc_ai_cancel(
     refund: Annotated[bool | None, Field(description="Also refund the escrowed payment after cancel")] = None,
     reason: Annotated[str | None, Field(description="Reason for refund")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -102,6 +104,7 @@ def aitbc_ai_cancel(
             "password_file": "password-file",
             "reason": "reason",
             "coordinator_url": "coordinator-url",
+            "format": "format",
         },
     )
     args = None
@@ -142,6 +145,7 @@ def aitbc_ai_jobs(
     limit: Annotated[int | None, Field(description="Limit results")] = None,
     status: Annotated[str | None, Field(description="Filter by status")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -150,7 +154,7 @@ def aitbc_ai_jobs(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"limit": "limit", "status": "status", "coordinator_url": "coordinator-url"},
+        values={"limit": "limit", "status": "status", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -179,6 +183,7 @@ def aitbc_ai_pay(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -201,6 +206,7 @@ def aitbc_ai_pay(
             "rpc_url": "rpc-url",
             "chain_id": "chain-id",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None
@@ -292,6 +298,7 @@ def aitbc_ai_refund_sweep(
     reason: Annotated[str | None, Field(description="Reason for refund")] = None,
     dry_run_opt: Annotated[bool | None, Field(description="Count candidates without refunding")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -302,7 +309,7 @@ def aitbc_ai_refund_sweep(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"dry_run_opt": "dry-run"},
-        values={"limit": "limit", "reason": "reason", "coordinator_url": "coordinator-url"},
+        values={"limit": "limit", "reason": "reason", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -341,6 +348,7 @@ def aitbc_ai_refund_sweep(
 def aitbc_ai_results(
     job_id: Annotated[str | None, Field(description="Job ID")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -349,7 +357,7 @@ def aitbc_ai_results(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"job_id": "job-id", "coordinator_url": "coordinator-url"},
+        values={"job_id": "job-id", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -367,6 +375,7 @@ def aitbc_ai_results(
 def aitbc_ai_service_test(
     name: Annotated[str | None, Field(description="Service name")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -377,7 +386,7 @@ def aitbc_ai_service_test(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"name": "name", "coordinator_url": "coordinator-url"},
+        values={"name": "name", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -415,6 +424,7 @@ def aitbc_ai_service_test(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_ai_stats(
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -423,7 +433,7 @@ def aitbc_ai_stats(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"coordinator_url": "coordinator-url"},
+        values={"coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -441,6 +451,7 @@ def aitbc_ai_stats(
 def aitbc_ai_status(
     job_id: Annotated[str | None, Field(description="Job ID")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -449,7 +460,7 @@ def aitbc_ai_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"job_id": "job-id", "coordinator_url": "coordinator-url"},
+        values={"job_id": "job-id", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -504,6 +515,7 @@ def aitbc_ai_submit(
     ] = None,
     decode_seed: Annotated[int | None, Field(description="Seed for deterministic decoding (auto-assigned if unset)")] = None,
     input_url: Annotated[str | None, Field(description="Input URL or path for transcribe/reencode jobs")] = None,
+    output_format: Annotated[str | None, Field(description="Output format for reencode jobs (e.g. mp4, mp3)")] = None,
     classification: Annotated[str | None, Field(description="Data classification label (e.g. public, pii, phi)")] = None,
     compliance_framework: Annotated[str | None, Field(description="Compliance framework to enforce")] = None,
     password_file: Annotated[
@@ -517,6 +529,7 @@ def aitbc_ai_submit(
         float | None, Field(description="Maximum seconds to wait for a terminal state (default: 300)")
     ] = None,
     poll_interval: Annotated[float | None, Field(description="Seconds between status polls (default: 5)")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -553,6 +566,7 @@ def aitbc_ai_submit(
             "min_bond_amount": "min-bond-amount",
             "decode_seed": "decode-seed",
             "input_url": "input",
+            "output_format": "output-format",
             "classification": "classification",
             "compliance_framework": "compliance-framework",
             "password_file": "password-file",
@@ -561,6 +575,7 @@ def aitbc_ai_submit(
             "coordinator_url": "coordinator-url",
             "timeout_opt": "timeout",
             "poll_interval": "poll-interval",
+            "format": "format",
         },
     )
     args = None

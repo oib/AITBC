@@ -28,6 +28,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_governance_aggregate_votes(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -38,7 +39,7 @@ def aitbc_governance_aggregate_votes(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id"},
+        values={"proposal_id": "proposal-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -76,6 +77,7 @@ def aitbc_governance_aggregate_votes(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_governance_close(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -86,7 +88,7 @@ def aitbc_governance_close(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id"},
+        values={"proposal_id": "proposal-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -131,6 +133,7 @@ def aitbc_governance_execute(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -146,6 +149,7 @@ def aitbc_governance_execute(
             "executor_address": "executor-address",
             "wallet_name": "wallet",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None
@@ -184,6 +188,7 @@ def aitbc_governance_execute(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_governance_execute_cross_chain(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -194,7 +199,7 @@ def aitbc_governance_execute_cross_chain(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id"},
+        values={"proposal_id": "proposal-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -232,6 +237,7 @@ def aitbc_governance_execute_cross_chain(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_governance_get(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -240,7 +246,7 @@ def aitbc_governance_get(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id"},
+        values={"proposal_id": "proposal-id", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -258,6 +264,7 @@ def aitbc_governance_get(
 def aitbc_governance_propagate(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
     target_chains: Annotated[str, Field(description="Comma-separated list of target chain IDs")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -268,7 +275,7 @@ def aitbc_governance_propagate(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id", "target_chains": "target-chains"},
+        values={"proposal_id": "proposal-id", "target_chains": "target-chains", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -306,6 +313,7 @@ def aitbc_governance_propagate(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_governance_proposal_show(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -314,7 +322,7 @@ def aitbc_governance_proposal_show(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id"},
+        values={"proposal_id": "proposal-id", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -344,6 +352,7 @@ def aitbc_governance_propose(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -365,6 +374,7 @@ def aitbc_governance_propose(
             "voting_days": "voting-days",
             "wallet_name": "wallet",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None
@@ -416,6 +426,7 @@ def aitbc_governance_vote(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -435,6 +446,7 @@ def aitbc_governance_vote(
             "voting_power": "voting-power",
             "wallet_name": "wallet",
             "password_file": "password-file",
+            "format": "format",
         },
     )
     args = None

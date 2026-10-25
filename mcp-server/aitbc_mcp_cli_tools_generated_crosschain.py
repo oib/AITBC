@@ -110,7 +110,7 @@ def aitbc_crosschain_bridge_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
-        values={"bridge_id": "transfer-id", "rpc_url": "rpc-url", "timeout_opt": "timeout"},
+        values={"bridge_id": "bridge-id", "rpc_url": "rpc-url", "timeout_opt": "timeout"},
     )
     args = None
     return _aitbc_cli_read_tool(

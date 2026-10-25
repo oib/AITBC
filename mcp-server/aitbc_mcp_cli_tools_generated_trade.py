@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -28,6 +28,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_chains(
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -35,7 +36,11 @@ def aitbc_trade_chains(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List chains that participate in inter-chain trading."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"format": "format"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -79,6 +84,7 @@ def aitbc_trade_create(
     offer_id: Annotated[str | None, Field(description="Associated offer ID")] = None,
     price: Annotated[Decimal | None, Field(description="Trade price")] = None,
     quantity: Annotated[int | None, Field(description="Trade quantity")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -98,6 +104,7 @@ def aitbc_trade_create(
             "offer_id": "offer-id",
             "price": "price",
             "quantity": "quantity",
+            "format": "format",
         },
     )
     args = None
@@ -143,6 +150,7 @@ def aitbc_trade_discover(
     region: Annotated[str | None, Field(description="Filter by region")] = None,
     gpu_model: Annotated[str | None, Field(description="Filter by GPU model")] = None,
     limit: Annotated[int | None, Field(description="Max results")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -162,6 +170,7 @@ def aitbc_trade_discover(
             "region": "region",
             "gpu_model": "gpu-model",
             "limit": "limit",
+            "format": "format",
         },
     )
     args = None
@@ -200,6 +209,7 @@ def aitbc_trade_discover(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_get(
     trade_id: Annotated[str, Field(description="Positional argument: trade_id")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -207,7 +217,11 @@ def aitbc_trade_get(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get details of a specific trade."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"format": "format"},
+    )
     args = [trade_id] if trade_id is not None else []
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -244,6 +258,7 @@ def aitbc_trade_get(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_health(
     chain_id: Annotated[str, Field(description="Chain ID to check")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -254,7 +269,7 @@ def aitbc_trade_health(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id"},
+        values={"chain_id": "chain-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -294,6 +309,7 @@ def aitbc_trade_history(
     source_chain: Annotated[str | None, Field(description="Filter by source chain")] = None,
     dest_chain: Annotated[str | None, Field(description="Filter by destination chain")] = None,
     limit: Annotated[int | None, Field(description="Max results")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -304,7 +320,7 @@ def aitbc_trade_history(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"source_chain": "source-chain", "dest_chain": "dest-chain", "limit": "limit"},
+        values={"source_chain": "source-chain", "dest_chain": "dest-chain", "limit": "limit", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -345,6 +361,7 @@ def aitbc_trade_list(
     source_chain: Annotated[str | None, Field(description="Filter by source chain")] = None,
     dest_chain: Annotated[str | None, Field(description="Filter by destination chain")] = None,
     limit: Annotated[int | None, Field(description="Max results")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -355,7 +372,13 @@ def aitbc_trade_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"status": "status", "source_chain": "source-chain", "dest_chain": "dest-chain", "limit": "limit"},
+        values={
+            "status": "status",
+            "source_chain": "source-chain",
+            "dest_chain": "dest-chain",
+            "limit": "limit",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -395,6 +418,7 @@ def aitbc_trade_lock_escrow(
     trade_id: Annotated[str, Field(description="Trade ID to lock escrow for")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
     timeout_opt: Annotated[int | None, Field(description="Escrow timeout in seconds")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -405,7 +429,7 @@ def aitbc_trade_lock_escrow(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url", "timeout_opt": "timeout"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "timeout_opt": "timeout", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -443,6 +467,7 @@ def aitbc_trade_lock_escrow(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_match(
     trade_id: Annotated[str, Field(description="Positional argument: trade_id")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -450,7 +475,11 @@ def aitbc_trade_match(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Match a trade with a counterparty or settlement path."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"format": "format"},
+    )
     args = [trade_id] if trade_id is not None else []
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -486,6 +515,7 @@ def aitbc_trade_match(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_match_all(
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -493,7 +523,11 @@ def aitbc_trade_match_all(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Match all open inter-chain trades automatically."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"format": "format"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -531,6 +565,7 @@ def aitbc_trade_match_all(
 def aitbc_trade_refund(
     trade_id: Annotated[str, Field(description="Trade ID to refund")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -541,7 +576,7 @@ def aitbc_trade_refund(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -580,6 +615,7 @@ def aitbc_trade_refund(
 def aitbc_trade_register_chain(
     chain_id: Annotated[str, Field(description="Chain ID to register")],
     endpoint: Annotated[str, Field(description="Blockchain node RPC URL for the chain")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -590,7 +626,7 @@ def aitbc_trade_register_chain(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id", "endpoint": "endpoint"},
+        values={"chain_id": "chain-id", "endpoint": "endpoint", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -633,6 +669,7 @@ def aitbc_trade_search(
     min_price: Annotated[Decimal | None, Field(description="Minimum price filter")] = None,
     max_price: Annotated[Decimal | None, Field(description="Maximum price filter")] = None,
     limit: Annotated[int | None, Field(description="Max results")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -650,6 +687,7 @@ def aitbc_trade_search(
             "min_price": "min-price",
             "max_price": "max-price",
             "limit": "limit",
+            "format": "format",
         },
     )
     args = None
@@ -689,6 +727,7 @@ def aitbc_trade_search(
 def aitbc_trade_settle(
     trade_id: Annotated[str, Field(description="Trade ID to settle")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -699,7 +738,7 @@ def aitbc_trade_settle(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -738,6 +777,7 @@ def aitbc_trade_settle(
 def aitbc_trade_settlement_status(
     trade_id: Annotated[str, Field(description="Trade ID to check")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -748,7 +788,7 @@ def aitbc_trade_settlement_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -786,6 +826,7 @@ def aitbc_trade_settlement_status(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_status(
     trade_id: Annotated[str, Field(description="Trade ID")],
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -796,7 +837,7 @@ def aitbc_trade_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id"},
+        values={"trade_id": "trade-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -833,6 +874,7 @@ def aitbc_trade_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_subscription_status(
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -840,7 +882,11 @@ def aitbc_trade_subscription_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the subscription status for trading updates."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"format": "format"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -879,6 +925,7 @@ def aitbc_trade_sync(
     chain_id: Annotated[str | None, Field(description="Sync specific chain (default: all chains)")] = None,
     service_type: Annotated[str | None, Field(description="Sync specific service type")] = None,
     force: Annotated[bool | None, Field(description="Force sync even if offers are fresh")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -889,7 +936,7 @@ def aitbc_trade_sync(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"force": "force"},
-        values={"chain_id": "chain-id", "service_type": "service-type"},
+        values={"chain_id": "chain-id", "service_type": "service-type", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -926,6 +973,7 @@ def aitbc_trade_sync(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_trade_sync_status(
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -933,7 +981,11 @@ def aitbc_trade_sync_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the inter-chain trading sync status."""
-    options: dict[str, Any] = {}
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"format": "format"},
+    )
     args = None
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command(
@@ -975,6 +1027,7 @@ def aitbc_trade_watch(
     max_price: Annotated[Decimal | None, Field(description="Maximum price filter")] = None,
     region: Annotated[str | None, Field(description="Filter by region")] = None,
     gpu_model: Annotated[str | None, Field(description="Filter by GPU model")] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -992,6 +1045,7 @@ def aitbc_trade_watch(
             "max_price": "max-price",
             "region": "region",
             "gpu_model": "gpu-model",
+            "format": "format",
         },
     )
     args = None
