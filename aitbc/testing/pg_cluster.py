@@ -91,7 +91,12 @@ def assert_local_pg_url(url: str) -> None:
     if parts.hostname and not _hostname_is_local(parts.hostname):
         raise ValueError(f"non-local database URL refused for the disposable cluster: {redacted_url(url)}")
     port = parts.port or dict(parse_qsl(parts.query)).get("port")
-    if port is not None and int(port) == 5432:
+    # A real hostname without an explicit port implies 5432; unix-socket
+    # DSNs (no hostname, or a %-encoded socket dir as hostname) have no
+    # implied port.
+    tcp_host = bool(parts.hostname) and not unquote(parts.hostname or "").startswith("/")
+    effective_port = port or ("5432" if tcp_host else None)
+    if effective_port is not None and int(effective_port) == 5432:
         raise ValueError(
             f"default PostgreSQL port 5432 refused for the disposable cluster — that is the system port: {redacted_url(url)}"
         )

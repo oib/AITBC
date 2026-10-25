@@ -93,3 +93,14 @@ def test_assert_own_dsn(postgres_cluster):
         postgres_cluster.assert_own_dsn("postgresql://postgres@/x?host=/tmp&port=1")
     with pytest.raises(ValueError):
         postgres_cluster.assert_own_dsn(dsn.replace(f"port={postgres_cluster.port}", "port=59999"))
+
+
+def test_assert_local_pg_url_refuses_implicit_5432():
+    """NITS-B-1: a DSN without an explicit port implies 5432 — refused."""
+    import pytest
+
+    from aitbc.testing.pg_cluster import assert_local_pg_url
+
+    with pytest.raises(ValueError, match="5432"):
+        assert_local_pg_url("postgresql://u@localhost/db")
+    assert_local_pg_url("postgresql://u@localhost:55433/db")
