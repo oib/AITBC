@@ -129,6 +129,7 @@ def aitbc_blockchain_backup(
 def aitbc_blockchain_block(
     block_height: Annotated[int, Field(description="Block height to fetch")],
     node_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -137,7 +138,7 @@ def aitbc_blockchain_block(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"block_height": "height", "node_url": "node-url"},
+        values={"block_height": "height", "node_url": "node-url", "output_format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -157,6 +158,7 @@ def aitbc_blockchain_consensus_slashing_history(
     chain_id: Annotated[
         str | None, Field(description="Chain ID to query slashing history for (default: CHAIN_ID or the node's own chain)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -167,7 +169,7 @@ def aitbc_blockchain_consensus_slashing_history(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url", "chain_id": "chain-id"},
+        values={"node_url": "node-url", "chain_id": "chain-id", "format": "format"},
     )
     args = None
     target = _host_for_role(role, host)
@@ -208,6 +210,7 @@ def aitbc_blockchain_consensus_status(
     chain_id: Annotated[
         str | None, Field(description="Chain ID to query consensus status for (default: CHAIN_ID or the node's own chain)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -216,7 +219,7 @@ def aitbc_blockchain_consensus_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url", "chain_id": "chain-id"},
+        values={"node_url": "node-url", "chain_id": "chain-id", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -236,6 +239,7 @@ def aitbc_blockchain_consensus_validators(
     chain_id: Annotated[
         str | None, Field(description="Chain ID to query validators for (default: CHAIN_ID or the node's own chain)")
     ] = None,
+    format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -244,7 +248,7 @@ def aitbc_blockchain_consensus_validators(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url", "chain_id": "chain-id"},
+        values={"node_url": "node-url", "chain_id": "chain-id", "format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -361,6 +365,7 @@ def aitbc_blockchain_delete(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_height(
     node_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    output_format: Annotated[Literal["table", "json", "yaml", "csv"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -369,7 +374,7 @@ def aitbc_blockchain_height(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"node_url": "node-url"},
+        values={"node_url": "node-url", "output_format": "format"},
     )
     args = None
     return _aitbc_cli_read_tool(

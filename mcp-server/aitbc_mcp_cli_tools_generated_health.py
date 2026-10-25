@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -26,6 +26,7 @@ def aitbc_health(
         str | None, Field(description="Comma-separated list of services to probe (default: all known AITBC services).")
     ] = None,
     timeout_opt: Annotated[float | None, Field(description="Timeout per request in seconds.")] = None,
+    output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -34,7 +35,7 @@ def aitbc_health(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"host_opt": "host", "services": "services", "timeout_opt": "timeout"},
+        values={"host_opt": "host", "services": "services", "timeout_opt": "timeout", "output_format": "output"},
     )
     args = None
     return _aitbc_cli_read_tool(

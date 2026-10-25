@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -84,6 +84,7 @@ def aitbc_simulate_blockchain(
     blocks: Annotated[int | None, Field(description="Number of blocks to simulate")] = None,
     transactions: Annotated[int | None, Field(description="Number of transactions per block")] = None,
     delay: Annotated[float | None, Field(description="Delay between blocks (seconds)")] = None,
+    output: Annotated[Literal["table", "json", "yaml"] | None, Field(description="output option")] = None,
     seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -95,7 +96,7 @@ def aitbc_simulate_blockchain(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"blocks": "blocks", "transactions": "transactions", "delay": "delay", "seed": "seed"},
+        values={"blocks": "blocks", "transactions": "transactions", "delay": "delay", "output": "output", "seed": "seed"},
     )
     args = None
     target = _host_for_role(role, host)
