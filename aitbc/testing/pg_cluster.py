@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import pwd
+import shlex
 import shutil
 import socket
 import subprocess
@@ -89,6 +90,11 @@ def assert_local_pg_url(url: str) -> None:
         raise ValueError(f"non-PostgreSQL database URL refused for the disposable cluster: {redacted_url(url)}")
     if parts.hostname and not _hostname_is_local(parts.hostname):
         raise ValueError(f"non-local database URL refused for the disposable cluster: {redacted_url(url)}")
+    port = parts.port or dict(parse_qsl(parts.query)).get("port")
+    if port is not None and int(port) == 5432:
+        raise ValueError(
+            f"default PostgreSQL port 5432 refused for the disposable cluster — that is the system port: {redacted_url(url)}"
+        )
     for key, value in parse_qsl(parts.query):
         if key == "host" and not _hostname_is_local(value):
             raise ValueError(f"non-local database URL refused for the disposable cluster: {redacted_url(url)}")
@@ -141,7 +147,7 @@ class LocalPostgresCluster:
                 return [runuser, "-u", user, "--", *argv]
             su = shutil.which("su")
             if su:
-                return [su, "-s", "/bin/sh", user, "-c", " ".join(argv)]
+                return [su, "-s", "/bin/sh", user, "-c", shlex.join(argv)]
         raise PostgresUnavailableError("running as root but neither postgres/nobody user nor runuser/su exists")
 
     def _exec(self, argv: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -216,8 +222,20 @@ class LocalPostgresCluster:
         if self.port is None:
             raise RuntimeError("cluster not started")
         url = f"{driver}://postgres@/{database}?host={self.socket_dir}&port={self.port}"
-        assert_local_pg_url(url)
+        self.assert_own_dsn(url)
         return url
+
+    def assert_own_dsn(self, url: str) -> None:
+        """Fail unless *url* is one this cluster emitted (same socket dir + port).
+
+        A test that accidentally points at the system cluster or any other
+        DSN raises here — belt on top of :func:`assert_local_pg_url`.
+        """
+        assert_local_pg_url(url)
+        parts = urlsplit(url)
+        query = dict(parse_qsl(parts.query))
+        if query.get("host") != str(self.socket_dir) or query.get("port") != str(self.port):
+            raise ValueError(f"DSN does not match this disposable cluster: {redacted_url(url)}")
 
     def psql(self, sql: str, *, database: str = "postgres") -> str:
         """Run one statement via the same bin dir's psql; returns stdout."""
