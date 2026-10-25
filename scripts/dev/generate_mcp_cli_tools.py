@@ -136,11 +136,14 @@ DESTRUCTIVE_TOKENS = {
 # command read-only, it only allows classification if the rest of the path is
 # non-destructive and no force override applies.
 SAFE_LEAF_TOKENS = {
+    "active",
     "address",
     "addresses",
+    "agents",
     "all",
     "alerts",
     "allocation",
+    "allocations",
     "architect",
     "audit",
     "balance",
@@ -157,6 +160,7 @@ SAFE_LEAF_TOKENS = {
     "chain-head",
     "check",
     "checks",
+    "circuits",
     "config",
     "configs",
     "cron",
@@ -170,6 +174,7 @@ SAFE_LEAF_TOKENS = {
     "env",
     "environment",
     "estimate",
+    "estimate-fee",
     "examples",
     "explorer",
     "fee",
@@ -184,6 +189,7 @@ SAFE_LEAF_TOKENS = {
     "info",
     "inbox",
     "island",
+    "island-info",
     "islands",
     "job",
     "jobs",
@@ -191,6 +197,9 @@ SAFE_LEAF_TOKENS = {
     "latest-blocks",
     "leaderboard",
     "list",
+    "list-deposits",
+    "list-gpus",
+    "list-islands",
     "log",
     "logs",
     "match",
@@ -206,16 +215,22 @@ SAFE_LEAF_TOKENS = {
     "operator",
     "operators",
     "oracle",
+    "orderbook",
+    "orders",
     "path",
     "paths",
     "peers",
+    "pending",
     "pool",
     "pools",
+    "predict",
+    "price",
     "profile",
     "profiles",
     "provider",
     "providers",
     "proposals",
+    "query",
     "quote",
     "rate",
     "rates",
@@ -223,9 +238,11 @@ SAFE_LEAF_TOKENS = {
     "read",
     "receipt",
     "receipts",
+    "results",
     "rewards",
     "rich",
     "richest",
+    "scan",
     "search",
     "security",
     "security-status",
@@ -336,6 +353,13 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     ("prometheus", "rules"),
     ("prometheus", "series"),
     ("prometheus", "targets"),
+    # Read leaves whose tokens cannot be expressed safely at token level:
+    # `escrow` is a destructive parent token gating the whole group, and
+    # `customer`/`shop` are role names rather than read-verbs — force the
+    # exact paths instead of widening SAFE_LEAF_TOKENS.
+    ("market", "escrow", "status"),
+    ("dashboard", "customer"),
+    ("dashboard", "shop"),
 }
 
 FORCE_DESTRUCTIVE_PATHS: set[tuple[str, ...]] = {
@@ -355,6 +379,10 @@ FORCE_DESTRUCTIVE_PATHS: set[tuple[str, ...]] = {
     ("market", "gpu", "refund"),
     ("market", "gpu", "release"),
     ("market", "gpu", "status"),
+    # Signs an authorization challenge with the wallet key, POSTs it to the
+    # coordinator, and can write swarm.key via --output.  The safe-leaf token
+    # "swarm-key" must not promote it — keep it behind dry_run/confirm.
+    ("ipfs", "island", "swarm-key"),
 }
 
 # Commands we never generate a dedicated tool for, even in safeguarded/all mode.
@@ -462,6 +490,15 @@ SKIP_OPTIONS_BY_PATH: dict[tuple[str, ...], frozenset[str]] = {
 # Names we already use for MCP routing/safety parameters in every generated tool.
 RESERVED_PY_NAMES = {"role", "host", "timeout", "dry_run", "confirm"}
 
+# ``classify_command`` compares ``-``→``_``-normalized path tokens against the
+# token sets.  The set literals above keep CLI spellings ("import-wallet",
+# "trust-score"), which without normalization could never match a normalized
+# token — every hyphenated entry was dead, e.g. leaf ``trust_score`` missed
+# "trust-score" and fell through to safeguarded.  Normalized copies fix the
+# comparison once for both sets.
+_NORMALIZED_DESTRUCTIVE_TOKENS = {t.replace("-", "_") for t in DESTRUCTIVE_TOKENS}
+_NORMALIZED_SAFE_LEAF_TOKENS = {t.replace("-", "_") for t in SAFE_LEAF_TOKENS}
+
 
 def existing_tool_names(files: list[Path] | None = None) -> set[str]:
     """Return all existing @mcp.tool function names."""
@@ -542,11 +579,11 @@ def classify_command(path: tuple[str, ...]) -> str:
 
     normalized = [p.replace("-", "_") for p in path]
     for p in normalized:
-        if p in DESTRUCTIVE_TOKENS:
+        if p in _NORMALIZED_DESTRUCTIVE_TOKENS:
             return "safeguarded"
 
     leaf = path[-1].replace("-", "_")
-    if leaf in SAFE_LEAF_TOKENS and not any(p in DESTRUCTIVE_TOKENS for p in normalized):
+    if leaf in _NORMALIZED_SAFE_LEAF_TOKENS and not any(p in _NORMALIZED_DESTRUCTIVE_TOKENS for p in normalized):
         return "read_only"
 
     return "safeguarded"

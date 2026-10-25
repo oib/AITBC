@@ -137,15 +137,13 @@ def aitbc_exchange_island_cancel(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_exchange_island_orderbook(
     pair: Annotated[Literal["AIT/ETH"], Field(description="The Pair.")],
     limit: Annotated[int | None, Field(description="Order book depth")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """View the order book for a supported trading pair."""
     options: dict[str, Any] = _collect_options(
@@ -154,39 +152,18 @@ def aitbc_exchange_island_orderbook(
         values={"pair": "pair", "limit": "limit"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "exchange-island",
         subcommand=["orderbook"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "exchange-island",
-            subcommand=["orderbook"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_exchange_island_orders(
     user: Annotated[str | None, Field(description="Filter by user ID")] = None,
     status: Annotated[str | None, Field(description="Filter by status (open, filled, partially_filled, cancelled)")] = None,
@@ -194,8 +171,6 @@ def aitbc_exchange_island_orders(
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List exchange orders, optionally filtered by user, status, or pair."""
     options: dict[str, Any] = _collect_options(
@@ -204,35 +179,14 @@ def aitbc_exchange_island_orders(
         values={"user": "user", "status": "status", "pair": "pair"},
     )
     args = None
-    target = _host_for_role(role, host)
-    command = _build_aitbc_cli_command(
+    return _aitbc_cli_read_tool(
+        role,
+        host,
         "exchange-island",
         subcommand=["orders"],
         args=args,
         options=options,
-        output_format="json",
-    )
-    if dry_run:
-        return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
-    if not confirm:
-        return _json(
-            {
-                "error": "Confirmation required",
-                **_execution_context(target),
-                "command": command,
-                "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute.",
-            }
-        )
-    return _json(
-        _run_aitbc_cli(
-            target,
-            "exchange-island",
-            subcommand=["orders"],
-            args=args,
-            options=options,
-            output_format="json",
-            timeout=timeout,
-        )
+        timeout=timeout,
     )
 
 
