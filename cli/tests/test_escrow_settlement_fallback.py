@@ -364,3 +364,86 @@ def test_escrow_create_relay_error_still_tries_settlement(monkeypatch):
         node_wallet="0xPROP",
     )
     assert contract == "contract-9"
+
+
+def test_node_wallet_prefers_health_over_hub_proposer_id(monkeypatch):
+    """When hub_proposer_id and /health disagree, /health must win.
+
+    The escrow `to` is the settlement custody wallet, not the consensus
+    proposer id — node0's HUB_PROPOSER_ID is set yet /health names the
+    right address (director ruling on #442).
+    """
+    calls = {}
+
+    class _Rpc:
+        def __init__(self, base_url, **kw):
+            pass
+
+        def post(self, endpoint, json=None):
+            calls["payload"] = json
+            return {"contract_id": "c1"}
+
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _Rpc(base_url))
+    monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
+    captured = {}
+
+    def lock(ctx, rpc_url, job_id, buyer, provider, amount, pk, chain_id=None, fee=None, node_wallet=None, **kw):
+        captured["node_wallet"] = node_wallet
+        return {"tx": "x"}, "sig"
+
+    monkeypatch.setattr("aitbc_cli.utils.escrow.create_signed_escrow_lock", lock)
+    monkeypatch.setattr("aitbc_cli.utils.escrow.get_node_wallet", lambda ctx, url: "0xHEALTH")
+    monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
+
+    config = SimpleNamespace(
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+    )
+    esc_mod._escrow_create(
+        SimpleNamespace(),
+        job_id="j",
+        buyer="0xB",
+        provider="0xP",
+        amount=Decimal("0.001"),
+        config=config,
+        private_key="dead",
+        node_wallet=None,
+    )
+    assert captured["node_wallet"] == "0xHEALTH"
+
+
+def test_node_wallet_warned_fallback_to_hub_proposer(monkeypatch, capsys):
+    """When /health yields nothing, HUB_PROPOSER_ID is used with a warning."""
+    captured = {}
+
+    def lock(ctx, rpc_url, job_id, buyer, provider, amount, pk, chain_id=None, fee=None, node_wallet=None, **kw):
+        captured["node_wallet"] = node_wallet
+        return {"tx": "x"}, "sig"
+
+    class _Rpc:
+        def __init__(self, base_url, **kw):
+            pass
+
+        def post(self, endpoint, json=None):
+            return {"contract_id": "c1"}
+
+    monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _Rpc(base_url))
+    monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
+    monkeypatch.setattr("aitbc_cli.utils.escrow.create_signed_escrow_lock", lock)
+    monkeypatch.setattr("aitbc_cli.utils.escrow.get_node_wallet", lambda ctx, url: None)
+    monkeypatch.setattr("aitbc_cli.commands.market.get_chain_id", lambda: "bc-2")
+
+    config = SimpleNamespace(
+        hub_proposer_id="0xPROP", blockchain_rpc_api_key=None, hub_discovery_url="https://hub.aitbc.bubuit.net"
+    )
+    esc_mod._escrow_create(
+        SimpleNamespace(),
+        job_id="j",
+        buyer="0xB",
+        provider="0xP",
+        amount=Decimal("0.001"),
+        config=config,
+        private_key="dead",
+        node_wallet=None,
+    )
+    assert captured["node_wallet"] == "0xPROP"
+    assert "consensus proposer" in capsys.readouterr().out
