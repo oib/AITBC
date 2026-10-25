@@ -51,6 +51,9 @@ def default_staging_dir() -> str:
 
 def toks_of(cmd, root_opts, root_val):
     line = re.sub(r"^\$\s*", "", cmd)
+    # Same as census.py: mask <...> placeholders before the shell-operator
+    # split, otherwise the '>' inside a placeholder truncates the command.
+    line = re.sub(r"<[^<>]*>", "PH", line)
     line = re.split(r"\s*(?:\||&&|;|>|2>&1)\s*", line)[0] if not line.startswith("#") else line
     m = re.search(r"(?:^|\s|=|\()aitbc\s+(.*)$", line)
     if not m or line.startswith("#"):
