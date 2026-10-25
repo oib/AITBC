@@ -17,8 +17,9 @@ These commands talk to the trading service REST API (port 8104).
 
 import click
 
-from ..utils import error, output
+from ..utils import output
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.error_handling import abort
 
 logger = get_logger(__name__)
 
@@ -104,9 +105,9 @@ def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, p
         result = client.post("/v1/trading/inter-chain/create", json=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error creating trade: {e}")
+        abort(None, f"Error creating trade: {e}")
 
 
 @trade.command(
@@ -136,9 +137,9 @@ def list(ctx, status, source_chain, dest_chain, limit, format):
         result = client.get("/v1/trading/inter-chain", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error listing trades: {e}")
+        abort(None, f"Error listing trades: {e}")
 
 
 @trade.command(
@@ -157,9 +158,9 @@ def chains(ctx, format):
         result = client.get("/v1/trading/chains")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error listing chains: {e}")
+        abort(None, f"Error listing chains: {e}")
 
 
 @trade.command(
@@ -179,9 +180,9 @@ def get(ctx, trade_id, format):
         result = client.get(f"/v1/trading/inter-chain/{trade_id}")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting trade: {e}")
+        abort(None, f"Error getting trade: {e}")
 
 
 @trade.command(
@@ -201,9 +202,9 @@ def status(ctx, trade_id, format):
         result = client.get(f"/v1/trading/inter-chain/{trade_id}/status")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting trade status: {e}")
+        abort(None, f"Error getting trade status: {e}")
 
 
 @trade.command(
@@ -225,9 +226,9 @@ def register_chain(ctx, chain_id, endpoint, format):
         result = client.post("/v1/trading/chains/register", json=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error registering chain: {e}")
+        abort(None, f"Error registering chain: {e}")
 
 
 @trade.command(
@@ -247,9 +248,9 @@ def health(ctx, chain_id, format):
         result = client.get(f"/v1/trading/chains/{chain_id}/health")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error checking chain health: {e}")
+        abort(None, f"Error checking chain health: {e}")
 
 
 @trade.command(
@@ -276,9 +277,9 @@ def history(ctx, source_chain, dest_chain, limit, format):
         result = client.get("/v1/trading/inter-chain/history", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting trade history: {e}")
+        abort(None, f"Error getting trade history: {e}")
 
 
 @trade.command(
@@ -298,9 +299,9 @@ def match(ctx, trade_id, format):
         result = client.post(f"/v1/trading/inter-chain/{trade_id}/match")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error matching trade: {e}")
+        abort(None, f"Error matching trade: {e}")
 
 
 @trade.command(
@@ -319,9 +320,9 @@ def match_all(ctx, format):
         result = client.post("/v1/trading/inter-chain/match-all")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error matching trades: {e}")
+        abort(None, f"Error matching trades: {e}")
 
 
 # ============================================================================
@@ -368,9 +369,9 @@ def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, 
         result = client.post("/v1/trading/offers/discover", json=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error discovering offers: {e}")
+        abort(None, f"Error discovering offers: {e}")
 
 
 @trade.command(
@@ -397,9 +398,9 @@ def sync(ctx, chain_id, service_type, force, format):
         result = client.post("/v1/trading/offers/sync", json=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error syncing offers: {e}")
+        abort(None, f"Error syncing offers: {e}")
 
 
 @trade.command(
@@ -419,9 +420,9 @@ def sync_status(ctx, format):
         result = client.get("/v1/trading/offers/sync-status")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting sync status: {e}")
+        abort(None, f"Error getting sync status: {e}")
 
 
 # ============================================================================
@@ -487,7 +488,7 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
     except KeyboardInterrupt:
         click.echo("Stopped watching")
     except Exception as e:
-        error(f"Error watching offers: {e}")
+        abort(None, f"Error watching offers: {e}")
 
 
 @trade.command(
@@ -507,9 +508,9 @@ def subscription_status(ctx, format):
         result = client.get("/v1/trading/offers/subscription-status")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting subscription status: {e}")
+        abort(None, f"Error getting subscription status: {e}")
 
 
 @trade.command(
@@ -543,9 +544,9 @@ def search(ctx, query, chain_id, service_type, min_price, max_price, limit, form
         result = client.get("/v1/trading/offers/search", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error searching offers: {e}")
+        abort(None, f"Error searching offers: {e}")
 
 
 # ============================================================================
@@ -611,9 +612,9 @@ def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
         result = _run_settlement_coro(_run())
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error locking escrow: {e}")
+        abort(None, f"Error locking escrow: {e}")
 
 
 @trade.command(
@@ -647,7 +648,7 @@ def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
                 raise ValueError(f"Trade {trade_id} not found")
             escrow_id = trade.get("escrow_id")
             if not escrow_id:
-                error(f"Trade {trade_id} has no escrow — lock escrow first")
+                abort(None, f"Trade {trade_id} has no escrow — lock escrow first")
                 return None
             async with SettlementClient(config, api_key=rpc_key) as client:
                 return await client.settle(escrow_id, secret)
@@ -656,9 +657,9 @@ def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
         if result is not None:
             output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error settling trade: {e}")
+        abort(None, f"Error settling trade: {e}")
 
 
 @trade.command(
@@ -710,9 +711,9 @@ def settlement_status_cmd(ctx, trade_id, node_url, api_key, format):
         if result is not None:
             output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error getting settlement status: {e}")
+        abort(None, f"Error getting settlement status: {e}")
 
 
 @trade.command(
@@ -751,9 +752,9 @@ def refund_cmd(ctx, trade_id, node_url, api_key, format):
         if result is not None:
             output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error refunding trade: {e}")
+        abort(None, f"Error refunding trade: {e}")
 
 
 __all__ = ["trade"]

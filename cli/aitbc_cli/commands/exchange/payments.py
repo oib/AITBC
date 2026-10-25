@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from aitbc_cli.utils import error, output, success
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
+from ...utils.error_handling import abort
 
 
 def create_payment_command(
@@ -15,15 +16,15 @@ def create_payment_command(
     config = ctx.obj["config"]
 
     if aitbc_amount is not None and aitbc_amount <= 0:
-        error("AITBC amount must be greater than 0")
+        abort(None, "AITBC amount must be greater than 0")
         return
 
     if eth_amount is not None and eth_amount <= 0:
-        error("ETH amount must be greater than 0")
+        abort(None, "ETH amount must be greater than 0")
         return
 
     if not aitbc_amount and not eth_amount:
-        error("Either --aitbc-amount or --eth-amount must be specified")
+        abort(None, "Either --aitbc-amount or --eth-amount must be specified")
         return
 
     try:
@@ -53,9 +54,9 @@ def create_payment_command(
         success(f"Expires at: {payment.get('expires_at')}")
         output(payment, ctx.obj["output_format"])
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def payment_status_command(ctx, payment_id: str):
@@ -79,9 +80,9 @@ def payment_status_command(ctx, payment_id: str):
 
         output(status_data, ctx.obj["output_format"])
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
 
 
 def market_stats_command(ctx):
@@ -94,6 +95,6 @@ def market_stats_command(ctx):
         success("Exchange market statistics:")
         output(stats, ctx.obj["output_format"])
     except NetworkError as e:
-        error(f"Network error: {e}")
+        abort(None, f"Network error: {e}")
     except Exception as e:
-        error(f"Error: {e}")
+        abort(None, f"Error: {e}")
