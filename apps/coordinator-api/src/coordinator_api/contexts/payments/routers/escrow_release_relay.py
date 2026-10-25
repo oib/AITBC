@@ -33,7 +33,9 @@ class EscrowReleaseRelayRequest(BaseModel):
     proof-of-work reference the chain route accepts."""
 
     job_id: str = Field(..., min_length=1, max_length=128)
-    amount: str | int | Decimal = Field(...)
+    # Optional: when omitted the relay releases the escrow's full locked
+    # amount (director ruling on #469 — ownership+dedup still run first).
+    amount: str | int | Decimal | None = Field(default=None)
     job_tx_hash: str | None = Field(default=None, max_length=128)
 
 
