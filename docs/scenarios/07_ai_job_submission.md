@@ -308,6 +308,59 @@ asyncio.run(main())
 
 ---
 
+
+---
+
+<!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
+
+### Step 6: Show AI job statistics
+
+Prints aggregate counters for AI jobs submitted through the coordinator.
+
+```bash
+aitbc ai stats
+```
+
+### Step 7: Show reward distribution stats
+
+Reads how job rewards are distributed across providers.
+
+```bash
+aitbc ai distribution-stats
+```
+
+### Step 8: Cancel a submitted job
+
+Cancels a pending job; `--refund` returns the escrowed payment.
+
+Cost: 0 units — the escrowed payment returns to the payer.
+
+```bash
+aitbc ai cancel --job-id job-001 --reason "no longer needed" --refund
+```
+
+### Step 9: Pay for a completed job
+
+Settles payment for a completed job from the wallet.
+
+Cost: job amount in units (UNITS_PER_AIT = 36_000_000) plus fee.
+
+```bash
+aitbc ai pay --job-id job-001 --wallet my-agent-wallet
+```
+
+### Step 10: Sweep refundable jobs
+
+Scans for jobs whose escrow is reclaimable; `--dry-run` reports without spending.
+
+Cost: 0 units with --dry-run.
+
+```bash
+aitbc ai refund-sweep --dry-run
+```
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
