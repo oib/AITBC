@@ -26,16 +26,22 @@ class CircuitBreaker:
                     If the probe fails → reopens immediately.
     """
 
-    def __init__(self, threshold: int = 5, timeout: int = 60):
+    def __init__(self, threshold: int = 5, timeout: int = 60, enabled: bool = True):
         """
         Initialize circuit breaker.
 
         Args:
             threshold: Number of failures before opening circuit
             timeout: Seconds to wait before attempting to close circuit
+            enabled: When False the breaker is inert — ``check`` never raises
+                and ``record_*`` are no-ops. Callers that must never be
+                starved by accrued failure state (e.g. the JWT-authed escrow
+                relay, whose own bounded retry budget is the flood
+                protection) opt out this way rather than sharing breakers.
         """
         self.threshold = threshold
         self.timeout = timeout
+        self.enabled = enabled
         self.failure_count = 0
         self.is_open = False
         self.open_time: datetime | None = None
@@ -45,6 +51,8 @@ class CircuitBreaker:
 
     def check(self) -> None:
         """Check if circuit breaker is open and raise exception if so."""
+        if not self.enabled:
+            return
         with self._lock:
             if self._state == _OPEN:
                 if self.open_time and (datetime.now(UTC) - self.open_time).total_seconds() > self.timeout:
@@ -61,6 +69,8 @@ class CircuitBreaker:
 
     def record_failure(self) -> None:
         """Record a failure and potentially open circuit breaker."""
+        if not self.enabled:
+            return
         with self._lock:
             if self._state == _HALF_OPEN:
                 # Probe call failed — reopen immediately without waiting for threshold
@@ -79,6 +89,8 @@ class CircuitBreaker:
 
     def record_success(self) -> None:
         """Record a success and reset failure count."""
+        if not self.enabled:
+            return
         with self._lock:
             if self._state == _HALF_OPEN:
                 # Probe call succeeded — fully close
@@ -93,5 +105,6 @@ class CircuitBreaker:
             "state": self._state,
             "failure_count": self.failure_count,
             "threshold": self.threshold,
+            "enabled": self.enabled,
             "open_time": self.open_time.isoformat() if self.open_time else None,
         }
