@@ -1791,3 +1791,35 @@ tests:
             exp_annotations:
               summary: "425 storm on escrow relay release (hub:8203)"
               description: "25 'lock not yet sealed' (425) answers from the release relay on hub:8203 in 15m — releases are racing unsealed locks, or the chain has stopped sealing ESCROW_LOCK transactions. Check the settlement node's mempool and block production."
+
+  - interval: 15m
+    input_series:
+      # Gauge re-exported each scrape, as in production — constant between
+      # daily updates. coll: 4M for 6d, collapses to 1M → fires in the
+      # ~2d window where max_over_time[2d] still holds the big value.
+      - series: 'aitbc_backup_last_generation_bytes{instance="coll:9009", job="blockchain-node"}'
+        values: '4000000+0x576 1000000+0x300'
+      # reset: sustained small baseline — under the median but never a
+      # sharp drop → silent the whole time.
+      - series: 'aitbc_backup_last_generation_bytes{instance="reset:9009", job="blockchain-node"}'
+        values: '2000000+0x900'
+    # Alert-level testing fights promtool on a daily-sampled gauge —
+    # expr-level assertions below pin the behavioural claim instead:
+    # collapse series matches, sustained-baseline series stays empty.
+
+    promql_expr_test:
+      - expr: 'aitbc_backup_last_generation_bytes < 0.5 * quantile_over_time(0.5, aitbc_backup_last_generation_bytes[7d]) and aitbc_backup_last_generation_bytes < 0.6 * max_over_time(aitbc_backup_last_generation_bytes[2d])'
+        eval_time: 7d
+        exp_samples:
+          - labels: '{__name__="aitbc_backup_last_generation_bytes", instance="coll:9009", job="blockchain-node"}'
+            value: 1000000
+      - expr: 'max_over_time(aitbc_backup_last_generation_bytes{instance="coll:9009"}[2d])'
+        eval_time: 7d
+        exp_samples:
+          - labels: '{instance="coll:9009", job="blockchain-node"}'
+            value: 4000000
+      # The reset-shaped series must NOT satisfy the new second clause —
+      # sustained-baseline silence is the whole point of the change.
+      - expr: 'aitbc_backup_last_generation_bytes{instance="reset:9009"} < 0.6 * max_over_time(aitbc_backup_last_generation_bytes{instance="reset:9009"}[2d])'
+        eval_time: 7d
+        exp_samples: []
