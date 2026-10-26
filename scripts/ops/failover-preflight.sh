@@ -55,7 +55,7 @@ for pair in $(printf '%s\n' "$sweep" | tr ' ' '_'); do
       # re-read both once: a new block mid-sweep is not divergence
       a=$(sshro "$hprev" "sqlite3 'file:/var/lib/aitbc/data/$CHAIN_ID/chain.db?mode=ro' 'select max(height),substr(hash,1,14) from block order by height desc limit 1'")
       b=$(sshro "$h" "sqlite3 'file:/var/lib/aitbc/data/$CHAIN_ID/chain.db?mode=ro' 'select max(height),substr(hash,1,14) from block order by height desc limit 1'")
-      if [ "$a" != "$b" ]; then ok_all=0; fi
+      if [ -z "$a" ] || [ -z "$b" ] || [ "$a" != "$b" ]; then ok_all=0; fi
       v="$b"
     fi
   fi
