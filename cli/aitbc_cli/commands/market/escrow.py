@@ -321,10 +321,16 @@ def _release_via_relay(
     token, body, skip = _relay_request(ctx, config, job_id, amount, job_tx_hash)
     if skip is not None:
         return None, None, skip
+    # The relay is the only JWT-authed release path, so its calls must never
+    # be rejected by circuit-breaker state accrued during the bounded
+    # 425/transport repost loop below — an opened breaker once rejected the
+    # release outright and the escrow stayed locked until a manual POST
+    # (ESCROW-BREAKER-1). The repost budget itself is the flood protection.
     client = AITBCHTTPClient(
         base_url=_coordinator_base_url(ctx),
         timeout=timeout,
         headers={"Authorization": f"Bearer {token}"},
+        enable_circuit_breaker=False,
     )
     result: Any = None
     last_exc: Exception | None = None
@@ -622,7 +628,14 @@ def _coordinator_escrow_create(ctx, payload: dict[str, Any]) -> dict[str, Any] |
     if not token:
         return None
     base_url = _coordinator_base_url(ctx)
-    client = AITBCHTTPClient(base_url=base_url, timeout=30, headers={"Authorization": f"Bearer {token}"})
+    # Same opt-out as the release relay: a JWT-authed escrow call must not be
+    # starved by breaker state (ESCROW-BREAKER-1).
+    client = AITBCHTTPClient(
+        base_url=base_url,
+        timeout=30,
+        headers={"Authorization": f"Bearer {token}"},
+        enable_circuit_breaker=False,
+    )
     try:
         return client.post("/v1/escrow/relay", json=payload)
     except Exception as exc:
@@ -638,7 +651,12 @@ def _coordinator_refund(ctx, job_id: str, reason: str) -> dict[str, Any] | None:
         return None
     base_url = _coordinator_base_url(ctx)
     try:
-        client = AITBCHTTPClient(base_url=base_url, timeout=30, headers={"Authorization": f"Bearer {token}"})
+        client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=30,
+            headers={"Authorization": f"Bearer {token}"},
+            enable_circuit_breaker=False,
+        )
         job = client.get(f"/v1/jobs/{job_id}")
         payment_id = job.get("payment_id") if isinstance(job, dict) else None
         if not payment_id:

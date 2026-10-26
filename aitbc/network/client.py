@@ -36,6 +36,7 @@ class AITBCHTTPClient:
         circuit_breaker_threshold: int = 5,
         rate_limit: int | None = None,
         correlation_id: str | None = None,
+        enable_circuit_breaker: bool = True,
     ):
         """
         Initialize HTTP client.
@@ -52,6 +53,11 @@ class AITBCHTTPClient:
             circuit_breaker_threshold: Failures before opening circuit breaker
             rate_limit: Rate limit in requests per minute
             correlation_id: Correlation ID for distributed tracing
+            enable_circuit_breaker: Set False for callers whose requests must
+                never be rejected by accrued failure state — e.g. the escrow
+                release relay, which retries a bounded number of times and is
+                the only JWT-authed release path; an open breaker there once
+                rejected the release outright and stranded a locked escrow.
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -64,7 +70,7 @@ class AITBCHTTPClient:
         self.session.headers.update(self.headers)
 
         # Initialize components
-        self.circuit_breaker = CircuitBreaker(threshold=circuit_breaker_threshold)
+        self.circuit_breaker = CircuitBreaker(threshold=circuit_breaker_threshold, enabled=enable_circuit_breaker)
         self.rate_limiter = RateLimiter(rate_limit=rate_limit)
         self.retry_policy = RetryPolicy(max_retries=max_retries, enable_logging=enable_logging)
         self.cache = CacheLayer(enable=enable_cache, ttl=cache_ttl, enable_logging=enable_logging)
@@ -444,6 +450,7 @@ class AsyncAITBCHTTPClient:
         circuit_breaker_threshold: int = 5,
         rate_limit: int | None = None,
         correlation_id: str | None = None,
+        enable_circuit_breaker: bool = True,
     ):
         """
         Initialize async HTTP client.
@@ -460,6 +467,9 @@ class AsyncAITBCHTTPClient:
             circuit_breaker_threshold: Failures before opening circuit breaker
             rate_limit: Rate limit in requests per minute
             correlation_id: Correlation ID for distributed tracing
+            enable_circuit_breaker: Set False for callers whose requests must
+                never be rejected by accrued failure state (see the sync
+                client's docstring).
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -495,7 +505,7 @@ class AsyncAITBCHTTPClient:
         #
         # If mutable state is ever added to this class, it needs its own lock: the
         # collaborators' locks protect their state, not this object's.
-        self.circuit_breaker = CircuitBreaker(threshold=circuit_breaker_threshold)
+        self.circuit_breaker = CircuitBreaker(threshold=circuit_breaker_threshold, enabled=enable_circuit_breaker)
         self.rate_limiter = RateLimiter(rate_limit=rate_limit)
         self.retry_policy = RetryPolicy(max_retries=max_retries, enable_logging=enable_logging)
         self.cache = CacheLayer(enable=enable_cache, ttl=cache_ttl, enable_logging=enable_logging)
