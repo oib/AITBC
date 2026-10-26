@@ -660,39 +660,183 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   before POSTing — a bare/refusal-shaped argument set can no longer
   write an island record. The existing island `i` /
   `edge_db_b3d3d38f` residue is left for the operator's call.
-### CLI-HARDEN-DRYRUN-1
+### CLI-HARDEN-DRYRUN-1 (#550)
 
-- `service harden --dry-run` existed but was undocumented in the row's
-  premise — pinned with a test proving it writes zero files (no .bak,
-  no unit change) while a real run still writes the backup.
+- `f46b9f6fa` — `service harden --dry-run` existed but was undocumented
+  in the row's premise — pinned with a test proving it writes zero files
+  (no .bak, no unit change) while a real run still writes the backup.
 
 
-### CLI-REINVEST-LOAD-1
+### CLI-REINVEST-LOAD-1 (#555)
 
-- `reinvest` failed `No module named 'miner_app'`: `parents[4]` overshot
-  the repo root and the path lacked `src`. Now `parents[3]` +
-  `apps/miner/src`; a scrubbed-path test pins the import.
-### CLI-EXIT-TRUTH-1
+- `66cfe3cbc` — `reinvest` failed `No module named 'miner_app'`:
+  `parents[4]` overshot the repo root and the path lacked `src`. Now
+  `parents[3]` + `apps/miner/src`; a scrubbed-path test pins the import.
+### CLI-EXIT-TRUTH-1 (#558)
 
-- `blockchain list` printed connect errors for every configured node
-  then an empty table with exit 0. `chain_manager.list_chains` now
-  re-raises the last node error when all nodes fail and no chains
-  were returned — the CLI aborts non-zero.
-### CLI-HELP-LINT-1
+- `d3d266f6e`, `83af2af03` — `blockchain list` printed connect errors for
+  every configured node then an empty table with exit 0.
+  `chain_manager.list_chains` now re-raises the last node error when all
+  nodes fail and no chains were returned — the CLI aborts non-zero.
+  The raise is scoped to all-nodes-fail (empty list from a live node is
+  not an error) and chains `RuntimeError from exc`.
+### CLI-HELP-LINT-1 (#560)
 
-- All 566 leaves pass `--help` (exit 0, fast). The two help-less
-  options are fixed: shared `--wait-timeout` on messaging
+- `a56907191` — All 566 leaves pass `--help` (exit 0, fast). The two
+  help-less options are fixed: shared `--wait-timeout` on messaging
   (hide/lock/mod-grant/mod-revoke/pin/unhide/unlock/unpin/vote) and
   `simulate blockchain --output`. Lint test asserts every leaf's
   --help exits 0 and every option has non-empty help.
-### CLI-OPERATIONS-FORMAT-1
+### CLI-OPERATIONS-FORMAT-1 (#556)
 
-- `operations` group already routes through `resolve_output_format`
-  on main — the table-despite-json repro was node2's stale checkout.
-  Pinned with tests asserting `--format json` emits parseable JSON
-  for voting-power.
-### CLI-UPDATE-NODEPLOY-1
+- `aa6db8265`, `2fa4af5cd`, `0bece1720`, `eafe8ee24` — `operations`
+  group already routes through `resolve_output_format` on main — the
+  table-despite-json repro was node2's stale checkout. Pinned with
+  tests asserting `--format json` emits parseable JSON for all seven
+  operations commands (voting-power, vote, proposal, get-proposal,
+  stake, delegate, execute).
+### CLI-UPDATE-NODEPLOY-1 (#531)
 
-- `update --no-deploy` no longer pulls: it routes through the same
-  fetch-and-report path as `--check`, so the worktree is untouched.
-  Help text corrected from "fetch and fast-forward only".
+- `8e41951ed` — `update --no-deploy` no longer pulls: it routes through
+  the same fetch-and-report path as `--check`, so the worktree is
+  untouched.
+- `d8c70aad4` — help text corrected from "fetch and fast-forward only"
+  to fetch+report.
+
+### MONEYPATH-OPTS-2 (#548)
+
+- `98d27499c` — `docs(scenarios): moneypath option coverage — 25 flags
+  exercised as reads/free refusals` (scenario 82). Census with plays
+  merged: operations 45/54 (9 secret), transactions 26/30 (4 secret),
+  eth 8/8 — 0 non-secret uncovered; `operations governance execute`
+  ledgered as auth-guarded (403) only.
+
+### STAKE-OPTS-1 (#549)
+
+- `7ccb570b8` — `docs(scenarios): staking option coverage — 12 flags
+  exercised as wallet-gate refusals` (scenario 83). All six commands use
+  `nosuch` wallet/path (RPC ones also `127.0.0.1:9`); the `reinvest`
+  `parents[4]` defect this surfaced was fixed under #555. Census:
+  liquidity-stake, unstake, stake, reinvest at 0 uncovered.
+
+### CLI-ARRAY-SWEEP-1 (#552)
+
+- `2d7b4a8f5` — `grant list` now uses `get_json` for an endpoint that
+  can return a bare array.
+- `332d12acb` — `developer list` same fix.
+- `3caa421d4` — `dispute votes`/`dispute evidence` same fix.
+- `3f17e7262` — `governance list` same fix.
+- `22af0deb4` — pool-hub SLA list endpoints same fix.
+- `4144d73cc` — error-stub test clients gain `get_json` for the
+  array-endpoint commands. Six further candidates read live return
+  objects — no fix needed.
+
+### MCP-OPTION-PARITY-1 (#553)
+
+- `410b22b0a` — generated MCP CLI tools now forward dual
+  `--x`/`--no-x` flag spellings: `False` emits `--no-x` (intended
+  behaviour change), closing the CLI↔MCP option drift found by the
+  parity sweep (agent-msg, agent-task, ai submit, bridge ingest-header,
+  developer list).
+- `e01716582` — parity-test helpers split under the C901 threshold.
+  Generator output verified AST-identical to the committed modules;
+  534 tool names before and after.
+
+### DOCS-CMD-PARSE-1 (#559)
+
+- `6a1102bf9`, `775d04e24` — new test extracts every `aitbc` command
+  line from the scenario docs and resolves it with click's parser
+  (parse only — no invocation, no CliRunner); 1,598 command lines
+  checked, unparseable lines and bogus global-flag lines now fail the
+  suite. `node info --node-id` doc line fixed.
+- `c3e95c432` — `_resolve` walk split to satisfy the C901 ratchet.
+
+### MCP-GATE-AUDIT-1 (#561)
+
+- `ae1d2ac5e` — gate-audit test walks all 534 MCP tools: every
+  mutating-looking generated tool must carry the `dry_run` default +
+  `confirm` gate; 22 mutating ones verified, 39 allowlisted reads.
+- `6e3a4dd34` — gate regex widened to the full mutating-verb set, with
+  an allowlist for confirmed read tools.
+- `dd37ddf43` — allowlist the 10 read tools the wider regex catches.
+  `aitbc_messaging_subscribe`, `market_match` and
+  `performance_benchmark` confirmed read-only in source; hand-written
+  tools ledgered out of scope.
+
+### CLI-JSON-CLEAN-1 (#562)
+
+- `03220b936`, `e18c7d9e3` — status labels move to stderr and empty
+  results emit `[]` under `--output json`, so stdout stays a single
+  JSON document.
+- `81d6421e5` — `exchange list` emits `[]` only; leaf `--format`
+  honoured; coin-requests list fixed.
+- `e96cf34e0` — `_status_stderr` checks `output_format` too.
+- `e9d3f30a6` — `market list` prints `[]` only when the answer is
+  genuinely empty; an all-fail still aborts.
+- `1bb16b36c` — `analytics summary` emits one JSON document.
+- `1782cd41f` — `market list` abort prints once and the exit code
+  matches the payload. Live rows (market list, analytics summary,
+  exchange list, coin-requests list, predict, alerts) emit single valid
+  JSON rc 0; the analytics-monitor/sync-status residuals moved to
+  CLI-JSON-CLEAN-2 (#564).
+
+### LASTOPTS-FINAL-1 (#563)
+
+- `e16a45d5e` — `docs(scenarios): last uncovered options — census 0
+  non-secret` (scenario 84): economics model/vote and trade
+  create/lock-escrow played as expected refusals (401 before any write);
+  `crosschain bridge --wait` confirmed tagged unplayable. Census 7 → 1
+  non-secret (the tagged unplayable) → 0.
+
+### CLI-JSON-CLEAN-2 (#564)
+
+- `a5b300031` — `sync status` emits one JSON doc under `--output json`.
+- `812b5ddd3` — `crosschain rates`/`pools` emit one JSON doc.
+- `3e42ff4e3` — pair-rate emit extracted to satisfy C901.
+- `a5e65a00a` — analytics monitor/predict/optimize/alerts emit a single
+  doc, with `except CLIError: raise` guards against the double-abort.
+  Live: all judged commands emit one valid JSON doc rc 0.
+
+### COVERAGE-FINAL-1 (#554)
+
+- `4cade7895` — `docs(coverage): secret-form plays + unplayable tags —
+  census 1 non-secret`: secret-form plays and unplayable tags; the one
+  remaining non-secret gap is `crosschain bridge --wait`, tagged
+  unplayable.
+- `43b4fcce3` — exclusions key unified (`reason`) + secret-class
+  wording, so exclusions now show reasons instead of `unspecified`.
+- `240e580e8` — scenario 85: the secret class includes file/stdin forms
+  on unplayable leaves. Final census: 1,988/2,109 exercised, 121
+  never = 1 non-secret (unplayable) + 120 secret.
+
+### CLI-AGENTCOMM-RC0-1 (#565)
+
+- `127834d2f` — `agent-comm receive` printed the wallet-unlock refusal
+  and exited 0; the refusal path now aborts (rc 4 live) and seven
+  `except CLIError: raise` guards stop error renders swallowing exit
+  codes across the group. The mining-401/coin-requests/agent.py
+  swallow candidates moved to CLI-SWALLOW-SWEEP-1 (#566).
+
+### CLI-SWALLOW-SWEEP-1 (#566)
+
+- `00a5bef1f` — mining commands abort on 401/503 and network failures
+  (`is_unauthorized` → `abort(ctx)`) instead of printing and returning
+  rc 0.
+- `7177a6a22` — coin-requests write/auth refusal paths abort non-zero;
+  `CLIError` re-raise guards added. By-design rc 0 rows
+  (pending-approval registration, notifications, reconcile, empty
+  list) listed in the ledger; the `agent.py:91` API-key fallback was
+  judged by-design.
+
+### GPU-ADMISSION-ACTIVATE-1 — v16 GPU_ALLOCATE admission gate activated at pin 6500 (#406)
+
+- Activation of the dormant v16 gate (`1e4634cc3`, `e74cb8ded` —
+  GPU-ADMISSION-1): `STATE_TRANSITION_V16_HEIGHT=6500` set on all five
+  hosts and the fleet restart wave ran 24 Oct 18:00–18:07. Read-back
+  26 Oct: `block_metadata` stamps `state_transition_version` 15 at 6499
+  and 16 at 6500 — the flip lands exactly at the pin, heads equal at
+  6532 (`0xcbf491ff3714`) and no validator dropped. Live GPU_ALLOCATE
+  refusal was not shown (an unsigned tx dies at sig-verify first; the
+  CLI refuses at the wallet gate) — the gate path is proven by the
+  stamped v16 plus `state_transition.py:1778`. Ops-side documentation
+  of the pin env landed earlier in `b34c3d855`/`6ba55cb37` (#473).
