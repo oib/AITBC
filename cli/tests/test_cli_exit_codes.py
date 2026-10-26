@@ -42,6 +42,9 @@ class _NetBoom:
     def get(self, *a, **kw):
         raise NetworkError("GET request failed: fake connection refused")
 
+    def get_json(self, *a, **kw):
+        return self.get(*a, **kw)
+
     def post(self, *a, **kw):
         raise NetworkError("POST request failed: fake connection refused")
 
