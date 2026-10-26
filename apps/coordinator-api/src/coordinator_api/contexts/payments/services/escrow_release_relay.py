@@ -171,7 +171,7 @@ class EscrowReleaseRelayService(EscrowRelayService):
         # ``amount`` is optional: when omitted the relay releases the full
         # locked amount. It is derived AFTER the ownership check (below) —
         # a caller who is not the buyer must get 403, not data.
-        amount_provided = body.get("amount") is not None
+        amount_provided = body.get("amount") not in (None, "")
         amount_units: int | None = None
 
         client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
