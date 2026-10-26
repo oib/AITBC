@@ -18,6 +18,7 @@ from ...config import get_config
 from ...utils import error, info, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
 from ...utils.error_handling import abort
+from ...utils.money import DECIMAL
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -771,7 +772,7 @@ def escrow_status(ctx, job_id: str):
 @click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
 @click.option("--buyer", "buyer", required=True, help="The Buyer.")
 @click.option("--provider", "provider", required=True, help="The Provider.")
-@click.option("--amount", "amount", required=False, help="Amount of AIT.")
+@click.option("--amount", "amount", required=False, type=DECIMAL, help="Amount of AIT.")
 @click.option("--wallet", "wallet_name", help="Wallet name to sign the escrow lock")
 @wallet_password_options
 @click.pass_context
