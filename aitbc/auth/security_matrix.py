@@ -44,6 +44,10 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/redoc": AuthLevel.NONE,
     "/v1/status": AuthLevel.NONE,
     "/v1/sync-status": AuthLevel.NONE,
+    # Prometheus scrape endpoint — metadata-only counters (ESCROW-RELAY-OBS-1
+    # ruling on #474): label keys are relay+result only, and the endpoint is
+    # loopback-scoped (nginx must not proxy it).
+    "/prometheus": AuthLevel.NONE,
     # Public authentication routes
     "/v1/register": AuthLevel.NONE,
     "/v1/login": AuthLevel.NONE,
