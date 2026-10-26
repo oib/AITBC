@@ -137,14 +137,25 @@ def test_verify_rejects_symlink(runner, tmp_path):
 
 
 def test_verify_missing_script_clear_error(runner, tmp_path):
-    db = tmp_path / "exchange.db"
-    db.write_bytes(b"x")
+    # no --db: the argument layer validates clean, so the script-resolution
+    # error surfaces (pins the second error — EXCHANGE-VERIFY-ORDER-1).
     with mock.patch.object(
         hub_mod, "_verify_script_path", side_effect=hub_mod.click.ClickException("exchange_verify.py not found")
     ):
-        result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=["--db", str(db)])
+        result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=[])
     assert result.exit_code != 0
     assert "exchange_verify.py not found" in result.output
+
+
+def test_verify_bad_db_reported_before_script_missing(runner):
+    """A malformed --db must name the arg error even when the script is absent."""
+    with mock.patch.object(
+        hub_mod, "_verify_script_path", side_effect=hub_mod.click.ClickException("exchange_verify.py not found")
+    ):
+        result = runner.invoke(verify_cmd, obj={"output_format": "table"}, args=["--db", "relative.db"])
+    assert result.exit_code != 0
+    assert "absolute" in result.output
+    assert "not found" not in result.output
 
 
 def test_verify_accepts_db_under_prefix(runner, tmp_path):
