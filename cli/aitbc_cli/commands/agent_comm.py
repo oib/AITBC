@@ -15,7 +15,7 @@ from ..utils.agent_signing import (
     sign_send_envelope,
     signed_request_headers,
 )
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, origin_base_url
 
 logger = get_logger(__name__)
@@ -144,6 +144,8 @@ def register(
             output(agent_data, ctx.obj.get("output_format", "table"))
         else:
             abort(ctx, f"Failed to register agent {agent_id}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
@@ -198,6 +200,8 @@ def list_agents(ctx, chain_id, status, capabilities, output_format):
             )
 
         output(agent_data, _fmt(ctx, output_format), title="Registered Agents")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
@@ -241,6 +245,8 @@ def discover(ctx, chain_id, capabilities, output_format):
         ]
 
         output(agent_data, _fmt(ctx, output_format), title=f"Agents on Chain {chain_id}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error discovering agents: {str(e)}", from_exception=e)
 
@@ -280,6 +286,8 @@ def status(ctx, agent_id, output_format):
         ]
 
         output(status_data, _fmt(ctx, output_format), title=f"Agent Status: {agent_id}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
@@ -340,6 +348,8 @@ def network(ctx, output_format):
                 for chain_id, count in agents_by_chain.items()
             ]
             output(chain_data, _fmt(ctx, output_format), title="Agents by Chain")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error getting network overview: {str(e)}", from_exception=e)
 
@@ -422,6 +432,8 @@ def send(
             body = sign_send_envelope(body, signing[0], signing[1])
         result = client.post("/api/v1/agent/messages/send", json=body)
         output(result, ctx.obj.get("output_format", "table"))
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error sending message: {str(e)}", from_exception=e)
 
@@ -521,5 +533,7 @@ def receive(ctx, receiver_id, limit, wallet_name, password, password_file, passw
         headers = signed_request_headers(receiver_id, signing[1]) if signing else None
         result = client.get("/api/v1/agent/messages/inbox", params={"agent_id": receiver_id, "limit": limit}, headers=headers)
         output(result, _fmt(ctx, format))
+    except CLIError:
+        raise
     except Exception as e:
-        output({"message": f"Error receiving messages: {e}"}, _fmt(ctx, format))
+        abort(ctx, f"Error receiving messages: {e}", from_exception=e)
