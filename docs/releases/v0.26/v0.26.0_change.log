@@ -588,3 +588,11 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   BackupSizeCollapse's fix is its documented per-host silence (a deploy
   step, not a rule change). promtool test pins the blip case silent
   and the real outage firing.
+### BACKUP-VERIFY-1
+
+- New `scripts/ops/backup-verify.py` — nightly-capable restore check
+  of a backup generation in scratch: `.dump` text rebuilds +
+  `PRAGMA integrity_check`, pg_dump header + `OWNER TO` roles, binary
+  `svc_*.backup` opens, baseline row counts, optional `--textfile`
+  metrics. Read-only on the backups, exit 1 fail / 2 unreadable, no
+  unit installed.
