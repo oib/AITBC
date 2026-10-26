@@ -1,1 +1,8 @@
-{"dispute auto-adjudicate": {"reason": "play limit: interactive confirm"}}
+{
+ "dispute auto-adjudicate": {
+  "reason": "play limit: interactive confirm"
+ },
+ "crosschain bridge": {
+  "unplayable": "--wait on a write command is prohibited by the Phase-0 binding conditions"
+ }
+}
