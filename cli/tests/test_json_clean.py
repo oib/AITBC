@@ -251,6 +251,8 @@ def test_market_list_mixed_empty_and_dead_json(monkeypatch):
 
 def _fake_analytics_cls():
     """ChainAnalytics double producing both the overview and comparison sets."""
+    from datetime import datetime
+    from types import SimpleNamespace
 
     class _Metrics:
         chain_id = "bc-2"
@@ -261,7 +263,17 @@ def _fake_analytics_cls():
 
     class _A:
         def __init__(self, config):
-            pass
+            self.alerts = [
+                SimpleNamespace(
+                    chain_id="bc-2",
+                    alert_type="tps_drop",
+                    severity="critical",
+                    message="tps dropped",
+                    current_value=1.0,
+                    threshold=5.0,
+                    timestamp=datetime.now(),
+                )
+            ]
 
         async def collect_all_metrics(self):
             return {"bc-2": [_Metrics()]}
@@ -287,9 +299,52 @@ def _fake_analytics_cls():
                     "block_time": {"avg": 2.0},
                     "gas_price": {"avg": 5},
                 },
+                "latest_metrics": {
+                    "memory_usage_mb": 1.0,
+                    "disk_usage_mb": 2.0,
+                    "active_nodes": 1,
+                    "client_count": 0,
+                    "agent_count": 0,
+                },
             }
 
+        async def predict_chain_performance(self, chain_id, hours):
+            return [
+                SimpleNamespace(metric="tps", predicted_value=1.5, confidence=0.9, time_horizon_hours=hours),
+            ]
+
+        def get_optimization_recommendations(self, chain_id):
+            return [
+                {
+                    "type": "scaling",
+                    "priority": "high",
+                    "issue": "low tps",
+                    "current_value": "1.0",
+                    "recommended_action": "add nodes",
+                    "expected_improvement": "+50%",
+                }
+            ]
+
     return _A
+
+
+def _patch_analytics(monkeypatch, cls=None):
+    """Point ``analytics`` at the fake ChainAnalytics; returns the module."""
+    import aitbc_cli.commands.analytics as an
+
+    monkeypatch.setattr(an, "load_multichain_config", lambda: object())
+    monkeypatch.setattr(an, "ChainAnalytics", cls if cls is not None else _fake_analytics_cls())
+    return an
+
+
+def _aborting_output(data, fmt=None, title=None, **kw):
+    """``output()`` double that aborts — stands in for any abort() raised
+    inside a command body (e.g. a renderer that hits an error mid-way)."""
+    import click
+
+    from aitbc_cli.utils.error_handling import abort
+
+    abort(click.get_current_context(), "simulated inner abort")
 
 
 def test_analytics_summary_cross_chain_json_is_one_document(monkeypatch):
@@ -582,3 +637,131 @@ def test_crosschain_pools_empty_table_keeps_prose_on_stdout(monkeypatch):
     r = CliRunner().invoke(cc.pools, [], obj={"output_format": "table"})
     assert r.exit_code == 0, r.output
     assert "No cross-chain liquidity pools" in r.stdout
+# ---------------------------------------------------------------------------
+# CLI-JSON-CLEAN-2: analytics monitor / predict / optimize / alerts
+# ---------------------------------------------------------------------------
+
+
+def test_analytics_monitor_json_is_one_document(monkeypatch):
+    """``analytics monitor`` under --output json must emit ONE JSON document.
+
+    Regresses CLI-JSON-CLEAN-2: the snapshot path hard-coded
+    ``_fmt(ctx, "table")`` so stdout held a table even under json.
+    """
+    an = _patch_analytics(monkeypatch)
+
+    r = CliRunner().invoke(an.monitor, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc[0]["Metric"] == "Total Chains"
+
+
+def test_analytics_monitor_chain_id_json_is_one_document(monkeypatch):
+    an = _patch_analytics(monkeypatch)
+
+    r = CliRunner().invoke(an.monitor, ["--chain-id", "bc-2"], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc[0]["Value"] == "bc-2"
+
+
+def test_analytics_monitor_abort_emits_one_json_error(monkeypatch):
+    """No data -> abort() prints the error ONCE, not twice."""
+    an = _patch_analytics(monkeypatch, cls=_EmptyAnalytics)
+
+    r = CliRunner().invoke(an.monitor, ["--chain-id", "bc-2"], obj={"output_format": "json"})
+    assert r.exit_code != 0
+    doc = json.loads(r.stdout)  # Extra data if the CLIError is wrapped again
+    assert doc["error"]
+
+
+def test_analytics_monitor_table_keeps_sections(monkeypatch):
+    an = _patch_analytics(monkeypatch)
+
+    r = CliRunner().invoke(an.monitor, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "System Monitor" in r.stdout
+    assert "Total Chains" in r.stdout
+
+
+def test_analytics_predict_json_is_one_document(monkeypatch):
+    an = _patch_analytics(monkeypatch)
+
+    r = CliRunner().invoke(an.predict, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc[0]["Metric"] == "tps"
+
+
+def test_analytics_predict_abort_emits_one_json_error(monkeypatch):
+    an = _patch_analytics(monkeypatch, cls=_EmptyAnalytics)
+
+    r = CliRunner().invoke(an.predict, [], obj={"output_format": "json"})
+    assert r.exit_code != 0
+    doc = json.loads(r.stdout)
+    assert doc["error"]
+
+
+def test_analytics_optimize_json_is_one_document(monkeypatch):
+    an = _patch_analytics(monkeypatch)
+
+    r = CliRunner().invoke(an.optimize, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc[0]["Type"] == "scaling"
+
+
+def test_analytics_optimize_inner_abort_emits_one_json_error(monkeypatch):
+    """A CLIError raised inside the try must not be re-wrapped by the broad
+    ``except Exception`` — removing ``except CLIError: raise`` turns stdout
+    into two JSON documents."""
+    an = _patch_analytics(monkeypatch)
+    monkeypatch.setattr(an, "output", _aborting_output)
+
+    r = CliRunner().invoke(an.optimize, [], obj={"output_format": "json"})
+    assert r.exit_code != 0
+    doc = json.loads(r.stdout)
+    assert doc["error"]
+
+
+def test_analytics_alerts_json_is_one_document(monkeypatch):
+    an = _patch_analytics(monkeypatch)
+
+    r = CliRunner().invoke(an.alerts, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc[0]["Severity"] == "critical"
+
+
+def test_analytics_alerts_inner_abort_emits_one_json_error(monkeypatch):
+    an = _patch_analytics(monkeypatch)
+    monkeypatch.setattr(an, "output", _aborting_output)
+
+    r = CliRunner().invoke(an.alerts, [], obj={"output_format": "json"})
+    assert r.exit_code != 0
+    doc = json.loads(r.stdout)
+    assert doc["error"]
+
+
+class _EmptyAnalytics:
+    """ChainAnalytics double where every query returns no data."""
+
+    def __init__(self, config):
+        self.alerts = []
+
+    async def collect_all_metrics(self):
+        return {}
+
+    def get_cross_chain_analysis(self):
+        # Non-empty comparison map so callers iterate chains and reach their
+        # own no-data abort() instead of dying on a KeyError first.
+        return {"performance_comparison": {"bc-2": {}}}
+
+    def get_chain_performance_summary(self, chain_id, hours=24):
+        return {}
+
+    async def predict_chain_performance(self, chain_id, hours):
+        return []
+
+    def get_optimization_recommendations(self, chain_id):
+        return []
