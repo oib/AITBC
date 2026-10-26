@@ -734,7 +734,7 @@ def _action_options(f):
         default=True,
         help="With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash",
     )(f)
-    f = click.option("--wait-timeout", type=float, default=180.0, show_default=True)(f)
+    f = click.option("--wait-timeout", type=float, default=180.0, show_default=True, help="Seconds --wait polls for")(f)
     f = click.option("--rpc-url", default=None, help="Blockchain RPC URL")(f)
     return wallet_password_options(f)
 
