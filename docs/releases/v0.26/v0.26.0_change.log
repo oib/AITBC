@@ -578,3 +578,13 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   coordinator db is binary), scratch-only rule, integrity checks, and
   what stays behind the operator's typed line. Linked from the
   manual-refund runbook.
+
+
+### ALERT-REVIEW-1
+
+- `ServiceDown` `for:` 1m → 5m: the 1015-event hub alert log showed
+  sub-minute restart blips during deploy waves (median 0.8 min). The
+  other top offenders are classified benign or real-but-correct —
+  BackupSizeCollapse's fix is its documented per-host silence (a deploy
+  step, not a rule change). promtool test pins the blip case silent
+  and the real outage firing.
