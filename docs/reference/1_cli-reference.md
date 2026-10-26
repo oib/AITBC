@@ -325,7 +325,7 @@ Frameworks: `hipaa`, `soc2`, `glba`, `pci_dss`, `manufacturing`, `education`, `r
 `generic`. Classifications: `public`, `internal`, `restricted`, `confidential`, `pii`,
 `phi`, `pci`.
 
-> `aitbc compliance report` was removed in v0.15.2, which replaced the placeholder
+> `aitbc compliance report` was removed in v0.15.2; use `compliance check`, `classify`, or `export-audit`, which replaced the placeholder
 > `check`/`report` pair with real policy evaluation. Use `export-audit` to produce a
 > compliance artifact.
 
