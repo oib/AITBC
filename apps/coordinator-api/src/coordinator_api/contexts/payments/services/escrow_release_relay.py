@@ -35,6 +35,7 @@ from aitbc.utils.units import ait_to_units
 from ....storage import get_session
 from ..domain.escrow_release_relay import EscrowReleaseRelay
 from .escrow_relay import EscrowRelayService
+from .escrow_relay_metrics import RESULT_CHAIN_TIMEOUT, RESULT_UPSTREAM_5XX, tag_escrow_result
 from .payments import _find_http_status_error
 
 logger = logging.getLogger(__name__)
@@ -74,9 +75,13 @@ class EscrowReleaseRelayService(EscrowRelayService):
             code, detail = _chain_detail(exc, "the escrow lookup failed on the settlement node")
             if code is not None and 400 <= code < 500:
                 raise HTTPException(status_code=code, detail=detail) from exc
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="the escrow relay could not reach the settlement node; the request can be retried",
+            # code is None → the call died in transport (timeout/DNS/refused).
+            raise tag_escrow_result(
+                HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="the escrow relay could not reach the settlement node; the request can be retried",
+                ),
+                RESULT_UPSTREAM_5XX if code is not None else RESULT_CHAIN_TIMEOUT,
             ) from exc
         if not isinstance(escrow, dict):
             raise HTTPException(
@@ -122,10 +127,15 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 # pass through at the same status code.
                 raise HTTPException(status_code=code, detail=detail) from exc
             # Timeout / 5xx / ambiguous post-send failure: the release may
-            # still have landed — the replay dedup makes a retry safe.
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="the escrow release relay could not reach the settlement node; the request can be retried",
+            # still have landed — the replay dedup makes a retry safe. Tag
+            # the classified result: no HTTP status means transport failure
+            # (timeout), a status >= 500 is a real upstream 5xx.
+            raise tag_escrow_result(
+                HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="the escrow release relay could not reach the settlement node; the request can be retried",
+                ),
+                RESULT_UPSTREAM_5XX if code is not None else RESULT_CHAIN_TIMEOUT,
             ) from exc
 
     def _release_forward(
