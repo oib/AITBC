@@ -185,14 +185,28 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, r
         raise click.Abort() from e
 
 
-def leave_island_command(ctx, island_id):
-    """Leave an island"""
-    try:
-        success(f"Successfully left island {island_id}")
+def leave_island_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
+    """Leave an island — calls the node's /rpc/islands/leave."""
+    from aitbc_cli.config import get_config
+    from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
-    except Exception as e:
-        error(f"Error leaving island: {str(e)}")
+    config = get_config()
+    client = AITBCHTTPClient(base_url=node_url, timeout=10, api_key=config.blockchain_rpc_api_key)
+    try:
+        response = client.post(
+            "/islands/leave" if node_url.endswith("/rpc") else "/rpc/islands/leave",
+            json={"island_id": island_id},
+        )
+    except NetworkError as e:
+        error(f"Cannot reach node at {node_url}: {e}")
         raise click.Abort() from e
+
+    if isinstance(response, dict) and response.get("success"):
+        success(f"Successfully left island {island_id}")
+    else:
+        message = response.get("message", "unknown") if isinstance(response, dict) else str(response)
+        error(f"Failed to leave island {island_id}: {message}")
+        raise click.Abort()
 
 
 def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
