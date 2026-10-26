@@ -33,6 +33,21 @@ def tool():
     return _load()
 
 
+@pytest.fixture(autouse=True)
+def _pin_v2_unarmed(tool, monkeypatch):
+    """Default the whole module to leaf-v2 unarmed.
+
+    ``_resolve_v2_height`` consults, in order: the process env, the
+    ``aitbc_chain`` settings singleton, then ``/etc/aitbc/blockchain.env``.
+    On a live host the env file carries ``BRIDGE_LOCK_LEAF_V2_HEIGHT=1``
+    since the 17 Oct arming — an ambient resolution arms v2 silently and
+    every recipient-less fixture row becomes missing_data (the in-suite
+    red this used to produce). Tests that exercise v2 pin ``_V2_HEIGHT``
+    themselves.
+    """
+    monkeypatch.setattr(tool, "_V2_HEIGHT", 10**12)
+
+
 def _mk_db(path: Path, rows: list[tuple]) -> Path:
     """rows: (tx_hash, height, payload_dict, envelope_dict, transfer_or_None)
     transfer_or_None: (transfer_id, amount, target_chain, recipient) for the
