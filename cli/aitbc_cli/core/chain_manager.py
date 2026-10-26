@@ -85,9 +85,11 @@ class ChainManager:
             if chain.id not in unique_chains:
                 unique_chains[chain.id] = chain
 
-        if errors and not chains:
+        # Only an all-node failure is an error — a node returning zero
+        # chains is a legitimate response, not a failure.
+        if errors and not chains and len(errors) == len(self.config.nodes):
             nid, exc = errors[-1]
-            raise exc.__class__(f"All nodes failed; last error from {nid}: {exc}") from exc
+            raise RuntimeError(f"All nodes failed; last error from {nid}: {exc}") from exc
 
         chains = list(unique_chains.values())
 
