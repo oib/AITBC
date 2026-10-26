@@ -957,6 +957,7 @@ def _collect_options(
     scope: dict[str, Any],
     flags: dict[str, str],
     values: dict[str, str],
+    dual_flags: dict[str, tuple[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Collect CLI options from a generated tool's local scope.
 
@@ -964,12 +965,20 @@ def _collect_options(
     ``flags`` maps boolean-flag parameter names to CLI option names: a truthy
     value emits the bare ``--flag`` (recorded as ``None``). ``values`` maps
     value-option parameter names to CLI option names: any non-``None`` value is
-    recorded for ``--flag=value``.
+    recorded for ``--flag=value``. ``dual_flags`` maps a tri-state boolean
+    parameter to its ``(positive, negative)`` CLI spellings for dual flag pairs
+    like ``--wait``/``--no-wait``: ``True`` emits ``--positive``, ``False``
+    emits ``--negative`` and ``None`` emits nothing.
     """
     options: dict[str, Any] = {}
     for name, flag in flags.items():
         if scope.get(name):
             options[flag] = None
+    for name, pair in (dual_flags or {}).items():
+        value = scope.get(name)
+        if value is None:
+            continue
+        options[pair[0] if value else pair[1]] = None
     for name, flag in values.items():
         if scope.get(name) is not None:
             options[flag] = scope[name]

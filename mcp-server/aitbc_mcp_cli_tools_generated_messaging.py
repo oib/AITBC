@@ -231,7 +231,7 @@ def aitbc_messaging_hide(
     """Run `aitbc messaging hide`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -240,6 +240,7 @@ def aitbc_messaging_hide(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = [tx_hash] if tx_hash is not None else []
     target = _host_for_role(role, host)
@@ -343,7 +344,7 @@ def aitbc_messaging_lock(
     """Lock a topic or one thread (moderator only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "target": "target",
@@ -353,6 +354,7 @@ def aitbc_messaging_lock(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = None
     target = _host_for_role(role, host)
@@ -416,7 +418,7 @@ def aitbc_messaging_mod_grant(
     """Run `aitbc messaging mod-grant`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -425,6 +427,7 @@ def aitbc_messaging_mod_grant(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = [grantee] if grantee is not None else []
     target = _host_for_role(role, host)
@@ -488,7 +491,7 @@ def aitbc_messaging_mod_revoke(
     """Run `aitbc messaging mod-revoke`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -497,6 +500,7 @@ def aitbc_messaging_mod_revoke(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = [grantee] if grantee is not None else []
     target = _host_for_role(role, host)
@@ -609,7 +613,7 @@ def aitbc_messaging_pin(
     """Run `aitbc messaging pin`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -618,6 +622,7 @@ def aitbc_messaging_pin(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = [tx_hash] if tx_hash is not None else []
     target = _host_for_role(role, host)
@@ -733,7 +738,7 @@ def aitbc_messaging_send(
     """Post a forum message as a signed MESSAGE transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm", "wait": "wait"},
+        flags={"confirm_opt": "confirm"},
         values={
             "wallet_name": "wallet",
             "message": "message",
@@ -744,6 +749,7 @@ def aitbc_messaging_send(
             "rpc_url": "rpc-url",
             "password_file": "password-file",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1020,7 +1026,7 @@ def aitbc_messaging_unhide(
     """Run `aitbc messaging unhide`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -1029,6 +1035,7 @@ def aitbc_messaging_unhide(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = [tx_hash] if tx_hash is not None else []
     target = _host_for_role(role, host)
@@ -1092,7 +1099,7 @@ def aitbc_messaging_unlock(
     """Undo a lock (moderator only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "target": "target",
@@ -1102,6 +1109,7 @@ def aitbc_messaging_unlock(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1165,7 +1173,7 @@ def aitbc_messaging_unpin(
     """Run `aitbc messaging unpin`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -1174,6 +1182,7 @@ def aitbc_messaging_unpin(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = [tx_hash] if tx_hash is not None else []
     target = _host_for_role(role, host)
@@ -1238,7 +1247,7 @@ def aitbc_messaging_vote(
     """Vote on a forum message. Last vote per signer wins; 'retract' clears it."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -1247,6 +1256,7 @@ def aitbc_messaging_vote(
             "fee": "fee",
             "wallet_name": "wallet",
         },
+        dual_flags={"wait": ("wait", "no-wait")},
     )
     args = [] + ([tx_hash] if tx_hash is not None else []) + ([direction] if direction is not None else [])
     target = _host_for_role(role, host)
