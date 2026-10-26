@@ -23,6 +23,13 @@ from ....auth import AdminOrClientDep
 from ....storage import get_session
 from ..operations import begin_operation, complete_operation, fail_operation, record_rejection
 from ..services.escrow_relay import EscrowRelayService
+from ..services.escrow_relay_metrics import (
+    RESULT_OK,
+    RESULT_REPLAY,
+    RESULT_UPSTREAM_5XX,
+    classified_escrow_result,
+    record_escrow_relay_result,
+)
 
 router = APIRouter(tags=["escrow"])
 
@@ -86,6 +93,7 @@ async def relay_escrow(
         {"client_id": client_id, "body": body},
     )
     if early is not None:
+        record_escrow_relay_result("create", RESULT_REPLAY)
         return early
 
     service = EscrowRelayService(session)
@@ -94,10 +102,13 @@ async def relay_escrow(
         await complete_operation(
             key, attempt, EscrowRelayResponse.model_validate(result).model_dump(mode="json"), response_status=200
         )
+        record_escrow_relay_result("create", RESULT_REPLAY if result.get("duplicate") else RESULT_OK)
         return result
     except HTTPException as e:
+        record_escrow_relay_result("create", classified_escrow_result(e, e.status_code))
         await record_rejection(key, attempt, e.status_code, {"detail": e.detail})
         raise
     except Exception as e:
+        record_escrow_relay_result("create", RESULT_UPSTREAM_5XX)
         await fail_operation(key, attempt, type(e).__name__)
         raise

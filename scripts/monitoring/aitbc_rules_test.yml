@@ -1737,3 +1737,57 @@ tests:
               job: blockchain-node
             exp_annotations:
               summary: "Service dead:9009 is down"
+  # ESCROW-RELAY-OBS-1: aitbc_escrow_relay_requests_total{relay,result} from
+  # the coordinator's escrow relays. The "release" relay on hub:8203 ramps a
+  # mix of ok + upstream_5xx + a 425 storm after t≈7m — both alerts must
+  # fire. The "create" relay carries real error traffic but stays under the
+  # 5-request floor, so EscrowRelayErrorRatio must stay silent for it (and
+  # its handful of 425s is far under the storm bound).
+  - interval: 30s
+    input_series:
+      - series: 'aitbc_escrow_relay_requests_total{instance="hub:8203", job="coordinator-api", relay="release", result="ok"}'
+        values: '0+1x44'
+      - series: 'aitbc_escrow_relay_requests_total{instance="hub:8203", job="coordinator-api", relay="release", result="upstream_5xx"}'
+        values: '0x14 0+1x30'
+      - series: 'aitbc_escrow_relay_requests_total{instance="hub:8203", job="coordinator-api", relay="release", result="too_early_425"}'
+        values: '0x14 0+1x30'
+      - series: 'aitbc_escrow_relay_requests_total{instance="hub:8203", job="coordinator-api", relay="create", result="chain_timeout"}'
+        values: '0x42 0+1x2'
+      - series: 'aitbc_escrow_relay_requests_total{instance="hub:8203", job="coordinator-api", relay="create", result="too_early_425"}'
+        values: '0x42 0+1x2'
+
+    alert_rule_test:
+      # Before the ramps start: nothing fires.
+      - eval_time: 4m
+        alertname: EscrowRelayErrorRatio
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: EscrowRelay425Storm
+        exp_alerts: []
+
+      # At 20m the release relay has been over the error ratio for ~12m
+      # (past the 5m pending period) and the 425 storm is sustained. The
+      # create relay stays silent on both — under the request floor.
+      # Annotation values (31.25% ratio, 25 storms) come from increase()
+      # extrapolation over the synthetic steps — deterministic under the
+      # fixed 30s interval.
+      - eval_time: 20m
+        alertname: EscrowRelayErrorRatio
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: hub:8203
+              relay: release
+            exp_annotations:
+              summary: "Escrow relay release error ratio 31.25% on hub:8203"
+              description: "More than 20% of release escrow relay requests over the last 15m ended in an upstream 5xx or a chain timeout on hub:8203. Check the settlement node's /rpc/escrow health and journalctl -u aitbc-coordinator-api."
+      - eval_time: 20m
+        alertname: EscrowRelay425Storm
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: hub:8203
+              relay: release
+            exp_annotations:
+              summary: "425 storm on escrow relay release (hub:8203)"
+              description: "25 'lock not yet sealed' (425) answers from the release relay on hub:8203 in 15m — releases are racing unsealed locks, or the chain has stopped sealing ESCROW_LOCK transactions. Check the settlement node's mempool and block production."

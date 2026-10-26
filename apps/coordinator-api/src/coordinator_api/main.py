@@ -909,6 +909,15 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(payments, prefix="/v1")
     app.include_router(escrow_relay, prefix="/v1")
     app.include_router(escrow_release_relay, prefix="/v1")
+    # ESCROW-RELAY-OBS-1: the refund relay router is mid-review and may not
+    # exist yet — mount it only when the module is present so its
+    # aitbc_escrow_relay_requests_total{relay="refund"} hook no-ops until then.
+    try:
+        from .contexts.payments.routers.escrow_refund_relay import router as escrow_refund_relay
+    except ImportError:
+        escrow_refund_relay = None
+    if escrow_refund_relay is not None:
+        app.include_router(escrow_refund_relay, prefix="/v1")
     app.include_router(inference, prefix="/v1")
     app.include_router(explorer, prefix="/v1")
     app.include_router(services, prefix="/v1")

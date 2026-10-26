@@ -31,6 +31,7 @@ from ....config import settings
 from ....storage import get_session
 from ...infrastructure.domain.user import Wallet
 from ..domain.escrow_relay import EscrowRelay
+from .escrow_relay_metrics import RESULT_CHAIN_TIMEOUT, RESULT_UPSTREAM_5XX, tag_escrow_result
 from .payments import _find_http_status_error
 
 logger = logging.getLogger(__name__)
@@ -179,10 +180,16 @@ class EscrowRelayService:
                     pass
                 raise HTTPException(status_code=status_error.response.status_code, detail=detail) from exc
             # Timeout / 5xx / ambiguous post-send failure: the lock may still
-            # have landed — the replay dedup makes a retry safe.
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="the escrow relay could not reach the settlement node; the request can be retried",
+            # have landed — the replay dedup makes a retry safe. Tag the
+            # classified result: a missing response object means the call
+            # died in transport (timeout/DNS/refused), an HTTP status >= 500
+            # is a real upstream 5xx.
+            raise tag_escrow_result(
+                HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="the escrow relay could not reach the settlement node; the request can be retried",
+                ),
+                RESULT_UPSTREAM_5XX if status_error is not None else RESULT_CHAIN_TIMEOUT,
             ) from exc
 
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
