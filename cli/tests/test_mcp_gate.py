@@ -12,7 +12,10 @@ MUTATING = re.compile(
     r"transfer|withdraw|deposit|pay|charge|refund|allocate|release|lock|unlock|slash|appeal|bridge|swap|"
     r"join|leave|migrate|import|export|backup|restore|sync|pull|push|harden|clean|wipe|kill|terminate|"
     r"connect|disconnect|bond|top_up|top-up|topup|grant|revoke|pin|unpin|hide|unhide|promote|demote|"
-    r"reopen|rebroadcast|resign|abandon|claim|earn|reinvest|buy|sell|trade|order|bid|offer)"
+    r"reopen|rebroadcast|resign|abandon|claim|earn|reinvest|buy|sell|trade|order|bid|offer|"
+    r"spend|switch|sign|store|launch|run|host|process|mint|rate|cancel|accept|hire|file|resolve|"
+    r"propose|close|propagate|subscribe|keygen|attest|record|upload|edit|save|load|login|logout|"
+    r"optimize|tune|patch|request|reconcile|rebalance|batch)"
 )
 # Leaf names that look mutating but are confirmed reads (director's audit).
 # Tool names that name-match the mutating regex but are confirmed reads.
