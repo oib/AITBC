@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from aitbc_cli.core.config import NodeConfig
-from aitbc_cli.core.node_client import NodeClient
+from aitbc_cli.core.node_client import NodeClient, _endpoint_has_api_surface
 
 
 def _cfg(endpoint: str) -> NodeConfig:
@@ -60,3 +60,12 @@ async def test_chain_stats_uses_rpc_head(fake_client):
     assert not any("/api/chains" in c for c in fake_client)
     assert stats["block_height"] == 42
     assert stats["source"] == "rpc-head"
+
+
+def test_api_surface_is_path_based():
+    # An api-* hostname does NOT mean the endpoint has an /api surface.
+    assert not _endpoint_has_api_surface("http://api-gateway:8201")
+    assert not _endpoint_has_api_surface("http://127.0.0.1:8202")
+    assert _endpoint_has_api_surface("http://node.test/api")
+    assert _endpoint_has_api_surface("http://node.test/api/")
+    assert _endpoint_has_api_surface("http://node.test/api/v1")
