@@ -186,3 +186,4 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 72 | [Developer Registry](./72_developer_registry.md) | DAO developer registration and listing | `aitbc developer` |
 | 73 | [Contract Deploy & Call](./73_contract_deploy_call.md) | Generic contract deployment and method calls | `aitbc contract` |
 | 74 | [Confidential Payments](./74_confidential_payments.md) | Confidential wallet balance and committed sends (simulated path) | `aitbc confidential` |
+| 75 | [Market Escrow & Jobs Options](./75_market_escrow_jobs_options.md) | `market jobs` filters/formatting and `escrow create` optional flags (refusal play) | `aitbc market` |
