@@ -617,3 +617,9 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `> 3` threshold — init.scope and session-*.scope noise no longer
   fires it, and a single stray error line in the 15m window stays
   quiet.
+### ALERT-LABELS-1
+
+- `prometheus.yml` scrape targets normalised to `127.0.0.1` — the
+  mixed `localhost:`/`127.0.0.1:` spelling scraped the same endpoint
+  twice, doubling `up`/ServiceDown series. Config test pins both
+  properties.
