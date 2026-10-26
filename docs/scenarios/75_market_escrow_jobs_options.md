@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 07 AI Job Submission (for job IDs and offers)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-10-27
+**Last Updated**: 2026-10-26
 **Version**: 1.0
 
 ## Navigation Path
@@ -74,7 +74,7 @@ any signing or network submission — so the flags are exercised for free:
 aitbc market escrow create --job-id escopts1-probe --buyer 0x0000000000000000000000000000000000000001 --provider 0x0000000000000000000000000000000000000002 --amount 0.5 --wallet nosuch-escopts1
 ```
 
-**Expected output:** `Error creating escrow: Wallet 'nosuch-escopts1' not
+**Expected output:** `Failed to get wallet info … 404` then `Wallet 'nosuch-escopts1' not
 found as a file wallet.` (non-zero exit; nothing signed, nothing spent).
 
 > **Known drift (recorded under ESCROW-OPTS-1):** `aitbc market jobs`
@@ -98,5 +98,5 @@ found as a file wallet.` (non-zero exit; nothing signed, nothing spent).
 
 ---
 
-*Last updated: 2026-10-27 (ESCROW-OPTS-1 option coverage)*
+*Last updated: 2026-10-26 (ESCROW-OPTS-1 option coverage)*
 *Version: 1.0*
