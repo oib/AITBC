@@ -652,3 +652,11 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - `exclusions.json`: one entry (`dispute auto-adjudicate`,
   `play limit: interactive confirm`); stale-cli entries dropped
   (zsh word-splitting artifact — leaves resolve and were re-played).
+
+
+### EDGE-JOIN-UNREACHABLE-1
+
+- `edge island join` now requires `--confirm` or an interactive `y`
+  before POSTing — a bare/refusal-shaped argument set can no longer
+  write an island record. The existing island `i` /
+  `edge_db_b3d3d38f` residue is left for the operator's call.
