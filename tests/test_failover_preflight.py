@@ -16,15 +16,24 @@ SSH_STUB = """#!/bin/sh
 eval "cmd=\\${$#}"   # remote command is the last argument
 case "$cmd" in
   *"max(height)"*) echo "${STUB_HEAD:-5666|0xabcdef123456}" ;;
-  *ActiveEnterTimestamp*) echo "${STUB_TS:-Sun 2026-10-25 21:30:23 CET}" ;;
-  *"list-units --failed"*) echo "${STUB_FAILED:-0}" ;;
-  *memory.events*) echo "${STUB_OOM:-0}" ;;  # awk in the script reads field 2
-  *memory.current*) echo "${STUB_CUR:-2800000000}" ;;
-  *memory.max*) echo "${STUB_MAX:-3221225472}" ;;
+  *"--EVENTS--"*)
+    echo "NODE_TS=${STUB_TS:-Sun 2026-10-25 21:30:23 CET}"
+    echo "FAILED=${STUB_FAILED:-0}"
+    echo "--EVENTS--"
+    echo "low 0"
+    echo "high 0"
+    echo "max 0"
+    echo "oom 0"
+    echo "oom_kill ${STUB_OOM:-0}"
+    echo "oom_group_kill 0"
+    echo "--MEM--"
+    echo "${STUB_CUR:-2800000000}"
+    echo "${STUB_MAX:-3221225472}"
+    echo "--ACT--"
+    echo "${STUB_ACT:-8}"
+    echo "${STUB_KEE:-2}" ;;
   *swapon*) echo "${STUB_SWAP:-1000000}" ;;
   *sha256sum*) echo "${STUB_SHA:-deadbeef}" ;;
-  *"is-active aitbc-coordinator-api"*) echo "${STUB_ACT:-8}" ;;
-  *"is-active aitbc-exchange"*) echo "${STUB_KEE:-2}" ;;
   *bridge_deposits*) echo "${STUB_BD:-139264}" ;;
   *) echo unknown ;;
 esac
