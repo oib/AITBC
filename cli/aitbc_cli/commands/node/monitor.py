@@ -18,6 +18,8 @@ except ImportError:
     from aitbc_cli.utils import error, output
     from aitbc_cli.utils.http_client import get_logger
 
+from aitbc_cli.utils.error_handling import CLIError, abort
+
 logger = get_logger(__name__)
 
 
@@ -156,10 +158,10 @@ def test_command(ctx, node_id):
 
             success("All tests passed!")
         else:
-            from aitbc_cli.utils import warning
+            abort(ctx, "Some tests failed")
 
-            warning("Some tests failed")
-
+    except (CLIError, click.Abort):
+        raise
     except Exception as e:
         error(f"Error testing node: {str(e)}")
         raise click.Abort() from e
