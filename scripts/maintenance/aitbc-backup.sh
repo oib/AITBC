@@ -32,7 +32,9 @@ RETENTION_DAYS="${RETENTION_DAYS:-30}"
 BLOCKCHAIN_ENV="${BLOCKCHAIN_ENV:-/etc/aitbc/blockchain.env}"
 BACKUP_CHAIN_ID="${CHAIN_ID:-}"
 if [ -z "$BACKUP_CHAIN_ID" ] && [ -f "$BLOCKCHAIN_ENV" ]; then
-    BACKUP_CHAIN_ID=$(grep '^CHAIN_ID=' "$BLOCKCHAIN_ENV" | tail -1 | cut -d= -f2-)
+    # grep exits 1 when the file carries no CHAIN_ID line; under pipefail that
+    # killed the whole script before the ait-hub fallback could apply.
+    BACKUP_CHAIN_ID=$(grep '^CHAIN_ID=' "$BLOCKCHAIN_ENV" 2>/dev/null | tail -1 | cut -d= -f2- || true)
 fi
 BACKUP_KEEP_MIN_GOOD="${BACKUP_KEEP_MIN_GOOD:-7}"
 BACKUP_GOOD_REQUIRE_GZIP_TEST="${BACKUP_GOOD_REQUIRE_GZIP_TEST:-yes}"
