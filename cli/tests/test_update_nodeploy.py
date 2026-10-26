@@ -44,3 +44,14 @@ def test_no_deploy_still_reports(monkeypatch, tmp_path):
     runner = CliRunner()
     runner.invoke(up.update, ["--no-deploy"], obj={"output_format": "plain"})
     assert any("fetch" in c for c in calls)
+
+
+def test_no_deploy_help_text_is_fetch_and_report():
+    """Pin the corrected help string — mutation restores 'fast-forward'."""
+    import aitbc_cli.commands.update as up
+
+    result = CliRunner().invoke(up.update, ["--help"])
+    assert result.exit_code == 0
+    flat = " ".join(result.output.split())
+    assert "Fetch and report only; do not pull or run update.sh" in flat
+    assert "fast-forward only" not in flat
