@@ -106,13 +106,25 @@ class TestChainStatus:
         assert ChainStatus.DEGRADED.value == "degraded"
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_chain_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default-chain assertions must not inherit a leaked CHAIN_ID.
+
+    ``default_chain_id()`` honours AITBC_CHAIN_ID/CHAIN_ID before the bc-2
+    reset default; suite neighbours (e.g. tests/escrow_e2e) hard-set CHAIN_ID
+    at conftest import time.
+    """
+    monkeypatch.delenv("AITBC_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+
+
 class TestTradingConfig:
     def test_defaults(self) -> None:
         cfg = TradingConfig()
         assert cfg.rpc_url == "http://localhost:8104"
         assert cfg.blockchain_rpc_url == "http://localhost:8202"
         assert cfg.bridge_rpc_url == "http://localhost:8202"
-        assert cfg.chain_id == "ait-hub"
+        assert cfg.chain_id == "bc-2"
         assert cfg.matching_enabled is True
         assert cfg.execution_timeout == 300
         assert cfg.island_registry_sync_interval == 300
@@ -140,7 +152,7 @@ class TestInterChainTradeData:
         assert d.status == "pending"
         assert d.source_tx_hash is None
         assert d.dest_tx_hash is None
-        assert d.chain_id == "ait-hub"
+        assert d.chain_id == "bc-2"
 
     def test_full(self) -> None:
         d = _sample_trade_data()
@@ -201,7 +213,7 @@ class TestCreateTradeRequest:
         assert r.offer_id is None
         assert r.price == 0.0
         assert r.quantity == 0
-        assert r.chain_id == "ait-hub"
+        assert r.chain_id == "bc-2"
 
 
 class TestRegisterChainRequest:
