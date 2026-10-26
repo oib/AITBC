@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -22,8 +23,17 @@ def run_cli(*args):
     # HOME the calls write into that home directory as a side effect.
     with tempfile.TemporaryDirectory(prefix="aitbc-cli-test-") as home:
         env = dict(os.environ, HOME=home, AITBC_CONFIG_FILE=str(Path(home) / "config.yaml"))
+        # scripts/aitbc-cli sources <root>/venv/bin/activate, which thin test
+        # archives do not carry; fall back to the same entry point via the
+        # interpreter (aitbc_cli.__main__) so the assertions still exercise
+        # the real CLI instead of depending on a venv existing next to the
+        # checkout.
+        if (PROJECT_ROOT / "venv" / "bin" / "activate").exists():
+            argv = [str(CLI_BIN), *args]
+        else:
+            argv = [sys.executable, "-m", "aitbc_cli", *args]
         return subprocess.run(
-            [str(CLI_BIN), *args],
+            argv,
             capture_output=True,
             text=True,
             timeout=15,
