@@ -22,6 +22,7 @@ catalog, see the [master index](MASTER_INDEX.md). New to the network:
 - [getting-started/](getting-started/) — installation, configuration, role selection, node quick starts
 - [apps/](apps/) — app catalog and per-app landing pages
 - [cli/](cli/) — CLI documentation and the CLI command reference
+- [cli-option-uncovered.md](cli-option-uncovered.md) — census of CLI options no scenario exercises yet
 - [blockchain/](blockchain/) — blockchain node, consensus, networking, operations
 - [agent-coordinator/](agent-coordinator/) — agent coordination service docs
 - [market/](market/) — market and exchange documentation
