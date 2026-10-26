@@ -39,7 +39,7 @@ scrape_configs:
   # node2 (shop/follower) services
   - job_name: 'blockchain-node'
     static_configs:
-      - targets: ['localhost:8202']
+      - targets: ['127.0.0.1:8202']
     metrics_path: '/metrics'
     scrape_interval: 15s
 
@@ -55,19 +55,19 @@ scrape_configs:
 
   - job_name: 'trading'
     static_configs:
-      - targets: ['localhost:8104']
+      - targets: ['127.0.0.1:8104']
     metrics_path: '/metrics'
     scrape_interval: 15s
 
   - job_name: 'governance'
     static_configs:
-      - targets: ['localhost:8105']
+      - targets: ['127.0.0.1:8105']
     metrics_path: '/metrics'
     scrape_interval: 15s
 
   - job_name: 'pool-hub'
     static_configs:
-      - targets: ['localhost:8210']
+      - targets: ['127.0.0.1:8210']
     metrics_path: '/metrics'
     scrape_interval: 15s
 
