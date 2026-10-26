@@ -102,7 +102,9 @@ def list_grants(
             params["status"] = status
         if developer_id:
             params["developer_id"] = developer_id
-        result = client.get("/v1/grants", params=params)
+        # GET /v1/grants returns a bare JSON array; get() narrows via
+        # expect_object and raises TypeError on non-object bodies (#552).
+        result = client.get_json("/v1/grants", params=params)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
