@@ -69,7 +69,11 @@ def _app() -> FastAPI:
 
 
 def _served(app: FastAPI) -> set[str]:
-    return {r.path_format for r in app.routes if hasattr(r, "path_format")}
+    # Route objects carry path_format; mounted ASGI sub-apps (Starlette
+    # Mount, e.g. the /prometheus exposition app) carry .path instead.
+    paths = {r.path_format for r in app.routes if hasattr(r, "path_format")}
+    paths |= {r.path for r in app.routes if type(r).__name__ == "Mount"}
+    return paths
 
 
 def _is_served(path: str, served: set[str]) -> bool:
@@ -102,6 +106,14 @@ def test_no_public_matrix_entry_names_an_unserved_path() -> None:
         "these matrix paths are AuthLevel.NONE but nothing serves them, so whatever "
         f"they were written to open is still deny-by-default: {phantom}"
     )
+
+
+def test_public_matrix_entry_for_an_unserved_path_still_fails() -> None:
+    """The guard must still catch a phantom: a NONE entry for a path no
+    route or mount serves is a violation, mount-awareness or not."""
+    served = _served(_app())
+    phantom = phantom_public_entries({**ROUTE_SECURITY_MATRIX, "/no-such-endpoint": AuthLevel.NONE}, served)
+    assert phantom == ["/no-such-endpoint"], phantom
 
 
 @pytest.mark.parametrize("path", PROBE_PATHS)
