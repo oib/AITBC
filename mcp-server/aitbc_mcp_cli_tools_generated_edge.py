@@ -587,6 +587,7 @@ def aitbc_edge_island_join(
     chain_id: Annotated[str, Field(description="The Chain id.")],
     role_opt: Annotated[str | None, Field(description="Island role")] = None,
     is_hub: Annotated[bool | None, Field(description="Mark as hub node")] = None,
+    confirm_opt: Annotated[bool | None, Field(description="Confirm the write without prompting")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -596,7 +597,7 @@ def aitbc_edge_island_join(
     """Join an island with the given ID, name, chain, and role."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"is_hub": "is-hub"},
+        flags={"is_hub": "is-hub", "confirm_opt": "confirm"},
         values={"island_id": "island-id", "island_name": "island-name", "chain_id": "chain-id", "role_opt": "role"},
     )
     args = None
