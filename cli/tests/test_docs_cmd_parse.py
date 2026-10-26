@@ -1,0 +1,145 @@
+"""DOCS-CMD-PARSE-1: every `aitbc ...` line in live docs resolves in the click tree.
+
+The extractor iterates document LINES (not a multi-line regex capture), so every
+`aitbc ...` command line inside a fenced block is checked individually — the old
+block capture only ever saw the first command of each block.
+
+The resolver is click-aware: it walks subcommands, skips declared options
+together with their values, and consumes positional ``click.Argument`` slots
+(validating ``click.Choice`` values), so argument values like dispute ids or
+tx hashes are not flagged — but a wrong subcommand, a stale option, or an
+invalid choice value still fails.
+"""
+
+import re
+import shlex
+from pathlib import Path
+
+import click
+
+import aitbc_cli.core.main as main
+
+REPO = Path(__file__).resolve().parents[2]
+ALLOW_DIRS = {"releases", "archive"}
+# Lines the extractor can't classify (continuation/pipe fragments).
+ALLOW_SUBSTR = ("|", "&&", "\\")
+
+# True parser fragments only — tokens that are not commands at all but get
+# captured by the line extractor (fences, placeholders, the bare `aitbc`
+# binary name). Generic words (list, add, test, dev, hello, 1, 2, ...) are
+# deliberately NOT allowlisted here: a doc line `aitbc node bridge list`
+# must fail when `list` is not a real subcommand.
+KNOWN_MISSES = {
+    "```",  # fenced-block marker glued to an aitbc line
+    "<COMMAND>",  # literal placeholder in usage docs
+    "#",  # comment line inside a fenced block
+    "aitbc",  # `aitbc aitbc ...` / aitbc-alone fragment
+}
+
+# Per-(command-path, option) stale-option allowlist — the old global
+# KNOWN_OPTS word-mask let a stale flag pass on ANY command; each entry
+# here pins the exact command path and carries its reason.
+#   ("<space-separated command path>", "--flag"): "reason"
+KNOWN_OPTS: dict[tuple[str, str], str] = {}
+
+# Per-line allowlist for misses that must stay in the docs
+# (planned/historical examples). Key: (doc-relpath, line-number, token).
+KNOWN_LINE_MISSES: dict[tuple[str, int, str], str] = {}
+
+
+def _doc_lines():
+    """Yield (relpath, lineno, cmdline) for every line starting an `aitbc` cmd."""
+    for f in sorted(REPO.glob("docs/**/*.md")):
+        if ALLOW_DIRS & set(f.parts):
+            continue
+        for lineno, line in enumerate(f.read_text().splitlines(), 1):
+            # cut shell plumbing (`2>&1`, `| grep`, `&&`, line continuations)
+            # so a truncated fragment isn't parsed as part of the command.
+            line = re.sub(r"\d*>&?\d+", "", line)
+            line = re.split(r"[|&>\\]", line, maxsplit=1)[0]
+            m = re.match(
+                r"\s*(?:\$\s*)?(aitbc\s+[a-z][a-z0-9_\-\s\"'=:\./]{2,})",
+                line,
+            )
+            if m:
+                yield f.relative_to(REPO), lineno, m.group(1).rstrip("`")
+
+
+def _find_option(node, tok):
+    """Return the click.Option matching `--name` / `-n` token, else None."""
+    want = tok.split("=")[0]
+    pname = want.lstrip("-").replace("-", "_")
+    for p in getattr(node, "params", []):
+        if not isinstance(p, click.Option):
+            continue
+        if want in p.opts or pname == p.name:
+            return p
+    return None
+
+
+def _resolve(cmdline):
+    """Return (offending token, command path) or (None, path).
+
+    Walks the click tree token by token: subcommand names descend, declared
+    options are skipped with their values, remaining bare tokens must fill a
+    positional ``click.Argument`` slot (``click.Choice`` values checked).
+    `path` is the space-joined chain of resolved subcommands.
+    """
+    try:
+        toks = shlex.split(cmdline)[1:]
+    except ValueError:
+        return "unparseable", ""
+    node = main.cli
+    path: list[str] = []
+    arg_slots: list[click.Argument] = []  # unfilled positional Arguments on the leaf
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        if t.startswith("-"):
+            opt = _find_option(node, t)
+            if opt is None:
+                if t == "--help" or (" ".join(path), t.split("=")[0]) in KNOWN_OPTS:
+                    i += 1
+                    continue
+                return t.split("=")[0], " ".join(path)
+            if not opt.is_flag and "=" not in t:
+                i += opt.nargs  # skip the option's value tokens
+            i += 1
+            continue
+        kids = getattr(node, "commands", {})
+        if t in kids:
+            node = kids[t]
+            path.append(t)
+            arg_slots = [p for p in getattr(node, "params", []) if isinstance(p, click.Argument)]
+            i += 1
+            continue
+        if arg_slots:
+            arg = arg_slots.pop(0)
+            if isinstance(arg.type, click.Choice) and t not in arg.type.choices:
+                return t, " ".join(path)
+            i += 1
+            continue
+        return t, " ".join(path)
+    return None, " ".join(path)
+
+
+def test_docs_commands_resolve():
+    bad = []
+    for f, lineno, cmd in _doc_lines():
+        if any(s in cmd for s in ALLOW_SUBSTR):
+            continue
+        miss, path = _resolve(cmd)
+        if not miss or miss in ("unparseable",):
+            continue
+        if miss in KNOWN_MISSES:
+            continue
+        if miss.startswith("-") and (path, miss) in KNOWN_OPTS:
+            continue
+        if (str(f), lineno, miss) in KNOWN_LINE_MISSES:
+            continue
+        bad.append((str(f), lineno, path, miss))
+    assert bad == [], f"unknown docs commands: {bad}"
+
+
+def test_extractor_finds_lines():
+    assert len(list(_doc_lines())) > 50

@@ -71,7 +71,7 @@ aitbc config get --global         # global file only
 ### 2. Write and remove keys
 
 ```bash
-aitbc config set output_format table            # played in 07/25/34
+aitbc config set --key output_format --value table   # played in 07/25/34
 aitbc config unset --key output_format          # remove a key
 aitbc config edit                               # open the file in $EDITOR
 ```
