@@ -141,8 +141,8 @@ class TestSystemCommands:
 
         result = runner.invoke(system, ["status"])
 
-        # NetworkError is caught and an error message is printed (exit 0).
-        assert result.exit_code == 0, result.output
+        # NetworkError is reported and the command fails.
+        assert result.exit_code != 0, result.output
         assert "Network error" in result.output
 
 
