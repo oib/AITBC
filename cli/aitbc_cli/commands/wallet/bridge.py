@@ -341,7 +341,7 @@ def status(ctx, ait_tx_hash: str | None, today: bool, last_24h: bool, hub_url: s
         raise click.Abort()
 
     if ait_tx_hash:
-        wallet_client = get_wallet_client()
+        wallet_client = _hub_bridge_client(hub_url)
         try:
             info = wallet_client.get(f"/v1/bridge/withdraw/{ait_tx_hash}")
         except Exception as e:

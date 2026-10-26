@@ -118,9 +118,26 @@ class TestStatusWindows:
     def test_hash_path_uses_withdraw_route(self, runner):
         client = mock.Mock()
         client.get.return_value = {"status": "pending"}
-        with mock.patch.object(bridge_mod, "get_wallet_client", return_value=client):
+        with mock.patch.object(bridge_mod, "_hub_bridge_client", return_value=client):
             result = runner.invoke(status, obj={"output_format": "json"}, args=["--ait-tx-hash", "0xabc"])
         assert result.exit_code == 0, result.output
+        client.get.assert_called_once_with("/v1/bridge/withdraw/0xabc")
+
+    def test_hash_path_honours_hub_url(self, runner):
+        """CLI-BRIDGE-STATUS-HUBURL-1: --hub-url must reach the tx-hash
+        branch — before the fix it silently queried the local wallet
+        daemon. The real ``_hub_bridge_client`` runs against a fake
+        ``AITBCHTTPClient`` so the test pins the base URL actually used."""
+        client = mock.Mock()
+        client.get.return_value = {"status": "pending"}
+        with mock.patch.object(bridge_mod, "AITBCHTTPClient", return_value=client) as ctor:
+            result = runner.invoke(
+                status,
+                obj={"output_format": "json"},
+                args=["--ait-tx-hash", "0xabc", "--hub-url", "https://hub.aitbc.bubuit.net/wallet"],
+            )
+        assert result.exit_code == 0, result.output
+        assert ctor.call_args.kwargs["base_url"] == "https://hub.aitbc.bubuit.net"
         client.get.assert_called_once_with("/v1/bridge/withdraw/0xabc")
 
 
