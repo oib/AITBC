@@ -270,8 +270,9 @@ def aitbc_network_set_sync_source(
     """Edit node.env and restart the blockchain node with a new sync source."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"restart": "restart"},
+        flags={},
         values={"sync_url": "url", "env_file": "env-file"},
+        dual_flags={"restart": ("restart", "no-restart")},
     )
     args = None
     target = _host_for_role(role, host)

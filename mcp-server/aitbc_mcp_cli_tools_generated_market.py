@@ -1103,7 +1103,7 @@ def aitbc_market_host(
     """Host IPFS content through a market offer for a number of days."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"pin": "pin"},
+        flags={},
         values={
             "offer_id_or_plugin_id": "offer-id-or-plugin-id",
             "cid_or_file": "cid-or-file",
@@ -1111,6 +1111,7 @@ def aitbc_market_host(
             "proposer_id": "proposer-id",
             "output_format": "format",
         },
+        dual_flags={"pin": ("pin", "no-pin")},
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
@@ -1877,7 +1878,7 @@ def aitbc_market_run(
     """Run a software offer (Ollama/Whisper/FFmpeg/Hermes/IPFS) and pay metered escrow."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"stream": "stream", "pin": "pin", "track": "track"},
+        flags={"stream": "stream", "track": "track"},
         values={
             "offer_id_or_plugin_id": "offer-id-or-plugin-id",
             "prompt": "prompt",
@@ -1894,6 +1895,7 @@ def aitbc_market_run(
             "proposer_id": "proposer",
             "output_format": "format",
         },
+        dual_flags={"pin": ("pin", "no-pin")},
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
