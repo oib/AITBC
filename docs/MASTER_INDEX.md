@@ -45,6 +45,7 @@ docs/
 ├── ui/
 ├── web/
 ├── CHANGELOG.md
+├── cli-option-uncovered.md
 ├── CONTRIBUTING.md
 ├── DESIGN_CYCLE.md
 ├── FEATURES.md
@@ -56,7 +57,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 875
+- **Markdown files under docs/**: 876
 
 | Directory | Files | Description |
 |---|---|---|
