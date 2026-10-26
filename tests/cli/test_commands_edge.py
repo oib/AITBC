@@ -115,8 +115,9 @@ class TestEdgeCommands:
 
         result = runner.invoke(edge, ["status"])
 
-        # Connection errors are caught and reported via error(), exit code stays 0.
-        assert result.exit_code == 0, result.output
+        # Connection errors are reported via error() and the command fails.
+        assert result.exit_code != 0, result.output
+        assert "connection refused" in result.output
 
 
 if __name__ == "__main__":

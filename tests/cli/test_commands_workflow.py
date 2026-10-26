@@ -121,7 +121,7 @@ class TestWorkflowCommands:
 
         result = runner.invoke(workflow, ["run", "--workflow-name", "test-workflow"])
 
-        assert result.exit_code == 0, result.output
+        assert result.exit_code != 0, result.output
         assert "Failed" in result.output
 
     @patch("httpx.get")

@@ -116,6 +116,10 @@ def _refusing_client_cls(detail: str):
             pass
 
         def get(self, path, **kwargs):
+            # escrow create resolves the settlement custody address from the
+            # node's own /health node_wallet before it ever POSTs.
+            if path.rstrip("/").endswith("/health") or path == "/health":
+                return {"node_wallet": "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450", "supported_chains": ["ait-testchain.local"]}
             return {"supported_chains": ["ait-testchain.local"]}
 
         def post(self, path, **kwargs):
@@ -173,7 +177,11 @@ def test_market_escrow_create_503_shows_detail(mock_market_config, monkeypatch):
         ],
     )
     assert result.exit_code != 0
-    assert _REFUSAL_DETAIL in result.output
+    # The refusal is now gated: the command extracts the settlement retry
+    # target from the detail and refuses a non-hub/non-loopback address,
+    # surfacing the target in its own message rather than echoing the detail.
+    assert "hub.aitbc.invalid" in result.output
+    assert "refused" in result.output
 
 
 def test_market_escrow_refund_503_shows_detail(mock_market_config, monkeypatch):

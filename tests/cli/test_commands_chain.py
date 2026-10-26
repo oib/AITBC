@@ -119,7 +119,7 @@ class TestChainCommands:
         assert "http://node2:8202" in config_arg.nodes
         assert config_arg.nodes["http://node2:8202"].endpoint == "http://node2:8202"
 
-    @patch("aitbc_cli.commands.chain.get_config")
+    @patch("aitbc_cli.config.get_config")
     @patch("asyncio.run")
     @patch("aitbc_cli.commands.chain.ChainManager")
     @patch("aitbc_cli.commands.chain.load_multichain_config")
@@ -127,9 +127,12 @@ class TestChainCommands:
         self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, mock_get_config, runner, cli_obj
     ):
         """An empty node registry falls back to the configured blockchain_rpc_url."""
-        from aitbc_cli.core.config import MultiChainConfig
+        from aitbc_cli.core.config import MultiChainConfig, _with_local_rpc_fallback
 
-        mock_load_config.return_value = MultiChainConfig()
+        # The blockchain_rpc_url fallback lives inside load_multichain_config
+        # (_with_local_rpc_fallback, CLI-NODEREG-1), not in commands.chain —
+        # so run the real fallback over the mocked registry.
+        mock_load_config.side_effect = lambda *a, **k: _with_local_rpc_fallback(MultiChainConfig())
         mock_get_config.return_value.blockchain_rpc_url = "http://real-node:8202"
         mock_asyncio_run.return_value = []
 
