@@ -877,6 +877,8 @@ def alerts(
                     first_poll,
                     _event,
                 )
+                if state_path:
+                    _save_firing_state(state_path, firing)
                 first_poll = False
             _sd_notify_watchdog()
             if metrics_file:
