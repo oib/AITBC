@@ -18,7 +18,7 @@ case "$cmd" in
   *"max(height)"*) echo "${STUB_HEAD:-5666|0xabcdef123456}" ;;
   *ActiveEnterTimestamp*) echo "${STUB_TS:-Sun 2026-10-25 21:30:23 CET}" ;;
   *"list-units --failed"*) echo "${STUB_FAILED:-0}" ;;
-  *memory.events*) echo "${STUB_OOM:-0}" ;;
+  *memory.events*) echo "${STUB_OOM:-0}" ;;  # awk in the script reads field 2
   *memory.current*) echo "${STUB_CUR:-2800000000}" ;;
   *memory.max*) echo "${STUB_MAX:-3221225472}" ;;
   *swapon*) echo "${STUB_SWAP:-1000000}" ;;

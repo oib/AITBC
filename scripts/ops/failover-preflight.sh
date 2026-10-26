@@ -9,6 +9,7 @@
 set -euo pipefail
 
 HOSTS="${HOSTS:-hub hub1 node0 node1 node2}"
+CHAIN_ID="${CHAIN_ID:-bc-2}"
 NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-enabled/aitbc}"
 EXPECTED_SHA=""
 while [ $# -gt 0 ]; do
@@ -32,7 +33,7 @@ sshro() { ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" "$2" 2>/dev/null || true
 prev=""
 allok=1
 for h in $HOSTS; do
-  out=$(sshro "$h" "sqlite3 'file:/var/lib/aitbc/data/bc-2/chain.db?mode=ro' 'select max(height),substr(hash,1,14) from block order by height desc limit 1'")
+  out=$(sshro "$h" "sqlite3 'file:/var/lib/aitbc/data/$CHAIN_ID/chain.db?mode=ro' 'select max(height),substr(hash,1,14) from block order by height desc limit 1'")
   if [ -z "$out" ]; then row "head:$h" FAIL "ssh/sqlite failed"; allok=0; continue; fi
   [ -z "$prev" ] || [ "$prev" = "$out" ] || allok=0
   prev="$out"
@@ -53,7 +54,7 @@ n=$(sshro hub1 "systemctl list-units --failed --no-legend 'aitbc-*' | wc -l")
 if [ "$n" = "0" ]; then row "hub1-failed-units" PASS "0"; else row "hub1-failed-units" FAIL "$n failed"; fi
 
 # 4. hub1 memory: oom_kill=0 and current under cap
-ev=$(sshro hub1 "cat /sys/fs/cgroup/memory.events | tr ' ' '\n' | grep '^oom_kill=' | cut -d= -f2")
+ev=$(sshro hub1 "awk '/^oom_kill/{print \$2}' /sys/fs/cgroup/memory.events")
 cur=$(sshro hub1 "cat /sys/fs/cgroup/memory.current")
 max=$(sshro hub1 "cat /sys/fs/cgroup/memory.max")
 if [ "$ev" = "0" ] && [ "${cur:-0}" -lt "${max:-0}" ] 2>/dev/null && [ -n "$max" ]; then
