@@ -14,8 +14,8 @@ from ..utils.error_handling import abort
 
 def _load_miner_app():
     """Load the miner reinvestment engine if available."""
-    repo_root = Path(__file__).resolve().parents[4]
-    miner_path = repo_root / "apps" / "miner"
+    repo_root = Path(__file__).resolve().parents[3]
+    miner_path = repo_root / "apps" / "miner" / "src"
     if str(miner_path) not in sys.path:
         sys.path.insert(0, str(miner_path))
     from miner_app.reinvestment import ReinvestmentEngine, ReinvestmentPolicy
