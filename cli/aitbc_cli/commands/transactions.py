@@ -544,7 +544,8 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
   aitbc transactions pending --rpc-url http://localhost:8202"""
 )
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def pending(rpc_url: str | None):
+@click.pass_context
+def pending(ctx, rpc_url: str | None):
     """Get the list of pending transactions from the node."""
     if not rpc_url:
         rpc_url = _resolve_transaction_rpc_url(None)
@@ -553,6 +554,9 @@ def pending(rpc_url: str | None):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         data = http_client.get("/rpc/pending")
         transactions = data.get("transactions", [])
+        if ctx.obj and ctx.obj.get("output_format") == "json":
+            click.echo(json.dumps(transactions, indent=2))
+            return
         success(f"Pending transactions: {len(transactions)}")
         for tx in transactions:
             tx_hash = tx.get("hash") or tx.get("tx_hash") or tx.get("id")
