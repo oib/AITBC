@@ -108,7 +108,7 @@ def _check(repo: Path, remote: str, branch: str, upstream: str, before: str | No
 )
 @click.option("--remote", default="origin", help="Git remote to pull from (default: origin)")
 @click.option("--branch", default="main", help="Branch to update to (default: main)")
-@click.option("--no-deploy", is_flag=True, help="Fetch and fast-forward only; do not run update.sh")
+@click.option("--no-deploy", is_flag=True, help="Fetch and report only; do not pull or run update.sh")
 @click.option("--check", is_flag=True, help="Fetch and report current vs remote SHA without changing anything")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
