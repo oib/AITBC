@@ -46,24 +46,32 @@ def test_prometheus_relay_labels_are_metadata_only(client):
     assert 'aitbc_escrow_relay_requests_total{relay="release",result="ok"}' in response.text
 
 
-def test_prometheus_relay_series_preinitialised(client):
+def test_prometheus_relay_series_preinitialised():
     """ESCROW-RELAY-SERIES-1 (#484): every relay×result combination must be
     exported at 0 on a fresh app — a series absent until first use reads as
     "no data" to rate() alerts rather than a zero rate, so the rarely-hit
-    classes (and the not-yet-mounted refund relay) are created at import."""
-    from coordinator_api.contexts.payments.services.escrow_relay_metrics import (
-        ESCROW_RELAY_REQUESTS,
-        preinitialise_escrow_relay_series,
+    classes (and the not-yet-mounted refund relay) are created at import.
+
+    Runs in a fresh interpreter so the assertion pins the import-time
+    initialiser itself: replacing ``preinitialise_escrow_relay_series()``
+    with ``pass`` must fail this test, and nothing here mutates the shared
+    process registry.
+    """
+    import subprocess
+    import sys
+
+    probe = (
+        "from prometheus_client import generate_latest\n"
+        "from coordinator_api.contexts.payments.services import escrow_relay_metrics as m\n"
+        "print(generate_latest().decode())\n"
     )
-
-    # Restore fresh-app state: earlier tests in this session may already have
-    # recorded real outcomes into the shared default-registry counter, so drop
-    # the children and re-run the import-time initialiser.
-    ESCROW_RELAY_REQUESTS._metrics.clear()  # noqa: SLF001
-    preinitialise_escrow_relay_series()
-
-    response = client.get("/prometheus")
-    assert response.status_code == 200
+    out = subprocess.run(
+        [sys.executable, "-c", probe],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    ).stdout
     # Literal enumeration (not RELAYS×RESULTS) so a dropped enum entry cannot
     # shrink this expectation along with the init loop.
     for relay in ("create", "release", "refund"):
@@ -76,7 +84,7 @@ def test_prometheus_relay_series_preinitialised(client):
             "chain_timeout",
         ):
             expected = f'aitbc_escrow_relay_requests_total{{relay="{relay}",result="{result}"}} 0.0'
-            assert expected in response.text, f"missing zero-initialised series: relay={relay} result={result}"
+            assert expected in out, f"missing zero-initialised series: relay={relay} result={result}"
 
 
 def test_openapi_endpoint(client):
