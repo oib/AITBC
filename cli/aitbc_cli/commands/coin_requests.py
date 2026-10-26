@@ -48,7 +48,7 @@ from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from aitbc.utils import format_ait  # noqa: E402
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units  # noqa: E402
 
-from ..utils.error_handling import abort  # noqa: E402
+from ..utils.error_handling import CLIError, abort  # noqa: E402
 from ..utils.output import info  # noqa: E402
 
 
@@ -177,8 +177,7 @@ def list(ctx, status, sender):
                 status_enum = CoinRequestStatus(status.lower())
                 query = query.filter(CoinRequest.status == status_enum)
             except ValueError:
-                click.echo(f"Invalid status: {status}")
-                return
+                abort(ctx, f"Invalid status: {status}")
 
         if sender:
             query = query.filter(CoinRequest.sender == sender)
@@ -314,8 +313,9 @@ def execute(ctx, request_id):
 
             hub_url = hub_agent_url()
             if not hub_url:
-                click.echo(
-                    "Error: No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL in /etc/aitbc/blockchain.env."
+                abort(
+                    ctx,
+                    "No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL in /etc/aitbc/blockchain.env.",
                 )
                 return
             # FOLLOWER_API_KEY first: it is the one an island follower is meant to hold,
@@ -325,9 +325,12 @@ def execute(ctx, request_id):
             # fallback (V23-68).
             api_key = os.getenv("FOLLOWER_API_KEY") or os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
             if not api_key:
-                click.echo("Error: No GENESIS_PRIVATE_KEY locally and no API key set.")
-                click.echo("Followers: FOLLOWER_API_KEY is provisioned by the hub operator")
-                click.echo("  in /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.")
+                abort(
+                    ctx,
+                    "No GENESIS_PRIVATE_KEY locally and no API key set. "
+                    "Followers: FOLLOWER_API_KEY is provisioned by the hub operator "
+                    "in /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.",
+                )
                 return
             base_url = f"{hub_url.rstrip('/')}/coin-requests"
             execute_url = f"{base_url}/execute"
@@ -351,13 +354,14 @@ def execute(ctx, request_id):
                     timeout=30,
                 )
                 if reg.status_code != 200:
-                    click.echo(f"Hub registration failed: {reg.status_code} {reg.text}")
-                    return
+                    abort(ctx, f"Hub registration failed: {reg.status_code} {reg.text}")
                 registered = reg.json()
                 if registered.get("status") != "approved":
-                    click.echo(f"Hub has not approved {req.id}: {registered.get('reason', 'no reason given')}")
-                    click.echo(f"Status at hub: {registered.get('status')}. A hub operator must approve it.")
-                    return
+                    abort(
+                        ctx,
+                        f"Hub has not approved {req.id}: {registered.get('reason', 'no reason given')}. "
+                        f"Status at hub: {registered.get('status')}. A hub operator must approve it.",
+                    )
 
                 resp = httpx.post(
                     execute_url,
@@ -386,22 +390,25 @@ def execute(ctx, request_id):
                         f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}.",
                     )
                 else:
-                    click.echo(f"Hub execution failed: {resp.status_code} {resp.text}")
+                    abort(ctx, f"Hub execution failed: {resp.status_code} {resp.text}")
+            except CLIError:
+                raise
             except Exception as e:
-                click.echo(f"Error forwarding to hub: {e}")
+                abort(ctx, f"Error forwarding to hub: {e}", from_exception=e)
             return
 
         # Check genesis wallet configuration
         if not tx_service.genesis_address:
-            click.echo("Error: GENESIS_ADDRESS not configured")
+            abort(ctx, "GENESIS_ADDRESS not configured")
             return
 
         # Check balance before submission
         balance = tx_service.get_balance(tx_service.genesis_address)
         total_required = (req.amount or 0) + DEFAULT_TX_FEE_UNITS  # amount + fee
         if balance < total_required:
-            click.echo(
-                f"Error: Insufficient balance. Required: {format_ait(total_required)}, Available: {format_ait(balance)}"
+            abort(
+                ctx,
+                f"Insufficient balance. Required: {format_ait(total_required)}, Available: {format_ait(balance)}",
             )
             return
 
@@ -411,18 +418,18 @@ def execute(ctx, request_id):
 
         # Generate signed transaction
         if req.wallet_address is None or req.amount is None:
-            click.echo("Error: Missing wallet_address or amount in request")
+            abort(ctx, "Missing wallet_address or amount in request")
             return
         signed_tx = tx_service.generate_signed_transaction(
             to_address=req.wallet_address, amount=req.amount, fee=DEFAULT_TX_FEE_UNITS
         )
 
         if not signed_tx:
-            click.echo("Error: Failed to generate signed transaction")
             # Revert to PENDING for retry
             req.status = CoinRequestStatus.PENDING
             audit_entry = f" | Execution failed: could not generate signed transaction at {datetime.now(UTC).isoformat()}"
             req.audit_log = (req.audit_log or "") + audit_entry
+            abort(ctx, "Failed to generate signed transaction")
             return
 
         # Submit transaction to blockchain
@@ -451,14 +458,16 @@ def execute(ctx, request_id):
                 req.status = CoinRequestStatus.PENDING
                 audit_entry = f" | Execution failed: no transaction hash returned at {datetime.now(UTC).isoformat()}"
                 req.audit_log = (req.audit_log or "") + audit_entry
-                click.echo("Error: Transaction submission failed - no hash returned")
+                abort(ctx, "Transaction submission failed - no hash returned")
 
+        except CLIError:
+            raise
         except Exception as e:
             # Revert to PENDING on failure
             req.status = CoinRequestStatus.PENDING
             audit_entry = f" | Execution failed: {str(e)} at {datetime.now(UTC).isoformat()}"
             req.audit_log = (req.audit_log or "") + audit_entry
-            click.echo(f"Error submitting transaction: {e}")
+            abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
 
 
 @coin_requests.command(
@@ -602,12 +611,13 @@ def reopen(ctx, request_id, rpc_url, force, chain_id):
         if not tx_hash.startswith("claiming:"):
             present = _chain_has_transaction(rpc_url, tx_hash, chain_id)
             if present is None and not force:
-                click.echo("Refusing to reopen: could not confirm with the chain whether this was paid.")
+                abort(ctx, "Refusing to reopen: could not confirm with the chain whether this was paid.")
                 return
             if present:
-                click.echo(f"Refusing to reopen: the chain has {tx_hash}. This request was paid.")
                 if not force:
+                    abort(ctx, f"Refusing to reopen: the chain has {tx_hash}. This request was paid.")
                     return
+                click.echo(f"Refusing to reopen: the chain has {tx_hash}. This request was paid.")
                 click.echo("--force given; reopening a request the chain says was paid.")
 
         entry = f" | Reopened {datetime.now(UTC).isoformat()}: cleared {tx_hash} (absent from chain at {rpc_url})"
@@ -616,38 +626,38 @@ def reopen(ctx, request_id, rpc_url, force, chain_id):
         click.echo(f"Reopened {request_id}. It is executable again — the hub will pay it if you execute it.")
 
 
-def _read_wallet_address(wallet: str) -> str | None:
+def _read_wallet_address(ctx: click.Context, wallet: str) -> str:
     """Resolve a wallet name to its address from local wallet files.
 
-    Echoes an error and returns None when the wallet is missing or unreadable.
+    Aborts (non-zero exit) when the wallet is missing or unreadable — the
+    caller is a write path that cannot proceed without an address.
     """
     from aitbc_cli.utils.wallet_paths import find_wallet_file
 
     wallet_path = find_wallet_file(wallet)
-    if not wallet_path or not Path(wallet_path).exists():
-        click.echo(f"Error: wallet '{wallet}' not found in the configured wallet directories.")
-        return None
+    if wallet_path is None or not Path(wallet_path).exists():
+        abort(ctx, f"wallet '{wallet}' not found in the configured wallet directories.")
+    assert wallet_path is not None  # abort() raises; this only narrows for mypy
 
     try:
         wallet_data = json.loads(Path(wallet_path).read_text())
     except Exception as e:
-        click.echo(f"Error reading wallet file: {e}")
-        return None
+        abort(ctx, f"Error reading wallet file: {e}", from_exception=e)
+        raise AssertionError("unreachable") from e
 
     wallet_address: str | None = wallet_data.get("address")
     if not wallet_address:
-        click.echo("Error: wallet file has no 'address' field.")
-        return None
+        abort(ctx, "wallet file has no 'address' field.")
+    assert wallet_address is not None  # abort() raises; this only narrows for mypy
     return wallet_address
 
 
-def _hub_post(url: str, payload: dict, headers: dict, action: str):
-    """POST to the hub coin-requests API; echoes and returns None on transport errors."""
+def _hub_post(ctx: click.Context, url: str, payload: dict, headers: dict, action: str):
+    """POST to the hub coin-requests API; aborts on transport errors."""
     try:
         return requests.post(url, json=payload, headers=headers, timeout=30)
     except Exception as e:
-        click.echo(f"Error {action}: {e}")
-        return None
+        abort(ctx, f"Error {action}: {e}", from_exception=e)
 
 
 def _record_local_request(
@@ -686,6 +696,7 @@ def _record_local_request(
 
 
 def _register_with_hub(
+    ctx: click.Context,
     base_url: str,
     headers: dict,
     request_id: str,
@@ -701,6 +712,7 @@ def _register_with_hub(
     should then execute it immediately.
     """
     reg = _hub_post(
+        ctx,
         f"{base_url}/register",
         {
             "request_id": request_id,
@@ -712,12 +724,9 @@ def _register_with_hub(
         headers,
         "registering request",
     )
-    if reg is None:
-        return False
 
     if reg.status_code != 200:
-        click.echo(f"Hub registration failed: {reg.status_code} {reg.text}")
-        return False
+        abort(ctx, f"Hub registration failed: {reg.status_code} {reg.text}")
 
     reg_data = reg.json()
     status = reg_data.get("status")
@@ -736,6 +745,7 @@ def _register_with_hub(
 
 
 def _execute_approved_request(
+    ctx: click.Context,
     base_url: str,
     headers: dict,
     request_id: str,
@@ -745,6 +755,7 @@ def _execute_approved_request(
 ) -> None:
     """Auto-execute a request the hub has already approved."""
     resp = _hub_post(
+        ctx,
         f"{base_url}/execute",
         {
             "request_id": request_id,
@@ -756,11 +767,9 @@ def _execute_approved_request(
         headers,
         "executing request",
     )
-    if resp is None:
-        return
 
     if resp.status_code != 200:
-        click.echo(f"Hub execution failed: {resp.status_code} {resp.text}")
+        abort(ctx, f"Hub execution failed: {resp.status_code} {resp.text}")
         return
 
     result = resp.json()
@@ -791,12 +800,9 @@ def request_coins(ctx, wallet, amount, sender, recipient, request_id):
     and, if the hub's coin-request policy auto-approves it, executes it immediately.
     """
     if amount <= 0:
-        click.echo("Error: amount must be positive.")
-        return
+        abort(ctx, "amount must be positive.")
 
-    wallet_address = _read_wallet_address(wallet)
-    if not wallet_address:
-        return
+    wallet_address = _read_wallet_address(ctx, wallet)
 
     if not sender:
         suffix = wallet_address[-8:] if len(wallet_address) >= 8 else wallet_address
@@ -811,22 +817,21 @@ def request_coins(ctx, wallet, amount, sender, recipient, request_id):
     try:
         hub = _agent_api_base()
     except RuntimeError as e:
-        click.echo(f"Error: {e}")
-        return
+        abort(ctx, str(e), from_exception=e)
 
     api_key = os.getenv("FOLLOWER_API_KEY") or os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
     if not api_key:
-        click.echo("Error: no API key available. Set FOLLOWER_API_KEY for followers.")
-        return
+        abort(ctx, "no API key available. Set FOLLOWER_API_KEY for followers.")
 
     base_url = f"{hub.rstrip('/')}/coin-requests"
     headers = {"x-api-key": api_key, "Content-Type": "application/json"}
 
     click.echo(f"Requesting {format_ait(amount_units)} to {wallet_address} as {sender}")
 
-    # Register with the hub
-    if not _register_with_hub(base_url, headers, request_id, sender, recipient, amount_units, wallet_address, now):
+    # Register with the hub. A registered-but-not-approved request is a clean
+    # outcome (exit 0): the request now waits on a hub operator.
+    if not _register_with_hub(ctx, base_url, headers, request_id, sender, recipient, amount_units, wallet_address, now):
         return
 
     # Auto-execute the approved request
-    _execute_approved_request(base_url, headers, request_id, sender, amount_units, wallet_address)
+    _execute_approved_request(ctx, base_url, headers, request_id, sender, amount_units, wallet_address)
