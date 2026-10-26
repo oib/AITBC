@@ -54,7 +54,7 @@ DEBUG_ONLY = {"/docs", "/redoc"}
 
 # The probes the app declares. Public on purpose: they carry no more than /health
 # already does, and a gated probe is an unreachable one.
-PROBE_PATHS = ["/health", "/health/live", "/health/ready"]
+PROBE_PATHS = ["/health", "/health/live", "/health/ready", "/prometheus"]
 
 
 def _app() -> FastAPI:
