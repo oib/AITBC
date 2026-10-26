@@ -1717,3 +1717,23 @@ tests:
               job: blockchain-node
             exp_annotations:
               summary: "RPC error rate is spiking"
+
+  - interval: 30s
+    input_series:
+      # ALERT-REVIEW-1: a sub-minute restart blip (down 3 samples) must
+      # NOT fire ServiceDown under the new `for: 5m`; a real 8m outage
+      # must fire.
+      - series: 'up{instance="blip:9009", job="blockchain-node"}'
+        values: '1x5 0x3 1x20'
+      - series: 'up{instance="dead:9009", job="blockchain-node"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: "dead:9009"
+              job: blockchain-node
+            exp_annotations:
+              summary: "Service dead:9009 is down"
