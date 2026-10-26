@@ -6,6 +6,8 @@ and backward compatibility with existing proposal data.
 
 from __future__ import annotations
 
+import pytest
+
 from aitbc.governance.types import (
     ExecuteData,
     GovernanceConfig,
@@ -15,6 +17,18 @@ from aitbc.governance.types import (
     ProposalType,
     VoteChoice,
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_chain_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default-chain assertions must not inherit a leaked CHAIN_ID.
+
+    ``default_chain_id()`` honours AITBC_CHAIN_ID/CHAIN_ID before the bc-2
+    reset default; suite neighbours (e.g. tests/escrow_e2e) hard-set CHAIN_ID
+    at conftest import time.
+    """
+    monkeypatch.delenv("AITBC_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
 
 
 def test_parameter_change_schema_basic_fields() -> None:
@@ -135,7 +149,7 @@ def test_vote_choice_values() -> None:
 def test_governance_config_defaults() -> None:
     """GovernanceConfig has sensible defaults."""
     config = GovernanceConfig()
-    assert config.chain_id == "ait-hub"
+    assert config.chain_id == "bc-2"
     assert config.voting_period_blocks > 0
     assert config.quorum_percent > 0
     assert config.approval_percent > 0
@@ -146,4 +160,4 @@ def test_execute_data_basic() -> None:
     data = ExecuteData(proposal_id="prop-1", executor="0xabc")
     assert data.proposal_id == "prop-1"
     assert data.executor == "0xabc"
-    assert data.chain_id == "ait-hub"
+    assert data.chain_id == "bc-2"
