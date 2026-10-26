@@ -123,7 +123,7 @@ def update(ctx: click.Context, remote: str, branch: str, no_deploy: bool, check:
     upstream = f"{remote}/{branch}"
     before = _short_sha("HEAD", cwd=REPO_ROOT)
 
-    if check:
+    if check or no_deploy:
         _check(REPO_ROOT, remote, branch, upstream, before, output_format)
         return
 
