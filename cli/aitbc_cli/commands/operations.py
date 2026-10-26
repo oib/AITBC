@@ -105,14 +105,15 @@ def ai():
 @click.option("--prompt", required=True, help="AI prompt")
 @click.option("--payment", type=DECIMAL, required=True, help="Payment amount")
 @click.option("--model", help="AI model to use")
-def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, model: str | None):
+@click.pass_context
+def submit_job(ctx, wallet_name: str, job_type: str, prompt: str, payment: Decimal, model: str | None):
     """Submit an AI job with wallet, type, prompt, and payment."""
     try:
         # Get wallet address
         wallet_path = find_wallet_file(wallet_name)
         if wallet_path is None:
-            error(f"Wallet '{wallet_name}' not found")
-            return None
+            abort(ctx, f"Wallet '{wallet_name}' not found")
+        assert wallet_path is not None  # abort() raises; this only narrows for mypy
 
         with open(wallet_path) as f:
             wallet_data = json.load(f)
@@ -137,8 +138,12 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, m
             return result
         except NetworkError as e:
             abort(None, f"Error submitting AI job: {e}", from_exception=e)
+        except CLIError:
+            raise
         except Exception as e:
             abort(None, f"Error: {e}", from_exception=e)
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error: {e}")
         return
@@ -249,7 +254,8 @@ def register(agent_id: str, status: str):
 )
 @click.option("--status", help="Filter by status")
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
-def list(status: str | None, format: str):
+@click.pass_context
+def list(ctx, status: str | None, format: str):
     """List registered agents, optionally filtered by status."""
     try:
         import requests
@@ -274,7 +280,9 @@ def list(status: str | None, format: str):
                         f"  - {agent.get('agent_id', 'unknown')}: {agent.get('status', 'unknown')} - {agent.get('agent_type', 'unknown')}"
                     )
         else:
-            error(f"Error listing agents: {response.status_code}")
+            abort(ctx, f"Error listing agents: {response.status_code}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error: {e}")
         return
