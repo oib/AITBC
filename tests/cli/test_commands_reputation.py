@@ -74,7 +74,9 @@ class TestReputationCommands:
     def test_reputation_leaderboard_command(self, mock_http_class, runner):
         """``reputation leaderboard`` returns leaderboard data from the mocked API."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = [
+        # The command reads through get_json (it tolerates a bare-array
+        # response), not get.
+        mock_client.get_json.return_value = [
             {"rank": 1, "agent_id": "agent1", "trust_score": 950.0, "reputation_level": "Gold", "transaction_count": 100},
         ]
 
@@ -83,13 +85,13 @@ class TestReputationCommands:
         result = runner.invoke(reputation, ["leaderboard"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
+        mock_client.get_json.assert_called_once()
 
     @patch("aitbc_cli.commands.reputation.AITBCHTTPClient")
     def test_reputation_leaderboard_with_options(self, mock_http_class, runner):
         """``reputation leaderboard --category --limit --region`` forwards params."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = []
+        mock_client.get_json.return_value = []
 
         from aitbc_cli.commands.reputation import reputation
 
@@ -99,8 +101,8 @@ class TestReputationCommands:
         )
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        _, kwargs = mock_client.get.call_args
+        mock_client.get_json.assert_called_once()
+        _, kwargs = mock_client.get_json.call_args
         assert kwargs["params"]["category"] == "performance"
         assert kwargs["params"]["limit"] == 5
         assert kwargs["params"]["region"] == "us-east"
@@ -159,7 +161,7 @@ class TestReputationCommands:
     def test_reputation_leaderboard_handles_error(self, mock_http_class, runner):
         """``reputation leaderboard`` handles connection errors gracefully."""
         mock_client = mock_http_class.return_value
-        mock_client.get.side_effect = Exception("connection refused")
+        mock_client.get_json.side_effect = Exception("connection refused")
 
         from aitbc_cli.commands.reputation import reputation
 

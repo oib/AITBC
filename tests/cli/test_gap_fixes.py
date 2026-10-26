@@ -50,7 +50,8 @@ def runner():
 
 def test_resource_status_lists_allocations(runner):
     client = Mock()
-    client.get.return_value = [
+    # The command reads through get_json (tolerates bare arrays), not get.
+    client.get_json.return_value = [
         {
             "allocation_id": "alloc_1",
             "agent_id": "agent-1",
@@ -64,7 +65,7 @@ def test_resource_status_lists_allocations(runner):
     with patch("aitbc_cli.commands.resource._client", return_value=client):
         result = runner.invoke(status, ["--agent-id", "agent-1", "--status", "allocated"], obj={"output_format": "json"})
     assert result.exit_code == 0, result.output
-    args, kwargs = client.get.call_args
+    args, kwargs = client.get_json.call_args
     assert args[0] == "/v1/agent-performance/resources"
     assert kwargs["params"]["agent_id"] == "agent-1"
     assert kwargs["params"]["status"] == "allocated"
@@ -72,7 +73,7 @@ def test_resource_status_lists_allocations(runner):
 
 def test_resource_status_empty(runner):
     client = Mock()
-    client.get.return_value = []
+    client.get_json.return_value = []
     with patch("aitbc_cli.commands.resource._client", return_value=client):
         result = runner.invoke(status, [], obj={"output_format": "json"})
     assert result.exit_code == 0, result.output

@@ -84,7 +84,8 @@ class TestExchangeCommands:
 
         result = runner.invoke(exchange, ["status", "--exchange-name", "NonExistent"])
 
-        assert result.exit_code == 0, result.output
+        assert result.exit_code != 0, result.output
+        assert "No exchanges registered" in result.output or "not found" in result.output.lower()
 
 
 if __name__ == "__main__":
