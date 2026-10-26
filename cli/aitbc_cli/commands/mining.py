@@ -6,8 +6,8 @@ from typing import Any, cast
 
 import click
 
-from ..utils import error, success
-from ..utils.error_handling import abort
+from ..utils import success
+from ..utils.error_handling import abort, is_unauthorized
 from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
 from ..utils.wallet_paths import wallet_search_dirs
 
@@ -89,7 +89,8 @@ def mining():
 @click.option("--wallet-name", "wallet_name", required=True, help="The Wallet name.")
 @click.option("--threads", type=int, default=1, help="Number of mining threads")
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def start(wallet_name: str, threads: int, rpc_url: str | None):
+@click.pass_context
+def start(ctx: click.Context, wallet_name: str, threads: int, rpc_url: str | None):
     """Start mining with a specified wallet and optional thread count."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -97,7 +98,7 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
     try:
         address = _load_wallet_address(wallet_name)
     except FileNotFoundError as e:
-        abort(None, str(e))
+        abort(ctx, str(e), from_exception=e)
 
     mining_config: dict[str, Any] = {"miner_address": address, "threads": threads, "enabled": True}
 
@@ -109,14 +110,18 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
         click.echo(f"Threads: {threads}")
         click.echo(f"Status: {result.get('status', 'started')}")
     except NetworkError as e:
-        if "404" in str(e):
-            error("Mining RPC endpoint not found. Check blockchain-node RPC configuration.")
-        elif "401" in str(e):
-            abort(None, "Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.")
+        if is_unauthorized(e):
+            abort(
+                ctx,
+                "Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.",
+                from_exception=e,
+            )
+        elif "404" in str(e):
+            abort(ctx, "Mining RPC endpoint not found. Check blockchain-node RPC configuration.", from_exception=e)
         else:
-            abort(None, f"Error starting mining: {e}")
+            abort(ctx, f"Error starting mining: {e}", from_exception=e)
     except Exception as e:
-        abort(None, f"Error: {e}")
+        abort(ctx, f"Error: {e}", from_exception=e)
 
 
 @mining.command(
@@ -128,7 +133,8 @@ def start(wallet_name: str, threads: int, rpc_url: str | None):
 )
 @click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def stop(wallet_name: str | None, rpc_url: str | None):
+@click.pass_context
+def stop(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
     """Stop mining operations for a wallet."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -137,7 +143,7 @@ def stop(wallet_name: str | None, rpc_url: str | None):
         wallet = wallet_name or _default_wallet_name()
         address = _load_wallet_address(wallet)
     except FileNotFoundError as e:
-        abort(None, str(e))
+        abort(ctx, str(e), from_exception=e)
 
     try:
         http_client = _client(rpc_url, address)
@@ -145,12 +151,16 @@ def stop(wallet_name: str | None, rpc_url: str | None):
         success("Mining stopped")
         click.echo(f"Status: {result.get('status', 'stopped')}")
     except NetworkError as e:
-        if "401" in str(e):
-            error("Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.")
+        if is_unauthorized(e):
+            abort(
+                ctx,
+                "Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.",
+                from_exception=e,
+            )
         else:
-            error(f"Error stopping mining: {e}")
+            abort(ctx, f"Error stopping mining: {e}", from_exception=e)
     except Exception as e:
-        abort(None, f"Error: {e}")
+        abort(ctx, f"Error: {e}", from_exception=e)
 
 
 @mining.command(
@@ -162,7 +172,8 @@ def stop(wallet_name: str | None, rpc_url: str | None):
 )
 @click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def status(wallet_name: str | None, rpc_url: str | None):
+@click.pass_context
+def status(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
     """Get the current mining status for a wallet."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -171,7 +182,7 @@ def status(wallet_name: str | None, rpc_url: str | None):
         wallet = wallet_name or _default_wallet_name()
         address = _load_wallet_address(wallet)
     except FileNotFoundError as e:
-        abort(None, str(e))
+        abort(ctx, str(e), from_exception=e)
 
     try:
         http_client = _client(rpc_url, address)
@@ -179,12 +190,16 @@ def status(wallet_name: str | None, rpc_url: str | None):
         success("Mining status:")
         click.echo(json.dumps(result, indent=2))
     except NetworkError as e:
-        if "401" in str(e):
-            error("Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.")
+        if is_unauthorized(e):
+            abort(
+                ctx,
+                "Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.",
+                from_exception=e,
+            )
         else:
-            error(f"Error getting mining status: {e}")
+            abort(ctx, f"Error getting mining status: {e}", from_exception=e)
     except Exception as e:
-        abort(None, f"Error: {e}")
+        abort(ctx, f"Error: {e}", from_exception=e)
 
 
 @mining.command(
@@ -197,7 +212,8 @@ def status(wallet_name: str | None, rpc_url: str | None):
 )
 @click.option("--wallet", "wallet_name", help="Wallet to use for X-Wallet-Address auth")
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def list_miners(wallet_name: str | None, rpc_url: str | None):
+@click.pass_context
+def list_miners(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
     """List active miners for a wallet."""
     if not rpc_url:
         rpc_url = DEFAULT_RPC_URL
@@ -206,7 +222,7 @@ def list_miners(wallet_name: str | None, rpc_url: str | None):
         wallet = wallet_name or _default_wallet_name()
         address = _load_wallet_address(wallet)
     except FileNotFoundError as e:
-        abort(None, str(e))
+        abort(ctx, str(e), from_exception=e)
 
     try:
         http_client = _client(rpc_url, address)
@@ -214,9 +230,13 @@ def list_miners(wallet_name: str | None, rpc_url: str | None):
         success("Active miners:")
         click.echo(json.dumps(result, indent=2))
     except NetworkError as e:
-        if "401" in str(e):
-            error("Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.")
+        if is_unauthorized(e):
+            abort(
+                ctx,
+                "Authentication failed. Ensure TRUST_X_WALLET_ADDRESS=true on the blockchain RPC.",
+                from_exception=e,
+            )
         else:
-            error(f"Error listing miners: {e}")
+            abort(ctx, f"Error listing miners: {e}", from_exception=e)
     except Exception as e:
-        abort(None, f"Error: {e}")
+        abort(ctx, f"Error: {e}", from_exception=e)
