@@ -189,6 +189,8 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 75 | [Market Escrow & Jobs Options](./75_market_escrow_jobs_options.md) | `market jobs` filters/formatting and `escrow create` optional flags (refusal play) | `aitbc market` |
 | 76 | [Bridge CLI Options](./76_bridge_options.md) | `aitbc bridge` read-only flags plus money-path options exercised as free refusals | `aitbc bridge` |
 | 77 | [Trade CLI Options](./77_trade_options.md) | `aitbc trade` options as reads/free refusals (401/404, array-shape drift) | `aitbc trade` |
+| 80 | [Required CLI Flags](./80_required_flags.md) | last required-flag gaps exercised as free refusals | `aitbc operations`, `aitbc economics` |
+| 83 | [Staking Options](./83_stake_options.md) | stake/unstake/liquidity-stake/reinvest options as wallet-gate refusals | `aitbc stake`, `aitbc unstake`, `aitbc liquidity-stake`, `aitbc reinvest` |
 | 78 | [Market CLI Options](./78_market_options.md) | `aitbc market` money-path and listing options as reads/free refusals (offer-resolution, wallet, quote-verification) | `aitbc market` |
 | 79 | [Exchange CLI Options](./79_exchange_options.md) | `aitbc exchange` + `exchange-island` options as reads/free refusals (wallet gate, cap, island credentials, verifier drift) | `aitbc exchange` |
 | 80 | [Required-Flag Coverage — operations & economics](./80_required_flags.md) | Last four required CLI options exercised as free refusals (wallet gate, lock-days guard, invalid choice) | `aitbc operations`, `aitbc economics` |
