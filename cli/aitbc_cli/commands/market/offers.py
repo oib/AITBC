@@ -1387,9 +1387,14 @@ def offer_list(
         hub_url = _hub_base_url(config)
 
         client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-        result = client.get("/v1/market/offers")
+        # GET /v1/market/offers returns a bare JSON array; get() narrows via
+        # expect_object and raises TypeError on non-object bodies. Accept the
+        # wrapped {"offers": [...]} / {"data": [...]} shape too (#543).
+        result = client.get_json("/v1/market/offers")
         offers: list[dict[str, Any]] = []
-        if isinstance(result, dict):
+        if isinstance(result, list):
+            offers = result
+        elif isinstance(result, dict):
             offers = result.get("offers", result.get("data", [])) or []
 
         filtered: list[dict[str, Any]] = []
