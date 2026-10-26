@@ -28,7 +28,7 @@ aitbc prometheus alerts               # current firing/pending alerts
 aitbc prometheus alerts --watch       # poll; emit alerts as they start firing and when they resolve (stdout/journal)
 aitbc prometheus alerts --watch --alert-log /var/log/aitbc/alerts.log   # and keep them in a file of their own
 aitbc prometheus alert-history          # replay that file: events + what is still firing
-aitbc prometheus query "blockchain_block_height"
+aitbc prometheus query --expr "blockchain_block_height"
 aitbc prometheus check                # promtool config + rules
 ```
 

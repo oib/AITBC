@@ -68,7 +68,7 @@ aitbc confidential balance --wallet-id wallet-1
 
 ```bash
 aitbc confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10
-aitbc confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10 --output json
+aitbc --output json confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10
 ```
 
 The command deposits the amount into the ephemeral wallet, produces the

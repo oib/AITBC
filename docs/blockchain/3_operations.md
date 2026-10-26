@@ -65,7 +65,7 @@ aitbc blockchain info --chain-id ait-localnet --detailed --metrics
 
 # Current height and a specific block
 aitbc blockchain height
-aitbc blockchain block 1000
+aitbc blockchain block --height 1000
 
 # List chains on the node
 aitbc blockchain list
