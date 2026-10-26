@@ -677,9 +677,21 @@ def _parse_option(param: click.Option, order: int, seen_names: set[str]) -> dict
     py_name = _unique_py_name(base, "opt", seen_names)
     if ptype == "float" and any(t in MONEY_TOKENS for t in py_name.split("_")):
         ptype = "Decimal"
+    neg_flag = None
+    if is_flag:
+        # Dual flag pairs (``--wait``/``--no-wait``): ``secondary_opts`` carries
+        # the spelling Click uses for the False side. Without forwarding it the
+        # generated tool can only emit the positive spelling — ``False``
+        # collapses to "omit" and the CLI default silently wins, which for
+        # ``--wait``-style flags (default True) makes the negative side
+        # unreachable (MCP-OPTION-PARITY-1).
+        secondary_long = [o for o in (param.secondary_opts or []) if o.startswith("--")]
+        if secondary_long:
+            neg_flag = secondary_long[0].lstrip("-")
     return {
         "py_name": py_name,
         "flag": flag,
+        "neg_flag": neg_flag,
         "type": ptype,
         "is_flag": is_flag,
         "multiple": multiple,
@@ -843,6 +855,11 @@ def _render_str_map(mapping: dict[str, str]) -> str:
     return "{" + ", ".join(f"{quote(k)}: {quote(v)}" for k, v in mapping.items()) + "}"
 
 
+def _render_dual_map(mapping: dict[str, tuple[str, str]]) -> str:
+    """Render ``{py_name: ("positive-flag", "negative-flag")}`` literals."""
+    return "{" + ", ".join(f"{quote(k)}: ({quote(pos)}, {quote(neg)})" for k, (pos, neg) in mapping.items()) + "}"
+
+
 def _render_options_block(spec: dict[str, Any]) -> list[str]:
     """Emit the ``options`` dict via a single ``_collect_options`` call.
 
@@ -853,26 +870,32 @@ def _render_options_block(spec: dict[str, Any]) -> list[str]:
     if not spec["options"]:
         lines = ["    options: dict[str, Any] = {}"]
     else:
-        flags = {p["py_name"]: p["flag"] for p in spec["options"] if p["is_flag"]}
+        flags = {p["py_name"]: p["flag"] for p in spec["options"] if p["is_flag"] and not p.get("neg_flag")}
+        dual = {p["py_name"]: (p["flag"], p["neg_flag"]) for p in spec["options"] if p.get("neg_flag")}
         values = {p["py_name"]: p["flag"] for p in spec["options"] if not p["is_flag"]}
         lines = [
             "    options: dict[str, Any] = _collect_options(",
             "        locals(),",
             f"        flags={_render_str_map(flags)},",
             f"        values={_render_str_map(values)},",
-            "    )",
         ]
+        if dual:
+            lines.append(f"        dual_flags={_render_dual_map(dual)},")
+        lines.append("    )")
     group_params = spec.get("group_options") or []
     if group_params:
-        gflags = {p["py_name"]: p["flag"] for p in group_params if p["is_flag"]}
+        gflags = {p["py_name"]: p["flag"] for p in group_params if p["is_flag"] and not p.get("neg_flag")}
+        gdual = {p["py_name"]: (p["flag"], p["neg_flag"]) for p in group_params if p.get("neg_flag")}
         gvalues = {p["py_name"]: p["flag"] for p in group_params if not p["is_flag"]}
         lines += [
             "    group_options: dict[str, Any] = _collect_options(",
             "        locals(),",
             f"        flags={_render_str_map(gflags)},",
             f"        values={_render_str_map(gvalues)},",
-            "    )",
         ]
+        if gdual:
+            lines.append(f"        dual_flags={_render_dual_map(gdual)},")
+        lines.append("    )")
     return lines
 
 

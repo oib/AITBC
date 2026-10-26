@@ -53,7 +53,7 @@ def aitbc_agent_task_hire(
     """Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait", "sign": "sign"},
+        flags={},
         values={
             "to_agent": "to-agent",
             "service_type": "service-type",
@@ -67,6 +67,7 @@ def aitbc_agent_task_hire(
             "wait_seconds": "wait-seconds",
             "coordinator_url": "coordinator-url",
         },
+        dual_flags={"wait": ("wait", "no-wait"), "sign": ("sign", "no-sign")},
     )
     args = None
     target = _host_for_role(role, host)
@@ -123,7 +124,7 @@ def aitbc_agent_task_result(
     """Fetch a finished task's result payload from island IPFS."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"sign": "sign"},
+        flags={},
         values={
             "task_id": "task-id",
             "out_path": "out",
@@ -132,6 +133,7 @@ def aitbc_agent_task_result(
             "password_file": "password-file",
             "coordinator_url": "coordinator-url",
         },
+        dual_flags={"sign": ("sign", "no-sign")},
     )
     args = None
     target = _host_for_role(role, host)
@@ -185,7 +187,7 @@ def aitbc_agent_task_status(
     """Show escrow state and negotiation progress for a task."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"sign": "sign"},
+        flags={},
         values={
             "task_id": "task-id",
             "from_agent": "from-agent",
@@ -193,6 +195,7 @@ def aitbc_agent_task_status(
             "password_file": "password-file",
             "coordinator_url": "coordinator-url",
         },
+        dual_flags={"sign": ("sign", "no-sign")},
     )
     args = None
     return _aitbc_cli_read_tool(

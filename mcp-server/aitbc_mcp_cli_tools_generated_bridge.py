@@ -274,7 +274,7 @@ def aitbc_bridge_ingest_header(
     """Fetch a block header from a source node and store it as a bridge header."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"re_sign": "re-sign"},
+        flags={},
         values={
             "source_rpc": "source-rpc",
             "target_rpc": "target-rpc",
@@ -283,6 +283,7 @@ def aitbc_bridge_ingest_header(
             "proposer": "proposer",
             "output_path": "output",
         },
+        dual_flags={"re_sign": ("re-sign", "no-re-sign")},
     )
     args = None
     target = _host_for_role(role, host)
