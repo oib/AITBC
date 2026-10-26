@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 from ._group import market
 from . import get_chain_id, get_island_id, get_market_wallet, get_next_nonce, safe_load_credentials
 from .escrow import _get_blockchain_rpc_url, _get_rpc_client
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
 
 
 def _is_wallet_address(value: str | None) -> bool:
@@ -287,6 +287,10 @@ def list_offers(
             "No market data source answered (market API, hub RPC and blockchain RPC all unreachable)",
         )
 
+    except CLIError:
+        # abort() already printed the error once — re-raise so the process
+        # exits with the CLIError's own exit code (matching the JSON payload).
+        raise
     except Exception as e:
         error(f"Error listing GPU market: {str(e)}")
         raise click.Abort() from e
