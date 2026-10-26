@@ -718,3 +718,66 @@ def test_main_default_db_roundtrip(tool, tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert rc == 0, out
     assert "OK" in out
+
+
+def test_empty_db_with_chain_flags_reports_fail_not_crash(tool, tmp_path, monkeypatch, capsys):
+    """#544: --rpc-url/--ait-rpc against a DB without the exchange schema
+    crashed with 'sqlite3.OperationalError: no such table: trades'. The
+    --no-chain path already reports the missing schema as a FAIL row —
+    the chain checks must reuse it, not traceback."""
+    db = tmp_path / "empty.db"
+    sqlite3.connect(db).close()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "exchange_verify.py",
+            "--db",
+            str(db),
+            "--rpc-url",
+            "http://127.0.0.1:1",
+            "--ait-rpc",
+            "http://127.0.0.1:1",
+            "--escrow-address",
+            ESCROW,
+        ],
+    )
+    rc = tool.main()
+    out = capsys.readouterr().out
+    assert rc == 1
+    # the db-internal FAIL plus one from the ETH chain group (trades read)
+    assert out.count("phase-3 columns absent") >= 2
+    assert "Traceback" not in out
+
+
+def test_partial_schema_trades_missing_reports_fail_not_crash(tool, tmp_path, monkeypatch):
+    """A DB with orders but no trades must FAIL cleanly in every check
+    group that reads trades — db-internal, eth-chain and ait-chain."""
+    db = tmp_path / "partial.db"
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE orders (id INTEGER PRIMARY KEY, order_type TEXT, status TEXT, funded_state TEXT, "
+        "backing_tx_hash TEXT, locked_ticks INTEGER, user_address TEXT, account_nonce INTEGER, "
+        "filled_ticks INTEGER, seller_eth_address TEXT, amount_ticks INTEGER)"
+    )
+    conn.commit()
+    conn.close()
+    monkeypatch.setattr(tool, "_ait_transfers", lambda *a, **k: {})
+    found = _findings(tool, db, eth=True, ait=True, ait_rpc="http://rpc.test", escrow_address=ESCROW)
+    phase3 = [m for s, _c, m in found if s == "FAIL" and "phase-3" in m]
+    assert len(phase3) == 3, found  # db-internal trades read + eth + ait
+
+
+def test_partial_schema_orders_columns_missing_reports_fail_not_crash(tool, tmp_path, monkeypatch):
+    """An orders table without the phase-3 columns must FAIL cleanly in the
+    ait-chain group too — not just db-internal."""
+    db = tmp_path / "partial.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY)")
+    conn.execute("CREATE TABLE trades (id INTEGER PRIMARY KEY)")
+    conn.commit()
+    conn.close()
+    monkeypatch.setattr(tool, "_ait_transfers", lambda *a, **k: {})
+    found = _findings(tool, db, eth=True, ait=True, ait_rpc="http://rpc.test", escrow_address=ESCROW)
+    assert any(s == "FAIL" and "phase-3" in m and "order_type" in m for s, _c, m in found), found
+    assert len([m for s, _c, m in found if s == "FAIL" and "phase-3" in m]) == 3, found  # db-internal + eth + ait
