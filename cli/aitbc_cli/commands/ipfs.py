@@ -593,6 +593,7 @@ def subscribe(
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
+        ctx=click.get_current_context(silent=True),
     )
     resolved_rpc_url = _default_rpc_url(rpc_url)
     payload = {
@@ -668,6 +669,7 @@ def swarm_key(
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
+        ctx=click.get_current_context(silent=True),
     )
     member_address, private_key = _load_wallet_key(wallet_name, resolved_password)
 
@@ -714,9 +716,9 @@ def swarm_key(
         )
         response.raise_for_status()
     except requests.RequestException as e:
-        error(f"Failed to request swarm key: {e}")
         if isinstance(e, requests.HTTPError) and e.response is not None:
             click.echo(e.response.text, err=True)
+        abort(ctx, f"Failed to request swarm key: {e}", from_exception=e)
         return
 
     data = response.json()

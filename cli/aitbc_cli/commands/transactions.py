@@ -95,7 +95,7 @@ def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any],
             # Unencrypted wallet (created with --no-encrypt)
             private_key_hex = sender_data.get("private_key")
             if not private_key_hex:
-                error("Wallet does not contain private key")
+                abort(click.get_current_context(silent=True), "Wallet does not contain private key")
                 return None
 
         # Strip 0x prefix if present
@@ -105,6 +105,8 @@ def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any],
         from eth_keys import keys
 
         return keys.PrivateKey(bytes.fromhex(private_key_hex))
+    except CLIError:
+        raise
     except Exception as e:
         logger.error("Error loading private key: %s", e)
         abort(None, f"Error loading private key: {e}")
@@ -280,7 +282,7 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
     try:
         parsed_payload = json.loads(payload)
         if not isinstance(parsed_payload, dict):
-            error("Payload must be a JSON object")
+            abort(click.get_current_context(silent=True), "Payload must be a JSON object")
             return None
         return parsed_payload
     except json.JSONDecodeError as e:
@@ -326,6 +328,7 @@ def send(
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
+        ctx=click.get_current_context(silent=True),
     )
 
     if not rpc_url:
@@ -347,24 +350,32 @@ def send(
         tx_type=tx_type,
         payload=parsed_payload,
     )
-    if tx_hash:
-        success(f"Transaction sent: {tx_hash}")
+    if not tx_hash:
+        # _send_transaction_impl already printed the specific refusal (bad amount,
+        # missing wallet, unreadable key); abort here so the command cannot exit 0 —
+        # the same boundary hub_orders uses ("see the error above").
+        abort(
+            click.get_current_context(silent=True),
+            "Transaction failed — see the error above",
+        )
 
-        # Optionally check status via Explorer API
-        if use_explorer:
-            try:
-                config = get_config()
-                http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
-                result = http_client.get(f"/api/transactions/by-hash/{tx_hash}")
-                success("Transaction status (via Explorer):")
-                click.echo(json.dumps(result, indent=2))
-            except NetworkError as e:
-                if http_response_status(e) == 404:
-                    error(f"Transaction {tx_hash} not found")
-                else:
-                    error(f"Explorer API unavailable: {e}")
-            except Exception as e:
-                abort(None, f"Error checking status via Explorer: {e}")
+    success(f"Transaction sent: {tx_hash}")
+
+    # Optionally check status via Explorer API
+    if use_explorer:
+        try:
+            config = get_config()
+            http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
+            result = http_client.get(f"/api/transactions/by-hash/{tx_hash}")
+            success("Transaction status (via Explorer):")
+            click.echo(json.dumps(result, indent=2))
+        except NetworkError as e:
+            if http_response_status(e) == 404:
+                error(f"Transaction {tx_hash} not found")
+            else:
+                error(f"Explorer API unavailable: {e}")
+        except Exception as e:
+            abort(None, f"Error checking status via Explorer: {e}")
 
     # Check if first wallet is unencrypted
 
@@ -386,7 +397,9 @@ def _process_batch_entry(
         fee = Decimal(str(tx.get("fee", DEFAULT_TX_FEE_AIT)))
         entry_key = (tx["from_wallet"], str(tx["to_address"]).lower(), amount, fee)
         if entry_key in seen_entries:
-            results.append({"transaction": tx, "hash": None, "success": False, "error": "duplicate batch entry"})
+            results.append(
+                {"transaction": tx, "hash": None, "success": False, "skipped": True, "error": "duplicate batch entry"}
+            )
             error(f"Duplicate batch entry skipped: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
             return
         seen_entries.add(entry_key)
@@ -464,6 +477,7 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
         password_file=password_file,
         password_stdin=password_stdin,
         allow_unencrypted=True,
+        ctx=click.get_current_context(silent=True),
     )
 
     if not rpc_url:
@@ -492,7 +506,22 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
             )
             raise
 
-    success(f"Batch completed: {len([r for r in results if r['success']])}/{len(results)} successful")
+    succeeded = len([r for r in results if r["success"]])
+    # Skipped duplicate entries are a designed skip (a retry resubmitting an
+    # already-processed file must not fail) — only real send failures abort.
+    skipped = len([r for r in results if r.get("skipped")])
+    failed = len(results) - succeeded - skipped
+    summary = f"Batch completed: {succeeded}/{len(results)} successful"
+    if skipped:
+        summary += f" ({skipped} duplicate(s) skipped)"
+    success(summary)
+    if failed:
+        # Report the partial summary above first — submitted hashes are the only
+        # receipt — then exit non-zero: a batch that dropped rows is not a success.
+        abort(
+            click.get_current_context(silent=True),
+            f"Batch incomplete: {failed}/{len(results)} transactions failed ({skipped} skipped)",
+        )
 
 
 @transactions.command(
@@ -648,7 +677,10 @@ def _search_via_rpc(filters: dict, sender: str | None, recipient: str | None, li
         http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=30)
         transactions = http_client.get_json("/rpc/transactions", params={**filters, "limit": limit})
         if not isinstance(transactions, list):
-            error("Unexpected response shape from /rpc/transactions (expected a JSON array).")
+            abort(
+                click.get_current_context(silent=True),
+                "Unexpected response shape from /rpc/transactions (expected a JSON array).",
+            )
             return
 
         # A node that has not been restarted since sender/recipient landed
@@ -673,6 +705,8 @@ def _search_via_rpc(filters: dict, sender: str | None, recipient: str | None, li
         names = "+".join(filters)
         success(f"Found {len(transactions)} transactions matching {names} (via RPC)")
         click.echo(json.dumps(transactions, indent=2))
+    except CLIError:
+        raise
     except NetworkError as e:
         abort(None, f"RPC unavailable: {e}")
     except Exception as e:  # noqa: BLE001 - CLI boundary — unexpected failure reports cleanly
