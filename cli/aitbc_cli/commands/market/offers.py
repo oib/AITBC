@@ -1507,6 +1507,8 @@ def offer_disable(
             output(result, output_format, title="Disabled Offer")
             return
         abort(None, f"Could not disable offer {plugin_id}: {result}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error disabling offer: {e}")
     raise click.Abort()

@@ -11,7 +11,7 @@ import yaml
 
 from ..config import get_config
 from ..utils import resolve_output_format, success
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import auth_headers, service_root_url
 
 
@@ -90,6 +90,8 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
 
     except FileNotFoundError:
         abort(None, f"Config file not found: {config}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error running workflow: {e}")
 
@@ -152,6 +154,8 @@ def status(workflow_name: str):
         if result.get("error_message"):
             click.echo(f"Error: {result['error_message']}")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error getting workflow status: {e}")
 
@@ -183,5 +187,7 @@ def stop(workflow_name: str):
         success(f"Cancel workflow {workflow_name}")
         click.echo("Status: Cancelled")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error stopping workflow: {e}")

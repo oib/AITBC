@@ -75,6 +75,8 @@ def status(ctx):
         output(status_data, resolve_output_format(ctx))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error fetching edge status: {e}")
 
@@ -98,6 +100,8 @@ def balance(ctx):
         output(balance_data, resolve_output_format(ctx))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error fetching edge balance: {e}")
 
@@ -128,6 +132,8 @@ def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
         output(result, resolve_output_format(ctx))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error executing transfer: {e}")
 

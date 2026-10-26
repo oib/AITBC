@@ -12,7 +12,7 @@ from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
 from ..utils import OUTPUT_FORMAT_OPTION, output, resolve_output_format, success
 from ..utils.chain_id import resolve_chain_id
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -279,6 +279,8 @@ def status(ctx, chain_id, detailed, node_urls, use_local):
 
     except ChainNotFoundError:
         abort(ctx, f"Chain {chain_id} not found")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error getting chain status: {str(e)}", from_exception=e)
 
@@ -366,6 +368,8 @@ def info(ctx, chain_id, detailed, metrics, use_local, node_urls):
 
     except ChainNotFoundError:
         abort(ctx, f"Chain {chain_id} not found")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error getting chain info: {str(e)}", from_exception=e)
 
@@ -483,6 +487,8 @@ def delete(ctx, chain_id, force, confirm):
 
     except ChainNotFoundError:
         abort(ctx, f"Chain {chain_id} not found")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error deleting chain: {str(e)}", from_exception=e)
 
@@ -510,6 +516,8 @@ def add(ctx, chain_id, node_id):
         else:
             abort(ctx, f"Failed to add chain {chain_id} to node {node_id}")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error adding chain to node: {str(e)}", from_exception=e)
 
@@ -538,6 +546,8 @@ def remove(ctx, chain_id, node_id, migrate):
         else:
             abort(ctx, f"Failed to remove chain {chain_id} from node {node_id}")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error removing chain from node: {str(e)}", from_exception=e)
 
@@ -593,6 +603,8 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
         else:
             abort(ctx, f"Migration failed: {migration_result.error}")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error during migration: {str(e)}", from_exception=e)
 
@@ -764,6 +776,8 @@ def monitor(ctx, chain_id, realtime, export, interval):
 
     except ChainNotFoundError:
         abort(ctx, f"Chain {chain_id} not found")
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
@@ -1056,6 +1070,8 @@ def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
             for v in validators
         ]
         output(rows, resolve_output_format(ctx, format), title=f"Validators for {chain_id}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error listing validators: {e}")
 
@@ -1126,6 +1142,8 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format:
             for e in events
         ]
         output(rows, resolve_output_format(ctx, format), title=f"Slashing History for {chain_id}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error getting slashing history: {e}")
 
