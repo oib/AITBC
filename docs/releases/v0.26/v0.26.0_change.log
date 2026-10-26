@@ -636,3 +636,10 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - The alert watcher persists its firing map to
   `<alert-log>.state` and hydrates it on start — a restart no longer
   re-emits every active alert as a fresh "startup" event.
+
+
+### CLI-ISLAND-LEAVE-STUB-1
+
+- `node island leave` was a no-op stub that printed success but never
+  called the node. It now posts to `/rpc/islands/leave` with the RPC
+  API key, matching `island join`'s client wiring; error paths abort.
