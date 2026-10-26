@@ -693,6 +693,8 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
         suffix = f": {'; '.join(failures)}" if failures else ""
         error(f"Failed to refund escrow for job {job_id}{suffix}")
         raise click.Abort()
+    except click.Abort:
+        raise
     except Exception as e:
         error(f"Error refunding escrow: {e}")
         raise click.Abort() from e

@@ -89,11 +89,13 @@ class WalletDaemonClient:
             )
             client.get("/health")
             return True
-        except NetworkError:
-            logger.warning("Wallet daemon is unavailable (network error)", exc_info=True)
+        except NetworkError as e:
+            logger.warning("Wallet daemon is unavailable: %s", e)
+            logger.debug("Wallet daemon availability check failed", exc_info=True)
             return False
-        except Exception:
-            logger.warning("Wallet daemon is unavailable", exc_info=True)
+        except Exception as e:
+            logger.warning("Wallet daemon is unavailable: %s", e)
+            logger.debug("Wallet daemon availability check failed", exc_info=True)
             return False
 
     def get_status(self) -> dict[str, Any]:
