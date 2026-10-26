@@ -58,6 +58,7 @@ class ChainManager:
     ) -> list[ChainInfo]:
         """List all available chains"""
         chains = []
+        errors = []
 
         # Get chains from all available nodes
         for node_id, _node_config in self.config.nodes.items():
@@ -76,12 +77,17 @@ class ChainManager:
             except Exception as e:
                 # Log error but continue with other nodes
                 logger.error("Error getting chains from node %s: %s", node_id, e)
+                errors.append((node_id, e))
 
         # Remove duplicates (same chain on multiple nodes)
         unique_chains = {}
         for chain in chains:
             if chain.id not in unique_chains:
                 unique_chains[chain.id] = chain
+
+        if errors and not chains:
+            nid, exc = errors[-1]
+            raise exc.__class__(f"All nodes failed; last error from {nid}: {exc}") from exc
 
         chains = list(unique_chains.values())
 
