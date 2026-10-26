@@ -48,6 +48,9 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # ruling on #474): label keys are relay+result only, and the endpoint is
     # loopback-scoped (nginx must not proxy it).
     "/prometheus": AuthLevel.NONE,
+    # The ASGI mount redirects /prometheus to /prometheus/ — the wildcard
+    # covers the canonical path the client actually lands on.
+    "/prometheus/*": AuthLevel.NONE,
     # Public authentication routes
     "/v1/register": AuthLevel.NONE,
     "/v1/login": AuthLevel.NONE,
