@@ -137,7 +137,9 @@ def env(tmp_path):
     (wallets / "w.json").write_text("{}")
     etc_aitbc = tmp_path / "etc-aitbc"
     etc_aitbc.mkdir()
-    (etc_aitbc / "blockchain.env").write_text("X=1\n")
+    # The script derives the good-chain glob from CHAIN_ID in BLOCKCHAIN_ENV;
+    # a file without the line kills it outright (set -o pipefail on the grep).
+    (etc_aitbc / "blockchain.env").write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
     etc_prometheus = tmp_path / "etc-prometheus"
     etc_prometheus.mkdir()
     redis_dir = tmp_path / "redisdir"
@@ -156,6 +158,12 @@ def env(tmp_path):
         "WALLETS_DIR": str(wallets),
         "LEGACY_WALLET_DIRS": str(tmp_path / "no-legacy"),
         "ETC_AITBC_DIR": str(etc_aitbc),
+        # Pin the env file the script derives CHAIN_ID (and thus the
+        # good-chain glob) from. Without this a run on a live node reads
+        # /etc/aitbc/blockchain.env, picks up the host's real CHAIN_ID, and
+        # every fixture snapshot fails the good check — pruning then skips
+        # entirely and every prune test fails.
+        "BLOCKCHAIN_ENV": str(etc_aitbc / "blockchain.env"),
         "ETC_PROMETHEUS_DIR": str(etc_prometheus),
         "PYTHON": str(bin_dir / "python-stub"),
         "STUB_LOG": str(tmp_path / "backup.log"),
