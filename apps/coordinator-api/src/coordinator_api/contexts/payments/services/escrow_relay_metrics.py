@@ -49,6 +49,36 @@ RESULT_TOO_EARLY_425 = "too_early_425"
 RESULT_UPSTREAM_5XX = "upstream_5xx"
 RESULT_CHAIN_TIMEOUT = "chain_timeout"
 
+# Fixed label domains (ESCROW-RELAY-SERIES-1). The ``refund`` relay is
+# pre-initialised alongside the mounted ones so its series export at 0
+# before the router lands — same for the rarely-hit result classes.
+RELAYS = ("create", "release", "refund")
+RESULTS = (
+    RESULT_OK,
+    RESULT_REPLAY,
+    RESULT_BUSINESS_4XX,
+    RESULT_TOO_EARLY_425,
+    RESULT_UPSTREAM_5XX,
+    RESULT_CHAIN_TIMEOUT,
+)
+
+
+def preinitialise_escrow_relay_series() -> None:
+    """Touch every relay×result child so the counter exports all series at 0.
+
+    prometheus_client only creates a labelled child on first ``.labels()``
+    call, so without this the ``create``/``refund`` series stay absent until
+    first use and ``rate()``-based alerts see no series at all rather than a
+    zero rate (director nit on #474, tracked as #484). Called once at import;
+    idempotent and safe to call again (``labels`` returns the same child).
+    """
+    for relay in RELAYS:
+        for result in RESULTS:
+            ESCROW_RELAY_REQUESTS.labels(relay=relay, result=result)
+
+
+preinitialise_escrow_relay_series()
+
 # Attribute name used to carry the classified result on an HTTPException
 # from the service (which can tell a timeout from a chain 5xx) to the
 # router (which only sees the surfaced status).
