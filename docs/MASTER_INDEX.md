@@ -57,7 +57,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 877
+- **Markdown files under docs/**: 878
 
 | Directory | Files | Description |
 |---|---|---|
@@ -89,7 +89,7 @@ docs/
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 69 | End-to-end usage scenarios |
+| [scenarios](scenarios/) | 70 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |
 | [testing](testing/) | 6 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
