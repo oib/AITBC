@@ -49,6 +49,7 @@ from aitbc.utils import format_ait  # noqa: E402
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units  # noqa: E402
 
 from ..utils.error_handling import abort  # noqa: E402
+from ..utils.output import info  # noqa: E402
 
 
 def _agent_api_base() -> str:
@@ -185,7 +186,10 @@ def list(ctx, status, sender):
         requests = query.order_by(CoinRequest.created_at.desc()).all()
 
         if not requests:
-            click.echo("No coin requests found.")
+            if ctx.obj and ctx.obj.get("output_format") == "json":
+                click.echo("[]")
+            else:
+                info("No coin requests found.")
             return
 
         click.echo(f"{'ID':<20} {'Sender':<20} {'Amount':<15} {'Status':<12} {'Created':<20}")
