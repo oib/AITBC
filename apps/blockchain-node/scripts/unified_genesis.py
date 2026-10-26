@@ -27,8 +27,9 @@ from typing import Any
 # Make the repo root and the blockchain-node source tree available when this
 # script is invoked directly without PYTHONPATH (typical for live genesis resets).
 _repo_root = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_repo_root / "apps" / "blockchain-node" / "src"))
-sys.path.insert(0, str(_repo_root))
+_added_paths = [str(_repo_root / "apps" / "blockchain-node" / "src"), str(_repo_root)]
+for _p in _added_paths:
+    sys.path.insert(0, _p)
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -44,6 +45,16 @@ try:
     from aitbc_chain.database import init_db
 except ImportError:
     init_db = None  # type: ignore[assignment]
+
+# Undo the import-time path extension: importing this script (as the wal3
+# tests do) must not leak entries into the caller's sys.path — a positional
+# pop() here removed an unrelated entry downstream (#567).
+for _p in _added_paths:
+    try:
+        sys.path.remove(_p)
+    except ValueError:
+        pass
+del _added_paths, _p
 
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime, chain_id: str = "ait-mainnet") -> str:
