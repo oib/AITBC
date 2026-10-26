@@ -192,7 +192,11 @@ def list(ctx, format):
         config = load_multichain_config()
 
         if not config.nodes:
-            output("No nodes configured", resolve_output_format(ctx, format))
+            fmt = resolve_output_format(ctx, format)
+            if fmt == "json":
+                output([], fmt)
+            else:
+                info("No nodes configured")
             return
 
         nodes_data = [
