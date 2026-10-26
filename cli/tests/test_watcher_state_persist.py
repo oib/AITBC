@@ -82,3 +82,42 @@ def test_really_new_alert_still_emits_after_restart(tmp_path):
         {"old": ALERT, "new": ALERT2}, run2, [], 0.0, datetime.now(UTC), 0.0, True, lambda n, a, **k: events.append(n)
     )
     assert events == ["prometheus_alert_firing"]
+
+
+def test_watch_twice_no_reemit(tmp_path, monkeypatch):
+    """Drive the real watch command twice — run2 must append nothing.
+    Fails if the state load at the call site is stubbed (firing = {})
+    or the save call is removed (state file never written)."""
+    import time as _time
+
+    from click.testing import CliRunner
+    from aitbc_cli.commands.prometheus import alerts
+    import aitbc_cli.commands.prometheus as prom
+
+    raw = {"labels": {"alertname": "X", "instance": "n0", "severity": "warning"}, "state": "firing"}
+    monkeypatch.setattr(
+        prom,
+        "_prometheus_get",
+        lambda url, path: {"status": "success", "data": {"alerts": [raw]}},
+    )
+
+    class _Stop(Exception):
+        pass
+
+    monkeypatch.setattr(_time, "sleep", lambda s: (_ for _ in ()).throw(_Stop()))
+
+    alert_log = str(tmp_path / "alerts.log")
+    runner = CliRunner()
+    args = ["--watch", "--prometheus-url", "http://x", "--alert-log", alert_log, "--interval", "1"]
+
+    result1 = runner.invoke(alerts, args, obj={"output_format": "plain"})
+    lines1 = [ln for ln in open(alert_log).read().splitlines() if ln.strip()]
+    assert any('"prometheus_alert_firing"' in ln for ln in lines1), result1.output
+
+    runner.invoke(alerts, args, obj={"output_format": "plain"})
+    lines2 = [ln for ln in open(alert_log).read().splitlines() if ln.strip()]
+    # prometheus_watch_started legitimately fires once per process; the
+    # state-change events must not repeat.
+    assert not any('"prometheus_alert_' in ln for ln in lines2[len(lines1) :]), (
+        f"restart re-emitted alert events: {lines2[len(lines1) :]}"
+    )
