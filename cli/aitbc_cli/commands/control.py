@@ -6,6 +6,7 @@ act on the systemd units configured for the local node role (or an
 explicitly requested role).
 """
 
+import json
 import os
 import subprocess
 
@@ -13,7 +14,7 @@ import click
 
 from ..utils import error, output, success
 from ..utils.http_client import get_logger
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 
 logger = get_logger(__name__)
 
@@ -99,6 +100,10 @@ def _control_services(
 
     results = []
     overall_ok = True
+    # Per-service lines are human-facing; in json/yaml mode stdout must stay a
+    # single output()/abort() document.
+    fmt = ctx.obj.get("output_format", "table") if ctx and ctx.obj else "table"
+    human = fmt not in ("json", "yaml")
 
     for svc in services:
         cmd = prefix + ["systemctl", action, svc]
@@ -115,11 +120,16 @@ def _control_services(
         )
         ok = res.returncode == 0
         if ok:
-            success(f"{action} {svc}: OK")
+            if human:
+                success(f"{action} {svc}: OK")
         else:
             overall_ok = False
             err = res.stderr.strip() or res.stdout.strip()
-            error(f"{action} {svc} failed: {err}")
+            if human:
+                # assignment keeps error() out of the AST-guard's
+                # "trailing expression" shape; the abort below is what
+                # actually sets the non-zero exit.
+                _ = error(f"{action} {svc} failed: {err}")
         results.append(
             {
                 "service": svc,
@@ -129,15 +139,43 @@ def _control_services(
             }
         )
 
-    output(
-        {"role": role or "auto", "action": action, "services": results},
-        format=ctx.obj.get("output_format", "table"),
-        title=f"{action.title()} role services",
-    )
+    payload = {"role": role or "auto", "action": action, "services": results}
 
     if not overall_ok and not dry_run:
-        return 1
+        _abort_failed_services(ctx, action, results, payload, fmt)
+
+    output(
+        payload,
+        format=fmt,
+        title=f"{action.title()} role services",
+    )
     return 0
+
+
+def _abort_failed_services(ctx, action: str, results: list, payload: dict, fmt: str) -> None:
+    """Exit non-zero on failed units — after the results are visible.
+
+    Machine-readable modes keep stdout a single document, so the
+    per-service statuses ride inside the error document itself (abort()
+    does not accept extra payload fields). Human formats emit the results
+    doc first, then abort()'s error line ends the output.
+    """
+    failed = [r["service"] for r in results if r["status"] == "failed"]
+    msg = f"{action} failed for services: {', '.join(failed)}"
+    if fmt in ("json", "yaml"):
+        doc = {"error": "CLIError", "message": msg, "exit_code": 1, **payload}
+        if fmt == "yaml":
+            try:
+                import yaml
+
+                click.echo(yaml.safe_dump(doc, sort_keys=False, default_flow_style=False).rstrip("\n"))
+            except ImportError:
+                click.echo(json.dumps(doc, indent=2))
+        else:
+            click.echo(json.dumps(doc, indent=2))
+        raise CLIError(msg)
+    output(payload, format=fmt, title=f"{action.title()} role services")
+    abort(ctx, msg)
 
 
 def _common_options(func):
