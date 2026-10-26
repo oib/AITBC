@@ -18,6 +18,13 @@ uvloop = ["uvloop"]
 [tool.poetry.group.dev.dependencies]
 # Dev dependencies managed centrally in root pyproject.toml
 
+[tool.pytest.ini_options]
+# `tests` must be importable so `from golden import runner` in the golden-vector
+# suites resolves; without it those files silently fail collection when pytest
+# runs with this app as rootdir (tests/unit/test_v2310_app_test_imports.py
+# probes exactly this root set).
+pythonpath = ["src", "tests"]
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
