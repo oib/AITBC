@@ -111,21 +111,25 @@ def output(message, format=None, title=None, **kwargs):
 
 def error(message: str, **kwargs):
     """Print an error message in red"""
+    kwargs.setdefault("err", True)
     secho(message, fg="red", **kwargs)
 
 
 def success(message: str, **kwargs):
     """Print a success message in green"""
+    kwargs.setdefault("err", True)
     secho(message, fg="green", **kwargs)
 
 
 def info(message: str, **kwargs):
     """Print an info message in blue"""
+    kwargs.setdefault("err", True)
     secho(message, fg="blue", **kwargs)
 
 
 def warning(message: str, **kwargs):
     """Print a warning message in yellow"""
+    kwargs.setdefault("err", True)
     secho(message, fg="yellow", **kwargs)
 
 
