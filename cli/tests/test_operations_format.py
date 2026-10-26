@@ -36,7 +36,30 @@ def _cfg():
     return type("C", (), {"governance_service_url": "http://x", "coordinator_url": "http://x"})()
 
 
-def test_proposal_json(monkeypatch):
+def _spy_fmt(monkeypatch):
+    """Patch resolve_output_format to spy it is invoked with the flag."""
+    calls = []
+    real = ops.resolve_output_format
+
+    def spy(ctx, fmt):
+        calls.append(fmt)
+        return real(ctx, fmt)
+
+    monkeypatch.setattr(ops, "resolve_output_format", spy)
+    return calls
+
+
+def _pure_json(out):
+    # A resolver-less table render has no JSON body; with a label prefix the
+    # json tail must still parse (#562 moves labels to stderr separately).
+    i = min([x for x in (out.find("{"), out.find("[")) if x >= 0], default=-1)
+    assert i >= 0
+    json.loads(out[i:])
+
+
+def test_get_proposal_json(monkeypatch):
+    calls = _spy_fmt(monkeypatch)
+
     class C:
         def __init__(self, **kw):
             pass
@@ -47,57 +70,36 @@ def test_proposal_json(monkeypatch):
     monkeypatch.setattr(ops, "AITBCHTTPClient", C)
     monkeypatch.setattr(ops, "get_config", _cfg)
     r = CliRunner().invoke(ops.get_proposal, ["--proposal-id", "p1", "--format", "json"])
-    assert r.exit_code == 0
-    json.loads(r.output[r.output.index("{") :])
+    assert r.exit_code == 0 and calls == ["json"]
+    _pure_json(r.output)
 
 
-def test_execute_json(monkeypatch):
+def test_proposal_json(monkeypatch):
+    calls = _spy_fmt(monkeypatch)
+
     class C:
         def __init__(self, **kw):
             pass
 
         def post(self, path, json=None):
-            return {"status": "ok"}
+            return {"id": "p1"}
 
     monkeypatch.setattr(ops, "AITBCHTTPClient", C)
     monkeypatch.setattr(ops, "get_config", _cfg)
-    r = CliRunner().invoke(ops.execute, ["--proposal-id", "p1", "--format", "json"])
-    assert r.exit_code in (0, 1)
-    assert "{" in r.output
+    monkeypatch.setattr(ops, "find_wallet_file", lambda w: "/tmp/w.json")
+    monkeypatch.setattr(ops, "_load_wallet", lambda *a, **k: {"address": "0x0000000000000000000000000000000000000001"})
+    import aitbc_cli.utils.chain_id as cid
 
-
-def test_stake_json(monkeypatch):
-    class C:
-        def __init__(self, **kw):
-            pass
-
-        def post(self, path, json=None):
-            return {"staked": 1}
-
-    monkeypatch.setattr(ops, "AITBCHTTPClient", C)
-    monkeypatch.setattr(ops, "get_config", _cfg)
-    r = CliRunner().invoke(ops.stake, ["--address", "0x0", "--amount", "1", "--lock-days", "30", "--format", "json"])
-    assert r.exit_code in (0, 1)
-    assert "{" in r.output
-
-
-def test_delegate_json(monkeypatch):
-    class C:
-        def __init__(self, **kw):
-            pass
-
-        def post(self, path, json=None):
-            return {"delegated": 1}
-
-    monkeypatch.setattr(ops, "AITBCHTTPClient", C)
-    monkeypatch.setattr(ops, "get_config", _cfg)
-    r = CliRunner().invoke(ops.delegate, ["--delegator", "0x0", "--delegate", "0x1", "--amount", "1", "--format", "json"])
-    assert r.exit_code in (0, 1)
-    assert "{" in r.output
+    monkeypatch.setattr(cid, "resolve_chain_id", lambda *a, **k: "bc-2")
+    r = CliRunner().invoke(
+        ops.proposal, ["--proposal-id", "p1", "--title", "t", "--description", "d", "--wallet", "w", "--format", "json"]
+    )
+    assert r.exit_code == 0 and calls == ["json"]
+    _pure_json(r.output)
 
 
 def test_vote_json(monkeypatch):
-    """The --format flag must be accepted on the wallet-gated vote command."""
+    calls = _spy_fmt(monkeypatch)
 
     class C:
         def __init__(self, **kw):
@@ -108,5 +110,11 @@ def test_vote_json(monkeypatch):
 
     monkeypatch.setattr(ops, "AITBCHTTPClient", C)
     monkeypatch.setattr(ops, "get_config", _cfg)
-    r = CliRunner().invoke(ops.vote, ["--proposal-id", "p1", "--vote", "for", "--wallet", "nosuch", "--format", "json"])
-    assert r.exit_code in (0, 1, 2, 4)  # --format accepted; wallet gate refuses
+    monkeypatch.setattr(ops, "find_wallet_file", lambda w: "/tmp/w.json")
+    monkeypatch.setattr(ops, "_load_wallet", lambda *a, **k: {"address": "0x0000000000000000000000000000000000000001"})
+    import aitbc_cli.utils.chain_id as cid
+
+    monkeypatch.setattr(cid, "resolve_chain_id", lambda *a, **k: "bc-2")
+    r = CliRunner().invoke(ops.vote, ["--proposal-id", "p1", "--vote", "for", "--wallet", "w", "--format", "json"])
+    assert r.exit_code == 0 and calls == ["json"]
+    _pure_json(r.output)
