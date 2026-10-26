@@ -174,7 +174,7 @@ async def get_supply() -> dict[str, Any]:
         live = client.get(f"{rpc_url}/rpc/supply")
     except NetworkError as e:
         logger.error("RPC request failed: %s", e)
-        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {e}") from e
+        raise HTTPException(status_code=503, detail="Blockchain RPC unavailable") from e
     total_units = sum(alloc.get("balance", 0) for alloc in genesis.get("allocations", []))
     try:
         return {
@@ -193,7 +193,7 @@ async def get_supply() -> dict[str, Any]:
         logger.error("malformed /rpc/supply payload (missing %s): %r", e, live)
         raise HTTPException(
             status_code=503,
-            detail=f"Blockchain RPC returned a malformed /rpc/supply payload (missing {e})",
+            detail="Blockchain RPC returned a malformed /rpc/supply payload",
         ) from e
 
 

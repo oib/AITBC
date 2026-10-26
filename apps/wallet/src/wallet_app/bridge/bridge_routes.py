@@ -616,7 +616,7 @@ def _configured_chain_id() -> str:
     try:
         return resolve_chain_id()
     except ChainIdNotConfigured as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=503, detail="Chain id is not configured") from exc
 
 
 @bridge_router.post("/withdraw/build")
