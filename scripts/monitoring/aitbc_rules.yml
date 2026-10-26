@@ -300,7 +300,11 @@ groups:
       # Journal warnings (priority 4) stay page-visible via /api/journal/recent
       # without alerting -- errors are rare enough to page on.
       - alert: AITBCJournalErrors
-        expr: aitbc_journal_error_messages > 0
+        # aitbc-* services only — init.scope / session-*.scope stderr
+        # noise is not a service fault (OPS-NOISE-4). >3 not >0: a
+        # single stray line in the 15m window is noise; a run of them
+        # is a service problem.
+        expr: aitbc_journal_error_messages{unit=~"aitbc-.*\\.service"} > 3
         for: 5m
         labels:
           severity: warning

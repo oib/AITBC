@@ -611,3 +611,9 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   previous generation, not a sustained lower baseline. Post-reset, the
   7d median sits above every generation for ~3.5 days and the rule
   re-fired daily (159 fires in 4 days); a real degraded run still fires.
+### OPS-NOISE-4
+
+- `AITBCJournalErrors` restricted to `unit=~"aitbc-.*\.service"` with a
+  `> 3` threshold — init.scope and session-*.scope noise no longer
+  fires it, and a single stray error line in the 15m window stays
+  quiet.
