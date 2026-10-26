@@ -36,6 +36,7 @@ drift apart.
 | `BLOCK_PRODUCTION_CHAINS` | `bc-2` | proposers only |
 | `NETWORK_ID` | — | inert: no reader in the code — `NETWORK_ID=1337` appears only in `scripts/workflow/01_preflight_setup.sh:70` and `scripts/workflow-agent/01_preflight_setup_agent.sh:108` for their own preflight output; no action at the cut |
 | `STATE_TRANSITION_V2_HEIGHT` … `STATE_TRANSITION_V14_HEIGHT` | `1` each | falsy thresholds are *inactive*, not height-0; `1` makes producer and replay agree v14 from block 1 (`apps/blockchain-node/tests/golden/GATES.md` `gates1` proof) |
+| `STATE_TRANSITION_V16_HEIGHT` | keep | GPU-ADMISSION-1 gate; unarmed until the operator pins a height fleet-wide — do not write `1` |
 | `BRIDGE_LOCK_LEAF_V2_HEIGHT` | `1` | `>=` gate — activates from block 1 |
 | `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` | `1` | permits first-block sweep |
 | `MULTI_VALIDATOR_CONSENSUS_ENABLED` | `true` | fleet value |
