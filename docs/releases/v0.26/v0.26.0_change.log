@@ -672,3 +672,9 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - `reinvest` failed `No module named 'miner_app'`: `parents[4]` overshot
   the repo root and the path lacked `src`. Now `parents[3]` +
   `apps/miner/src`; a scrubbed-path test pins the import.
+### CLI-EXIT-TRUTH-1
+
+- `blockchain list` printed connect errors for every configured node
+  then an empty table with exit 0. `chain_manager.list_chains` now
+  re-raises the last node error when all nodes fail and no chains
+  were returned — the CLI aborts non-zero.
