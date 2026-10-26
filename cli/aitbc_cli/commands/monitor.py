@@ -10,7 +10,7 @@ import click
 from rich.console import Console
 
 from ..auth import AuthManager, ExpiredAdminToken  # noqa: F401 — AuthManager stays re-exported; tests patch it here
-from ..utils import output, success
+from ..utils import output, success, warning
 from ..utils.error_handling import abort
 from ..utils.http_client import (
     AITBCHTTPClient,
@@ -126,6 +126,7 @@ def metrics(ctx, period: str, export_path: str | None):
         metrics_data["miners"] = data.get("miners", metrics_data["miners"])
     except Exception as e:
         logger.error("Failed to collect metrics: %s", e)
+        warning("Coordinator metrics unavailable — showing offline defaults")
 
     if export_path:
         with open(export_path, "w") as f:

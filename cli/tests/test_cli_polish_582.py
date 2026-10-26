@@ -53,3 +53,21 @@ def test_daemon_unavailable_traceback_kept_at_debug(caplog):
         with caplog.at_level(logging.DEBUG):
             assert client.is_available() is False
     assert any(r.exc_info is not None for r in caplog.records if r.levelno <= logging.DEBUG)
+
+
+def test_monitor_metrics_offline_fallback_warns(monkeypatch):
+    """Unreachable monitoring service -> warning shown, rc 0, offline data."""
+    from click.testing import CliRunner
+
+    from aitbc_cli.commands import monitor as mon_mod
+    from aitbc_cli.utils.http_client import NetworkError
+
+    class _BadClient:
+        def get(self, path):
+            raise NetworkError("connection refused")
+
+    monkeypatch.setattr(mon_mod, "_monitoring_client", lambda *a, **kw: _BadClient())
+    result = CliRunner().invoke(mon_mod.metrics, [], obj={"output_format": "table"})
+    assert result.exit_code == 0
+    assert "Coordinator metrics unavailable" in result.output
+    assert "offline" in result.output
