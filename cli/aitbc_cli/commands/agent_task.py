@@ -352,8 +352,7 @@ def _wait_for_task_result(
     while time.time() < deadline:
         found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
         if "task_reject" in found:
-            error(f"Provider rejected the task: {found['task_reject'].get('reason', '')}")
-            return
+            abort(ctx, f"Provider rejected the task: {found['task_reject'].get('reason', '')}")
         if not accepted and "task_quote" in found:
             quote = found["task_quote"]
             try:

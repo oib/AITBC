@@ -47,7 +47,7 @@ def _build_ws_url(base_url: str, sender: str, token: str | None = None) -> str:
     return url
 
 
-async def _consume_connection_frame(ws, timeout: int, ws_endpoint: str) -> bool:
+async def _consume_connection_frame(ctx, ws, timeout: int, ws_endpoint: str) -> bool:
     """Consume the connection_established frame sent on WebSocket connect.
 
     Returns True if the frame was consumed successfully, False on error.
@@ -56,11 +56,11 @@ async def _consume_connection_frame(ws, timeout: int, ws_endpoint: str) -> bool:
         conn_msg = await _asyncio.wait_for(ws.recv(), timeout=timeout)
         conn_data = json.loads(conn_msg)
         if conn_data.get("type") != "connection_established":
-            error(f"Unexpected first message: {conn_data.get('type')}")
+            abort(ctx, f"Unexpected first message: {conn_data.get('type')}")
             return False
         return True
     except _asyncio.TimeoutError:
-        abort(None, f"No connection confirmation from {ws_endpoint} within {timeout}s")
+        abort(ctx, f"No connection confirmation from {ws_endpoint} within {timeout}s")
         return False
 
 
@@ -129,7 +129,7 @@ def _default_wallet_name() -> str | None:
         return None
 
 
-def _resolve_wallet_address(wallet_name: str | None) -> str | None:
+def _resolve_wallet_address(ctx, wallet_name: str | None) -> str | None:
     """Resolve wallet address from local wallet files.
 
     Priority: explicit wallet_name arg > AITBC_DEFAULT_WALLET env var >
@@ -139,7 +139,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
     """
     search_dirs = wallet_search_dirs()
     if not any(d.exists() for d in search_dirs):
-        abort(None, f"No wallet directory found in any of {search_dirs}. Create a wallet first: aitbc wallet create")
+        abort(ctx, f"No wallet directory found in any of {search_dirs}. Create a wallet first: aitbc wallet create")
         return None
 
     # Resolve wallet name if not explicitly given
@@ -149,17 +149,17 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
     if wallet_name:
         wallet_file = find_wallet_file(wallet_name)
         if wallet_file is None:
-            error(f"Wallet '{wallet_name}' not found")
             available = sorted({f.stem for d in search_dirs if d.exists() for f in d.glob("*.json")})
             error(f"Available wallets: {', '.join(available)}")
             error("Set AITBC_DEFAULT_WALLET env var or use --wallet to specify one")
+            abort(ctx, f"Wallet '{wallet_name}' not found")
             return None
     else:
         # 3. Fall back to first wallet found across all search directories
         wallet_files = sorted({f for d in search_dirs if d.exists() for f in d.glob("*.json")})
         if not wallet_files:
-            error(f"No wallets found in {search_dirs}")
             error("Create a wallet first: aitbc wallet create")
+            abort(ctx, f"No wallets found in {search_dirs}")
             return None
         wallet_file = wallet_files[0]
         wallet_name = wallet_file.stem
@@ -169,12 +169,12 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
             data = json.load(f)
         address = data.get("address")
         if not address:
-            error(f"No address field in wallet file {wallet_file}")
+            abort(ctx, f"No address field in wallet file {wallet_file}")
             return None
         success(f"Using wallet '{wallet_name}': {address}")
         return str(address)
     except (json.JSONDecodeError, OSError) as e:
-        abort(None, f"Failed to read wallet file {wallet_file}: {e}")
+        abort(ctx, f"Failed to read wallet file {wallet_file}: {e}")
         return None
 
 
@@ -450,7 +450,7 @@ def ping(
         success(f"Connecting to {ws_endpoint}")
         try:
             async with websockets.connect(ws_endpoint, open_timeout=timeout) as ws:
-                if not await _consume_connection_frame(ws, timeout, ws_endpoint):
+                if not await _consume_connection_frame(ctx, ws, timeout, ws_endpoint):
                     return
 
                 # Send PING frame
@@ -531,7 +531,7 @@ def request_coins(
     password_stdin: bool,
 ):
     """Request free AIT tokens from the hub via WebSocket for the configured wallet."""
-    wallet_address = _resolve_wallet_address(wallet)
+    wallet_address = _resolve_wallet_address(ctx, wallet)
     if not wallet_address:
         return
 
@@ -550,7 +550,7 @@ def request_coins(
         success(f"Connecting to {ws_endpoint}")
         try:
             async with websockets.connect(ws_endpoint, open_timeout=timeout) as ws:
-                if not await _consume_connection_frame(ws, timeout, ws_endpoint):
+                if not await _consume_connection_frame(ctx, ws, timeout, ws_endpoint):
                     return
 
                 # Send REQUEST_COINS frame
@@ -613,9 +613,9 @@ def request_coins(
                                 if action == "coin_request_failed":
                                     err = result.get("error", "unknown error")
                                     detail = result.get("detail", "")
-                                    error(f"Coin request failed: {err}")
                                     if detail:
-                                        click.echo(f"  detail: {detail}")
+                                        click.echo(f"  detail: {detail}", err=True)
+                                    abort(ctx, f"Coin request failed: {err}")
                                     return
 
                 except _asyncio.TimeoutError:
