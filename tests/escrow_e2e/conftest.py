@@ -9,6 +9,42 @@ request. That is the deny-by-default regression this suite exists to see.
 from __future__ import annotations
 
 import os
+import sys
+
+# Snapshot the environment this conftest is about to overwrite — the writes
+# are needed for exactly one window: the coordinator_api.config import below,
+# which instantiates ``settings`` once. Restoring right after those imports
+# keeps the rest of a shared pytest session (e.g. tests/integration, whose
+# conftest setdefaults TEST_MODE) out of this suite's env.
+_ENV_KEYS = (
+    "URL",
+    "JWT_SECRET",
+    "AUTH_ENABLED",
+    "CHAIN_ID",
+    "BLOCKCHAIN_RPC_URL",
+    "EXPLORER_API_URL",
+    "MARKET_STATS_URL",
+    "ECON_STATS_URL",
+    "MARKET_HEALTH_URL",
+    "MARKET_HEALTH_URL_ALT",
+    "COORDINATOR_HEALTH_URL",
+    "TEST_MODE",
+)
+_PRE_ENV = {k: os.environ.get(k) for k in _ENV_KEYS}
+
+# And the settings singleton's fields, when the module already exists —
+# restored in place at suite teardown so a later suite never inherits this
+# suite's production-shaped app config (that leak is what 401'd
+# tests/integration when both ran in one session).
+_SETTINGS_FIELDS = ("test_mode", "auth_enabled", "jwt_secret", "url", "blockchain_rpc_url")
+_HAD_CONFIG = "coordinator_api.config" in sys.modules
+_ABSENT = object()
+_PRE_SETTINGS: dict[str, object] | None = None
+if _HAD_CONFIG:
+    from coordinator_api.config import settings as _pre_settings
+
+    _PRE_SETTINGS = {f: getattr(_pre_settings, f, _ABSENT) for f in _SETTINGS_FIELDS}
+    del _pre_settings
 
 # Environment first — coordinator_api.config.settings is instantiated at
 # import time, so every variable it reads must be in place beforehand.
@@ -28,23 +64,59 @@ os.environ.setdefault("MARKET_HEALTH_URL_ALT", "http://127.0.0.1:8104/health")
 os.environ.setdefault("COORDINATOR_HEALTH_URL", "http://127.0.0.1:8203/health")
 os.environ.pop("TEST_MODE", None)
 
+
 # The coordinator test conftest sets TEST_MODE=true; when both suites share a
 # pytest session, coordinator_api.config may already be imported with
-# settings.test_mode frozen — middleware would never mount. Reset the
-# singleton so this suite always builds a production-shaped app.
+# settings.test_mode frozen — middleware would never mount. The e2e field
+# values are applied per test by the _e2e_settings_guard fixture below (and
+# restored again after each test), so this suite always builds a
+# production-shaped app without leaking that shape to other suites.
+def _apply_e2e_settings() -> None:
+    if "coordinator_api.config" not in sys.modules:
+        return
+    from coordinator_api.config import settings as _settings
+
+    _settings.test_mode = False
+    _settings.auth_enabled = True
+    _settings.jwt_secret = "escrow-e2e-test-secret-key-material-0123456789"
+    _settings.url = "sqlite:////tmp/aitbc-escrow-e2e.db"
+    _settings.blockchain_rpc_url = "http://settlement-node.test"
+
+
+def _restore_settings() -> None:
+    """Put the shared coordinator settings singleton back the way this suite
+    found it (pre-existing fields), or back to a clean-env instance (when this
+    suite's conftest triggered the first config import). Fields are mutated in
+    place — modules holding a `from ... import settings` reference must see
+    the clean values too."""
+    if "coordinator_api.config" not in sys.modules:
+        return
+    import coordinator_api.config as _cfg
+
+    if _PRE_SETTINGS is not None:
+        for field, value in _PRE_SETTINGS.items():
+            if value is _ABSENT:
+                try:
+                    delattr(_cfg.settings, field)
+                except AttributeError:
+                    pass
+            else:
+                setattr(_cfg.settings, field, value)
+        return
+    fresh = type(_cfg.settings)()
+    fields = getattr(type(_cfg.settings), "model_fields", None) or vars(fresh)
+    for field in fields:
+        setattr(_cfg.settings, field, getattr(fresh, field))
+
+
 import sys as _sys  # noqa: E402
 
 if "coordinator_api.config" in _sys.modules:
-    from coordinator_api.config import settings as _settings
-
-    # The settings singleton is frozen at first import — realign the fields
-    # this suite depends on (env vars are already forced above).
-    _settings.test_mode = False
-    _settings.auth_enabled = True
-    _settings.jwt_secret = os.environ["JWT_SECRET"]
-    _settings.url = os.environ["URL"]
-    _settings.blockchain_rpc_url = os.environ["BLOCKCHAIN_RPC_URL"]
-    del _sys, _settings
+    # Align now in case anything between here and the guard fixture reads the
+    # singleton (e.g. the create_app import below); the guard keeps it aligned
+    # per test and _restore_settings() after the imports puts it back.
+    _apply_e2e_settings()
+    del _sys
 
 import sys  # noqa: E402
 from collections.abc import Generator  # noqa: E402
@@ -80,6 +152,23 @@ from stubchain import (  # noqa: E402
     make_async_client_class,
     make_cli_bridge_class,
 )
+
+# coordinator_api.config is now imported (or was already): the environment
+# writes above have done their one job — freeze the e2e values into the
+# settings singleton. Put the process env back exactly as found so nothing
+# downstream in a shared session (env-file loads, other conftests' setdefault
+# chains, subprocess children) sees this suite's secrets or AUTH_ENABLED.
+for _k, _v in _PRE_ENV.items():
+    if _v is None:
+        os.environ.pop(_k, None)
+    else:
+        os.environ[_k] = _v
+del _k, _v
+
+# Same for the settings singleton: realigned above only so the imports built
+# this suite's app config; restored so collection of every later suite sees
+# the environment it ran under. The per-test guard re-applies the e2e values.
+_restore_settings()
 
 # A fixed throwaway test key — never a real wallet; its only use is deriving
 # a syntactically valid buyer address for the signature path.
@@ -192,3 +281,46 @@ def cli_config() -> Any:
         hub_discovery_url=SETTLEMENT_RPC_URL,
         coordinator_api_url=COORDINATOR_URL,
     )
+
+
+@pytest.fixture(autouse=True)
+def _e2e_settings_guard() -> Generator[None]:
+    """Scope this suite's production-shaped settings to each e2e test.
+
+    The e2e suite needs auth on with its own jwt secret/DB, so it realigns the
+    ``coordinator_api.config.settings`` singleton — which every later suite
+    then inherits. Without the restore a same-session ``tests/integration``
+    run built its app with auth mounted and no valid credential and every
+    endpoint answered 401. The JWT handler singleton gets the same treatment:
+    it resolved this suite's secret once and would keep signing with it.
+    """
+    _apply_e2e_settings()
+    yield
+    _restore_settings()
+    try:
+        import aitbc.auth.jwt as _jwt
+
+        _jwt._jwt_handler = None
+    except Exception:
+        pass
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _rebuild_shared_app_after_module() -> Generator[None]:
+    """Rebuild ``coordinator_api.main.app`` when each e2e module finishes.
+
+    This conftest's import-time ``from coordinator_api.main import create_app``
+    executes the module-level ``app = create_app()`` — under the e2e
+    environment, so that shared instance carries the mounted AuthMiddleware.
+    Rebuilding at import time is no better: later conftests (e.g.
+    tests/integration's ``TEST_MODE=true`` setdefault) have not run yet during
+    collection. A module-scoped teardown fires after this suite's tests and —
+    crucially — after every conftest in the session has been collected, so the
+    rebuild sees the session's settled environment, not ours.
+    """
+    yield
+    if "coordinator_api.main" in sys.modules:
+        import coordinator_api.main as _main
+
+        _main.app = _main.create_app()
+        del _main
