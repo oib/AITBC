@@ -192,4 +192,5 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 78 | [Market CLI Options](./78_market_options.md) | `aitbc market` money-path and listing options as reads/free refusals (offer-resolution, wallet, quote-verification) | `aitbc market` |
 | 79 | [Exchange CLI Options](./79_exchange_options.md) | `aitbc exchange` + `exchange-island` options as reads/free refusals (wallet gate, cap, island credentials, verifier drift) | `aitbc exchange` |
 | 80 | [Required-Flag Coverage — operations & economics](./80_required_flags.md) | Last four required CLI options exercised as free refusals (wallet gate, lock-days guard, invalid choice) | `aitbc operations`, `aitbc economics` |
+| 81 | [Wallet CLI Options](./81_wallet_options.md) | `aitbc wallet` options as reads/free refusals (wallet gate, dead endpoints, bridge status `--hub-url` drift) | `aitbc wallet` |
 | 82 | [Moneypath Options](./82_moneypath_options.md) | operations/transactions/eth options as reads/free refusals | `aitbc operations`, `aitbc transactions`, `aitbc eth` |
