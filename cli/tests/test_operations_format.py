@@ -118,3 +118,54 @@ def test_vote_json(monkeypatch):
     r = CliRunner().invoke(ops.vote, ["--proposal-id", "p1", "--vote", "for", "--wallet", "w", "--format", "json"])
     assert r.exit_code == 0 and calls == ["json"]
     _pure_json(r.output)
+
+
+def test_execute_json(monkeypatch):
+    calls = _spy_fmt(monkeypatch)
+
+    class C:
+        def __init__(self, **kw):
+            pass
+
+        def post(self, path, json=None):
+            return {"status": "ok"}
+
+    monkeypatch.setattr(ops, "AITBCHTTPClient", C)
+    monkeypatch.setattr(ops, "get_config", _cfg)
+    r = CliRunner().invoke(ops.execute, ["--proposal-id", "p1", "--format", "json"])
+    assert r.exit_code == 0 and calls == ["json"]
+    _pure_json(r.output)
+
+
+def test_stake_json(monkeypatch):
+    calls = _spy_fmt(monkeypatch)
+
+    class C:
+        def __init__(self, **kw):
+            pass
+
+        def post(self, path, json=None):
+            return {"staked": 1}
+
+    monkeypatch.setattr(ops, "AITBCHTTPClient", C)
+    monkeypatch.setattr(ops, "get_config", _cfg)
+    r = CliRunner().invoke(ops.stake, ["--address", "0x0", "--amount", "1", "--lock-days", "30", "--format", "json"])
+    assert r.exit_code == 0 and calls == ["json"]
+    _pure_json(r.output)
+
+
+def test_delegate_json(monkeypatch):
+    calls = _spy_fmt(monkeypatch)
+
+    class C:
+        def __init__(self, **kw):
+            pass
+
+        def post(self, path, json=None):
+            return {"delegated": 1}
+
+    monkeypatch.setattr(ops, "AITBCHTTPClient", C)
+    monkeypatch.setattr(ops, "get_config", _cfg)
+    r = CliRunner().invoke(ops.delegate, ["--delegator", "0x0", "--delegate", "0x1", "--amount", "1", "--format", "json"])
+    assert r.exit_code == 0 and calls == ["json"]
+    _pure_json(r.output)
