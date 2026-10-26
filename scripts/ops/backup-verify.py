@@ -61,15 +61,17 @@ def check_chain_dump(gz: Path, scratch: Path) -> list[str]:
     """Rebuild a .dump text export and integrity-check it."""
     errors: list[str] = []
     dest = scratch / (gz.name.removesuffix(".gz"))
+    with gzip.open(gz, "rb") as src:
+        dump = src.read()
     build = subprocess.run(
-        f"zcat {gz!s} | sqlite3 {dest!s}",
-        shell=True,
+        ["sqlite3", str(dest)],
+        input=dump,
         capture_output=True,
-        text=True,
         timeout=300,
+        check=False,
     )
     if build.returncode != 0:
-        return [f"{gz.name}: rebuild failed: {build.stderr.strip()[:120]}"]
+        return [f"{gz.name}: rebuild failed: {build.stderr.decode(errors='replace').strip()[:120]}"]
     if _sqlite(dest, "PRAGMA integrity_check;") != "ok":
         errors.append(f"{gz.name}: integrity_check not ok")
     return errors
@@ -108,7 +110,8 @@ def alembic_head(db: Path) -> str | None:
 
 
 def row_counts(db: Path, tables: list[str]) -> dict[str, int]:
-    return {t: int(_sqlite(db, f"SELECT COUNT(*) FROM {t};") or 0) for t in tables}
+    # Table names come from the operator-controlled baseline file only.
+    return {t: int(_sqlite(db, f"SELECT COUNT(*) FROM {t};") or 0) for t in tables}  # nosec B608
 
 
 def verify_set(set_dir: Path, scratch: Path, baseline: dict | None) -> tuple[list[str], dict]:
@@ -171,7 +174,7 @@ def main() -> int:
 
     baseline = json.loads(args.baseline.read_text()) if args.baseline else None
     scratch_ctx = (
-        tempfile.TemporaryDirectory(prefix="backup-verify-", dir=args.scratch.parent if args.scratch else "/var/tmp")
+        tempfile.TemporaryDirectory(prefix="backup-verify-", dir=args.scratch.parent if args.scratch else None)
         if args.scratch is None
         else None
     )
