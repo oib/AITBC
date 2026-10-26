@@ -268,3 +268,67 @@ class TestAsyncHTTPClient:
         with patch("httpx.AsyncClient.get", return_value=mock_resp):
             result = await client.get("/test")
         assert result == {"data": 1}
+
+
+class TestNetworkErrorDetailSuffix:
+    """CLI-ERR-DETAIL-1 (#581): a wrapped HTTP error's message must carry
+    the response ``detail`` so every ``Error: {e}`` line shows the node's
+    refusal reason — previously only the status was printed."""
+
+    def _client(self):
+        return AITBCHTTPClient(base_url="http://node.test", enable_circuit_breaker=False)
+
+    def _resp(self, status=400, json_body=...):
+        resp = MagicMock()
+        resp.status_code = status
+        if json_body is ...:
+            resp.json.side_effect = ValueError("not json")
+        else:
+            resp.json.return_value = json_body
+        err = requests.HTTPError(f"{status} Client Error: Bad Request for url: http://node.test/x")
+        err.response = resp
+        return err
+
+    def test_json_detail_echoed(self):
+        client = self._client()
+        client.session.post = MagicMock(
+            side_effect=self._resp(json_body={"detail": "GPU_ALLOCATE payload must include allocation_id"})
+        )
+        with pytest.raises(NetworkError, match="must include allocation_id"):
+            client.post("/rpc/transaction", json={})
+
+    def test_error_envelope_message_echoed(self):
+        client = self._client()
+        client.session.post = MagicMock(
+            side_effect=self._resp(json_body={"error": {"code": "X", "message": "upstream refused"}})
+        )
+        with pytest.raises(NetworkError, match="upstream refused"):
+            client.post("/rpc/transaction", json={})
+
+    def test_non_json_body_no_detail(self):
+        client = self._client()
+        client.session.post = MagicMock(side_effect=self._resp())
+        with pytest.raises(NetworkError) as exc:
+            client.post("/rpc/transaction", json={})
+        assert "Bad Request" in str(exc.value)
+        assert "not json" not in str(exc.value)
+
+    def test_no_response_no_detail(self):
+        client = self._client()
+        client.session.post = MagicMock(side_effect=requests.ConnectionError("refused"))
+        with pytest.raises(NetworkError, match="ConnectionError"):
+            client.post("/rpc/transaction", json={})
+
+    def test_detail_capped(self):
+        client = self._client()
+        client.session.post = MagicMock(side_effect=self._resp(json_body={"detail": "x" * 500}))
+        with pytest.raises(NetworkError) as exc:
+            client.post("/rpc/transaction", json={})
+        assert "x" * 300 in str(exc.value)
+        assert "x" * 301 not in str(exc.value)
+
+    def test_get_also_carries_detail(self):
+        client = self._client()
+        client.session.get = MagicMock(side_effect=self._resp(status=403, json_body={"detail": "missing X-API-Key"}))
+        with pytest.raises(NetworkError, match="missing X-API-Key"):
+            client.get("/v1/things")
