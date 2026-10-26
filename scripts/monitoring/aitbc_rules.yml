@@ -39,8 +39,10 @@ groups:
           summary: "Blocks are being skipped on {{ $labels.chain_id }} due to no subscribers"
 
       - alert: ServiceDown
+        # 1m fired on sub-minute restart blips during deploy waves
+        # (median episode 0.8 min — ALERT-REVIEW-1).
         expr: up == 0
-        for: 1m
+        for: 5m
         labels:
           severity: critical
         annotations:
