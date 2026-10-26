@@ -123,10 +123,16 @@ def sla(ctx, pool_id, miner_id, hours, violations, resolved, pool_hub_url):
             params: dict = {"resolved": "true" if resolved else "false"}
             if miner_id:
                 params["miner_id"] = miner_id
-            rows = http_client.get("/v1/sla/violations", params=params)
+            # GET /v1/sla/violations returns a bare JSON array; get()
+            # narrows via expect_object and raises TypeError on non-object
+            # bodies (#552).
+            rows = http_client.get_json("/v1/sla/violations", params=params)
             output(rows, output_format, title="SLA Violations (resolved)" if resolved else "SLA Violations (open)")
         elif miner_id:
-            rows = http_client.get(f"/v1/sla/metrics/{miner_id}", params={"hours": hours})
+            # GET /v1/sla/metrics/{miner_id} returns a bare JSON array; get()
+            # narrows via expect_object and raises TypeError on non-object
+            # bodies (#552).
+            rows = http_client.get_json(f"/v1/sla/metrics/{miner_id}", params={"hours": hours})
             output(rows, output_format, title=f"SLA metrics: {miner_id} (last {hours}h)")
         else:
             sla_data = http_client.get("/v1/sla/status")
