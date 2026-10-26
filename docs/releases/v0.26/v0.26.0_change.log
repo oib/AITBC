@@ -665,3 +665,10 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - `service harden --dry-run` existed but was undocumented in the row's
   premise — pinned with a test proving it writes zero files (no .bak,
   no unit change) while a real run still writes the backup.
+
+
+### CLI-REINVEST-LOAD-1
+
+- `reinvest` failed `No module named 'miner_app'`: `parents[4]` overshot
+  the repo root and the path lacked `src`. Now `parents[3]` +
+  `apps/miner/src`; a scrubbed-path test pins the import.
