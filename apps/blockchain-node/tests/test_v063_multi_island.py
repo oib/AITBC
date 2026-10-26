@@ -223,7 +223,7 @@ class TestIslandManagerActivation:
         mgr = IslandManager("node-1", "default-island", "ait-hub")
         mgr.join_island("island-uuid-1", "island1", "ait-island1")
         result = mgr.leave_island("island-uuid-1")
-        assert result is True
+        assert result == "left"
         assert not mgr.is_member_of_island("island-uuid-1")
 
     def test_island_manager_cannot_leave_default(self):
@@ -232,7 +232,14 @@ class TestIslandManagerActivation:
 
         mgr = IslandManager("node-1", "default-island", "ait-hub")
         result = mgr.leave_island("default-island")
-        assert result is False
+        assert result == "forbidden_default"
+
+    def test_island_manager_leave_not_member(self):
+        """Leaving an island the node never joined returns not_member."""
+        from aitbc_chain.network.island_manager import IslandManager
+
+        mgr = IslandManager("node-1", "default-island", "ait-hub")
+        assert mgr.leave_island("island-never-joined") == "not_member"
 
     def test_island_manager_get_all_islands(self):
         """get_all_islands returns all island memberships including default."""

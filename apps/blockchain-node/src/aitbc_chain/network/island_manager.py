@@ -142,14 +142,18 @@ class IslandManager:
         logger.info("Joined island %s (name: %s, chains: %s)", island_id, island_name, chain_ids)
         return True
 
-    def leave_island(self, island_id: str) -> bool:
-        """Leave an island. Cleans up all chain resources."""
+    def leave_island(self, island_id: str) -> str:
+        """Leave an island. Cleans up all chain resources.
+
+        Returns a machine-readable code: ``"left"``, ``"forbidden_default"``
+        or ``"not_member"``.
+        """
         if island_id == self.default_island_id:
             logger.warning("Cannot leave default island")
-            return False
+            return "forbidden_default"
         if island_id not in self.islands:
             logger.warning("Not member of island %s", island_id)
-            return False
+            return "not_member"
         membership = self.islands[island_id]
         # Clean up chain resources (databases)
         for chain_id in membership.chain_ids:
@@ -166,7 +170,7 @@ class IslandManager:
         if island_id in self.island_peers:
             del self.island_peers[island_id]
         logger.info("Left island %s (cleaned up %d chains)", island_id, len(membership.chain_ids))
-        return True
+        return "left"
 
     def request_bridge(self, target_island_id: str) -> str:
         """Request bridge to another island"""

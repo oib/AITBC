@@ -328,7 +328,7 @@ class TestIslandLeaveCleanup:
         with patch("aitbc_chain.database.shutdown_db") as mock_shutdown:
             result = mgr.leave_island("island-uuid-1")
 
-        assert result is True
+        assert result == "left"
         # shutdown_db should be called for each chain
         called_chain_ids = [call.args[0] for call in mock_shutdown.call_args_list]
         assert "chain-a" in called_chain_ids
