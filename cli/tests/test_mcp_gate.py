@@ -49,6 +49,16 @@ READ_ONLY = {
     "aitbc_wallet_address",
     "aitbc_wallet_bridge_float",
     "aitbc_wallet_bridge_status",
+    "aitbc_coin_requests_list",
+    "aitbc_coin_requests_show",
+    "aitbc_config_profiles_list",
+    "aitbc_energy_provider_profile",
+    "aitbc_exchange_island_rates",
+    "aitbc_market_match",
+    "aitbc_messaging_subscribe",
+    "aitbc_performance_benchmark",
+    "aitbc_reputation_profile",
+    "aitbc_system_file_info",
 }
 
 
