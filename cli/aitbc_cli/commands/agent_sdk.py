@@ -786,7 +786,11 @@ try:
             agents = list_local_agents(Path(agent_dir) if agent_dir else None)
 
             if not agents:
-                output("No local agents found", resolve_output_format(ctx, format))
+                fmt = resolve_output_format(ctx, format)
+                if fmt == "json":
+                    output([], fmt)
+                else:
+                    info("No local agents found")
                 return
 
             agent_list = [
