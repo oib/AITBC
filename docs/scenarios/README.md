@@ -188,3 +188,4 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 74 | [Confidential Payments](./74_confidential_payments.md) | Confidential wallet balance and committed sends (simulated path) | `aitbc confidential` |
 | 75 | [Market Escrow & Jobs Options](./75_market_escrow_jobs_options.md) | `market jobs` filters/formatting and `escrow create` optional flags (refusal play) | `aitbc market` |
 | 76 | [Bridge CLI Options](./76_bridge_options.md) | `aitbc bridge` read-only flags plus money-path options exercised as free refusals | `aitbc bridge` |
+| 77 | [Trade CLI Options](./77_trade_options.md) | `aitbc trade` options as reads/free refusals (401/404, array-shape drift) | `aitbc trade` |
