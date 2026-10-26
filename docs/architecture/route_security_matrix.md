@@ -120,6 +120,7 @@ Route                          | Method | Auth Level | Implementation
 /rpc/escrow/*                 | ALL    | Level 2    | X-API-Key (router-level)
 /v1/escrow/relay              | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)
 /v1/escrow/release            | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)
+/v1/escrow/refund             | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)
 /rpc/subscribe, /rpc/heartbeat| POST   | Peer key   | verify_rpc_peer_key
 /rpc/force-sync               | POST   | Level 4    | admin-signed body
 /v1/market/parameters/apply | POST | Level 2 | X-Api-Key (market api_key)

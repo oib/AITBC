@@ -77,9 +77,6 @@ surface as 502 — classification happens at the relay's result boundary).
   - `chain_timeout` — no HTTP response from the settlement node
     (timeout, DNS, refused connection)
 
-**Refund**: the counter and call site are already defined; the refund
-relay router is mid-review, so the mount in `main.py` is guarded — the
-`relay="refund"` series simply stays silent until that router lands.
 
 **Scrape requirement**: the live `/etc/prometheus/prometheus.yml` on hub
 needs a `coordinator-api` job with `metrics_path: /prometheus` (port
@@ -98,11 +95,35 @@ Alert rules in `scripts/monitoring/aitbc_rules.yml` (promtool-tested in
   racing unsealed locks at volume or the chain stopped sealing them.
 
 ## Refund — stays on the settlement node
+## Refund — `POST /v1/escrow/refund` (coordinator-minted jobs only)
 
-`/rpc/escrow/{job_id}/refund` has **no relay**: the settlement chain
-refuses settlement operations from non-settlement nodes, and the relay
-deliberately covers create+release only. `aitbc market escrow refund`
-must reach a settlement node's rpc directly (allowlisted + API key).
+
+Relays `{job_id, reason?}` to the settlement node's
+`/rpc/escrow/{job_id}/refund`. Buyer-bound like the release relay: the
+caller must be the buyer of the named escrow (admin exempt), and the
+ownership check runs before any dedup/stored-result return.
+
+Phase-1 scope (director ruling on #471): the relay serves
+**coordinator-minted job_ids only** — the `job` row must exist and be
+terminal-unpaid (`FAILED`/`CANCELED`/`EXPIRED`, or a still-open
+`QUEUED`/`RUNNING` job past its `expires_at`). `COMPLETED` is never
+refundable through the relay. A missing `job` row means a market-minted
+escrow and is refused — those stay settlement-node refunds
+(`aitbc market escrow refund` against the allowlisted rpc). A sealed
+on-chain `software_job`/`completed` record that contradicts the
+coordinator row fails closed (409), as does a failed lookup (502).
+
+- **Reasons**: `buyer_requested` (default), `job_failed`, `timeout`,
+  `expired` — forwarded verbatim; no caller-chosen amount (the chain
+  refunds locked minus released legs, clamped to the sealed lock).
+- **Dedup**: unique `job_id` relay row; replays return the stored
+  `refund_tx_hash`; the chain dedups a retry that lands anyway.
+- **Secondary evidence**: a `job_payments` row already `released` → 409;
+  already `refunded` → stored result.
+- **Errors**: chain 4xx passes through at the same status (incl. the 425
+  "lock not yet sealed" retryable); timeout/5xx → 502.
+- **Rate limits**: 30/min and 10/hour per client credential — the hourly
+  cap keeps a stolen JWT from sweeping a client's locks.
 
 ## Named errors
 
@@ -129,5 +150,7 @@ or a sealed `ESCROW_RELEASE`/`ESCROW_REFUND` leg) and older than
 `--max-age` (default 1 h), and exits 1 when any exist. `--host hub`
 runs the same read-only queries over ssh; `--textfile` emits
 node_exporter metrics. Run by hand or from the gate — deliberately no
-systemd unit; refunding a listed lock stays a settlement-node operator
-action per the refund section above.
+systemd unit. Refunding a listed lock goes through `POST /v1/escrow/refund`
+when the job is coordinator-minted and terminal-unpaid; market-minted
+escrows stay a settlement-node operator action per the refund section
+above.
