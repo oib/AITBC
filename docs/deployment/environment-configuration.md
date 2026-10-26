@@ -200,6 +200,7 @@ The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 | `CHAIN_ID` | Yes | - | Primary chain ID (e.g. `ait-localnet`) |
 | `supported_chains` | No | `chain_id` | Comma-separated list of supported chains |
 | `island_id` | No | `DEFAULT_ISLAND_ID` | Island identifier for this node |
+| `ISLAND_DEFER_ENABLED` | No | unset (off) | Island-degradation deferral gate. When `1`/`true`/`yes` and the island monitor's liveness tier reaches `island-degraded`, `defer_if_island_degraded(action)` returns true so scheduled actions defer for that cycle. Unset/off it always returns false — detection only, behaviour unchanged. Only read on nodes with `island_hub_proposer_id` configured. |
 | `block_time_seconds` | No | `10` | Target block time in seconds |
 
 > **Removed:** `BLOCK_TIME` (use `block_time_seconds`), `NETWORK_ID`, and
