@@ -539,7 +539,7 @@ tests:
   - interval: 1m
     input_series:
       - series: 'aitbc_journal_error_messages{unit="aitbc-foo.service", node="node9", instance="127.0.0.1:9100"}'
-        values: '0x2 3x12 0x6'
+        values: '0x2 4x12 0x6'
     alert_rule_test:
       - eval_time: 4m
         alertname: AITBCJournalErrors
@@ -555,7 +555,7 @@ tests:
               instance: 127.0.0.1:9100
             exp_annotations:
               summary: "aitbc-foo.service logged errors on node9"
-              description: "aitbc-foo.service produced 3 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-foo.service -p err."
+              description: "aitbc-foo.service produced 4 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-foo.service -p err."
 
   # AITBCJournalScanStale: the collector writes a scan timestamp every 5 min.
   # A dead timer leaves the textfile behind, so the series keeps its frozen
@@ -1854,3 +1854,26 @@ tests:
       - eval_time: 204h
         alertname: BackupSizeCollapse
         exp_alerts: []
+  - interval: 30s
+    input_series:
+      # OPS-NOISE-4: aitbc-*.service at 4+ errors fires; scope units and
+      # a single stray line do not.
+      - series: 'aitbc_journal_error_messages{instance="n0:9009", job="node", node="node0", unit="aitbc-blockchain-node.service"}'
+        values: '0x5 4+0x20'
+      - series: 'aitbc_journal_error_messages{instance="n0:9009", job="node", node="node0", unit="init.scope"}'
+        values: '9+0x25'
+      - series: 'aitbc_journal_error_messages{instance="n0:9009", job="node", node="node0", unit="aitbc-wallet.service"}'
+        values: '1+0x25'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: AITBCJournalErrors
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: "n0:9009"
+              job: node
+              node: "node0"
+              unit: "aitbc-blockchain-node.service"
+            exp_annotations:
+              summary: "aitbc-blockchain-node.service logged errors on node0"
+              description: "aitbc-blockchain-node.service produced 4 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-blockchain-node.service -p err."
