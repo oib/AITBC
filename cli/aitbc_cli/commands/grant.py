@@ -6,7 +6,7 @@ import os
 
 import click
 
-from ..utils import output
+from ..utils import output, resolve_output_format
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.error_handling import abort
 
@@ -43,7 +43,7 @@ def grant():
 @click.option("--description", default="", help="Grant description")
 @click.option("--requested-amount", required=True, help="Requested amount as decimal string")
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def create(
     ctx,
@@ -65,7 +65,7 @@ def create(
             "voting_days": voting_days,
         }
         result = client.post("/v1/grants", json=payload)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -84,7 +84,7 @@ def create(
 @click.option("--developer-id", default=None, help="Filter by developer ID")
 @click.option("--limit", type=int, default=100, help="Maximum number of grants")
 @click.option("--offset", type=int, default=0, help="Offset for pagination")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list_grants(
     ctx,
@@ -103,7 +103,7 @@ def list_grants(
         if developer_id:
             params["developer_id"] = developer_id
         result = client.get("/v1/grants", params=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -120,14 +120,14 @@ def list_grants(
 @click.option("--grant-id", "grant_id", required=True, help="The Grant id.")
 @click.option("--vote", type=click.Choice(["for", "against", "abstain"]), required=True, help="Vote choice")
 @click.option("--voting-power", type=float, default=0.0, help="Voting power")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
     """Cast a vote for, against, or abstain on a grant proposal."""
     try:
         client = _get_client()
         result = client.post(f"/v1/grants/{grant_id}/vote", json={"vote": vote, "voting_power": voting_power})
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -144,7 +144,7 @@ def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
 @click.option("--grant-id", "grant_id", required=True, help="The Grant id.")
 @click.option("--milestone-id", default=None, help="Milestone to disburse")
 @click.option("--amount", default=None, help="Amount to disburse (decimal string)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def disburse(ctx, grant_id: str, milestone_id: str | None, amount: str | None, format: str):
     """Disburse funds for a grant or a specific milestone."""
@@ -155,7 +155,7 @@ def disburse(ctx, grant_id: str, milestone_id: str | None, amount: str | None, f
             f"/v1/grants/{grant_id}/disburse",
             json={k: v for k, v in payload.items() if v is not None},
         )
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:

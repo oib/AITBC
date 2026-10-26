@@ -617,7 +617,7 @@ def ai():
 @click.option("--wait", is_flag=True, help="Wait for the job to reach a terminal state")
 @click.option("--timeout", type=float, default=300, help="Maximum seconds to wait for a terminal state (default: 300)")
 @click.option("--poll-interval", type=float, default=5, help="Seconds between status polls (default: 5)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def submit(
     ctx,
@@ -766,7 +766,7 @@ def submit(
             )
 
         if not wait:
-            output(result, ctx.obj.get("output_format", format))
+            output(result, resolve_output_format(ctx, format))
             return
 
         _wait_for_job(
@@ -776,7 +776,7 @@ def submit(
             payment_id,
             timeout,
             poll_interval,
-            ctx.obj.get("output_format", format),
+            resolve_output_format(ctx, format),
         )
 
     except NetworkError as e:
@@ -839,7 +839,7 @@ def _resolve_pay_params(
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.option("--chain-id", help="Chain ID")
 @wallet_password_options
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def pay(
     ctx,
@@ -908,7 +908,7 @@ def pay(
         )
 
         success(f"Escrow secured: {payment_result.get('payment_id')}")
-        output(payment_result, ctx.obj.get("output_format", format))
+        output(payment_result, resolve_output_format(ctx, format))
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -926,7 +926,7 @@ def pay(
 @click.option("--limit", type=int, default=10, help="Limit results")
 @click.option("--status", help="Filter by status")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def jobs(ctx, limit, status, coordinator_url, format):
     """List AI jobs from the coordinator with optional status and limit filters."""
@@ -944,7 +944,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
             params["status"] = status
 
         result = http_client.get("/v1/jobs", params=params)
-        output(result, ctx.obj.get("output_format", format), title="AI Jobs")
+        output(result, resolve_output_format(ctx, format), title="AI Jobs")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -961,7 +961,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
 )
 @click.option("--job-id", help="Job ID")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def status(ctx, job_id, coordinator_url, format):
     """Show the current status of an AI job by job ID."""
@@ -979,7 +979,7 @@ def status(ctx, job_id, coordinator_url, format):
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.get(f"/v1/jobs/{job_id}")
 
-        output(result, ctx.obj.get("output_format", format), title=f"Job Status: {job_id}")
+        output(result, resolve_output_format(ctx, format), title=f"Job Status: {job_id}")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -996,7 +996,7 @@ def status(ctx, job_id, coordinator_url, format):
 )
 @click.option("--job-id", required=True, help="Job ID to accept")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def accept(ctx, job_id, coordinator_url, format):
     """Accept a completed AI job and release the escrowed payment."""
@@ -1012,7 +1012,7 @@ def accept(ctx, job_id, coordinator_url, format):
         result = http_client.post(f"/v1/jobs/{job_id}/accept")
 
         success(f"Job {job_id} accepted and payment released")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -1103,7 +1103,7 @@ def _sweep_job(http_client: AITBCHTTPClient, job: dict[str, Any], reason: str, d
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--dry-run", is_flag=True, help="Count candidates without refunding")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
     """Refund all client-owned AI jobs stuck in an incomplete state."""
@@ -1127,7 +1127,7 @@ def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
         for job in jobs:
             _sweep_job(http_client, job, reason, dry_run, counts)
 
-        output(counts, ctx.obj.get("output_format", format), title="ZK refund sweep")
+        output(counts, resolve_output_format(ctx, format), title="ZK refund sweep")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -1155,7 +1155,7 @@ def service():
   aitbc ai service list --output json"""
 )
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list(ctx, coordinator_url, format):
     """List available AI services registered with the coordinator."""
@@ -1170,7 +1170,7 @@ def list(ctx, coordinator_url, format):
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.get("/v1/services")
 
-        output(result, ctx.obj.get("output_format", format), title="AI Services")
+        output(result, resolve_output_format(ctx, format), title="AI Services")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -1187,7 +1187,7 @@ def list(ctx, coordinator_url, format):
 )
 @click.option("--name", help="Service name")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def service_status(ctx, name, coordinator_url, format):
     """Show the status of a named AI service."""
@@ -1205,7 +1205,7 @@ def service_status(ctx, name, coordinator_url, format):
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.get(f"/v1/services/{name}")
 
-        output(result, ctx.obj.get("output_format", format), title=f"Service Status: {name}")
+        output(result, resolve_output_format(ctx, format), title=f"Service Status: {name}")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -1222,7 +1222,7 @@ def service_status(ctx, name, coordinator_url, format):
 )
 @click.option("--name", help="Service name")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def test(ctx, name, coordinator_url, format):
     """Test an AI service endpoint by service name."""
@@ -1241,7 +1241,7 @@ def test(ctx, name, coordinator_url, format):
         result = http_client.post(f"/v1/services/{name}/test")
 
         success(f"Service {name} test completed")
-        output(result, ctx.obj.get("output_format", format), title=f"Service Test: {name}")
+        output(result, resolve_output_format(ctx, format), title=f"Service Test: {name}")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -1258,7 +1258,7 @@ def test(ctx, name, coordinator_url, format):
 )
 @click.option("--job-id", help="Job ID")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def results(ctx, job_id, coordinator_url, format):
     """Show the results of a completed AI job by job ID."""
@@ -1276,7 +1276,7 @@ def results(ctx, job_id, coordinator_url, format):
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.get(f"/v1/jobs/{job_id}/result")
 
-        output(result, ctx.obj.get("output_format", format), title=f"Job Results: {job_id}")
+        output(result, resolve_output_format(ctx, format), title=f"Job Results: {job_id}")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -1324,7 +1324,7 @@ def _refund_after_cancel(ctx, http_client: AITBCHTTPClient, result, job_id: str,
 @click.option("--refund", is_flag=True, help="Also refund the escrowed payment after cancel")
 @click.option("--reason", default="buyer_requested", help="Reason for refund")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund, reason, coordinator_url, format):
     """Cancel an AI job and optionally refund the payment to the customer."""
@@ -1363,7 +1363,7 @@ def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund,
   aitbc ai stats --output json"""
 )
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def stats(ctx, coordinator_url, format):
     """Show aggregate AI service statistics from the coordinator."""
@@ -1378,7 +1378,7 @@ def stats(ctx, coordinator_url, format):
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.get("/v1/stats")
 
-        output(result, ctx.obj.get("output_format", format), title="AI Service Statistics")
+        output(result, resolve_output_format(ctx, format), title="AI Service Statistics")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
@@ -1394,7 +1394,7 @@ def stats(ctx, coordinator_url, format):
   aitbc ai distribution-stats --output json"""
 )
 @click.option("--coordinator-url", help="Agent Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def distribution_stats(ctx, coordinator_url, format):
     """Show task distribution statistics from the agent coordinator."""
@@ -1419,7 +1419,7 @@ def distribution_stats(ctx, coordinator_url, format):
         )
         result = http_client.get("/api/v1/agent/messages/load-balancer/stats")
 
-        output(result, ctx.obj.get("output_format", format), title="Task Distribution Statistics")
+        output(result, resolve_output_format(ctx, format), title="Task Distribution Statistics")
 
     except NetworkError as e:
         _abort_for_network(ctx, e)

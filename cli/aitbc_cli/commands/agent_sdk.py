@@ -20,7 +20,7 @@ from aitbc.utils.validation import validate_address
 
 from ..config import get_config
 from ..utils.wallet_secret import wallet_password_options
-from ..utils import error, info, output, success
+from ..utils import error, info, output, resolve_output_format, success
 from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -512,7 +512,7 @@ try:
     @click.option("--specialization", help="Agent specialization")
     @click.option("--coordinator-url", default=None, help="Coordinator URL (default: config agent_coordinator_url)")
     @click.option("--auto-detect", is_flag=True, help="Auto-detect capabilities")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def create(
         ctx,
@@ -574,7 +574,7 @@ try:
                 {"Field": "Config File", "Value": result.get("config_file", "N/A")},
             ]
 
-            output(agent_data, ctx.obj.get("output_format", format), title="Agent Created")
+            output(agent_data, resolve_output_format(ctx, format), title="Agent Created")
 
         except Exception as e:
             abort(ctx, f"Error creating agent: {str(e)}", from_exception=e)
@@ -599,7 +599,7 @@ try:
         help="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); required in enforce mode",
     )
     @wallet_password_options
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def register(ctx, agent_id, coordinator_url, wallet_name, password, password_file, password_stdin, format):
         """Register a local agent with the coordinator by agent ID."""
@@ -621,7 +621,7 @@ try:
                 {"Field": "Message", "Value": result["message"]},
             ]
 
-            output(reg_data, ctx.obj.get("output_format", format), title="Agent Registration")
+            output(reg_data, resolve_output_format(ctx, format), title="Agent Registration")
 
         except Exception as e:
             abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
@@ -637,7 +637,7 @@ try:
     @click.option("--agent-address", "agent_address", required=True, help="The Agent address.")
     @click.option("--display-name", help="Agent display name")
     @click.option("--agent-type", default="general", help="Agent type (general, provider, consumer)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def register_identity(ctx, agent_id, agent_address, display_name, agent_type, format):
         """Register an agent's identity and address on the blockchain."""
@@ -689,7 +689,7 @@ try:
                     "status": result.get("status"),
                     "is_verified": result.get("is_verified"),
                 },
-                ctx.obj.get("output_format", format),
+                resolve_output_format(ctx, format),
             )
 
         except (CLIError, click.Abort):
@@ -705,7 +705,7 @@ try:
   aitbc agent get-identity --agent-id hub-agent --output json"""
     )
     @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def get_identity(ctx, agent_id, format):
         """Get an agent's on-chain identity record for the given ID."""
@@ -725,7 +725,7 @@ try:
             query = f"?chain_id={chain_id}" if chain_id else ""
             result = http_client.get(f"/rpc/identity/{agent_id}{query}")
 
-            output(result, ctx.obj.get("output_format", format))
+            output(result, resolve_output_format(ctx, format))
 
         except (CLIError, click.Abort):
             raise
@@ -741,7 +741,7 @@ try:
     )
     @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
     @click.option("--verifier-address", "verifier_address", required=True, help="The Verifier address.")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def verify_identity(ctx, agent_id, verifier_address, format):
         """Verify an agent's identity using a verifier address on the blockchain."""
@@ -762,7 +762,7 @@ try:
             result = http_client.post("/rpc/identity/verify", json=verification_data)
 
             success(f"Agent identity verified: {agent_id}")
-            output(result, ctx.obj.get("output_format", format))
+            output(result, resolve_output_format(ctx, format))
 
         except (CLIError, click.Abort):
             raise
@@ -778,7 +778,7 @@ try:
   aitbc agent list --agent-dir /var/lib/aitbc/agents --output json""",
     )
     @click.option("--agent-dir", type=click.Path(), help="Agent directory path")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def list_agents(ctx, agent_dir, format):
         """List all local agents configured in the agent directory."""
@@ -786,7 +786,7 @@ try:
             agents = list_local_agents(Path(agent_dir) if agent_dir else None)
 
             if not agents:
-                output("No local agents found", ctx.obj.get("output_format", format))
+                output("No local agents found", resolve_output_format(ctx, format))
                 return
 
             agent_list = [
@@ -799,7 +799,7 @@ try:
                 for agent in agents
             ]
 
-            output(agent_list, ctx.obj.get("output_format", format), title="Local Agents")
+            output(agent_list, resolve_output_format(ctx, format), title="Local Agents")
 
         except Exception as e:
             abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
@@ -813,7 +813,7 @@ try:
     )
     @click.option("--agent-id", "agent_id", required=False, help="The Agent id.")
     @click.option("--coordinator-url", default=None, help="Coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def status(ctx, agent_id, coordinator_url, format):
         """Get the current status and health of a specified agent."""
@@ -830,7 +830,7 @@ try:
                 {"Field": "Message", "Value": status_data["message"]},
             ]
 
-            output(status_list, ctx.obj.get("output_format", format), title=f"Agent Status: {agent_id}")
+            output(status_list, resolve_output_format(ctx, format), title=f"Agent Status: {agent_id}")
 
         except Exception as e:
             abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
@@ -842,7 +842,7 @@ try:
 
   aitbc agent capabilities"""
     )
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def capabilities(ctx, format):
         """Show auto-detected system capabilities for a specified agent."""
@@ -861,7 +861,7 @@ try:
                 {"Field": "Supported Models", "Value": ", ".join(caps.get("supported_models", []))},
             ]
 
-            output(caps_list, ctx.obj.get("output_format", format), title="System Capabilities")
+            output(caps_list, resolve_output_format(ctx, format), title="System Capabilities")
 
         except Exception as e:
             abort(ctx, f"Error detecting capabilities: {str(e)}", from_exception=e)
@@ -899,7 +899,7 @@ try:
     )
     @click.option("--name", "name", required=True, help="Agent name.")
     @click.option("--key", help="Specific configuration key to retrieve")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def config_get(ctx, name, key, format):
         """Get configuration value or the full configuration for a named agent."""
@@ -915,9 +915,9 @@ try:
                     {"Field": "Key", "Value": result["key"]},
                     {"Field": "Value", "Value": str(result["value"])},
                 ]
-                output(config_data, ctx.obj.get("output_format", format), title=f"Agent Config: {name}.{key}")
+                output(config_data, resolve_output_format(ctx, format), title=f"Agent Config: {name}.{key}")
             else:
-                output(result["config"], ctx.obj.get("output_format", format), title=f"Agent Config: {name}")
+                output(result["config"], resolve_output_format(ctx, format), title=f"Agent Config: {name}")
 
         except Exception as e:
             abort(ctx, f"Error getting configuration: {str(e)}", from_exception=e)
@@ -1013,7 +1013,7 @@ try:
     @click.option("--min-health", type=float, default=0.0, help="Minimum health score")
     @click.option("--limit", type=int, default=50, help="Maximum results")
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def agents(ctx, capability, agent_type, min_health, limit, coordinator_url, format):
         """Search remote agents by capability, type, and minimum health score."""
@@ -1050,7 +1050,7 @@ try:
                     "count": result.get("count", 0),
                     "status": result.get("status", "success"),
                 },
-                ctx.obj.get("output_format", format),
+                resolve_output_format(ctx, format),
                 title="Discovered Agents",
             )
         except requests.exceptions.RequestException as e:
@@ -1077,7 +1077,7 @@ try:
     )
     @wallet_password_options
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def inbox(
         ctx, agent_id, limit, unread_only, wallet_name, password, password_file, password_stdin, coordinator_url, format
@@ -1098,7 +1098,7 @@ try:
             )
             response.raise_for_status()
             result = response.json()
-            output(result, ctx.obj.get("output_format", format), title=f"Inbox for {agent_id}")
+            output(result, resolve_output_format(ctx, format), title=f"Inbox for {agent_id}")
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
@@ -1123,7 +1123,7 @@ try:
     )
     @wallet_password_options
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def subscribe(ctx, agent_id, topic, filter, wallet_name, password, password_file, password_stdin, coordinator_url, format):
         """Subscribe an agent to a message topic on the coordinator."""
@@ -1144,7 +1144,7 @@ try:
             )
             response.raise_for_status()
             result = response.json()
-            output(result, ctx.obj.get("output_format", format), title="Subscription")
+            output(result, resolve_output_format(ctx, format), title="Subscription")
             success(f"Agent {agent_id} subscribed to topic {topic}")
         except json.JSONDecodeError as e:
             abort(ctx, f"Invalid JSON in filter: {e}", from_exception=e)
@@ -1176,7 +1176,7 @@ try:
     @click.option("--description", help="Workflow description")
     @click.option("--steps-file", required=True, type=click.Path(exists=True), help="JSON file with workflow steps")
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def create_workflow(ctx, name, description, steps_file, coordinator_url, format):
         """Create a new multi-step workflow from a steps definition file."""
@@ -1191,7 +1191,7 @@ try:
             response = requests.post(coordinator_agent_api_url("workflows", coordinator_url), json=data, timeout=10)
             response.raise_for_status()
             result = response.json()
-            output(result, ctx.obj.get("output_format", format), title="Created Workflow")
+            output(result, resolve_output_format(ctx, format), title="Created Workflow")
             success(f"Workflow '{name}' created successfully")
         except FileNotFoundError as e:
             abort(ctx, f"File not found: {e}", from_exception=e)
@@ -1213,7 +1213,7 @@ try:
     @click.option("--workflow-id", required=True, help="Workflow ID")
     @click.option("--input-file", type=click.Path(exists=True), help="JSON file with input parameters")
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def execute(ctx, workflow_id, input_file, coordinator_url, format):
         """Execute a previously created workflow with the given input file."""
@@ -1232,7 +1232,7 @@ try:
             )
             response.raise_for_status()
             result = response.json()
-            output(result, ctx.obj.get("output_format", format), title="Workflow Execution")
+            output(result, resolve_output_format(ctx, format), title="Workflow Execution")
             success(f"Workflow {workflow_id} execution started")
         except FileNotFoundError as e:
             abort(ctx, f"File not found: {e}", from_exception=e)
@@ -1253,7 +1253,7 @@ try:
     )
     @click.option("--workflow-id", required=True, help="Workflow ID")
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def workflow_status(ctx, workflow_id, coordinator_url, format):
         """Get the current execution status of a workflow by workflow ID."""
@@ -1264,7 +1264,7 @@ try:
             response = requests.get(coordinator_agent_api_url(f"workflows/{workflow_id}/status", coordinator_url), timeout=10)
             response.raise_for_status()
             result = response.json()
-            output(result, ctx.obj.get("output_format", format), title=f"Workflow Status: {workflow_id}")
+            output(result, resolve_output_format(ctx, format), title=f"Workflow Status: {workflow_id}")
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
@@ -1279,7 +1279,7 @@ try:
   aitbc agent workflow list-workflows --limit 20"""
     )
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
-    @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+    @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @click.pass_context
     def list_workflows(ctx, coordinator_url, format):
         """List all workflows registered with the coordinator."""
@@ -1290,7 +1290,7 @@ try:
             response = requests.get(coordinator_agent_api_url("workflows", coordinator_url), timeout=10)
             response.raise_for_status()
             result = response.json()
-            output(result, ctx.obj.get("output_format", format), title="Workflows")
+            output(result, resolve_output_format(ctx, format), title="Workflows")
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)

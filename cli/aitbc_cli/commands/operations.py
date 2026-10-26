@@ -19,7 +19,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
 
 from ..config import get_config
-from ..utils import DECIMAL, error, info, output, success
+from ..utils import DECIMAL, error, info, output, resolve_output_format, success
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -152,7 +152,7 @@ def submit_job(wallet_name: str, job_type: str, prompt: str, payment: Decimal, m
   aitbc operations ai status --job-id job-123"""
 )
 @click.option("--job-id", help="Specific job ID")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 def status(job_id: str | None, format: str):
     """Get the status of one or all AI jobs."""
     try:
@@ -248,7 +248,7 @@ def register(agent_id: str, status: str):
   aitbc operations agent list --status active"""
 )
 @click.option("--status", help="Filter by status")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 def list(status: str | None, format: str):
     """List registered agents, optionally filtered by status."""
     try:
@@ -432,7 +432,7 @@ def governance():
 @click.option("--voting-power", type=int, default=0, help="Voting power to use")
 @click.option("--reason", help="Vote reason")
 @wallet_password_options
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def vote(
     ctx,
@@ -486,7 +486,7 @@ def vote(
         result = http_client.post("/rpc/governance/vote", json=vote_data)
 
         success(f"Vote '{vote}' cast for proposal {proposal_id}")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except (CLIError, click.Abort):
@@ -515,7 +515,7 @@ def vote(
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
 @wallet_password_options
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def proposal(
     ctx,
@@ -589,7 +589,7 @@ def proposal(
         result = http_client.post("/rpc/governance/proposal", json=proposal_data)
 
         success(f"Proposal created: {proposal_id}")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except (CLIError, click.Abort):
@@ -607,7 +607,7 @@ def proposal(
   aitbc operations governance get-proposal --proposal-id prop-1 --output json"""
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def get_proposal(ctx, proposal_id: str, format: str):
     """Get a governance proposal from the blockchain."""
@@ -621,7 +621,7 @@ def get_proposal(ctx, proposal_id: str, format: str):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.get(f"/rpc/governance/proposal/{proposal_id}")
 
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -640,7 +640,7 @@ def get_proposal(ctx, proposal_id: str, format: str):
 @click.option("--address", required=True, help="Staker address")
 @click.option("--amount", type=int, required=True, help="Amount of tokens to stake")
 @click.option("--lock-days", type=int, default=30, help="Lock period in days (min 30)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def stake(ctx, address: str, amount: int, lock_days: int, format: str):
     """Stake tokens for enhanced voting power (governance-service record).
@@ -665,7 +665,7 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
         result = http_client.post("/v1/governance/stake", json=stake_data)
 
         success(f"Staked {amount} tokens for {lock_days} days")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -681,7 +681,7 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
 @click.option("--delegator", required=True, help="Delegator address")
 @click.option("--delegate", required=True, help="Delegate address")
 @click.option("--amount", type=int, required=True, help="Amount of voting power to delegate")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
     """Delegate voting power from one address to another."""
@@ -697,7 +697,7 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
         result = http_client.post("/v1/governance/delegate", json=delegation_data)
 
         success(f"Delegated {amount} voting power from {delegator} to {delegate}")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -713,7 +713,7 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
   aitbc operations governance execute --proposal-id prop-1 --output json"""
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def execute(ctx, proposal_id: str, format: str):
     """Execute a passed governance proposal on the blockchain."""
@@ -728,7 +728,7 @@ def execute(ctx, proposal_id: str, format: str):
         result = http_client.post(f"/rpc/governance/proposal/{proposal_id}/execute")
 
         success(f"Executed proposal {proposal_id}")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -744,7 +744,7 @@ def execute(ctx, proposal_id: str, format: str):
   aitbc operations governance voting-power --address 0x... --output json"""
 )
 @click.option("--address", "address", required=True, help="Blockchain address to fund.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def voting_power(ctx, address: str, format: str):
     """Get voting power for a blockchain address."""
@@ -758,7 +758,7 @@ def voting_power(ctx, address: str, format: str):
         http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
         result = http_client.get(f"/v1/governance/voting-power/{address}")
 
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
