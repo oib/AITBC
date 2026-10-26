@@ -21,7 +21,7 @@ def test_all_nodes_fail_raises(mocker: Any) -> None:
     try:
         asyncio.run(mgr.list_chains())
         raise AssertionError("should have raised")
-    except ConnectionError:
+    except RuntimeError:
         pass
 
 
@@ -36,3 +36,16 @@ def test_one_node_succeeds_ok(mocker: Any) -> None:
 
     mocker.patch.object(mgr, "_get_node_chains", new=mixed)
     assert len(asyncio.run(mgr.list_chains())) == 1
+
+
+def test_one_fails_one_empty_is_ok(mocker: Any) -> None:
+    """A node answering with zero chains is a success, not a failure."""
+    mgr = _mgr(mocker)
+
+    async def mixed(node_id: str) -> list:
+        if node_id == "n1":
+            raise ConnectionError("refused")
+        return []
+
+    mocker.patch.object(mgr, "_get_node_chains", new=mixed)
+    assert asyncio.run(mgr.list_chains()) == []
