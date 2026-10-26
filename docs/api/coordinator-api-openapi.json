@@ -30599,7 +30599,7 @@
             }
           },
           "503": {
-            "description": "Blockchain RPC unavailable: {e} / Blockchain RPC returned a malformed /rpc/supply payload (missing {e})",
+            "description": "Blockchain RPC unavailable / Blockchain RPC returned a malformed /rpc/supply payload",
             "content": {
               "application/json": {
                 "schema": {
