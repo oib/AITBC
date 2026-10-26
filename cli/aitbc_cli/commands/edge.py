@@ -144,9 +144,15 @@ def island():
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--role", default="compute-provider", help="Island role")
 @click.option("--is-hub", is_flag=True, help="Mark as hub node")
+@click.option("--confirm", is_flag=True, help="Confirm the write without prompting")
 @click.pass_context
-def join(ctx, island_id: str, island_name: str, chain_id: str, role: str, is_hub: bool):
+def join(ctx, island_id: str, island_name: str, chain_id: str, role: str, is_hub: bool, confirm: bool):
     """Join an island with the given ID, name, chain, and role."""
+    if not confirm:
+        if not click.confirm(
+            f"Join island {island_id} ({island_name}) on the edge service? This writes a record", default=False
+        ):
+            abort(None, "Join cancelled — no record written.")
     try:
         client = get_edge_client()
         response = client.post(
