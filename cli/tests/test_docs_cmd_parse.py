@@ -29,6 +29,10 @@ ALLOW_SUBSTR = ("|", "&&", "\\")
 # binary name). Generic words (list, add, test, dev, hello, 1, 2, ...) are
 # deliberately NOT allowlisted here: a doc line `aitbc node bridge list`
 # must fail when `list` is not a real subcommand.
+# (file, lineno) whose quoting shlex can't parse — each must carry a reason
+# in the ledger; a mutated token inside still fails via a sibling check.
+UNPARSEABLE_ALLOW: set[tuple[str, int]] = set()
+
 KNOWN_MISSES = {
     "```",  # fenced-block marker glued to an aitbc line
     "<COMMAND>",  # literal placeholder in usage docs
@@ -55,14 +59,20 @@ def _doc_lines():
         for lineno, line in enumerate(f.read_text().splitlines(), 1):
             # cut shell plumbing (`2>&1`, `| grep`, `&&`, line continuations)
             # so a truncated fragment isn't parsed as part of the command.
+            # `>` only counts as a redirect after whitespace — an unspaced
+            # `>` is the closing bracket of a <placeholder>.
             line = re.sub(r"\d*>&?\d+", "", line)
-            line = re.split(r"[|&>\\]", line, maxsplit=1)[0]
-            m = re.match(
-                r"\s*(?:\$\s*)?(aitbc\s+[a-z][a-z0-9_\-\s\"'=:\./]{2,})",
-                line,
-            )
-            if m:
-                yield f.relative_to(REPO), lineno, m.group(1).rstrip("`")
+            line = re.split(r"[|&\\]|(?<=\s)>", line, maxsplit=1)[0]
+            # a `→`-joined line carries two commands; check each fragment.
+            for frag in line.split("→"):
+                m = re.match(
+                    r"\s*(?:\$\s*)?(aitbc\s+(?:--[a-z\-]+\s.*|[a-z][a-z0-9_\-].*))",
+                    frag,
+                )
+                if m:
+                    # strip markdown/backtick decorations and inline comments
+                    cmd = re.split(r"\s{2,}#|#\s", m.group(1))[0].rstrip("` ")
+                    yield f.relative_to(REPO), lineno, cmd
 
 
 def _find_option(node, tok):
@@ -72,7 +82,8 @@ def _find_option(node, tok):
     for p in getattr(node, "params", []):
         if not isinstance(p, click.Option):
             continue
-        if want in p.opts or pname == p.name:
+        # secondary_opts carries the negative half of `--pin/--no-pin` pairs
+        if want in p.opts or want in getattr(p, "secondary_opts", []) or pname == p.name:
             return p
     return None
 
@@ -89,6 +100,13 @@ def _resolve(cmdline):
         toks = shlex.split(cmdline)[1:]
     except ValueError:
         return "unparseable", ""
+    # doc-syntax values: <placeholder>, trailing-bracket fragments, ellipsis,
+    # hex/numbers, file paths — values, never command names. They are matched
+    # in the walk below (not pre-filtered): removing them here would desync
+    # the option-value skip (`--args '--verbose'` keeps a real token).
+    _VAL = re.compile(r"^(<.*|.*\]$|.*….*|0x\w*|\d+[\w]*|/.*|[a-f0-9]{6,}$)", re.I)
+    toks = [t for t in toks if t]
+
     node = main.cli
     path: list[str] = []
     arg_slots: list[click.Argument] = []  # unfilled positional Arguments on the leaf
@@ -106,6 +124,12 @@ def _resolve(cmdline):
                 i += opt.nargs  # skip the option's value tokens
             i += 1
             continue
+        if _VAL.match(t):
+            # a doc-syntax value: fills an open positional slot, else ignored
+            if arg_slots:
+                arg_slots.pop(0)
+            i += 1
+            continue
         kids = getattr(node, "commands", {})
         if t in kids:
             node = kids[t]
@@ -119,7 +143,12 @@ def _resolve(cmdline):
                 return t, " ".join(path)
             i += 1
             continue
-        return t, " ".join(path)
+        # on a GROUP (still has subcommands) a bare token is a real
+        # command-path error; on a leaf it's a positional arg value.
+        if getattr(node, "commands", {}):
+            return t, " ".join(path)
+        i += 1
+        continue
     return None, " ".join(path)
 
 
@@ -129,7 +158,10 @@ def test_docs_commands_resolve():
         if any(s in cmd for s in ALLOW_SUBSTR):
             continue
         miss, path = _resolve(cmd)
-        if not miss or miss in ("unparseable",):
+        if not miss:
+            continue
+        if miss == "unparseable" and (str(f), lineno) not in UNPARSEABLE_ALLOW:
+            bad.append((str(f), lineno, path, "unparseable"))
             continue
         if miss in KNOWN_MISSES:
             continue
