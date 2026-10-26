@@ -26,6 +26,7 @@ pytest.importorskip("click")
 from aitbc.db import agent_db  # noqa: E402
 from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from aitbc_cli.commands.coin_requests import coin_requests  # noqa: E402
+from aitbc_cli.utils.error_handling import CLIError  # noqa: E402
 
 PAID_HASH = "0x" + "2d" * 32
 LOST_HASH = "0x" + "ab" * 32
@@ -210,6 +211,5 @@ def test_reopen_leaves_a_trail(db, chain) -> None:
 def test_reopening_an_unexecuted_request_is_a_no_op(db, chain) -> None:
     _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
 
-    result = _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
-
-    assert "already executable" in result.output
+    with pytest.raises(CLIError, match="already executable"):
+        _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)

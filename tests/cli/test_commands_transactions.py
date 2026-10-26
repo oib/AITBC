@@ -102,8 +102,8 @@ class TestTransactionsCommands:
 
         result = runner.invoke(transactions, ["status", "--tx-hash", "0xabc123"])
 
-        # NetworkError is caught and an error message is printed (exit 0).
-        assert result.exit_code == 0, result.output
+        # NetworkError is reported and the command fails.
+        assert result.exit_code != 0, result.output
         assert "Error" in result.output
 
     @patch("aitbc_cli.commands.transactions.AITBCHTTPClient")
@@ -229,10 +229,12 @@ class TestTransactionsCommands:
 
         result = runner.invoke(transactions, ["batch", "--transactions-file", batch_file, "--password", "pw"])
 
-        assert result.exit_code == 0, result.output
+        # A duplicate tx hash now aborts the batch (fail-closed) rather than
+        # counting the second send as a success.
+        assert result.exit_code != 0, result.output
         assert mock_send.call_count == 2
         assert "duplicate hash" in result.output
-        assert "1/2 successful" in result.output
+        assert "already submitted" in result.output or "aborted" in result.output
 
     @patch("aitbc_cli.commands.transactions._send_transaction_impl")
     def test_batch_increments_nonce_offset_per_sender(self, mock_send, runner, tmp_path):

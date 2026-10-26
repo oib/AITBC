@@ -88,17 +88,22 @@ class TestMcpHttpAuthModes:
         kwargs.update(overrides)
         return srv.call_aitbc_http(**kwargs)
 
+    # The dry-run echo masks the auth selector now (aitbc_mcp_mask redacts the
+    # flag value), so assert the flag is present and the literal name is gone.
     def test_auth_rpc_builds_auth_flag(self):
         out = self._call(auth="rpc")
-        assert "--auth rpc" in out or "--auth=rpc" in out
+        assert "--auth=<redacted>" in out or "--auth <redacted>" in out
+        assert "--auth rpc" not in out and "--auth=rpc" not in out
 
     def test_auth_trading_builds_auth_flag(self):
         out = self._call(auth="trading")
-        assert "--auth trading" in out or "--auth=trading" in out
+        assert "--auth=<redacted>" in out or "--auth <redacted>" in out
+        assert "--auth trading" not in out and "--auth=trading" not in out
 
     def test_auth_miner_still_works(self):
         out = self._call(auth="miner")
-        assert "--auth miner" in out or "--auth=miner" in out
+        assert "--auth=<redacted>" in out or "--auth <redacted>" in out
+        assert "--auth miner" not in out and "--auth=miner" not in out
 
 
 class TestMarketEscrowStatusErrors:

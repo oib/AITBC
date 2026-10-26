@@ -174,7 +174,7 @@ class TestWalletCommands:
             ["--wallet-path", str(wallet_path), "create", "--name", "existing", "--no-encrypt"],
         )
 
-        assert result.exit_code == 0, result.output
+        assert result.exit_code != 0, result.output
         assert "already exists" in result.output
 
     @staticmethod
@@ -275,7 +275,7 @@ class TestWalletCommands:
 
         result = runner.invoke(wallet, ["--wallet-path", str(active_path), "info", "--name", "missing"])
 
-        assert result.exit_code == 0, result.output
+        assert result.exit_code != 0, result.output
         assert "not found" in result.output
 
 
