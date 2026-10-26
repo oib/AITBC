@@ -1,5 +1,6 @@
 """SECRET-EXCL-1 / UNPLAYABLE-TAG-1: the census generator reports
 secret-excluded counts and unplayable tags correctly."""
+
 import json
 import subprocess
 import sys
@@ -35,18 +36,33 @@ TREE = {
 }
 
 
-def _run(tmp_path, exclusions=None):
+def _run(tmp_path, exclusions=None, plays=None):
     (tmp_path / "t.json").write_text(json.dumps(TREE))
-    (tmp_path / "c.json").write_text(json.dumps(
-        [{"scenario": "s1", "line": 1, "kind": "play", "cmd": "aitbc agent --format x", "verdict": "ok", "path": "agent"}]
-    ))
+    (tmp_path / "c.json").write_text(
+        json.dumps(
+            [{"scenario": "s1", "line": 1, "kind": "play", "cmd": "aitbc agent --format x", "verdict": "ok", "path": "agent"}]
+        )
+    )
     exc = tmp_path / "ex.json"
     exc.write_text(json.dumps(exclusions or {}))
     out = tmp_path / "o.md"
     subprocess.run(
-        [sys.executable, str(SCRIPT), "--tree", str(tmp_path / "t.json"),
-         "--census", str(tmp_path / "c.json"), "--out", str(out), "--exclusions", str(exc)],
-        check=True, capture_output=True)
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--tree",
+            str(tmp_path / "t.json"),
+            "--census",
+            str(tmp_path / "c.json"),
+            "--out",
+            str(out),
+            "--exclusions",
+            str(exc),
+        ]
+        + (["--plays", plays] if plays else []),
+        check=True,
+        capture_output=True,
+    )
     return out.read_text()
 
 
@@ -65,4 +81,28 @@ def test_unplayable(tmp_path):
 
 
 def test_exclusions_file_loads():
-    assert "agent-comm list" in json.loads(EXC.read_text())
+    assert "dispute auto-adjudicate" in json.loads(EXC.read_text())
+
+
+def test_plays_row_flips_exercised(tmp_path):
+    """A row in plays*.json must flip an option to exercised — mutation:
+    ignoring --plays makes this fail."""
+    c1 = _run(tmp_path, {})
+    fixture_plays = tmp_path / "plays-test.json"
+    fixture_plays.write_text(
+        json.dumps(
+            [
+                {
+                    "scenario": "t",
+                    "line": 1,
+                    "kind": "play",
+                    "cmd": "aitbc agent-comm list --status active",
+                    "verdict": "ok",
+                    "path": "agent-comm",
+                }
+            ]
+        )
+    )
+    c2 = _run(tmp_path, {}, plays=str(tmp_path / "plays*.json"))
+    assert "| `agent-comm` | 1 | 0 |" in c1
+    assert "| `agent-comm` | 1 | 1 |" in c2
