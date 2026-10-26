@@ -191,6 +191,7 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 77 | [Trade CLI Options](./77_trade_options.md) | `aitbc trade` options as reads/free refusals (401/404, array-shape drift) | `aitbc trade` |
 | 80 | [Required CLI Flags](./80_required_flags.md) | last required-flag gaps exercised as free refusals | `aitbc operations`, `aitbc economics` |
 | 83 | [Staking Options](./83_stake_options.md) | stake/unstake/liquidity-stake/reinvest options as wallet-gate refusals | `aitbc stake`, `aitbc unstake`, `aitbc liquidity-stake`, `aitbc reinvest` |
+| 85 | [Secret-Form Coverage](./85_secret_forms.md) | password-file/stdin refusal plays across all leaves | `aitbc` all groups |
 | 84 | [Last Uncovered Options](./84_last_options.md) | economics/trade leftovers as auth-gate refusals; census 0 non-secret | `aitbc economics`, `aitbc trade` |
 | 78 | [Market CLI Options](./78_market_options.md) | `aitbc market` money-path and listing options as reads/free refusals (offer-resolution, wallet, quote-verification) | `aitbc market` |
 | 79 | [Exchange CLI Options](./79_exchange_options.md) | `aitbc exchange` + `exchange-island` options as reads/free refusals (wallet gate, cap, island credentials, verifier drift) | `aitbc exchange` |
