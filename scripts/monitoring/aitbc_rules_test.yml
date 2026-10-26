@@ -1823,3 +1823,34 @@ tests:
       - expr: 'aitbc_backup_last_generation_bytes{instance="reset:9009"} < 0.6 * max_over_time(aitbc_backup_last_generation_bytes{instance="reset:9009"}[2d])'
         eval_time: 7d
         exp_samples: []
+
+
+  - interval: 5m
+    input_series:
+      # Gauge re-exported each scrape, as in production — constant between
+      # daily updates. coll: 4M for 6d, collapses to 1M → fires in the
+      # ~2d window where max_over_time[2d] still holds the big value.
+      - series: 'aitbc_backup_last_generation_bytes{instance="coll:9009", job="blockchain-node"}'
+        values: '4000000+0x1728 1000000+0x864'
+      # reset: sustained small baseline — under the median but never a
+      # sharp drop → silent the whole time.
+      - series: 'aitbc_backup_last_generation_bytes{instance="reset:9009", job="blockchain-node"}'
+        values: '2000000+0x2592'
+    alert_rule_test:
+      # Sharp drop ~6d in: median still high, 2d-max still high → fires.
+      # Deleting the sharp-drop clause changes nothing here.
+      - eval_time: 6d6h
+        alertname: BackupSizeCollapse
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: "coll:9009"
+              job: blockchain-node
+            exp_annotations:
+              summary: "Newest backup generation is under 50% of the 7-day median on coll:9009"
+              description: "The newest generation on coll:9009 is 1e+06 bytes — under half its own 7-day median. Check the run journal for skipped sources or truncated artifacts."
+      # Same shape but 2.5d past the drop: 2d-max re-anchored low →
+      # silent. WITHOUT the new clause this fires — binds the mutation.
+      - eval_time: 204h
+        alertname: BackupSizeCollapse
+        exp_alerts: []
