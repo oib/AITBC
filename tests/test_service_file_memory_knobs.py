@@ -12,9 +12,9 @@ that is a long-running unit (``Restart=on-failure`` and NOT
 ``Type=oneshot`` — oneshots never restart, so their knobs are dead
 config; ``aitbc-recovery.service`` is the example):
 
-1. ``OOMScoreAdjust=`` present, an integer in [-1000, 1000]. Negative
-   values shield (consensus units), positive values volunteer the unit
-   as an early kill candidate.
+1. ``OOMScoreAdjust=`` absent. 486f25e03 stripped it from every unit:
+   hub is an unprivileged LXC where the score is inert, so the lint now
+   guards against the dead key creeping back in.
 2. ``MemoryMax=`` implies ``MemoryHigh=``, and High < Max — the soft
    throttle must sit under the hard cap or it never fires.
 3. ``RestartSec=`` present — a restart delay exists so an OOM-killed
@@ -81,11 +81,9 @@ def test_scan_finds_long_running_units() -> None:
 
 
 @pytest.mark.parametrize("path", LONG_RUNNING, ids=lambda p: p.name)
-def test_oom_score_adjust_present_and_in_range(path: Path) -> None:
+def test_oom_score_adjust_stays_absent(path: Path) -> None:
     val = _section_service(path).get("OOMScoreAdjust")
-    assert val is not None, f"{path.name}: long-running unit lacks OOMScoreAdjust"
-    score = int(val)
-    assert -1000 <= score <= 1000, f"{path.name}: OOMScoreAdjust={score} out of [-1000,1000]"
+    assert val is None, f"{path.name}: OOMScoreAdjust={val} re-added — inert on unprivileged LXC (486f25e03)"
 
 
 @pytest.mark.parametrize("path", LONG_RUNNING, ids=lambda p: p.name)
