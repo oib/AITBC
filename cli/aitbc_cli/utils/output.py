@@ -98,6 +98,24 @@ def _render(message: Any, format: str) -> str:
     return tabulate(body, headers=headers, tablefmt="grid")
 
 
+def _status_stderr() -> bool:
+    """Status labels go to stderr only when a json format is active, so
+    piped `--output json` stdout stays parseable while table users keep
+    the labels on stdout."""
+    try:
+        import click
+
+        ctx = click.get_current_context(silent=True)
+        while ctx is not None:
+            obj = getattr(ctx, "obj", None)
+            if isinstance(obj, dict) and obj.get("output_format") == "json":
+                return True
+            ctx = ctx.parent
+    except Exception:
+        pass
+    return False
+
+
 def output(message, format=None, title=None, **kwargs):
     """Print a regular output message (handles strings and structured data)"""
     if not isinstance(message, str):
@@ -111,25 +129,25 @@ def output(message, format=None, title=None, **kwargs):
 
 def error(message: str, **kwargs):
     """Print an error message in red"""
-    kwargs.setdefault("err", True)
+    kwargs.setdefault("err", _status_stderr())
     secho(message, fg="red", **kwargs)
 
 
 def success(message: str, **kwargs):
     """Print a success message in green"""
-    kwargs.setdefault("err", True)
+    kwargs.setdefault("err", _status_stderr())
     secho(message, fg="green", **kwargs)
 
 
 def info(message: str, **kwargs):
     """Print an info message in blue"""
-    kwargs.setdefault("err", True)
+    kwargs.setdefault("err", _status_stderr())
     secho(message, fg="blue", **kwargs)
 
 
 def warning(message: str, **kwargs):
     """Print a warning message in yellow"""
-    kwargs.setdefault("err", True)
+    kwargs.setdefault("err", _status_stderr())
     secho(message, fg="yellow", **kwargs)
 
 
