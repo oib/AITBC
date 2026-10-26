@@ -596,3 +596,9 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   `svc_*.backup` opens, baseline row counts, optional `--textfile`
   metrics. Read-only on the backups, exit 1 fail / 2 unreadable, no
   unit installed.
+### OPS-NOISE-3
+
+- `node_client` no longer hits `/api/*` routes on a plain chain-rpc
+  endpoint: the stub `/api/auth` is skipped (its session id was never
+  consumed) and `get_chain_stats` falls back to `/rpc/head` — the
+  404s that fed `rpc_client_errors_total` stop.
