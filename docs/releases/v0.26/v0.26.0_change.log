@@ -691,3 +691,8 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   on main — the table-despite-json repro was node2's stale checkout.
   Pinned with tests asserting `--format json` emits parseable JSON
   for voting-power.
+### CLI-UPDATE-NODEPLOY-1
+
+- `update --no-deploy` no longer pulls: it routes through the same
+  fetch-and-report path as `--check`, so the worktree is untouched.
+  Help text corrected from "fetch and fast-forward only".
