@@ -666,7 +666,9 @@ def jobs(
             params["buyer_address"] = buyer_address
         if offer_id:
             params["offer_id"] = offer_id
-        result = _market_client().get("/v1/market/jobs", params=params)
+        # GET /v1/market/jobs returns a bare JSON array; get() narrows via
+        # expect_object and raises TypeError on non-object bodies.
+        result = _market_client().get_json("/v1/market/jobs", params=params)
         output(result, output_format, title="Market Jobs")
     except NetworkError as e:
         error(f"Could not list market jobs: {e}")
