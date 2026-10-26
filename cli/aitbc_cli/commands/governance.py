@@ -340,7 +340,10 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
             params["category"] = category
         if proposer_id:
             params["proposer_id"] = proposer_id
-        result = client.get("/v1/governance/proposals", params=params)
+        # GET /v1/governance/proposals returns a bare JSON array; get()
+        # narrows via expect_object and raises TypeError on non-object
+        # bodies (#552).
+        result = client.get_json("/v1/governance/proposals", params=params)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
