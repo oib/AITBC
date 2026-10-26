@@ -111,9 +111,11 @@ Nightly artifacts under `/var/backups/aitbc/` are `sqlite3 .dump` output —
 SQL text, not a DB file. Rebuild from them with
 `zcat chain_<name>.db.gz | sqlite3 restored.db`, then run the same
 verification block — opening the `.gz` directly reports "not a database".
-Operator file copies (like the drill file) and the coordinator.db nightly
-`.gz` are **binary** copies and load as-is (`PRAGMA integrity_check` +
-alembic head check).
+Operator file copies (like the drill file) can be used directly.
+`coordinator.db` lands in the same `.dump` sweep when it lives under
+`data/` (`chain_*_coordinator.db.gz` — rebuild via `zcat | sqlite3`);
+`svc_*.gz` copies of stray service DBs are **binary** `.backup` files
+and load as-is (`PRAGMA integrity_check` + alembic head check).
 
 ## Off-site pull
 
