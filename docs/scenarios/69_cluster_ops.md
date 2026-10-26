@@ -58,7 +58,7 @@ not misled by the stub values.
 
 ```bash
 aitbc cluster status
-aitbc cluster status --output json
+aitbc --output json cluster status
 aitbc cluster sync
 aitbc cluster balance
 ```

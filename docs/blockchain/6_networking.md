@@ -146,7 +146,7 @@ aitbc node bridge approve --request-id <request-id> --approving-node-id <approvi
 aitbc node bridge reject --request-id <request-id> --reason "<reason>"
 
 # List active bridges
-aitbc node bridge list
+aitbc node bridge list-bridges
 ```
 
 ### Multi-Chain Support

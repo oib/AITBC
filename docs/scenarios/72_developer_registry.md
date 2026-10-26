@@ -58,7 +58,7 @@ developer registry with name/GitHub metadata for accountability.
 ```bash
 aitbc developer list
 aitbc developer list --active-only --limit 50 --offset 0
-aitbc developer list --all --format json
+aitbc developer list --format json
 ```
 
 **Expected output:** registered developers with wallet address, name,

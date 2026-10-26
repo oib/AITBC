@@ -73,7 +73,7 @@ aitbc agent workflow execute --workflow-id <id>
 # Related top-level groups
 aitbc zk circuits
 aitbc zk verify --proof <proof> --public-signals <inputs>
-aitbc agent-msg send --message <msg> --to-agent <agent>
+aitbc agent-msg send "<text>" --to-agent <agent>
 aitbc dispute file --agreement-id <id> --respondent <addr> --dispute-type <type> --reason <text> --evidence-hash <hash>
 ```
 

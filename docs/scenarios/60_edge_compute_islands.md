@@ -65,7 +65,7 @@ small compute requests to a specific edge GPU.
 ```bash
 aitbc edge status
 aitbc edge balance
-aitbc edge balance --output json
+aitbc --output json edge balance
 ```
 
 **Expected output:** the edge status map, then the edge wallet balance
