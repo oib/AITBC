@@ -439,13 +439,20 @@ class _Sentinel(Exception):
 
 def _import_unified_genesis():
     scripts_dir = Path(__file__).resolve().parents[2] / "apps/blockchain-node/scripts"
+    if not (scripts_dir / "unified_genesis.py").exists():
+        pytest.skip("unified_genesis.py not in this checkout/archive")
     sys.path.insert(0, str(scripts_dir))
     try:
         import unified_genesis
 
         return unified_genesis
     finally:
-        sys.path.pop()
+        # Remove by value, not position: unified_genesis.py pushes its own
+        # entries at import time (blockchain-node/src + repo root), so the
+        # scripts dir is no longer at index 0 — a bare pop() removes an
+        # unrelated entry (e.g. an editable-install src dir like
+        # packages/py/aitbc-sdk/src) and poisons later imports suite-wide.
+        sys.path.remove(str(scripts_dir))
 
 
 class TestUnifiedGenesisEnv:
