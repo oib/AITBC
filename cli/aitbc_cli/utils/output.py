@@ -110,6 +110,9 @@ def _status_stderr() -> bool:
             obj = getattr(ctx, "obj", None)
             if isinstance(obj, dict) and obj.get("output_format") == "json":
                 return True
+            params = getattr(ctx, "params", None)
+            if isinstance(params, dict) and params.get("format") == "json":
+                return True
             ctx = ctx.parent
     except Exception:
         pass
