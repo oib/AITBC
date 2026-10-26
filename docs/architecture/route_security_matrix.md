@@ -114,6 +114,7 @@ Real route/auth pairs today:
 Route                          | Method | Auth Level | Implementation
 -------------------------------|--------|------------|----------------
 /health, /metrics             | GET    | Level 1    | None
+/prometheus                   | GET    | Level 1    | None (metadata-only counters; loopback-scoped, nginx must not proxy it)
 /v1/miners/register           | POST   | Level 2/3  | MinerDep (JWT or X-Api-Key)
 /v1/jobs                      | POST   | Level 3    | AdminOrClientDep (JWT)
 /rpc/transaction              | POST   | Level 2    | Tx `signature` verified against `from` (no API key)
