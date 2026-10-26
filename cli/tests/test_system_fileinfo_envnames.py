@@ -614,14 +614,15 @@ def test_env_names_process_value_allowed_residual_names(runner, tmp_path, monkey
 def test_env_names_denied_guard_allows_all_fleet_names():
     """Every env name the fleet currently relies on stays allowed.
 
-    Fixture: cli/tests/fixtures/fleet_env_names_allowed.txt — the 246 distinct
+    Fixture: cli/tests/fixtures/fleet_env_names_allowed.txt — the 250 distinct
     names the guard allowed across the five hosts' /etc/aitbc/*.env files
-    on 20 Oct 2026 (names only, no values; director's census). A deny
+    (20 Oct 2026 census of 246 + 4 v16 admission-gate names from e74cb8ded;
+    names only, no values; director's census). A deny
     token that trips a legitimate fleet name fails here.
     """
     fixture = Path(__file__).parent / "fixtures" / "fleet_env_names_allowed.txt"
     names = [line.strip() for line in fixture.read_text().splitlines() if line.strip()]
-    assert len(names) == 246  # fixture drift guard
+    assert len(names) == 250  # fixture drift guard
     refused = [name for name in names if system_mod._field_name_denied(name)]
     assert refused == []
 
