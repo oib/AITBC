@@ -4,7 +4,7 @@ Generated from the OPTION-DOCS-1 census on the current main (regenerate with
 `scripts/dev/gen_option_coverage.py`; this file is the row-citation source).
 
 Legend: 🔒 = secret-value flag, intentionally unexercised.
-**870 non-secret unexercised, 255 secret-excluded.**
+**881 non-secret unexercised, 255 secret-excluded.**
 
 
 ## `account` — 4 unexercised (+0 🔒)
@@ -217,7 +217,49 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 ## `bootstrap` — 1 unexercised (+0 🔒)
 - `aitbc bootstrap bootstrap-env` --overwrite
 
-## `bridge` — 0 unexercised (+5 🔒)
+## `bridge` — 42 unexercised (+5 🔒)
+- `aitbc bridge attest` --header-file
+- `aitbc bridge attest` --source-rpc
+- `aitbc bridge attest` --height
+- `aitbc bridge attest` --chain-id
+- `aitbc bridge attest` --proposer
+- `aitbc bridge attest` --target-rpc
+- `aitbc bridge attest` --output`, `-o
+- `aitbc bridge balance` --rpc-url
+- `aitbc bridge confirm` --rpc-url
+- `aitbc bridge deposits` --status
+- `aitbc bridge deposits` --tx-hash
+- `aitbc bridge deposits` --repo-root
+- `aitbc bridge ingest-header` --source-rpc
+- `aitbc bridge ingest-header` --target-rpc
+- `aitbc bridge ingest-header` --chain-id
+- `aitbc bridge ingest-header` --re-sign`, `--no-re-sign
+- `aitbc bridge ingest-header` --proposer
+- `aitbc bridge ingest-header` --output`, `-o
+- `aitbc bridge lock` --asset
+- `aitbc bridge lock` --source-chain
+- `aitbc bridge lock` --issued-at
+- `aitbc bridge lock` --nonce
+- `aitbc bridge lock` --wallet-name
+- `aitbc bridge lock` --rpc-url
+- `aitbc bridge oracle-status` --rpc-url
+- `aitbc bridge pending` --chain-id
+- `aitbc bridge pending` --rpc-url
+- `aitbc bridge proof` --source-chain
+- `aitbc bridge proof` --block-height
+- `aitbc bridge proof` --block-hash
+- `aitbc bridge proof` --rpc-url
+- `aitbc bridge register-validator` --admin-address
+- `aitbc bridge register-validator` --epoch
+- `aitbc bridge register-validator` --rpc-url
+- `aitbc bridge security-status` --rpc-url
+- `aitbc bridge sign-proof` --output`, `-o
+- `aitbc bridge status` --transfer-id
+- `aitbc bridge status` --rpc-url
+- `aitbc bridge store-header` --admin-address
+- `aitbc bridge store-header` --rpc-url
+- `aitbc bridge unlock` --wallet-name
+- `aitbc bridge unlock` --rpc-url
 
 ## `coin-requests` — 8 unexercised (+0 🔒)
 - `aitbc coin-requests list` --sender
@@ -518,7 +560,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc liquidity-stake` --lock-days
 - `aitbc liquidity-stake` --fee
 
-## `market` — 97 unexercised (+10 🔒)
+## `market` — 106 unexercised (+10 🔒)
 - `aitbc market cancel` --reason
 - `aitbc market cancel` --output
 - `aitbc market cancel` --format
@@ -528,6 +570,8 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market download` --wait
 - `aitbc market download` --output
 - `aitbc market download` --format
+- `aitbc market escrow create` --amount
+- `aitbc market escrow create` --wallet
 - `aitbc market exchange deposit-eth` --ait-address
 - `aitbc market exchange deposit-eth` --bridge-address
 - `aitbc market exchange deposit-eth` --gas
@@ -562,6 +606,13 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market host` --proposer-id
 - `aitbc market host` --output
 - `aitbc market host` --format
+- `aitbc market jobs` --service-type
+- `aitbc market jobs` --state
+- `aitbc market jobs` --buyer-address
+- `aitbc market jobs` --offer-id
+- `aitbc market jobs` --limit
+- `aitbc market jobs` --output
+- `aitbc market jobs` --format
 - `aitbc market list` --provider
 - `aitbc market list` --status
 - `aitbc market list` --sort
@@ -889,47 +940,6 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc tee verify` --zk-proof
 - `aitbc tee verify` --mode
 
-## `trade` — 40 unexercised (+0 🔒)
-- `aitbc trade chains` --format
-- `aitbc trade create` --format
-- `aitbc trade discover` --region
-- `aitbc trade discover` --gpu-model
-- `aitbc trade discover` --format
-- `aitbc trade get` --format
-- `aitbc trade health` --format
-- `aitbc trade history` --dest-chain
-- `aitbc trade history` --format
-- `aitbc trade list` --dest-chain
-- `aitbc trade list` --limit
-- `aitbc trade list` --format
-- `aitbc trade lock-escrow` --api-key
-- `aitbc trade lock-escrow` --timeout
-- `aitbc trade lock-escrow` --format
-- `aitbc trade match` --format
-- `aitbc trade match-all` --format
-- `aitbc trade refund` --node-url
-- `aitbc trade refund` --api-key
-- `aitbc trade refund` --format
-- `aitbc trade register-chain` --format
-- `aitbc trade search` --service-type
-- `aitbc trade search` --min-price
-- `aitbc trade search` --max-price
-- `aitbc trade search` --format
-- `aitbc trade settle` --node-url
-- `aitbc trade settle` --api-key
-- `aitbc trade settle` --format
-- `aitbc trade settlement-status` --node-url
-- `aitbc trade settlement-status` --api-key
-- `aitbc trade settlement-status` --format
-- `aitbc trade status` --format
-- `aitbc trade subscription-status` --format
-- `aitbc trade sync` --format
-- `aitbc trade sync-status` --format
-- `aitbc trade watch` --min-price
-- `aitbc trade watch` --max-price
-- `aitbc trade watch` --region
-- `aitbc trade watch` --gpu-model
-- `aitbc trade watch` --format
 
 ## `transactions` — 12 unexercised (+4 🔒)
 - `aitbc transactions batch` --rpc-url
