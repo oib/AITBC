@@ -602,3 +602,12 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   endpoint: the stub `/api/auth` is skipped (its session id was never
   consumed) and `get_chain_stats` falls back to `/rpc/head` — the
   404s that fed `rpc_client_errors_total` stop.
+
+
+### ALERT-REVIEW-1 (BackupSizeCollapse)
+
+- `BackupSizeCollapse` gains a second clause: the newest generation must
+  also be <60% of `max_over_time(...[2d])` — a sharp drop from the
+  previous generation, not a sustained lower baseline. Post-reset, the
+  7d median sits above every generation for ~3.5 days and the rule
+  re-fired daily (159 fires in 4 days); a real degraded run still fires.

@@ -751,7 +751,13 @@ groups:
       # silence with expiry, not by this rule
       # (see docs/deployment/bc2-alert-window.md).
       - alert: BackupSizeCollapse
-        expr: aitbc_backup_last_generation_bytes < 0.5 * quantile_over_time(0.5, aitbc_backup_last_generation_bytes[7d])
+        # Second clause: also require a sharp drop from the PREVIOUS
+        # generation (offset ~1d ≈ last run). Post-reset the median sits
+        # above every generation for ~3.5 days — without this, the rule
+        # re-fires daily on a sustained lower baseline (ALERT-REVIEW-1).
+        expr: |
+          aitbc_backup_last_generation_bytes < 0.5 * quantile_over_time(0.5, aitbc_backup_last_generation_bytes[7d])
+          and aitbc_backup_last_generation_bytes < 0.6 * max_over_time(aitbc_backup_last_generation_bytes[2d])
         for: 1h
         labels:
           severity: warning
