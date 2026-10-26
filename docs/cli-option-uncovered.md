@@ -4,7 +4,7 @@ Generated from the OPTION-DOCS-1 census on the current main (regenerate with
 `scripts/dev/gen_option_coverage.py`; this file is the row-citation source).
 
 Legend: 🔒 = secret-value flag, intentionally unexercised.
-**921 non-secret unexercised, 255 secret-excluded.**
+**879 non-secret unexercised, 255 secret-excluded.**
 
 
 ## `account` — 4 unexercised (+0 🔒)
@@ -217,49 +217,9 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 ## `bootstrap` — 1 unexercised (+0 🔒)
 - `aitbc bootstrap bootstrap-env` --overwrite
 
-## `bridge` — 42 unexercised (+5 🔒)
-- `aitbc bridge attest` --header-file
-- `aitbc bridge attest` --source-rpc
-- `aitbc bridge attest` --height
-- `aitbc bridge attest` --chain-id
-- `aitbc bridge attest` --proposer
-- `aitbc bridge attest` --target-rpc
-- `aitbc bridge attest` --output`, `-o
-- `aitbc bridge balance` --rpc-url
-- `aitbc bridge confirm` --rpc-url
-- `aitbc bridge deposits` --status
-- `aitbc bridge deposits` --tx-hash
-- `aitbc bridge deposits` --repo-root
-- `aitbc bridge ingest-header` --source-rpc
-- `aitbc bridge ingest-header` --target-rpc
-- `aitbc bridge ingest-header` --chain-id
-- `aitbc bridge ingest-header` --re-sign`, `--no-re-sign
-- `aitbc bridge ingest-header` --proposer
-- `aitbc bridge ingest-header` --output`, `-o
-- `aitbc bridge lock` --asset
-- `aitbc bridge lock` --source-chain
-- `aitbc bridge lock` --issued-at
-- `aitbc bridge lock` --nonce
-- `aitbc bridge lock` --wallet-name
-- `aitbc bridge lock` --rpc-url
-- `aitbc bridge oracle-status` --rpc-url
-- `aitbc bridge pending` --chain-id
-- `aitbc bridge pending` --rpc-url
-- `aitbc bridge proof` --source-chain
-- `aitbc bridge proof` --block-height
-- `aitbc bridge proof` --block-hash
-- `aitbc bridge proof` --rpc-url
-- `aitbc bridge register-validator` --admin-address
-- `aitbc bridge register-validator` --epoch
-- `aitbc bridge register-validator` --rpc-url
-- `aitbc bridge security-status` --rpc-url
-- `aitbc bridge sign-proof` --output`, `-o
-- `aitbc bridge status` --transfer-id
-- `aitbc bridge status` --rpc-url
-- `aitbc bridge store-header` --admin-address
-- `aitbc bridge store-header` --rpc-url
-- `aitbc bridge unlock` --wallet-name
-- `aitbc bridge unlock` --rpc-url
+## `bridge` — 0 unexercised (+5 🔒)
+_(all non-secret options exercised in scenario 76; the 5 🔒 secret-value flags stay unexercised by design)_
+
 
 ## `coin-requests` — 8 unexercised (+0 🔒)
 - `aitbc coin-requests list` --sender
