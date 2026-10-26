@@ -44,9 +44,9 @@ def mock_client():
                 tee_attestation_enabled=True,
             ),
         ):
-            with patch(
-                "aitbc_cli.commands.tee.AuthManager", return_value=MagicMock(get_credential=MagicMock(return_value=""))
-            ):
+            # commands.tee authenticates via auth_client_kwargs, which imports
+            # AuthManager lazily from aitbc_cli.auth — patch it there.
+            with patch("aitbc_cli.auth.AuthManager", return_value=MagicMock(get_credential=MagicMock(return_value=""))):
                 yield client
 
 
