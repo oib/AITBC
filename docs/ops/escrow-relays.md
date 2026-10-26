@@ -69,3 +69,20 @@ must reach a settlement node's rpc directly (allowlisted + API key).
 - `409` — a different lock already exists for the same `job_id`.
 - `502` — chain timeout/5xx through the relay (safe to retry: dedup
   returns the stored row).
+
+## Stuck-lock monitor — `scripts/ops/escrow-stuck-sweep.py`
+
+A lock can outlive its job: a job that completes, fails, or is canceled
+while its escrow row stays `locked` strands the money with no automatic
+settler (SEC-20b, the #455 fast-job run). The sweep is the read-only
+monitor for that condition: it opens the chain DB `escrow` and
+`transaction` tables plus the coordinator `job`/`job_payments` tables
+(and `marketplace_jobs` when present) through SQLite `mode=ro` +
+`PRAGMA query_only=ON`, lists every lock whose job is terminal
+(`COMPLETED`/`FAILED`/`CANCELED`/`EXPIRED`, terminal `job_payments.status`,
+or a sealed `ESCROW_RELEASE`/`ESCROW_REFUND` leg) and older than
+`--max-age` (default 1 h), and exits 1 when any exist. `--host hub`
+runs the same read-only queries over ssh; `--textfile` emits
+node_exporter metrics. Run by hand or from the gate — deliberately no
+systemd unit; refunding a listed lock stays a settlement-node operator
+action per the refund section above.
