@@ -262,11 +262,128 @@ async function loadBridgeHealth() {
     }
 }
 
+// ── Ethereum → AITBC payouts ──────────────────────────────────────────
+// The chain-side leg of every ETH→AIT bridge move is a TRANSFER out of the
+// public bridge payout account. The enumerable wallet-ledger index is
+// loopback-only (privacy: it pairs ETH sender with AIT recipient), so this
+// section reads the already-public explorer index instead — nothing shown
+// here is not already visible on the transaction explorer.
+
+function payoutParts(tx) {
+    const time = tx.created_at || '';
+    const whenParts = time ? aitbcFmt.date(time).split(' ') : ['-'];
+    const when = whenParts.map((p, i) => `<span class="bridge-when-${i === 0 ? 'date' : 'time'}">${escapeHtml(p)}</span>`).join(' ');
+    let amount = '-';
+    try {
+        const payload = typeof tx.payload === 'string' ? JSON.parse(tx.payload) : (tx.payload || {});
+        amount = fmtAit(payload.amount);
+    } catch (e) { /* unparseable payload shows '-' */ }
+    const hash = String(tx.tx_hash || '');
+    const link = hash
+        ? `<a href="/tx.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener noreferrer" aria-label="Transaction ${escapeHtml(hash)}"><span class="bridge-tx-a">${escapeHtml(hash.slice(0, 8))}</span><span class="bridge-tx-b">${escapeHtml(hash.slice(8, 18))}...</span></a> <span class="bridge-copy">${aitbcCopyBtn(hash, 'transaction hash')}</span>`
+        : '—';
+    return { when, recipientHtml: shortAddr(tx.recipient), amount, link,
+             height: tx.block_height != null ? escapeHtml(String(tx.block_height)) : '-' };
+}
+
+function payoutRow(tx) {
+    const p = payoutParts(tx);
+    return `<tr>
+        <td class="bridge-when"><span class="bridge-when-main">${p.when}</span></td>
+        <td>${p.recipientHtml}</td>
+        <td class="bridge-amt">${p.amount} AIT</td>
+        <td>${p.height}</td>
+        <td>${p.link}</td>
+    </tr>`;
+}
+
+function payoutCard(tx) {
+    const p = payoutParts(tx);
+    return `<div class="bridge-card-item">
+        <div class="bridge-card-top"><span class="bridge-when-main">${p.when}</span></div>
+        <div class="bridge-card-line"><span class="bridge-card-k">To</span>${p.recipientHtml}</div>
+        <div class="bridge-card-line"><span class="bridge-card-k">Amount</span><span class="bridge-amt">${p.amount} AIT</span></div>
+        <div class="bridge-card-line"><span class="bridge-card-k">Block</span>${p.height}</div>
+        <div class="bridge-card-line">${p.link}</div>
+    </div>`;
+}
+
+async function loadEthPayouts() {
+    const loading = document.getElementById('eth-payouts-loading');
+    const empty = document.getElementById('eth-payouts-empty');
+    const failed = document.getElementById('eth-payouts-failed');
+    const reasonEl = document.getElementById('eth-payouts-failed-reason');
+    const container = document.getElementById('eth-payouts-container');
+    if (!container) return;
+    const cfg = window.AITBC_CONFIG || {};
+    const payoutAddr = String(cfg.bridgePayoutAddress || '');
+    if (!payoutAddr) {
+        if (loading) loading.hidden = true;
+        if (empty) empty.hidden = false;
+        return;
+    }
+    let reason = '';
+    let txs = null;
+    try {
+        const url = `${cfg.explorerApiUrl || '/explorer-api'}/api/transactions/search`
+            + `?address=${encodeURIComponent(payoutAddr)}&limit=50`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+            reason = `HTTP ${resp.status}`;
+        } else {
+            let data = null;
+            try { data = await resp.json(); } catch (e) { reason = 'the reply was not readable JSON'; }
+            if (!reason) {
+                txs = Array.isArray(data && data.transactions) ? data.transactions : [];
+            }
+        }
+    } catch (e) {
+        reason = 'network request failed';
+    }
+    if (txs === null) {
+        if (loading) loading.hidden = true;
+        if (empty) empty.hidden = true;
+        if (reasonEl) reasonEl.textContent = reason;
+        if (failed) failed.hidden = false;
+        return;
+    }
+    // Only outbound moves are payouts; inbound transfers to the account are
+    // float top-ups, which are operator action, not bridge activity.
+    const payouts = txs.filter(t => t && String(t.sender || '').toLowerCase() === payoutAddr.toLowerCase()).slice(0, 20);
+    if (loading) loading.hidden = true;
+    if (failed) failed.hidden = true;
+    if (payouts.length === 0) {
+        container.innerHTML = '';
+        if (empty) empty.hidden = false;
+        return;
+    }
+    if (empty) empty.hidden = true;
+    const rows = payouts.map(payoutRow).join('');
+    const cards = payouts.map(payoutCard).join('');
+    container.innerHTML = `<div class="table-wrap" role="region" tabindex="0" aria-label="Ethereum to AITBC bridge payouts">
+        <table class="bridge-table">
+            <thead><tr>
+                <th scope="col">When</th>
+                <th scope="col">Recipient</th>
+                <th scope="col" class="bridge-col-amt">Amount</th>
+                <th scope="col">Block</th>
+                <th scope="col">Transaction</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </div>
+    <div class="bridge-cards">${cards}</div>`;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const retry = document.getElementById('recent-bridges-retry');
     if (retry) retry.addEventListener('click', loadRecentBridges);
+    const ethRetry = document.getElementById('eth-payouts-retry');
+    if (ethRetry) ethRetry.addEventListener('click', loadEthPayouts);
     loadBridgeHealth();
     loadRecentBridges();
+    loadEthPayouts();
     setInterval(loadRecentBridges, 60000);
+    setInterval(loadEthPayouts, 60000);
     setInterval(loadBridgeHealth, 60000);
 });
