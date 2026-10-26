@@ -958,6 +958,7 @@ _KNOWN_READ_SIGNAL_PATHS = {
     "wallet transactions",
     "workflow list",
     "zk verify",
+    "transactions pending",
 }
 
 _MUT_SIGNAL = re.compile(
@@ -1125,6 +1126,7 @@ class TestHostForRoleRouting:
             ctx = mcp_server._execution_context("ad-hoc.example")
         assert ctx["resolved_host"] == "ad-hoc.example"
         assert ctx["role_used"] is None
+
 
 class TestResultEnvelopeStatus:
     """SM-07/SM-09: every command-result envelope carries the failure signal.
@@ -1339,6 +1341,7 @@ class TestDestructivePathSplitting:
             )
         )
         assert result.get("error") == "Confirmation required"
+
 
 class TestSplitPosixPrefix:
     """MCP-MISC-1/SM-11: POSIX prefixes in a command string become real
