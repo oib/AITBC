@@ -246,6 +246,39 @@ def _classify_relay_error(exc: BaseException, job_id: str) -> tuple[None, str | 
     return None, None, f"coordinator release relay unavailable ({label})"
 
 
+def _relay_request(
+    ctx, config, job_id: str, amount: Any, job_tx_hash: str | None
+) -> tuple[str | None, dict[str, Any], str | None]:
+    """Resolve credential + body for the release relay.
+
+    Returns ``(token, body, skip_reason)`` — ``skip_reason`` set means the
+    caller should use the rpc path instead of the relay.
+    """
+    token = _client_token(ctx)
+    if not token:
+        return (
+            None,
+            {},
+            (
+                "no stored client credential for the coordinator release relay "
+                "(`aitbc auth login` as the escrow buyer enables it)"
+            ),
+        )
+    # The relay requires a positive amount (400 'escrow amount must be
+    # positive' — a terminal refusal). A zero or unparseable metered amount
+    # must go straight to the rpc path, which reports the same refusal
+    # without a pointless relay round-trip.
+    amount_str, skip = _resolve_release_amount(config, job_id, amount)
+    if skip is not None:
+        return None, {}, skip
+    body: dict[str, Any] = {"job_id": job_id}
+    if amount_str is not None:
+        body["amount"] = amount_str
+    if job_tx_hash:
+        body["job_tx_hash"] = job_tx_hash
+    return token, body, None
+
+
 def _release_via_relay(
     ctx,
     config,
@@ -285,28 +318,9 @@ def _release_via_relay(
     would 425 identically and a customer node cannot authenticate it),
     but it is not reported as a business refusal.
     """
-    token = _client_token(ctx)
-    if not token:
-        return (
-            None,
-            None,
-            (
-                "no stored client credential for the coordinator release relay "
-                "(`aitbc auth login` as the escrow buyer enables it)"
-            ),
-        )
-    # The relay requires a positive amount (400 'escrow amount must be
-    # positive' — a terminal refusal). A zero or unparseable metered amount
-    # must go straight to the rpc path, which reports the same refusal
-    # without a pointless relay round-trip.
-    amount_str, skip = _resolve_release_amount(config, job_id, amount)
+    token, body, skip = _relay_request(ctx, config, job_id, amount, job_tx_hash)
     if skip is not None:
         return None, None, skip
-    body: dict[str, Any] = {"job_id": job_id}
-    if amount_str is not None:
-        body["amount"] = amount_str
-    if job_tx_hash:
-        body["job_tx_hash"] = job_tx_hash
     client = AITBCHTTPClient(
         base_url=_coordinator_base_url(ctx),
         timeout=timeout,
