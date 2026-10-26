@@ -114,7 +114,7 @@ free:
 aitbc bridge proof --transfer-id nosuch-bo1 --source-chain bc-2 --block-height 1 --block-hash 0x0000000000000000000000000000000000000000000000000000000000000001 --output /tmp/bo1-proof.json --rpc-url http://localhost:8202/rpc
 ```
 
-**Expected output:** `Failed to build bridge proof: Client error '400 Bad Request'`
+**Expected output:** `Failed to build bridge proof: Client error '404 Not Found'`
 (exit 2; no file written).
 
 `deposits` reads the ETH-side deposit ledger through the bridge-monitor's
@@ -181,13 +181,32 @@ aitbc bridge unlock --transfer-id nosuch-bo1 --sender 0x000000000000000000000000
 
 **Expected output:** `Error: Wallet not found: nosuch-bo1` (exit 1).
 
+The `--signature` alternate path parses the flag then refuses the bogus
+transfer for its own reasons — exercised for free:
+
+```bash
+aitbc bridge unlock --transfer-id nosuch-bo1 --sender 0x0000000000000000000000000000000000000001 --signature 0x00 --rpc-url http://localhost:8202/rpc
+```
+
+**Expected output:** `Bridge unlock failed: Client error '403 Forbidden'`
+(exit 2).
+
 ### Step 5: Sign-proof output (ok — local only, throwaway key)
 
 `sign-proof` is fully local: it signs the proof JSON with the given key
-and writes `--output`. A throwaway key is enough — no network, no wallet:
+and writes `--output`. A throwaway key is enough — no network, no wallet.
+Generate one and a minimal proof fixture first (Step 2 refused before
+writing, so `/tmp/bo1-proof.json` is created here):
 
 ```bash
-aitbc bridge sign-proof --proof-file /tmp/bo1-proof.json --private-key 0x1111111111111111111111111111111111111111111111111111111111111111 --output /tmp/bo1-signed.json
+THROWAWAY_KEY=$(python3 -c "import secrets; print('0x'+secrets.token_hex(32))")
+cat > /tmp/bo1-proof.json <<'EOF'
+{"transfer_id":"nosuch-bo1","proof":[]}
+EOF
+```
+
+```bash
+aitbc bridge sign-proof --proof-file /tmp/bo1-proof.json --private-key $THROWAWAY_KEY --output /tmp/bo1-signed.json
 ```
 
 **Expected output:** `Signed Bridge Proof` table, `success True`,
@@ -201,7 +220,7 @@ admins/validators — a throwaway key is refused with 403 after signing,
 so every flag is exercised for free:
 
 ```bash
-aitbc bridge store-header --proof-file /tmp/bo1-signed.json --admin-private-key 0x1111111111111111111111111111111111111111111111111111111111111111 --admin-address 0x0000000000000000000000000000000000000004 --rpc-url http://localhost:8202/rpc
+aitbc bridge store-header --proof-file /tmp/bo1-signed.json --admin-private-key $THROWAWAY_KEY --admin-address 0x0000000000000000000000000000000000000004 --rpc-url http://localhost:8202/rpc
 ```
 
 **Expected output:** `Failed to store block header: Client error '403 Forbidden'`.
@@ -224,13 +243,13 @@ aitbc bridge ingest-header --re-sign --source-rpc http://localhost:8202/rpc --ta
 **Expected output:** `--private-key is required when --re-sign is set` (exit 4).
 
 ```bash
-aitbc bridge attest --header-file /tmp/bo1-hdr.json --private-key 0x1111111111111111111111111111111111111111111111111111111111111111 --proposer 0x0000000000000000000000000000000000000005 --output /tmp/bo1-att.json --target-rpc http://localhost:8202/rpc
+aitbc bridge attest --header-file /tmp/bo1-hdr.json --private-key $THROWAWAY_KEY --proposer 0x0000000000000000000000000000000000000005 --output /tmp/bo1-att.json --target-rpc http://localhost:8202/rpc
 ```
 
 **Expected output:** `Failed to attest block header: Client error '403 Forbidden'`.
 
 ```bash
-aitbc bridge attest --source-rpc http://localhost:8202/rpc --height 5 --chain-id bc-2 --private-key 0x1111111111111111111111111111111111111111111111111111111111111111 --target-rpc http://localhost:8202/rpc
+aitbc bridge attest --source-rpc http://localhost:8202/rpc --height 5 --chain-id bc-2 --private-key $THROWAWAY_KEY --target-rpc http://localhost:8202/rpc
 ```
 
 **Expected output:** `Failed to attest block header: Client error '403 Forbidden'`.
@@ -241,7 +260,7 @@ Validator registration is admin-gated on the node; `--admin-address`,
 `--epoch` and `--rpc-url` ride on the refused request:
 
 ```bash
-aitbc bridge register-validator --chain-id bc-2 --address 0x0000000000000000000000000000000000000006 --public-key 0x020000000000000000000000000000000000000000000000000000000000000006 --private-key 0x1111111111111111111111111111111111111111111111111111111111111111 --admin-address 0x0000000000000000000000000000000000000004 --epoch 1 --rpc-url http://localhost:8202/rpc
+aitbc bridge register-validator --chain-id bc-2 --address 0x0000000000000000000000000000000000000006 --public-key 0x020000000000000000000000000000000000000000000000000000000000000006 --private-key $THROWAWAY_KEY --admin-address 0x0000000000000000000000000000000000000004 --epoch 1 --rpc-url http://localhost:8202/rpc
 ```
 
 **Expected output:** `Validator registration failed: Client error '403 Forbidden'`.
@@ -253,7 +272,7 @@ aitbc bridge register-validator --chain-id bc-2 --address 0x00000000000000000000
 | exit class | options |
 |---|---|
 | ok | `balance`/`pending`/`oracle-status`/`security-status`/`status` `--rpc-url` family, `pending --chain-id`, `deposits --status`/`--repo-root`, `sign-proof --output` |
-| expected-refusal | `status --transfer-id` (404), `proof` anchor flags + `--rpc-url` (400), `deposits --tx-hash` (ledger rc 1), `lock --asset/--issued-at/--nonce` (422), `lock`/`unlock --wallet-name` (wallet not found, exit 1), `confirm --rpc-url` (422), `ingest-header --re-sign` (CLI abort, exit 4), `store-header`/`ingest-header`/`attest`/`register-validator` store and admin flags (403) |
+| expected-refusal | `status --transfer-id` (404), `proof` anchor flags + `--rpc-url` (404), `deposits --tx-hash` (ledger rc 1), `lock --asset/--issued-at/--nonce` (422), `lock`/`unlock --wallet-name` (wallet not found, exit 1), `unlock --signature` (403), `confirm --rpc-url` (422), `ingest-header --re-sign` (CLI abort, exit 4), `store-header`/`ingest-header`/`attest`/`register-validator` store and admin flags (403) |
 | 🔒 by design | `confirm --confirmer-private-key`, `lock`/`unlock --wallet-password`, `ingest-header --private-key`, `register-validator --admin-private-key` |
 | operator-only | `scripts/ops/bridge-admin.sh` `manual-payout` / `abandon-and-resign` / `write-off` — shell ops, not CLI options |
 
