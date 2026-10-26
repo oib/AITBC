@@ -656,7 +656,7 @@ def _existing_plain_file(value: str, flag: str) -> Path:
 
 def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address, as_json, settlement) -> list[str]:
     """Build the verifier argv — only the script's documented flags."""
-    argv = [sys.executable, str(_verify_script_path())]
+    argv = [sys.executable]
     if db is not None:
         argv += ["--db", str(_existing_plain_file(db, "--db"))]
     # --db omitted on purpose: the script then resolves the service default
@@ -677,6 +677,9 @@ def _verify_argv(db, bridge_db, rpc_url, ait_rpc, escrow_address, bridge_address
         argv.append("--json")
     if rpc_url is None and ait_rpc is None:
         argv.append("--no-chain")
+    # The script path resolves last: an argument error must report itself,
+    # not be masked by "exchange_verify.py not found" on a partial checkout.
+    argv.insert(1, str(_verify_script_path()))
     return argv
 
 
