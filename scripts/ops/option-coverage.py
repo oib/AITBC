@@ -28,6 +28,9 @@ def _die(msg):
 ap = argparse.ArgumentParser(description="Option-level scenario coverage census")
 ap.add_argument("--census", default=os.path.join(P1, "census.json"))
 ap.add_argument(
+    "--plays", default=os.path.join(P1, "plays*.json"), help="glob of extra play-row files merged into the census (default on)"
+)
+ap.add_argument(
     "--tree", default=None, help="cli-tree json; default = newest cli-tree-*.json under tasks/progress/SCENARIO-PLAY-1"
 )
 ap.add_argument("--out", default=os.path.join(BASE, "tasks/progress/SCENARIO-COVERAGE-OPTIONS.md"))
@@ -53,6 +56,11 @@ for p in (tree_path, a.census):
         _die(f"missing input {p} — run the SCENARIO-PLAY-1 census first or pass --census/--tree")
 TREE = json.load(open(tree_path))
 CENSUS = json.load(open(a.census))
+import glob as _glob
+
+for _f in sorted(_glob.glob(a.plays)):
+    if _f != a.census:
+        CENSUS.extend(json.load(open(_f)))
 OUT = a.out
 
 SECRET_RE = re.compile(r"password|private[-_]?key|secret|seed|mnemonic", re.I)
