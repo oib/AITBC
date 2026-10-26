@@ -31,7 +31,16 @@ ap.add_argument(
     "--tree", default=None, help="cli-tree json; default = newest cli-tree-*.json under tasks/progress/SCENARIO-PLAY-1"
 )
 ap.add_argument("--out", default=os.path.join(BASE, "tasks/progress/SCENARIO-COVERAGE-OPTIONS.md"))
+ap.add_argument(
+    "--exclusions",
+    default=os.path.join(BASE, "scripts/ops/option-coverage-exclusions.json"),
+    help="leaf -> reason map; every option in a listed leaf is reported as unplayable:<reason> (UNPLAYABLE-TAG-1)",
+)
 a = ap.parse_args()
+
+EXCLUSIONS = {}
+if os.path.exists(a.exclusions):
+    EXCLUSIONS = json.load(open(a.exclusions))
 
 tree_path = a.tree
 if tree_path is None:
@@ -154,6 +163,7 @@ for (path, name), scs in exercised_by.items():
 
 # ---- stats ----------------------------------------------------------------
 tot_opt = tot_ex = tot_req_unex = tot_sec_unex = 0
+excl_groups = collections.defaultdict(int)
 by_group = collections.defaultdict(lambda: [0, 0, 0, 0])  # opt, exercised, req-unex, secret
 lines = []
 lines += [
@@ -193,6 +203,8 @@ for path in sorted(leaves):
                 by_group[g][2] += 1
         rows.append((p, st))
     leaf_rows.append((path, rows))
+    if path in EXCLUSIONS:
+        excl_groups[path.split()[0]] += sum(1 for _, st in rows if not st["exercised"])
 
 lines += [
     "## Headline",
@@ -206,12 +218,13 @@ lines += [
     "",
     "## Per-group breakdown",
     "",
-    "| group | options | exercised | uncovered (non-secret) | secret-excluded | required unexercised |",
-    "|---|---|---|---|---|---|",
+    "| group | options | exercised | uncovered (non-secret) | secret-excluded | required unexercised | unplayable |",
+    "|---|---|---|---|---|---|---|",
 ]
 for g in sorted(by_group):
     o, e, r, s = by_group[g]
-    lines.append(f"| `{g}` | {o} | {e} | {o - e - s} | {s} | {r} |")
+    x = excl_groups.get(g, 0)
+    lines.append(f"| `{g}` | {o} | {e} | {o - e - s - x} | {s} | {r} | {x} |")
 lines += [
     "",
     "## Per-leaf detail",
@@ -220,8 +233,16 @@ lines += [
     "🔒 secret-value · **(required)** flag/argument the CLI demands.",
     "",
 ]
+excluded_leaf = {}
+tot_excl = 0
 for path, rows in leaf_rows:
-    lines.append(f"### `aitbc {path}`")
+    ex = EXCLUSIONS.get(path)
+    if ex:
+        excluded_leaf[path] = ex.get("reason", "unspecified")
+        tot_excl += sum(1 for _, st in rows if not st["exercised"])
+        lines.append(f"### `aitbc {path}` — unplayable: {excluded_leaf[path]}")
+    else:
+        lines.append(f"### `aitbc {path}`")
     if not rows:
         lines.append("_(no options)_")
     else:
