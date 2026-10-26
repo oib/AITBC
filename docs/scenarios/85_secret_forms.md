@@ -15,8 +15,9 @@ breadcrumb: Home > Scenarios > Secret-Form Coverage
 > command leaves. Refusal happens at `wallet_secret.py:84` ("Cannot read
 > password file") or `:153` ("No password on stdin") — always before
 > signing and before any write/POST. The inline `--password`/`--private-key`/
-> `--secret-key` forms stay excluded; dead/inert leaves are tagged
-> `unplayable:` in `scripts/ops/option-coverage-exclusions.json`.
+> `--secret-key` forms stay excluded, as do the password-file/stdin forms
+> on leaves tagged `unplayable:` (`scripts/ops/option-coverage-exclusions.json`
+> — dead flags, swallowed fallbacks, pre-guard writes).
 >
 > Played on node0 + node2 (`aitbc 0.25.9`), test wallet `sp-final-1`
 > (empty, encrypted, scenario artifact), `logger -t coderA`. Zero records
@@ -39,6 +40,8 @@ command's write path.
 ## Result
 
 Census after merge: **1 non-secret uncovered** (`crosschain bridge
---wait`, exclusions-tagged) + **120 secret** (inline `--password`,
-`--private-key`, `--secret-key`, `--access-secret`, `--decode-seed`,
-`--show-secrets`) → full CLI option surface classified.
+--wait`, exclusions-tagged) + **120 secret** — inline `--password`/
+`--private-key`/`--secret-key`/`--access-secret`/`--decode-seed`/
+`--show-secrets` forms *plus* the file/stdin forms on the ~20
+`unplayable:`-tagged leaves (which stay unexercised by rule) → full CLI
+option surface classified.
