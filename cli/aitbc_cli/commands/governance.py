@@ -22,7 +22,7 @@ from typing import Any
 import click
 
 from ..config import get_config
-from ..utils import output
+from ..utils import output, resolve_output_format
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet_secret import wallet_password_options
@@ -147,7 +147,7 @@ def governance():
     help="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)",
 )
 @wallet_password_options
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def propose(
     ctx,
@@ -224,7 +224,7 @@ def propose(
                 },
             )
         result = client.post("/v1/governance/proposals", json=proposal_data)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except json.JSONDecodeError:
         abort(ctx, "Invalid JSON in --params")
     except NetworkError as e:
@@ -252,7 +252,7 @@ def propose(
     "--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)"
 )
 @wallet_password_options
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def vote(
     ctx,
@@ -310,7 +310,7 @@ def vote(
                 account=account,
             )
         result = client.post("/v1/governance/votes", json=vote_data)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -327,7 +327,7 @@ def vote(
 @click.option("--status", default=None, help="Filter by status (draft, active, succeeded, defeated, executed, cancelled)")
 @click.option("--category", default=None, help="Filter by category")
 @click.option("--proposer-id", default=None, help="Filter by proposer ID")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list(ctx, status: str | None, category: str | None, proposer_id: str | None, format: str):
     """List governance proposals with optional status, category, and proposer filters."""
@@ -341,7 +341,7 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
         if proposer_id:
             params["proposer_id"] = proposer_id
         result = client.get("/v1/governance/proposals", params=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -364,7 +364,7 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
     help="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)",
 )
 @wallet_password_options
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def execute(
     ctx,
@@ -401,7 +401,7 @@ def execute(
         if executor_address:
             query = f"?executor_address={executor_address}"
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}", json=body)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -416,14 +416,14 @@ def execute(
   aitbc governance close --proposal-id prop-123 --output json"""
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def close(ctx, proposal_id: str, format: str):
     """Close a governance proposal and tally the final votes."""
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/close")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -437,14 +437,14 @@ def close(ctx, proposal_id: str, format: str):
 
   aitbc governance status --output json"""
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def status(ctx, format: str):
     """Show the global status of the governance system."""
     try:
         client = _get_client(ctx)
         result = client.get("/v1/governance/status")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -459,7 +459,7 @@ def status(ctx, format: str):
   aitbc governance get --proposal-id prop-123 --output json"""
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def get(ctx, proposal_id: str, format: str):
     """Get details of a specific governance proposal."""
@@ -478,7 +478,7 @@ def get(ctx, proposal_id: str, format: str):
                     break
         if result is None:
             abort(ctx, f"Proposal {proposal_id} not found")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -504,7 +504,7 @@ def proposal():
   aitbc governance proposal show --proposal-id prop-123 --output json""",
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def proposal_show(ctx, proposal_id: str, format: str):
     """Show the sealed GOVERNANCE_PROPOSE record for a proposal id.
@@ -518,7 +518,7 @@ def proposal_show(ctx, proposal_id: str, format: str):
     try:
         client, chain_id = _governance_rpc(ctx)
         result = client.get(f"/rpc/governance/sealed-proposal/{proposal_id}", params={"chain_id": chain_id})
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -539,7 +539,7 @@ def proposal_show(ctx, proposal_id: str, format: str):
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--target-chains", required=True, help="Comma-separated list of target chain IDs")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def propagate(ctx, proposal_id: str, target_chains: str, format: str):
     """Propagate a governance proposal to a comma-separated list of target chains."""
@@ -553,7 +553,7 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
             f"/v1/governance/proposals/{proposal_id}/propagate",
             json={"target_chains": chains},
         )
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -569,14 +569,14 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
   aitbc governance aggregate-votes --proposal-id prop-123 --output json""",
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def aggregate_votes(ctx, proposal_id: str, format: str):
     """Aggregate and tally votes for a proposal (informational only — votes are advisory, V-7)."""
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -592,14 +592,14 @@ def aggregate_votes(ctx, proposal_id: str, format: str):
   aitbc governance execute-cross-chain --proposal-id prop-123 --output json""",
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def execute_cross_chain(ctx, proposal_id: str, format: str):
     """Execute a governance proposal across target chains."""
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute-cross-chain")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:

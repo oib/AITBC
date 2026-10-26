@@ -11,7 +11,7 @@ from typing import Any, cast
 import click
 
 from ..config import get_config
-from ..utils import output
+from ..utils import output, resolve_output_format
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
@@ -76,7 +76,7 @@ def zk():
   aitbc zk circuits --coordinator-url http://localhost:8203"""
 )
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def circuits(ctx, coordinator_url: str | None, format: str):
     """List available zero-knowledge circuits and their verification status."""
@@ -89,7 +89,7 @@ def circuits(ctx, coordinator_url: str | None, format: str):
         headers = _auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.get("/v1/zk/info")
-        output(result, ctx.obj.get("output_format", format), title="ZK Circuits")
+        output(result, resolve_output_format(ctx, format), title="ZK Circuits")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -108,7 +108,7 @@ def circuits(ctx, coordinator_url: str | None, format: str):
 @click.option("--public-signals", help="Public signals JSON, @file, or base64 string")
 @click.option("--circuit", default="receipt_public", help="Circuit name to verify against")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def verify(
     ctx,
@@ -154,7 +154,7 @@ def verify(
                 "circuit_name": circuit,
             },
         )
-        output(result, ctx.obj.get("output_format", format), title="ZK Proof Verification")
+        output(result, resolve_output_format(ctx, format), title="ZK Proof Verification")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -169,7 +169,7 @@ def verify(
   aitbc zk health --coordinator-url http://localhost:8203"""
 )
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def health(ctx, coordinator_url: str | None, format: str):
     """Check the zero-knowledge proof service health."""
@@ -182,7 +182,7 @@ def health(ctx, coordinator_url: str | None, format: str):
         headers = _auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.get("/v1/zk/health")
-        output(result, ctx.obj.get("output_format", format), title="ZK Service Health")
+        output(result, resolve_output_format(ctx, format), title="ZK Service Health")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:

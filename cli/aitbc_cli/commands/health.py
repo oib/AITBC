@@ -97,7 +97,7 @@ def _probe_url(url: str, timeout: float) -> dict[str, Any]:
     help="Comma-separated list of services to probe (default: all known AITBC services).",
 )
 @click.option("--timeout", type=float, default=5.0, help="Timeout per request in seconds.")
-@click.option("--output", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format.")
+@click.option("--output", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format.")
 @click.pass_context
 def health(ctx: click.Context, host: str, services: str, timeout: float, output_format: str):
     """Probe AITBC service health endpoints on a remote host."""

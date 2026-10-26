@@ -10,7 +10,7 @@ import click
 import yaml
 
 from ..config import get_config
-from ..utils import success
+from ..utils import resolve_output_format, success
 from ..utils.error_handling import abort
 from ..utils.http_client import auth_headers, service_root_url
 
@@ -101,16 +101,18 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
 
   aitbc workflow list --output json"""
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
-def list(format: str):
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def list(ctx, format: str):
     """List all available workflows from the coordinator."""
+    fmt = resolve_output_format(ctx, format)
     workflows = [
         {"name": "gpu-market", "status": "active", "steps": 5},
         {"name": "ai-job-processing", "status": "active", "steps": 3},
         {"name": "mining-optimization", "status": "inactive", "steps": 4},
     ]
 
-    if format == "json":
+    if fmt == "json":
         click.echo(json.dumps(workflows, indent=2))
     else:
         success("Available workflows:")
