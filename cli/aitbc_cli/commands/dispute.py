@@ -22,7 +22,7 @@ import click
 
 from ..auth import AuthManager, ExpiredAdminToken
 from ..config import get_config
-from ..utils import output
+from ..utils import output, resolve_output_format
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
@@ -91,7 +91,7 @@ def _chain_client(ctx, node_url: str | None = None, timeout: int | None = None) 
 
 NODE_URL_OPTION = click.option("--node-url", "node_url", default=None, help="Blockchain node RPC URL")
 COORDINATOR_URL_OPTION = click.option("--coordinator-url", "coordinator_url", default=None, help="Coordinator URL")
-FORMAT_OPTION = click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+FORMAT_OPTION = click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 
 
 @click.group(
@@ -140,7 +140,7 @@ def file_dispute(ctx, agreement_id, respondent, dispute_type, reason, evidence_h
     try:
         client = _chain_client(ctx, node_url)
         result = client.post("/rpc/disputes/file", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Dispute Filed")
+        output(result, resolve_output_format(ctx, format), title="Dispute Filed")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -163,7 +163,7 @@ def active(ctx, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.get("/rpc/disputes/active")
-        output(result, ctx.obj.get("output_format", format), title="Active Disputes")
+        output(result, resolve_output_format(ctx, format), title="Active Disputes")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -185,7 +185,7 @@ def get(ctx, dispute_id, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.get(f"/rpc/disputes/{dispute_id}")
-        output(result, ctx.obj.get("output_format", format), title=f"Dispute {dispute_id}")
+        output(result, resolve_output_format(ctx, format), title=f"Dispute {dispute_id}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -207,7 +207,7 @@ def user(ctx, user_address, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.get(f"/rpc/disputes/user/{user_address}")
-        output(result, ctx.obj.get("output_format", format), title=f"Disputes for {user_address}")
+        output(result, resolve_output_format(ctx, format), title=f"Disputes for {user_address}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -229,7 +229,7 @@ def votes(ctx, dispute_id, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.get(f"/rpc/disputes/{dispute_id}/votes")
-        output(result, ctx.obj.get("output_format", format), title=f"Votes on Dispute {dispute_id}")
+        output(result, resolve_output_format(ctx, format), title=f"Votes on Dispute {dispute_id}")
     except NetworkError as e:
         if _is_not_found(e):
             abort(ctx, f"Dispute {dispute_id} not found", from_exception=e)
@@ -256,7 +256,7 @@ def vote(ctx, dispute_id, vote, reasoning, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.post("/rpc/disputes/vote", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Vote Submitted")
+        output(result, resolve_output_format(ctx, format), title="Vote Submitted")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -307,7 +307,7 @@ def evidence_add(ctx, dispute_id, evidence_hash, evidence_type, description, nod
     try:
         client = _chain_client(ctx, node_url)
         result = client.post("/rpc/disputes/evidence", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Evidence Submitted")
+        output(result, resolve_output_format(ctx, format), title="Evidence Submitted")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -329,7 +329,7 @@ def evidence_list(ctx, dispute_id, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.get(f"/rpc/disputes/{dispute_id}/evidence")
-        output(result, ctx.obj.get("output_format", format), title=f"Evidence for Dispute {dispute_id}")
+        output(result, resolve_output_format(ctx, format), title=f"Evidence for Dispute {dispute_id}")
     except NetworkError as e:
         if _is_not_found(e):
             abort(ctx, f"Dispute {dispute_id} not found", from_exception=e)
@@ -358,7 +358,7 @@ def evidence_verify(ctx, dispute_id, evidence_id, reject, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.post("/rpc/disputes/verify-evidence", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Evidence Verification")
+        output(result, resolve_output_format(ctx, format), title="Evidence Verification")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -397,7 +397,7 @@ def arbitrator_list(ctx, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.get("/rpc/disputes/arbitrators")
-        output(result, ctx.obj.get("output_format", format), title="Authorized Arbitrators")
+        output(result, resolve_output_format(ctx, format), title="Authorized Arbitrators")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -419,7 +419,7 @@ def arbitrator_queue(ctx, arbitrator_address, node_url, format):
     try:
         client = _chain_client(ctx, node_url)
         result = client.get(f"/rpc/disputes/arbitrators/{arbitrator_address}")
-        output(result, ctx.obj.get("output_format", format), title=f"Caseload for {arbitrator_address}")
+        output(result, resolve_output_format(ctx, format), title=f"Caseload for {arbitrator_address}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -454,7 +454,7 @@ def arbitrator_authorize(ctx, arbitrator_address, revoke, owner_signature, node_
     try:
         client = _chain_client(ctx, node_url)
         result = client.post("/rpc/disputes/arbitrators/authorize", json=payload)
-        output(result, ctx.obj.get("output_format", format), title=f"Arbitrator {action}")
+        output(result, resolve_output_format(ctx, format), title=f"Arbitrator {action}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
     except Exception as e:
@@ -498,7 +498,7 @@ def resolve(ctx, job_id, outcome, reason, assume_yes, coordinator_url, format):
     try:
         client = _coordinator_client(ctx, coordinator_url)
         result = client.post(f"/v1/admin/disputes/{job_id}/resolve", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Dispute Resolved")
+        output(result, resolve_output_format(ctx, format), title="Dispute Resolved")
     except ExpiredAdminToken as e:
         abort(ctx, str(e))
     except NetworkError as e:
@@ -531,7 +531,7 @@ def auto_adjudicate(ctx, assume_yes, coordinator_url, format):
     try:
         client = _coordinator_client(ctx, coordinator_url)
         result = client.post("/v1/admin/disputes/auto-adjudicate", json={})
-        output(result, ctx.obj.get("output_format", format), title="Auto-Adjudication")
+        output(result, resolve_output_format(ctx, format), title="Auto-Adjudication")
     except ExpiredAdminToken as e:
         abort(ctx, str(e))
     except NetworkError as e:
