@@ -623,3 +623,11 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   mixed `localhost:`/`127.0.0.1:` spelling scraped the same endpoint
   twice, doubling `up`/ServiceDown series. Config test pins both
   properties.
+
+
+### SECRET-EXCL-1
+
+- `scripts/ops/option-coverage.py` promoted from staging — the
+  option-coverage census now reports `secret-excluded` per group so
+  the 259 password/key/seed flags read as intentionally uncovered
+  instead of inflating the gap count.
