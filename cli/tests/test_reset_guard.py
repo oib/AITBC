@@ -150,6 +150,7 @@ def test_clear_wallet_dbs_honours_data_dir(tmp_path):
     assert not keystore.exists()
 
 
+@pytest.mark.skipif(not UNIFIED_GENESIS.exists(), reason="unified_genesis.py not in this checkout/archive")
 def test_unified_genesis_refuses_without_marker(no_scratch):
     r = subprocess.run(
         [sys.executable, str(UNIFIED_GENESIS), "--chain-id", "bc-2"],
@@ -163,6 +164,7 @@ def test_unified_genesis_refuses_without_marker(no_scratch):
     assert "reset-guard" in combined or "AITBC_RESET_SCRATCH" in combined
 
 
+@pytest.mark.skipif(not UNIFIED_GENESIS.exists(), reason="unified_genesis.py not in this checkout/archive")
 def test_unified_genesis_live_defaults_refuse(scratch):
     r = subprocess.run(
         [sys.executable, str(UNIFIED_GENESIS), "--chain-id", "bc-2"],
@@ -266,6 +268,7 @@ def test_guard_has_no_live_override():
 # --- MCP inheritance ------------------------------------------------------
 
 
+@pytest.mark.skipif(not UNIFIED_GENESIS.exists(), reason="unified_genesis.py not in this checkout/archive")
 def test_generated_mcp_genesis_tools_carry_guard():
     """The MCP genesis wrappers inherit the guard through the CLI layer.
 
