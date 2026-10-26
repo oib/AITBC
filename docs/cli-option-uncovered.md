@@ -4,7 +4,7 @@ Generated from the OPTION-DOCS-1 census on the current main (regenerate with
 `scripts/dev/gen_option_coverage.py`; this file is the row-citation source).
 
 Legend: 🔒 = secret-value flag, intentionally unexercised.
-**881 non-secret unexercised, 255 secret-excluded.**
+**922 non-secret unexercised, 259 secret-excluded.**
 
 
 ## `account` — 4 unexercised (+0 🔒)
@@ -70,13 +70,15 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc agent-msg send` --wallet
 - `aitbc agent-msg send` --sign`, `--no-sign
 
-## `agent-task` — 14 unexercised (+9 🔒)
+## `agent-task` — 16 unexercised (+9 🔒)
 - `aitbc agent-task hire` --model
 - `aitbc agent-task hire` --from-agent
 - `aitbc agent-task hire` --timeout
+- `aitbc agent-task hire` --wait`, `--no-wait
 - `aitbc agent-task hire` --wait-seconds
 - `aitbc agent-task hire` --sign`, `--no-sign
 - `aitbc agent-task hire` --coordinator-url
+- `aitbc agent-task result` --out
 - `aitbc agent-task result` --from-agent
 - `aitbc agent-task result` --wallet
 - `aitbc agent-task result` --sign`, `--no-sign
@@ -90,7 +92,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc agent-wallet rebalance` --earnings
 - `aitbc agent-wallet stake` --contract
 
-## `ai` — 38 unexercised (+10 🔒)
+## `ai` — 40 unexercised (+10 🔒)
 - `aitbc ai accept` --coordinator-url
 - `aitbc ai accept` --format
 - `aitbc ai cancel` --wallet
@@ -107,6 +109,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc ai pay` --rpc-url
 - `aitbc ai pay` --chain-id
 - `aitbc ai pay` --format
+- `aitbc ai refund` --reason
 - `aitbc ai refund` --coordinator-url
 - `aitbc ai refund-sweep` --limit
 - `aitbc ai refund-sweep` --reason
@@ -119,6 +122,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc ai service test` --format
 - `aitbc ai stats` --coordinator-url
 - `aitbc ai stats` --format
+- `aitbc ai status` --coordinator-url
 - `aitbc ai submit` --offer-quantity
 - `aitbc ai submit` --acceptance-window
 - `aitbc ai submit` --min-reputation
@@ -195,7 +199,8 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc blockchain sync-status` --all-chains
 - `aitbc blockchain sync-status` --chain-id
 
-## `bond` — 17 unexercised (+0 🔒)
+## `bond` — 18 unexercised (+0 🔒)
+- `aitbc bond appeal` --reason
 - `aitbc bond appeal` --evidence
 - `aitbc bond appeal` --coordinator-url
 - `aitbc bond appeal` --format
@@ -217,49 +222,8 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 ## `bootstrap` — 1 unexercised (+0 🔒)
 - `aitbc bootstrap bootstrap-env` --overwrite
 
-## `bridge` — 42 unexercised (+5 🔒)
-- `aitbc bridge attest` --header-file
-- `aitbc bridge attest` --source-rpc
-- `aitbc bridge attest` --height
-- `aitbc bridge attest` --chain-id
-- `aitbc bridge attest` --proposer
-- `aitbc bridge attest` --target-rpc
-- `aitbc bridge attest` --output`, `-o
-- `aitbc bridge balance` --rpc-url
-- `aitbc bridge confirm` --rpc-url
-- `aitbc bridge deposits` --status
-- `aitbc bridge deposits` --tx-hash
-- `aitbc bridge deposits` --repo-root
-- `aitbc bridge ingest-header` --source-rpc
-- `aitbc bridge ingest-header` --target-rpc
-- `aitbc bridge ingest-header` --chain-id
-- `aitbc bridge ingest-header` --re-sign`, `--no-re-sign
-- `aitbc bridge ingest-header` --proposer
-- `aitbc bridge ingest-header` --output`, `-o
-- `aitbc bridge lock` --asset
-- `aitbc bridge lock` --source-chain
-- `aitbc bridge lock` --issued-at
-- `aitbc bridge lock` --nonce
-- `aitbc bridge lock` --wallet-name
-- `aitbc bridge lock` --rpc-url
-- `aitbc bridge oracle-status` --rpc-url
-- `aitbc bridge pending` --chain-id
-- `aitbc bridge pending` --rpc-url
-- `aitbc bridge proof` --source-chain
-- `aitbc bridge proof` --block-height
-- `aitbc bridge proof` --block-hash
-- `aitbc bridge proof` --rpc-url
-- `aitbc bridge register-validator` --admin-address
-- `aitbc bridge register-validator` --epoch
-- `aitbc bridge register-validator` --rpc-url
-- `aitbc bridge security-status` --rpc-url
-- `aitbc bridge sign-proof` --output`, `-o
-- `aitbc bridge status` --transfer-id
-- `aitbc bridge status` --rpc-url
-- `aitbc bridge store-header` --admin-address
-- `aitbc bridge store-header` --rpc-url
-- `aitbc bridge unlock` --wallet-name
-- `aitbc bridge unlock` --rpc-url
+## `bridge` — 1 unexercised (+5 🔒)
+- `aitbc bridge unlock` --signature
 
 ## `coin-requests` — 8 unexercised (+0 🔒)
 - `aitbc coin-requests list` --sender
@@ -279,7 +243,9 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc config set` --global
 - `aitbc config unset` --global
 
-## `contract` — 1 unexercised (+0 🔒)
+## `contract` — 3 unexercised (+0 🔒)
+- `aitbc contract call` --method
+- `aitbc contract call` --args
 - `aitbc contract call` --rpc-url
 
 ## `crosschain` — 21 unexercised (+9 🔒)
@@ -311,7 +277,10 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc dashboard shop` --miner-id
 - `aitbc dashboard shop` --limit
 
-## `developer` — 1 unexercised (+0 🔒)
+## `developer` — 4 unexercised (+0 🔒)
+- `aitbc developer register` --name
+- `aitbc developer register` --email
+- `aitbc developer register` --github-handle
 - `aitbc developer register` --format
 
 ## `dispute` — 31 unexercised (+0 🔒)
@@ -347,16 +316,23 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc dispute votes` --node-url
 - `aitbc dispute votes` --format
 
-## `economics` — 2 unexercised (+0 🔒)
+## `economics` — 4 unexercised (+0 🔒)
 - `aitbc economics distributed` --cost-optimize
 - `aitbc economics model` --type
+- `aitbc economics vote` --vote
+- `aitbc economics vote` --voting-power
 
-## `edge` — 6 unexercised (+0 🔒)
+## `edge` — 11 unexercised (+0 🔒)
+- `aitbc edge database init-db` --capacity-gb
 - `aitbc edge gpu list-gpus` --architecture
 - `aitbc edge gpu list-gpus` --edge-optimized
 - `aitbc edge gpu list-gpus` --min-memory-gb
+- `aitbc edge island join` --island-name
+- `aitbc edge island join` --chain-id
+- `aitbc edge island join` --role
 - `aitbc edge island join` --is-hub
 - `aitbc edge serve submit-request` --escrow-id
+- `aitbc edge transfer` --amount
 - `aitbc edge transfer` --note
 
 ## `energy` — 29 unexercised (+9 🔒)
@@ -399,7 +375,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc eth transfers` --rpc-url
 - `aitbc eth transfers` --explorer-url
 
-## `exchange` — 46 unexercised (+16 🔒)
+## `exchange` — 47 unexercised (+19 🔒)
 - `aitbc exchange add-liquidity` --exchange
 - `aitbc exchange create-pair` --min-order-size
 - `aitbc exchange create-pair` --price-precision
@@ -415,6 +391,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc exchange node set-payout` --exchange-url
 - `aitbc exchange order book` --exchange-url
 - `aitbc exchange order cancel` --expires-in
+- `aitbc exchange order cancel` --wallet
 - `aitbc exchange order cancel` --chain-id
 - `aitbc exchange order cancel` --exchange-url
 - `aitbc exchange order fund` --fee
@@ -513,10 +490,14 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc gpu-onchain register` --wait
 - `aitbc gpu-onchain register` --format
 
-## `grant` — 4 unexercised (+0 🔒)
+## `grant` — 8 unexercised (+0 🔒)
 - `aitbc grant create` --format
+- `aitbc grant disburse` --milestone-id
+- `aitbc grant disburse` --amount
 - `aitbc grant disburse` --format
 - `aitbc grant list` --offset
+- `aitbc grant vote` --vote
+- `aitbc grant vote` --voting-power
 - `aitbc grant vote` --format
 
 ## `health` — 3 unexercised (+0 🔒)
@@ -560,7 +541,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc liquidity-stake` --lock-days
 - `aitbc liquidity-stake` --fee
 
-## `market` — 106 unexercised (+10 🔒)
+## `market` — 111 unexercised (+10 🔒)
 - `aitbc market cancel` --reason
 - `aitbc market cancel` --output
 - `aitbc market cancel` --format
@@ -570,13 +551,16 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market download` --wait
 - `aitbc market download` --output
 - `aitbc market download` --format
-- `aitbc market escrow create` --amount
-- `aitbc market escrow create` --wallet
+- `aitbc market escrow refund` --reason
 - `aitbc market exchange deposit-eth` --ait-address
 - `aitbc market exchange deposit-eth` --bridge-address
 - `aitbc market exchange deposit-eth` --gas
 - `aitbc market exchange list-deposits` --status
 - `aitbc market exchange list-deposits` --limit
+- `aitbc market exchange withdraw-eth` --address
+- `aitbc market gpu buy` --buyer-id
+- `aitbc market gpu buy` --job-id
+- `aitbc market gpu buy` --duration-hours
 - `aitbc market gpu buy` --settlement
 - `aitbc market gpu buy` --wallet
 - `aitbc market gpu buy` --wallet-path
@@ -584,6 +568,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market gpu buy` --max-ait
 - `aitbc market gpu buy` --yes
 - `aitbc market gpu buy` --json-output
+- `aitbc market gpu quote` --buyer-id
 - `aitbc market gpu quote` --duration-hours
 - `aitbc market gpu quote` --gpu-count
 - `aitbc market gpu quote` --max-ait
@@ -597,6 +582,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market gpu release` --yes
 - `aitbc market gpu release` --json-output
 - `aitbc market gpu status` --json-output
+- `aitbc market hermes` --prompt
 - `aitbc market hermes` --max-time
 - `aitbc market hermes` --track
 - `aitbc market hermes` --proposer
@@ -606,13 +592,6 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market host` --proposer-id
 - `aitbc market host` --output
 - `aitbc market host` --format
-- `aitbc market jobs` --service-type
-- `aitbc market jobs` --state
-- `aitbc market jobs` --buyer-address
-- `aitbc market jobs` --offer-id
-- `aitbc market jobs` --limit
-- `aitbc market jobs` --output
-- `aitbc market jobs` --format
 - `aitbc market list` --provider
 - `aitbc market list` --status
 - `aitbc market list` --sort
@@ -634,17 +613,23 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market offer-list` --format
 - `aitbc market payment` --job-id
 - `aitbc market payment` --payment-id
+- `aitbc market process` --input-file
+- `aitbc market process` --output-container
+- `aitbc market process` --codec
+- `aitbc market process` --resolution
 - `aitbc market process` --bitrate
 - `aitbc market process` --output
 - `aitbc market process` --format
 - `aitbc market providers` --output
 - `aitbc market providers` --format
+- `aitbc market rate` --rating
 - `aitbc market rate` --comment
 - `aitbc market rate` --reviewer-id
 - `aitbc market rate` --market-url
 - `aitbc market ratings` --limit
 - `aitbc market ratings` --offset
 - `aitbc market ratings` --market-url
+- `aitbc market run` --prompt
 - `aitbc market run` --max-tokens
 - `aitbc market run` --stream
 - `aitbc market run` --language
@@ -662,6 +647,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc market run` --output
 - `aitbc market run` --format
 - `aitbc market sync-ratings` --limit
+- `aitbc market transcribe` --audio-file
 - `aitbc market transcribe` --language
 - `aitbc market transcribe` --task
 - `aitbc market transcribe` --output-format
@@ -809,7 +795,9 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc node island list` --node-url
 - `aitbc node island list-islands` --node-url
 
-## `operations` — 11 unexercised (+9 🔒)
+## `operations` — 15 unexercised (+9 🔒)
+- `aitbc operations agent message` --message
+- `aitbc operations agent message` --wallet
 - `aitbc operations agent message` --rpc-url
 - `aitbc operations ai status` --format
 - `aitbc operations governance delegate` --format
@@ -817,6 +805,8 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc operations governance get-proposal` --format
 - `aitbc operations governance proposal` --params
 - `aitbc operations governance proposal` --format
+- `aitbc operations governance stake` --amount
+- `aitbc operations governance stake` --lock-days
 - `aitbc operations governance stake` --format
 - `aitbc operations governance vote` --reason
 - `aitbc operations governance vote` --format
@@ -870,6 +860,9 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc prometheus rules` --prometheus-url
 - `aitbc prometheus series` --prometheus-url
 - `aitbc prometheus targets` --prometheus-url
+
+## `reinvest` — 1 unexercised (+0 🔒)
+- `aitbc reinvest simulate` --reserve-address
 
 ## `reputation` — 2 unexercised (+0 🔒)
 - `aitbc reputation leaderboard` --region
@@ -940,8 +933,56 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc tee verify` --zk-proof
 - `aitbc tee verify` --mode
 
+## `trade` — 47 unexercised (+1 🔒)
+- `aitbc trade chains` --format
+- `aitbc trade create` --recipient
+- `aitbc trade create` --amount
+- `aitbc trade create` --offer-id
+- `aitbc trade create` --price
+- `aitbc trade create` --quantity
+- `aitbc trade create` --format
+- `aitbc trade discover` --region
+- `aitbc trade discover` --gpu-model
+- `aitbc trade discover` --format
+- `aitbc trade get` --format
+- `aitbc trade health` --format
+- `aitbc trade history` --dest-chain
+- `aitbc trade history` --format
+- `aitbc trade list` --dest-chain
+- `aitbc trade list` --limit
+- `aitbc trade list` --format
+- `aitbc trade lock-escrow` --node-url
+- `aitbc trade lock-escrow` --api-key
+- `aitbc trade lock-escrow` --timeout
+- `aitbc trade lock-escrow` --format
+- `aitbc trade match` --format
+- `aitbc trade match-all` --format
+- `aitbc trade refund` --node-url
+- `aitbc trade refund` --api-key
+- `aitbc trade refund` --format
+- `aitbc trade register-chain` --endpoint
+- `aitbc trade register-chain` --format
+- `aitbc trade search` --service-type
+- `aitbc trade search` --min-price
+- `aitbc trade search` --max-price
+- `aitbc trade search` --format
+- `aitbc trade settle` --node-url
+- `aitbc trade settle` --api-key
+- `aitbc trade settle` --format
+- `aitbc trade settlement-status` --node-url
+- `aitbc trade settlement-status` --api-key
+- `aitbc trade settlement-status` --format
+- `aitbc trade status` --format
+- `aitbc trade subscription-status` --format
+- `aitbc trade sync` --format
+- `aitbc trade sync-status` --format
+- `aitbc trade watch` --min-price
+- `aitbc trade watch` --max-price
+- `aitbc trade watch` --region
+- `aitbc trade watch` --gpu-model
+- `aitbc trade watch` --format
 
-## `transactions` — 12 unexercised (+4 🔒)
+## `transactions` — 13 unexercised (+4 🔒)
 - `aitbc transactions batch` --rpc-url
 - `aitbc transactions estimate-fee` --rpc-url
 - `aitbc transactions pending` --rpc-url
@@ -949,6 +990,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc transactions search` --recipient
 - `aitbc transactions search` --use-explorer
 - `aitbc transactions search` --rpc-url
+- `aitbc transactions send` --fee
 - `aitbc transactions send` --rpc-url
 - `aitbc transactions send` --type
 - `aitbc transactions send` --payload
@@ -967,11 +1009,12 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc update` --output
 - `aitbc update` --format
 
-## `wallet` — 28 unexercised (+62 🔒)
+## `wallet` — 29 unexercised (+62 🔒)
 - `aitbc wallet address` --name
 - `aitbc wallet bridge float` --hub-url
 - `aitbc wallet bridge sell lock` --hub-url
 - `aitbc wallet bridge sell quote` --wallet-name
+- `aitbc wallet bridge sell quote` --hub-url
 - `aitbc wallet bridge settlements` --state
 - `aitbc wallet bridge settlements` --kind
 - `aitbc wallet bridge settlements` --hub-url
@@ -997,7 +1040,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc wallet staking-info` --address
 - `aitbc wallet transactions` --limit
 
-## `zk` — 8 unexercised (+0 🔒)
+## `zk` — 9 unexercised (+0 🔒)
 - `aitbc zk circuits` --coordinator-url
 - `aitbc zk circuits` --format
 - `aitbc zk health` --coordinator-url
@@ -1005,4 +1048,5 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc zk verify` --proof
 - `aitbc zk verify` --public-signals
 - `aitbc zk verify` --circuit
+- `aitbc zk verify` --coordinator-url
 - `aitbc zk verify` --format
