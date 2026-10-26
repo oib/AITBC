@@ -46,6 +46,39 @@ def test_prometheus_relay_labels_are_metadata_only(client):
     assert 'aitbc_escrow_relay_requests_total{relay="release",result="ok"}' in response.text
 
 
+def test_prometheus_relay_series_preinitialised(client):
+    """ESCROW-RELAY-SERIES-1 (#484): every relay×result combination must be
+    exported at 0 on a fresh app — a series absent until first use reads as
+    "no data" to rate() alerts rather than a zero rate, so the rarely-hit
+    classes (and the not-yet-mounted refund relay) are created at import."""
+    from coordinator_api.contexts.payments.services.escrow_relay_metrics import (
+        ESCROW_RELAY_REQUESTS,
+        preinitialise_escrow_relay_series,
+    )
+
+    # Restore fresh-app state: earlier tests in this session may already have
+    # recorded real outcomes into the shared default-registry counter, so drop
+    # the children and re-run the import-time initialiser.
+    ESCROW_RELAY_REQUESTS._metrics.clear()  # noqa: SLF001
+    preinitialise_escrow_relay_series()
+
+    response = client.get("/prometheus")
+    assert response.status_code == 200
+    # Literal enumeration (not RELAYS×RESULTS) so a dropped enum entry cannot
+    # shrink this expectation along with the init loop.
+    for relay in ("create", "release", "refund"):
+        for result in (
+            "ok",
+            "replay",
+            "business_4xx",
+            "too_early_425",
+            "upstream_5xx",
+            "chain_timeout",
+        ):
+            expected = f'aitbc_escrow_relay_requests_total{{relay="{relay}",result="{result}"}} 0.0'
+            assert expected in response.text, f"missing zero-initialised series: relay={relay} result={result}"
+
+
 def test_openapi_endpoint(client):
     """Test OpenAPI schema endpoint."""
     response = client.get("/openapi.json")
