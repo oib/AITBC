@@ -88,6 +88,44 @@ def _find_option(node, tok):
     return None
 
 
+def _consume_option(node, tok, path):
+    """Handle an option token: return (miss, tokens-consumed).
+
+    ``miss`` is the offending flag for an unknown option (``--help`` and
+    KNOWN_OPTS entries pass); ``tokens-consumed`` includes the option's
+    declared value slots.
+    """
+    opt = _find_option(node, tok)
+    if opt is None:
+        if tok == "--help" or (path, tok.split("=")[0]) in KNOWN_OPTS:
+            return None, 1
+        return tok.split("=")[0], 0
+    step = 1
+    if not opt.is_flag and "=" not in tok:
+        step += opt.nargs  # skip the option's value tokens
+    return None, step
+
+
+def _bare_token(node, tok, arg_slots, val_re):
+    """Handle a non-option token: return the offending token or None.
+
+    A doc-syntax value fills an open positional slot or is ignored; a bare
+    word fills a positional slot (``click.Choice`` checked); only a bare
+    token that lands on a GROUP still offering subcommands is a real
+    command-path error.
+    """
+    if arg_slots:
+        arg = arg_slots.pop(0)
+        if not val_re.match(tok) and isinstance(arg.type, click.Choice) and tok not in arg.type.choices:
+            return tok
+        return None
+    if val_re.match(tok):
+        return None  # a doc-syntax value never resolves as a command
+    if getattr(node, "commands", {}):
+        return tok
+    return None
+
+
 def _resolve(cmdline):
     """Return (offending token, command path) or (None, path).
 
@@ -114,21 +152,10 @@ def _resolve(cmdline):
     while i < len(toks):
         t = toks[i]
         if t.startswith("-"):
-            opt = _find_option(node, t)
-            if opt is None:
-                if t == "--help" or (" ".join(path), t.split("=")[0]) in KNOWN_OPTS:
-                    i += 1
-                    continue
-                return t.split("=")[0], " ".join(path)
-            if not opt.is_flag and "=" not in t:
-                i += opt.nargs  # skip the option's value tokens
-            i += 1
-            continue
-        if _VAL.match(t):
-            # a doc-syntax value: fills an open positional slot, else ignored
-            if arg_slots:
-                arg_slots.pop(0)
-            i += 1
+            miss, step = _consume_option(node, t, " ".join(path))
+            if miss:
+                return miss, " ".join(path)
+            i += step
             continue
         kids = getattr(node, "commands", {})
         if t in kids:
@@ -137,16 +164,9 @@ def _resolve(cmdline):
             arg_slots = [p for p in getattr(node, "params", []) if isinstance(p, click.Argument)]
             i += 1
             continue
-        if arg_slots:
-            arg = arg_slots.pop(0)
-            if isinstance(arg.type, click.Choice) and t not in arg.type.choices:
-                return t, " ".join(path)
-            i += 1
-            continue
-        # on a GROUP (still has subcommands) a bare token is a real
-        # command-path error; on a leaf it's a positional arg value.
-        if getattr(node, "commands", {}):
-            return t, " ".join(path)
+        miss = _bare_token(node, t, arg_slots, _VAL)
+        if miss:
+            return miss, " ".join(path)
         i += 1
         continue
     return None, " ".join(path)
