@@ -228,7 +228,10 @@ def votes(ctx, dispute_id, node_url, format):
     """Show the arbitration votes cast on a dispute."""
     try:
         client = _chain_client(ctx, node_url)
-        result = client.get(f"/rpc/disputes/{dispute_id}/votes")
+        # GET /rpc/disputes/{id}/votes returns a bare JSON array; get()
+        # narrows via expect_object and raises TypeError on non-object
+        # bodies (#552).
+        result = client.get_json(f"/rpc/disputes/{dispute_id}/votes")
         output(result, resolve_output_format(ctx, format), title=f"Votes on Dispute {dispute_id}")
     except NetworkError as e:
         if _is_not_found(e):
@@ -328,7 +331,10 @@ def evidence_list(ctx, dispute_id, node_url, format):
     """List the evidence submitted for a dispute."""
     try:
         client = _chain_client(ctx, node_url)
-        result = client.get(f"/rpc/disputes/{dispute_id}/evidence")
+        # GET /rpc/disputes/{id}/evidence returns a bare JSON array; get()
+        # narrows via expect_object and raises TypeError on non-object
+        # bodies (#552).
+        result = client.get_json(f"/rpc/disputes/{dispute_id}/evidence")
         output(result, resolve_output_format(ctx, format), title=f"Evidence for Dispute {dispute_id}")
     except NetworkError as e:
         if _is_not_found(e):
