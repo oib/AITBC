@@ -96,7 +96,7 @@ def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any],
             private_key_hex = sender_data.get("private_key")
             if not private_key_hex:
                 abort(click.get_current_context(silent=True), "Wallet does not contain private key")
-                return None
+                return None  # unreachable (abort raises) — mypy narrowing
 
         # Strip 0x prefix if present
         if isinstance(private_key_hex, str) and private_key_hex.startswith("0x"):
@@ -283,7 +283,7 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
         parsed_payload = json.loads(payload)
         if not isinstance(parsed_payload, dict):
             abort(click.get_current_context(silent=True), "Payload must be a JSON object")
-            return None
+            return None  # unreachable (abort raises) — mypy narrowing
         return parsed_payload
     except json.JSONDecodeError as e:
         abort(None, f"Invalid payload JSON: {e}")
