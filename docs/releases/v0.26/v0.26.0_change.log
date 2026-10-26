@@ -631,3 +631,8 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   option-coverage census now reports `secret-excluded` per group so
   the 259 password/key/seed flags read as intentionally uncovered
   instead of inflating the gap count.
+### WATCHER-REEMIT-1
+
+- The alert watcher persists its firing map to
+  `<alert-log>.state` and hydrates it on start — a restart no longer
+  re-emits every active alert as a fresh "startup" event.

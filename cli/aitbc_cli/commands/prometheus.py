@@ -151,6 +151,89 @@ def _alert_id(alert: dict[str, Any]) -> str:
     return f"{labels.get('alertname')}{json.dumps(labels, sort_keys=True)}"
 
 
+def _emit_alert_changes(
+    current: dict[str, Any],
+    firing: dict[str, dict[str, Any]],
+    silences: list[Any],
+    now_mono: float,
+    now_wall: datetime,
+    remind_interval: float,
+    first_poll: bool,
+    event: Any,
+) -> None:
+    """Emit firing/resolved/still-firing events for one poll.
+
+    Extracted so tests can drive the diff directly — the restart-sim
+    case must fail when the state load is stubbed (WATCHER-REEMIT-1).
+    """
+    for alert_id, alert in current.items():
+        silence = _silence_for(alert, silences, now_wall)
+        state = firing.get(alert_id)
+        if state is None:
+            event(
+                "prometheus_alert_firing",
+                alert,
+                via="startup" if first_poll else "transition",
+                silenced=silence,
+            )
+            firing[alert_id] = {
+                "alert": alert,
+                "silenced": silence is not None,
+                "last_notify": None if silence is not None else now_mono,
+            }
+            continue
+        state["alert"] = alert
+        if state["silenced"] and silence is None:
+            event("prometheus_alert_firing", alert, via="silence_expired", silenced=None)
+            state["last_notify"] = now_mono
+        elif (
+            silence is None
+            and remind_interval > 0
+            and state["last_notify"] is not None
+            and now_mono - state["last_notify"] >= remind_interval
+        ):
+            event("prometheus_alert_still_firing", alert, via="reminder", silenced=None)
+            state["last_notify"] = now_mono
+        state["silenced"] = silence is not None
+    for alert_id, prev in list(firing.items()):
+        if alert_id in current:
+            continue
+        silence = _silence_for(prev["alert"], silences, now_wall)
+        event("prometheus_alert_resolved", prev["alert"], via="transition", silenced=silence)
+        firing.pop(alert_id)
+
+
+def _load_firing_state(path: str) -> dict[str, dict[str, Any]]:
+    """Hydrate the watcher's firing map from its persisted state file.
+
+    A restart should keep quiet about alerts that were already firing:
+    hydrating suppresses the "startup" re-emit for alerts the previous
+    run already reported. last_notify stays None so reminders do not
+    fire early for a hydrated alert either.
+    """
+    try:
+        data = json.loads(Path(path).read_text())
+    except Exception:
+        return {}
+    if data.get("version") != 1:
+        return {}
+    return {
+        alert_id: {"alert": entry["alert"], "silenced": bool(entry.get("silenced")), "last_notify": None}
+        for alert_id, entry in data.get("firing", {}).items()
+        if isinstance(entry, dict) and "alert" in entry
+    }
+
+
+def _save_firing_state(path: str, firing: dict[str, dict[str, Any]]) -> None:
+    """Persist the firing map atomically beside the alert log."""
+    target = Path(path)
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    tmp.write_text(
+        json.dumps({"version": 1, "firing": {k: {"alert": v["alert"], "silenced": v["silenced"]} for k, v in firing.items()}})
+    )
+    os.replace(tmp, target)
+
+
 def _open_alert_log(path: str) -> logging.Logger | None:
     """A logger that writes bare alert-event lines, and nothing else, to ``path`` (rotated at 5 MiB, 5 backups).
 
@@ -733,7 +816,11 @@ def alerts(
     # Alert state is tracked across polls: an alert is reported when it starts firing (again, if it had resolved) and
     # when it stops. A poll Prometheus did not answer changes nothing -- it must not read as "everything resolved".
     # firing maps alert_id -> {"alert": ..., "silenced": bool, "last_notify": monotonic|None}.
-    firing: dict[str, dict[str, Any]] = {}
+    # The map is hydrated from a state file beside the alert log so a
+    # watcher restart does not re-emit every active alert as a fresh
+    # "startup" event (WATCHER-REEMIT-1).
+    state_path = alert_log_path + ".state" if alert_log_path else None
+    firing = _load_firing_state(state_path) if state_path else {}
     unreachable = False
     first_poll = True
     silence_cache: dict[str, Any] = {"mtime": None, "entries": [], "warned": False}
@@ -780,45 +867,16 @@ def alerts(
                             "firing_alertnames": sorted({a.get("labels", {}).get("alertname") for a in current.values()}),
                         },
                     )
-                for alert_id, alert in current.items():
-                    silence = _silence_for(alert, silences, now_wall)
-                    state = firing.get(alert_id)
-                    if state is None:
-                        _event(
-                            "prometheus_alert_firing",
-                            alert,
-                            via="startup" if first_poll else "transition",
-                            silenced=silence,
-                        )
-                        firing[alert_id] = {
-                            "alert": alert,
-                            "silenced": silence is not None,
-                            "last_notify": None if silence is not None else now_mono,
-                        }
-                        continue
-                    state["alert"] = alert
-                    if state["silenced"] and silence is None:
-                        # The silence expired or was removed while the alert still
-                        # fires: it becomes somebody's problem again.
-                        _event("prometheus_alert_firing", alert, via="silence_expired", silenced=None)
-                        state["last_notify"] = now_mono
-                    elif (
-                        silence is None
-                        and remind_interval > 0
-                        and state["last_notify"] is not None
-                        and now_mono - state["last_notify"] >= remind_interval
-                    ):
-                        _event("prometheus_alert_still_firing", alert, via="reminder", silenced=None)
-                        state["last_notify"] = now_mono
-                    state["silenced"] = silence is not None
-                for alert_id, prev in list(firing.items()):
-                    if alert_id in current:
-                        continue
-                    # A resolve is silenced only if a silence still matches now --
-                    # one that expired mid-flight already re-fired the alert.
-                    silence = _silence_for(prev["alert"], silences, now_wall)
-                    _event("prometheus_alert_resolved", prev["alert"], via="transition", silenced=silence)
-                    firing.pop(alert_id)
+                _emit_alert_changes(
+                    current,
+                    firing,
+                    silences,
+                    now_mono,
+                    now_wall,
+                    remind_interval,
+                    first_poll,
+                    _event,
+                )
                 first_poll = False
             _sd_notify_watchdog()
             if metrics_file:
