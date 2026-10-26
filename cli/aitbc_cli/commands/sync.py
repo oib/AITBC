@@ -7,6 +7,7 @@ from typing import Any
 
 import click
 
+from aitbc_cli.utils import output, resolve_output_format
 from aitbc_cli.utils.error_handling import abort
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
@@ -210,29 +211,55 @@ def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
                 "divergence": divergence,
             }
 
-    _format_status_table(
-        resolved_chain_id,
-        height,
-        block_hash,
-        timestamp,
-        total_transactions,
-        total_accounts,
-        p2p_endpoint,
-        supported_chains,
-        hub_status,
-    )
+    sync_optimization: dict[str, Any] | None = None
+    if sync_config:
+        parallel_enabled = sync_config.get("sync_parallel_enabled", False)
+        delta_enabled = sync_config.get("sync_delta_enabled", False)
+        priority_enabled = sync_config.get("gossip_priority_enabled", False)
+        sync_optimization = {
+            "parallel_enabled": parallel_enabled,
+            "delta_enabled": delta_enabled,
+            "priority_enabled": priority_enabled,
+        }
+
+    fmt = resolve_output_format(ctx)
+    if fmt == "json":
+        output(
+            {
+                "chain_id": resolved_chain_id,
+                "height": height,
+                "block_hash": block_hash,
+                "timestamp": timestamp,
+                "total_transactions": total_transactions,
+                "total_accounts": total_accounts,
+                "p2p_endpoint": p2p_endpoint,
+                "supported_chains": supported_chains,
+                "hub": hub_status or None,
+                "sync_optimization": sync_optimization,
+            },
+            "json",
+        )
+    else:
+        _format_status_table(
+            resolved_chain_id,
+            height,
+            block_hash,
+            timestamp,
+            total_transactions,
+            total_accounts,
+            p2p_endpoint,
+            supported_chains,
+            hub_status,
+        )
 
     divergence = hub_status.get("divergence", "none")
     if alert and divergence not in ("none", "N/A", "HUB_UNREACHABLE"):
         ctx.exit(1)
 
     # Show v0.6.2 sync optimization status if available
-    if sync_config:
+    if sync_optimization and fmt != "json":
         click.echo("\nSync Optimization (v0.6.2)")
         click.echo("-" * 40)
-        parallel_enabled = sync_config.get("sync_parallel_enabled", False)
-        delta_enabled = sync_config.get("sync_delta_enabled", False)
-        priority_enabled = sync_config.get("gossip_priority_enabled", False)
-        click.echo(f"Parallel sync      : {'enabled' if parallel_enabled else 'disabled'}")
-        click.echo(f"Delta sync        : {'enabled' if delta_enabled else 'disabled'}")
-        click.echo(f"Gossip priority   : {'enabled' if priority_enabled else 'disabled'}")
+        click.echo(f"Parallel sync      : {'enabled' if sync_optimization['parallel_enabled'] else 'disabled'}")
+        click.echo(f"Delta sync        : {'enabled' if sync_optimization['delta_enabled'] else 'disabled'}")
+        click.echo(f"Gossip priority   : {'enabled' if sync_optimization['priority_enabled'] else 'disabled'}")
