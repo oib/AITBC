@@ -1,11 +1,1 @@
-{
-  "agent workflow create-workflow": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent workflow execute": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent workflow list-workflows": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent workflow workflow-status": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent-comm list": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent-comm discover": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent-comm monitor": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent-comm network": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"},
-  "agent-comm collaborate": {"reason": "stale-cli on node0 — subcommand absent in deployed checkout"}
-}
+{"dispute auto-adjudicate": {"reason": "play limit: interactive confirm"}}
