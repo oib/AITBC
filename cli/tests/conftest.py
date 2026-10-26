@@ -48,5 +48,8 @@ def _clean_signing_env(monkeypatch):
         # into os.environ at import time — on a live node that leaks the real
         # CHAIN_ID into tests that exercise chain-id resolution.
         "CHAIN_ID",
+        # Import-time env loads (e.g. coin_requests reading blockchain.env)
+        # leak a live node's bridge DB path into --bridge-db's default.
+        "BRIDGE_DEPOSITS_DB",
     ):
         monkeypatch.delenv(var, raising=False)
