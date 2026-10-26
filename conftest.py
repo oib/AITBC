@@ -53,6 +53,14 @@ def pytest_addoption(parser):
 # never read in-process. Deployments do not set it and are unaffected.
 os.environ.setdefault("AITBC_SKIP_ENV_FILES", "1")
 
+# `aitbc_chain.config.ChainSettings` does not consult AITBC_SKIP_ENV_FILES: it loads
+# /etc/aitbc/blockchain.env unless AITBC_CHAIN_ENV_FILE redirects it. On a live node that
+# file carries the fleet CHAIN_ID and the STATE_TRANSITION_V*_HEIGHT pins, so every test
+# asserting defaults (v14_activation, side_root_shadow, governance/trading SDK chain ids)
+# silently binds the host's pins. Empty value = load no env file; a deliberately set
+# AITBC_CHAIN_ENV_FILE still wins.
+os.environ.setdefault("AITBC_CHAIN_ENV_FILE", "")
+
 # Same job, second leak, and a worse one (V23-73). Every service resolves its database path
 # from `DATA_DIR`, which defaults to /var/lib/aitbc — the deployed machine's data directory.
 # Nothing in the test process moved it, so `gpu_service`, `trading_service` and
