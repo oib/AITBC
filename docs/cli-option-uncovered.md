@@ -4,73 +4,27 @@ Generated from the OPTION-DOCS-1 census on the current main (regenerate with
 `scripts/dev/gen_option_coverage.py`; this file is the row-citation source).
 
 Legend: 🔒 = secret-value flag, intentionally unexercised.
-**347 non-secret unexercised, 271 secret-excluded.**
+**150 non-secret unexercised, 258 secret-excluded.**
 
 
-## `account` — 4 unexercised (+0 🔒)
-- `aitbc account get` `--rpc-url`
-- `aitbc account get` `--chain-id`
+## `account` — 2 unexercised (+0 🔒)
 - `aitbc account list` `--rpc-url`
 - `aitbc account list` `--chain-id`
 
 ## `agent` — 0 unexercised (+9 🔒)
 
-## `agent-comm` — 12 unexercised (+9 🔒)
-- `aitbc agent-comm collaborate` `--governance`
-- `aitbc agent-comm receive` `--wallet`
-- `aitbc agent-comm receive` `--format`
-- `aitbc agent-comm register` `--agent-type`
-- `aitbc agent-comm register` `--wallet`
-- `aitbc agent-comm reputation` `--feedback`
-- `aitbc agent-comm send` `--payload`
-- `aitbc agent-comm send` `--target-chain`
-- `aitbc agent-comm send` `--priority`
-- `aitbc agent-comm send` `--ttl`
-- `aitbc agent-comm send` `--wallet`
-- `aitbc agent-comm status` `--format`
+## `agent-comm` — 0 unexercised (+9 🔒)
 
-## `agent-msg` — 10 unexercised (+12 🔒)
-- `aitbc agent-msg ping` `--wallet`
-- `aitbc agent-msg receive` `--wallet`
-- `aitbc agent-msg receive` `--sign`, `--no-sign`
-- `aitbc agent-msg request-coins` `--sender`
-- `aitbc agent-msg request-coins` `--coordinator-url`
-- `aitbc agent-msg request-coins` `--timeout`
-- `aitbc agent-msg send` `--message-type`
-- `aitbc agent-msg send` `--ttl`
-- `aitbc agent-msg send` `--wallet`
-- `aitbc agent-msg send` `--sign`, `--no-sign`
+## `agent-msg` — 0 unexercised (+12 🔒)
 
 ## `agent-task` — 0 unexercised (+9 🔒)
 
-## `agent-wallet` — 2 unexercised (+0 🔒)
-- `aitbc agent-wallet rebalance` `--earnings`
+## `agent-wallet` — 1 unexercised (+0 🔒)
 - `aitbc agent-wallet stake` `--contract`
 
-## `ai` — 5 unexercised (+10 🔒)
-- `aitbc ai submit` `--auto-reinvest-pct`
-- `aitbc ai submit` `--deterministic-decoding`, `--no-deterministic-decoding`
-- `aitbc ai submit` `--chain-id`
-- `aitbc ai submit` `--rpc-url`
-- `aitbc ai submit` `--poll-interval`
+## `ai` — 0 unexercised (+10 🔒)
 
 ## `auth` — 0 unexercised (+5 🔒)
-
-## `blockchain` — 14 unexercised (+0 🔒)
-- `aitbc blockchain monitor` `--interval`
-- `aitbc blockchain remove` `--migrate`
-- `aitbc blockchain restore` `--node`
-- `aitbc blockchain restore` `--verify`
-- `aitbc blockchain start` `--node-url`
-- `aitbc blockchain start` `--type`
-- `aitbc blockchain status` `--chain-id`
-- `aitbc blockchain status` `--node-url`
-- `aitbc blockchain status` `--detailed`
-- `aitbc blockchain status` `--local`
-- `aitbc blockchain stop` `--node-url`
-- `aitbc blockchain sync-status` `--node-url`
-- `aitbc blockchain sync-status` `--all-chains`
-- `aitbc blockchain sync-status` `--chain-id`
 
 ## `bond` — 18 unexercised (+0 🔒)
 - `aitbc bond appeal` `--reason`
@@ -92,16 +46,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc bond top-up` `--coordinator-url`
 - `aitbc bond top-up` `--format`
 
-## `bootstrap` — 1 unexercised (+0 🔒)
-- `aitbc bootstrap bootstrap-env` `--overwrite`
-
-## `bridge` — 1 unexercised (+9 🔒)
-- `aitbc bridge unlock` `--signature`
-
-## `contract` — 3 unexercised (+0 🔒)
-- `aitbc contract call` `--method`
-- `aitbc contract call` `--args`
-- `aitbc contract call` `--rpc-url`
+## `bridge` — 0 unexercised (+5 🔒)
 
 ## `crosschain` — 21 unexercised (+9 🔒)
 - `aitbc crosschain bridge` `--rpc-url`
@@ -126,40 +71,16 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc crosschain swaps` `--user-address`
 - `aitbc crosschain swaps` `--rpc-url`
 
-## `dashboard` — 4 unexercised (+0 🔒)
-- `aitbc dashboard customer` `--limit`
-- `aitbc dashboard customer` `--wallet-limit`
+## `dashboard` — 2 unexercised (+0 🔒)
 - `aitbc dashboard shop` `--miner-id`
 - `aitbc dashboard shop` `--limit`
 
-## `developer` — 4 unexercised (+0 🔒)
-- `aitbc developer register` `--name`
-- `aitbc developer register` `--email`
-- `aitbc developer register` `--github-handle`
+## `developer` — 1 unexercised (+0 🔒)
 - `aitbc developer register` `--format`
 
-## `dispute` — 2 unexercised (+0 🔒)
-- `aitbc dispute file` `--node-url`
-- `aitbc dispute file` `--format`
-
-## `economics` — 4 unexercised (+0 🔒)
-- `aitbc economics distributed` `--cost-optimize`
+## `economics` — 2 unexercised (+0 🔒)
 - `aitbc economics model` `--type`
-- `aitbc economics vote` `--vote`
 - `aitbc economics vote` `--voting-power`
-
-## `edge` — 11 unexercised (+0 🔒)
-- `aitbc edge database init-db` `--capacity-gb`
-- `aitbc edge gpu list-gpus` `--architecture`
-- `aitbc edge gpu list-gpus` `--edge-optimized`
-- `aitbc edge gpu list-gpus` `--min-memory-gb`
-- `aitbc edge island join` `--island-name`
-- `aitbc edge island join` `--chain-id`
-- `aitbc edge island join` `--role`
-- `aitbc edge island join` `--is-hub`
-- `aitbc edge serve submit-request` `--escrow-id`
-- `aitbc edge transfer` `--amount`
-- `aitbc edge transfer` `--note`
 
 ## `energy` — 0 unexercised (+9 🔒)
 
@@ -186,21 +107,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc governance vote` `--wallet`
 - `aitbc governance vote` `--format`
 
-## `gpu-onchain` — 9 unexercised (+9 🔒)
-- `aitbc gpu-onchain allocate` `--wait`
-- `aitbc gpu-onchain allocations` `--format`
-- `aitbc gpu-onchain deregister` `--wait`
-- `aitbc gpu-onchain deregister` `--format`
-- `aitbc gpu-onchain register` `--cuda-version`
-- `aitbc gpu-onchain register` `--region`
-- `aitbc gpu-onchain register` `--capabilities`
-- `aitbc gpu-onchain register` `--wait`
-- `aitbc gpu-onchain register` `--format`
-
-## `health` — 3 unexercised (+0 🔒)
-- `aitbc health` `--services`
-- `aitbc health` `--timeout`
-- `aitbc health` `--output`
+## `gpu-onchain` — 0 unexercised (+9 🔒)
 
 ## `ipfs` — 6 unexercised (+7 🔒)
 - `aitbc ipfs download` `--access-key`
@@ -220,113 +127,40 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 
 ## `market` — 0 unexercised (+10 🔒)
 
-## `messaging` — 57 unexercised (+36 🔒)
-- `aitbc messaging lock` `--confirm`
-- `aitbc messaging mod-grant` `--wait`, `--no-wait`
-- `aitbc messaging mod-grant` `--confirm`
-- `aitbc messaging mod-grant` `--fee`
-- `aitbc messaging mod-revoke` `--rpc-url`
-- `aitbc messaging mod-revoke` `--wait-timeout`
-- `aitbc messaging mod-revoke` `--wait`, `--no-wait`
-- `aitbc messaging mod-revoke` `--confirm`
-- `aitbc messaging mod-revoke` `--fee`
-- `aitbc messaging moderators` `--rpc-url`
-- `aitbc messaging pin` `--topic`
-- `aitbc messaging pin` `--rpc-url`
-- `aitbc messaging pin` `--wait-timeout`
-- `aitbc messaging pin` `--wait`, `--no-wait`
-- `aitbc messaging pin` `--confirm`
-- `aitbc messaging pin` `--fee`
-- `aitbc messaging reputation` `--rpc-url`
-- `aitbc messaging send` `--reply-to`
-- `aitbc messaging send` `--fee`
-- `aitbc messaging send` `--confirm`
-- `aitbc messaging send` `--wait`, `--no-wait`
-- `aitbc messaging send` `--wait-timeout`
-- `aitbc messaging send` `--rpc-url`
-- `aitbc messaging show` `--rpc-url`
-- `aitbc messaging state` `--rpc-url`
-- `aitbc messaging stats` `--rpc-url`
-- `aitbc messaging subscribe` `--from-cursor`
-- `aitbc messaging subscribe` `--follow`
-- `aitbc messaging subscribe` `--interval`
-- `aitbc messaging subscribe` `--max-polls`
-- `aitbc messaging subscribe` `--rpc-url`
-- `aitbc messaging topics` `--offset`
-- `aitbc messaging topics` `--rpc-url`
-- `aitbc messaging unhide` `--topic`
-- `aitbc messaging unhide` `--rpc-url`
-- `aitbc messaging unhide` `--wait-timeout`
-- `aitbc messaging unhide` `--wait`, `--no-wait`
-- `aitbc messaging unhide` `--confirm`
-- `aitbc messaging unhide` `--fee`
-- `aitbc messaging unlock` `--target`
-- `aitbc messaging unlock` `--rpc-url`
-- `aitbc messaging unlock` `--wait-timeout`
-- `aitbc messaging unlock` `--wait`, `--no-wait`
-- `aitbc messaging unlock` `--confirm`
-- `aitbc messaging unlock` `--fee`
-- `aitbc messaging unpin` `--topic`
-- `aitbc messaging unpin` `--rpc-url`
-- `aitbc messaging unpin` `--wait-timeout`
-- `aitbc messaging unpin` `--wait`, `--no-wait`
-- `aitbc messaging unpin` `--confirm`
-- `aitbc messaging unpin` `--fee`
-- `aitbc messaging vote` `--topic`
-- `aitbc messaging vote` `--rpc-url`
-- `aitbc messaging vote` `--wait-timeout`
-- `aitbc messaging vote` `--wait`, `--no-wait`
-- `aitbc messaging vote` `--confirm`
-- `aitbc messaging vote` `--fee`
+## `messaging` — 0 unexercised (+36 🔒)
 
-## `monitor` — 5 unexercised (+0 🔒)
-- `aitbc monitor campaigns` `--status`
+## `monitor` — 4 unexercised (+0 🔒)
 - `aitbc monitor sweepers` `--config`
 - `aitbc monitor webhooks` `--name`
 - `aitbc monitor webhooks` `--url`
 - `aitbc monitor webhooks` `--events`
 
-## `network` — 4 unexercised (+1 🔒)
+## `network` — 4 unexercised (+0 🔒)
 - `aitbc network subscribe` `--rpc-url`
 - `aitbc network subscribers` `--chain-id`
 - `aitbc network subscribers` `--rpc-url`
 - `aitbc network test` `--rpc-url`
 
-## `operations` — 15 unexercised (+9 🔒)
-- `aitbc operations agent message` `--message`
-- `aitbc operations agent message` `--wallet`
+## `operations` — 10 unexercised (+9 🔒)
 - `aitbc operations agent message` `--rpc-url`
-- `aitbc operations ai status` `--format`
 - `aitbc operations governance delegate` `--format`
 - `aitbc operations governance execute` `--format`
 - `aitbc operations governance get-proposal` `--format`
 - `aitbc operations governance proposal` `--params`
 - `aitbc operations governance proposal` `--format`
-- `aitbc operations governance stake` `--amount`
-- `aitbc operations governance stake` `--lock-days`
 - `aitbc operations governance stake` `--format`
 - `aitbc operations governance vote` `--reason`
 - `aitbc operations governance vote` `--format`
 - `aitbc operations governance voting-power` `--format`
 
-## `platform` — 1 unexercised (+0 🔒)
-- `aitbc platform init-platform` `--template`
-
-## `plugin` — 3 unexercised (+0 🔒)
+## `plugin` — 2 unexercised (+0 🔒)
 - `aitbc plugin create` `--type`
-- `aitbc plugin list` `--plugins-dir`
 - `aitbc plugin load` `--plugins-dir`
-
-## `prometheus` — 3 unexercised (+0 🔒)
-- `aitbc prometheus rules` `--prometheus-url`
-- `aitbc prometheus series` `--prometheus-url`
-- `aitbc prometheus targets` `--prometheus-url`
 
 ## `reinvest` — 1 unexercised (+0 🔒)
 - `aitbc reinvest simulate` `--reserve-address`
 
-## `reputation` — 2 unexercised (+0 🔒)
-- `aitbc reputation leaderboard` `--region`
+## `reputation` — 1 unexercised (+0 🔒)
 - `aitbc reputation profile` `--format`
 
 ## `resource` — 7 unexercised (+0 🔒)
@@ -338,13 +172,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc resource status` `--status`
 - `aitbc resource status` `--limit`
 
-## `service` — 3 unexercised (+0 🔒)
-- `aitbc service harden` `--all`
-- `aitbc service harden` `--read-write-paths`
-- `aitbc service harden` `--no-restart`
-
-## `simulate` — 2 unexercised (+5 🔒)
-- `aitbc simulate price` `--delay`
+## `simulate` — 1 unexercised (+0 🔒)
 - `aitbc simulate run` `--async-run`
 
 ## `stake` — 2 unexercised (+0 🔒)
@@ -355,56 +183,13 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc system env-names` `--value`
 - `aitbc system logs` `--severity-pattern`
 
-## `trade` — 47 unexercised (+1 🔒)
-- `aitbc trade chains` `--format`
-- `aitbc trade create` `--recipient`
-- `aitbc trade create` `--amount`
+## `trade` — 4 unexercised (+0 🔒)
 - `aitbc trade create` `--offer-id`
 - `aitbc trade create` `--price`
 - `aitbc trade create` `--quantity`
-- `aitbc trade create` `--format`
-- `aitbc trade discover` `--region`
-- `aitbc trade discover` `--gpu-model`
-- `aitbc trade discover` `--format`
-- `aitbc trade get` `--format`
-- `aitbc trade health` `--format`
-- `aitbc trade history` `--dest-chain`
-- `aitbc trade history` `--format`
-- `aitbc trade list` `--dest-chain`
-- `aitbc trade list` `--limit`
-- `aitbc trade list` `--format`
 - `aitbc trade lock-escrow` `--node-url`
-- `aitbc trade lock-escrow` `--api-key`
-- `aitbc trade lock-escrow` `--timeout`
-- `aitbc trade lock-escrow` `--format`
-- `aitbc trade match` `--format`
-- `aitbc trade match-all` `--format`
-- `aitbc trade refund` `--node-url`
-- `aitbc trade refund` `--api-key`
-- `aitbc trade refund` `--format`
-- `aitbc trade register-chain` `--endpoint`
-- `aitbc trade register-chain` `--format`
-- `aitbc trade search` `--service-type`
-- `aitbc trade search` `--min-price`
-- `aitbc trade search` `--max-price`
-- `aitbc trade search` `--format`
-- `aitbc trade settle` `--node-url`
-- `aitbc trade settle` `--api-key`
-- `aitbc trade settle` `--format`
-- `aitbc trade settlement-status` `--node-url`
-- `aitbc trade settlement-status` `--api-key`
-- `aitbc trade settlement-status` `--format`
-- `aitbc trade status` `--format`
-- `aitbc trade subscription-status` `--format`
-- `aitbc trade sync` `--format`
-- `aitbc trade sync-status` `--format`
-- `aitbc trade watch` `--min-price`
-- `aitbc trade watch` `--max-price`
-- `aitbc trade watch` `--region`
-- `aitbc trade watch` `--gpu-model`
-- `aitbc trade watch` `--format`
 
-## `transactions` — 8 unexercised (+6 🔒)
+## `transactions` — 8 unexercised (+4 🔒)
 - `aitbc transactions search` `--recipient`
 - `aitbc transactions search` `--rpc-url`
 - `aitbc transactions send` `--fee`
