@@ -75,8 +75,12 @@ class IslandService:
         async with BlockchainRPCClient(api_key=settings.blockchain_rpc_api_key) as rpc_client:
             result = await rpc_client.leave_island(island_id)
 
-        # Remove membership from edge-api database
-        if result.get("success"):
+        # Remove membership from edge-api database only when the chain says we
+        # are no longer a member: either an explicit success, or the #573
+        # machine-readable "not_member" code — the end state is the same.
+        # "forbidden_default" and legacy replies with neither code nor status
+        # keep the row.
+        if result.get("success") or (result.get("code") or result.get("status")) == "not_member":
             async with get_session() as session:
                 from sqlmodel import delete
 
