@@ -217,6 +217,9 @@ def leave(ctx, island_id: str):
         if result.get("success"):
             success(f"Successfully left island {island_id}")
             output(result, resolve_output_format(ctx))
+        elif (result.get("code") or result.get("status")) == "not_member":
+            info(result.get("message", f"Not a member of island {island_id}"))
+            output(result, resolve_output_format(ctx))
         else:
             abort(ctx, f"Failed to leave island: {result.get('message', 'Unknown error')}")
     except CLIError:
