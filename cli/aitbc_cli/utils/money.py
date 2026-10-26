@@ -58,10 +58,19 @@ def wallet_amount(value: Any) -> Decimal:
     ``str()`` first is what makes that work: it is a no-op for a string, and for a float it
     parses the shortest repr rather than the full binary expansion, so ``0.1`` on disk reads
     back as ``Decimal("0.1")`` and not ``Decimal("0.1000000000000000055511151231257827")``.
+
+    ``None`` (an absent optional value) still defaults to zero, but an actual value that
+    does not parse is refused with ``click.BadParameter`` -- the old ``except: return 0``
+    silently turned ``--amount notanumber`` into a zero-amount escrow, which is a wrong
+    amount rather than a missing one. Non-finite values (NaN, infinities) parse as
+    ``Decimal`` but are never a quantity of money, so they are refused the same way.
     """
     if value is None:
         return Decimal("0")
     try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError, ArithmeticError):
-        return Decimal("0")
+        parsed = Decimal(str(value))
+    except (InvalidOperation, ValueError, ArithmeticError) as exc:
+        raise click.BadParameter(f"{value!r} is not a valid amount") from exc
+    if not parsed.is_finite():
+        raise click.BadParameter(f"{value!r} is not a finite amount")
+    return parsed
