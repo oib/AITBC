@@ -71,3 +71,25 @@ def test_monitor_metrics_offline_fallback_warns(monkeypatch):
     assert result.exit_code == 0
     assert "Coordinator metrics unavailable" in result.output
     assert "offline" in result.output
+
+
+def test_version_includes_checkout_sha_in_worktree():
+    """#595: in a git checkout the version carries +<sha>; without .git it
+    stays the plain package version (no silent staleness)."""
+    import re
+
+    from aitbc_cli import __version__
+    from aitbc_cli.core.main import _version_display
+
+    v = _version_display()
+    assert re.fullmatch(rf"{re.escape(__version__)}(\+[0-9a-f]{{7,40}})?", v)
+
+
+def test_version_plain_when_no_git(monkeypatch):
+    from aitbc_cli import __version__
+    from aitbc_cli.core import main as cm
+    from pathlib import Path
+
+    fake = Path("/tmp/nonexistent-checkout/lib/main.py")
+    monkeypatch.setattr(cm, "__file__", str(fake))
+    assert cm._version_display() == __version__

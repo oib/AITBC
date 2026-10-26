@@ -284,6 +284,29 @@ def list_wallets(ctx):
     return ctx.invoke(list_cmd)
 
 
+def _version_display() -> str:
+    """Version string: package version plus the checkout sha when running
+    from a git checkout (editable installs), so a stale dist version does
+    not misreport which code is running."""
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3]
+    if (root / ".git").exists():
+        try:
+            sha = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            ).stdout.strip()
+            if sha:
+                return f"{__version__}+{sha}"
+        except Exception:
+            pass
+    return __version__
+
+
 @click.command(
     epilog="""Examples:
 
@@ -291,14 +314,14 @@ def list_wallets(ctx):
 )
 def version():
     """Show the AITBC CLI version and architecture support status."""
-    click.echo(f"aitbc, version {__version__}")
+    click.echo(f"aitbc, version {_version_display()}")
     click.echo("System Architecture Support: ✅")
     click.echo("FHS Compliance: ✅")
     click.echo("New Features: ✅")
 
 
 @click.group()
-@click.version_option(version=__version__, prog_name="aitbc")
+@click.version_option(version=_version_display(), prog_name="aitbc")
 @click.option("--url", default=None, help="Coordinator API URL (overrides config)")
 @click.option("--api-key", default=None, help="API key for authentication")
 @click.option("--chain-id", default=None, help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
