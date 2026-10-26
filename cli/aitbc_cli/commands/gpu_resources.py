@@ -8,7 +8,7 @@ from aitbc.config.hub import normalize_hub_base
 from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
-from ..utils import DECIMAL, error, output, success
+from ..utils import DECIMAL, error, output, resolve_output_format, success
 from ..utils.wallet_secret import wallet_password_options
 from ..utils.chain_id import resolve_chain_id
 from ..utils.error_handling import CLIError
@@ -67,7 +67,7 @@ def _gpu_hint() -> str:
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @wallet_password_options
 @click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def register_onchain(
     ctx,
@@ -125,7 +125,7 @@ def register_onchain(
                 result["mined"] = False
 
         success(f"GPU '{gpu_id}' registration transaction submitted")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except CLIError:
         # abort() failures already printed their message — keep the exit code.
         raise
@@ -148,7 +148,7 @@ def register_onchain(
   aitbc gpu-onchain query --gpu-id gpu-1 --output json""",
 )
 @click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def query_gpu(ctx, gpu_id: str, format: str):
     """Query a GPU's on-chain registration details."""
@@ -166,7 +166,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
         params = {"chain_id": chain_id} if chain_id else {}
         result = http_client.get(f"/rpc/gpu/info/{gpu_id}", params=params)
 
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except CLIError:
         # abort() failures already printed their message — keep the exit code.
         raise
@@ -192,7 +192,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
 @click.option("--wallet", required=True, help="Wallet name for signing (must be the GPU's registrant)")
 @wallet_password_options
 @click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def deregister_gpu(
     ctx,
@@ -236,7 +236,7 @@ def deregister_gpu(
                 result["mined"] = False
 
         success(f"GPU '{gpu_id}' deregistration transaction submitted")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except CLIError:
         # abort() failures already printed their message — keep the exit code.
         raise
@@ -263,7 +263,7 @@ def deregister_gpu(
 @click.option("--wallet", required=True, help="Wallet name for signing")
 @wallet_password_options
 @click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def allocate_gpu(
     ctx,
@@ -319,7 +319,7 @@ def allocate_gpu(
                 result["mined"] = False
 
         success(f"GPU allocation transaction submitted for '{gpu_id}'")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except CLIError:
         # abort() failures already printed their message — keep the exit code.
         raise
@@ -342,7 +342,7 @@ def allocate_gpu(
   aitbc gpu-onchain allocations --gpu-id gpu-1 --output json""",
 )
 @click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def get_allocations(ctx, gpu_id: str, format: str):
     """Query on-chain allocations for a GPU."""
@@ -360,7 +360,7 @@ def get_allocations(ctx, gpu_id: str, format: str):
         params = {"chain_id": chain_id} if chain_id else {}
         result = http_client.get(f"/rpc/gpu/allocations/{gpu_id}", params=params)
 
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except CLIError:
         # abort() failures already printed their message — keep the exit code.
         raise
@@ -383,7 +383,7 @@ def get_allocations(ctx, gpu_id: str, format: str):
   aitbc gpu-onchain list --status active""",
 )
 @click.option("--status", help="Filter by status (active, deactivated)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list_gpus(ctx, status: str | None, format: str):
     """List all GPUs registered on the blockchain, optionally filtered by status."""
@@ -404,7 +404,7 @@ def list_gpus(ctx, status: str | None, format: str):
 
         result = http_client.get("/rpc/gpus", params=params)
 
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except CLIError:
         # abort() failures already printed their message — keep the exit code.
         raise

@@ -8,7 +8,7 @@ from typing import Any
 import click
 
 from ..config import get_config
-from ..utils import output
+from ..utils import output, resolve_output_format
 from ..auth import AuthManager
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
@@ -81,7 +81,7 @@ def bond():
 @click.option("--required-amount", default="0.0", help="Required bond amount for this provider")
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def create(ctx, provider_id, amount, required_amount, bond_id, coordinator_url, format):
     """Create or top-up a provider's performance bond."""
@@ -94,7 +94,7 @@ def create(ctx, provider_id, amount, required_amount, bond_id, coordinator_url, 
         if bond_id:
             payload["bond_id"] = bond_id
         result = client.post(f"/v1/market/providers/{provider_id}/bonds", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Bond Created")
+        output(result, resolve_output_format(ctx, format), title="Bond Created")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
@@ -110,14 +110,14 @@ def create(ctx, provider_id, amount, required_amount, bond_id, coordinator_url, 
 )
 @click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def status(ctx, provider_id, coordinator_url, format):
     """Show a provider's bond eligibility status."""
     try:
         client = _api_client(ctx, coordinator_url)
         result = client.get(f"/v1/market/providers/{provider_id}/eligibility")
-        output(result, ctx.obj.get("output_format", format), title="Bond Status")
+        output(result, resolve_output_format(ctx, format), title="Bond Status")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
@@ -135,7 +135,7 @@ def status(ctx, provider_id, coordinator_url, format):
 @click.option("--amount", default="0.0", help="Amount to add to the bond")
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def top_up(ctx, provider_id, amount, bond_id, coordinator_url, format):
     """Top up a provider's performance bond."""
@@ -145,7 +145,7 @@ def top_up(ctx, provider_id, amount, bond_id, coordinator_url, format):
         if bond_id:
             payload["bond_id"] = bond_id
         result = client.post(f"/v1/market/providers/{provider_id}/bonds", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Bond Top-Up")
+        output(result, resolve_output_format(ctx, format), title="Bond Top-Up")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
@@ -161,14 +161,14 @@ def top_up(ctx, provider_id, amount, bond_id, coordinator_url, format):
 )
 @click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def lock(ctx, provider_id, coordinator_url, format):
     """Lock a provider's bond while a high-value job is in flight."""
     try:
         client = _api_client(ctx, coordinator_url)
         result = client.post(f"/v1/market/providers/{provider_id}/bonds/lock")
-        output(result, ctx.obj.get("output_format", format), title="Bond Locked")
+        output(result, resolve_output_format(ctx, format), title="Bond Locked")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
@@ -184,7 +184,7 @@ def lock(ctx, provider_id, coordinator_url, format):
 )
 @click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def release(ctx, provider_id, coordinator_url, format):
     """Release a previously locked provider bond.
@@ -203,7 +203,7 @@ def release(ctx, provider_id, coordinator_url, format):
                 "Bond lock released; the bond stays posted (status 'active'). "
                 "Release un-locks a locked bond — it does not withdraw the bonded amount.",
             )
-        output(result, ctx.obj.get("output_format", format), title="Bond Released")
+        output(result, resolve_output_format(ctx, format), title="Bond Released")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
@@ -220,7 +220,7 @@ def release(ctx, provider_id, coordinator_url, format):
 @click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--reason", default="", help="Reason for the slash")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def slash(ctx, provider_id, reason, coordinator_url, format):
     """Slash a provider's bond with an optional reason."""
@@ -228,7 +228,7 @@ def slash(ctx, provider_id, reason, coordinator_url, format):
         client = _api_client(ctx, coordinator_url)
         payload = {"reason": reason} if reason else {}
         result = client.post(f"/v1/market/providers/{provider_id}/bonds/slash", json=payload)
-        output(result, ctx.obj.get("output_format", format), title="Bond Slashed")
+        output(result, resolve_output_format(ctx, format), title="Bond Slashed")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
@@ -246,7 +246,7 @@ def slash(ctx, provider_id, reason, coordinator_url, format):
 @click.option("--reason", default="", help="Reason for the appeal")
 @click.option("--evidence", default="", help="Evidence URL or CID")
 @click.option("--coordinator-url", help="Coordinator URL")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def appeal(ctx, bond_id, reason, evidence, coordinator_url, format):
     """Appeal a slashing decision for a bond with optional evidence."""
@@ -256,7 +256,7 @@ def appeal(ctx, bond_id, reason, evidence, coordinator_url, format):
             "/v1/governance/slash-appeals",
             json={"bond_id": bond_id, "reason": reason, "evidence": [evidence] if evidence else []},
         )
-        output(result, ctx.obj.get("output_format", format), title="Slash Appeal")
+        output(result, resolve_output_format(ctx, format), title="Slash Appeal")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:

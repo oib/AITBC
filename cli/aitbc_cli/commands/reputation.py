@@ -8,7 +8,7 @@ from typing import Any, cast
 import click
 
 from ..config import get_config
-from ..utils import output, success
+from ..utils import output, resolve_output_format, success
 from ..utils.error_handling import abort
 from ..utils.http_client import (
     AITBCHTTPClient,
@@ -184,10 +184,11 @@ def reputation(ctx):
   aitbc reputation profile --agent-id agent-1 --output json""",
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def get_profile(ctx, agent_id: str, format: str):
     """Get the reputation profile for an agent."""
+    format = resolve_output_format(ctx, format)
     try:
         http_client = _coordinator_client(ctx)
         try:
@@ -235,10 +236,11 @@ def get_profile(ctx, agent_id: str, format: str):
   aitbc reputation trust-score --agent-id agent-1 --output json""",
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def trust_score(ctx, agent_id: str, format: str):
     """Get a detailed trust score breakdown for an agent."""
+    format = resolve_output_format(ctx, format)
     try:
         http_client = _coordinator_client(ctx)
         try:
@@ -285,10 +287,11 @@ def trust_score(ctx, agent_id: str, format: str):
 @click.option("--category", default="trust_score", help="Category to rank by")
 @click.option("--limit", type=int, default=10, help="Number of results")
 @click.option("--region", default=None, help="Filter by region")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def leaderboard(ctx, category: str, limit: int, region: str | None, format: str):
     """Get the agent reputation leaderboard ranked by category."""
+    format = resolve_output_format(ctx, format)
     try:
         params: dict[str, Any] = {"category": category, "limit": limit}
         if region:
@@ -344,10 +347,11 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
 
   aitbc reputation metrics --output json""",
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def metrics(ctx, format: str):
     """Get overall reputation system metrics and level distribution."""
+    format = resolve_output_format(ctx, format)
     try:
         http_client = _coordinator_client(ctx)
         try:

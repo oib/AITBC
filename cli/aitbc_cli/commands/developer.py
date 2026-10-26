@@ -6,7 +6,7 @@ import os
 
 import click
 
-from ..utils import output
+from ..utils import output, resolve_output_format
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.error_handling import abort
 
@@ -42,7 +42,7 @@ def developer():
 @click.option("--name", default=None, help="Developer name")
 @click.option("--email", default=None, help="Developer email")
 @click.option("--github-handle", default=None, help="GitHub handle")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def register(
     ctx,
@@ -62,7 +62,7 @@ def register(
             "github_handle": github_handle,
         }
         result = client.post("/v1/developers", json={k: v for k, v in payload.items() if v is not None})
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -80,7 +80,7 @@ def register(
 @click.option("--active-only/--all", default=True, help="List only active developers")
 @click.option("--limit", type=int, default=100, help="Maximum number of developers")
 @click.option("--offset", type=int, default=0, help="Offset for pagination")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list_developers(ctx, active_only: bool, limit: int, offset: int, format: str):
     """List registered developers with optional active-only, limit, and offset filters."""
@@ -88,7 +88,7 @@ def list_developers(ctx, active_only: bool, limit: int, offset: int, format: str
         client = _get_client()
         params = {"active_only": active_only, "limit": limit, "offset": offset}
         result = client.get("/v1/developers", params=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:

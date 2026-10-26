@@ -7,16 +7,14 @@ import click
 
 from ..core.analytics import ChainAnalytics
 from ..core.config import load_multichain_config
-from ..utils import output, success
+from ..utils import output, resolve_output_format, success
 from ..utils.error_handling import abort
 from ..utils.http_client import get_logger
 
 
-def _fmt(ctx: click.Context, command_format: str) -> str:
+def _fmt(ctx: click.Context, command_format: str | None) -> str:
     """Respect command --format first, then global --output, then table."""
-    if command_format != "table":
-        return command_format
-    return ctx.obj.get("output_format", "table") or "table"
+    return resolve_output_format(ctx, command_format)
 
 
 logger = get_logger(__name__)
@@ -43,7 +41,7 @@ def analytics():
 )
 @click.option("--chain-id", help="Specific chain ID to analyze")
 @click.option("--hours", default=24, help="Time range in hours")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def summary(ctx, chain_id, hours, format):
     """Get a performance summary for one chain or a cross-chain analysis."""
@@ -248,7 +246,7 @@ def monitor(ctx, realtime, interval, chain_id):
 )
 @click.option("--chain-id", help="Specific chain ID for predictions")
 @click.option("--hours", default=24, help="Prediction time horizon in hours")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def predict(ctx, chain_id, hours, format):
     """Predict future chain performance for a single chain or all chains."""
@@ -318,7 +316,7 @@ def predict(ctx, chain_id, hours, format):
   aitbc analytics optimize --chain-id ait-mainnet"""
 )
 @click.option("--chain-id", help="Specific chain ID for recommendations")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def optimize(ctx, chain_id, format):
     """Get optimization recommendations for one chain or all chains."""
@@ -394,7 +392,7 @@ def optimize(ctx, chain_id, format):
 )
 @click.option("--severity", type=click.Choice(["all", "critical", "warning"]), default="all", help="Alert severity filter")
 @click.option("--hours", default=24, help="Time range in hours")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def alerts(ctx, severity, hours, format):
     """View performance alerts filtered by severity and time range."""

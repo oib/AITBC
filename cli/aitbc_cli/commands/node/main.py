@@ -16,7 +16,7 @@ try:
         save_multichain_config,
     )
     from aitbc_cli.core.node_client import NodeClient
-    from aitbc_cli.utils import error, info, output, success
+    from aitbc_cli.utils import error, info, output, resolve_output_format, success
 except ImportError:
     from aitbc_cli.core.config import (
         add_node_config,
@@ -26,7 +26,7 @@ except ImportError:
         save_multichain_config,
     )
     from aitbc_cli.core.node_client import NodeClient
-    from aitbc_cli.utils import error, output, success
+    from aitbc_cli.utils import error, output, resolve_output_format, success
 
     def info(message: str, **kwargs: Any):
         click.echo(message)
@@ -184,7 +184,7 @@ def chains(ctx, show_private, node_id):
 
   aitbc node list --output json"""
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list(ctx, format):
     """List all configured nodes and their connection settings."""
@@ -192,7 +192,7 @@ def list(ctx, format):
         config = load_multichain_config()
 
         if not config.nodes:
-            output("No nodes configured", ctx.obj.get("output", "table"))
+            output("No nodes configured", resolve_output_format(ctx, format))
             return
 
         nodes_data = [
@@ -206,7 +206,7 @@ def list(ctx, format):
             for node_id, node_config in config.nodes.items()
         ]
 
-        output(nodes_data, ctx.obj.get("output", "table"), title="Configured Nodes")
+        output(nodes_data, resolve_output_format(ctx, format), title="Configured Nodes")
 
     except Exception as e:
         error(f"Error listing nodes: {str(e)}")

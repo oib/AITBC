@@ -17,7 +17,7 @@ These commands talk to the trading service REST API (port 8104).
 
 import click
 
-from ..utils import output
+from ..utils import output, resolve_output_format
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.error_handling import abort
 
@@ -85,7 +85,7 @@ def trade():
 @click.option("--offer-id", default=None, help="Associated offer ID")
 @click.option("--price", default=0.0, type=float, help="Trade price")
 @click.option("--quantity", default=0, type=int, help="Trade quantity")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, price, quantity, format):
     """Create a new inter-chain trade between source and destination chains."""
@@ -103,7 +103,7 @@ def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, p
         if offer_id:
             params["offer_id"] = offer_id
         result = client.post("/v1/trading/inter-chain/create", json=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -121,7 +121,7 @@ def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, p
 @click.option("--source-chain", default=None, help="Filter by source chain")
 @click.option("--dest-chain", default=None, help="Filter by destination chain")
 @click.option("--limit", default=100, type=int, help="Max results")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list(ctx, status, source_chain, dest_chain, limit, format):
     """List inter-chain trades with optional filters."""
@@ -137,7 +137,7 @@ def list(ctx, status, source_chain, dest_chain, limit, format):
         # List endpoints answer bare JSON arrays; get() narrows via
         # expect_object and raises TypeError on non-object bodies (#529).
         result = client.get_json("/v1/trading/inter-chain", params=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -151,14 +151,14 @@ def list(ctx, status, source_chain, dest_chain, limit, format):
 
   aitbc trade chains --output json"""
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def chains(ctx, format):
     """List chains that participate in inter-chain trading."""
     try:
         client = _get_client()
         result = client.get_json("/v1/trading/chains")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -173,14 +173,14 @@ def chains(ctx, format):
   aitbc trade get --trade-id trade-123 --output json"""
 )
 @click.argument("trade_id")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def get(ctx, trade_id, format):
     """Get details of a specific trade."""
     try:
         client = _get_client()
         result = client.get(f"/v1/trading/inter-chain/{trade_id}")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -195,14 +195,14 @@ def get(ctx, trade_id, format):
   aitbc trade status --trade-id trade-123 --output json"""
 )
 @click.option("--trade-id", required=True, help="Trade ID")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def status(ctx, trade_id, format):
     """Get the status of a specific trade."""
     try:
         client = _get_client()
         result = client.get(f"/v1/trading/inter-chain/{trade_id}/status")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -218,7 +218,7 @@ def status(ctx, trade_id, format):
 )
 @click.option("--chain-id", required=True, help="Chain ID to register")
 @click.option("--endpoint", required=True, help="Blockchain node RPC URL for the chain")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def register_chain(ctx, chain_id, endpoint, format):
     """Register a new chain for inter-chain trading."""
@@ -226,7 +226,7 @@ def register_chain(ctx, chain_id, endpoint, format):
         client = _get_client()
         params: dict[str, str] = {"chain_id": chain_id, "endpoint": endpoint}
         result = client.post("/v1/trading/chains/register", json=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -241,14 +241,14 @@ def register_chain(ctx, chain_id, endpoint, format):
   aitbc trade health --chain-id ait-mainnet"""
 )
 @click.option("--chain-id", required=True, help="Chain ID to check")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def health(ctx, chain_id, format):
     """Check the health of inter-chain trading for a chain."""
     try:
         client = _get_client()
         result = client.get(f"/v1/trading/chains/{chain_id}/health")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -265,7 +265,7 @@ def health(ctx, chain_id, format):
 @click.option("--source-chain", default=None, help="Filter by source chain")
 @click.option("--dest-chain", default=None, help="Filter by destination chain")
 @click.option("--limit", default=50, type=int, help="Max results")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def history(ctx, source_chain, dest_chain, limit, format):
     """Show the history of inter-chain trades between source and destination chains."""
@@ -277,7 +277,7 @@ def history(ctx, source_chain, dest_chain, limit, format):
         if dest_chain:
             params["dest_chain"] = dest_chain
         result = client.get_json("/v1/trading/inter-chain/history", params=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -292,14 +292,14 @@ def history(ctx, source_chain, dest_chain, limit, format):
   aitbc trade match --trade-id trade-123 --output json"""
 )
 @click.argument("trade_id")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def match(ctx, trade_id, format):
     """Match a trade with a counterparty or settlement path."""
     try:
         client = _get_client()
         result = client.post(f"/v1/trading/inter-chain/{trade_id}/match")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -313,14 +313,14 @@ def match(ctx, trade_id, format):
 
   aitbc trade match-all --output json"""
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def match_all(ctx, format):
     """Match all open inter-chain trades automatically."""
     try:
         client = _get_client()
         result = client.post("/v1/trading/inter-chain/match-all")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -347,7 +347,7 @@ def match_all(ctx, format):
 @click.option("--region", default=None, help="Filter by region")
 @click.option("--gpu-model", default=None, help="Filter by GPU model")
 @click.option("--limit", default=100, type=int, help="Max results")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, region, gpu_model, limit, format):
     """Discover trading offers across chains with optional filters."""
@@ -369,7 +369,7 @@ def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, 
         if gpu_model:
             params["gpu_model"] = gpu_model
         result = client.post("/v1/trading/offers/discover", json=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -386,7 +386,7 @@ def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, 
 @click.option("--chain-id", default=None, help="Sync specific chain (default: all chains)")
 @click.option("--service-type", default=None, help="Sync specific service type")
 @click.option("--force", is_flag=True, default=False, help="Force sync even if offers are fresh")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def sync(ctx, chain_id, service_type, force, format):
     """Sync trading data for a chain and service type."""
@@ -398,7 +398,7 @@ def sync(ctx, chain_id, service_type, force, format):
         if service_type:
             params["service_type"] = service_type
         result = client.post("/v1/trading/offers/sync", json=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -413,14 +413,14 @@ def sync(ctx, chain_id, service_type, force, format):
 
   aitbc trade sync-status --output json""",
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def sync_status(ctx, format):
     """Get the inter-chain trading sync status."""
     try:
         client = _get_client()
         result = client.get_json("/v1/trading/offers/sync-status")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -445,7 +445,7 @@ def sync_status(ctx, format):
 @click.option("--max-price", default=None, type=float, help="Maximum price filter")
 @click.option("--region", default=None, help="Filter by region")
 @click.option("--gpu-model", default=None, help="Filter by GPU model")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, format):
     """Watch for new trading offers matching filters."""
@@ -501,14 +501,14 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
 
   aitbc trade subscription-status --output json""",
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def subscription_status(ctx, format):
     """Show the subscription status for trading updates."""
     try:
         client = _get_client()
         result = client.get_json("/v1/trading/offers/subscription-status")
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -528,7 +528,7 @@ def subscription_status(ctx, format):
 @click.option("--min-price", default=None, type=float, help="Minimum price filter")
 @click.option("--max-price", default=None, type=float, help="Maximum price filter")
 @click.option("--limit", default=100, type=int, help="Max results")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def search(ctx, query, chain_id, service_type, min_price, max_price, limit, format):
     """Search trading offers with a query."""
@@ -544,7 +544,7 @@ def search(ctx, query, chain_id, service_type, min_price, max_price, limit, form
         if max_price is not None:
             params["max_price"] = max_price
         result = client.get_json("/v1/trading/offers/search", params=params)
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -583,7 +583,7 @@ def _run_settlement_coro(coro):
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
 @click.option("--timeout", type=int, default=None, help="Escrow timeout in seconds")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
     """Lock escrow for a trade on the settlement node."""
@@ -612,7 +612,7 @@ def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
                 )
 
         result = _run_settlement_coro(_run())
-        output(result, ctx.obj.get("output_format", format))
+        output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -631,7 +631,7 @@ def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
 @click.option("--secret", required=True, help="HTLC secret to reveal")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
     """Settle a trade with a secret."""
@@ -657,7 +657,7 @@ def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
 
         result = _run_settlement_coro(_run())
         if result is not None:
-            output(result, ctx.obj.get("output_format", format))
+            output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -675,7 +675,7 @@ def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
 @click.option("--trade-id", required=True, help="Trade ID to check")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def settlement_status_cmd(ctx, trade_id, node_url, api_key, format):
     """Get the settlement status of a trade."""
@@ -711,7 +711,7 @@ def settlement_status_cmd(ctx, trade_id, node_url, api_key, format):
 
         result = _run_settlement_coro(_run())
         if result is not None:
-            output(result, ctx.obj.get("output_format", format))
+            output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
@@ -727,7 +727,7 @@ def settlement_status_cmd(ctx, trade_id, node_url, api_key, format):
 @click.option("--trade-id", required=True, help="Trade ID to refund")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def refund_cmd(ctx, trade_id, node_url, api_key, format):
     """Refund a trade on the settlement node."""
@@ -752,7 +752,7 @@ def refund_cmd(ctx, trade_id, node_url, api_key, format):
 
         result = _run_settlement_coro(_run())
         if result is not None:
-            output(result, ctx.obj.get("output_format", format))
+            output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except Exception as e:
