@@ -247,6 +247,8 @@ def test_market_list_mixed_empty_and_dead_json(monkeypatch):
     assert r.exit_code == 0, r.output
     assert json.loads(r.stdout) == []
     assert calls[:2] == ["http://dead", "http://alive"]
+
+
 def _fake_analytics_cls():
     """ChainAnalytics double producing both the overview and comparison sets."""
 
@@ -363,3 +365,45 @@ def test_analytics_summary_table_keeps_two_sections(monkeypatch):
     assert r.exit_code == 0, r.output
     assert "Cross-Chain Analysis Overview" in r.stdout
     assert "Chain Performance Comparison" in r.stdout
+
+
+def test_market_list_abort_json_payload_exit_code_matches_process_exit(monkeypatch, capsys):
+    """CLI-JSON-CLEAN-1: the JSON error payload's ``exit_code`` must be the
+    code the process actually exits with through ``main()``.
+
+    Regression: ``list_offers`` used to translate the ``CLIError`` raised by
+    ``abort()`` into ``click.Abort()``, so the process exited 1 while the
+    payload still claimed ``exit_code: 2`` (NetworkError).
+    """
+    offers = _market_offers_mod()
+    _patch_market_env(monkeypatch, offers, _DeadSourceClient)
+
+    from aitbc_cli.core.main import main
+
+    rc = main(["market", "list", "--format", "json"])
+    out = capsys.readouterr()
+    assert rc != 0
+    doc = json.loads(out.out)  # exactly one JSON document
+    assert doc["error"]
+    assert doc["exit_code"] == rc
+
+
+def test_market_list_all_sources_fail_table_prints_error_once(monkeypatch, capsys):
+    """Table mode: the all-sources-dead error is printed exactly once.
+
+    Regression: the broad ``except Exception`` wrapper caught the CLIError
+    already reported by abort() and printed it again (plus a bare
+    ``Aborted!`` from the translated ``click.Abort``).
+    """
+    offers = _market_offers_mod()
+    _patch_market_env(monkeypatch, offers, _DeadSourceClient)
+
+    from aitbc_cli.core.main import main
+
+    rc = main(["market", "list"])
+    out = capsys.readouterr()
+    combined = out.out + out.err
+    assert rc != 0
+    assert combined.count("No market data source answered") == 1
+    assert "Error listing GPU market" not in combined
+    assert "Aborted!" not in combined
