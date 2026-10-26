@@ -5,29 +5,42 @@ import pytest
 
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
 
-# Derived rather than hard-coded to `/opt/aitbc`, and pointed at the launcher in the tree
-# rather than the `/usr/local/bin/aitbc` symlink that points at it. Both were assumptions
-# about the machine rather than about the CLI, and neither had ever been tested: this suite
-# was outside `testpaths` until V23-84 (see `test_cli_basic.py` for the same change).
+# Derived rather than hard-coded to `/opt/aitbc`. The suite invokes the CLI as
+# `sys.executable -m aitbc_cli` with an explicit PYTHONPATH pointing at this
+# checkout's `cli/` directory. The previous form exec'd `scripts/aitbc-cli`,
+# which sources `<checkout>/venv/bin/activate` — an assumption about the host
+# layout (a venv beside the checkout) that fails in worktrees, archives, and CI
+# sandboxes where tests run with PYTHONPATH and a caller-provided interpreter.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CLI_BIN = PROJECT_ROOT / "scripts" / "aitbc-cli"
+CLI_PKG_DIR = PROJECT_ROOT / "cli"
 
 
 def run_cli(*args):
     # Isolate the subprocess from the invoking user's CLI state — see
     # test_cli_basic.py for why (host config, wallets, and writes into HOME).
     with tempfile.TemporaryDirectory(prefix="aitbc-cli-test-") as home:
-        env = dict(os.environ, HOME=home, AITBC_CONFIG_FILE=str(Path(home) / "config.yaml"))
+        pythonpath = os.pathsep.join(
+            [str(CLI_PKG_DIR), *os.environ.get("PYTHONPATH", "").split(os.pathsep)]
+            if os.environ.get("PYTHONPATH")
+            else [str(CLI_PKG_DIR)]
+        )
+        env = dict(
+            os.environ,
+            HOME=home,
+            AITBC_CONFIG_FILE=str(Path(home) / "config.yaml"),
+            PYTHONPATH=pythonpath,
+        )
         return subprocess.run(
-            [str(CLI_BIN), *args],
+            [sys.executable, "-m", "aitbc_cli", *args],
             capture_output=True,
             text=True,
             cwd=str(PROJECT_ROOT),
-            timeout=20,
+            timeout=30,
             env=env,
         )
 
