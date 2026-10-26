@@ -104,9 +104,6 @@ def create_pair(
 
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        if ctx.obj and ctx.obj.get("output_format") == "json":
-            click.echo("[]")
-            return
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
@@ -154,9 +151,6 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
     """Start trading for a specific pair with optional initial price and liquidity."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        if ctx.obj and ctx.obj.get("output_format") == "json":
-            click.echo("[]")
-            return
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
@@ -221,9 +215,6 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
     """Monitor exchange trading activity across registered pairs and exchanges."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        if ctx.obj and ctx.obj.get("output_format") == "json":
-            click.echo("[]")
-            return
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
@@ -288,9 +279,6 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
     """Add liquidity to a trading pair on the specified side."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        if ctx.obj and ctx.obj.get("output_format") == "json":
-            click.echo("[]")
-            return
         abort(None, "No exchanges registered. Use 'aitbc exchange register' first.")
         return
 
@@ -355,7 +343,10 @@ def list(ctx):
     """List all registered exchanges and their trading pairs."""
     exchanges_file = Path.home() / ".aitbc" / "exchanges.json"
     if not exchanges_file.exists():
-        warning("No exchanges registered.")
+        if ctx.obj and ctx.obj.get("output_format") == "json":
+            click.echo("[]")
+        else:
+            warning("No exchanges registered.")
         return
 
     with open(exchanges_file) as f:
