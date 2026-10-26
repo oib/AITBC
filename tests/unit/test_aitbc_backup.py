@@ -138,7 +138,7 @@ def env(tmp_path):
     etc_aitbc = tmp_path / "etc-aitbc"
     etc_aitbc.mkdir()
     # The script derives the good-chain glob from CHAIN_ID in BLOCKCHAIN_ENV;
-    # a file without the line kills it outright (set -o pipefail on the grep).
+    # a file without the line now falls back to the ait-hub literal.
     (etc_aitbc / "blockchain.env").write_text("CHAIN_ID=ait-hub.aitbc.bubuit.net\n")
     etc_prometheus = tmp_path / "etc-prometheus"
     etc_prometheus.mkdir()
@@ -403,6 +403,18 @@ def test_glob_derives_from_blockchain_env_bc2(env):
     assert "chain_ait-hub.aitbc.bubuit.net_chain.db.gz" not in arts
     # the old-id gen is not a good restore point under bc-2 — pruned normally
     assert f"removing '{_snap_name(40)}'" in _log(env)
+
+
+def test_missing_chain_id_line_falls_back_to_ait_hub(env):
+    """A blockchain.env without a CHAIN_ID line must not kill the script:
+    grep exits 1 and pipefail used to abort the run before the ait-hub
+    fallback could apply."""
+    env_file = env.tmp / "etc-aitbc" / "blockchain.env"
+    env_file.write_text("RPC_BIND_PORT=8202\n")  # no CHAIN_ID line
+    _make_snapshot(env.base, _snap_name(40))
+    r = _run(env, BLOCKCHAIN_ENV=str(env_file), BACKUP_KEEP_MIN_GOOD="2")
+    assert r.returncode == 0
+    assert "chain_ait-hub.aitbc.bubuit.net_chain.db.gz" in _today_artifacts(env)
 
 
 def test_chain_id_env_var_beats_file(env):
