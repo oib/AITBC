@@ -49,7 +49,7 @@ First three commands:
 
 ```bash
 aitbc messaging stats                                # index vs head, per node
-aitbc node info                                    # sync state of the node
+aitbc node info --node-id <id>                        # sync state of node <id>
 ssh <host> 'journalctl -u aitbc-blockchain-node -n 100 --no-pager'   # sync errors
 ```
 
