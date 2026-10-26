@@ -218,3 +218,16 @@ loginctl enable-linger oib
 5. Open read-only through the app's own model layer; note column drift that
    startup repair will additively fix.
 6. Record timings and age; delete the scratch copy; write the drill record.
+
+## Nightly restore check
+
+`scripts/ops/backup-verify.py` replays the drill automatically against a
+backup generation: every `chain_*.db.gz` is rebuilt via
+`zcat | sqlite3` and `PRAGMA integrity_check`, `postgres_*.sql.gz`
+must carry a pg_dump header (its `OWNER TO` roles are listed), and
+`svc_*.gz` binaries are gunzipped and integrity-checked. It writes only
+to a scratch dir removed at the end — read-only on the backups. Exit
+1 on any artefact failure, 2 when the set is unreadable; optional
+`--textfile` exports `aitbc_backup_verify_success` for the textfile
+collector. Run by hand (`backup-verify.py --set <dir>`) or from the
+gate — no systemd unit is installed for it.
