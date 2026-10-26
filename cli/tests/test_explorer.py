@@ -90,7 +90,7 @@ def test_chain_head_empty(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["chain-head"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "No chain head data available" in result.output
 
 
@@ -101,7 +101,7 @@ def test_chain_head_network_error(runner, mock_client):
 
     mock_client.get.side_effect = NetworkError("connection refused")
     result = runner.invoke(explorer, ["chain-head"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "Explorer API unavailable" in result.output
 
 
@@ -138,7 +138,7 @@ def test_latest_blocks_network_error(runner, mock_client):
 
     mock_client.get.side_effect = NetworkError("timeout")
     result = runner.invoke(explorer, ["latest-blocks"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "Explorer API unavailable" in result.output
 
 
@@ -190,7 +190,7 @@ def test_block_not_found(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["block", "--height", "999"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "not found" in result.output
 
 
@@ -227,7 +227,7 @@ def test_block_by_hash_not_found(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["block-by-hash", "--block-hash", "0xmissing"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "not found" in result.output
 
 
@@ -254,7 +254,7 @@ def test_transaction_not_found(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["transaction", "--tx-hash", "0xmissing"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "not found" in result.output
 
 
@@ -281,7 +281,7 @@ def test_transaction_by_hash_not_found(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["transaction-by-hash", "--tx-hash", "0xmissing"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "not found" in result.output
 
 
@@ -383,7 +383,7 @@ def test_activity_timeline_empty(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["activity-timeline"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "No activity data available" in result.output
 
 
@@ -419,7 +419,7 @@ def test_network_stats_empty(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["network-stats"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "No network stats available" in result.output
 
 
@@ -455,7 +455,7 @@ def test_provider_reputation_not_found(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["provider-reputation", "--provider-id", "unknown-provider"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "No reputation data for provider" in result.output
 
 
@@ -518,7 +518,7 @@ def test_chains_empty(runner, mock_client):
 
     mock_client.get.return_value = None
     result = runner.invoke(explorer, ["chains"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "No chains data available" in result.output
 
 
@@ -533,7 +533,7 @@ def test_generic_exception_handled(runner, mock_client):
 
     mock_client.get.side_effect = RuntimeError("unexpected")
     result = runner.invoke(explorer, ["chain-head"])
-    assert result.exit_code == 0
+    assert result.exit_code != 0
     assert "Error getting chain head" in result.output
 
 

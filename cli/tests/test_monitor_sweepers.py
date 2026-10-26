@@ -71,7 +71,8 @@ def test_json_output_passes_the_report_through_unchanged(monkeypatch):
 
 def test_a_degraded_sweeper_is_named_in_the_output(monkeypatch):
     result = _run(monkeypatch, "monitor", "sweepers")
-    assert result.exit_code == 0, result.output
+    # A degraded sweeper fails the command (fail-closed) while still naming it.
+    assert result.exit_code != 0, result.output
     assert "stuck_escrow_sweeper" in result.output
     # The disabled reconciler must not be reported as a fault.
     assert "escrow_settlement_reconciler" in result.output
@@ -117,7 +118,9 @@ def test_a_jwt_credential_is_sent_as_a_bearer_token(monkeypatch):
     monkeypatch.setattr(monitor_mod, "AITBCHTTPClient", _Client)
     result = CliRunner().invoke(cli, ["monitor", "sweepers"])
 
-    assert result.exit_code == 0, result.output
+    # REPORT is degraded, so the command exits non-zero; the credential check
+    # is about the headers captured during construction, not the exit.
+    assert result.exit_code != 0, result.output
     assert captured["headers"] == {"Authorization": "Bearer ey.header.sig"}
     assert "api_key" not in captured
 
@@ -136,7 +139,7 @@ def test_a_non_jwt_credential_falls_back_to_the_api_key_header(monkeypatch):
     monkeypatch.setattr(monitor_mod, "AITBCHTTPClient", _Client)
     result = CliRunner().invoke(cli, ["monitor", "sweepers"])
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code != 0, result.output
     assert captured["api_key"] == "plain-key"
     assert "headers" not in captured
 

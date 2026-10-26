@@ -131,12 +131,16 @@ class TestEthSendWrongChain:
     def test_wrong_chain_refusal_masks_url(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
 
+        from aitbc_cli.commands.wallet import eth_common as eth_common_mod
         from aitbc_cli.commands.wallet import eth_send as eth_send_mod
         from aitbc_cli.commands.wallet.eth_send import eth_send
 
         wallet = tmp_path / "w.json"
         wallet.write_text('{"address": "0x0000000000000000000000000000000000000001"}')
+        # The eth_chainId cross-check runs through eth_common.rpc_call; patch
+        # both import sites or the test makes a real mainnet.infura.io call.
         monkeypatch.setattr(eth_send_mod, "rpc_call", lambda ctx, url, method, params: hex(1))
+        monkeypatch.setattr(eth_common_mod, "rpc_call", lambda ctx, url, method, params: hex(1))
 
         result = CliRunner().invoke(
             eth_send,
