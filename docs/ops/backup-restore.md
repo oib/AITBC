@@ -230,4 +230,7 @@ to a scratch dir removed at the end — read-only on the backups. Exit
 1 on any artefact failure, 2 when the set is unreadable; optional
 `--textfile` exports `aitbc_backup_verify_success` for the textfile
 collector. Run by hand (`backup-verify.py --set <dir>`) or from the
-gate — no systemd unit is installed for it.
+gate — no systemd unit is installed for it. The default scratch is the
+system temp dir, which is tmpfs (RAM-backed) on the nodes — rebuilt
+dumps live in memory; pass `--scratch <dir on disk>` on small hosts,
+especially the hub VPS.
