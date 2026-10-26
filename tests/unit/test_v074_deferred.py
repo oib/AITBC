@@ -52,6 +52,18 @@ from aitbc.governance import (
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_chain_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default-chain assertions must not inherit a leaked CHAIN_ID.
+
+    ``default_chain_id()`` honours AITBC_CHAIN_ID/CHAIN_ID before the bc-2
+    reset default; suite neighbours (e.g. tests/escrow_e2e) hard-set CHAIN_ID
+    at conftest import time.
+    """
+    monkeypatch.delenv("AITBC_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+
+
 def _mock_response(
     status_code: int = 200,
     json_data: dict | list | None = None,
@@ -391,7 +403,7 @@ class TestBuildVoteAggregationTx:
         assert tx["proposal_id"] == "p1"
         assert tx["cross_chain_op"] == "vote_aggregation"
         assert tx["source_chain"] == "ait-island1"
-        assert tx["chain_id"] == "ait-hub"
+        assert tx["chain_id"] == "bc-2"
         assert len(tx["votes"]) == 2
         assert tx["votes"][0]["voter"] == "0x1"
         assert tx["votes"][0]["vote_type"] == "for"
@@ -415,7 +427,7 @@ class TestBuildCrossChainExecuteTx:
         assert tx["proposal_id"] == "p1"
         assert tx["cross_chain_op"] == "cross_chain_execute"
         assert tx["target_chains"] == ["ait-island1", "ait-island2"]
-        assert tx["chain_id"] == "ait-hub"
+        assert tx["chain_id"] == "bc-2"
 
     def test_executor_defaults_empty(self) -> None:
         tx = build_cross_chain_execute_tx("p1", ["ait-island1"])
