@@ -128,6 +128,26 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 detail="the escrow release relay could not reach the settlement node; the request can be retried",
             ) from exc
 
+    def _release_forward(
+        self,
+        body: dict[str, Any],
+        amount_provided: bool,
+        escrow: dict[str, Any],
+        is_admin: bool,
+        job_id: str,
+    ) -> dict[str, Any]:
+        """The {amount?, job_tx_hash?} body forwarded to the settlement node.
+
+        Derivation runs only after ownership has passed: an omitted amount
+        means "release the full lock" — the chain's own rule.
+        """
+        forward: dict[str, Any] = {}
+        if amount_provided:
+            amount_units = self._amount_units(body.get("amount"))
+            self._check_amount_within_lock(is_admin, amount_units, escrow, job_id)
+            forward["amount"] = str(body.get("amount"))
+        return forward
+
     def _stored_result(self, row: EscrowReleaseRelay) -> dict[str, Any]:
         return {
             "success": True,
@@ -172,7 +192,6 @@ class EscrowReleaseRelayService(EscrowRelayService):
         # locked amount. It is derived AFTER the ownership check (below) —
         # a caller who is not the buyer must get 403, not data.
         amount_provided = body.get("amount") not in (None, "")
-        amount_units: int | None = None
 
         client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
 
@@ -215,15 +234,7 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 detail=f"Escrow for job_id={job_id} has already been refunded",
             )
 
-        # Derive the amount only after ownership has passed: an omitted
-        # amount means "release the full lock" — the chain's own rule.
-        if amount_provided:
-            amount_units = self._amount_units(body.get("amount"))
-            self._check_amount_within_lock(is_admin, amount_units, escrow, job_id)
-
-        forward: dict[str, Any] = {}
-        if amount_provided:
-            forward["amount"] = str(body.get("amount"))
+        forward = self._release_forward(body, amount_provided, escrow, is_admin, job_id)
         if job_tx_hash is not None:
             forward["job_tx_hash"] = job_tx_hash
 
