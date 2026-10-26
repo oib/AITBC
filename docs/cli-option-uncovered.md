@@ -4,7 +4,7 @@ Generated from the OPTION-DOCS-1 census on the current main (regenerate with
 `scripts/dev/gen_option_coverage.py`; this file is the row-citation source).
 
 Legend: 🔒 = secret-value flag, intentionally unexercised.
-**879 non-secret unexercised, 255 secret-excluded.**
+**870 non-secret unexercised, 255 secret-excluded.**
 
 
 ## `account` — 4 unexercised (+0 🔒)
@@ -218,8 +218,6 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc bootstrap bootstrap-env` --overwrite
 
 ## `bridge` — 0 unexercised (+5 🔒)
-_(all non-secret options exercised in scenario 76; the 5 🔒 secret-value flags stay unexercised by design)_
-
 
 ## `coin-requests` — 8 unexercised (+0 🔒)
 - `aitbc coin-requests list` --sender
@@ -520,7 +518,7 @@ _(all non-secret options exercised in scenario 76; the 5 🔒 secret-value flags
 - `aitbc liquidity-stake` --lock-days
 - `aitbc liquidity-stake` --fee
 
-## `market` — 106 unexercised (+10 🔒)
+## `market` — 97 unexercised (+10 🔒)
 - `aitbc market cancel` --reason
 - `aitbc market cancel` --output
 - `aitbc market cancel` --format
@@ -530,8 +528,6 @@ _(all non-secret options exercised in scenario 76; the 5 🔒 secret-value flags
 - `aitbc market download` --wait
 - `aitbc market download` --output
 - `aitbc market download` --format
-- `aitbc market escrow create` --amount
-- `aitbc market escrow create` --wallet
 - `aitbc market exchange deposit-eth` --ait-address
 - `aitbc market exchange deposit-eth` --bridge-address
 - `aitbc market exchange deposit-eth` --gas
@@ -566,13 +562,6 @@ _(all non-secret options exercised in scenario 76; the 5 🔒 secret-value flags
 - `aitbc market host` --proposer-id
 - `aitbc market host` --output
 - `aitbc market host` --format
-- `aitbc market jobs` --service-type
-- `aitbc market jobs` --state
-- `aitbc market jobs` --buyer-address
-- `aitbc market jobs` --offer-id
-- `aitbc market jobs` --limit
-- `aitbc market jobs` --output
-- `aitbc market jobs` --format
 - `aitbc market list` --provider
 - `aitbc market list` --status
 - `aitbc market list` --sort
