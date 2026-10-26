@@ -200,6 +200,155 @@ def test_coin_requests_show_missing_exits_nonzero(runner, monkeypatch):
     assert "not found" in result.output
 
 
+class _CrQuery:
+    def __init__(self, row=None):
+        self._row = row
+
+    def filter(self, *a):
+        return self
+
+    def first(self):
+        return self._row
+
+
+class _CrSession:
+    """DB-session double returning a fixed first() row for coin_requests."""
+
+    def __init__(self, row=None):
+        self._q = _CrQuery(row)
+
+    def query(self, *a):
+        return self._q
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _patch_coin_db(monkeypatch, cr_mod, row=None):
+    monkeypatch.setattr(cr_mod, "init_db", lambda *a, **kw: None)
+    monkeypatch.setattr(cr_mod, "get_db_session", lambda: _CrSession(row))
+
+
+def test_coin_requests_request_no_wallet_exits_nonzero(runner, monkeypatch, tmp_path):
+    """CLI-SWALLOW-SWEEP-1: `request` with no local wallet is a credential
+    refusal on a write path — it must not exit 0."""
+    import aitbc_cli.commands.coin_requests as cr_mod
+    import aitbc_cli.utils.wallet_paths as wp
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr(wp, "find_wallet_file", lambda name: None)
+    _patch_coin_db(monkeypatch, cr_mod)
+    result = runner.invoke(cr_mod.coin_requests, obj={"output_format": "table"}, args=["request", "--wallet", "ghost"])
+    assert result.exit_code != 0
+    assert "not found" in result.output
+
+
+def test_coin_requests_request_no_api_key_exits_nonzero(runner, monkeypatch):
+    """Registered path but no credential -> non-zero."""
+    import aitbc_cli.commands.coin_requests as cr_mod
+
+    monkeypatch.setattr(cr_mod, "_read_wallet_address", lambda ctx, w: "0x" + "ab" * 20)
+    monkeypatch.setattr(cr_mod, "_agent_api_base", lambda: "http://hub:8107/api/v1/agent")
+    for var in ("FOLLOWER_API_KEY", "COORDINATOR_API_KEY", "SECRET_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    _patch_coin_db(monkeypatch, cr_mod)
+    result = runner.invoke(cr_mod.coin_requests, obj={"output_format": "table"}, args=["request", "--wallet", "w"])
+    assert result.exit_code != 0
+    assert "API key" in result.output
+
+
+def test_coin_requests_request_pending_approval_exits_zero(runner, monkeypatch):
+    """BY-DESIGN pin: a request registered with the hub but not auto-approved
+    is a clean outcome — the command did its job, exit stays 0."""
+    import aitbc_cli.commands.coin_requests as cr_mod
+
+    monkeypatch.setattr(cr_mod, "_read_wallet_address", lambda ctx, w: "0x" + "ab" * 20)
+    monkeypatch.setattr(cr_mod, "_agent_api_base", lambda: "http://hub:8107/api/v1/agent")
+    monkeypatch.setenv("FOLLOWER_API_KEY", "k")
+    monkeypatch.setattr(cr_mod, "_register_with_hub", lambda *a, **kw: False)
+    _patch_coin_db(monkeypatch, cr_mod)
+    result = runner.invoke(cr_mod.coin_requests, obj={"output_format": "table"}, args=["request", "--wallet", "w"])
+    assert result.exit_code == 0, result.output
+
+
+def test_coin_requests_request_no_wallet_json_one_document(runner, monkeypatch):
+    """Under --output json the refusal emits exactly one JSON error document."""
+    import json as _json
+
+    import aitbc_cli.commands.coin_requests as cr_mod
+    import aitbc_cli.utils.wallet_paths as wp
+
+    monkeypatch.setattr(wp, "find_wallet_file", lambda name: None)
+    _patch_coin_db(monkeypatch, cr_mod)
+    result = runner.invoke(cr_mod.coin_requests, obj={"output_format": "json"}, args=["request", "--wallet", "ghost"])
+    assert result.exit_code != 0
+    doc = _json.loads(result.stdout)
+    assert doc["error"]
+
+
+def test_coin_requests_execute_no_credentials_exits_nonzero(runner, monkeypatch):
+    """`execute` with no local genesis key and no API key must exit non-zero."""
+    from types import SimpleNamespace
+
+    import aitbc_cli.commands.coin_requests as cr_mod
+    from aitbc.config import hub as hub_mod
+    from aitbc.models import CoinRequestStatus
+
+    req = SimpleNamespace(
+        id="req-1",
+        status=CoinRequestStatus.APPROVED,
+        transaction_hash=None,
+        sender="s",
+        amount=1,
+        wallet_address="0x" + "ab" * 20,
+        recipient="r",
+        approved_by="cli",
+        audit_log="",
+    )
+
+    class _TxSvc:
+        genesis_private_key = None
+
+    monkeypatch.setattr(cr_mod, "TransactionService", lambda: _TxSvc())
+    monkeypatch.setattr(hub_mod, "hub_agent_url", lambda: "http://hub:8107/api/v1/agent")
+    for var in ("FOLLOWER_API_KEY", "COORDINATOR_API_KEY", "SECRET_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    _patch_coin_db(monkeypatch, cr_mod, row=req)
+    result = runner.invoke(cr_mod.coin_requests, obj={"output_format": "table"}, args=["execute", "--request-id", "req-1"])
+    assert result.exit_code != 0
+    assert "API key" in result.output
+
+
+def test_coin_requests_reopen_unverifiable_exits_nonzero(runner, monkeypatch):
+    """`reopen` refusing because the chain cannot confirm payment -> non-zero."""
+    from types import SimpleNamespace
+
+    import aitbc_cli.commands.coin_requests as cr_mod
+
+    req = SimpleNamespace(id="req-1", transaction_hash="0x" + "cd" * 32, audit_log="")
+    monkeypatch.setattr(cr_mod, "_chain_has_transaction", lambda *a, **kw: None)
+    _patch_coin_db(monkeypatch, cr_mod, row=req)
+    result = runner.invoke(
+        cr_mod.coin_requests,
+        obj={"output_format": "table"},
+        args=["reopen", "--request-id", "req-1", "--rpc-url", "http://x:1"],
+    )
+    assert result.exit_code != 0
+    assert "Refusing to reopen" in result.output
+
+
+def test_coin_requests_list_invalid_status_exits_nonzero(runner, monkeypatch):
+    import aitbc_cli.commands.coin_requests as cr_mod
+
+    _patch_coin_db(monkeypatch, cr_mod)
+    result = runner.invoke(cr_mod.coin_requests, obj={"output_format": "table"}, args=["list", "--status", "bogus"])
+    assert result.exit_code != 0
+    assert "Invalid status" in result.output
+
+
 def test_monitor_alerts_test_webhook_fails_nonzero(runner, tmp_path, monkeypatch):
     alerts_dir = tmp_path / ".aitbc" / "alerts"
     alerts_dir.mkdir(parents=True)
@@ -260,6 +409,14 @@ GUARD = {
     "gpu_market.py": ["Network error", "Error discovering GPUs", "Error registering GPU"],
     "monitor.py": ["Alert name required", "Webhook test failed", "not found"],
     "transactions.py": ["Error getting transaction status"],
+    "coin_requests.py": [
+        "Invalid status",
+        "no API key",
+        "GENESIS_ADDRESS not configured",
+        "Insufficient balance",
+        "Refusing to reopen",
+        "not found in the configured wallet directories",
+    ],
 }
 
 
