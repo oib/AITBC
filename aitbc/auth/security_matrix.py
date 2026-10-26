@@ -120,6 +120,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/payments/*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/escrow/relay": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/escrow/release": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/escrow/refund": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/exchange/*": AuthLevel.CLIENT,
     # Admin or client routes
     "/v1/governance*": AuthLevel.ADMIN_OR_CLIENT,

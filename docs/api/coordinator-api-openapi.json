@@ -11185,6 +11185,76 @@
         }
       }
     },
+    "/v1/escrow/refund": {
+      "post": {
+        "tags": [
+          "escrow"
+        ],
+        "summary": "Relay an escrow refund to the settlement node",
+        "description": "Relay an escrow refund to the chain RPC.\n\nAuth: the on-chain escrow's ``buyer`` must equal the wallet bound to\nthe JWT subject (admin may refund any buyer's escrow \u2014 the chain\nstill owns settlement validation). The coordinator ``job`` row must\nexist and be terminal-unpaid (FAILED/CANCELED/EXPIRED, or past\n``expires_at``); COMPLETED is never refundable. Replays of the same\njob \u2014 a stored relay row or an already-refunded escrow \u2014 return the\nstored ``refund_tx_hash`` without a second chain call. The per-client\nhourly cap keeps a stolen JWT from sweeping a client's locks.",
+        "operationId": "relay_escrow_refund_v1_escrow_refund_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EscrowRefundRelayRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EscrowRefundRelayResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/inference/generate": {
       "post": {
         "tags": [
@@ -36599,6 +36669,105 @@
         },
         "type": "object",
         "title": "EnhanceCreativityRequest"
+      },
+      "EscrowRefundRelayRequest": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Job Id"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "buyer_requested",
+              "job_failed",
+              "timeout",
+              "expired"
+            ],
+            "title": "Reason",
+            "default": "buyer_requested"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "EscrowRefundRelayRequest",
+        "description": "The relayed refund payload \u2014 no amount: the chain refunds the\nescrow's locked amount minus already-released legs, clamped to the\nsealed lock."
+      },
+      "EscrowRefundRelayResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tx Hash"
+          },
+          "refund_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Tx Hash"
+          },
+          "refunded_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refunded Amount"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "EscrowRefundRelayResponse",
+        "description": "The chain's refund result (``duplicate`` marks a replayed relay)."
       },
       "EscrowRelayRequest": {
         "properties": {
