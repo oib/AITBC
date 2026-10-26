@@ -114,13 +114,14 @@ class TestTradeCommands:
     def test_list_sends_trading_header_only(self, trading_env_file, monkeypatch) -> None:
         captured = {}
 
-        def fake_get(self, endpoint, params=None, headers=None):
+        def fake_get_json(self, endpoint, params=None, headers=None):
             captured["base_url"] = self.base_url
             captured["headers"] = dict(self.headers)
             captured["endpoint"] = endpoint
             return [{"trade_id": "t-1"}]
 
-        monkeypatch.setattr(trade_mod.AITBCHTTPClient, "get", fake_get)
+        # `trade list` uses get_json: the endpoint returns a bare array (#529).
+        monkeypatch.setattr(trade_mod.AITBCHTTPClient, "get_json", fake_get_json)
         result = CliRunner().invoke(
             trade,
             ["list", "--format", "json"],

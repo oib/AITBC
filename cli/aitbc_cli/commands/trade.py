@@ -134,7 +134,9 @@ def list(ctx, status, source_chain, dest_chain, limit, format):
             params["source_chain"] = source_chain
         if dest_chain:
             params["dest_chain"] = dest_chain
-        result = client.get("/v1/trading/inter-chain", params=params)
+        # List endpoints answer bare JSON arrays; get() narrows via
+        # expect_object and raises TypeError on non-object bodies (#529).
+        result = client.get_json("/v1/trading/inter-chain", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
@@ -155,7 +157,7 @@ def chains(ctx, format):
     """List chains that participate in inter-chain trading."""
     try:
         client = _get_client()
-        result = client.get("/v1/trading/chains")
+        result = client.get_json("/v1/trading/chains")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
@@ -274,7 +276,7 @@ def history(ctx, source_chain, dest_chain, limit, format):
             params["source_chain"] = source_chain
         if dest_chain:
             params["dest_chain"] = dest_chain
-        result = client.get("/v1/trading/inter-chain/history", params=params)
+        result = client.get_json("/v1/trading/inter-chain/history", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
@@ -417,7 +419,7 @@ def sync_status(ctx, format):
     """Get the inter-chain trading sync status."""
     try:
         client = _get_client()
-        result = client.get("/v1/trading/offers/sync-status")
+        result = client.get_json("/v1/trading/offers/sync-status")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
@@ -505,7 +507,7 @@ def subscription_status(ctx, format):
     """Show the subscription status for trading updates."""
     try:
         client = _get_client()
-        result = client.get("/v1/trading/offers/subscription-status")
+        result = client.get_json("/v1/trading/offers/subscription-status")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
@@ -541,7 +543,7 @@ def search(ctx, query, chain_id, service_type, min_price, max_price, limit, form
             params["min_price"] = min_price
         if max_price is not None:
             params["max_price"] = max_price
-        result = client.get("/v1/trading/offers/search", params=params)
+        result = client.get_json("/v1/trading/offers/search", params=params)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
