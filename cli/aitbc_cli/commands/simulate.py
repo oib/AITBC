@@ -38,7 +38,7 @@ def simulate():
 @click.option("--blocks", default=10, help="Number of blocks to simulate")
 @click.option("--transactions", default=50, help="Number of transactions per block")
 @click.option("--delay", default=1.0, help="Delay between blocks (seconds)")
-@click.option("--output", default="table", type=click.Choice(["table", "json", "yaml"]))
+@click.option("--output", default="table", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
 def blockchain(blocks, transactions, delay, output, seed):
     """Simulate blockchain block generation and transactions."""
