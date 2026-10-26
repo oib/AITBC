@@ -41,6 +41,10 @@ from aitbc_cli.commands.exchange.prepay import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WALLET_SRC = REPO_ROOT / "apps" / "wallet" / "src"
+# The monitor's import chain pulls in wallet_app.deps → aitbc_sdk; source it
+# from the repo so the round-trip does not depend on aitbc-sdk being
+# pip-installed into the interpreter running the suite.
+SDK_SRC = REPO_ROOT / "packages" / "py" / "aitbc-sdk" / "src"
 
 BUYER = Account.create()
 BRIDGE_DEPOSIT = "0x310dcE00270D0aC10CAccfBD636Ff07BD5648781"
@@ -117,8 +121,11 @@ def rpc_fn(monkeypatch):
 
 class TestTagFormat:
     def test_tag_round_trips_through_the_monitors_parser(self):
-        if str(WALLET_SRC) not in sys.path:
-            sys.path.insert(0, str(WALLET_SRC))
+        for src in (SDK_SRC, WALLET_SRC):
+            if not src.exists():
+                pytest.skip(f"{src.relative_to(REPO_ROOT)} not in this checkout/archive")
+            if str(src) not in sys.path:
+                sys.path.insert(0, str(src))
         from wallet_app.bridge.bridge_monitor import _parse_exchange_deposit_tag
 
         data_hex = _prepay_data_hex(_prepay_tag(BUYER.address))
