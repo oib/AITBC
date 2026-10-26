@@ -685,3 +685,9 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   (hide/lock/mod-grant/mod-revoke/pin/unhide/unlock/unpin/vote) and
   `simulate blockchain --output`. Lint test asserts every leaf's
   --help exits 0 and every option has non-empty help.
+### CLI-OPERATIONS-FORMAT-1
+
+- `operations` group already routes through `resolve_output_format`
+  on main — the table-despite-json repro was node2's stale checkout.
+  Pinned with tests asserting `--format json` emits parseable JSON
+  for voting-power.
