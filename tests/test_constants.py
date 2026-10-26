@@ -17,7 +17,6 @@ from aitbc.constants import (
     DATA_DIR,
     ENV_FILE,
     KEYSTORE_DIR,
-    LOG_DIR,
     MARKET_DATA_DIR,
     MARKET_PORT,
     NODE_ENV_FILE,
@@ -44,13 +43,33 @@ class TestConstants:
             exec(compile(source.read_text(), str(source), "exec"), namespace)  # noqa: S102
         assert namespace["DATA_DIR"] == Path("/var/lib/aitbc")
 
+    def _fresh_module_namespace(self) -> dict[str, object]:
+        """Re-exec aitbc/constants.py without the conftest's scratch redirects.
+
+        The repo-root conftest points AITBC_CONFIG_DIR/AITBC_LOG_DIR (and
+        AITBC_DATA_DIR) at a temp dir so no test touches deployed paths
+        (V23-73). Asserting the module attributes would test the redirect,
+        not the shipped default — so the module is re-executed with those
+        vars scrubbed, same as test_data_dir above.
+        """
+        source = Path(__file__).resolve().parents[1] / "aitbc" / "constants.py"
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("AITBC_DATA_DIR", "AITBC_HOME", "AITBC_CONFIG_DIR", "AITBC_LOG_DIR")
+        }
+        namespace: dict[str, object] = {"__name__": "aitbc.constants", "__file__": str(source)}
+        with mock.patch.dict(os.environ, env, clear=True):
+            exec(compile(source.read_text(), str(source), "exec"), namespace)  # noqa: S102
+        return namespace
+
     def test_config_dir(self):
         """Test CONFIG_DIR constant"""
-        assert CONFIG_DIR == Path("/etc/aitbc")
+        assert self._fresh_module_namespace()["CONFIG_DIR"] == Path("/etc/aitbc")
 
     def test_log_dir(self):
         """Test LOG_DIR constant"""
-        assert LOG_DIR == Path("/var/log/aitbc")
+        assert self._fresh_module_namespace()["LOG_DIR"] == Path("/var/log/aitbc")
 
     def test_repo_dir(self):
         """Test REPO_DIR constant"""
