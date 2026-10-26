@@ -157,25 +157,7 @@ def rates(
         fmt = resolve_output_format(ctx)
 
         if from_chain and to_chain:
-            pair_key = f"{from_chain}::{to_chain}"
-            if pair_key in rates:
-                pair_rate: Any = rates[pair_key]
-                pair_note = None
-            elif from_token == to_token or (not from_token and not to_token):
-                pair_rate = 1.0
-                pair_note = "same-asset parity"
-            else:
-                pair_rate = None
-                pair_note = rates_data.get("detail") or f"No configured rate for {from_chain} → {to_chain}"
-            if fmt == "table":
-                if pair_rate is not None:
-                    suffix = f" ({pair_note})" if pair_note else ""
-                    success(f"Swap rate {from_chain} → {to_chain}: {pair_rate}{suffix}")
-                else:
-                    assert pair_note is not None
-                    info(pair_note)
-            else:
-                output({"from_chain": from_chain, "to_chain": to_chain, "rate": pair_rate, "note": pair_note}, fmt)
+            _emit_pair_rate(ctx, rates_data, rates, from_chain, to_chain, from_token, to_token, fmt)
         else:
             success("Cross-chain swap rates (operator-configured):")
             rate_rows = [
@@ -192,6 +174,29 @@ def rates(
                 output({"rates": rate_rows}, fmt)
     except Exception as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
+
+
+def _emit_pair_rate(ctx, rates_data, rates, from_chain, to_chain, from_token, to_token, fmt) -> None:
+    """Emit the --from-chain/--to-chain pair rate in the resolved format."""
+    pair_key = f"{from_chain}::{to_chain}"
+    if pair_key in rates:
+        pair_rate: Any = rates[pair_key]
+        pair_note = None
+    elif from_token == to_token or (not from_token and not to_token):
+        pair_rate = 1.0
+        pair_note = "same-asset parity"
+    else:
+        pair_rate = None
+        pair_note = rates_data.get("detail") or f"No configured rate for {from_chain} → {to_chain}"
+    if fmt == "table":
+        if pair_rate is not None:
+            suffix = f" ({pair_note})" if pair_note else ""
+            success(f"Swap rate {from_chain} → {to_chain}: {pair_rate}{suffix}")
+        else:
+            assert pair_note is not None
+            info(pair_note)
+    else:
+        output({"from_chain": from_chain, "to_chain": to_chain, "rate": pair_rate, "note": pair_note}, fmt)
 
 
 @cross_chain.command(
