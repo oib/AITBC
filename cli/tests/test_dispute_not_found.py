@@ -40,6 +40,9 @@ class _BoomClient:
     def get(self, path, params=None):
         raise self.error
 
+    def get_json(self, path, params=None, headers=None):
+        raise self.error
+
     def close(self):
         pass
 
