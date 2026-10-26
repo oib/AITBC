@@ -16,6 +16,40 @@ from .json_types import JSONResponse, expect_object
 from .rate_limiter import RateLimiter
 from .retry_policy import RetryPolicy
 
+_DETAIL_CAP = 300
+
+
+def _detail_suffix(exc: BaseException) -> str:
+    """Return ``": <server detail>"`` for a wrapped HTTP error, else ``""``.
+
+    Walks the exception chain for the first response object (``requests``
+    or ``httpx``) and extracts the body's ``detail`` string (or an
+    ``error.message`` envelope), capped at ``_DETAIL_CAP`` characters.
+    Carrying it in the ``NetworkError`` message means every caller that
+    prints ``{e}`` shows the node's refusal reason — previously the body
+    survived only via ``http_error_detail`` which few call sites use.
+    Response detail only; a request body is never echoed.
+    """
+    seen: BaseException | None = exc
+    while seen is not None:
+        response = getattr(seen, "response", None)
+        if response is not None:
+            try:
+                body = response.json()
+            except Exception:
+                return ""
+            detail: Any = None
+            if isinstance(body, dict):
+                detail = body.get("detail")
+                if not isinstance(detail, str) or not detail:
+                    err = body.get("error")
+                    detail = err.get("message") if isinstance(err, dict) else (err if isinstance(err, str) else None)
+            if isinstance(detail, str) and detail:
+                return f": {detail[:_DETAIL_CAP]}"
+            return ""
+        seen = seen.__cause__ or seen.__context__
+    return ""
+
 
 class AITBCHTTPClient:
     """
@@ -173,10 +207,10 @@ class AITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"GET request failed: {e}") from e
+            raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"GET request failed: {e}") from e
+            raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
 
     def post(
         self,
@@ -237,10 +271,10 @@ class AITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"POST request failed: {e}") from e
+            raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"POST request failed: {e}") from e
+            raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
 
     def put(
         self,
@@ -297,10 +331,10 @@ class AITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PUT request failed: {e}") from e
+            raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PUT request failed: {e}") from e
+            raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
 
     def patch(
         self,
@@ -355,10 +389,10 @@ class AITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PATCH request failed: {e}") from e
+            raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PATCH request failed: {e}") from e
+            raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
 
     def delete(
         self,
@@ -413,10 +447,10 @@ class AITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"DELETE request failed: {e}") from e
+            raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"DELETE request failed: {e}") from e
+            raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
 
     def close(self) -> None:
         """Close the HTTP session."""
@@ -602,10 +636,10 @@ class AsyncAITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"GET request failed: {e}") from e
+            raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"GET request failed: {e}") from e
+            raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
 
     async def post(
         self,
@@ -668,10 +702,10 @@ class AsyncAITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"POST request failed: {e}") from e
+            raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"POST request failed: {e}") from e
+            raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
 
     async def put(
         self,
@@ -730,10 +764,10 @@ class AsyncAITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PUT request failed: {e}") from e
+            raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PUT request failed: {e}") from e
+            raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
 
     async def patch(
         self,
@@ -792,10 +826,10 @@ class AsyncAITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PATCH request failed: {e}") from e
+            raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"PATCH request failed: {e}") from e
+            raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
 
     async def delete(
         self,
@@ -852,10 +886,10 @@ class AsyncAITBCHTTPClient:
             raise
         except RetryError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"DELETE request failed: {e}") from e
+            raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
         except httpx.HTTPError as e:
             self.circuit_breaker.record_failure()
-            raise NetworkError(f"DELETE request failed: {e}") from e
+            raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
 
     async def close(self) -> None:
         """Close the async HTTP client (no-op for requests)."""
