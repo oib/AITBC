@@ -1,71 +1,71 @@
 {
  "agent-comm receive": {
-  "unplayable": "defect: rc=0 despite refusal (#565) \u2014 family stopped"
+  "reason": "defect: rc=0 despite refusal (#565) — family stopped"
  },
  "agent-msg ping": {
-  "unplayable": "credential failures swallowed into API-key fallback (agent.py:91) \u2014 frame still sent"
+  "reason": "credential failures swallowed into API-key fallback (agent.py:91) — frame still sent"
  },
  "agent-msg request-coins": {
-  "unplayable": "credential failures swallowed into API-key fallback \u2014 can move real coins"
+  "reason": "credential failures swallowed into API-key fallback — can move real coins"
  },
  "agent-task hire": {
-  "unplayable": "registry/IPFS reads precede password resolution"
+  "reason": "registry/IPFS reads precede password resolution"
  },
  "ai cancel": {
-  "unplayable": "--password* flags accepted but never read (ai.py:1322) \u2014 play would POST a real cancel"
+  "reason": "--password* flags accepted but never read (ai.py:1322) — play would POST a real cancel"
  },
  "crosschain bridge": {
-  "unplayable": "--wait on a write command is prohibited by the Phase-0 binding conditions"
+  "reason": "--wait on a write command is prohibited by the Phase-0 binding conditions"
  },
  "dispute auto-adjudicate": {
   "reason": "play limit: interactive confirm"
  },
  "energy provider rate": {
-  "unplayable": "native rail ignores password trio and POSTs anyway"
+  "reason": "native rail ignores password trio and POSTs anyway"
  },
  "energy provider register": {
-  "unplayable": "native rail ignores password trio and POSTs anyway"
+  "reason": "native rail ignores password trio and POSTs anyway"
  },
  "energy suggest": {
-  "unplayable": "native rail ignores password trio and POSTs anyway"
+  "reason": "native rail ignores password trio and POSTs anyway"
  },
  "exchange order fund": {
-  "unplayable": "resolves wallet without password then ownership-guards \u2014 password form unreachable"
+  "reason": "resolves wallet without password then ownership-guards — password form unreachable"
  },
  "exchange prepay deposit": {
-  "unplayable": "registry board check precedes password resolution"
+  "reason": "registry board check precedes password resolution"
  },
  "genesis init": {
-  "unplayable": "retired command \u2014 flags never read"
+  "reason": "retired command — flags never read"
  },
  "genesis reset": {
-  "unplayable": "destructive by design \u2014 refusal comes only from missing --yes prompt"
+  "reason": "destructive by design — refusal comes only from missing --yes prompt"
  },
  "ipfs download": {
-  "unplayable": "--access-secret is a deprecated no-op"
+  "reason": "--access-secret is a deprecated no-op"
  },
  "market download": {
-  "unplayable": "--access-secret rides in GET query string \u2014 service-log exposure"
+  "reason": "--access-secret rides in GET query string — service-log exposure"
  },
  "market gpu buy": {
-  "unplayable": "requires real signed --energy-quote fixture to reach the wallet guard"
+  "reason": "requires real signed --energy-quote fixture to reach the wallet guard"
  },
  "messaging dm keygen": {
-  "unplayable": "_dm_prepare_era may create dm-keys file pre-confirm \u2014 local write"
+  "reason": "_dm_prepare_era may create dm-keys file pre-confirm — local write"
  },
  "messaging dm send": {
-  "unplayable": "recipient dm_key lookup precedes wallet resolution"
+  "reason": "recipient dm_key lookup precedes wallet resolution"
  },
  "system config": {
-  "unplayable": "--show-secrets prints secrets by design"
+  "reason": "--show-secrets prints secrets by design"
  },
  "transactions batch": {
-  "unplayable": "requires existing transactions-file fixture"
+  "reason": "requires existing transactions-file fixture"
  },
  "wallet eth-send": {
-  "unplayable": "EVM RPC eth_estimateGas precedes password resolution on --confirm"
+  "reason": "EVM RPC eth_estimateGas precedes password resolution on --confirm"
  },
  "wallet switch": {
-  "unplayable": "config.yaml write precedes password resolve (basic.py:207)"
+  "reason": "config.yaml write precedes password resolve (basic.py:207)"
  }
 }
