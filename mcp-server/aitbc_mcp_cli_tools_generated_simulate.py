@@ -84,7 +84,7 @@ def aitbc_simulate_blockchain(
     blocks: Annotated[int | None, Field(description="Number of blocks to simulate")] = None,
     transactions: Annotated[int | None, Field(description="Number of transactions per block")] = None,
     delay: Annotated[float | None, Field(description="Delay between blocks (seconds)")] = None,
-    output: Annotated[Literal["table", "json", "yaml"] | None, Field(description="output option")] = None,
+    output: Annotated[Literal["table", "json", "yaml"] | None, Field(description="Output format")] = None,
     seed: Annotated[int | None, Field(description="Seed for deterministic simulation (default: live)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
