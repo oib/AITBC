@@ -11,11 +11,13 @@ uses ``success:false`` for by-design idempotent outcomes:
   exists" (database_service.py) — an idempotent re-init, so rc 0.
 - ``island join``: already-member is ``success:true`` upstream; a
   ``success:false`` ("not known on this hub") is a real failure.
-- ``island leave``: the service answers the identical "(may not be a
-  member)" message for both "not a member" and "cannot leave the default
-  island"; indistinguishable CLI-side, so refusals stay aborts.
+- ``island leave``: since ISLAND-LEAVE-STATUS-1 (#573) the service sends a
+  machine-readable ``code`` — ``not_member`` is idempotent (rc 0) while
+  ``forbidden_default`` stays an abort. A legacy service that sends neither
+  field still aborts (the conflated "(may not be a member)" message is not
+  trusted).
 
-The service sends no machine-readable code, so benign detection matches
+The service sends no machine-readable code for bridge/init-db, so benign detection matches
 on the exact message substrings in ``_BENIGN_REFUSAL_MARKERS``.
 """
 
@@ -138,6 +140,64 @@ def test_leave_success_rc0(runner):
     argv = ["island", "leave", "--island-id", "island-1"]
     result = _invoke_edge(runner, argv, {"success": True, "status": "left"})
     assert result.exit_code == 0
+
+
+def test_leave_not_member_code_rc0_table(runner):
+    """ISLAND-LEAVE-STATUS-1 (#573): the service now sends a machine-readable
+    code; not-a-member is an idempotent outcome and exits 0."""
+    argv = ["island", "leave", "--island-id", "island-1"]
+    result = _invoke_edge(
+        runner,
+        argv,
+        {"success": False, "status": "not_member", "code": "not_member", "message": "Not a member of island island-1"},
+    )
+    assert result.exit_code == 0
+    assert "Not a member" in result.output
+
+
+def test_leave_not_member_code_rc0_json(runner):
+    argv = ["island", "leave", "--island-id", "island-1"]
+    result = _invoke_edge(
+        runner,
+        argv,
+        {"success": False, "status": "not_member", "code": "not_member", "message": "Not a member of island island-1"},
+        fmt="json",
+    )
+    assert result.exit_code == 0
+
+
+def test_leave_forbidden_default_aborts_table(runner):
+    """The other refusal code must not ride the not-member rc 0 path."""
+    argv = ["island", "leave", "--island-id", "default-island"]
+    result = _invoke_edge(
+        runner,
+        argv,
+        {
+            "success": False,
+            "status": "forbidden_default",
+            "code": "forbidden_default",
+            "message": "Cannot leave the default island default-island",
+        },
+    )
+    assert result.exit_code != 0
+    assert "Failed to leave island" in result.output
+
+
+def test_leave_forbidden_default_aborts_json(runner):
+    argv = ["island", "leave", "--island-id", "default-island"]
+    result = _invoke_edge(
+        runner,
+        argv,
+        {
+            "success": False,
+            "status": "forbidden_default",
+            "code": "forbidden_default",
+            "message": "Cannot leave the default island default-island",
+        },
+        fmt="json",
+    )
+    assert result.exit_code != 0
+    _assert_single_error_doc(result.output)
 
 
 # --- edge island bridge ------------------------------------------------------
