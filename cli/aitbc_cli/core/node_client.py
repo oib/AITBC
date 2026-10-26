@@ -6,12 +6,22 @@ import os
 from typing import Any
 
 import httpx
+from urllib.parse import urlparse
 from aitbc_cli.core.config import NodeConfig
 from aitbc_cli.models.chain import ChainInfo, ChainStatus, ChainType, ConsensusAlgorithm
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
+
+
+def _endpoint_has_api_surface(endpoint: str) -> bool:
+    """True when the endpoint's URL *path* is an /api-prefixed admin API.
+
+    Path-only: an `api-gateway:8201` style hostname carries 'api' without
+    exposing the admin surface — matching the raw string would misfire.
+    """
+    return urlparse(endpoint).path.rstrip("/").startswith("/api")
 
 
 class NodeClient:
@@ -45,7 +55,7 @@ class NodeClient:
         # endpoint has no /api/* routes, and this stub's session id is never
         # consumed — skip it so a healthy rpc doesn't see a 404 on every
         # connect (OPS-NOISE-3).
-        if "/api" not in self.config.endpoint:
+        if not _endpoint_has_api_surface(self.config.endpoint):
             return
         try:
             # For now, we'll use a simple authentication
@@ -246,7 +256,7 @@ class NodeClient:
         if self._client is None:
             raise RuntimeError("Client not initialized")
         try:
-            if "/api" not in self.config.endpoint:
+            if not _endpoint_has_api_surface(self.config.endpoint):
                 # Chain-rpc endpoint: no /api/* surface. Use the rpc head
                 # endpoint — same shape get_hosted_chains already uses.
                 head_url = f"{self.config.endpoint}/rpc/head?chain_id={chain_id}"
