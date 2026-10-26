@@ -13,4 +13,8 @@ window.AITBC_CONFIG = Object.freeze({
     chainId: 'bc-2',
     // Base URL for the explorer API (proxied by nginx).
     explorerApiUrl: '/explorer-api',
+    // Bridge payout account — public on-chain sender of every ETH→AIT bridge
+    // payout. Used by bridges.html to list recent payouts through the public
+    // explorer search (no wallet-ledger data leaves loopback).
+    bridgePayoutAddress: '0x356ddE1ced333D7F4d40308fef824260ADbA7c4A',
 });
