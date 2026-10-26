@@ -105,7 +105,7 @@ aitbc edge island get --island-id <island-id>
 **Not played (writes membership state — need the operator's line):**
 
 ```bash
-aitbc edge island join  --island-id <id> --island-name <name> --chain-id <chain> --role compute-provider
+aitbc edge island join  --island-id <id> --island-name <name> --chain-id <chain> --role compute-provider --confirm
 aitbc edge island leave --island-id <id>
 aitbc edge island bridge --target-island-id <id>
 ```

@@ -135,9 +135,9 @@ def island():
 @island.command(
     epilog="""Examples:
 
-  aitbc edge island join --island-id island-1 --island-name test --chain-id ait-mainnet --role follower
+  aitbc edge island join --island-id island-1 --island-name test --chain-id ait-mainnet --role follower --confirm
 
-  aitbc edge island join --island-id island-1 --island-name hub --chain-id ait-mainnet --role hub --is-hub"""
+  aitbc edge island join --island-id island-1 --island-name hub --chain-id ait-mainnet --role hub --is-hub --confirm"""
 )
 @click.option("--island-id", "island_id", required=True, help="The Island id.")
 @click.option("--island-name", "island_name", required=True, help="The Island name.")
