@@ -41,6 +41,12 @@ class NodeClient:
         """Authenticate with the node"""
         if self._client is None:
             raise RuntimeError("Client not initialized")
+        # The auth surface lives on the node's admin API; a plain chain-rpc
+        # endpoint has no /api/* routes, and this stub's session id is never
+        # consumed — skip it so a healthy rpc doesn't see a 404 on every
+        # connect (OPS-NOISE-3).
+        if "/api" not in self.config.endpoint:
+            return
         try:
             # For now, we'll use a simple authentication
             # In production, this would use proper authentication
@@ -240,6 +246,17 @@ class NodeClient:
         if self._client is None:
             raise RuntimeError("Client not initialized")
         try:
+            if "/api" not in self.config.endpoint:
+                # Chain-rpc endpoint: no /api/* surface. Use the rpc head
+                # endpoint — same shape get_hosted_chains already uses.
+                head_url = f"{self.config.endpoint}/rpc/head?chain_id={chain_id}"
+                if "/rpc" in self.config.endpoint:
+                    head_url = f"{self.config.endpoint}/head?chain_id={chain_id}"
+                response = await self._client.get(head_url)
+                if response.status_code == 200:
+                    head = response.json()
+                    return {"block_height": head.get("height", 0), "chain_id": chain_id, "source": "rpc-head"}
+                raise Exception(f"Chain head request failed: {response.status_code}")
             response = await self._client.get(f"{self.config.endpoint}/api/chains/{chain_id}/stats")
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
