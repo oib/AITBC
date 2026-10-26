@@ -660,3 +660,8 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   before POSTing — a bare/refusal-shaped argument set can no longer
   write an island record. The existing island `i` /
   `edge_db_b3d3d38f` residue is left for the operator's call.
+### CLI-HARDEN-DRYRUN-1
+
+- `service harden --dry-run` existed but was undocumented in the row's
+  premise — pinned with a test proving it writes zero files (no .bak,
+  no unit change) while a real run still writes the backup.
