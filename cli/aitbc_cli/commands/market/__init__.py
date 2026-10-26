@@ -50,10 +50,13 @@ def safe_load_credentials():
                 "island_id": os.getenv("ISLAND_ID", "ait-hub"),
                 "chain_id": chain_id,
             }
-        error(f"Island credentials required for market operations: {e}")
-        error("Note: Hub nodes do not need to join islands - market works with blockchain config")
-        error("For follower nodes, run: aitbc node island join <island_id> <island_name> <chain_id>")
-        abort(None, "Example: aitbc edge island join my-island 'AIT Hub' my-chain-id")
+        abort(
+            None,
+            f"Island credentials required for market operations: {e}\n"
+            "Note: Hub nodes do not need to join islands - market works with blockchain config.\n"
+            "For follower nodes, run: aitbc node island join <island_id> <island_name> <chain_id>\n"
+            "Example: aitbc edge island join my-island 'AIT Hub' my-chain-id",
+        )
         return None
 
 

@@ -180,6 +180,8 @@ def status(job_id: str | None, format: str):
                     click.echo(f"  - {job.get('job_id', 'unknown')}: {job.get('state', 'unknown')}")
     except NetworkError as e:
         abort(None, f"Error getting AI job status: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error: {e}")
         return
@@ -203,6 +205,8 @@ def cancel(job_id: str | None):
         success(f"AI job {job_id} cancelled")
     except NetworkError as e:
         abort(None, f"Error cancelling AI job: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error: {e}")
         return
@@ -240,6 +244,8 @@ def register(agent_id: str, status: str):
         success(f"Agent {agent_id} registered with status {status}")
     except NetworkError as e:
         abort(None, f"Error registering agent: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error: {e}")
         return
@@ -302,6 +308,8 @@ def deregister(agent_id: str):
         success(f"Agent {agent_id} deregistered")
     except NetworkError as e:
         abort(None, f"Error deregistering agent: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error: {e}")
         return
@@ -632,6 +640,8 @@ def get_proposal(ctx, proposal_id: str, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error getting proposal: {e}")
         return
@@ -676,6 +686,8 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error staking tokens: {e}")
         return
@@ -708,6 +720,8 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error delegating voting power: {e}")
         return
@@ -739,6 +753,8 @@ def execute(ctx, proposal_id: str, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error executing proposal: {e}")
         return
@@ -769,6 +785,8 @@ def voting_power(ctx, address: str, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error getting voting power: {e}")
         return
