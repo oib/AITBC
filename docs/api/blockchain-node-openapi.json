@@ -24487,6 +24487,10 @@
           "message": {
             "type": "string",
             "title": "Message"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
           }
         },
         "type": "object",
@@ -24494,7 +24498,8 @@
           "success",
           "island_id",
           "status",
-          "message"
+          "message",
+          "code"
         ],
         "title": "LeaveIslandResponse",
         "description": "Response model for leaving an island"

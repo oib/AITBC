@@ -54,6 +54,7 @@ class LeaveIslandResponse(BaseModel):
     island_id: str
     status: str
     message: str
+    code: str
 
 
 class BridgeRequestRequest(BaseModel):
@@ -253,19 +254,28 @@ async def leave_island(payload: LeaveIslandRequest, request: Request | None = No
     if island_manager is None:
         raise HTTPException(status_code=503, detail="Island manager not available")
 
-    success = island_manager.leave_island(payload.island_id)
+    result_code = island_manager.leave_island(payload.island_id)
 
-    if success:
+    if result_code == "left":
         return LeaveIslandResponse(
-            success=True, island_id=payload.island_id, status="left", message=f"Successfully left island {payload.island_id}"
-        )
-    else:
-        return LeaveIslandResponse(
-            success=False,
+            success=True,
             island_id=payload.island_id,
-            status="failed",
-            message=f"Failed to leave island {payload.island_id} (may not be a member)",
+            status="left",
+            code="left",
+            message=f"Successfully left island {payload.island_id}",
         )
+    message = (
+        f"Not a member of island {payload.island_id}"
+        if result_code == "not_member"
+        else f"Cannot leave the default island {payload.island_id}"
+    )
+    return LeaveIslandResponse(
+        success=False,
+        island_id=payload.island_id,
+        status=result_code,
+        code=result_code,
+        message=message,
+    )
 
 
 async def list_islands() -> dict[str, Any]:
