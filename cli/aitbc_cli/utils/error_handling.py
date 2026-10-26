@@ -155,10 +155,17 @@ def abort(
     if from_exception is not None:
         exc.__cause__ = from_exception
 
-    # Determine output format
+    # Determine output format: the command-level ``--format``/``--output``
+    # option wins, then the global ``--output`` stored in ``ctx.obj``.
     fmt = "table"
-    if ctx is not None and ctx.obj:
-        fmt = ctx.obj.get("output_format", "table")
+    if ctx is not None:
+        if ctx.obj:
+            fmt = ctx.obj.get("output_format", "table")
+        params = getattr(ctx, "params", None)
+        if isinstance(params, dict):
+            leaf = params.get("output_format") or params.get("format")
+            if leaf:
+                fmt = leaf
 
     if fmt in ("json", "yaml"):
         payload: dict[str, Any] = {
