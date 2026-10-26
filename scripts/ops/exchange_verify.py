@@ -372,10 +372,14 @@ def check_db_internal(
         if _has_table(conn, "prepaid_debits")
         else {}
     )
-    trades = conn.execute(
-        "SELECT id, amount, fee_ait, total, buyer_address, seller_address, buy_order_id, sell_order_id, "
-        "settlement_state, settlement_eth_tx_hash, settlement_ait_tx_hash FROM trades"
-    ).fetchall()
+    try:
+        trades = conn.execute(
+            "SELECT id, amount, fee_ait, total, buyer_address, seller_address, buy_order_id, sell_order_id, "
+            "settlement_state, settlement_eth_tx_hash, settlement_ait_tx_hash FROM trades"
+        ).fetchall()
+    except sqlite3.OperationalError as e:
+        add(FAIL, "db", f"phase-3 columns absent — is this a pre-settlement exchange DB? ({e})")
+        return
 
     _check_order_rows(orders, debits, trades, add, refunds)
     _check_nonce_uniqueness(orders, add)
@@ -528,10 +532,14 @@ def check_eth_chain(conn: sqlite3.Connection, rpc_url: str, bridge_address: str 
         _check_prepaid_deposit(d, rpc_url, bridge_address, add)
     add(INFO, "eth", f"{len(deposits)} prepaid deposits checked")
 
-    settled = conn.execute(
-        "SELECT id, total, settlement_eth_tx_hash, sell_order_id FROM trades WHERE settlement_eth_tx_hash IS NOT NULL"
-    ).fetchall()
-    seller_eth = {r["id"]: r["seller_eth_address"] for r in conn.execute("SELECT id, seller_eth_address FROM orders")}
+    try:
+        settled = conn.execute(
+            "SELECT id, total, settlement_eth_tx_hash, sell_order_id FROM trades WHERE settlement_eth_tx_hash IS NOT NULL"
+        ).fetchall()
+        seller_eth = {r["id"]: r["seller_eth_address"] for r in conn.execute("SELECT id, seller_eth_address FROM orders")}
+    except sqlite3.OperationalError as e:
+        add(FAIL, "db", f"phase-3 columns absent — is this a pre-settlement exchange DB? ({e})")
+        return
     for t in settled:
         _check_settlement_leg(t, seller_eth, rpc_url, add)
     add(INFO, "eth", f"{len(settled)} settlement ETH legs checked")
@@ -592,18 +600,26 @@ def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add, br
     except RpcError as e:
         add(WARN, "ait", str(e))
         return
-    sells = conn.execute(
-        "SELECT id, order_type, amount_ticks, user_address, backing_tx_hash FROM orders "
-        "WHERE order_type='SELL' AND funded_state='funded'"
-    ).fetchall()
+    try:
+        sells = conn.execute(
+            "SELECT id, order_type, amount_ticks, user_address, backing_tx_hash FROM orders "
+            "WHERE order_type='SELL' AND funded_state='funded'"
+        ).fetchall()
+    except sqlite3.OperationalError as e:
+        add(FAIL, "db", f"phase-3 columns absent — is this a pre-settlement exchange DB? ({e})")
+        return
     for o in sells:
         _check_sell_backing(o, escrow_txs, escrow, add)
     add(INFO, "ait", f"{len(sells)} funded SELL backings checked")
 
-    legs = conn.execute(
-        "SELECT id, amount, fee_ait, buyer_address, settlement_ait_tx_hash, settlement_fee_tx_hash "
-        "FROM trades WHERE settlement_ait_tx_hash IS NOT NULL"
-    ).fetchall()
+    try:
+        legs = conn.execute(
+            "SELECT id, amount, fee_ait, buyer_address, settlement_ait_tx_hash, settlement_fee_tx_hash "
+            "FROM trades WHERE settlement_ait_tx_hash IS NOT NULL"
+        ).fetchall()
+    except sqlite3.OperationalError as e:
+        add(FAIL, "db", f"phase-3 columns absent — is this a pre-settlement exchange DB? ({e})")
+        return
     for t in legs:
         _check_ait_leg(t, escrow_txs, add)
     tape_count = len(legs)
