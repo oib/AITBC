@@ -111,7 +111,11 @@ def _status_stderr() -> bool:
             if isinstance(obj, dict) and obj.get("output_format") == "json":
                 return True
             params = getattr(ctx, "params", None)
-            if isinstance(params, dict) and params.get("format") == "json":
+            # Leaf commands use two names for the same option: plain
+            # ``--format`` lands in ``params["format"]`` while
+            # OUTPUT_FORMAT_OPTION and ``--format "output_format"``
+            # declarations land in ``params["output_format"]``.
+            if isinstance(params, dict) and (params.get("format") == "json" or params.get("output_format") == "json"):
                 return True
             ctx = ctx.parent
     except Exception:
