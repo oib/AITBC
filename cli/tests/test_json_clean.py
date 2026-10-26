@@ -247,3 +247,119 @@ def test_market_list_mixed_empty_and_dead_json(monkeypatch):
     assert r.exit_code == 0, r.output
     assert json.loads(r.stdout) == []
     assert calls[:2] == ["http://dead", "http://alive"]
+def _fake_analytics_cls():
+    """ChainAnalytics double producing both the overview and comparison sets."""
+
+    class _Metrics:
+        chain_id = "bc-2"
+        timestamp = None
+        tps = 1.0
+        avg_block_time = 2.0
+        gas_price = 5
+
+    class _A:
+        def __init__(self, config):
+            pass
+
+        async def collect_all_metrics(self):
+            return {"bc-2": [_Metrics()]}
+
+        def get_cross_chain_analysis(self):
+            return {
+                "total_chains": 1,
+                "active_chains": 1,
+                "alerts_summary": {"total_alerts": 0, "critical_alerts": 0},
+                "resource_usage": {"total_memory_mb": 1.0, "total_disk_mb": 2.0, "total_clients": 0, "total_agents": 0},
+                "performance_comparison": {"bc-2": {"tps": 1.0, "block_time": 2.0, "health_score": 99.0}},
+            }
+
+        def get_chain_performance_summary(self, chain_id, hours=24):
+            return {
+                "chain_id": "bc-2",
+                "time_range_hours": hours,
+                "data_points": 1,
+                "health_score": 99.0,
+                "active_alerts": 0,
+                "statistics": {
+                    "tps": {"avg": 1.0},
+                    "block_time": {"avg": 2.0},
+                    "gas_price": {"avg": 5},
+                },
+            }
+
+    return _A
+
+
+def test_analytics_summary_cross_chain_json_is_one_document(monkeypatch):
+    """`analytics summary` (no --chain-id) must emit ONE JSON document.
+
+    Regresses CLI-JSON-CLEAN-1: the overview table and the performance
+    comparison table were each pushed through ``output()`` so stdout held
+    two JSON documents and ``json.loads`` failed with 'Extra data'.
+    """
+    import aitbc_cli.commands.analytics as an
+
+    monkeypatch.setattr(an, "load_multichain_config", lambda: object())
+    monkeypatch.setattr(an, "ChainAnalytics", _fake_analytics_cls())
+
+    r = CliRunner().invoke(an.summary, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)  # Extra data -> failure if two docs emitted
+    assert set(doc) == {"overview", "comparison"}
+    assert doc["comparison"][0]["Chain ID"] == "bc-2"
+
+
+def test_analytics_summary_chain_id_json_is_one_document(monkeypatch):
+    """`analytics summary --chain-id bc-2` must emit ONE JSON document."""
+    import aitbc_cli.commands.analytics as an
+
+    monkeypatch.setattr(an, "load_multichain_config", lambda: object())
+    monkeypatch.setattr(an, "ChainAnalytics", _fake_analytics_cls())
+
+    r = CliRunner().invoke(an.summary, ["--chain-id", "bc-2"], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc[0]["Value"] == "bc-2"
+
+
+def test_analytics_summary_abort_emits_one_json_error(monkeypatch):
+    """No data -> abort() prints the error ONCE, not twice.
+
+    The ``except Exception`` wrapper used to catch the CLIError raised by the
+    inner abort() and abort again, producing a second JSON error document.
+    """
+    import aitbc_cli.commands.analytics as an
+
+    class _Empty:
+        def __init__(self, config):
+            pass
+
+        async def collect_all_metrics(self):
+            return {}
+
+        def get_chain_performance_summary(self, chain_id, hours=24):
+            return {}
+
+        def get_cross_chain_analysis(self):
+            return {}
+
+    monkeypatch.setattr(an, "load_multichain_config", lambda: object())
+    monkeypatch.setattr(an, "ChainAnalytics", _Empty)
+
+    r = CliRunner().invoke(an.summary, ["--chain-id", "bc-2"], obj={"output_format": "json"})
+    assert r.exit_code != 0
+    doc = json.loads(r.stdout)
+    assert doc["error"]
+
+
+def test_analytics_summary_table_keeps_two_sections(monkeypatch):
+    """Table mode is unchanged: two titled sections on stdout."""
+    import aitbc_cli.commands.analytics as an
+
+    monkeypatch.setattr(an, "load_multichain_config", lambda: object())
+    monkeypatch.setattr(an, "ChainAnalytics", _fake_analytics_cls())
+
+    r = CliRunner().invoke(an.summary, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "Cross-Chain Analysis Overview" in r.stdout
+    assert "Chain Performance Comparison" in r.stdout
