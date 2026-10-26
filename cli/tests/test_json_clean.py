@@ -388,6 +388,64 @@ def test_market_list_abort_json_payload_exit_code_matches_process_exit(monkeypat
     assert doc["exit_code"] == rc
 
 
+class _SyncStatusClient:
+    """Fake HTTP client answering the three endpoints `sync status` needs."""
+
+    def __init__(self, **kw):
+        pass
+
+    def get(self, path, params=None, **kw):
+        return {
+            "/rpc/head": {
+                "height": 42,
+                "hash": "abcdefabcdefabcdefabcdefabcdef",
+                "timestamp": 1700000000,
+                "total_transactions": 7,
+                "total_accounts": 3,
+            },
+            "/rpc/network-info": {
+                "chain_id": "bc-1",
+                "p2p_endpoint": "/ip4/127.0.0.1/tcp/4001",
+                "supported_chains": ["bc-1"],
+            },
+            "/rpc/sync/config": {"error": "not found"},
+        }.get(path, {})
+
+    def close(self):
+        pass
+
+
+def test_sync_status_json_is_one_document(monkeypatch):
+    """CLI-JSON-CLEAN-2: `sync status` under --output json must emit ONE
+    JSON document carrying the status fields, not the human table."""
+    import aitbc_cli.commands.sync as sy
+
+    monkeypatch.delenv("HUB_RPC_URL", raising=False)
+    monkeypatch.setattr(sy, "AITBCHTTPClient", _SyncStatusClient)
+
+    r = CliRunner().invoke(sy.status, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)  # fails on table output or multiple docs
+    assert doc["chain_id"] == "bc-1"
+    assert doc["height"] == 42
+    assert doc["total_transactions"] == 7
+    assert "Sync Status" not in r.stdout
+
+
+def test_sync_status_table_keeps_table(monkeypatch):
+    """Table mode is unchanged: the human table still prints."""
+    import aitbc_cli.commands.sync as sy
+
+    monkeypatch.delenv("HUB_RPC_URL", raising=False)
+    monkeypatch.setattr(sy, "AITBCHTTPClient", _SyncStatusClient)
+
+    r = CliRunner().invoke(sy.status, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "Sync Status" in r.stdout
+    assert "Local height" in r.stdout
+    assert "42" in r.stdout
+
+
 def test_market_list_all_sources_fail_table_prints_error_once(monkeypatch, capsys):
     """Table mode: the all-sources-dead error is printed exactly once.
 
