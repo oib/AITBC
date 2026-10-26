@@ -88,6 +88,7 @@ def test_escrow_release_surfaces_refusal(monkeypatch, capsys):
     )
     runner = CliRunner()
     result = runner.invoke(esc_mod.escrow_release, ["--job-id", "j1"], obj={"output_format": "json"})
+    assert result.exit_code != 0
     assert "HTTP 403" in result.output
     assert "API key" in result.output
 

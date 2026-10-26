@@ -586,6 +586,9 @@ def escrow_release(ctx, job_id: str):
         else:
             suffix = f": {'; '.join(failures)}" if failures else ""
             error(f"Failed to release escrow for job {job_id}{suffix}")
+            raise click.Abort()
+    except click.Abort:
+        raise
     except Exception as e:
         error(f"Error releasing escrow: {e}")
         raise click.Abort() from e
