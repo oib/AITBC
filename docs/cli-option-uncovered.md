@@ -4,7 +4,7 @@ Generated from the OPTION-DOCS-1 census on the current main (regenerate with
 `scripts/dev/gen_option_coverage.py`; this file is the row-citation source).
 
 Legend: 🔒 = secret-value flag, intentionally unexercised.
-**922 non-secret unexercised, 259 secret-excluded.**
+**809 non-secret unexercised, 259 secret-excluded.**
 
 
 ## `account` — 4 unexercised (+0 🔒)
@@ -283,7 +283,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc developer register` --github-handle
 - `aitbc developer register` --format
 
-## `dispute` — 31 unexercised (+0 🔒)
+## `dispute` — 29 unexercised (+0 🔒)
 - `aitbc dispute active` --node-url
 - `aitbc dispute active` --format
 - `aitbc dispute arbitrator authorize` --revoke
@@ -294,8 +294,6 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc dispute arbitrator list` --format
 - `aitbc dispute arbitrator queue` --node-url
 - `aitbc dispute arbitrator queue` --format
-- `aitbc dispute auto-adjudicate` --coordinator-url
-- `aitbc dispute auto-adjudicate` --format
 - `aitbc dispute evidence add` --node-url
 - `aitbc dispute evidence add` --format
 - `aitbc dispute evidence list` --node-url
@@ -541,118 +539,7 @@ Legend: 🔒 = secret-value flag, intentionally unexercised.
 - `aitbc liquidity-stake` --lock-days
 - `aitbc liquidity-stake` --fee
 
-## `market` — 111 unexercised (+10 🔒)
-- `aitbc market cancel` --reason
-- `aitbc market cancel` --output
-- `aitbc market cancel` --format
-- `aitbc market download` --access-key
-- `aitbc market download` --cid
-- `aitbc market download` --output-path
-- `aitbc market download` --wait
-- `aitbc market download` --output
-- `aitbc market download` --format
-- `aitbc market escrow refund` --reason
-- `aitbc market exchange deposit-eth` --ait-address
-- `aitbc market exchange deposit-eth` --bridge-address
-- `aitbc market exchange deposit-eth` --gas
-- `aitbc market exchange list-deposits` --status
-- `aitbc market exchange list-deposits` --limit
-- `aitbc market exchange withdraw-eth` --address
-- `aitbc market gpu buy` --buyer-id
-- `aitbc market gpu buy` --job-id
-- `aitbc market gpu buy` --duration-hours
-- `aitbc market gpu buy` --settlement
-- `aitbc market gpu buy` --wallet
-- `aitbc market gpu buy` --wallet-path
-- `aitbc market gpu buy` --energy-quote
-- `aitbc market gpu buy` --max-ait
-- `aitbc market gpu buy` --yes
-- `aitbc market gpu buy` --json-output
-- `aitbc market gpu quote` --buyer-id
-- `aitbc market gpu quote` --duration-hours
-- `aitbc market gpu quote` --gpu-count
-- `aitbc market gpu quote` --max-ait
-- `aitbc market gpu quote` --settlement
-- `aitbc market gpu quote` --json-output
-- `aitbc market gpu refund` --wallet
-- `aitbc market gpu refund` --wallet-path
-- `aitbc market gpu refund` --reason
-- `aitbc market gpu refund` --yes
-- `aitbc market gpu refund` --json-output
-- `aitbc market gpu release` --yes
-- `aitbc market gpu release` --json-output
-- `aitbc market gpu status` --json-output
-- `aitbc market hermes` --prompt
-- `aitbc market hermes` --max-time
-- `aitbc market hermes` --track
-- `aitbc market hermes` --proposer
-- `aitbc market hermes` --output
-- `aitbc market hermes` --format
-- `aitbc market host` --pin`, `--no-pin
-- `aitbc market host` --proposer-id
-- `aitbc market host` --output
-- `aitbc market host` --format
-- `aitbc market list` --provider
-- `aitbc market list` --status
-- `aitbc market list` --sort
-- `aitbc market list` --mine
-- `aitbc market list` --output
-- `aitbc market list` --format
-- `aitbc market match` --output
-- `aitbc market match` --format
-- `aitbc market offer` --description
-- `aitbc market offer` --context-window
-- `aitbc market offer` --gpu-name
-- `aitbc market offer` --gpu-offer-id
-- `aitbc market offer` --disk-quota-mb
-- `aitbc market offer-disable` --output
-- `aitbc market offer-disable` --format
-- `aitbc market offer-list` --service-type
-- `aitbc market offer-list` --status
-- `aitbc market offer-list` --output
-- `aitbc market offer-list` --format
-- `aitbc market payment` --job-id
-- `aitbc market payment` --payment-id
-- `aitbc market process` --input-file
-- `aitbc market process` --output-container
-- `aitbc market process` --codec
-- `aitbc market process` --resolution
-- `aitbc market process` --bitrate
-- `aitbc market process` --output
-- `aitbc market process` --format
-- `aitbc market providers` --output
-- `aitbc market providers` --format
-- `aitbc market rate` --rating
-- `aitbc market rate` --comment
-- `aitbc market rate` --reviewer-id
-- `aitbc market rate` --market-url
-- `aitbc market ratings` --limit
-- `aitbc market ratings` --offset
-- `aitbc market ratings` --market-url
-- `aitbc market run` --prompt
-- `aitbc market run` --max-tokens
-- `aitbc market run` --stream
-- `aitbc market run` --language
-- `aitbc market run` --task
-- `aitbc market run` --transcript-format
-- `aitbc market run` --media-format
-- `aitbc market run` --codec
-- `aitbc market run` --resolution
-- `aitbc market run` --bitrate
-- `aitbc market run` --max-time
-- `aitbc market run` --days
-- `aitbc market run` --pin`, `--no-pin
-- `aitbc market run` --track
-- `aitbc market run` --proposer
-- `aitbc market run` --output
-- `aitbc market run` --format
-- `aitbc market sync-ratings` --limit
-- `aitbc market transcribe` --audio-file
-- `aitbc market transcribe` --language
-- `aitbc market transcribe` --task
-- `aitbc market transcribe` --output-format
-- `aitbc market transcribe` --output
-- `aitbc market transcribe` --format
+## `market` — 0 unexercised (+10 🔒)
 
 ## `messaging` — 88 unexercised (+36 🔒)
 - `aitbc messaging dm inbox` --cursor
