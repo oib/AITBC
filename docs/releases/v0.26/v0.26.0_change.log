@@ -678,3 +678,10 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
   then an empty table with exit 0. `chain_manager.list_chains` now
   re-raises the last node error when all nodes fail and no chains
   were returned — the CLI aborts non-zero.
+### CLI-HELP-LINT-1
+
+- All 566 leaves pass `--help` (exit 0, fast). The two help-less
+  options are fixed: shared `--wait-timeout` on messaging
+  (hide/lock/mod-grant/mod-revoke/pin/unhide/unlock/unpin/vote) and
+  `simulate blockchain --output`. Lint test asserts every leaf's
+  --help exits 0 and every option has non-empty help.

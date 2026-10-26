@@ -211,7 +211,7 @@ def aitbc_messaging_hide(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -324,7 +324,7 @@ def aitbc_messaging_lock(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -398,7 +398,7 @@ def aitbc_messaging_mod_grant(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -471,7 +471,7 @@ def aitbc_messaging_mod_revoke(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -593,7 +593,7 @@ def aitbc_messaging_pin(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -1006,7 +1006,7 @@ def aitbc_messaging_unhide(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -1079,7 +1079,7 @@ def aitbc_messaging_unlock(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -1153,7 +1153,7 @@ def aitbc_messaging_unpin(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
@@ -1227,7 +1227,7 @@ def aitbc_messaging_vote(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
-    wait_timeout: Annotated[float | None, Field(description="wait-timeout option")] = None,
+    wait_timeout: Annotated[float | None, Field(description="Seconds --wait polls for")] = None,
     wait: Annotated[
         bool | None,
         Field(
