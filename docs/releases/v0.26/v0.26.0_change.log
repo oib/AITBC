@@ -643,3 +643,12 @@ Collected from `git log v0.25.12..origin/main`: every commit not yet named in a 
 - `node island leave` was a no-op stub that printed success but never
   called the node. It now posts to `/rpc/islands/leave` with the RPC
   API key, matching `island join`'s client wiring; error paths abort.
+### Exclusions rework + plays merge
+
+- `option-coverage.py`: `--plays` glob (default `plays*.json` beside
+  `census.json`) merges extra play rows into the census — play rows
+  now live in their own `plays.json`, never written into `census.json`
+  (which is `census.py`'s file).
+- `exclusions.json`: one entry (`dispute auto-adjudicate`,
+  `play limit: interactive confirm`); stale-cli entries dropped
+  (zsh word-splitting artifact — leaves resolve and were re-played).
