@@ -82,9 +82,12 @@ class RetryPolicy:
         return method.upper() in SPEC_IDEMPOTENT_METHODS or retry_ambiguous
 
     def _ambiguous(self, method: str, exc: BaseException) -> AmbiguousRequestError:
+        # Deferred import: client.py imports this module at top level.
+        from .client import _detail_suffix
+
         return AmbiguousRequestError(
             f"{method.upper()} request may have reached the server and its outcome is "
-            f"unknown ({exc!r}); not retried. Pass an Idempotency-Key to opt into retry."
+            f"unknown ({exc!r}){_detail_suffix(exc)}; not retried. Pass an Idempotency-Key to opt into retry."
         )
 
     def _backoff_secs(self, attempt: int) -> float:

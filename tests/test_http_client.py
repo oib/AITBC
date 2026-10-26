@@ -332,3 +332,73 @@ class TestNetworkErrorDetailSuffix:
         client.session.get = MagicMock(side_effect=self._resp(status=403, json_body={"detail": "missing X-API-Key"}))
         with pytest.raises(NetworkError, match="missing X-API-Key"):
             client.get("/v1/things")
+
+
+class TestNetworkErrorDetailSuffix2:
+    """CLI-ERR-DETAIL-2 (#591): gaps left by #581 — list-valued 422
+    ``detail``, 5xx ``AmbiguousRequestError`` body detail, async path."""
+
+    def _client(self):
+        return AITBCHTTPClient(base_url="http://node.test", enable_circuit_breaker=False)
+
+    def _resp(self, status, json_body):
+        resp = MagicMock()
+        resp.status_code = status
+        resp.json.return_value = json_body
+        err = requests.HTTPError(f"{status} Server Error for url: http://node.test/x")
+        err.response = resp
+        return err
+
+    def test_422_list_detail_echoed(self):
+        client = self._client()
+        body = {"detail": [{"loc": ["body", "amount"], "msg": "field required"}]}
+        client.session.post = MagicMock(side_effect=self._resp(422, body))
+        with pytest.raises(NetworkError, match="amount: field required"):
+            client.post("/rpc/transaction", json={})
+
+    def test_422_list_detail_multi_capped(self):
+        client = self._client()
+        body = {"detail": [{"loc": ["body", f"f{i}"], "msg": "m"} for i in range(10)]}
+        client.session.post = MagicMock(side_effect=self._resp(422, body))
+        with pytest.raises(NetworkError) as exc:
+            client.post("/rpc/transaction", json={})
+        assert "f0: m" in str(exc.value)
+        # only the first three items join, and the whole suffix is capped
+        assert len(str(exc.value)) < 400
+
+    def test_5xx_post_ambiguous_carries_detail(self):
+        from aitbc.exceptions import AmbiguousRequestError
+
+        client = self._client()
+        client.session.post = MagicMock(side_effect=self._resp(500, {"detail": "upstream exploded"}))
+        with pytest.raises(AmbiguousRequestError, match="upstream exploded"):
+            client.post("/rpc/transaction", json={})
+
+
+class TestAsyncDetailSuffix:
+    """AsyncAITBCHTTPClient wrap sites carry the same suffix."""
+
+    def _httpx_err(self, status, json_body):
+        import httpx
+
+        req = httpx.Request("POST", "http://node.test/x")
+        resp = httpx.Response(status, json=json_body, request=req)
+        return httpx.HTTPStatusError("err", request=req, response=resp)
+
+    async def test_async_post_detail(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="http://node.test", enable_circuit_breaker=False)
+        err = self._httpx_err(400, {"detail": "bad alloc"})
+        with patch("httpx.AsyncClient.post", side_effect=err):
+            with pytest.raises(NetworkError, match="bad alloc"):
+                await client.post("/rpc/transaction", json={})
+
+    async def test_async_get_detail(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="http://node.test", enable_circuit_breaker=False)
+        err = self._httpx_err(403, {"detail": "forbidden here"})
+        with patch("httpx.AsyncClient.get", side_effect=err):
+            with pytest.raises(NetworkError, match="forbidden here"):
+                await client.get("/x")

@@ -41,6 +41,14 @@ def _detail_suffix(exc: BaseException) -> str:
             detail: Any = None
             if isinstance(body, dict):
                 detail = body.get("detail")
+                if isinstance(detail, list) and detail:
+                    # FastAPI 422: [{"loc": [...], "msg": "..."}, ...]
+                    parts = []
+                    for item in detail[:3]:
+                        if isinstance(item, dict) and item.get("msg"):
+                            loc = ".".join(str(p) for p in item.get("loc", []) if p != "body")
+                            parts.append(f"{loc}: {item['msg']}" if loc else str(item["msg"]))
+                    detail = "; ".join(parts) or None
                 if not isinstance(detail, str) or not detail:
                     err = body.get("error")
                     detail = err.get("message") if isinstance(err, dict) else (err if isinstance(err, str) else None)
