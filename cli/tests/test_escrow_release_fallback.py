@@ -31,6 +31,7 @@ def _config():
         blockchain_rpc_api_key=None,
         hub_discovery_url="https://hub.aitbc.bubuit.net",
         blockchain_rpc_url="http://127.0.0.1:8202",
+        coordinator_api_url=None,
     )
 
 
@@ -93,7 +94,7 @@ def test_escrow_release_surfaces_refusal(monkeypatch, capsys):
 
 def test_refund_escrow_falls_back_with_info_and_error(monkeypatch):
     """Coordinator refund unavailable → info line names the chain fallback;
-    a hard RPC refusal → a real error, never a silent None."""
+    a hard RPC refusal → error + nonzero Abort, never a silent exit 0."""
     infos: list[str] = []
     errors: list[str] = []
     monkeypatch.setattr(esc_mod, "get_config", _config)
@@ -106,9 +107,10 @@ def test_refund_escrow_falls_back_with_info_and_error(monkeypatch):
         lambda config, path, payload, timeout=10: (None, ["http://x: HTTP 403 Forbidden (RPC requires an API key)"]),
     )
     import click
+    import pytest
 
-    out = esc_mod.refund_escrow(cast(click.Context, SimpleNamespace(obj={})), "j1", "buyer_requested")
-    assert out is None
+    with pytest.raises(click.Abort):
+        esc_mod.refund_escrow(cast(click.Context, SimpleNamespace(obj={})), "j1", "buyer_requested")
     assert any("falling back to the chain rpc" in m for m in infos)
     assert any("HTTP 403" in m and "API key" in m for m in errors)
 

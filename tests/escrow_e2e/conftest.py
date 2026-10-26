@@ -12,11 +12,14 @@ import os
 
 # Environment first — coordinator_api.config.settings is instantiated at
 # import time, so every variable it reads must be in place beforehand.
-os.environ.setdefault("URL", "sqlite:////tmp/aitbc-escrow-e2e.db")
-os.environ.setdefault("JWT_SECRET", "escrow-e2e-test-secret-key-material-0123456789")
-os.environ.setdefault("AUTH_ENABLED", "true")
-os.environ.setdefault("CHAIN_ID", "ait-testchain")
-os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://settlement-node.test")
+# Hard-assign, not setdefault: when the coordinator test conftest already ran
+# in the same pytest session its values would win and this suite would build
+# an app against the wrong DB/secret/RPC URL.
+os.environ["URL"] = "sqlite:////tmp/aitbc-escrow-e2e.db"
+os.environ["JWT_SECRET"] = "escrow-e2e-test-secret-key-material-0123456789"
+os.environ["AUTH_ENABLED"] = "true"
+os.environ["CHAIN_ID"] = "ait-testchain"
+os.environ["BLOCKCHAIN_RPC_URL"] = "http://settlement-node.test"
 os.environ.setdefault("EXPLORER_API_URL", "http://127.0.0.1:8100/health")
 os.environ.setdefault("MARKET_STATS_URL", "http://127.0.0.1:8102/health")
 os.environ.setdefault("ECON_STATS_URL", "http://127.0.0.1:8104/health")
@@ -24,6 +27,24 @@ os.environ.setdefault("MARKET_HEALTH_URL", "http://127.0.0.1:8102/health")
 os.environ.setdefault("MARKET_HEALTH_URL_ALT", "http://127.0.0.1:8104/health")
 os.environ.setdefault("COORDINATOR_HEALTH_URL", "http://127.0.0.1:8203/health")
 os.environ.pop("TEST_MODE", None)
+
+# The coordinator test conftest sets TEST_MODE=true; when both suites share a
+# pytest session, coordinator_api.config may already be imported with
+# settings.test_mode frozen — middleware would never mount. Reset the
+# singleton so this suite always builds a production-shaped app.
+import sys as _sys  # noqa: E402
+
+if "coordinator_api.config" in _sys.modules:
+    from coordinator_api.config import settings as _settings
+
+    # The settings singleton is frozen at first import — realign the fields
+    # this suite depends on (env vars are already forced above).
+    _settings.test_mode = False
+    _settings.auth_enabled = True
+    _settings.jwt_secret = os.environ["JWT_SECRET"]
+    _settings.url = os.environ["URL"]
+    _settings.blockchain_rpc_url = os.environ["BLOCKCHAIN_RPC_URL"]
+    del _sys, _settings
 
 import sys  # noqa: E402
 from collections.abc import Generator  # noqa: E402
@@ -43,7 +64,11 @@ from sqlmodel import Session, SQLModel  # noqa: E402
 from aitbc.auth import create_access_token  # noqa: E402
 from aitbc.crypto.crypto import derive_ethereum_address  # noqa: E402
 
-from coordinator_api.main import app  # noqa: E402
+from coordinator_api.main import create_app  # noqa: E402
+
+# Build a private app AFTER the test_mode reset above — the coordinator
+# conftest's module-level `app` may already exist with middleware off, so
+# this suite must never reuse that instance.
 from coordinator_api.storage import get_session  # noqa: E402
 from coordinator_api.contexts.infrastructure.domain.user import User, Wallet  # noqa: E402
 
@@ -95,9 +120,10 @@ def coord_client(db_session):
     def override_get_session() -> Generator[Session]:
         yield db_session
 
-    app.dependency_overrides[get_session] = override_get_session
-    yield TestClient(app)
-    app.dependency_overrides.pop(get_session, None)
+    real_app = create_app()
+    real_app.dependency_overrides[get_session] = override_get_session
+    yield TestClient(real_app)
+    real_app.dependency_overrides.pop(get_session, None)
 
 
 @pytest.fixture
