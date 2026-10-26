@@ -25,7 +25,7 @@ from tabulate import tabulate
 
 from aitbc.utils import ait_to_units, format_ait
 
-from ..utils import DECIMAL, output, success, warning
+from ..utils import DECIMAL, info, output, resolve_output_format, success, warning
 from ..utils.wallet_secret import wallet_password_options
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -154,25 +154,42 @@ def rates(
             params = {"from_chain": from_chain, "to_chain": to_chain}
         rates_data = client.get("/rpc/cross-chain/rates", params=params or None)
         rates = rates_data.get("rates", {})
+        fmt = resolve_output_format(ctx)
 
         if from_chain and to_chain:
             pair_key = f"{from_chain}::{to_chain}"
             if pair_key in rates:
-                success(f"Swap rate {from_chain} → {to_chain}: {rates[pair_key]}")
+                pair_rate: Any = rates[pair_key]
+                pair_note = None
             elif from_token == to_token or (not from_token and not to_token):
-                success(f"Swap rate {from_chain} → {to_chain}: 1.0 (same-asset parity)")
+                pair_rate = 1.0
+                pair_note = "same-asset parity"
             else:
-                output(rates_data.get("detail") or f"No configured rate for {from_chain} → {to_chain}")
+                pair_rate = None
+                pair_note = rates_data.get("detail") or f"No configured rate for {from_chain} → {to_chain}"
+            if fmt == "table":
+                if pair_rate is not None:
+                    suffix = f" ({pair_note})" if pair_note else ""
+                    success(f"Swap rate {from_chain} → {to_chain}: {pair_rate}{suffix}")
+                else:
+                    assert pair_note is not None
+                    info(pair_note)
+            else:
+                output({"from_chain": from_chain, "to_chain": to_chain, "rate": pair_rate, "note": pair_note}, fmt)
         else:
             success("Cross-chain swap rates (operator-configured):")
-            rate_table = []
-            for pair, rate in rates.items():
-                chains = pair.split("::")
-                rate_table.append([chains[0], chains[-1], f"{rate:.6f}"])
-            if rate_table:
-                click.echo(tabulate(rate_table, headers=["From Chain", "To Chain", "Rate"], tablefmt="grid"))
+            rate_rows = [
+                {"from_chain": (chains := pair.split("::"))[0], "to_chain": chains[-1], "rate": rate}
+                for pair, rate in rates.items()
+            ]
+            if not rate_rows:
+                info("No configured swap rates; same-asset pairs settle at parity (1.0)")
+            if fmt == "table":
+                if rate_rows:
+                    rate_table = [[r["from_chain"], r["to_chain"], f"{r['rate']:.6f}"] for r in rate_rows]
+                    click.echo(tabulate(rate_table, headers=["From Chain", "To Chain", "Rate"], tablefmt="grid"))
             else:
-                output("No configured swap rates; same-asset pairs settle at parity (1.0)")
+                output({"rates": rate_rows}, fmt)
     except Exception as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 
@@ -590,30 +607,34 @@ def pools(ctx, rpc_url: str | None):
         http_client = AITBCHTTPClient(base_url=_resolve_transaction_rpc_url(rpc_url), timeout=10)
         pools_data = http_client.get("/rpc/cross-chain/pools")
         pools = pools_data.get("pools", [])
+        fmt = resolve_output_format(ctx)
 
-        if pools:
-            pool_table = []
-            for pool in pools:
-                pool_table.append(
-                    [
-                        pool.get("pool_id", ""),
-                        pool.get("token_a", ""),
-                        pool.get("token_b", ""),
-                        pool.get("chain_a", ""),
-                        pool.get("chain_b", ""),
-                        f"{pool.get('reserve_a', 0):.2f}",
-                        f"{pool.get('reserve_b', 0):.2f}",
-                    ]
+        if not pools:
+            info(pools_data.get("detail") or "No cross-chain liquidity pools found")
+        if fmt == "table":
+            if pools:
+                pool_table = []
+                for pool in pools:
+                    pool_table.append(
+                        [
+                            pool.get("pool_id", ""),
+                            pool.get("token_a", ""),
+                            pool.get("token_b", ""),
+                            pool.get("chain_a", ""),
+                            pool.get("chain_b", ""),
+                            f"{pool.get('reserve_a', 0):.2f}",
+                            f"{pool.get('reserve_b', 0):.2f}",
+                        ]
+                    )
+                click.echo(
+                    tabulate(
+                        pool_table,
+                        headers=["Pool ID", "Token A", "Token B", "Chain A", "Chain B", "Reserve A", "Reserve B"],
+                        tablefmt="grid",
+                    )
                 )
-            click.echo(
-                tabulate(
-                    pool_table,
-                    headers=["Pool ID", "Token A", "Token B", "Chain A", "Chain B", "Reserve A", "Reserve B"],
-                    tablefmt="grid",
-                )
-            )
         else:
-            output(pools_data.get("detail") or "No cross-chain liquidity pools found")
+            output({"pools": pools}, fmt)
     except Exception as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 

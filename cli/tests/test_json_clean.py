@@ -465,3 +465,120 @@ def test_market_list_all_sources_fail_table_prints_error_once(monkeypatch, capsy
     assert combined.count("No market data source answered") == 1
     assert "Error listing GPU market" not in combined
     assert "Aborted!" not in combined
+
+
+def _patch_crosschain(monkeypatch, client_cls):
+    import aitbc_cli.commands.cross_chain as cc
+
+    monkeypatch.setattr(cc, "AITBCHTTPClient", client_cls)
+    monkeypatch.setattr(cc, "_resolve_transaction_rpc_url", lambda rpc_url=None: "http://x")
+    return cc
+
+
+class _XChainDataClient:
+    """Fake RPC client answering the cross-chain rates/pools endpoints."""
+
+    def __init__(self, **kw):
+        pass
+
+    def get(self, path, params=None, **kw):
+        if path.endswith("/rates"):
+            return {"rates": {"ait-mainnet::ait-side": 1.5}}
+        if path.endswith("/pools"):
+            return {
+                "pools": [
+                    {
+                        "pool_id": "pool-1",
+                        "token_a": "AIT",
+                        "token_b": "AITs",
+                        "chain_a": "ait-mainnet",
+                        "chain_b": "ait-side",
+                        "reserve_a": 100.0,
+                        "reserve_b": 150.0,
+                    }
+                ]
+            }
+        return {}
+
+
+class _XChainEmptyClient:
+    def __init__(self, **kw):
+        pass
+
+    def get(self, path, params=None, **kw):
+        if path.endswith("/rates"):
+            return {"rates": {}}
+        if path.endswith("/pools"):
+            return {"pools": []}
+        return {}
+
+
+def test_crosschain_rates_json_is_one_document(monkeypatch):
+    """CLI-JSON-CLEAN-2: `crosschain rates` under --output json emits ONE doc."""
+    cc = _patch_crosschain(monkeypatch, _XChainDataClient)
+    r = CliRunner().invoke(cc.rates, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)  # Extra data / prose -> failure
+    assert doc["rates"][0]["rate"] == 1.5
+    assert doc["rates"][0]["from_chain"] == "ait-mainnet"
+    assert "Cross-chain swap rates" not in r.stdout
+
+
+def test_crosschain_rates_empty_json(monkeypatch):
+    """Empty rates -> one JSON doc on stdout; prose goes to stderr."""
+    cc = _patch_crosschain(monkeypatch, _XChainEmptyClient)
+    r = CliRunner().invoke(cc.rates, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["rates"] == []
+    assert "parity" in r.stderr
+    assert "parity" not in r.stdout
+
+
+def test_crosschain_rates_table_unchanged(monkeypatch):
+    cc = _patch_crosschain(monkeypatch, _XChainDataClient)
+    r = CliRunner().invoke(cc.rates, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "From Chain" in r.stdout
+    assert "ait-mainnet" in r.stdout
+
+
+def test_crosschain_rates_empty_table_keeps_prose_on_stdout(monkeypatch):
+    cc = _patch_crosschain(monkeypatch, _XChainEmptyClient)
+    r = CliRunner().invoke(cc.rates, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "parity" in r.stdout
+
+
+def test_crosschain_pools_json_is_one_document(monkeypatch):
+    """CLI-JSON-CLEAN-2: `crosschain pools` under --output json emits ONE doc."""
+    cc = _patch_crosschain(monkeypatch, _XChainDataClient)
+    r = CliRunner().invoke(cc.pools, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["pools"][0]["pool_id"] == "pool-1"
+
+
+def test_crosschain_pools_empty_json(monkeypatch):
+    cc = _patch_crosschain(monkeypatch, _XChainEmptyClient)
+    r = CliRunner().invoke(cc.pools, [], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    doc = json.loads(r.stdout)
+    assert doc["pools"] == []
+    assert "No cross-chain liquidity pools" in r.stderr
+    assert "No cross-chain liquidity pools" not in r.stdout
+
+
+def test_crosschain_pools_table_unchanged(monkeypatch):
+    cc = _patch_crosschain(monkeypatch, _XChainDataClient)
+    r = CliRunner().invoke(cc.pools, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "Pool ID" in r.stdout
+    assert "pool-1" in r.stdout
+
+
+def test_crosschain_pools_empty_table_keeps_prose_on_stdout(monkeypatch):
+    cc = _patch_crosschain(monkeypatch, _XChainEmptyClient)
+    r = CliRunner().invoke(cc.pools, [], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert "No cross-chain liquidity pools" in r.stdout
