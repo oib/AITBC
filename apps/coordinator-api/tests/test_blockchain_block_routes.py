@@ -222,9 +222,10 @@ class TestSupplyRoute:
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
-    def test_503_detail_carries_rpc_error(self, mock_client_class, mock_settings):
-        """The 503 detail names the upstream failure, per the design's
-        "503 with the RPC error detail" — not a static string."""
+    def test_503_detail_is_sanitized(self, mock_client_class, mock_settings):
+        """The 503 detail is a stable sanitized string: the upstream error
+        (status, URL, internals) is logged server-side, never echoed to the
+        client."""
         mock_settings.blockchain_rpc_url = "http://localhost:8202"
         mock_client = Mock()
         mock_client_class.return_value = mock_client
@@ -233,9 +234,7 @@ class TestSupplyRoute:
         response = _client().get("/v1/supply")
 
         assert response.status_code == 503
-        detail = response.json()["detail"]
-        assert "Blockchain RPC unavailable" in detail
-        assert "404 Client Error" in detail
+        assert response.json()["detail"] == "Blockchain RPC unavailable"
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
