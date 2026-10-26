@@ -12,9 +12,9 @@ import uuid
 import click
 
 try:
-    from aitbc_cli.utils import error, output, success, warning
+    from aitbc_cli.utils import error, info, output, success, warning
 except ImportError:
-    from aitbc_cli.utils import error, output, success, warning
+    from aitbc_cli.utils import error, info, output, success, warning
 
 try:
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
@@ -203,6 +203,9 @@ def leave_island_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
 
     if isinstance(response, dict) and response.get("success"):
         success(f"Successfully left island {island_id}")
+    elif isinstance(response, dict) and (response.get("code") or response.get("status")) == "not_member":
+        info(response.get("message", f"Not a member of island {island_id}"))
+        output(response, ctx.obj.get("output_format", "table") if ctx and ctx.obj else "table")
     else:
         message = response.get("message", "unknown") if isinstance(response, dict) else str(response)
         error(f"Failed to leave island {island_id}: {message}")
