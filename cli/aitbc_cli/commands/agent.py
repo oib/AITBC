@@ -532,8 +532,6 @@ def request_coins(
 ):
     """Request free AIT tokens from the hub via WebSocket for the configured wallet."""
     wallet_address = _resolve_wallet_address(ctx, wallet)
-    if not wallet_address:
-        return
 
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
