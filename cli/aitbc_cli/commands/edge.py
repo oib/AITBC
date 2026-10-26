@@ -29,9 +29,9 @@ logger = get_logger(__name__)
 #   - database init-db: the only success:false is "Database <id> already
 #     exists" — an idempotent re-init.
 # island join needs no entry (already-member is success:true upstream) and
-# island leave deliberately has none: the service answers the identical
-# "(may not be a member)" message for both "not a member" and "cannot
-# leave the default island", which cannot be distinguished CLI-side.
+# island leave needs none either: the service carries a machine-readable
+# ``code`` — ``not_member`` is idempotent (exit 0) while
+# ``forbidden_default`` and legacy codeless refusals abort.
 _BENIGN_REFUSAL_MARKERS: dict[str, tuple[str, ...]] = {
     "bridge": ("already be a member", "already a member", "already bridged"),
     "init_db": ("already exists",),
