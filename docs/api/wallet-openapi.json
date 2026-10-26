@@ -1537,7 +1537,7 @@
             }
           },
           "503": {
-            "description": "Failed to calculate ETH amount / Internal server error",
+            "description": "Failed to calculate ETH amount / Chain id is not configured / Internal server error",
             "content": {
               "application/json": {
                 "schema": {
