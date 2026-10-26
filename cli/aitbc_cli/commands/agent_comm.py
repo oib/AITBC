@@ -36,7 +36,12 @@ def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
     # agent_coordinator_url resolves via hub_agent_url() to a mounted prefix
     # like https://<hub>/api/v1/agent — keeping it would double the prefix, so
     # reduce the configured value to the origin (scheme://host[:port]).
-    base_url = origin_base_url(config.agent_coordinator_url or config.coordinator_api_url, "http://localhost:8107")
+    # An explicit --url on the invocation wins over config — the global
+    # option is documented as "Coordinator API URL (overrides config)" and
+    # agent-comm previously ignored it.
+    base_url = origin_base_url(
+        ctx.obj.get("url") or config.agent_coordinator_url or config.coordinator_api_url, "http://localhost:8107"
+    )
     # An explicit --api-key on the invocation wins; otherwise a stored JWT
     # from `aitbc auth login` goes out as Bearer, and a plain API key falls
     # back to X-API-Key.

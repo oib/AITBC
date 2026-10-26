@@ -75,3 +75,20 @@ def test_receive_error_aborts_json(runner):
     assert result.exit_code != 0
     doc = json.loads(result.output)
     assert doc.get("error") or doc.get("message"), result.output
+
+
+def test_agent_client_honours_global_url_flag():
+    """--url is documented as "overrides config"; agent-comm must not ignore it."""
+    from types import SimpleNamespace
+
+    from aitbc_cli.commands import agent_comm as ac
+
+    cfg = SimpleNamespace(agent_coordinator_url="http://configured:8107", coordinator_api_url="", api_key=None)
+    ctx = MagicMock()
+    ctx.obj = {"url": "http://flag:9999", "config": cfg, "api_key": None}
+    client = ac._agent_client(ctx)
+    assert client.base_url.rstrip("/") == "http://flag:9999"
+
+    ctx.obj["url"] = None
+    client = ac._agent_client(ctx)
+    assert client.base_url.rstrip("/") == "http://configured:8107"
