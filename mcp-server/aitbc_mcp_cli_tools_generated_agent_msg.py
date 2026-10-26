@@ -144,7 +144,7 @@ def aitbc_agent_msg_receive(
     """Receive messages from the Agent Coordinator inbox for the configured agent."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"unread_only": "unread-only", "sign": "sign"},
+        flags={"unread_only": "unread-only"},
         values={
             "from_agent": "from-agent",
             "limit": "limit",
@@ -152,6 +152,7 @@ def aitbc_agent_msg_receive(
             "password_file": "password-file",
             "coordinator_url": "coordinator-url",
         },
+        dual_flags={"sign": ("sign", "no-sign")},
     )
     args = None
     target = _host_for_role(role, host)
@@ -288,7 +289,7 @@ def aitbc_agent_msg_send(
     """Send a direct or broadcast message to another agent through the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"encrypt": "encrypt", "sign": "sign"},
+        flags={},
         values={
             "from_agent": "from-agent",
             "to_agent": "to-agent",
@@ -300,6 +301,7 @@ def aitbc_agent_msg_send(
             "password_file": "password-file",
             "coordinator_url": "coordinator-url",
         },
+        dual_flags={"encrypt": ("encrypt", "no-encrypt"), "sign": ("sign", "no-sign")},
     )
     args = [message] if message is not None else []
     target = _host_for_role(role, host)

@@ -539,14 +539,7 @@ def aitbc_ai_submit(
     """Submit a new AI job to the coordinator with a prompt and optional model."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={
-            "zk_proof_required": "zk-proof-required",
-            "tee_attestation_required": "tee-attestation-required",
-            "confidential": "confidential",
-            "bond_required": "bond-required",
-            "deterministic_decoding": "deterministic-decoding",
-            "wait": "wait",
-        },
+        flags={"confidential": "confidential", "wait": "wait"},
         values={
             "wallet": "wallet",
             "job_type": "type",
@@ -576,6 +569,12 @@ def aitbc_ai_submit(
             "timeout_opt": "timeout",
             "poll_interval": "poll-interval",
             "format": "format",
+        },
+        dual_flags={
+            "zk_proof_required": ("zk-proof-required", "no-zk-proof-required"),
+            "tee_attestation_required": ("tee-attestation-required", "no-tee-attestation-required"),
+            "bond_required": ("bond-required", "no-bond-required"),
+            "deterministic_decoding": ("deterministic-decoding", "no-deterministic-decoding"),
         },
     )
     args = None
