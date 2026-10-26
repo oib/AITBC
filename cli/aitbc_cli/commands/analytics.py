@@ -214,6 +214,7 @@ def monitor(ctx, realtime, interval, chain_id):
         else:
             # Single snapshot
             asyncio.run(analytics.collect_all_metrics())
+            fmt = _fmt(ctx, None)
 
             if chain_id:
                 summary = analytics.get_chain_performance_summary(chain_id, 1)
@@ -233,7 +234,7 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]},
                 ]
 
-                output(monitor_data, _fmt(ctx, "table"), title=f"Chain Monitor: {chain_id}")
+                output(monitor_data, fmt, title=f"Chain Monitor: {chain_id}")
             else:
                 analysis = analytics.get_cross_chain_analysis()
 
@@ -248,8 +249,11 @@ def monitor(ctx, realtime, interval, chain_id):
                     {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]},
                 ]
 
-                output(monitor_data, _fmt(ctx, "table"), title="System Monitor")
+                output(monitor_data, fmt, title="System Monitor")
 
+    except CLIError:
+        # abort() already printed the error once — do not wrap it again.
+        raise
     except Exception as e:
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
@@ -321,6 +325,8 @@ def predict(ctx, chain_id, hours, format):
 
             output(prediction_data, _fmt(ctx, format), title="Chain Performance Predictions")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error generating predictions: {str(e)}", from_exception=e)
 
@@ -396,6 +402,8 @@ def optimize(ctx, chain_id, format):
 
             output(recommendation_data, _fmt(ctx, format), title="Chain Optimization Recommendations")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error getting optimization recommendations: {str(e)}", from_exception=e)
 
@@ -446,6 +454,8 @@ def alerts(ctx, severity, hours, format):
 
         output(alert_data, _fmt(ctx, format), title=f"Performance Alerts (Last {hours}h)")
 
+    except CLIError:
+        raise
     except Exception as e:
         abort(ctx, f"Error getting alerts: {str(e)}", from_exception=e)
 
