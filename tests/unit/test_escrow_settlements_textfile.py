@@ -477,6 +477,14 @@ class TestFilesAgree:
                 ),
             )
         )
+        # The escrow relay outcome counter is emitted by coordinator-api's own
+        # /prometheus registry (escrow_relay_metrics), not by a node textfile
+        # exporter — collect its exposition names too.
+        from coordinator_api.contexts.payments.services.escrow_relay_metrics import ESCROW_RELAY_REQUESTS
+
+        for family in ESCROW_RELAY_REQUESTS.collect():
+            emitted.add(f"{family.name}_total" if family.type == "counter" else family.name)
+
         assert used <= emitted, used - emitted
 
     def test_unit_runs_the_script_from_the_repo_and_writes_the_textfile_dir(self):
