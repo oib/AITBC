@@ -6,7 +6,7 @@ from typing import Any
 
 import click
 
-from ..utils import info, output, success
+from ..utils import info, output, resolve_output_format, success
 from ..utils.wallet_secret import wallet_password_options
 from ..utils.agent_signing import (
     check_registry_binding,
@@ -21,11 +21,9 @@ from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger,
 logger = get_logger(__name__)
 
 
-def _fmt(ctx: click.Context, command_format: str) -> str:
+def _fmt(ctx: click.Context, command_format: str | None) -> str:
     """Respect command --format first, then global --output, then table."""
-    if command_format and command_format != "table":
-        return command_format
-    return ctx.obj.get("output_format", "table") or "table"
+    return resolve_output_format(ctx, command_format)
 
 
 def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
@@ -161,7 +159,7 @@ def register(
 @click.option("--chain-id", help="Filter by chain ID")
 @click.option("--status", type=click.Choice(["active", "inactive", "busy", "offline"]), help="Filter by status")
 @click.option("--capabilities", help="Filter by capabilities (comma-separated)")
-@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list_agents(ctx, chain_id, status, capabilities, output_format):
     """List agents registered in the cross-chain network with optional filters."""
@@ -213,7 +211,7 @@ def list_agents(ctx, chain_id, status, capabilities, output_format):
 )
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--capabilities", help="Required capabilities (comma-separated)")
-@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def discover(ctx, chain_id, capabilities, output_format):
     """Discover active agents on a specific chain by chain ID."""
@@ -255,7 +253,7 @@ def discover(ctx, chain_id, capabilities, output_format):
   aitbc agent-comm status --agent-id agent-1 --format json"""
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
-@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def status(ctx, agent_id, output_format):
     """Get detailed status and metadata for a registered agent."""
@@ -293,7 +291,7 @@ def status(ctx, agent_id, output_format):
 
   aitbc agent-comm network --format json"""
 )
-@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def network(ctx, output_format):
     """Get an overview of the cross-chain agent network and distribution."""
@@ -507,7 +505,7 @@ def monitor(ctx, realtime, interval):
     help="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)",
 )
 @wallet_password_options
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def receive(ctx, receiver_id, limit, wallet_name, password, password_file, password_stdin, format):
     """Receive queued messages for a receiver agent from the coordinator inbox.

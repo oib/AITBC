@@ -981,7 +981,7 @@ def consensus_group():
 @click.option(
     "--chain-id", default=None, help="Chain ID to query consensus status for (default: CHAIN_ID or the node's own chain)"
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def consensus_status(ctx, node_url: str, chain_id: str | None, format: str):
     """Show consensus mode, view, sequence, epoch, and fault tolerance for a chain."""
@@ -1009,7 +1009,7 @@ def consensus_status(ctx, node_url: str, chain_id: str | None, format: str):
             "total_validators": result.get("total_validators", 0),
             "node_url": node_url,
         }
-        output(consensus_info, ctx.obj.get("output_format", format), title="Consensus Status")
+        output(consensus_info, resolve_output_format(ctx, format), title="Consensus Status")
     except Exception as e:
         abort(None, f"Error getting consensus status: {e}")
 
@@ -1024,7 +1024,7 @@ def consensus_status(ctx, node_url: str, chain_id: str | None, format: str):
 )
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--chain-id", default=None, help="Chain ID to query validators for (default: CHAIN_ID or the node's own chain)")
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
     """List active validators with address, stake, reputation, role, and last proposed."""
@@ -1041,7 +1041,7 @@ def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
 
         validators = result.get("validators", [])
         if not validators:
-            output(f"No validators registered for chain {chain_id}", ctx.obj.get("output_format", format))
+            output(f"No validators registered for chain {chain_id}", resolve_output_format(ctx, format))
             return
 
         rows = [
@@ -1055,7 +1055,7 @@ def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
             }
             for v in validators
         ]
-        output(rows, ctx.obj.get("output_format", format), title=f"Validators for {chain_id}")
+        output(rows, resolve_output_format(ctx, format), title=f"Validators for {chain_id}")
     except Exception as e:
         abort(None, f"Error listing validators: {e}")
 
@@ -1090,7 +1090,7 @@ def _slash_rate(event: dict) -> str:
 @click.option(
     "--chain-id", default=None, help="Chain ID to query slashing history for (default: CHAIN_ID or the node's own chain)"
 )
-@click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format: str):
     """Show slashing events with validator, condition, amount, and block height."""
@@ -1107,7 +1107,7 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format:
 
         events = result.get("slashing_events", [])
         if not events:
-            output(f"No slashing events for chain {chain_id}", ctx.obj.get("output_format", format))
+            output(f"No slashing events for chain {chain_id}", resolve_output_format(ctx, format))
             return
 
         rows = [
@@ -1125,7 +1125,7 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format:
             }
             for e in events
         ]
-        output(rows, ctx.obj.get("output_format", format), title=f"Slashing History for {chain_id}")
+        output(rows, resolve_output_format(ctx, format), title=f"Slashing History for {chain_id}")
     except Exception as e:
         abort(None, f"Error getting slashing history: {e}")
 
