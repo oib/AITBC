@@ -38,8 +38,9 @@ def aitbc_developer_list(
     """List registered developers with optional active-only, limit, and offset filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"active_only": "active-only"},
+        flags={},
         values={"limit": "limit", "offset": "offset", "format": "format"},
+        dual_flags={"active_only": ("active-only", "all")},
     )
     args = None
     return _aitbc_cli_read_tool(
