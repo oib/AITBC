@@ -2,13 +2,14 @@
 
 import asyncio
 from datetime import datetime, timedelta
+from typing import Any
 
 import click
 
 from ..core.analytics import ChainAnalytics
 from ..core.config import load_multichain_config
 from ..utils import output, resolve_output_format, success
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import get_logger
 
 
@@ -52,6 +53,7 @@ def summary(ctx, chain_id, hours, format):
         # Ensure metrics are collected before producing any summary
         asyncio.run(analytics.collect_all_metrics())
 
+        fmt = _fmt(ctx, format)
         if chain_id:
             # Single chain summary
             summary = analytics.get_chain_performance_summary(chain_id, hours)
@@ -70,7 +72,7 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Avg Gas Price", "Value": f"{summary['statistics']['gas_price']['avg']:,} wei"},
             ]
 
-            output(summary_data, _fmt(ctx, format), title=f"Chain Summary: {chain_id}")
+            output(summary_data, fmt, title=f"Chain Summary: {chain_id}")
         else:
             # Cross-chain analysis
             analysis = analytics.get_cross_chain_analysis()
@@ -90,11 +92,9 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
             ]
 
-            output(overview_data, _fmt(ctx, format), title="Cross-Chain Analysis Overview")
-
             # Performance comparison
-            if analysis["performance_comparison"]:
-                comparison_data = [
+            comparison_data = (
+                [
                     {
                         "Chain ID": chain_id,
                         "TPS": f"{data['tps']:.2f}",
@@ -103,9 +103,26 @@ def summary(ctx, chain_id, hours, format):
                     }
                     for chain_id, data in analysis["performance_comparison"].items()
                 ]
+                if analysis["performance_comparison"]
+                else None
+            )
 
-                output(comparison_data, _fmt(ctx, format), title="Chain Performance Comparison")
+            if fmt == "table":
+                # Human-readable: two titled sections on stdout.
+                output(overview_data, fmt, title="Cross-Chain Analysis Overview")
+                if comparison_data:
+                    output(comparison_data, fmt, title="Chain Performance Comparison")
+            else:
+                # Machine formats must emit exactly ONE document: both
+                # datasets are merged into a single payload.
+                payload: dict[str, Any] = {"overview": overview_data}
+                if comparison_data:
+                    payload["comparison"] = comparison_data
+                output(payload, fmt)
 
+    except CLIError:
+        # abort() already printed the error once — do not wrap it again.
+        raise
     except Exception as e:
         abort(ctx, f"Error getting analytics summary: {str(e)}", from_exception=e)
 
