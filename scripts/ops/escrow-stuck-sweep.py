@@ -198,7 +198,7 @@ def locked_escrows(chain: Source) -> list[dict[str, Any]]:
     if cols is None:
         raise RuntimeError(f"cannot read escrow table in {chain.label()}")
     wanted = [c for c in _ESCROW_COLS if c in cols]
-    sql = f"SELECT {', '.join(wanted)} FROM escrow WHERE status = 'locked' AND released_at IS NULL AND refunded_at IS NULL"
+    sql = f"SELECT {', '.join(wanted)} FROM escrow WHERE status = 'locked' AND released_at IS NULL AND refunded_at IS NULL"  # nosec B608 — column names filtered against PRAGMA table_info, never user input
     return chain.query(sql)
 
 
@@ -235,7 +235,7 @@ def job_states(db: Source | None, job_ids: list[str]) -> dict[str, str]:
     out: dict[str, str] = {}
     for jid in job_ids:
         try:
-            rows = db.query(f"SELECT {state_col} AS s FROM {table} WHERE {id_col} = ?", (jid,))
+            rows = db.query(f"SELECT {state_col} AS s FROM {table} WHERE {id_col} = ?", (jid,))  # nosec B608 — table/column names are whitelisted constants, not user input
         except Exception:
             continue
         if rows and rows[0].get("s"):
@@ -343,7 +343,7 @@ def _write_textfile(path: Path, stuck: list[dict[str, Any]], ok_dbs: list[str], 
     os.replace(tmp, path)
 
 
-def main(argv: list[str] | None = None) -> int:
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="List escrows still locked after a terminal job (read-only).",
         epilog="exit 1 = stuck locks found, 0 = clean, 2 = a data source was unreadable",
@@ -376,12 +376,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--textfile", metavar="PATH", help="write node_exporter metrics to PATH (atomic); default dir $AITBC_TEXTFILE_DIR"
     )
-    args = p.parse_args(argv)
+    return p.parse_args(argv)
 
-    ssh_host = "hub" if args.host == "hub" else None
+
+def _resolve_sources(args, ssh_host: str | None):
+    """Locate the chain/coordinator/marketplace DBs.
+
+    Returns ``(chain_dbs, coord, market, err)`` — ``err`` set means no
+    chain.db was found at all (caller exits 2).
+    """
     remote = ssh_host is not None
-
-    chain_dbs: list[str]
     if args.chain_db:
         chain_dbs = [args.chain_db]
     elif remote:
@@ -395,8 +399,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         chain_dbs = sorted(str(p) for p in Path(DATA_DIR).glob("data/*/chain.db"))
     if not chain_dbs:
-        print("error: no chain.db found — pass --chain-db", file=sys.stderr)
-        return 2
+        return [], None, None, "error: no chain.db found — pass --chain-db"
 
     coord_path = args.coordinator_db or f"{DATA_DIR}/data/coordinator.db"
     market_path = args.marketplace_db or f"{DATA_DIR}/data/marketplace_service.db"
@@ -418,10 +421,15 @@ def main(argv: list[str] | None = None) -> int:
             "note: no coordinator.db or marketplace_service.db found — job status falls back to on-chain evidence only",
             file=sys.stderr,
         )
+    return chain_dbs, coord, market, None
 
-    now = datetime.now(UTC)
-    all_stuck: list[dict[str, Any]] = []
-    all_other: list[dict[str, Any]] = []
+
+def _sweep_chains(chain_dbs: list[str], ssh_host: str | None):
+    """Read every chain DB for locked escrows + sealed settle legs.
+
+    Returns ``(escrows_all, settled_tx_hashes, ok_db_labels, failures)``;
+    a DB that cannot be read counts as a failure, never a clean pass.
+    """
     ok_dbs: list[str] = []
     failures = 0
     job_ids_seen: set[str] = set()
@@ -443,8 +451,22 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             job_ids_seen.add(str(r["job_id"]))
             escrows_all.append(r)
+    return escrows_all, settled_all, ok_dbs, failures
 
-    job_ids = list(job_ids_seen)
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    ssh_host = "hub" if args.host == "hub" else None
+
+    chain_dbs, coord, market, err = _resolve_sources(args, ssh_host)
+    if err:
+        print(err, file=sys.stderr)
+        return 2
+
+    now = datetime.now(UTC)
+    escrows_all, settled_all, ok_dbs, failures = _sweep_chains(chain_dbs, ssh_host)
+
+    job_ids = [str(r["job_id"]) for r in escrows_all]
     jobs = job_states(coord, job_ids)
     jobs.update({k: v for k, v in job_states(market, job_ids).items() if k not in jobs})
     payments = payment_states(coord, job_ids)
