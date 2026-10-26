@@ -427,6 +427,118 @@ def test_amount_unreadable_posts_without_amount(monkeypatch):
     assert failures == []
 
 
+# --- ESCROW-BREAKER-1: the relay leg must not be starved by circuit breaker ---
+
+
+def _real_relay_client_with_session(monkeypatch):
+    """Use the real ``AITBCHTTPClient`` for the relay while patching the
+    transport (``requests.Session.post``) at the bottom. Returns the list that
+    collects every real HTTP request that went out."""
+    import requests
+
+    from aitbc.network.client import AITBCHTTPClient as _RealClient
+
+    sent: list[str] = []
+    monkeypatch.setattr(esc_mod, "AITBCHTTPClient", _RealClient)
+    monkeypatch.setattr(esc_mod, "_client_token", lambda ctx: "tok")
+    monkeypatch.setattr(esc_mod, "_coordinator_base_url", lambda ctx: "http://coord")
+
+    def _install(responder):
+        def _post(self, url, **kw):
+            sent.append(url)
+            status_code, resp_url, content, headers = responder(url)
+            resp = requests.Response()
+            resp.status_code, resp.url, resp._content = status_code, resp_url, content
+            resp.headers.update(headers)
+            resp.request = requests.PreparedRequest()
+            resp.request.prepare(method="POST", url=url)
+            return resp
+
+        monkeypatch.setattr(requests.Session, "post", _post)
+
+    return sent, _install
+
+
+def test_relay_reposts_not_starved_by_own_circuit_breaker(monkeypatch):
+    """ESCROW-BREAKER-1 reproducer: a lock that stays unsealed past the
+    breaker threshold must still get its full bounded repost budget.
+
+    The relay helper reuses one ``AITBCHTTPClient`` across the 425
+    wait+repost loop, and every 425 counted as a breaker failure — after
+    ``circuit_breaker_threshold`` (5) reposts the client's ``check()``
+    rejected the next POST outright *before it was sent*, the error carried
+    no HTTP status, and it was classified as a transport failure →
+    "unavailable" → rpc fallback → escrow stayed locked (live finding on
+    #472). The relay client now opts out of the circuit breaker: its bounded
+    retry budget is the flood protection."""
+    _no_sleep(monkeypatch)
+    relay, rpc = _wire(monkeypatch)
+    sent, install = _real_relay_client_with_session(monkeypatch)
+    install(
+        lambda url: (
+            425,
+            url,
+            b'{"detail": "escrow lock for job_id=j1 is not yet sealed in a block"}',
+            {"Retry-After": "1"},
+        )
+    )
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result is None
+    assert rpc.posts == []
+    # The named retryable-425 condition — not a generic "unavailable" skip
+    # produced by a breaker rejection.
+    assert len(failures) == 1
+    assert "425" in failures[0]
+    assert "not yet sealed" in failures[0]
+    # Every repost really went out on the wire — more than the default
+    # breaker threshold (5) would have allowed.
+    assert len(sent) > 5
+    assert all(url.endswith("/v1/escrow/release") for url in sent)
+
+
+def test_relay_recovers_after_breaker_threshold_of_425s(monkeypatch):
+    """The lock seals mid-loop: repost number > threshold must still be sent
+    and release the escrow."""
+    _no_sleep(monkeypatch)
+    relay, rpc = _wire(monkeypatch)
+    sent, install = _real_relay_client_with_session(monkeypatch)
+    n = {"i": 0}
+
+    def responder(url):
+        n["i"] += 1
+        if n["i"] <= 7:  # past the default breaker threshold of 5
+            return (
+                425,
+                url,
+                b'{"detail": "escrow lock for job_id=j1 is not yet sealed in a block"}',
+                {"Retry-After": "1"},
+            )
+        return 200, url, b'{"tx_hash": "0xrel", "released_amount": "0.5"}', {}
+
+    install(responder)
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1", amount="0.5")
+    assert result == {"tx_hash": "0xrel", "released_amount": "0.5"}
+    assert len(sent) == 8
+    assert rpc.posts == []
+
+
+def test_relay_unaffected_by_same_process_rpc_probe_failures(monkeypatch):
+    """Scope pin: the breaker is per-client-instance, so failures accrued by
+    the rpc probing clients can never feed the relay client's breaker — and
+    the relay must still go out right after local-503 + hub-403 probes."""
+    _no_sleep(monkeypatch)
+    relay, rpc = _wire(monkeypatch)
+    rpc.get_exc = _StatusError(503, "node cannot settle")
+    rpc.post_exc = _StatusError(403, "Forbidden")
+    sent, install = _real_relay_client_with_session(monkeypatch)
+    install(lambda url: (200, url, b'{"tx_hash": "0xrel", "released_amount": "0.5"}', {}))
+    result, failures = esc_mod._post_escrow_release(_ctx(), _config(), "j1")  # no amount → probes
+    assert result == {"tx_hash": "0xrel", "released_amount": "0.5"}
+    assert sent == ["http://coord/v1/escrow/release"]
+    assert rpc.gets  # the probing really ran and failed
+    assert rpc.posts == []
+
+
 # --- command-level ------------------------------------------------------------
 
 
