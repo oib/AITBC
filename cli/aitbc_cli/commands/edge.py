@@ -10,12 +10,38 @@ import click
 import httpx
 
 from ..config import get_config
-from ..utils import DECIMAL, error, info, output, resolve_output_format, success, warning
+from ..utils import DECIMAL, info, output, resolve_output_format, success, warning
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import NetworkError, get_logger
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# The edge service answers ``{"success": false, "message": ...}`` for real
+# failures and for some by-design idempotent outcomes alike, with no
+# machine-readable code to tell them apart. The CLI can only match the
+# message text, so the markers below are kept tight and specific to the
+# service's exact wording — a loose substring would turn a genuine refusal
+# into exit 0. Known cases (apps/edge):
+#   - island bridge: the only failure path in IslandManager.request_bridge
+#     is "already a member of the target island" — the desired end state
+#     (connectivity) already holds, so this is benign.
+#   - database init-db: the only success:false is "Database <id> already
+#     exists" — an idempotent re-init.
+# island join needs no entry (already-member is success:true upstream) and
+# island leave deliberately has none: the service answers the identical
+# "(may not be a member)" message for both "not a member" and "cannot
+# leave the default island", which cannot be distinguished CLI-side.
+_BENIGN_REFUSAL_MARKERS: dict[str, tuple[str, ...]] = {
+    "bridge": ("already be a member", "already a member", "already bridged"),
+    "init_db": ("already exists",),
+}
+
+
+def _is_benign_refusal(kind: str, result: dict[str, Any]) -> bool:
+    """True when a ``success:false`` response is a known idempotent outcome."""
+    message = str(result.get("message") or "").lower()
+    return any(marker in message for marker in _BENIGN_REFUSAL_MARKERS.get(kind, ()))
 
 
 @click.group(
@@ -166,7 +192,9 @@ def join(ctx, island_id: str, island_name: str, chain_id: str, role: str, is_hub
             success(f"Successfully joined island {island_id}")
             output(result, resolve_output_format(ctx))
         else:
-            error(f"Failed to join island: {result.get('message', 'Unknown error')}")
+            abort(ctx, f"Failed to join island: {result.get('message', 'Unknown error')}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error joining island: {str(e)}")
 
@@ -190,7 +218,9 @@ def leave(ctx, island_id: str):
             success(f"Successfully left island {island_id}")
             output(result, resolve_output_format(ctx))
         else:
-            error(f"Failed to leave island: {result.get('message', 'Unknown error')}")
+            abort(ctx, f"Failed to leave island: {result.get('message', 'Unknown error')}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error leaving island: {str(e)}")
 
@@ -262,8 +292,13 @@ def bridge(ctx, target_island_id: str):
         if result.get("success"):
             success(f"Bridge request submitted to {target_island_id}")
             output(result, resolve_output_format(ctx))
+        elif _is_benign_refusal("bridge", result):
+            info(result.get("message", f"Bridge to {target_island_id} already in place"))
+            output(result, resolve_output_format(ctx))
         else:
-            error(f"Failed to request bridge: {result.get('message', 'Unknown error')}")
+            abort(ctx, f"Failed to request bridge: {result.get('message', 'Unknown error')}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error requesting bridge: {str(e)}")
 
@@ -433,8 +468,13 @@ def init_db(ctx, database_id: str, island_id: str, capacity_gb: int):
         if result.get("success"):
             success(f"Database {database_id} initialized")
             output(result, resolve_output_format(ctx))
+        elif _is_benign_refusal("init_db", result):
+            info(result.get("message", f"Database {database_id} already exists"))
+            output(result, resolve_output_format(ctx))
         else:
-            error(f"Failed to initialize database: {result.get('message', 'Unknown error')}")
+            abort(ctx, f"Failed to initialize database: {result.get('message', 'Unknown error')}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error initializing database: {str(e)}")
 
@@ -530,7 +570,7 @@ def sync_db(ctx, database_id: str):
         result = response.json()
 
         if not result.get("success"):
-            abort(None, f"Failed to sync database: {result.get('message', 'Unknown error')}")
+            abort(ctx, f"Failed to sync database: {result.get('message', 'Unknown error')}")
 
         # A simulated response must not be reported as a completed sync. The service
         # labels it; repeating "synced" here would discard the label one layer up.
@@ -598,7 +638,9 @@ def submit_request(
             success(f"Compute request {result.get('request_id')} submitted")
             output(result, resolve_output_format(ctx))
         else:
-            error(f"Failed to submit request: {result.get('message', 'Unknown error')}")
+            abort(ctx, f"Failed to submit request: {result.get('message', 'Unknown error')}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error submitting compute request: {str(e)}")
 
@@ -732,7 +774,9 @@ def record(ctx, gpu_id: str, metrics: str):
             success(f"Metrics {result.get('metric_id')} recorded")
             output(result, resolve_output_format(ctx))
         else:
-            error(f"Failed to record metrics: {result.get('message', 'Unknown error')}")
+            abort(ctx, f"Failed to record metrics: {result.get('message', 'Unknown error')}")
+    except CLIError:
+        raise
     except Exception as e:
         abort(None, f"Error recording metrics: {str(e)}")
 
