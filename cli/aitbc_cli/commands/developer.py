@@ -87,7 +87,9 @@ def list_developers(ctx, active_only: bool, limit: int, offset: int, format: str
     try:
         client = _get_client()
         params = {"active_only": active_only, "limit": limit, "offset": offset}
-        result = client.get("/v1/developers", params=params)
+        # GET /v1/developers returns a bare JSON array; get() narrows via
+        # expect_object and raises TypeError on non-object bodies (#552).
+        result = client.get_json("/v1/developers", params=params)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
