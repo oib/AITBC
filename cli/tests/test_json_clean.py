@@ -134,3 +134,116 @@ def test_coin_requests_list_empty_json(monkeypatch):
     r = CliRunner().invoke(cr.list, obj={"output_format": "json"})
     assert r.exit_code == 0, r.output
     assert r.stdout == "[]\n"
+
+
+def _market_offers_mod():
+    import aitbc_cli.commands.market.offers as offers
+
+    return offers
+
+
+class _EmptySourceClient:
+    """Fake HTTP client where every endpoint answers with an empty result."""
+
+    def __init__(self, **kw):
+        pass
+
+    def get(self, path, params=None, **kw):
+        return {"offers": [], "transactions": []}
+
+    def get_json(self, path, params=None, **kw):
+        return []
+
+
+class _DeadSourceClient:
+    """Fake HTTP client where every endpoint is unreachable."""
+
+    def __init__(self, **kw):
+        pass
+
+    def get(self, path, params=None, **kw):
+        import aitbc_cli.commands.market.offers as offers
+
+        raise offers.NetworkError("connection refused")
+
+    def get_json(self, path, params=None, **kw):
+        import aitbc_cli.commands.market.offers as offers
+
+        raise offers.NetworkError("connection refused")
+
+
+def _patch_market_env(monkeypatch, offers, client_cls):
+    from types import SimpleNamespace
+
+    config = SimpleNamespace(
+        hub_discovery_url="http://127.0.0.1:9",
+        market_service_url="",
+        coordinator_api_url="",
+        blockchain_rpc_url="http://127.0.0.1:9",
+    )
+    monkeypatch.setattr(offers, "AITBCHTTPClient", client_cls)
+    monkeypatch.setattr(offers, "get_config", lambda: config)
+    monkeypatch.setattr(offers, "_hub_base_url", lambda cfg: "http://127.0.0.1:9")
+
+
+def test_market_list_empty_answer_json(monkeypatch):
+    """A source that answers with a real empty list -> bare ``[]``, rc 0."""
+    offers = _market_offers_mod()
+    _patch_market_env(monkeypatch, offers, _EmptySourceClient)
+
+    r = CliRunner().invoke(offers.list_offers, ["--format", "json"], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.stdout) == []
+
+
+def test_market_list_all_sources_fail_leaf_format_json(monkeypatch):
+    """Every source unreachable -> non-zero exit with an error, never ``[]``."""
+    offers = _market_offers_mod()
+    _patch_market_env(monkeypatch, offers, _DeadSourceClient)
+
+    r = CliRunner().invoke(offers.list_offers, ["--format", "json"], obj={"output_format": "table"})
+    assert r.exit_code != 0
+    payload = json.loads(r.stdout)
+    assert "error" in payload
+    assert payload != []
+
+
+def test_market_list_all_sources_fail_output_json(monkeypatch):
+    """Same failure via the global ``--output json`` path."""
+    offers = _market_offers_mod()
+    _patch_market_env(monkeypatch, offers, _DeadSourceClient)
+
+    r = CliRunner().invoke(offers.list_offers, [], obj={"output_format": "json"})
+    assert r.exit_code != 0
+    payload = json.loads(r.stdout)
+    assert "error" in payload
+    assert payload != []
+
+
+def test_market_list_mixed_empty_and_dead_json(monkeypatch):
+    """One base answers empty, the other is dead -> ``[]``, rc 0."""
+    offers = _market_offers_mod()
+    _patch_market_env(monkeypatch, offers, _EmptySourceClient)
+
+    calls = []
+
+    class _Mixed:
+        def __init__(self, base_url=None, **kw):
+            self.base_url = base_url
+
+        def get(self, path, params=None, **kw):
+            calls.append(self.base_url)
+            if self.base_url == "http://dead":
+                raise offers.NetworkError("connection refused")
+            return {"offers": []}
+
+        def get_json(self, path, params=None, **kw):
+            raise offers.NetworkError("connection refused")
+
+    monkeypatch.setattr(offers, "AITBCHTTPClient", _Mixed)
+    monkeypatch.setattr(offers, "_candidate_bases", lambda hub, cfg: ["http://dead", "http://alive"])
+
+    r = CliRunner().invoke(offers.list_offers, ["--format", "json"], obj={"output_format": "table"})
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.stdout) == []
+    assert calls[:2] == ["http://dead", "http://alive"]

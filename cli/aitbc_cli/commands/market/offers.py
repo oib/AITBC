@@ -253,17 +253,18 @@ def list_offers(
                 my_address = None
             my_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
 
-        if _list_offers_via_market_api(
+        api_offers = _list_offers_via_market_api(
             _candidate_bases(hub_url, config), config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
-        ):
+        )
+        if api_offers:
             return
+        # ``[]`` means at least one market API base answered with an empty
+        # list; ``None`` means no base answered at all.
+        any_answered = api_offers is not None
 
         # Fallback to blockchain query (original approach)
-        transactions = _collect_market_txs(hub_url, config)
-
-        if not transactions:
-            info("No GPU market offers found (blockchain endpoint not available)")
-            return
+        transactions, chain_answered = _collect_market_txs(hub_url, config)
+        any_answered = any_answered or chain_answered
 
         # Format output for market offers (blockchain data)
         blockchain_data: list[dict[str, Any]] = []
@@ -272,7 +273,19 @@ def list_offers(
             if row is not None:
                 blockchain_data.append(row)
 
-        output(blockchain_data, fmt, title="Hardware+Software Bundle Offers")
+        if blockchain_data:
+            output(blockchain_data, fmt, title="Hardware+Software Bundle Offers")
+            return
+
+        if any_answered:
+            # A real empty answer: print an empty list, not an error.
+            output([], fmt)
+            return
+
+        abort(
+            ctx,
+            "No market data source answered (market API, hub RPC and blockchain RPC all unreachable)",
+        )
 
     except Exception as e:
         error(f"Error listing GPU market: {str(e)}")
@@ -316,8 +329,16 @@ def _filter_offers(offers, provider, status, service_type, mine, my_address, my_
 
 def _list_offers_via_market_api(
     bases, config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
-) -> bool:
-    """Try the market service API on each candidate base; True when one produced output."""
+) -> list[dict[str, Any]] | None:
+    """Try the market service API on each candidate base.
+
+    Returns the printed offer list when a base answered with data, ``[]``
+    when at least one base answered but every answer was empty, and
+    ``None`` when no base answered at all — the distinction an empty
+    ``[]`` output needs: a real empty list is only honest when a source
+    actually responded.
+    """
+    answered = False
     for base in bases:
         try:
             http_client = AITBCHTTPClient(base_url=base, timeout=15)
@@ -331,9 +352,10 @@ def _list_offers_via_market_api(
 
             result = http_client.get("/v1/market/offer", params=params)
 
-            if not (result and "offers" in result and result["offers"]):
+            if not (result and "offers" in result):
                 continue
-            offers = _filter_offers(result["offers"], provider, status, service_type, mine, my_address, my_node_id)
+            answered = True
+            offers = _filter_offers(result["offers"] or [], provider, status, service_type, mine, my_address, my_node_id)
             if not offers:
                 continue
 
@@ -349,21 +371,28 @@ def _list_offers_via_market_api(
 
             output([_offer_row(offer) for offer in offers], fmt)
             success(f"Found {len(offers)} market offers")
-            return True
+            return offers
         except NetworkError as e:
             logger.warning("Market service not available at %s: %s", base, e)
         except Exception as e:
             logger.warning("Error querying market service at %s: %s", base, e)
-    return False
+    return [] if answered else None
 
 
-def _collect_market_txs(hub_url: str, config) -> list[dict[str, Any]]:
-    """Collect GPU_MARKET transactions from the hub, then local RPC."""
+def _collect_market_txs(hub_url: str, config) -> tuple[list[dict[str, Any]], bool]:
+    """Collect GPU_MARKET transactions from the hub, then local RPC.
+
+    Returns ``(transactions, answered)`` — ``answered`` is True when at
+    least one endpoint responded (even with an empty list), False when
+    every endpoint was unreachable.
+    """
     transactions: list[dict[str, Any]] = []
+    answered = False
     try:
         # Query hub directly (HTTP) for confirmed GPU_MARKET transactions
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
         result = http_client.get_json("/rpc/transactions", params={"limit": 500})
+        answered = True
         if isinstance(result, list):
             # Filter by payload action since hub doesn't store type field
             transactions = [
@@ -387,11 +416,12 @@ def _collect_market_txs(hub_url: str, config) -> list[dict[str, Any]]:
         try:
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
             result = http_client.get_json("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 200})
+            answered = True
             if isinstance(result, list):
                 transactions = [tx for tx in result if isinstance(tx, dict)]
         except NetworkError:
             logger.debug("Local blockchain RPC unavailable for transactions", exc_info=True)
-    return transactions
+    return transactions, answered
 
 
 def _offer_rating(offer_id: str) -> str:
