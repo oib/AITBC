@@ -72,7 +72,8 @@ class TestCoinRequestsCommands:
 
         result = runner.invoke(coin_requests, ["show", "--request-id", "nonexistent-req-id"])
 
-        assert result.exit_code == 0, result.output
+        # Not-found is a ValidationError now (fail-closed), not a soft zero exit.
+        assert result.exit_code != 0, result.output
         assert "not found" in result.output
 
 

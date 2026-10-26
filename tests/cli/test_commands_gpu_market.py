@@ -110,8 +110,9 @@ class TestGPUMarketCommands:
 
         result = runner.invoke(gpu, ["discover"])
 
-        # NetworkError is caught and reported via error(), exit code stays 0.
-        assert result.exit_code == 0, result.output
+        # NetworkError is reported via error() and the command fails.
+        assert result.exit_code != 0, result.output
+        assert "connection refused" in result.output
 
     @patch("aitbc_cli.commands.gpu_market.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_market.get_config")
