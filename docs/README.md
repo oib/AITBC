@@ -48,6 +48,8 @@ Operator procedures for the live fleet:
 - [Sell escrow runbook](ops/sell-escrow-runbook.md) — the keyed-escrow
   AIT→ETH sell flow: env keys, the ops-signer-style escrow key slot,
   enable/rollback, and runtime states.
+- [Fleet wave runbook](ops/fleet-wave-runbook.md) — rolling restarts:
+  hold gate, serial one-validator-at-a-time order, readback, ledger.
 - [Withdrawal release runbook](ops/withdraw-release-runbook.md) — the
   receipt-gated AIT→ETH release states, the gas policy
   (estimate/margin/cap), and the `withdraw_admin` recovery commands.
