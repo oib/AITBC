@@ -6,11 +6,13 @@
 > hosts. Written after INC-hub1-restart-0618 (a wave brief that lacked the
 > active hold restarted hub1 inside its soak window; #601, #624).
 >
-> Authorization basis: the 23 Oct restart rule — restarts need no named
-> operator line. Pulls (`git pull`/`merge --ff-only` is covered —
-> fast-forward only), `systemctl daemon-reload`, env edits and deletions
-> are **not** covered: they need their own go. This document carries no
-> keys and no addresses.
+> Authorization basis: the 23 Oct restart rule covers **restarts only** —
+> a restart needs no named operator line. Pulls, `systemctl
+> daemon-reload`, env edits and deletions are **not** covered by it:
+> pulls fall under the pull/deploy rules and the active holds, and the
+> rest need their own go. `tasks/HOLDS.md` referenced throughout lives in
+> the operator's workspace checkout — it is not in this repository. This
+> document carries no keys and no addresses.
 
 ## Before you start (every host, in order)
 
@@ -75,6 +77,9 @@ The proposer (hub) goes **last** in a wave: after its restart confirm
 blocks keep advancing and the other validators follow.
 
 ## Pull step (when the wave includes a checkout change)
+
+A pull is not covered by the restart rule — it needs pull/deploy
+authorization and a clear holds read for that host.
 
 - `git fetch origin && git merge --ff-only origin/main` — **ff only**,
   never a merge commit, never a force.
