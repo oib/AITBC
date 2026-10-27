@@ -240,6 +240,22 @@ service.
 
 ### Restart services manually (if you used `--no-restart`)
 
+Before restarting services on a production fleet node — and before any
+restart wave (rolling restarts across several hosts) — check the
+operator's holds file and run the pre-restart gate:
+
+```bash
+# Active holds live in the workspace tasks/HOLDS.md ("Binding now"
+# table). Every wave brief lists the active holds in its header; the
+# gate below is the mechanical check. It exits non-zero when a binding
+# hold names the host with restart/pull/deploy scope.
+scripts/ops/hold-check.sh <host> /path/to/tasks/HOLDS.md
+
+# During a hub failover drill window, also run the drill preflight
+# before touching hub1's node/rpc/coordinator-api units:
+scripts/ops/failover-preflight.sh
+```
+
 ```bash
 # Restart all aitbc services
 sudo systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc \
