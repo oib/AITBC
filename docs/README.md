@@ -68,6 +68,9 @@ Operator procedures for the live fleet:
   a counter change (`prometheus metric`) with the unit's journal lines
   (`system logs --since/--grep`).
 - [Manual escrow refund](ops/manual-refund-runbook.md) — the operator path
+- [Failover runbook](ops/failover-runbook.md) — the hub→hub1 public
+  read-path flip rehearsed in drill R6: preconditions, staging, flip, hold,
+  readback, revert, and what it deliberately does not move
   for refunding a still-held escrow (no auto-refund sweeper): refundable
   states, the admin refund call, pre-checks, and the double-settlement stop.
 - [Legacy escrow residue payout](ops/legacy-escrow-residue-payout.md) —
