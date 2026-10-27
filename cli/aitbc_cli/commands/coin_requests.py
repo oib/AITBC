@@ -327,7 +327,7 @@ def execute(ctx, request_id):
             if not api_key:
                 abort(
                     ctx,
-                    "No GENESIS_PRIVATE_KEY locally and no API key set. "
+                    "No FAUCET_PRIVATE_KEY or GENESIS_PRIVATE_KEY locally and no API key set. "
                     "Followers: FOLLOWER_API_KEY is provisioned by the hub operator "
                     "in /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.",
                 )
@@ -399,7 +399,7 @@ def execute(ctx, request_id):
 
         # Check genesis wallet configuration
         if not tx_service.genesis_address:
-            abort(ctx, "GENESIS_ADDRESS not configured")
+            abort(ctx, "FAUCET_ADDRESS or GENESIS_ADDRESS not configured")
             return
 
         # Check balance before submission

@@ -204,3 +204,40 @@ def test_a_failed_submission_leaves_the_request_executable(client, monkeypatch) 
 
     monkeypatch.setattr("aitbc.network.AITBCHTTPClient", FakeHttpClient, raising=False)
     assert _execute(client).status_code == 200
+
+
+class _KeylessTransactionService(FakeTransactionService):
+    def __init__(self) -> None:
+        super().__init__()
+        self.genesis_private_key = None
+
+
+class _AddresslessTransactionService(FakeTransactionService):
+    def __init__(self) -> None:
+        super().__init__()
+        self.genesis_address = None
+
+
+def test_missing_faucet_key_returns_503(client, monkeypatch, caplog) -> None:
+    """No FAUCET_* and no GENESIS_* key: execute fails closed with 503 (#609)."""
+    monkeypatch.delenv("FAUCET_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("GENESIS_PRIVATE_KEY", raising=False)
+    monkeypatch.setattr("agent_app.routers.coin_requests.TransactionService", _KeylessTransactionService)
+
+    resp = _execute(client)
+
+    assert resp.status_code == 503
+    assert "FAUCET_PRIVATE_KEY" in resp.json()["detail"]
+    for secret in ("0x" + "11" * 32,):
+        assert secret not in resp.text and secret not in caplog.text
+
+
+def test_missing_faucet_address_returns_503(client, monkeypatch) -> None:
+    monkeypatch.delenv("FAUCET_ADDRESS", raising=False)
+    monkeypatch.delenv("GENESIS_ADDRESS", raising=False)
+    monkeypatch.setattr("agent_app.routers.coin_requests.TransactionService", _AddresslessTransactionService)
+
+    resp = _execute(client)
+
+    assert resp.status_code == 503
+    assert "FAUCET_ADDRESS" in resp.json()["detail"]
