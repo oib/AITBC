@@ -158,3 +158,48 @@ def test_returns_none_when_key_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     svc = TransactionService()
     monkeypatch.setattr(svc, "get_nonce", lambda _addr: 0)
     assert svc.generate_signed_transaction(TO_ADDR, 100) is None
+
+
+FAUCET_PK_HEX = "ab" * 32
+FAUCET_ADDR = keys.PrivateKey(bytes.fromhex(FAUCET_PK_HEX)).public_key.to_checksum_address()
+
+
+def test_faucet_key_wins_over_genesis(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FAUCET_* is the capped grant wallet and takes precedence (#609)."""
+    monkeypatch.setenv("FAUCET_PRIVATE_KEY", FAUCET_PK_HEX)
+    monkeypatch.setenv("FAUCET_ADDRESS", FAUCET_ADDR)
+    monkeypatch.setenv("GENESIS_PRIVATE_KEY", PK_HEX)
+    monkeypatch.setenv("GENESIS_ADDRESS", ADDR)
+    from aitbc.crypto.transaction_service import TransactionService
+
+    svc = TransactionService()
+    assert svc.genesis_private_key == FAUCET_PK_HEX
+    assert svc.genesis_address == FAUCET_ADDR
+
+
+def test_genesis_fallback_when_faucet_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GENESIS_* still supplies the signer when FAUCET_* is absent."""
+    monkeypatch.delenv("FAUCET_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("FAUCET_ADDRESS", raising=False)
+    monkeypatch.setenv("GENESIS_PRIVATE_KEY", PK_HEX)
+    monkeypatch.setenv("GENESIS_ADDRESS", ADDR)
+    from aitbc.crypto.transaction_service import TransactionService
+
+    svc = TransactionService()
+    assert svc.genesis_private_key == PK_HEX
+    assert svc.genesis_address == ADDR
+
+
+def test_no_key_value_in_errors(monkeypatch: pytest.MonkeyPatch, caplog) -> None:
+    """No configured key: no key material in the error path."""
+    monkeypatch.delenv("FAUCET_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("FAUCET_ADDRESS", raising=False)
+    monkeypatch.delenv("GENESIS_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("GENESIS_ADDRESS", raising=False)
+    from aitbc.crypto.transaction_service import TransactionService
+
+    svc = TransactionService()
+    monkeypatch.setattr(svc, "get_nonce", lambda _addr: 0)
+    assert svc.generate_signed_transaction(TO_ADDR, 100) is None
+    for secret in (PK_HEX, FAUCET_PK_HEX):
+        assert secret not in caplog.text
