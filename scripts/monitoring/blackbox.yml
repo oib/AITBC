@@ -1,0 +1,56 @@
+# blackbox_exporter module config for the incus perimeter proxy probe.
+#
+# Replaces the removed scripts/monitoring/perimeter-proxy-probe.sh (#586).
+# Deployed on the host that runs the blackbox exporter (hub); the scrape
+# job `blackbox-incus-proxy` in prometheus.yml picks a module per target
+# via the target's `module` label -> __param_module relabel.
+#
+# The failure mode this watches (netcup island-ipfs wedge, 13 Sep 2026):
+# a forkproxy device accepts a fresh TCP connection then FINs it ~1ms
+# later without ever dialling the backend, while pre-existing relayed
+# connections keep working. Neither connect-only nor a send-only step can
+# see it — verified against blackbox_exporter 0.26.0: a send-only query
+# still returns probe_success=1 on an accept-then-close listener (the
+# first write lands in the peer's close window; the prober never reads).
+# Every module below therefore WAITS FOR BYTES FROM THE PEER: a wedged
+# proxy closes before anything arrives and the expect fails.
+#
+# Consequence: a module only fits a target whose service actually answers
+# the probe exchange. A silent protocol would fail a read-based module
+# even while healthy — pick the module to match the protocol, not the
+# other way round.
+
+modules:
+  # libp2p/IPFS swarm port: multistream-select negotiation. The daemon
+  # answers a /multistream/1.0.0 proposal; a wedged proxy FINs before the
+  # read. This is the module the incus IPFS proxy targets use.
+  tcp_ipfs_libp2p:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      query_response:
+        - send: "/multistream/1.0.0\n"
+        - expect: "multistream"
+
+  # Peer speaks first (bannered service): a wedged proxy closes before
+  # the banner arrives, so the expect fails. Fails healthy silent
+  # services too — use only where a banner is certain.
+  tcp_banner:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      query_response:
+        - expect: ".+"
+
+  # HTTP listeners behind a proxy (e.g. ntfy): a minimal request must
+  # come back with an HTTP status line.
+  tcp_http_get:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      query_response:
+        - send: "GET / HTTP/1.0\r\n\r\n"
+        - expect: "^HTTP/"
