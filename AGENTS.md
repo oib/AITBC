@@ -194,6 +194,9 @@ default; mutating tools are `dry_run=true`-gated and require
 
 ## Task and history tracking
 
+Service-level env/key-slot notes live in [AGENTS/service-ops.md](AGENTS/service-ops.md).
+
+
 `AGENTS.md` carries conventions only. Release history lives in
 `docs/releases/` change logs; component status is in
 `docs/releases/STATUS.md`.
