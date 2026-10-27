@@ -32,6 +32,5 @@ MemoryDenyWriteExecute=no
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 ProtectSystem=full
-ReadWritePaths=p
 # AITBC security hardening (v0.5.0)
 # WatchdogSec=30 # Disabled - requires application-level sd_notify support
