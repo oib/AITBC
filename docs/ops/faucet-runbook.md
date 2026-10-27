@@ -7,9 +7,13 @@
 >
 > The split exists because of 27 Oct: the faucet had been paused since
 > 2026-09-09 with `GENESIS_PRIVATE_KEY` absent on hub (every execute
-> answered 503), and it reopened the day the grant wallet landed under
-> its own `FAUCET_*` env names — so the treasury key never has to sit in
-> the paying service. (FAUCET-KEY-NAMING-1, #609; website wording #607.)
+> answered 503); on 27 Oct the treasury key was placed as
+> `GENESIS_PRIVATE_KEY` in hub's agent-coordinator env, turning the pause
+> into a live faucet backed by the treasury, until the cap was restored
+> at 07:56 CET by pointing the env at a 1000 AIT wallet — no payout
+> happened while it was treasury-backed. Since #609 the service reads
+> `FAUCET_*` first, so the treasury key stays only under `GENESIS_*`.
+> (FAUCET-KEY-NAMING-1, #609; website wording #607.)
 >
 > **Env edits and executes need the operator's typed line.** Everything
 > below is read-only unless marked otherwise; never run a coin request
@@ -49,11 +53,13 @@ node                CLI                     hub agent-coordinator
 | `GENESIS_PRIVATE_KEY`, `GENESIS_ADDRESS` | treasury — fallback only | same lines |
 
 `FAUCET_*` wins when both are set (`genesis_private_key = FAUCET_PRIVATE_KEY
-or GENESIS_PRIVATE_KEY`). Public addresses already in repo docs: treasury
+or GENESIS_PRIVATE_KEY`). The paying faucet wallet is
+`0xD295d709481b65867F0950b720601B8bf0d52B12`; the treasury is
 `0x4aF8F36d91ff6b0125D18A76f242184e4F083EE0`
-(`docs/deployment/bc2-genesis/README.md`), faucet
-`0xf8C907EFc56F9a13d2f5AB528355440F94Bb6b87`
-(`docs/deployment/bc2-genesis/classes.json`). No key values anywhere.
+(`docs/deployment/bc2-genesis/README.md`). Note that the `faucet` entry in
+`docs/deployment/bc2-genesis/classes.json` (`0xf8C9…6b87`) is the
+zero-balance genesis class placeholder (`allocations.json:24`), **not**
+the paying wallet. No key values anywhere.
 
 ## Grant identity and budgets
 
@@ -108,9 +114,12 @@ the live chain — there is no dry-run flag.
 
 ## Ledger DB
 
-sqlite at `/var/lib/aitbc/data/agent_coin_requests.db` (default of
-`get_db_path()`; override `AGENT_DB_PATH`, `aitbc/db/agent_db.py:19-25`).
-Read-only inspection: `sqlite3 "file:...agent_coin_requests.db?mode=ro"`.
+sqlite. The code default is `/var/lib/aitbc/data/agent_coin_requests.db`
+(`get_db_path()`, `aitbc/db/agent_db.py:19-25`), but on hub the live
+ledger is `/var/lib/aitbc/data/hermes_coin_requests.db` — `AGENT_DB_PATH`
+is read before `HERMES_DB_PATH`, and hub's env sets it; the default file
+is empty there. Read-only inspection:
+`sqlite3 "file:...hermes_coin_requests.db?mode=ro"`.
 
 ## Not covered here
 
