@@ -76,3 +76,49 @@ scrape_configs:
   # (NOT /metrics — that 404s; the monitoring router mounts under /v1).
   # Services that do not run on this node are not listed even commented out:
   # a dead scrape target only produces scrape errors.
+
+  # Incus perimeter proxy blackbox probe (#605; hub Prometheus only —
+  # targets are the public listen addresses of the incus proxy devices).
+  # Requires blackbox_exporter on 127.0.0.1:9115 with
+  # scripts/monitoring/blackbox.yml; deploying this job before the exporter
+  # exists makes ServiceDown fire on the up==0 series.
+  #
+  # Connect-only cannot see the 13 Sep forkproxy wedge (accept, instant
+  # FIN, backend never dialled), so each target carries a `module` label
+  # picking a probe variant that reads bytes from the peer (see
+  # blackbox.yml). Verified against a live blackbox_exporter: a send-only
+  # step still reports probe_success=1 on the wedge, and silent
+  # protocols fail read-based modules — only targets that answer a real
+  # negotiation may be listed here.
+  #
+  # Deliberately not listed:
+  #   at1 node2/blockchain-p2p tcp:0.0.0.0:8200 -> 10.1.223.136:8200 —
+  #     nothing listens on the backend port (bc-2 gossip is
+  #     redis-brokered; P2P_BIND_PORT is vestigial). The device needs an
+  #     ops decision, not a probe that alerts forever.
+  #   loopback-bound devices, unreachable from hub (need an exporter on
+  #   the incus host itself):
+  #   ns2 ntfy/ntfyproxy          tcp:127.0.0.1:2586
+  #   at1 node0/coordinator-proxy tcp:127.0.0.1:18000
+  #   at1 node1/coordinator-proxy tcp:127.0.0.1:18001
+  - job_name: 'blackbox-incus-proxy'
+    metrics_path: '/probe'
+    static_configs:
+      - targets: ['152.53.242.245:4002']   # hub aitbc-island-ipfs-tcp (ns2)
+        labels:
+          module: tcp_ipfs_libp2p
+          device: 'hub/aitbc-island-ipfs-tcp'
+      - targets: ['95.216.198.140:4002']   # hub1 aitbc-island-ipfs-tcp (ns3)
+        labels:
+          module: tcp_ipfs_libp2p
+          device: 'hub1/aitbc-island-ipfs-tcp'
+    relabel_configs:
+      - source_labels: [module]
+        target_label: __param_module
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: '127.0.0.1:9115'   # blackbox_exporter
+    scrape_interval: 30s
