@@ -21,7 +21,6 @@ ExecStart=/opt/aitbc/venv/bin/python -m wallet_app.main
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
 KillMode=mixed
 TimeoutStopSec=5
-PrivateTmp=yes
 Restart=on-failure
 RestartSec=10
 StartLimitInterval=60
@@ -31,10 +30,15 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-wallet
 # Allow database writes for SQLite WAL mode
-ProtectSystem=no
 # Security hardening (v0.5.0)
+
+# Security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support
+
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
 NoNewPrivileges=yes
-ProtectHome=yes
+ProtectHome=read-only
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
@@ -42,12 +46,12 @@ RestrictSUIDSGID=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
+MemoryDenyWriteExecute=no
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
-
-# Security hardening (v0.5.0)
+ProtectSystem=full
+ReadWritePaths=p
+# AITBC security hardening (v0.5.0)
 # WatchdogSec=30 # Disabled - requires application-level sd_notify support
-
 [Install]
 WantedBy=multi-user.target
