@@ -322,6 +322,44 @@ def test_coin_requests_execute_no_credentials_exits_nonzero(runner, monkeypatch)
     assert "API key" in result.output
 
 
+def test_coin_requests_execute_uses_faucet_key(runner, monkeypatch):
+    """FAUCET_* satisfies the local-key gate and takes precedence (#609)."""
+    from types import SimpleNamespace
+
+    import aitbc_cli.commands.coin_requests as cr_mod
+    from aitbc.crypto.transaction_service import TransactionService
+    from aitbc.models import CoinRequestStatus
+
+    req = SimpleNamespace(
+        id="req-1",
+        status=CoinRequestStatus.APPROVED,
+        transaction_hash=None,
+        sender="s",
+        amount=1,
+        wallet_address="0x" + "ab" * 20,
+        recipient="r",
+        approved_by="cli",
+        audit_log="",
+    )
+
+    class _EnvTxSvc(TransactionService):
+        def get_balance(self, _addr):
+            return 0
+
+    monkeypatch.delenv("GENESIS_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("GENESIS_ADDRESS", raising=False)
+    monkeypatch.setenv("FAUCET_PRIVATE_KEY", "ab" * 32)
+    monkeypatch.setenv("FAUCET_ADDRESS", "0x" + "cd" * 20)
+    monkeypatch.setattr(cr_mod, "TransactionService", _EnvTxSvc)
+    _patch_coin_db(monkeypatch, cr_mod, row=req)
+    result = runner.invoke(cr_mod.coin_requests, obj={"output_format": "table"}, args=["execute", "--request-id", "req-1"])
+    # cleared the key/address gates on FAUCET_* alone and reached the balance check
+    assert "no API key" not in result.output
+    assert "not configured" not in result.output
+    assert "forwarding" not in result.output
+    assert "Insufficient balance" in result.output
+
+
 def test_coin_requests_reopen_unverifiable_exits_nonzero(runner, monkeypatch):
     """`reopen` refusing because the chain cannot confirm payment -> non-zero."""
     from types import SimpleNamespace
