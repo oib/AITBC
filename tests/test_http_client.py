@@ -366,6 +366,22 @@ class TestNetworkErrorDetailSuffix2:
         # only the first three items join, and the whole suffix is capped
         assert len(str(exc.value)) < 400
 
+    def test_422_item_loc_null(self):
+        client = self._client()
+        body = {"detail": [{"loc": None, "msg": "field required"}]}
+        client.session.post = MagicMock(side_effect=self._resp(422, body))
+        with pytest.raises(NetworkError, match="field required"):
+            client.post("/rpc/transaction", json={})
+
+    def test_detail_non_str_list_dict(self):
+        # detail that is a bare int/float carries no suffix but must not
+        # mask the NetworkError inside the except handler
+        client = self._client()
+        client.session.post = MagicMock(side_effect=self._resp(422, {"detail": 987654}))
+        with pytest.raises(NetworkError) as exc:
+            client.post("/rpc/transaction", json={})
+        assert "987654" not in str(exc.value)
+
     def test_5xx_post_ambiguous_carries_detail(self):
         from aitbc.exceptions import AmbiguousRequestError
 
