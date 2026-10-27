@@ -350,3 +350,34 @@ groups:
           summary: "Chain divergence was detected and logged ({{ $labels.instance }})"
           description: "sync_divergence_detected_total increased in the last 15m — a divergence was noticed and logged (throttled). If the gauge is now clear it was already resolved; check the journal for 'Chain divergence'. Runbook: TOPOLOGY/2026-10-08-v6-state-sync-runbook.md."
           runbook: "TOPOLOGY/2026-10-08-v6-state-sync-runbook.md"
+
+  - name: aitbc-incus-proxy-probe
+    rules:
+      # IncusProxyProbeFailed: a blackbox probe of an incus perimeter proxy
+      # device is failing — fresh connections are refused or die instantly
+      # (the 13 Sep forkproxy wedge accepts then FINs without dialling the
+      # backend; existing relayed connections keep working, so the service
+      # can look healthy while new clients are blackholed). Connect-only
+      # — and send-only steps — would miss this, which is why every module
+      # in blackbox.yml reads bytes from the peer. Critical on the p2p/ipfs
+      # paths.
+      - alert: IncusProxyProbeFailed
+        expr: probe_success{job="blackbox-incus-proxy"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Incus proxy probe failing for {{ $labels.device }} ({{ $labels.instance }})"
+          description: "The blackbox {{ $labels.module }} probe to {{ $labels.instance }} is failing — fresh connections to this incus proxy device die instantly or are refused (forkproxy wedge or dead backend). On the incus host: `incus config device list <instance>` and re-probe with `nc -vz`; the wedge is cleared by a proxy-device bounce (`incus config device remove`/`add` with the same props)."
+
+      # IncusProxyProbeSilent: the whole job's series are gone — scrape
+      # config dropped or the exporter stopped. The proxies keep working
+      # but the wedge watch is blind.
+      - alert: IncusProxyProbeSilent
+        expr: absent(probe_success{job="blackbox-incus-proxy"})
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No incus proxy probe results reaching Prometheus"
+          description: "probe_success{job=\"blackbox-incus-proxy\"} has no series for 15m — the blackbox scrape job or exporter is gone. Proxies still work but the wedge watch is blind; check the blackbox_exporter unit and the blackbox-incus-proxy job in prometheus.yml."

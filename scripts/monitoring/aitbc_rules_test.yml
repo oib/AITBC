@@ -1877,3 +1877,48 @@ tests:
             exp_annotations:
               summary: "aitbc-blockchain-node.service logged errors on node0"
               description: "aitbc-blockchain-node.service produced 4 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-blockchain-node.service -p err."
+
+  # PROXY-BLACKBOX-PROBE-1 (#605): a wedged proxy must fire
+  # IncusProxyProbeFailed once probe_success has been 0 for 2m; a healthy
+  # series must not. probe_success flips 1 -> 0 at t=5m30s; at eval 8m
+  # the failure has lasted 2m30s -> fires; at 6m (30s of failure) -> not yet.
+  - interval: 30s
+    input_series:
+      - series: 'probe_success{job="blackbox-incus-proxy", instance="203.0.113.10:4002", module="tcp_ipfs_libp2p", device="hub/aitbc-island-ipfs-tcp"}'
+        values: '1x10 0+0x30'
+      - series: 'probe_success{job="blackbox-incus-proxy", instance="203.0.113.20:8200", module="tcp_fin_guard", device="node2/blockchain-p2p"}'
+        values: '1+0x41'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: IncusProxyProbeFailed
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: IncusProxyProbeFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: "203.0.113.10:4002"
+              job: blackbox-incus-proxy
+              module: tcp_ipfs_libp2p
+              device: "hub/aitbc-island-ipfs-tcp"
+            exp_annotations:
+              summary: "Incus proxy probe failing for hub/aitbc-island-ipfs-tcp (203.0.113.10:4002)"
+              description: "The blackbox tcp_ipfs_libp2p probe to 203.0.113.10:4002 is failing — fresh connections to this incus proxy device die instantly or are refused (forkproxy wedge or dead backend). On the incus host: `incus config device list <instance>` and re-probe with `nc -vz`; the wedge is cleared by a proxy-device bounce (`incus config device remove`/`add` with the same props)."
+
+  # IncusProxyProbeSilent: with no probe_success series at all, absent()
+  # fires after the 15m for-window.
+  - interval: 30s
+    input_series: []
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: IncusProxyProbeSilent
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: IncusProxyProbeSilent
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: blackbox-incus-proxy
+            exp_annotations:
+              summary: "No incus proxy probe results reaching Prometheus"
+              description: "probe_success{job=\"blackbox-incus-proxy\"} has no series for 15m — the blackbox scrape job or exporter is gone. Proxies still work but the wedge watch is blind; check the blackbox_exporter unit and the blackbox-incus-proxy job in prometheus.yml."
