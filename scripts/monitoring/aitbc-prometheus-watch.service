@@ -38,10 +38,6 @@ RestartSec=10
 WatchdogSec=300
 
 # Hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
 # ProtectSystem=strict makes /var read-only too, so the rotating log file needs an
 # explicit hole; without it configure_logging() falls back to journal-only.
 ReadWritePaths=/tmp /var/log/aitbc
@@ -49,5 +45,23 @@ ReadWritePaths=/tmp /var/log/aitbc
 # directory (which also needs `setfacl -m u:aitbc:rwx` or group write for aitbc).
 #ReadWritePaths=/var/lib/prometheus/node-exporter
 
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/tmp /var/log/aitbc
+# AITBC security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support
 [Install]
 WantedBy=multi-user.target
