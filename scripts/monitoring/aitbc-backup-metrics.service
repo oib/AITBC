@@ -17,12 +17,24 @@ SyslogIdentifier=aitbc-backup-metrics
 
 # Reads the backup dir and asks systemd for the unit Result; writes one file
 # in the textfile directory.
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
 ReadWritePaths=/var/lib/prometheus/node-exporter
 ReadOnlyPaths=/var/backups/aitbc
-ProtectKernelModules=true
-RestrictRealtime=true
-LockPersonality=true
+
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/var/lib/prometheus/node-exporter
+# AITBC security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support

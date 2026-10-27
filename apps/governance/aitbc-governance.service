@@ -21,9 +21,16 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-governance
 # Security hardening (v0.5.0)
+# Security hardening (v0.5.0)
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
+
+# Security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support
+
+# AITBC security hardening (v0.5.0)
 PrivateTmp=yes
 NoNewPrivileges=yes
-ProtectHome=yes
+ProtectHome=read-only
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
@@ -31,15 +38,12 @@ RestrictSUIDSGID=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
+MemoryDenyWriteExecute=no
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
-# Security hardening (v0.5.0)
 ProtectSystem=full
 ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
-
-# Security hardening (v0.5.0)
+# AITBC security hardening (v0.5.0)
 # WatchdogSec=30 # Disabled - requires application-level sd_notify support
-
 [Install]
 WantedBy=multi-user.target

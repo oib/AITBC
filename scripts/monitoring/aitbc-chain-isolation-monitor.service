@@ -14,18 +14,6 @@ ExecStart=/opt/aitbc/scripts/monitoring/verify_chain_isolation.sh
 SyslogIdentifier=aitbc-chain-isolation-monitor
 
 # Hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
-RestrictRealtime=true
-LockPersonality=true
-SystemCallArchitectures=native
-SystemCallFilter=@system-service
 # Reads the chain databases; writes only its own log.
 ReadOnlyPaths=/var/lib/aitbc
 ReadWritePaths=/var/log/aitbc
@@ -34,3 +22,22 @@ ReadWritePaths=/var/log/aitbc
 # aitbc-chain-isolation-monitor.timer, so the timer is the unit that belongs in
 # the boot transaction. A WantedBy=multi-user.target here would additionally
 # pull the oneshot in at every boot, on top of its schedule.
+
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/var/log/aitbc
+# AITBC security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support

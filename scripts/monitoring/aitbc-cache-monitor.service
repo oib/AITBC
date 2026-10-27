@@ -22,21 +22,28 @@ ExecStart=/opt/aitbc/scripts/monitoring/cache-monitor.sh
 SyslogIdentifier=aitbc-cache-monitor
 
 # Hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-RestrictSUIDSGID=true
-RestrictRealtime=true
-LockPersonality=true
-SystemCallArchitectures=native
-SystemCallFilter=@system-service
 ReadWritePaths=/var/log/aitbc
 
 # Deliberately no [Install] section. This is a oneshot activated by
 # aitbc-cache-monitor.timer, so the timer is the unit that belongs in the boot
 # transaction. A WantedBy=multi-user.target here would additionally pull the
 # oneshot in at every boot, on top of its schedule.
+
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/var/log/aitbc
+# AITBC security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support

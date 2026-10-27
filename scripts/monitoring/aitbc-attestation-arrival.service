@@ -24,12 +24,24 @@ SyslogIdentifier=aitbc-attestation-arrival
 # required for the read-only open, so the whole data dir is exposed —
 # the running node keeps the pair present (verified under these same
 # properties on a scratch WAL copy).
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
 ReadWritePaths=/var/lib/prometheus/node-exporter
 ReadOnlyPaths=/var/lib/aitbc
-ProtectKernelModules=true
-RestrictRealtime=true
-LockPersonality=true
+
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/var/lib/prometheus/node-exporter
+# AITBC security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support
