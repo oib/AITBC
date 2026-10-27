@@ -317,7 +317,7 @@ fi
 
 echo "=== faucet budget check (exactly one live agent-coordinator faucet) ==="
 # hub and hub1 both run aitbc-agent-coordinator with their own coin_requests
-# DB and both hold the genesis key; two live faucets double the fleet-wide
+# DB and both hold the treasury (GENESIS_*) key; two live faucets double the fleet-wide
 # automatic budget. hub1 carries COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0 only in
 # its env file, so a reprovision silently restores the doubling. Across hosts
 # that have the unit, exactly one may have a non-zero — or unset, the default

@@ -61,10 +61,14 @@ def aitbc_genesis_init(
     chain_id: Annotated[
         str | None, Field(description="Chain ID for genesis (auto-detected from config if not provided)")
     ] = None,
-    create_wallet: Annotated[bool | None, Field(description="Create genesis wallet with secure random key")] = None,
-    proposer: Annotated[str | None, Field(description="Proposer address (defaults to genesis wallet)")] = None,
+    create_wallet: Annotated[
+        bool | None, Field(description="Create the treasury (genesis) wallet with a secure random key")
+    ] = None,
+    proposer: Annotated[str | None, Field(description="Proposer address (defaults to the treasury wallet)")] = None,
     force: Annotated[bool | None, Field(description="Force overwrite existing genesis")] = None,
-    register_service: Annotated[bool | None, Field(description="Register genesis wallet with wallet service")] = None,
+    register_service: Annotated[
+        bool | None, Field(description="Register the treasury (genesis) wallet with the wallet service")
+    ] = None,
     service_url: Annotated[str | None, Field(description="Wallet service URL")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")

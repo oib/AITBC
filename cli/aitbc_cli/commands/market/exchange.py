@@ -176,7 +176,7 @@ def mint_ait(ctx, deposit_id: str):
 
         success(f"Deposit verified: {deposit_id}")
 
-        # Transfer AIT tokens from genesis wallet (fixed supply, no minting)
+        # Transfer AIT tokens from the treasury wallet (fixed supply, no minting)
         wallet_address = getattr(config, "wallet_address", None) or os.environ.get("WALLET_ADDRESS")
         chain_id = getattr(config, "chain_id", None)
         genesis_wallet_address = getattr(config, "genesis_wallet_address", "")
@@ -191,8 +191,8 @@ def mint_ait(ctx, deposit_id: str):
                 # Name the address. The likely cause is GENESIS_WALLET_ADDRESS pointing at the
                 # block proposer, which is a signing identity with no account and no balance —
                 # a mix-up that has already been made in a deployed env file.
-                error(f"Failed to get genesis wallet account {genesis_wallet_address}: {sender_response.text}")
-                error("GENESIS_WALLET_ADDRESS must be the wallet holding the genesis allocation, not the proposer.")
+                error(f"Failed to get treasury (genesis) wallet account {genesis_wallet_address}: {sender_response.text}")
+                error("GENESIS_WALLET_ADDRESS must be the treasury wallet holding the genesis allocation, not the proposer.")
                 raise click.Abort()
 
             sender_data = sender_response.json()

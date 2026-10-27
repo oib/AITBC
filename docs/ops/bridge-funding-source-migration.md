@@ -17,7 +17,7 @@ wallet, edits a live env file, or restarts a service is marked
 inventory.
 
 Goal: `BRIDGE_FUNDING_SOURCES` on hub currently names the treasury /
-genesis address `0x02B8F2C61DB19B04aB68cfb43d0605e63dE74c5b`. Before
+treasury (genesis) address `0x02B8F2C61DB19B04aB68cfb43d0605e63dE74c5b`. Before
 mainnet the funding sender must be a separate wallet whose key never
 lives on a node. (The 0x02B8 *key* is no longer loaded by any hub
 service — verified 16 Oct 2026, see section 2.)
@@ -29,7 +29,7 @@ service — verified 16 Oct 2026, see section 2.)
 | where | what | who reads it | breaks if the address changes |
 |---|---|---|---|
 | `/etc/aitbc/aitbc-bridge-monitor.env` | `BRIDGE_FUNDING_SOURCES=0x7bD5…91D2` (shrunk to F alone 16 Oct 12:43; `0x02b8…` removed) | `bridge_monitor/main.py` → allowlist of ETH senders whose inflows record `FUNDING` (never paid out) | a top-up from the *new* wallet while the old address is still listed still records `FUNDING`; a top-up from an address **not** listed takes the deposit path and fails (missing recipient) |
-| `/etc/aitbc/node.env` + ~12 other env files | `GENESIS_WALLET_ADDRESS=0x02B8…` (address only) | informational / genesis labelling across `blockchain.env`, `exchange.env`, `aitbc-*` envs | nothing — it is an address string, not a key or an allowlist entry |
+| `/etc/aitbc/node.env` + ~12 other env files | `GENESIS_WALLET_ADDRESS=0x02B8…` (address only) | informational / treasury (genesis) labelling across `blockchain.env`, `exchange.env`, `aitbc-*` envs | nothing — it is an address string, not a key or an allowlist entry |
 | `/etc/aitbc/aitbc-blockchain-node.env`, `validator-secrets.env` | `PROPOSER_KEY` / `VALIDATOR_KEYS` | **verified 16 Oct 2026: both files hold only the `0x2aD5…` key (hub's live identity); the 0x02B8 key is absent.** The journal line `proposer=0x02B8F2C6…` that suggested otherwise is the genesis block's historical proposer label (`Genesis block already exists: height=0 …`), printed once per node start — not a loaded key | nothing — the old key is already gone; step 9 is a confirm-only check |
 | `/root/.aitbc/wallets/treasury` | keystore file, root-only | on-demand `aitbc wallet` CLI | nothing running; not a daemon load |
 | `/etc/aitbc/blockchain-secrets.env` | `WALLET_IMPORT_PASSWORD` | wallet import path | unrelated to the address change |

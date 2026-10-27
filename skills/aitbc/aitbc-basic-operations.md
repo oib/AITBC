@@ -176,7 +176,7 @@ For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-
 2. **Wallet Not Found:** Check wallet name spelling, verify keystore directory at `/var/lib/aitbc/keystore/`
 3. **Service Unreachable:** Verify services are running: `systemctl status aitbc-*`
 4. **Port Mismatch:** Coordinator API is on port 8203 (not 9000 or 9001)
-5. **Password Required:** Use password from `/var/lib/aitbc/keystore/.genesis_password` for genesis wallet
+5. **Password Required:** Use password from `/var/lib/aitbc/keystore/.genesis_password` for the treasury (genesis) wallet
 6. **Wallet Daemon Separate:** Wallet daemon (port 8108) is separate from blockchain RPC (port 8202)
 
 ## Verification Checklist

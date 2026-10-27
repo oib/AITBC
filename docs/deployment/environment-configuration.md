@@ -462,7 +462,7 @@ from a published example.
 | `AITBC_DB_KEY` | Chain-DB encryption key — set a real value in production; default is a placeholder. |
 | `BLOCKCHAIN_RPC_API_KEY` / `BLOCKCHAIN_RPC_API_KEY_PEERS` | RPC API keys (client access / peer auth). |
 | `ESCROW_RELEASE_PRIVATE_KEY` / `BRIDGE_RELEASE_PRIVATE_KEY` | Signing keys for escrow/bridge release authority. |
-| `GENESIS_WALLET_ADDRESS` / `GENESIS_WALLET_PRIVATE_KEY` | Genesis wallet identity + key. |
+| `GENESIS_WALLET_ADDRESS` / `GENESIS_WALLET_PRIVATE_KEY` | Treasury (genesis) wallet identity + key. |
 | `KEYSTORE_PASSWORD` | Keystore decryption password. |
 | `NODE_WALLET_ADDRESS` | Node's own wallet identity. |
 

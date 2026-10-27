@@ -19,7 +19,7 @@
 | Get Balance | Get wallet balance | [docs/architecture/7_wallet.md](../architecture/7_wallet.md) | ✅ | — |
 | Sign Transaction | Sign a transaction with wallet | [docs/architecture/7_wallet.md](../architecture/7_wallet.md) | ✅ | — |
 | Send Transaction | Send a transaction from wallet | [docs/architecture/7_wallet.md](../architecture/7_wallet.md) | ✅ | — |
-| Auto-Import | Auto-import genesis wallet and wallet directory on startup | [docs/features/auto-import.md](./auto-import.md) | ✅ | — |
+| Auto-Import | Auto-import the treasury (genesis) wallet and wallet directory on startup | [docs/features/auto-import.md](./auto-import.md) | ✅ | — |
 
 ### Wallet Bridge Integration
 

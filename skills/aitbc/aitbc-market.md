@@ -126,7 +126,7 @@ aitbc market jobs
 1. **Insufficient Balance:** Check wallet balance before creating listings
 2. **Invalid Service Type:** Ensure service type is valid (ai-inference, ai-training, resource-compute, resource-storage, data-processing, gpu-provider)
 3. **Market URL:** Use correct market URL (http://localhost:8102 on main node)
-4. **Password Required:** Use password from `/var/lib/aitbc/keystore/.genesis_password` for genesis wallet
+4. **Password Required:** Use password from `/var/lib/aitbc/keystore/.genesis_password` for the treasury (genesis) wallet
 5. **Listing Not Found:** Verify listing ID is correct when searching or bidding
 
 ## Verification Checklist

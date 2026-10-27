@@ -11,7 +11,7 @@ Create topics, post messages, vote on messages
 - `apps/blockchain-node/create_genesis.py` — Simple script to create genesis block
 - `apps/blockchain-node/create_enhanced_genesis.py` — Enhanced script to create genesis block with new features
 - `apps/blockchain-node/scripts/create_bootstrap_genesis.py` — Generate a genesis file with initial distribution for the exchange economy.
-- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create genesis wallet with secure random secp256k1 private key
+- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create the treasury (genesis) wallet with a secure random secp256k1 private key
 - `Blockchain Node` exposes `POST /rpc/contracts/messaging/topics/create` (operation `create_forum_topic_route_rpc_contracts_messaging_topics_create_post`) — Create forum topic
 - `Blockchain Node` exposes `POST /rpc/contracts/messaging/messages/{message_id}/vote` (operation `vote_message_route_rpc_contracts_messaging_messages__message_id__vote_post`) — Vote on message
 - `Blockchain Node` exposes `POST /rpc/disputes/vote` (operation `submit_arbitration_vote_route_rpc_disputes_vote_post`) — Submit arbitration vote (arbitrator only)

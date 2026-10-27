@@ -43,7 +43,7 @@ def _daemon_auth_headers() -> dict[str, str]:
 
 
 async def _import_genesis_wallet_from_env() -> None:
-    """Auto-import genesis wallet from node.env into daemon on startup if not already present."""
+    """Auto-import the treasury (genesis) wallet from node.env into daemon on startup if not already present."""
     import httpx
 
     node_env_file = os.getenv("AITBC_NODE_ENV_FILE", "/etc/aitbc/node.env")
@@ -63,7 +63,7 @@ async def _import_genesis_wallet_from_env() -> None:
     daemon_url = "http://localhost:8108"
     password = os.getenv("WALLET_IMPORT_PASSWORD")
     if not password:
-        logger.warning("WALLET_IMPORT_PASSWORD not set, skipping genesis wallet auto-import")
+        logger.warning("WALLET_IMPORT_PASSWORD not set, skipping treasury (genesis) wallet auto-import")
         return
     try:
         async with httpx.AsyncClient(timeout=5, headers=_daemon_auth_headers()) as client:
@@ -81,13 +81,13 @@ async def _import_genesis_wallet_from_env() -> None:
             }
             r = await client.post(f"{daemon_url}/v1/wallets", json=payload)
             if r.status_code in (200, 201):
-                logger.info("Auto-imported genesis wallet: %s", address)
+                logger.info("Auto-imported treasury (genesis) wallet: %s", address)
             elif r.status_code == 400 and "already exists" in r.text:
                 pass
             else:
-                logger.warning("Genesis wallet import failed: %s %s", r.status_code, r.text)
+                logger.warning("Treasury (genesis) wallet import failed: %s %s", r.status_code, r.text)
     except Exception as e:
-        logger.warning("Could not auto-import genesis wallet: %s", e)
+        logger.warning("Could not auto-import treasury (genesis) wallet: %s", e)
 
 
 async def _import_file_wallets() -> None:

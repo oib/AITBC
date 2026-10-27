@@ -9,7 +9,7 @@ Create a knowledge graph
 
 - `apps/coordinator-api/src/coordinator_api/contexts/knowledge/routers/knowledge.py` — Request model for creating a knowledge graph
 - `aitbc/parallel/dependency_graph.py` — from typing import Any from aitbc.aitbc_logging import get_logger logger = get_logger(**name**) clas...
-- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create genesis wallet with secure random secp256k1 private key
+- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create the treasury (genesis) wallet with a secure random secp256k1 private key
 - `apps/blockchain-node/create_genesis.py` — Simple script to create genesis block
 - `apps/blockchain-node/create_enhanced_genesis.py` — Enhanced script to create genesis block with new features
 - `Coordinator API` exposes `POST /v1/knowledge/graphs` (operation `create_knowledge_graph_v1_knowledge_graphs_post`) — Create Knowledge Graph

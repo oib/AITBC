@@ -13,7 +13,7 @@ Fail closed: ``SELL_ESCROW_ENABLED`` defaults to false, and without
 ``SELL_ESCROW_CREDENTIAL_FILE`` (the escrow key slot, custodied like an
 ops-signer entry: encrypted wallet JSON + sealed credential) +
 ``SELL_TREASURY_ADDRESS`` the monitor and quote routes stay disabled; nothing
-falls back to the bridge payout key or the genesis key. Key material is read
+falls back to the bridge payout key or the treasury key. Key material is read
 from the slot at signing time only — never from an env value, never logged.
 ETH release and outcome verification reuse the ETH-9/ETH-9b machinery in
 ``bridge_withdraw_monitor`` — there is no second "is the ETH out?" here.
