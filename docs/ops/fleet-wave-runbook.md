@@ -83,10 +83,27 @@ authorization and a clear holds read for that host.
 
 - `git fetch origin && git merge --ff-only origin/main` — **ff only**,
   never a merge commit, never a force.
-- A `unit file changed on disk` warning after a pull means the repo unit
-  changed while the installed unit under `/etc/systemd/system` did not:
-  daemon-reload needs its own go — report it, do not run it inside the
-  wave.
+- **After a pull that touches unit files** (`*/*.service` under the
+  checkout — the installed units are symlinks into the repo), run a
+  read-only `NeedDaemonReload` report per host:
+
+  ```bash
+  for u in $(systemctl list-unit-files 'aitbc-*' --no-legend | awk '{print $1}'); do
+    [ "$(systemctl show "$u" -p NeedDaemonReload --value)" = yes ] && echo "$u"
+  done
+  ```
+
+- A `yes` flag (or a `unit file changed on disk` warning) is
+  timestamp-only after a git checkout: the symlinked unit's mtime moved
+  while its content stayed identical to what systemd has loaded
+  (verified in #645 — ~20 flagged units each on hub and node0, loaded
+  config == disk on all sampled; hub1/node1/node2 showed 0). The flag
+  recurs after every unit-touching pull until a reload runs, so list
+  the flagged units on the row.
+- `systemctl daemon-reload` is **not** covered by the restart rule —
+  it only re-reads unit metadata and touches no running process, but
+  it still needs the operator's word. Report it, do not run it inside
+  the wave.
 
 ## Ledger
 
