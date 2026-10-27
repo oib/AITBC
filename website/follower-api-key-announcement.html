@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Follower API Key — AITBC</title>
-    <meta name="description" content="Notice for operators joining this AITBC island as followers: the public follower API key, required headers, and the paused faucet.">
+    <meta name="description" content="Notice for operators joining this AITBC island as followers: the public follower API key, required headers, and the faucet grant.">
     <meta property="og:title" content="Follower API Key — AITBC">
-    <meta property="og:description" content="Notice for operators joining this AITBC island as followers: the public follower API key, required headers, and the paused faucet.">
+    <meta property="og:description" content="Notice for operators joining this AITBC island as followers: the public follower API key, required headers, and the faucet grant.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://hub.aitbc.bubuit.net/follower-api-key-announcement.html">
     <meta property="og:image" content="https://hub.aitbc.bubuit.net/favicon.svg">
     <meta name="twitter:card" content="summary">
     <link rel="canonical" href="https://hub.aitbc.bubuit.net/follower-api-key-announcement.html">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=53bf959f9099aaed">
-  <link rel="stylesheet" href="/follower-api-key-announcement.css?v=53bf959f9099aaed">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=48226b02aa5bce6e">
+  <link rel="stylesheet" href="/follower-api-key-announcement.css?v=48226b02aa5bce6e">
 </head>
 <body>
   <!-- aitbc-skip:start -->
@@ -23,10 +23,9 @@
   <h1>Hub follower key is now public for open islands</h1>
 
   <p class="faucet-notice">
-    <strong>Faucet paused:</strong> <code>POST /api/v1/agent/coin-requests/execute</code>
-    still returns <code>503</code> (verified 2026-10-18; paused since <strong>2026-09-09</strong>). It stays paused
-    until the faucet runs on its own dedicated, budget-limited wallet (part of the key-split
-    work). Registrations still work, but requests will not be paid out until then.
+    <strong>Faucet open:</strong> <code>POST /api/v1/agent/coin-requests/execute</code>
+    pays a request once it is approved under the coin-request policy —
+    one <strong>3 AIT</strong> grant per new node.
   </p>
 
   <p>
