@@ -56,34 +56,6 @@ Deployment conventions worth knowing:
   service won't start after an update, check `journalctl -u
   aitbc-coordinator-api` for alembic output first.
 
-## Development workflow
-
-- Conventional commits: `type(scope): description`.
-- Pre-commit hooks gate commits — do not use `--no-verify`; the same checks
-  run in CI (`.github/workflows/ci.yml`).
-- Python checks: `ruff`, `mypy` (baseline `scripts/ci/mypy-baseline.txt`),
-  `pytest` suites under `tests/` and `apps/*/tests/`.
-- Consensus rule for apply-time validation: a change to `state/`,
-  `consensus/`, or `sync_*` transaction-application code either keeps
-  behaviour identical for existing block versions — proved by replaying
-  historical blocks (`apps/blockchain-node/tests/test_historical_replay.py`
-  and `scripts/ops/replay-chain.py`) — or waits behind a new version
-  height. Never tighten a check unconditionally for already-recorded eras.
-- Release notes go in `docs/releases/v<major>.<minor>/v<version>_change.log`
-  via `scripts/release/append-changelog.sh <file>` (entry on stdin; refuses
-  duplicate `### ` headers and avoids heredoc-over-ssh quoting damage).
-  Once a version's tag is cut its log is frozen — entries for post-tag
-  commits go to the next version's log, creating `v<next>_change.log` if
-  it does not exist yet; never append post-tag work to a tagged log.
-- Release tags are cut at the deploy commit: a fleet-wide deploy of
-  consensus/sync/apply changes gets the next `v<major>.<minor>.<patch>` tag,
-  the version's changelog is finalised in the tagged commit (later entries
-  go to the next version's log), and the release is published at the same
-  time. Consensus-activation height pins get their own tag whose release
-  notes state the activation height. Docs-only or single-service deploys
-  may stay untagged. `scripts/monitoring/fleet-config-check.sh` reports
-  each host's checkout commit against the latest tag.
-
 ## No secrets in the repo
 
 - Never commit tokens, private keys, wallet secrets, or API credentials.
@@ -93,14 +65,6 @@ Deployment conventions worth knowing:
   a credential helper or interactive entry.
 - If a secret is accidentally committed: rotate it immediately, scrub it
   from history (`git filter-repo`), and force-push.
-
-## Shell script conventions
-
-- Preserve the existing shebang; only change it with a concrete reason.
-- POSIX-portable scripts use `#!/bin/sh` (Debian's `dash`) and must not gain
-  Bash-only syntax. Bash-only features require `#!/bin/bash`.
-- Never change a host's `/bin/sh` or a user's login shell to make script
-  work easier.
 
 ## Smart contract test suites (two of them)
 
@@ -192,11 +156,6 @@ GPU, AI jobs, market, escrow, disputes, governance. Read-only tools are the
 default; mutating tools are `dry_run=true`-gated and require
 `confirm=true`. Prefer typed MCP tools over raw SSH when operating a node.
 
-## Task and history tracking
+## Service-level notes
 
 Service-level env/key-slot notes live in [AGENTS/service-ops.md](AGENTS/service-ops.md).
-
-
-`AGENTS.md` carries conventions only. Release history lives in
-`docs/releases/` change logs; component status is in
-`docs/releases/STATUS.md`.
