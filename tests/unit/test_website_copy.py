@@ -108,30 +108,31 @@ def _site_src(name: str) -> str:
 
 
 class TestFaucetAnnouncementCopy(unittest.TestCase):
-    """WEB-FAUCET-NOTE-1: the paused-faucet notice must name the real route.
+    """WEB-FAUCET-OPEN-NOTE-1: the faucet notice names the real route and the
+    open-faucet wording (approved under the coin-request policy).
 
     `coin-requests/*/execute` is a wildcard placeholder that resolves to 404 —
-    the real route takes no path parameter. The 503 pause claim itself stays:
-    verified live on 17 Oct 2026 (GENESIS_PRIVATE_KEY absent on hub).
+    the real route takes no path parameter.
     """
 
     def test_announcement_names_real_execute_route(self) -> None:
         src = _site_src("follower-api-key-announcement.html")
         self.assertNotIn("coin-requests/*/execute", src)
         self.assertIn("coin-requests/execute", src)
-        self.assertIn("paused", src.lower())
+        self.assertIn("coin-request policy", src)
 
 
 class TestExchangeFaucetCard(unittest.TestCase):
-    """EXCH-FAUCET-CARD-1: the Early Adopter card must not promise automatic
-    payout while the faucet is paused (503 since 2026-09-09). Scoped to the
-    card: the ETH→AIT deposit flow legitimately says "automatically"."""
+    """EXCH-FAUCET-CARD-1 / WEB-FAUCET-OPEN-NOTE-1: the Early Adopter card
+    states the open-faucet policy and must not promise automatic payout.
+    Scoped to the card: the ETH→AIT deposit flow legitimately says
+    "automatically"."""
 
-    def test_card_states_pause_not_automatic(self) -> None:
+    def test_card_states_approval_not_automatic(self) -> None:
         src = _site_src("exchange.html")
         card = src[src.index("Early Adopter Program") : src.index("Value Model Documentation")]
         self.assertNotIn("automatically", card)
-        self.assertIn("paused", card.lower())
+        self.assertIn("coin-request policy", card)
 
 
 class TestExchangeBridgeBanner(unittest.TestCase):
@@ -189,18 +190,18 @@ class TestHomeFactsStrip(unittest.TestCase):
 
 
 class TestHomeJoinStepperAndAnswers(unittest.TestCase):
-    """WEB-HOME-1: the join steps are a numbered <ol> with a paused gift
-    step, and the key request keeps its three answers apart — issued,
+    """WEB-HOME-1: the join steps are a numbered <ol> with a gift step, and
+    the key request keeps its three answers apart — issued,
     already-has-a-key (server answered), could-not-request."""
 
-    def test_stepper_and_paused_gift(self) -> None:
+    def test_stepper_and_gift_step(self) -> None:
         html = _site_src("index.html")
         self.assertIn('<ol class="join-steps">', html)
         self.assertIn('aria-current="step"', html)
         step4 = html[html.index("join-step-4") : html.index("</ol>")]
         self.assertIn("step-paused", step4)
-        self.assertIn("Faucet paused", step4)
-        self.assertIn("paid once the hub faucet resumes", step4)
+        self.assertIn("Faucet open", step4)
+        self.assertIn("paid once approved under the coin-request policy", step4)
 
     def test_three_answers_kept_apart(self) -> None:
         html = _site_src("index.html")
