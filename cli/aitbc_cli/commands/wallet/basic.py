@@ -595,14 +595,18 @@ def balance(ctx, name: str | None):
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
     chain_id = ctx.obj.get("chain_id") or config.chain_id or "unconfigured"
 
+    account_found = True
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
         account_data = http_client.get(f"/rpc/account/{canonical}")
     except NetworkError as e:
         # An unfunded wallet will have no on-chain account yet; treat that as a
-        # zero balance instead of an error.
+        # zero balance instead of an error, but say so — the same 404 shows for
+        # an account the follower has not synced yet.
         if "404" in str(e) or "Not Found" in str(e):
             account_data = {"balance": 0, "nonce": 0}
+            account_found = False
+            _info(f"account not found on chain {chain_id} (unfunded or not yet synced)")
         else:
             abort(ctx, f"Failed to query balance for {canonical}: {e}", from_exception=e)
             raise click.Abort() from e
@@ -619,6 +623,8 @@ def balance(ctx, name: str | None):
         "nonce": account_data.get("nonce", 0),
         "chain_id": account_data.get("chain_id", chain_id),
     }
+    if not account_found:
+        balance_data["account_found"] = False
 
     fmt = ctx.obj.get("output_format", "table")
     if fmt not in ("json", "yaml"):
