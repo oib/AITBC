@@ -36,5 +36,23 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-island-ipfs
 
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=p
+# AITBC security hardening (v0.5.0)
+# WatchdogSec=30 # Disabled - requires application-level sd_notify support
 [Install]
 WantedBy=multi-user.target
