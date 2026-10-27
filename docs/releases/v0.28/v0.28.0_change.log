@@ -54,3 +54,66 @@
   remove-gpu`, `trade get`/`match` positional id, `config unset --key`,
   `config reset`). SCENARIO-COVERAGE.md regenerated: 566 leaves, 0
   uncovered. Refs #445.
+
+### CLI exit-code and error-path sweeps (CLI-EXIT-1/2/3, CLI-READBACK-1, CLI-EXIT-4)
+
+- `4efe5674d` — `fix(cli): error paths exit non-zero via abort()` (CLI-EXIT-1).
+- `696ff8b31` — `fix(cli): second exit-code sweep — abort() at error();return sites, except-handler AST guard` (CLI-EXIT-2); plus `da60a063d` letting `CLIError` pass `sync_db`'s broad `except`.
+- `d36909da1` — `fix(cli): edge.py except-tail error() sites now abort` (CLI-EXIT-3).
+- `1356f02d3` — `fix(cli): third exit-code sweep — helper and facade error();return sites abort` (CLI-EXIT-4, ~35 sites, 103 aborts).
+- `error()`+`return` sites across ~40 CLI files now exit non-zero
+  instead of rc=0 on failure; the corpus AST test guards regression.
+  Read-back audit CLI-READBACK-1 (#446) verified `0439846b8` +
+  `4efe5674d` with mutation runs — closed as audit, no commits.
+
+### CLI error detail and polish (CLI-ERR-DETAIL-1, CLI-POLISH-2, CLI-POLISH-3)
+
+- `f0cacedd7` — `fix(cli): carry response detail in NetworkError messages`: a refused transaction's RPC 400 detail body is echoed in the CLI error line instead of being hidden (Refs #581).
+- `1cc20fc70` — `fix(cli): single refund error line + daemon-down warning without traceback`: removes the empty second error line on escrow refund and the wallet-list daemon-down traceback; shared `run_cli` test helper (Refs #582).
+- `52ab53c14` — `fix(cli): no double Error prefix on nested aborts; credential abort carries full text`: ~15 nested sites fixed, the credential abort message in `market/__init__.py` made whole (Refs #590).
+
+### Failover drill tooling and runbooks (FAILOVER-DRILL-PREP-1, FAILOVER-PROMOTE-1)
+
+- `85211518e` — `feat(ops): failover-preflight — read-only go/no-go for the hub1 drill`, hardened by `524269b53` (oom_kill parsed with awk, CHAIN_ID knob) and `59fcb78e1` (loud-fail on unread rows + real oom_kill stub) (Refs #465).
+- `8901eddb4` + `09ea9e28e` — `docs(ops): hub→hub1 nginx failover runbook + reproducible flip artifacts` (`scripts/ops/failover-readback.sh`, `failover-gen.py`; Refs #631).
+- `e8dc0c272` — `docs(ops): proposer failover runbook and drill plan` (Refs #632).
+- Operational, no repo commit: FAILOVER-READINESS-1 (#459) Phase-0
+  read-back accepted; FAILOVER-PROMOTE-1 (#392) — the 27 Oct proposer
+  failover drill ran forward steps 0–9 and revert R1–R6 live with heads
+  equal throughout (hub1 promoted and demoted back to standby);
+  HUB-NODE-RESTART-1 (#589) — hub node restart wave, ops only.
+
+### Backup and restore (BACKUP-RUNBOOK-1, BACKUP-PG-OWNER-1, BACKUP-MARKET-NAME-1)
+
+- `1c68b38d5` — `docs(ops): backup restore runbook` — owner roles first; chain/coordinator dumps are `.dump` text (`zcat | sqlite3`) (Refs #468).
+- `3d4f57948` — `fix(ops): nightly postgres dump covers all owners; setup reassigns foreign-owned tables` — fixes the node0 aitbc_marketplace backup failure (postgres-owned tables denied to the role) (Refs #439).
+- `37e009c79` — `fix(deployment): rename stale aitbc_market role/DB refs to aitbc_marketplace` and `82fad4924` — `fix(maintenance): correct aitbc_market → aitbc_marketplace in backup list` (BACKUP-MARKET-NAME-1) — fresh-host provisioning created the DB under the stale name while services and the credential use aitbc_marketplace; the stale name also produced a nightly "database does not exist" WARN and left the real DB undumped (Refs #407).
+- `9eb0d486e` — `feat(post-cut): no-stray-chaindb warns on zero-byte, fails on non-empty` — post-cut-verify guard against stray/empty chain.db files.
+- Operational, no repo commit: BACKUP-RESTORE-DRILL-1 (#467) — latest
+  fleet backups restored into node2 scratch and verified (dumps are text
+  exports; PG restores need roles first).
+
+### PostgreSQL-capable services (PG-TARGET-1)
+
+- `7fc8926c2` — disposable local PostgreSQL cluster fixture; pool-hub + trading run real PG migrations.
+- `7959c7b79` — `fix(pool-hub): c3b2d6e7f8a9 downgrade drops indexes if_exists`.
+- `49a98905e` — stream-3 follow-up: refuse `:5432`, `assert_own_dsn`, `su` quoting.
+- `f766469e9` — `docs(release): trading 002 downgrade-guard changelog line`.
+- `9893bc68d` — `feat(coordinator): rewrite migrate_to_postgresql.py` — schema via `alembic upgrade head` (no DROP/CASCADE), dry-run default, `--allow-nonempty` = insert-missing-only, count/PK-checksum verify (Refs #436).
+
+### Consensus guards and DB-open safety (FORK-*, NO-CREATE-DB-OPEN-1, GPU-ADMISSION-1)
+
+- `4aa936bc0` — `fix(consensus): disable v2-v8 parallel import` (FORK-GUARD-1) — `_PARALLEL_V2V8_ENABLED=False`; the divergent path is off on production (Refs #441).
+- `80a379df1` — `test(consensus): pin v2-v8 parallel-import divergence on zero-value fresh recipients` (FORK-PARALLEL-V2V8-1) — 18 passed / 6 xfail; `--runxfail` shows the real v2/v5/v8 divergence (Refs #432).
+- `ed67a0578` — `feat(db): get_engine/session_scope refuse missing chain.db + 503 handler`; `13a8d9115` — chain.db opens: `mode=ro` for reads, `mode=rw` for writes, never create; `9d1be9f37` — `test(scripts): no-create open-mode pins for escrow-repair + verify-db-schema` (NO-CREATE-DB-OPEN-1, the 0-byte chain.db class; Refs #408).
+- `e74cb8ded` — `feat(consensus): GPU_ALLOCATE v16 admission gate — allocation_id + existing gpu_id` (GPU-ADMISSION-1; landed dormant, activated under GPU-ADMISSION-ACTIVATE-1 #406; Refs #384).
+- `5df64a2a3` + `d25295eb4` + `8d1f06175` — `docs(design)`: service-layer per-node tables diverge by design; v15 armed/active status corrections (FORK-OOB-WRITERS-1; Refs #382).
+
+### Monitoring, timers and ops fixes
+
+- `bd8670576` — `fix(monitoring): replace OnCalendar=minutely with OnBootSec+OnUnitActiveSec in the four textfile timers` (TIMER-DST-1; the 25 Oct 03:00 CEST fall-back stall proved the defect live; Refs #409).
+- `d907e5d6d` — `fix(monitoring): watch the v13/v14/v15 transition-height pins` (FLEET-CONFIG-V13-1; Refs #402).
+- `9d088a94a` + `c7342bdcf` — `test(golden): pin every state_transition pin in the golden lists + add v15` (GOLDEN-GATES-V15-1; Refs #405).
+- `48dcfbf90` — `test(wallet): pin log-once for the escrow fee-float deficit warning` (WALLET-FLOAT-LOCK-1; the 100 AIT fee-float send no longer spams thousands of identical warnings; Refs #404).
+- `a4af823db` — `docs(deployment): correct shop-side pool-hub claims — hub-side only` (Refs #403).
+- `939c8bf81` — `fix(mcp-server): nosec B108 on SCRATCH_ROOT + format-dedup helper` (push hooks); `6e3827db0` — `test(mcp-server): drop dry_run from crosschain bridge-status test` (MCP-MISC-1).
