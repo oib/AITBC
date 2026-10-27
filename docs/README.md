@@ -70,6 +70,9 @@ Operator procedures for the live fleet:
   a counter change (`prometheus metric`) with the unit's journal lines
   (`system logs --since/--grep`).
 - [Manual escrow refund](ops/manual-refund-runbook.md) — the operator path
+- [Proposer failover runbook](ops/proposer-failover-runbook.md) — promoting
+  hub1 to hub/proposer: PBFT 3-of-4 rules, promote/revert steps, and the
+  typed-line drill plan
 - [Failover runbook](ops/failover-runbook.md) — the hub→hub1 public
   read-path flip rehearsed in drill R6: preconditions, staging, flip, hold,
   readback, revert, and what it deliberately does not move
