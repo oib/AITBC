@@ -276,7 +276,7 @@ function payoutParts(tx) {
     let amount = '-';
     try {
         const payload = typeof tx.payload === 'string' ? JSON.parse(tx.payload) : (tx.payload || {});
-        amount = fmtAit(payload.amount);
+        amount = escapeHtml(fmtAit(payload.amount));
     } catch (e) { /* unparseable payload shows '-' */ }
     const hash = String(tx.tx_hash || '');
     const link = hash
