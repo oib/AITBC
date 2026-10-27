@@ -432,11 +432,21 @@ class AgentRegistry:
         try:
             keys = await self.redis_client.keys("agent:*")
             for key in keys:
-                data = await self.redis_client.get(key)
-                if data:
-                    agent_info = AgentInfo.from_dict(json.loads(data))
+                try:
+                    data = await self.redis_client.get(key)
+                    parsed = json.loads(data) if data else None
+                    if not isinstance(parsed, dict):
+                        # Other subsystems share the agent: prefix (e.g. nonce
+                        # dedup keys holding "1"); they are not agent records.
+                        logger.debug("Skipping non-agent-record key in Redis scan: %s", key)
+                        continue
+                    agent_info = AgentInfo.from_dict(parsed)
                     self.agents[agent_info.agent_id] = agent_info
                     self._update_indexes(agent_info)
+                except Exception:
+                    # One bad key must not abort the whole load; log the key
+                    # name only, never the value.
+                    logger.debug("Skipping unreadable agent key in Redis scan: %s", key, exc_info=True)
             logger.info("Loaded %s agents from Redis", len(self.agents))
         except Exception as e:
             logger.error("Error loading agents from Redis: %s", e)
