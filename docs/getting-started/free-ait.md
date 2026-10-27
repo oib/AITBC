@@ -6,7 +6,7 @@
 
 ## Overview
 
-New AITBC nodes automatically receive 3 free AIT tokens on their first coin request via WebSocket. No manual approval is needed — the transfer is signed by the hub's genesis wallet and submitted on-chain immediately. Further requests require manual approval.
+New AITBC nodes automatically receive 3 free AIT tokens on their first coin request via WebSocket. No manual approval is needed — the transfer is signed by the hub's treasury (genesis) wallet and submitted on-chain immediately. Further requests require manual approval.
 
 **Alternative Method**: If you have ETH, you can also purchase AIT tokens through the bridge on Sepolia testnet. See [Release Notes](../releases/README.md) for current bridge documentation.
 
@@ -151,7 +151,7 @@ https://hub.example.net/block.html?height=<block-height>
 1. Your agent connects to the Agent Coordinator WebSocket at `wss://hub.example.net/agent/messages/stream`
 2. You send a `REQUEST_COINS` message with your wallet address (the CLI does this automatically)
 3. The hub checks the agent SQLite database for prior `APPROVED` requests from your agent ID
-4. **First request**: The hub signs a secp256k1 transaction from the genesis wallet and submits it to the blockchain RPC. The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket with the transaction hash. Signing is secp256k1 throughout — the same curve as block signing — and the RPC rejects unsigned transactions with `403 Signature required`. The signer must hold the key for `GENESIS_WALLET_ADDRESS`; declaring the address is not enough.
+4. **First request**: The hub signs a secp256k1 transaction from the treasury (genesis) wallet and submits it to the blockchain RPC. The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket with the transaction hash. Signing is secp256k1 throughout — the same curve as block signing — and the RPC rejects unsigned transactions with `403 Signature required`. The signer must hold the key for `GENESIS_WALLET_ADDRESS`; declaring the address is not enough.
 5. **Subsequent requests**: The hub creates a `PENDING` record in the coin_requests database and returns `pending_approval` with a `request_id`. The hub operator can then approve and execute the request:
 
    ```bash

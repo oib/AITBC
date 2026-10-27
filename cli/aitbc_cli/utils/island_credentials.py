@@ -177,16 +177,16 @@ def get_genesis_block_hash() -> str | None:
 
 def get_genesis_address() -> str | None:
     """
-    Get the genesis address from island credentials
+    Get the treasury (genesis) address from island credentials
 
     Returns:
-        str: Genesis address, or None if not available
+        str: Treasury (genesis) address, or None if not available
     """
     try:
         credentials = load_island_credentials()
         return credentials.get("credentials", {}).get("genesis_address")  # type: ignore[no-any-return]
     except (FileNotFoundError, ValueError):
-        logger.debug("Island credentials missing for genesis address", exc_info=True)
+        logger.debug("Island credentials missing for the treasury (genesis) address", exc_info=True)
         return None
 
 

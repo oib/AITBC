@@ -151,8 +151,8 @@ class ChainSettings(BaseSettings):
     proposer_id: str = ""
     proposer_key: str | None = None
 
-    # Genesis key used for governance execution, fee subsidies, and other
-    # chain-level operations. Preferably loaded from node.env / secrets.
+    # Treasury key (legacy GENESIS_* env names) used for governance execution,
+    # fee subsidies, and other chain-level operations. Preferably loaded from node.env / secrets.
     genesis_private_key: str | None = None
     genesis_address: str | None = None
 

@@ -270,15 +270,15 @@ def _genesis_wallet(
     chain_id: str,
     password: str | None,
 ) -> tuple[str, str] | None:
-    """Generate or load the genesis wallet; returns (address, public_key).
+    """Generate or load the treasury (genesis) wallet; returns (address, public_key).
 
     Returns None when no wallet is configured and --new-wallet was not given —
     the caller is responsible for restarting services before bailing out.
     """
     if new_wallet:
-        success("Generating new genesis wallet...")
+        success("Generating new treasury (genesis) wallet...")
         address, public_key = _generate_wallet(etc_dir, wallet_dir, chain_id, password)
-        success(f"New genesis wallet: {address}")
+        success(f"New treasury (genesis) wallet: {address}")
         return address, public_key
 
     env = _load_env(etc_dir / "node.env")

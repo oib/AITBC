@@ -1,6 +1,6 @@
 # Auto-Import
 
-Auto-import genesis wallet and wallet directory on startup
+Auto-import the treasury (genesis) wallet and wallet directory on startup
 
 - **Status**: ✅
 - **Release**: —
@@ -9,7 +9,7 @@ Auto-import genesis wallet and wallet directory on startup
 
 - `apps/blockchain-node/scripts/unified_genesis.py` — Compute block hash
 - `apps/wallet/scripts/import_file_wallets.py` — Import file-based wallets from ~/.aitbc/wallets/ into the wallet daemon.
-- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create genesis wallet with secure random secp256k1 private key
+- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create the treasury (genesis) wallet with a secure random secp256k1 private key
 - `apps/blockchain-node/src/aitbc_chain/contracts/agent_wallet_security.py` — Security profile for an agent
 - `apps/blockchain-node/scripts/make_genesis.py` — Load address allocations from a JSON file. Expected format: [ {"address": "0x...", "balance": 100000...
 - `Blockchain Node` exposes `GET /rpc/genesis_allocations` (operation `get_genesis_allocations_route_rpc_genesis_allocations_get`) — Get genesis allocations from blockchain
