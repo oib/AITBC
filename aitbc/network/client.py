@@ -30,6 +30,14 @@ def _detail_suffix(exc: BaseException) -> str:
     survived only via ``http_error_detail`` which few call sites use.
     Response detail only; a request body is never echoed.
     """
+    try:
+        return _detail_suffix_inner(exc)
+    except Exception:
+        # best-effort enrichment — never mask the wrapped NetworkError
+        return ""
+
+
+def _detail_suffix_inner(exc: BaseException) -> str:
     seen: BaseException | None = exc
     while seen is not None:
         response = getattr(seen, "response", None)
@@ -46,7 +54,7 @@ def _detail_suffix(exc: BaseException) -> str:
                     parts = []
                     for item in detail[:3]:
                         if isinstance(item, dict) and item.get("msg"):
-                            loc = ".".join(str(p) for p in item.get("loc", []) if p != "body")
+                            loc = ".".join(str(p) for p in (item.get("loc") or []) if p != "body")
                             parts.append(f"{loc}: {item['msg']}" if loc else str(item["msg"]))
                     detail = "; ".join(parts) or None
                 if not isinstance(detail, str) or not detail:
