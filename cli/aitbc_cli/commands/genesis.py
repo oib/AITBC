@@ -35,10 +35,10 @@ def genesis():
   aitbc genesis init --chain-id ait-mainnet"""
 )
 @click.option("--chain-id", default=None, help="Chain ID for genesis (auto-detected from config if not provided)")
-@click.option("--create-wallet", is_flag=True, help="Create genesis wallet with secure random key")
-@click.option("--proposer", help="Proposer address (defaults to genesis wallet)")
+@click.option("--create-wallet", is_flag=True, help="Create the treasury (genesis) wallet with a secure random key")
+@click.option("--proposer", help="Proposer address (defaults to the treasury wallet)")
 @click.option("--force", is_flag=True, help="Force overwrite existing genesis")
-@click.option("--register-service", is_flag=True, help="Register genesis wallet with wallet service")
+@click.option("--register-service", is_flag=True, help="Register the treasury (genesis) wallet with the wallet service")
 @click.option("--service-url", default="http://localhost:8108", help="Wallet service URL")
 @wallet_password_options
 @click.pass_context
@@ -215,10 +215,10 @@ def verify(ctx, chain_id: str):
         error(f"Failed to verify database: {e}")
         ctx.exit(1)
 
-    # Check genesis wallet
+    # Check the treasury (genesis) wallet
     wallet_path = Path("/var/lib/aitbc/keystore/genesis.json")
     if wallet_path.exists():
-        success(f"✓ Genesis wallet found: {wallet_path}")
+        success(f"✓ Treasury (genesis) wallet found: {wallet_path}")
         try:
             with open(wallet_path) as f:
                 wallet_data = json.load(f)
@@ -230,10 +230,10 @@ def verify(ctx, chain_id: str):
                 ctx.obj.get("output_format", "table"),
             )
         except Exception as e:
-            error(f"Failed to read genesis wallet: {e}")
+            error(f"Failed to read the treasury (genesis) wallet: {e}")
             verified = False
     else:
-        error(f"Genesis wallet not found: {wallet_path}")
+        error(f"Treasury (genesis) wallet not found: {wallet_path}")
         verified = False
 
     if not verified:

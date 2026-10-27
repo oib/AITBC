@@ -62,7 +62,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 
 | Step | Intended | Today | Gap |
 |------|----------|-------|-----|
-| 0. Acquire AIT | ETH on-ramp | Genesis wallet / manual `wallet send`; Exchange `buy` still keystore-gated. | Customer onboarding |
+| 0. Acquire AIT | ETH on-ramp | Treasury (genesis) wallet / manual `wallet send`; Exchange `buy` still keystore-gated. | Customer onboarding |
 | 1. Discover compute | Market UI + CLI, reputation-ranked | `aitbc market list` reputation-sort live; `aitbc ai submit --min-reputation` live. Web UI still defaults to mock (P1.2 in progress). | Partial — P1.2 |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | CLI wallet-signed JWT via `aitbc auth login`; `aitbc ai submit` falls back to it. `--api-key` still accepted. Web UI may require API key setup. | Done for CLI |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
