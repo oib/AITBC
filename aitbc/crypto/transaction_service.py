@@ -44,8 +44,10 @@ class TransactionService:
         self.logger = get_logger(__name__)
         self.rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
         self.chain_id = default_chain_id()
-        self.genesis_private_key = os.getenv("GENESIS_PRIVATE_KEY")
-        self.genesis_address = os.getenv("GENESIS_ADDRESS")
+        # FAUCET_* (capped grant wallet) takes precedence; GENESIS_* is the
+        # treasury fallback during the faucet key-split (#609).
+        self.genesis_private_key = os.getenv("FAUCET_PRIVATE_KEY") or os.getenv("GENESIS_PRIVATE_KEY")
+        self.genesis_address = os.getenv("FAUCET_ADDRESS") or os.getenv("GENESIS_ADDRESS")
 
     def get_nonce(self, address: str) -> int:
         """
