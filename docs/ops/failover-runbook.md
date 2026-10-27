@@ -46,7 +46,22 @@ Prepare three files (off-box generation, then install on hub):
 |---|---|---|
 | `aitbc.r6-orig` | byte-copy of the live `sites-enabled/aitbc`, saved at staging time | sha == live-site sha |
 | `aitbc.flip-a` | the flip variant: 9 FLIP locations proxied to hub1, 22 STAY carve-outs left on hub | diff against live file must reproduce it exactly |
-| `to-hub1.conf` | upstream/vhost include for the hub1 target | staged copy sha |
+| `to-hub1.conf` | upstream/vhost include for the failover target (a 4-line `proxy_pass https://hub1.<vhost>` + `proxy_ssl_server_name`/`proxy_ssl_name`/`Host` stub) | staged copy sha |
+
+The variant is reproducible from the repo, not a frozen copy:
+`scripts/ops/failover-gen.py <live-file> <output> [include-path]` parses
+hub's live site file and rewrites each FLIP location block to
+`include` the hub1 upstream stub, emitting the carve-out locations
+ahead of the flipped prefixes. The sets are defined in the script:
+`FLIP` = the five `location` headers whose subtrees cover the nine
+flipped public paths (`/rpc/`, `/explorer-api/`, and the three exact
+`/explorer-api/api/messages*` blocks); `CARVE_RPC`/`CARVE_EXP` = the
+STAY set pinned back to hub — node-local views (`/rpc/islands`,
+`/rpc/chains`, `/rpc/network-info`, subscribers/join/subscribe/
+heartbeat/lease/market) and hub-local explorer data
+(journal/alerts). Everything not in FLIP is untouched, so all other
+STAY paths are unaffected by construction. Regenerate the variant
+whenever the live site changes — it stays correct as locations evolve.
 
 Stage them under `/etc/nginx/aitbc-flip/` — a directory nginx does
 **not** include — so staging alone changes nothing:
@@ -54,8 +69,8 @@ Stage them under `/etc/nginx/aitbc-flip/` — a directory nginx does
 ```bash
 ssh hub 'install -d -m755 /etc/nginx/aitbc-flip && \
   cp -p /etc/nginx/sites-enabled/aitbc /etc/nginx/aitbc-flip/aitbc.r6-orig'
-scp tasks/drill-r6/aitbc.flip-a  hub:/etc/nginx/aitbc-flip/aitbc.flip-a
-scp tasks/drill-r6/to-hub1.conf  hub:/etc/nginx/aitbc-flip/to-hub1.conf
+scp aitbc.flip-a  hub:/etc/nginx/aitbc-flip/aitbc.flip-a
+scp to-hub1.conf  hub:/etc/nginx/aitbc-flip/to-hub1.conf
 ssh hub 'cd /etc/nginx/aitbc-flip && sha256sum aitbc.r6-orig aitbc.flip-a to-hub1.conf'
 ```
 
@@ -65,7 +80,7 @@ nginx config.
 
 ## Baseline read-back (pre-flip)
 
-`tasks/drill-r6/readback.sh pre` (or `reverse` — same expectation):
+`scripts/ops/failover-readback.sh pre` (or `reverse` — same expectation):
 fires one GET per FLIP and STAY path through hub's public front with a
 unique User-Agent, then counts hits in hub1's nginx access log.
 
@@ -80,7 +95,7 @@ ssh hub 'cp /etc/nginx/aitbc-flip/aitbc.flip-a /etc/nginx/sites-enabled/aitbc &&
 ssh hub 'sha256sum /etc/nginx/sites-enabled/aitbc'   # expect the flip-a sha
 ```
 
-Then `readback.sh forward`: PASS = hub1 served `9/9` FLIP and `0` STAY.
+Then `failover-readback.sh forward`: PASS = hub1 served `9/9` FLIP and `0` STAY.
 If `nginx -t` fails, the command aborts before the reload and nothing
 changed (the copy already landed but is not loaded — restore
 `aitbc.r6-orig` to be tidy; see rollback).
@@ -92,7 +107,7 @@ the window's start.
 
 Watch every ~10 min while flipped:
 
-- `readback.sh forward` still PASS
+- `failover-readback.sh forward` still PASS
 - heads equal hub=hub1 (and the rest of the fleet)
 - hub1 `memory.events` `oom_kill` stays 0; `list-units --failed aitbc-*` stays 0
 - alert tail quiet for hub1
@@ -108,7 +123,7 @@ ssh hub 'cp /etc/nginx/aitbc-flip/aitbc.r6-orig /etc/nginx/sites-enabled/aitbc &
   sha256sum /etc/nginx/sites-enabled/aitbc && nginx -t && systemctl reload nginx'
 ```
 
-Then `readback.sh reverse`: PASS = hub1 served `0/9` FLIP. Follow with
+Then `failover-readback.sh reverse`: PASS = hub1 served `0/9` FLIP. Follow with
 the post-revert check: heads hub=hub1 and hub1 `oom_kill` 0.
 
 ## Rollback if the flip fails
