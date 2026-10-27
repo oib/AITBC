@@ -155,7 +155,3 @@ services, chain state, accounts, transactions, blocks, mempool, bridge,
 GPU, AI jobs, market, escrow, disputes, governance. Read-only tools are the
 default; mutating tools are `dry_run=true`-gated and require
 `confirm=true`. Prefer typed MCP tools over raw SSH when operating a node.
-
-## Service-level notes
-
-Service-level env/key-slot notes live in [AGENTS/service-ops.md](AGENTS/service-ops.md).
