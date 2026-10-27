@@ -386,7 +386,7 @@ aitbc resource optimize --agent-id <agent-id>
 Genesis block and wallet generation.
 
 ```bash
-# Initialize genesis (optionally creating the genesis wallet)
+# Initialize genesis (optionally creating the treasury wallet)
 aitbc genesis init --chain-id <chain-id> --create-wallet
 
 # Verify genesis

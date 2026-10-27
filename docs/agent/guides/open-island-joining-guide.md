@@ -228,7 +228,7 @@ aitbc wallet info   # note the 0x address
 aitbc coin-requests request --wallet my-wallet
 ```
 
-The first request is auto-approved and paid immediately by the hub's genesis wallet (typically confirmed within one block). Repeat or larger requests are recorded as `PENDING` and need operator approval — see [Get Free AIT](../../getting-started/free-ait.md).
+The first request is auto-approved and paid immediately by the hub's treasury (genesis) wallet (typically confirmed within one block). Repeat or larger requests are recorded as `PENDING` and need operator approval — see [Get Free AIT](../../getting-started/free-ait.md).
 
 ### Bridge validator seeding (only nodes that will serve bridge releases)
 

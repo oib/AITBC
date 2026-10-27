@@ -9,7 +9,7 @@ Create a new mining pool
 
 - `aitbc/network/http_pool.py` — import asyncio from typing import Any import httpx from aitbc.aitbc_logging import get_logger logger...
 - `apps/blockchain-node/create_enhanced_genesis.py` — Enhanced script to create genesis block with new features
-- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create genesis wallet with secure random secp256k1 private key
+- `apps/blockchain-node/scripts/create_genesis_wallet.py` — Create the treasury (genesis) wallet with a secure random secp256k1 private key
 - `apps/blockchain-node/create_genesis.py` — Simple script to create genesis block
 - `apps/blockchain-node/scripts/create_bootstrap_genesis.py` — Generate a genesis file with initial distribution for the exchange economy.
 - `Blockchain Node` exposes `POST /rpc/register-account` (operation `create_account_route_rpc_register_account_post`) — Report the on-chain state of an account address
