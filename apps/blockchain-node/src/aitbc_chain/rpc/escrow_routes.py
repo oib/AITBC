@@ -214,7 +214,7 @@ async def _get_account_nonce(address: str) -> int:
 
 _GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
 
-# v0.7.3: ESCROW_RELEASE may be signed by a dedicated non-genesis key.
+# v0.7.3: ESCROW_RELEASE may be signed by a dedicated non-treasury key.
 _ESCROW_RELEASE_PRIVATE_KEY = os.getenv("ESCROW_RELEASE_PRIVATE_KEY", "")
 _ESCROW_RELEASE_ADDRESS = os.getenv("ESCROW_RELEASE_ADDRESS", "")
 
@@ -234,13 +234,13 @@ def _to_canonical(address: str) -> str:
 
 
 def _get_settlement_key() -> str:
-    """Return the configured non-genesis escrow release key, falling back to genesis."""
+    """Return the configured non-treasury escrow release key, falling back to treasury."""
     if _ESCROW_RELEASE_PRIVATE_KEY:
         return _ESCROW_RELEASE_PRIVATE_KEY
     if _GENESIS_WALLET_PRIVATE_KEY:
         _logger.warning(
             "ESCROW_RELEASE: ESCROW_RELEASE_PRIVATE_KEY is not set; signing payouts with the "
-            "genesis key. Configure a dedicated settlement key to decouple settlement from genesis."
+            "treasury key. Configure a dedicated settlement key to decouple settlement from the treasury."
         )
     return _GENESIS_WALLET_PRIVATE_KEY
 

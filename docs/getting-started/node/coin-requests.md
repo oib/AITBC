@@ -109,7 +109,7 @@ REQUEST_COINS: 1000 ait coins to address 0x71C7656EC7ab88b098defB751B7401B5f6d89
 
 1. **Request received**: Status = PENDING
 2. **Manual approval**: Hub operator approves via CLI
-3. **Transaction execution**: Coins transferred from genesis wallet
+3. **Transaction execution**: Coins transferred from the treasury (genesis) wallet
 4. **Notification**: Sender notified of completion
 
 **Manual approval on hub:**
