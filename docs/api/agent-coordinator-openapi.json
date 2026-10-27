@@ -6447,7 +6447,7 @@
             }
           },
           "503": {
-            "description": "GENESIS_PRIVATE_KEY not configured on this node / GENESIS_ADDRESS not configured on this node",
+            "description": "FAUCET_PRIVATE_KEY or GENESIS_PRIVATE_KEY not configured on this node / FAUCET_ADDRESS or GENESIS_ADDRESS not configured on this node",
             "content": {
               "application/json": {
                 "schema": {
