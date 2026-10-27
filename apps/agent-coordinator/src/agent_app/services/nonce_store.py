@@ -36,12 +36,14 @@ REGISTRATION_NONCE_TTL_SECONDS = 300
 #: Login nonces share the registration TTL — both guard a one-time proof.
 LOGIN_NONCE_TTL_SECONDS = REGISTRATION_NONCE_TTL_SECONDS
 
-_REGISTRATION_KEY_PREFIX = "agent:regnonce:"
-_MESSAGE_KEY_PREFIX = "agent:msgnonce:"
+# Nonce keys live under agentnonce:* — NOT under agent:*, which the
+# agent-discovery registry scans at startup expecting JSON agent records.
+_REGISTRATION_KEY_PREFIX = "agentnonce:reg:"
+_MESSAGE_KEY_PREFIX = "agentnonce:msg:"
 # Phase B1: wallet-login and signed-request nonces live in their own
 # namespaces so a nonce issued for one purpose cannot be consumed by another.
-_LOGIN_KEY_PREFIX = "agent:lognonce:"
-_REQUEST_KEY_PREFIX = "agent:reqnonce:"
+_LOGIN_KEY_PREFIX = "agentnonce:log:"
+_REQUEST_KEY_PREFIX = "agentnonce:req:"
 
 
 def _shared_redis() -> Any | None:
