@@ -50,6 +50,8 @@ Operator procedures for the live fleet:
   enable/rollback, and runtime states.
 - [Fleet wave runbook](ops/fleet-wave-runbook.md) — rolling restarts:
   hold gate, serial one-validator-at-a-time order, readback, ledger.
+- [Faucet runbook](ops/faucet-runbook.md) — the 3 AIT welcome grant:
+  request flow, FAUCET_*/GENESIS_* split, budgets, pause/open, testing.
 - [Withdrawal release runbook](ops/withdraw-release-runbook.md) — the
   receipt-gated AIT→ETH release states, the gas policy
   (estimate/margin/cap), and the `withdraw_admin` recovery commands.
