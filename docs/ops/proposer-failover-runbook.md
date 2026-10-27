@@ -174,5 +174,3 @@ Rehearsal order — same staged shape as drill R6 but longer:
 Abort triggers: any hub1 unit failing to come up healthy after two
 read-back checks, heads diverging, `oom_kill`, or the operator
 stopping the drill — revert toward the pre-drill env diffs.
-
-Coder: C
