@@ -156,14 +156,27 @@ class BridgeValidatorMixin(BridgeBase):
         Returns the ValidatorSet, or None if no validators are registered.
         """
         with self._session_for(chain_id) as session:
-            query = select(BridgeValidator).where(BridgeValidator.chain_id == chain_id)
+            # Refs #674: only active rows may count toward the validator set.
+            # Without this filter a deactivated (is_active=False) row still
+            # loads, counts in ``vset.total`` and stays eligible as a signer
+            # — making deactivation cosmetic (the phantom-set incident could
+            # only be remediated by hard DELETE).
+            query = select(BridgeValidator).where(
+                BridgeValidator.chain_id == chain_id,
+                BridgeValidator.is_active.is_(True),  # type: ignore[attr-defined]
+            )
             if epoch is not None:
                 query = query.where(BridgeValidator.epoch == epoch)
             else:
-                # Get the latest epoch
+                # Get the latest epoch that still has active rows — a newer
+                # epoch whose rows are all deactivated must not shadow an
+                # older set that is still authoritative.
                 latest = session.exec(
                     select(BridgeValidator.epoch)
-                    .where(BridgeValidator.chain_id == chain_id)
+                    .where(
+                        BridgeValidator.chain_id == chain_id,
+                        BridgeValidator.is_active.is_(True),  # type: ignore[attr-defined]
+                    )
                     .order_by(BridgeValidator.epoch.desc())  # type: ignore[attr-defined]
                     .limit(1)
                 ).first()
