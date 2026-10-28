@@ -434,6 +434,49 @@ def _nonce_seen(nonce: str) -> bool:
         conn.close()
 
 
+def _request_freshness_error(sign_payload: dict[str, Any]) -> str | None:
+    """Return why a signed payload fails the replay guard, or None when fresh.
+
+    Same checks as ``_check_request_freshness`` (which logs and wraps this).
+    Reasons are written for the operator reading a 403 detail — in particular
+    the ``target_chain_id`` mismatch message spells out that the field binds
+    the *serving* node's own chain id, not the chain the payload is about
+    (Refs #679: registration payloads for a companion island must carry the
+    destination node's chain id here).
+    """
+    issued = _parse_issued_at(sign_payload.get("issued_at"))
+    if issued is None or abs(time.time() - issued) > _ADMIN_MAX_SKEW_SECS:
+        return "missing, non-finite or stale issued_at (must be within ±5 min of node time)"
+    try:
+        local_chain = resolve_chain_id()
+    except ChainIdNotConfigured:
+        # Fail closed: with no configured chain this node cannot prove the
+        # request targets it.
+        return "no chain id configured on this node"
+    target_chain = sign_payload.get("target_chain_id")
+    if not isinstance(target_chain, str) or not target_chain:
+        return "missing target_chain_id (must be the chain id of the node this request is sent to)"
+    if target_chain != local_chain:
+        return (
+            f"target_chain_id '{target_chain}' does not match this node's chain '{local_chain}' — "
+            "target_chain_id binds the node serving the request (its own chain id), "
+            "not the chain the payload is about; set it to the destination node's chain id"
+        )
+    target_node = sign_payload.get("target_node_id")
+    if target_node is not None:
+        local_node = settings.p2p_node_id or settings.proposer_id or ""
+        # Fail closed: a request naming a target node cannot be honoured by a
+        # node with no configured identity — it cannot prove it is the target.
+        if not local_node or str(target_node) != local_node:
+            return f"target_node_id '{target_node}' does not match this node"
+    nonce = sign_payload.get("nonce")
+    if not isinstance(nonce, str) or not nonce:
+        return "missing nonce"
+    if _nonce_seen(nonce):
+        return "nonce already used"
+    return None
+
+
 def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
     """Replay guard for admin-signed payloads.
 
@@ -443,35 +486,9 @@ def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
     signed message, so they cannot be stripped or swapped without
     invalidating the signature.
     """
-    issued = _parse_issued_at(sign_payload.get("issued_at"))
-    if issued is None or abs(time.time() - issued) > _ADMIN_MAX_SKEW_SECS:
-        _logger.warning("Rejected admin request: missing, non-finite or stale issued_at")
-        return False
-    try:
-        local_chain = resolve_chain_id()
-    except ChainIdNotConfigured:
-        # Fail closed: with no configured chain this node cannot prove the
-        # request targets it.
-        _logger.warning("Rejected admin request: no chain id configured on this node")
-        return False
-    target_chain = sign_payload.get("target_chain_id")
-    if not isinstance(target_chain, str) or not target_chain or target_chain != local_chain:
-        _logger.warning("Rejected admin request: target_chain_id '%s' does not match chain '%s'", target_chain, local_chain)
-        return False
-    target_node = sign_payload.get("target_node_id")
-    if target_node is not None:
-        local_node = settings.p2p_node_id or settings.proposer_id or ""
-        # Fail closed: a request naming a target node cannot be honoured by a
-        # node with no configured identity — it cannot prove it is the target.
-        if not local_node or str(target_node) != local_node:
-            _logger.warning("Rejected admin request: target_node_id '%s' does not match this node", target_node)
-            return False
-    nonce = sign_payload.get("nonce")
-    if not isinstance(nonce, str) or not nonce:
-        _logger.warning("Rejected admin request: missing nonce")
-        return False
-    if _nonce_seen(nonce):
-        _logger.warning("Rejected admin request: nonce already used")
+    reason = _request_freshness_error(sign_payload)
+    if reason is not None:
+        _logger.warning("Rejected admin request: %s", reason)
         return False
     return True
 
@@ -594,19 +611,41 @@ def verify_admin_signature(payload: dict[str, Any], admin_address: str | None, a
     destination. Nonces are recorded in a sqlite file shared by all RPC
     worker processes.
     """
+    reason = admin_signature_failure(payload, admin_address, admin_signature)
+    if reason is None:
+        return True
+    _logger.warning("Rejected admin request: %s", reason)
+    return False
+
+
+def admin_signature_failure(payload: dict[str, Any], admin_address: str | None, admin_signature: str | None) -> str | None:
+    """Return the rejection reason for an admin-signed request, or None when valid.
+
+    Same checks and ordering as ``verify_admin_signature`` — signature first,
+    freshness (nonce spend) after — but the reason string is meant for the
+    403 detail so callers see *which* guard tripped instead of a generic
+    "invalid admin signature" (Refs #679).
+    """
     if not admin_address or not admin_signature:
-        return False
+        return "missing admin_address or admin_signature"
 
     admins = get_bridge_admin_addresses()
     if not admins:
-        _logger.warning("No bridge_admin_addresses configured; rejecting admin request")
-        return False
+        return "no bridge_admin_addresses configured on this node"
 
     if admin_address.lower() not in admins:
-        _logger.warning("Admin address %s is not in bridge_admin_addresses", admin_address)
-        return False
+        return f"admin address {admin_address} is not in bridge_admin_addresses"
 
     sign_payload = {k: v for k, v in payload.items() if k != "admin_signature"}
     if not verify_request_signature(admin_address, admin_signature, sign_payload):
-        return False
-    return _check_request_freshness(sign_payload)
+        return "admin signature does not verify over the payload"
+    return _request_freshness_error(sign_payload)
+
+
+def require_admin_signature(payload: dict[str, Any], admin_address: str | None, admin_signature: str | None) -> None:
+    """Raise HTTPException(403) naming the reason when the admin signature fails."""
+    reason = admin_signature_failure(payload, admin_address, admin_signature)
+    if reason is None:
+        return
+    _logger.warning("Rejected admin request: %s", reason)
+    raise HTTPException(status_code=403, detail=f"Invalid or unauthorized admin signature: {reason}")

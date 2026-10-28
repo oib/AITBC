@@ -23719,7 +23719,7 @@
               }
             ],
             "title": "Target Chain Id",
-            "description": "Replay-guard destination chain binding"
+            "description": "Replay-guard chain binding: the chain id of the node this request is sent to (its own chain) \u2014 NOT the chain_id the header belongs to"
           },
           "target_node_id": {
             "anyOf": [
@@ -25057,7 +25057,7 @@
               }
             ],
             "title": "Target Chain Id",
-            "description": "Replay-guard destination chain binding"
+            "description": "Replay-guard chain binding: the chain id of the node this request is sent to (its own chain) \u2014 NOT the chain_id being registered"
           },
           "target_node_id": {
             "anyOf": [
