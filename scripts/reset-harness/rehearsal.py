@@ -19,10 +19,19 @@ keystore. Every path lives under one scratch root (``--scratch``, default
 minted fresh inside the scratch root and deleted with it — never copied from
 or derived from fleet material.
 
+Custody invariant: every authority address baked into genesis
+(``governance_executors``, ``bond_slash_authority``,
+``bridge_release_authority``, ``escrow_settlement_authority``) must have its
+private key in the designated keystore before height 1 seals — bc-2's
+executors were baked with no recorded keys and GOVERNANCE_EXECUTE is
+unexercisable. ``phase_genesis`` enforces it via the custody check.
+
 Phases (also runnable individually):
 
     rehearsal.py keys        mint the rehearsal keyset under <scratch>/keystore
     rehearsal.py genesis     build + verify the genesis doc, distribute to 5 dirs
+    rehearsal.py custody     prove every genesis authority address has its
+                             private key in keystore/keys.json
     rehearsal.py up          launch the 5 systemd-run transient units
     rehearsal.py wait        block until every instance head reaches N
     rehearsal.py check       all acceptance checks against RPCs and chain DBs
@@ -315,6 +324,71 @@ def _bridge_validators(keys: dict) -> list[dict]:
     return [{"address": k["address"], "public_key": k["public_key"], "epoch": 1} for k in keys["proposers"]]
 
 
+# Genesis chain parameters whose values name authority addresses.
+# ``governance_executors`` is a comma-separated address list; the rest are
+# single addresses. Every address baked under these names must have its
+# private key in the keystore before height 1 seals.
+AUTHORITY_PARAMETERS = (
+    "governance_executors",
+    "bond_slash_authority",
+    "bridge_release_authority",
+    "escrow_settlement_authority",
+)
+
+
+def _keystore_private_keys(keys: dict) -> dict[str, str]:
+    """lowercased address -> private_key for every ``{address, private_key}``
+    entry anywhere in the keystore structure (top-level dicts and lists)."""
+    found: dict[str, str] = {}
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            addr = node.get("address")
+            if isinstance(addr, str) and addr.strip():
+                found[addr.strip().lower()] = str(node.get("private_key") or "").strip()
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(keys)
+    return found
+
+
+def _check_authority_custody(root: Path, genesis: Path | None = None) -> None:
+    """Refuse unless every authority address baked into the genesis
+    parameters has a private key recorded in ``keystore/keys.json`` — the
+    mechanical guard against the bc-2 incident, where the baked
+    ``governance_executors`` had no recorded keys and GOVERNANCE_EXECUTE is
+    unexercisable. Runs inside ``phase_genesis`` after the artifact verifies
+    (before height 1 can seal) and standalone as the ``custody`` subcommand."""
+    genesis = genesis or root / "genesis-build" / "out" / "data" / CHAIN_ID / "genesis.json"
+    key_file = root / "keystore" / "keys.json"
+    if not genesis.exists():
+        raise _fail(f"no built genesis at {genesis} — run `rehearsal.py genesis` first")
+    keys = _load_keys(root)  # fails with the right message when keys.json is absent
+    parameters = json.loads(genesis.read_text()).get("parameters") or {}
+    if not isinstance(parameters, dict):
+        raise _fail(f"{genesis} carries a non-object parameters field")
+    have = _keystore_private_keys(keys)
+    missing: list[str] = []
+    n = 0
+    for name in AUTHORITY_PARAMETERS:
+        for addr in (a.strip() for a in str(parameters.get(name) or "").split(",")):
+            if not addr:
+                continue
+            n += 1
+            pk = have.get(addr.lower())
+            if pk is None:
+                missing.append(f"{name} {addr}: no entry in keystore")
+            elif not pk:
+                missing.append(f"{name} {addr}: keystore entry has no private_key")
+    if missing:
+        raise _fail(f"genesis authority custody missing from {key_file}:\n  - " + "\n  - ".join(missing))
+    print(f"[+] authority custody: {n} genesis authority addresses have private keys in keystore/keys.json")
+
+
 def phase_genesis(root: Path, *, force: bool = False) -> Path:
     keys = _load_keys(root)
     build_dir = root / "genesis-build"
@@ -369,6 +443,10 @@ def phase_genesis(root: Path, *, force: bool = False) -> Path:
         check=True,
         env=child_env,
     )
+
+    # Custody gate: the artifact exists but height 1 has not sealed — refuse
+    # to distribute a genesis whose authority addresses have no keys.
+    _check_authority_custody(root, built)
 
     # One built file -> all five instance dirs (never RPC bootstrap).
     for inst in instances(root):
@@ -2123,6 +2201,7 @@ def main() -> int:
         choices=[
             "keys",
             "genesis",
+            "custody",
             "up",
             "wait",
             "check",
@@ -2220,6 +2299,7 @@ def main() -> int:
 
     # Individual check phases
     dispatch = {
+        "custody": lambda: _check_authority_custody(root),
         "wait": lambda: phase_wait(root, args.height, args.timeout, args.max_load, args.min_avail_mib),
         "check": lambda: _report(phase_check(root)),
         "timing": lambda: phase_timing(root),
