@@ -1,9 +1,10 @@
 """Tests for the BNT-3 retired-surface CLI message (HTTP 410).
 
-BNT-2 retired the protocol-transfer RPC surfaces (``/rpc/staking/stake``,
+The protocol-transfer RPC surfaces (``/rpc/staking/stake``,
 ``/rpc/staking/unstake``, the ``/rpc/agent-staking/*`` writes and the
-``/rpc/bounty/*`` writes) with HTTP 410 — protocol-escrow transfers cannot
-seal at block version 9 (see ``docs/design/v9-unsigned-protocol-transfers.md``).
+``/rpc/bounty/*`` writes) answer HTTP 410 while the v17 payload.auth
+revival is unarmed — below ``STATE_TRANSITION_V17_HEIGHT`` a queued
+transfer could not seal (see ``docs/design/v9-unsigned-protocol-transfers.md``).
 These tests pin the CLI behaviour: a 410 answer prints a clear
 ``Retired RPC surface:`` message carrying the node's own detail, while every
 other error keeps the legacy ``Error staking/unstaking tokens:`` form.

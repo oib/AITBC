@@ -19,6 +19,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from eth_keys import keys
+from eth_utils import keccak
 from aitbc_chain.base_models import Account, AgentStakeRecord, Block, BlockStateDelta, BountyContract, ChainParameter, Stake
 from aitbc_chain.base_models import Transaction as ChainTransaction
 from aitbc_chain.metadata import chain_metadata
@@ -450,6 +452,7 @@ class TestResolverUndoIntegration:
     def _undo_enabled(self, monkeypatch):
         monkeypatch.setattr(sync_settings, "sync_fork_undo_enabled", True)
 
+    @pytest.mark.asyncio
     async def test_nonempty_journaled_segment_reverts_and_wins(self, session_factory, monkeypatch):
         blocks = _seed(session_factory, 4)
         # The ancestor chain must carry the REAL root of the pre-fork account
@@ -525,6 +528,7 @@ class TestResolverUndoIntegration:
             assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 4)).all() == []
             assert _accounts(session) == {}  # the journaled account insert undone
 
+    @pytest.mark.asyncio
     async def test_nonempty_segment_escalates_when_undo_disabled(self, session_factory, monkeypatch):
         """Flag off: a non-empty losing segment must NOT be reverted — the
         resolver refuses and counts sync_fork_reorg_unsafe_total."""
@@ -940,6 +944,65 @@ class TestRequeueAdmission:
         }
         failed = requeue_orphaned_transactions(CHAIN, [tx])
         assert failed == [] and len(probe.added) == 1
+
+    def test_v17_protocol_transfer_readmits_on_valid_auth(self, session_factory, monkeypatch):
+        """An unsigned STAKE_LOCK orphaned from a v17 block proved itself by
+        having been sealed — requeue re-admits it through the internal path
+        once its payload.auth still verifies and binds these fields."""
+        probe = self._ProbeMempool()
+        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: probe)
+        key = keys.PrivateKey(b"\x11" * 32)
+        signer = canonical_address(key.public_key.to_checksum_address())
+        message = {"address": signer.lower(), "amount": 4000, "chain_id": CHAIN, "action": "stake", "nonce": 0, "timestamp": 1}
+        digest = keccak(json.dumps(message, sort_keys=True, separators=(",", ":")).encode())
+        auth = {"signer": signer, "message": message, "signature": key.sign_msg_hash(digest).to_hex()}
+        tx = {
+            "tx_hash": "0x" + "55" * 32,
+            "type": "STAKE_LOCK",
+            "from": signer,
+            "to": ADDR_B,
+            "amount": 4000,
+            "value": 4000,
+            "fee": 0,
+            "nonce": 0,
+            "chain_id": CHAIN,
+            "payload": {"stake_id": "7", "auth": auth},
+        }
+        failed = requeue_orphaned_transactions(CHAIN, [tx])
+        assert failed == [] and len(probe.added) == 1
+
+    def test_v17_protocol_transfer_without_valid_auth_is_dropped(self, session_factory, monkeypatch):
+        """An unsigned STAKE_LOCK whose auth is missing or no longer binds
+        cannot re-enter — it goes to the failed list for reconcile."""
+        probe = self._ProbeMempool()
+        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: probe)
+        key = keys.PrivateKey(b"\x11" * 32)
+        signer = canonical_address(key.public_key.to_checksum_address())
+        # Valid signature, but the signed amount (1000) does not bind the
+        # transfer's 4000 — the same check apply runs.
+        message = {"address": signer.lower(), "amount": 1000, "chain_id": CHAIN, "action": "stake", "nonce": 0, "timestamp": 1}
+        digest = keccak(json.dumps(message, sort_keys=True, separators=(",", ":")).encode())
+        auth = {"signer": signer, "message": message, "signature": key.sign_msg_hash(digest).to_hex()}
+        tx = {
+            "tx_hash": "0x" + "66" * 32,
+            "type": "STAKE_LOCK",
+            "from": signer,
+            "to": ADDR_B,
+            "amount": 4000,
+            "value": 4000,
+            "fee": 0,
+            "nonce": 0,
+            "chain_id": CHAIN,
+            "payload": {"stake_id": "7", "auth": auth},
+        }
+        failed = requeue_orphaned_transactions(CHAIN, [tx])
+        assert len(failed) == 1 and probe.added == []
+        assert "payload-auth" in failed[0]["_requeue_error"]
+
+        # And with no auth at all (AUTO_STAKE shape) — same fail-closed drop.
+        tx["payload"] = {"stake_id": "9", "source": "auto_stake"}
+        failed = requeue_orphaned_transactions(CHAIN, [tx])
+        assert len(failed) == 1 and len(probe.added) == 0
 
 
 class TestCaptureHardening:

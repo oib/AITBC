@@ -130,6 +130,24 @@ def queue_protocol_transfer(
     return get_mempool().add(tx_data, chain_id=chain_id)
 
 
+def protocol_transfers_active(session: Any, chain_id: str) -> bool:
+    """Whether a protocol-escrow transfer queued now could seal.
+
+    True only when the v17 ``payload.auth`` admission is armed for the
+    block that would seal next. The BNT-2 surfaces refuse up front while
+    this is False so a request can never again queue a transfer that sits
+    pending forever — the same honesty the unconditional 410 gave at v9–16.
+    """
+    from sqlmodel import func, select
+
+    from .models import Block
+    from .state.state_transition import get_block_version_for_height
+
+    head = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first()
+    next_height = (head or 0) + 1
+    return get_block_version_for_height(next_height) >= 17
+
+
 def protocol_transfer_confirmed(
     session: Any,
     chain_id: str,

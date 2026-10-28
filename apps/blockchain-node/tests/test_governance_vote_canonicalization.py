@@ -19,8 +19,10 @@ Two layers now stop it:
     to canonicalize.
 
 The stake/unstake signed-message contract the wallet CLI used (signing the
-*lowercase* spelling while submitting the checksummed form) is no longer
-pinned: those routes are retired outright — see ``rpc/retired.py``.
+*lowercase* spelling while submitting the checksummed form) still holds on
+the v17-revived routes — the handlers reconstruct the message with the
+lowercase spelling exactly as before, gated on the
+``protocol_transfers_active`` activation pin; see ``rpc/retired.py``.
 """
 
 from __future__ import annotations
@@ -114,6 +116,7 @@ def test_request_address_passes_non_addresses_through_lowercased() -> None:
 # --- cast_governance_vote: canonicalize at write ---------------------------
 
 
+@pytest.mark.asyncio
 async def test_vote_route_stores_canonical_voter_address(rpc_db) -> None:
     with Session(rpc_db) as session:
         _proposal(session)
@@ -127,6 +130,7 @@ async def test_vote_route_stores_canonical_voter_address(rpc_db) -> None:
         assert vote.voter_address == VOTER
 
 
+@pytest.mark.asyncio
 async def test_vote_route_counts_stakes_of_either_spelling(rpc_db) -> None:
     """Voting power reads every stake spelling — canonical and legacy lowercase."""
     with Session(rpc_db) as session:
@@ -140,6 +144,7 @@ async def test_vote_route_counts_stakes_of_either_spelling(rpc_db) -> None:
     assert result["voting_power"] == 800
 
 
+@pytest.mark.asyncio
 async def test_lowercase_legacy_row_blocks_canonical_revote(rpc_db) -> None:
     """A legacy lowercase row still blocks a re-vote with 400, not a 500 from the index."""
     from fastapi import HTTPException

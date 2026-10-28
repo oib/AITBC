@@ -139,8 +139,9 @@ unchanged for the new shape.
 
 ### 2.4 Version gate / activation height
 
-A new block version (**v16** — v15 is taken by the edge-registration
-de-commit, `EDGE-REG-CONSENSUS-1`) registered in
+A new block version (**v18** — v15 is taken by the edge-registration
+de-commit `EDGE-REG-CONSENSUS-1`, v16 by GPU-ADMISSION-1, v17 by the
+BNT-1 `payload.auth` protocol-transfer revival) registered in
 `get_block_version_for_height` (`state_transition.py:958`) with an
 operator-named activation height:
 
@@ -172,7 +173,7 @@ At/above the gate, for a sender whose address derives as msig:
 
 ### 2.6 Clean refusal by old nodes — free
 
-An old node seeing a v16 msig envelope treats `signature` as empty and
+An old node seeing a v18 msig envelope treats `signature` as empty and
 `payload.auth` as unknown payload → `verify_transaction_signature`
 fails (`SignatureMalformed`/`SignatureMismatch` path). No special-case
 compat code is needed — the refusal is the same path that rejects any
@@ -226,14 +227,14 @@ one.)
    validate the envelope (§2.5). Apply-time code → new block version.
 2. Admission — accept/validate the `payload.auth.scheme = "msig-v1"`
    envelope at/above the gate.
-3. Gate registration — `get_block_version_for_height` gains the v16
+3. Gate registration — `get_block_version_for_height` gains the v18
    entry + operator-named activation height.
 4. `signature_recovery`/`verify_signature` — multi-signature envelope
    decode path (new function; existing single-sig path untouched).
 
 ## 4. Golden vectors / gate additions
 
-- New gate row in the gates table (v16, multisig accounts).
+- New gate row in the gates table (v18, multisig accounts).
 - Vectors: valid m-of-n spend lands; m−1 signatures refused; foreign
   signer refused; duplicate signer signature refused; nonce replay of
   the same envelope refused; pre-activation refusal; derivation
@@ -265,7 +266,7 @@ verify path + gate → CLI → harness scenario → docs/runbook.
 
 - The derivation spec and CLI collection UX (client-side only).
 - **Funding** a derived address — receiving is a normal account credit.
-  ⚠️ Caveat: funds sent **before** the v16 gate activates are locked
+  ⚠️ Caveat: funds sent **before** the v18 gate activates are locked
   until activation (the address has no single key); the CLI should warn.
 - The *spend* path is the only consensus-gated piece — it ships as a
   versioned change with a coordinated fleet restart, **not** a chain
@@ -278,7 +279,7 @@ verify path + gate → CLI → harness scenario → docs/runbook.
   treasury account; who is the tie-break.
 - **Signer holders** — which people/devices hold the treasury signer
   keys, and the custody/backup arrangement per signer.
-- **Activation timing relative to the soak** — whether v16 activates
+- **Activation timing relative to the soak** — whether v18 activates
   during the 3-day soak, right after it, or in a later window (a
   coordinated fleet restart is required either way; activating before
   soak-end puts a consensus change inside the rollback window).
