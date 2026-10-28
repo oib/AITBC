@@ -38,6 +38,8 @@ aitbc governance propose --title <title> --description <desc> --proposer-id <id>
 aitbc governance propose --title "Lower tx fee" --description "Reduce the base fee" --category economics --proposer-id operator-1 --voting-days 7
 ```
 
+> **Known limitation (bc-2 live sweep, 28 Oct):** neither this command's `--wallet` signing path nor the service's proposer-key fallback emits `execution_payload` in the `GOVERNANCE_PROPOSE` payload, which a v13-armed chain requires — the node refuses it at mempool admission (HTTP 400). The relay failure is only logged, so the proposal is still recorded service-side but never seals (no `tx_hash`/`block_height`; a later `execute` is refused by the timelock gate). Sealing a propose today needs a custom signer that sets `execution_payload`.
+
 **Response:**
 
 ```json
@@ -73,6 +75,8 @@ aitbc governance vote --proposal-id <id> --voter-id <id> --vote <option>
 ```bash
 aitbc governance vote --proposal-id prop_1a2b3c4d --voter-id voter-1 --vote for --reason "Support this proposal"
 ```
+
+> **Known limitation (bc-2 live sweep, 28 Oct):** the `GOVERNANCE_VOTE` payload field is `vote_type` (the `--vote` option maps to it). A hand-built payload carrying `vote` instead is admitted to the mempool, drained by the proposer, and skipped — it never seals and the submitter sees no error (only a proposer warning log). Crafting the tx via `aitbc transactions send --type GOVERNANCE_VOTE --amount 0` is refused client-side (`Amount must be positive`), so a custom signer is the workaround for direct submission.
 
 **Response:**
 
