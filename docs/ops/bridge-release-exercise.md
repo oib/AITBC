@@ -115,8 +115,10 @@ live fleet — one lock per finality tier (parameters below):
       `POST /rpc/bridge/validators/register` (Phase 1; the
       `ensure_supported_chain_validators` backfill installs the wrong
       local set by default). `BRIDGE_ADMIN_ADDRESS` identity verified
-      against `bridge-validator-keys.env` first (pre-rotation id on
-      hub1+node1 — confirm it's the intended admin).
+      against `bridge-validator-keys.env` first — intended admin is
+      `0xD80372cb`; the file's pre-rotation `0x02B8F2C6…` id on
+      hub1+node1 is a known-stale field Coder B corrects during I-2
+      (Refs #661).
 - [ ] **The bc-2 `bridge_validators` set is populated** (genesis-seeded;
       verified by `ensure_supported_chain_validators` at startup —
       `BRIDGE_MULTISIG_VALIDATORS=4` is only the fence count
@@ -144,8 +146,8 @@ grep -h '^BRIDGE_\|^MULTI_VALIDATOR_\|^SUPPORTED_CHAINS\|^BLOCK_PRODUCTION_CHAIN
 #   SUPPORTED_CHAINS=bc-2 (unchanged — the island is not hosted on the bc-2 units)
 
 # unexercised: no BRIDGE_RELEASE has ever sealed on the island
-# (run on hub1 or node1 — <island DATA_DIR> per the deploy spec)
-sqlite3 <island DATA_DIR>/data/bc-2-island-1/chain.db \
+# (run on hub1 or node1 — /var/lib/aitbc per the deploy spec)
+sqlite3 /var/lib/aitbc/data/bc-2-island-1/chain.db \
   "SELECT count(*) FROM transaction WHERE type='BRIDGE_RELEASE';"     # → 0
 sqlite3 /var/lib/aitbc/data/bc-2/chain.db \
   "SELECT status, count(*) FROM cross_chain_transfer GROUP BY status;" # → empty
@@ -165,7 +167,7 @@ curl -s "$PRODUCER_RPC/bridge/validators/bc-2-island-1" | python3 -m json.tool
 |---|---|---|
 | confirming nodes | the `bc-2-island-1` units on **hub1 + node1** | only hosts holding both stores (`bc-2` followed + island produced); the relayer skips a target whose store isn't local (`_chain_db_ready`) — observe on either |
 | lock submitter | node0 **`default`** wallet | funded on bc-2 (≥ amount + 0.1% fee, both locks); signs the replay-guarded lock body (`issued_at`+`nonce`) — `aitbc bridge lock --wallet-name default` generates them; submit reaches a **bc-2 producer's** RPC (Phase 2) |
-| recipient | `recipient: <generated at island deploy — record here>` | fresh address generated on `bc-2-island-1` at deploy time (Coder B) — record it in Phase 0 before executing; the release mints credit to it |
+| recipient | `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40` | fresh address generated on `bc-2-island-1` at deploy time (Coder B) — recorded at island deploy (10 AIT genesis alloc); the release mints credit to it |
 | authority key | `BRIDGE_RELEASE_PRIVATE_KEY` / `ESCROW_RELEASE_PRIVATE_KEY` env on the island units | signs the credit; verified against the island's `bridge_release_authority` chain parameter (baked at island genesis); bc-2 keeps its own live authority for the lock side per the env-set ruling |
 | island producers | **hub1 + node1** (2-of-2 PBFT) | dedicated units, own DATA_DIR/env/ports; produce the island blocks the releases seal in. The lock proof's `validator_signatures` come from **bc-2's** block attestations (≥2 per block) — the island side does not feed the threshold |
 
@@ -189,9 +191,9 @@ curl -s "$PRODUCER_RPC/bridge/validators/bc-2-island-1" | python3 -m json.tool
   Both far under `BRIDGE_MAX_LOCK_AMOUNT` = 36,000,000,000 raw = 1000
   AIT (fail-closed: `0`/unset refuses locks in production).
 - **Sender** = node0 `default` wallet (funded on bc-2).
-- **Recipient** — marked placeholder, fill before executing:
-  `recipient: <generated at island deploy — record here>` — a fresh
-  address generated on `bc-2-island-1` at deploy time.
+- **Recipient** — `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40` —
+  recorded at island deploy (a fresh address generated on
+  `bc-2-island-1`, 10 AIT genesis alloc).
 - **Confirming nodes** = the island units on hub1 + node1 (the only
   hosts with both stores); the locks are submitted **from node0** to a
   bc-2 producer's RPC.
@@ -202,17 +204,18 @@ curl -s "$PRODUCER_RPC/bridge/validators/bc-2-island-1" | python3 -m json.tool
 
 Confirm the resolved set: `bc-2-island-1`, Lock A `5000` + Lock B
 `36000000`, sender = node0 `default` (record its bc-2 address),
-confirming nodes = the island units on hub1/node1. Fill in the one
-remaining placeholder — `recipient: <generated at island deploy —
-record here>` — before executing; the run is not valid without it.
+confirming nodes = the island units on hub1/node1. The recipient is
+now recorded: `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40` (generated
+at island deploy — verify it against the deploy record before
+executing; the run is not valid without it).
 Note current bc-2 head height for the evidence log.
 
 ### Phase 1 — companion island standing + bc-2 wiring
 
 - `bc-2-island-1` deployed and sealing (**Coder B's lane**): dedicated
   units on hub1 + node1, own DATA_DIR/env/ports;
-  `<island DATA_DIR>/data/bc-2-island-1/chain.db` exists and blocks
-  seal (`curl -s http://127.0.0.1:<island-rpc-port>/rpc/head` on the
+  `/var/lib/aitbc/data/bc-2-island-1/chain.db` exists and blocks
+  seal (`curl -s http://127.0.0.1:8302/rpc/head` on the
   island unit, or the node's multi-chain head endpoint).
 - `bridge_release_authority` resolvable for `bc-2-island-1` — baked as
   a chain parameter at island genesis (env fallback
@@ -248,12 +251,15 @@ Note current bc-2 head height for the evidence log.
   authorized **bridge admin signature** (`admin_address` +
   `admin_signature` — required whenever `bridge_release_enabled`,
   `rpc/bridge.py:644-654`).
-  - **Admin pre-check first:** confirm `BRIDGE_ADMIN_ADDRESS`
-    (`/etc/aitbc/bridge-validator-keys.env`) is the *intended* admin
-    identity before registering — the file still holds a
-    pre-rotation id on hub1+node1. Registrations under the wrong
-    admin are refused; registrations under a compromised-stale id
-    would be accepted.
+  - **Admin pre-check first:** the intended admin is
+    `BRIDGE_ADMIN_ADDRESS=0xD80372cb` (the real
+    `BRIDGE_ADMIN_ADDRESSES` value — Refs #661).
+    `/etc/aitbc/bridge-validator-keys.env` on hub1+node1 carried a
+    stale pre-rotation `BRIDGE_ADMIN_ADDRESS=0x02B8F2C6…` — inert but
+    stale; Coder B corrects the field to `0xD80372cb` during I-2.
+    Verify the corrected value is in place before registering:
+    registrations under the wrong admin are refused; registrations
+    under a compromised-stale id would be accepted.
   - Verify the resolved sets afterwards:
     `GET /rpc/bridge/validators/bc-2` **on an island unit** must list
     bc-2's 4 real validators, and `GET
@@ -274,13 +280,13 @@ PRODUCER_RPC=http://<bc-2-producer>:8202/rpc   # hub / node1 / node2 / hub1 — 
 # Lock A — 5,000 units (small tier: 3-confirmation path)
 aitbc bridge lock --rpc-url "$PRODUCER_RPC" \
   --target-chain bc-2-island-1 \
-  --sender <node0-default-address> --recipient <island-addr> \
+  --sender <node0-default-address> --recipient 0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40 \
   --amount 5000 --wallet-name default
 
 # Lock B — 36,000,000 units = 1 AIT (large tier: 6-confirmation path)
 aitbc bridge lock --rpc-url "$PRODUCER_RPC" \
   --target-chain bc-2-island-1 \
-  --sender <node0-default-address> --recipient <island-addr> \
+  --sender <node0-default-address> --recipient 0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40 \
   --amount 36000000 --wallet-name default
 ```
 
@@ -298,7 +304,7 @@ aitbc bridge lock --rpc-url "$PRODUCER_RPC" \
 
 ```bash
 # on hub1 or node1 — the island's dedicated unit (name per deploy spec)
-journalctl -u <island-unit> --since "-10min" | \
+journalctl -u aitbc-blockchain-node-island --since "-10min" | \
   grep -iE 'bridge (relayer|header|finaliz)|confirm'
 sqlite3 /var/lib/aitbc/data/bc-2/chain.db \
   "SELECT transfer_id,status,target_tx_hash FROM cross_chain_transfer;"
@@ -321,13 +327,13 @@ roughly twice as many blocks:
 ### Phase 4 — observe seal → completed
 
 ```bash
-# on hub1 or node1 — the island chain store (<island DATA_DIR> per deploy spec)
-sqlite3 <island DATA_DIR>/data/bc-2-island-1/chain.db \
+# on hub1 or node1 — the island chain store (/var/lib/aitbc per deploy spec)
+sqlite3 /var/lib/aitbc/data/bc-2-island-1/chain.db \
   "SELECT tx_hash,block_height,sender,recipient,type FROM transaction \
     WHERE type='BRIDGE_RELEASE';"                    # → 1 row per lock, 2 total
-sqlite3 <island DATA_DIR>/data/bc-2-island-1/chain.db \
+sqlite3 /var/lib/aitbc/data/bc-2-island-1/chain.db \
   "SELECT status FROM cross_chain_transfer WHERE transfer_id='<id>';"   # → completed
-curl -s http://127.0.0.1:<island-rpc-port>/rpc/bridge/transfer/<id> | python3 -m json.tool
+curl -s http://127.0.0.1:8302/rpc/bridge/transfer/<id> | python3 -m json.tool
 ```
 
 - The release seals in a `bc-2-island-1` block; the record flips to
@@ -345,7 +351,7 @@ curl -s http://127.0.0.1:<island-rpc-port>/rpc/bridge/transfer/<id> | python3 -m
   identical `state_root`/`aux_state_root` at the sealed heights
   (`/rpc/blocks-range` or the chain store), and the recipient's
   balance delta is identical.
-- `sqlite3` the `account` row for `<island-addr>` on each island host
+- `sqlite3` the `account` row for `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40` on each island host
   — same balance everywhere, = 36,005,000 units (Lock A + Lock B;
   the release credits the full locked amount on the target chain).
 
@@ -398,7 +404,7 @@ lane hiccup while the island is up), it goes through these commands only.
       sealed on `bc-2-island-1`: `sender='bridge_release'`, unsigned at
       top level, `payload.bridge_signature` verifies against the
       island's `bridge_release_authority` (amounts 5,000 and
-      36,000,000, recipient `<island-addr>`).
+      36,000,000, recipient `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40`).
 - [ ] Records `completed` on both chain stores.
 - [ ] Identical release txs + state roots on hub1 and node1; identical
       recipient balance (36,005,000 units).
