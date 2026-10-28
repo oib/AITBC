@@ -1154,10 +1154,10 @@ class BridgeTransferMixin(BridgeBase):
         """True when this node holds an initialized bridge store for ``chain_id``.
 
         ``bridge_supported_chains`` may list chains produced by other nodes;
-        opening a session for one of those creates an empty chain DB with no
-        tables, and every finalizer pass would then spam errors. Probe once,
-        mark the chain unavailable, and let the finalizer skip it — transfers
-        targeting it keep their honest non-terminal state.
+        this node holds no store for those, and the db layer refuses to
+        create or open one. Probe the file's existence, mark the chain
+        unavailable, and let the finalizer skip it — transfers targeting it
+        keep their honest non-terminal state.
 
         The negative verdict is re-probed every
         ``bridge_chain_unavailable_retry_seconds`` (default 300): a probe that
