@@ -57,7 +57,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 899
+- **Markdown files under docs/**: 902
 
 | Directory | Files | Description |
 |---|---|---|
@@ -76,7 +76,7 @@ docs/
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 26 | Deployment and infrastructure setup |
-| [design](design/) | 16 | Design documents and decisions |
+| [design](design/) | 17 | Design documents and decisions |
 | [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 29 | New-user onboarding and setup |
@@ -85,7 +85,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 39 | Operational runbooks and key handling |
+| [ops](ops/) | 41 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
