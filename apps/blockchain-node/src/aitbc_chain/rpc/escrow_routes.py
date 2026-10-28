@@ -1022,6 +1022,156 @@ async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int
     return None
 
 
+async def _find_existing_receipt_claim(job_id: str) -> str | None:
+    """Return the hash of a RECEIPT_CLAIM already on-chain for ``job_id``, if any.
+
+    Same dedupe contract as _find_existing_release/_find_existing_fee_sweep: a
+    sealed claim makes every later attempt a no-op.
+    """
+    try:
+        r = await SharedHttpClient.get(
+            f"{_HUB_RPC_URL}/transactions?transaction_type=RECEIPT_CLAIM&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
+        )
+        if r.status_code != 200:
+            return None
+        for tx in r.json() or []:
+            if (tx.get("payload") or {}).get("job_id") == job_id:
+                settled_hash = tx.get("tx_hash")
+                return str(settled_hash) if settled_hash else None
+    except Exception as e:  # noqa: BLE001 - probe containment: lookup failure must not fail the release
+        _logger.warning("RECEIPT_CLAIM: settled-claim lookup failed for job_id=%s: %s", job_id, e)
+    return None
+
+
+async def _settlement_next_nonce(sender: str) -> int:
+    """Next free nonce for the settlement sender: the sealed account nonce plus
+    any txs the sender already holds in the proposer mempool. The release a
+    claim follows occupies the sealed-nonce slot, so an in-request claim must
+    queue behind it — the mempool lookahead admits the +1."""
+    sealed = await _get_account_nonce(sender)
+    try:
+        r = await SharedHttpClient.get(
+            f"{_HUB_RPC_URL}/mempool?chain_id={_chain_id()}&limit={_FUNDING_LOCK_MEMPOOL_LIMIT}", timeout=5.0
+        )
+        if r.status_code != 200:
+            return sealed
+        pending_nonces = [
+            tx["nonce"]
+            for tx in r.json().get("transactions") or []
+            if isinstance(tx, dict)
+            and str(tx.get("from") or tx.get("sender") or "").lower() == sender.lower()
+            and isinstance(tx.get("nonce"), int)
+            and not isinstance(tx.get("nonce"), bool)
+        ]
+        if pending_nonces:
+            return int(max(sealed, max(pending_nonces) + 1))
+    except Exception as e:  # noqa: BLE001 - probe containment: a mempool miss degrades to the sealed nonce
+        _logger.warning("RECEIPT_CLAIM: mempool nonce probe failed for %s: %s", sender, e)
+    return sealed
+
+
+async def _submit_receipt_claim_tx(receipt: dict[str, Any] | None, job_id: str, contract_id: str, provider: str) -> str | None:
+    """Submit the RECEIPT_CLAIM that seals the job's signed receipt on-chain (#687).
+
+    The claim carries the receipt's issuance record in ``payload.receipt``, so
+    apply materialises the ``receipt`` row deterministically on every node —
+    no service-local row is needed for the claim to validate, and the carried
+    record never mints (``minted_amount`` stays NULL). Best-effort like the
+    fee sweep: every failure logs and returns None; the release stands.
+    """
+    if not isinstance(receipt, dict):
+        return None
+    receipt_id = str(receipt.get("receipt_id") or "")
+    signature = receipt.get("signature")
+    attestations = receipt.get("attestations")
+    if not receipt_id:
+        _logger.warning("RECEIPT_CLAIM skipped for job_id=%s: supplied receipt has no receipt_id", job_id)
+        return None
+    if not isinstance(signature, dict) or not signature or not isinstance(attestations, list) or not attestations:
+        _logger.warning(
+            "RECEIPT_CLAIM skipped for job_id=%s: receipt %s is unsigned or carries no coordinator attestation",
+            job_id,
+            receipt_id,
+        )
+        return None
+    try:
+        existing = await _find_existing_receipt_claim(job_id)
+        if existing:
+            _logger.info(
+                "RECEIPT_CLAIM already settled for job_id=%s (%s); not resubmitting",
+                job_id,
+                existing,
+            )
+            return existing
+        settlement_key = _get_settlement_key()
+        settlement_address = _get_settlement_address()
+        if not settlement_key or not settlement_address:
+            _logger.warning("RECEIPT_CLAIM skipped for job_id=%s: settlement key/address not configured", job_id)
+            return None
+
+        recipient = await _resolve_chain_account(provider) or settlement_address
+        nonce = await _settlement_next_nonce(settlement_address)
+        record_payload = {k: v for k, v in receipt.items() if k not in ("signature", "attestations")}
+        tx = {
+            "from": settlement_address,
+            "to": recipient,
+            "amount": 0,
+            "fee": _fee_for(0),
+            "nonce": nonce,
+            "type": "RECEIPT_CLAIM",
+            "chain_id": _chain_id(),
+            "payload": {
+                "action": "receipt_claim",
+                "job_id": job_id,
+                "contract_id": contract_id,
+                "receipt_id": receipt_id,
+                "receipt": {
+                    "receipt_id": receipt_id,
+                    "job_id": job_id,
+                    "provider": provider,
+                    "payload": record_payload,
+                    "miner_signature": signature,
+                    "coordinator_attestations": attestations,
+                },
+            },
+        }
+        # Same rule as release/refund/sweep: no wall-clock in the payload, an
+        # identical retry at the same nonce must hash identically.
+        signing_hash = _compute_tx_signing_hash(tx)
+        tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
+
+        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            raw_tx_hash = result.get("transaction_hash")
+            actual_tx_hash: str | None = str(raw_tx_hash) if raw_tx_hash else None
+            _logger.info(
+                "RECEIPT_CLAIM TX submitted: hash=%s receipt_id=%s from=%s job_id=%s",
+                actual_tx_hash,
+                receipt_id,
+                settlement_address,
+                job_id,
+            )
+            return actual_tx_hash
+        _logger.error(
+            "RECEIPT_CLAIM TX rejected %s for job_id=%s receipt_id=%s — release stands, claim retries "
+            "on the next settlement call: %s",
+            resp.status_code,
+            job_id,
+            receipt_id,
+            resp.text[:200],
+        )
+    except Exception as e:  # noqa: BLE001 - submission failure must not fail the release; claim retries
+        _logger.error(
+            "RECEIPT_CLAIM TX submission failed for job_id=%s receipt_id=%s — release stands, claim "
+            "retries on the next settlement call: %s",
+            job_id,
+            receipt_id,
+            e,
+        )
+    return None
+
+
 async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> str | None:
     """Re-offer the sweep for an already-released job — the retry surface.
 
@@ -1577,11 +1727,18 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 # left behind. Deduped on-chain; residue derived from sealed
                 # chain legs, provable only.
                 await _retry_sweep_released_escrow(job_id, record, session)
+                # #687: re-offer the RECEIPT_CLAIM for an already-released job —
+                # the retry surface for a claim the earlier release call could
+                # not land. Deduped on-chain; never fails this route.
+                claim_tx_hash = await _submit_receipt_claim_tx(
+                    request.get("receipt"), job_id, getattr(record, "contract_id", None) or "", record.provider
+                )
                 return {
                     "success": True,
                     "contract_id": getattr(record, "contract_id", None) or "",
                     "job_id": job_id,
                     "message": "Escrow already released",
+                    "receipt_claim_tx_hash": claim_tx_hash,
                     "released_amount": _settled_leg_ait(record.released_amount, record.released_at, record.amount),
                     "refunded_amount": _settled_leg_ait(record.refunded_amount, None, record.amount),
                     "refund_tx_hash": record.refund_tx_hash,
@@ -1758,6 +1915,12 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 "reinvest_stake_id": None,
             }
 
+        # #687: seal the job's signed receipt on-chain with a RECEIPT_CLAIM. The
+        # claim carries the issuance record, so every node materialises the same
+        # row at apply; it queues behind the release's mempool nonce slot and is
+        # best-effort — a claim failure never rolls the release back.
+        claim_tx_hash = await _submit_receipt_claim_tx(request.get("receipt"), job_id, contract_id, provider_addr)
+
         # Owed change (F1b/A6): the change leg is never submitted in-request.
         # Signed now it would carry the release's own sealed nonce and collide
         # on the (sender, N) mempool slot; waited-for it would out-live the
@@ -1852,6 +2015,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             "refund_tx_hash": None,
             "change_owed_amount": str(unbilled_amount) if unbilled_amount > 0 else "0",
             "tx_hash": tx_hash,
+            "receipt_claim_tx_hash": claim_tx_hash,
             "settlement_status": "settled" if tx_hash else "unsettled",
             "released_at": released_at.isoformat(),
             "reinvest_amount": str(reinvest_amount),
