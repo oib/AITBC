@@ -49,6 +49,7 @@ from .gpu_resources import (
     gpu_deregister_error,
     retired_gpu_error,
 )
+from .pure_state_transition import _carried_receipt_record
 from .v9_policy import count_v9_would_reject, v9_signature_verdict
 from .v13_policy import count_v13_shadow_checked, count_v13_would_reject
 from .liquidity_transition import (
@@ -1695,20 +1696,28 @@ class StateTransition:
         # block execution, so a release/refund/transfer to a never-before-seen
         # address is valid and becomes deterministic after mining.
         if tx_type == "RECEIPT_CLAIM":
-            receipt_id = tx_data.get("payload", {}).get("receipt_id")
+            payload = tx_data.get("payload", {}) or {}
+            receipt_id = payload.get("receipt_id")
             if not receipt_id:
                 return (False, "RECEIPT_CLAIM transactions must include receipt_id in payload")
             receipt = session.exec(
                 select(Receipt).where(Receipt.chain_id == chain_id, Receipt.receipt_id == receipt_id)
             ).first()
             if not receipt:
-                return (False, f"Receipt not found: {receipt_id}")
-            if receipt.status != "pending":
-                return (False, f"Receipt already claimed or invalid: {receipt.status}")
-            if not receipt.miner_signature or not isinstance(receipt.miner_signature, dict):
-                return (False, f"Receipt {receipt_id} has invalid miner signature")
-            if not receipt.coordinator_attestations or not isinstance(receipt.coordinator_attestations, list):
-                return (False, f"Receipt {receipt_id} has invalid coordinator attestations")
+                # A claim may carry its own issuance: payload.receipt holds the
+                # signed record and apply materialises the row deterministically,
+                # so nodes that never served the issuing RPC reach the same
+                # verdict (#687 — before this, nothing ever wrote the row, so the
+                # type was admissible but nothing could honestly emit it).
+                if _carried_receipt_record(payload, receipt_id) is None:
+                    return (False, f"Receipt not found: {receipt_id}")
+            else:
+                if receipt.status != "pending":
+                    return (False, f"Receipt already claimed or invalid: {receipt.status}")
+                if not receipt.miner_signature or not isinstance(receipt.miner_signature, dict):
+                    return (False, f"Receipt {receipt_id} has invalid miner signature")
+                if not receipt.coordinator_attestations or not isinstance(receipt.coordinator_attestations, list):
+                    return (False, f"Receipt {receipt_id} has invalid coordinator attestations")
         if tx_type == "IPFS_SUBSCRIPTION":
             payload = tx_data.get("payload", {}) or {}
             if isinstance(payload, str):
@@ -2126,10 +2135,54 @@ class StateTransition:
         if tx_type == "GOVERNANCE_EXECUTE":
             self._handle_governance_execute(session, chain_id, tx_data, tx_hash, block_height, block_version=block_version)
         if tx_type == "RECEIPT_CLAIM":
-            receipt_id = tx_data.get("payload", {}).get("receipt_id")
+            payload = tx_data.get("payload", {}) or {}
+            receipt_id = str(payload.get("receipt_id") or "")
             receipt = session.exec(
                 select(Receipt).where(Receipt.chain_id == chain_id, Receipt.receipt_id == receipt_id)
             ).first()
+            if receipt is None:
+                # Carried issuance (#687): materialise the receipt row from the
+                # claim payload — every node builds the same claimed record, so
+                # the claim seals identically with or without a service-written
+                # row. minted_amount stays NULL: carried issuance never mints.
+                record = _carried_receipt_record(payload, receipt_id)
+                if record is not None:
+                    receipt = Receipt(
+                        chain_id=chain_id,
+                        job_id=str(record.get("job_id") or payload.get("job_id") or ""),
+                        receipt_id=receipt_id,
+                        block_height=block_height,
+                        payload=record.get("payload") if isinstance(record.get("payload"), dict) else {},
+                        miner_signature=record["miner_signature"],
+                        coordinator_attestations=record["coordinator_attestations"],
+                        minted_amount=None,
+                        status="claimed",
+                        claimed_at=(
+                            block_time
+                            if (block_version is not None and block_version >= 18 and block_time is not None)
+                            else datetime.now(UTC)
+                        ),
+                        claimed_by=sender_addr,
+                    )
+                    session.add(receipt)
+                    logger.info(
+                        "Materialised claimed receipt %s from carried issuance (job=%s claimed_by=%s)",
+                        receipt_id,
+                        receipt.job_id,
+                        sender_addr,
+                    )
+            elif receipt.status == "pending" and not receipt.minted_amount:
+                # A service-recorded pending row claimed with no mint attached:
+                # settle it so the row surface converges with the
+                # materialised-claimed shape other nodes build (#687).
+                receipt.status = "claimed"
+                receipt.claimed_at = (
+                    block_time
+                    if (block_version is not None and block_version >= 18 and block_time is not None)
+                    else datetime.now(UTC)
+                )
+                receipt.claimed_by = sender_addr
+                logger.info("Claimed receipt %s (no mint): claimed_by=%s", receipt_id, sender_addr)
             if receipt and receipt.minted_amount:
                 # The raw-SQL fee debit above already landed in the row, but
                 # the ORM snapshot of sender_account still holds the

@@ -619,7 +619,14 @@ class BlockImportMixin(SyncBase):
                         key=lambda d: tx_hash_to_index.get(d.tx_hash, 0),
                     )
                     # Batch-write all deltas to the DB.
-                    apply_deltas_to_db(session, successful_deltas, self._chain_id, block_version)
+                    apply_deltas_to_db(
+                        session,
+                        successful_deltas,
+                        self._chain_id,
+                        block_version,
+                        block_height=block_data["height"],
+                        block_time=timestamp,
+                    )
                     # Create Transaction records for all successful txs.
                     for delta in successful_deltas:
                         tx_data = tx_hash_to_data.get(delta.tx_hash, {})

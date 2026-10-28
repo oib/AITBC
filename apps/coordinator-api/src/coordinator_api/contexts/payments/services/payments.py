@@ -1340,6 +1340,13 @@ class PaymentService:
             release_body["provider_address"] = provider_address
             release_body["auto_reinvest_pct"] = str(auto_reinvest_pct)
             release_body["auto_reinvest_address"] = provider_address
+        # #687: hand the signed receipt of record to the node so the release can
+        # seal its RECEIPT_CLAIM — the claim tx carries the record, so apply
+        # materialises the receipt row deterministically on every node.
+        if job is not None:
+            receipt = self._get_receipt_of_record(job)
+            if receipt and receipt.get("receipt_id"):
+                release_body["receipt"] = receipt
         return release_body
 
     def _record_release_outcome(

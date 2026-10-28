@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from sqlmodel import Session, select
@@ -380,6 +380,9 @@ class StateDelta:
     # For RECEIPT_CLAIM: the receipt_id and minted_amount (if claimed)
     receipt_id: str | None = None
     minted_amount: int | None = None
+    # For RECEIPT_CLAIM: the issuance record carried in payload.receipt — lets
+    # apply_deltas_to_db materialise the receipt row when the DB lacks it (#687).
+    receipt_record: dict[str, Any] | None = None
     # For IPFS_SUBSCRIPTION: subscription record to be written to the DB
     ipfs_subscription: dict[str, Any] | None = None
     # For ESCROW_LOCK v2/v3: additional accounts (e.g. provider) that the
@@ -1048,7 +1051,8 @@ def compute_state_delta(
     # RECEIPT_CLAIM: note the receipt_id for later DB processing
     # (receipt validation requires DB access, so we just record it here)
     if tx_type == "RECEIPT_CLAIM":
-        receipt_id = tx_data.get("payload", {}).get("receipt_id")
+        payload = tx_data.get("payload", {})
+        receipt_id = payload.get("receipt_id") if isinstance(payload, dict) else None
         if not receipt_id:
             return StateDelta(
                 sender=sender,
@@ -1062,9 +1066,40 @@ def compute_state_delta(
                 tx_hash=tx_hash,
             )
         delta.receipt_id = receipt_id
+        # A claim may carry its own issuance (payload.receipt): keep the record
+        # on the delta so apply_deltas_to_db can materialise the row when the
+        # local DB does not have it yet (#687).
+        delta.receipt_record = _carried_receipt_record(payload, receipt_id)
         # minted_amount will be set during apply_deltas_to_db (requires DB read)
 
     return delta
+
+
+def _carried_receipt_record(payload: Any, receipt_id: str) -> dict[str, Any] | None:
+    """Return the issuance record a RECEIPT_CLAIM carries in ``payload.receipt``, or None.
+
+    A well-formed record lets apply materialise the ``receipt`` row
+    deterministically on every node, so a claim seals identically whether or
+    not the node ever served the RPC that issued the receipt (previously the
+    row had to pre-exist in the local DB, which no live path ever wrote —
+    the type was admissible but unsealable, #687). The record never sets
+    ``minted_amount``: carried issuance is claim-only — it marks the receipt
+    claimed but mints nothing.
+    """
+    if not isinstance(payload, dict):
+        return None
+    record = payload.get("receipt")
+    if not isinstance(record, dict):
+        return None
+    if record.get("receipt_id") != receipt_id:
+        return None
+    miner_signature = record.get("miner_signature")
+    if not isinstance(miner_signature, dict) or not miner_signature:
+        return None
+    attestations = record.get("coordinator_attestations")
+    if not isinstance(attestations, list) or not attestations:
+        return None
+    return record
 
 
 def _ensure_extra_accounts_in_map(account_map: dict[str, Account], extra_accounts: list[str] | None, chain_id: str) -> None:
@@ -1154,6 +1189,9 @@ def apply_deltas_to_db(
     deltas: list[StateDelta],
     chain_id: str,
     block_version: int = 2,
+    *,
+    block_height: int | None = None,
+    block_time: datetime | None = None,
 ) -> None:
     """Write accumulated state deltas to the DB in a single batch.
 
@@ -1167,6 +1205,10 @@ def apply_deltas_to_db(
         deltas: List of successful StateDelta objects.
         chain_id: Chain identifier.
         block_version: State-transition rule version active for the block.
+        block_height: Height of the block being applied — stamped onto
+            receipt rows a carried-issuance RECEIPT_CLAIM materialises.
+        block_time: Sealed block-header timestamp for the same rows'
+            ``claimed_at`` (falls back to wall-clock when absent).
     """
     successful = [d for d in deltas if d.success]
     if not successful:
@@ -1266,6 +1308,33 @@ def apply_deltas_to_db(
             receipt = session.exec(
                 select(Receipt).where(Receipt.chain_id == chain_id, Receipt.receipt_id == delta.receipt_id)
             ).first()
+            if receipt is None and delta.receipt_record is not None:
+                # Carried issuance (#687): materialise the receipt row from the
+                # claim payload so every node converges on the same claimed
+                # record — minted_amount stays NULL (claim never mints).
+                receipt = Receipt(
+                    chain_id=chain_id,
+                    job_id=str(delta.receipt_record.get("job_id") or ""),
+                    receipt_id=delta.receipt_id,
+                    block_height=block_height,
+                    payload=delta.receipt_record.get("payload")
+                    if isinstance(delta.receipt_record.get("payload"), dict)
+                    else {},
+                    miner_signature=delta.receipt_record["miner_signature"],
+                    coordinator_attestations=delta.receipt_record["coordinator_attestations"],
+                    minted_amount=None,
+                    status="claimed",
+                    claimed_at=block_time or datetime.now(UTC),
+                    claimed_by=delta.sender,
+                )
+                session.add(receipt)
+            elif receipt is not None and receipt.status == "pending" and not receipt.minted_amount:
+                # A service-recorded pending row claimed with no mint attached:
+                # settle it so nodes holding the row converge with the
+                # materialised-claimed shape other nodes build (#687).
+                receipt.status = "claimed"
+                receipt.claimed_by = delta.sender
+                receipt.claimed_at = block_time or datetime.now(UTC)
             if receipt and receipt.minted_amount:
                 # Add minted amount to sender balance
                 session.execute(
