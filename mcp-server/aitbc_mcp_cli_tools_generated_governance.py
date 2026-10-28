@@ -345,6 +345,12 @@ def aitbc_governance_propose(
     category: Annotated[str | None, Field(description="Proposal category")] = None,
     proposer_address: Annotated[str | None, Field(description="Proposer wallet address (for on-chain submission)")] = None,
     params: Annotated[str | None, Field(description="JSON-encoded parameters for parameter_change proposals")] = None,
+    execution_payload: Annotated[
+        str | None,
+        Field(
+            description="JSON the EXECUTE binds to (v13). Defaults to --params; required for any non-parameter_change proposal"
+        ),
+    ] = None,
     voting_days: Annotated[int | None, Field(description="Voting period in days")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)")
@@ -371,6 +377,7 @@ def aitbc_governance_propose(
             "proposer_id": "proposer-id",
             "proposer_address": "proposer-address",
             "params": "params",
+            "execution_payload": "execution-payload",
             "voting_days": "voting-days",
             "wallet_name": "wallet",
             "password_file": "password-file",
