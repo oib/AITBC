@@ -20,7 +20,7 @@ from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Block, ChainParameter, ChainParameterHistory, Transaction
-from .utils import get_chain_id, verify_admin_signature
+from .utils import get_chain_id, require_admin_signature
 
 _logger = get_logger(__name__)
 _last_import_time = 0
@@ -376,8 +376,7 @@ async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[st
     """Import chain state from JSON for manual synchronization (admin only)"""
     async with _import_lock:
         try:
-            if not verify_admin_signature(import_data, import_data.get("admin_address"), import_data.get("admin_signature")):
-                raise HTTPException(status_code=403, detail="Invalid or unauthorized admin signature")
+            require_admin_signature(import_data, import_data.get("admin_address"), import_data.get("admin_signature"))
             return _import_chain_data(import_data)
         except HTTPException:
             raise
@@ -415,8 +414,7 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
     set by whoever the operator picks as the sync source.
     """
     try:
-        if not verify_admin_signature(peer_data, peer_data.get("admin_address"), peer_data.get("admin_signature")):
-            raise HTTPException(status_code=403, detail="Invalid or unauthorized admin signature")
+        require_admin_signature(peer_data, peer_data.get("admin_address"), peer_data.get("admin_signature"))
         peer_url = peer_data.get("peer_url")
         target_height = peer_data.get("target_height")
         if not peer_url:

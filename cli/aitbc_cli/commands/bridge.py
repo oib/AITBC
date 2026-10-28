@@ -614,14 +614,18 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
     }
     if admin_private_key and admin_address:
         payload["admin_address"] = admin_address
-        # Freshness/target fields the node's replay guard requires in signed payloads
+        # Freshness/target fields the node's replay guard requires in signed payloads.
+        # target_chain_id binds the node SERVING the request — its own chain
+        # id, not the chain being registered (Refs #679).
         payload["issued_at"] = datetime.now(UTC).isoformat()
         payload["nonce"] = secrets.token_hex(16)
-        payload["target_chain_id"] = chain_id
+        payload["target_chain_id"] = chain_id  # fallback: same-chain registrations still work unprobed
         try:
             info = httpx.get(f"{rpc_url.rstrip('/')}/network-info", timeout=5).json()
             if info.get("node_id") not in (None, "unknown"):
                 payload["target_node_id"] = info["node_id"]
+            if info.get("chain_id"):
+                payload["target_chain_id"] = info["chain_id"]
         except Exception:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
             pass
         # Admin signature covers the payload excluding admin_signature itself

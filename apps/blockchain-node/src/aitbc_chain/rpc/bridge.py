@@ -21,7 +21,7 @@ from .utils import (
     check_signed_request_freshness,
     get_chain_id,
     record_guard_outcome,
-    verify_admin_signature,
+    require_admin_signature,
     verify_request_signature,
 )
 
@@ -655,8 +655,7 @@ async def register_validator(request: Request, reg_data: dict[str, Any]) -> dict
         if getattr(settings, "bridge_release_enabled", False):
             admin_address = reg_data.get("admin_address")
             admin_signature = reg_data.get("admin_signature")
-            if not verify_admin_signature(reg_data, admin_address, admin_signature):
-                raise HTTPException(status_code=403, detail="Invalid or unauthorized bridge admin signature")
+            require_admin_signature(reg_data, admin_address, admin_signature)
 
         bridge.register_validator(
             chain_id=cast(str, chain_id),
@@ -841,8 +840,7 @@ async def store_block_header(request: Request, header_data: dict[str, Any]) -> d
         if getattr(settings, "bridge_release_enabled", False):
             admin_address = header_data.get("admin_address")
             admin_signature = header_data.get("admin_signature")
-            if not verify_admin_signature(header_data, admin_address, admin_signature):
-                raise HTTPException(status_code=403, detail="Invalid or unauthorized bridge admin signature")
+            require_admin_signature(header_data, admin_address, admin_signature)
 
         header = bridge.store_block_header(header_data)
         return {
