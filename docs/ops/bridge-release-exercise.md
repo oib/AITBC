@@ -1,8 +1,17 @@
 # BRIDGE_RELEASE live exercise — runbook (DRAFT FOR APPROVAL)
 
-> **Status: APPROVED — awaiting execution.** Parameters resolved and
-> approved by operator decision (cards 1B + 2 + "do it with proposed
-> values"). Flips to EXECUTED when the exercise actually lands.
+> **Status: EXECUTED (28 Oct) — green run.** Approved by operator
+> decision (cards 1B + 2 + card-11 30M resize). Evidence:
+>
+> - **Lock A** (5,000u, 3-conf tier): `BRIDGE_LOCK` bc-2 @8932
+>   `0xfb2bb32c…` → island `BRIDGE_RELEASE` @156 `b13a6cdc…`
+> - **Lock B** (30,000,000u, 6-conf tier): `BRIDGE_LOCK` bc-2 @9004
+>   `0x1dc9a5d8…` → island `BRIDGE_RELEASE` @198 `0aca483b…`
+> - ledger `pending → confirmed → completed` ×2; recipient balance
+>   360,000,000 → 360,005,000 → 390,005,000 units; state+aux roots
+>   identical hub1↔node1 @198.
+>
+> Two incidents ran and were recovered — warnings below.
 > V-1 waived live exercises for all 22 fixture-replayable types but
 > explicitly reserved the one live `BRIDGE_RELEASE` exercise "pending
 > operator approval" — see
@@ -458,6 +467,24 @@ lane hiccup while the island is up), it goes through these commands only.
   header accumulates its tier's confirmations (3 for Lock A, 6 for
   Lock B); a couple of silent passes right after a lock seals is
   normal.
+
+## Topology rule + incidents observed during the executed run
+
+- **Lock intake lives on hub's RPC** — hub holds the sole
+  `BRIDGE_RELEASE_PRIVATE_KEY` (K-1). Submit locks to hub's bc-2 RPC,
+  then `scripts/ops/bridge-transplant.sh` moves the `pending` ledger
+  row into hub1's bc-2 db and fires the rpc-island relay from there.
+  **Not** co-located intake: `cross_chain_transfer` is rpc-local, so
+  the island's own rpc unit is the only correct relayer for the
+  island leg — Refs #662.
+- **Incident — mis-relay (Refs #662):** the first lock attempt relayed
+  from the wrong unit's rpc view — relayer scoping matters; the
+  transplant script exists precisely because intake (hub, key
+  custody) and relay (island co-located) live on different hosts.
+- **Incident — hub1 drain-skip:** hub1's bc-2 rpc lacked the intake
+  key needed for the transplanted row's relay, so its mempool drain
+  skipped it — an intake-key prerequisite on the relayer host, caught
+  and fixed during the run.
 
 ## Operator sign-off
 
