@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-10-27
+**Last Updated**: 2026-10-28
 
 ---
 
@@ -57,7 +57,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 891
+- **Markdown files under docs/**: 892
 
 | Directory | Files | Description |
 |---|---|---|
@@ -85,7 +85,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 35 | Operational runbooks and key handling |
+| [ops](ops/) | 36 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 12 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |

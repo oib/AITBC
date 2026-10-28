@@ -45,6 +45,10 @@ Operator procedures for the live fleet:
   at 46,100, healthy signs, the failure decision tree, and rollback limits.
 - [Bridge deposit canary](ops/bridge-canary-runbook.md) — staged
   ETH→AIT canary after the shadow window.
+- [BRIDGE_RELEASE exercise](ops/bridge-release-exercise.md) — DRAFT for
+  the V-1-reserved live release: bc-2 lock → relayer confirm →
+  authority-signed credit sealed on the target chain → replay
+  determinism; ends at sign-off, not execution.
 - [Sell escrow runbook](ops/sell-escrow-runbook.md) — the keyed-escrow
   AIT→ETH sell flow: env keys, the ops-signer-style escrow key slot,
   enable/rollback, and runtime states.
