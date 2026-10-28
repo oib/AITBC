@@ -950,7 +950,9 @@ class ChainSettings(BaseSettings):
     # unarmed: the activation height is a separate operator pin, set on
     # every host together with the validator restart wave — a mid-rollout
     # mixed set would reject blocks as aux_state_root mismatches.
-    state_transition_v18_height: int | None = None
+    state_transition_v18_height: int | None = (
+        9600  # armed 9600 fleet-wide 2026-10-28 (env pin -> literal per the v17 pattern); None keeps the rule unarmed for future configs; per-chain env still overrides
+    )
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
