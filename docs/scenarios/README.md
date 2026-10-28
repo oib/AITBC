@@ -219,11 +219,11 @@ the play(s) that can seal it on-chain.
 | `ESCROW_FEE_SWEEP` | settlement sweeper (protocol-emitted, authority-signed) | no scenario — ops checker: [first-sweep-observation](../ops/first-sweep-observation.md) |
 | `GPU_REGISTER` / `GPU_ALLOCATE` / `GPU_DEREGISTER` | `aitbc gpu-onchain` | 09 |
 | `GPU_MARKET` (`offer`/`software_offer`/`software_job`) | `aitbc market offer`, job receipts | 26, 34, 41, 50 |
-| `STAKE_LOCK` / `STAKE_RELEASE` | `aitbc stake` / `aitbc unstake` | 01, 17; 83 (refusals only) |
+| `STAKE_LOCK` / `STAKE_RELEASE` | `aitbc stake` / `aitbc unstake` → revived staking/agent-staking RPCs (protocol `payload.auth` emissions) | 01, 17; 83 — refusals-only under v9–v16 (surfaces 410-retired); sealable again at v17+ once `STATE_TRANSITION_V17_HEIGHT` is armed |
 | `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` | `aitbc bond` | 48 |
-| `BOUNTY_LOCK` / `BOUNTY_PAYOUT` / `BOUNTY_REFUND` | protocol escrow (keyless) | no scenario — replay suite only; `PAYOUT`/`REFUND` are unsealable unsigned under v9 (see below) |
+| `BOUNTY_LOCK` / `BOUNTY_PAYOUT` / `BOUNTY_REFUND` | protocol escrow (keyless) via revived `/rpc/bounty/*` | no scenario — replay suite + revived endpoints; `PAYOUT`/`REFUND` were unsealable unsigned under v9–v16, seal at v17+ carrying `payload.auth` (see below) |
 | `BRIDGE_LOCK` / `BRIDGE_WITHDRAW` | `aitbc wallet bridge`, `aitbc bridge` | 20, 59, 76 |
-| `BRIDGE_RELEASE` / `BRIDGE_REFUND` | bridge monitor (authority-issued credits) | 59 end-to-end; one live `BRIDGE_RELEASE` exercise remains reserved per V-1 |
+| `BRIDGE_RELEASE` / `BRIDGE_REFUND` | bridge monitor (authority-issued credits) | 59 end-to-end; one live `BRIDGE_RELEASE` exercise remains reserved per V-1 — draft runbook: [bridge-release-exercise](../ops/bridge-release-exercise.md) |
 | `GOVERNANCE_PROPOSE` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` | `aitbc governance` (client-signed, relayed) | 17 |
 | `LIQUIDITY_DEPOSIT` / `LIQUIDITY_WITHDRAW` / `LIQUIDITY_CLAIM` | `aitbc wallet liquidity-stake` / `liquidity-unstake` / `liquidity-claim` | 01; 83 (refusals only) |
 | `RECEIPT_CLAIM` | protocol-internal | no scenario — replay suite only |
@@ -240,3 +240,13 @@ types that never sealed under v9 is waived in favor of
 `test_v9_type_coverage_replay.py::test_v9_type_replayed[<TYPE>]`
 (fixture-signed blocks replayed twice asserting identical state). That
 suite — not this directory — is the canonical per-type coverage.
+
+Post-v17 note (28 Oct): under v9–v16 the protocol-emitted
+`STAKE_*`/`BOUNTY_*` transfers were *unsealable* (unsigned top level,
+v9 exempts only `BRIDGE_*`). v17 — `STATE_TRANSITION_V17_HEIGHT` —
+admits them carrying verified `payload.auth`, and the retired RPC
+surfaces return behind an activation gate (HTTP 410 while unarmed): see
+[v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution)
+and [v17-activation-runbook](../ops/v17-activation-runbook.md). The
+`HTLC_*` and unsigned `AUTO_STAKE` shapes remain dead — no auth to
+verify — so their replay-suite citations still stand.
