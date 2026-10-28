@@ -184,7 +184,47 @@ on the exact reset code — it does not shrink this list.
   genesis write path) stays parked.
 - Soak length; window date; maintenance-notice lead.
 
-## 9. Operator sign-off
+## 9. Findings for bc-3
+
+Four bc-2-program lessons that must shape the **next** chain at genesis
+design time — each is cheap before the build and expensive or impossible
+after height 1 seals.
+
+1. **Committed-table membership audit** (Refs #649). A table joined to
+   the committed fingerprint whose only writers are node-local RPC
+   handlers is a fork vector: `stake` sat in `COMMITTED_TABLES` while
+   `/v1/staking/*` wrote it at queue time on one node only — the
+   single-node committed-row mechanism, mechanism 3 of
+   [v14-aux-root-nondeterminism.md](../design/v14-aux-root-nondeterminism.md).
+   For bc-3, audit **every** domain table's writer-set against its
+   committed membership at design time — `edge_node_registration`
+   (re-scoped out at v15) and `stake` (v18 candidate) are the
+   precedents.
+2. **Env enumeration** (Refs #655). Every new env var must enter the
+   fleet checker's enumerated set at introduction.
+   `AGENT_ECONOMICS_OPERATOR_ADDRESS` and
+   `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` both caused incidents by landing
+   outside the enumeration/loaded-file conventions — the sweep pass
+   runs in the rpc unit, so a pin placed in the node env never reached
+   it. The standing record of which vars are exercised (and which are
+   waived) is
+   [v1-v9-live-exercise-waivers.md](../decisions/v1-v9-live-exercise-waivers.md).
+3. **Authority custody.** `governance_executors` keys must exist in a
+   known store **before** post-reset height 1 seals — bc-2's executor
+   keys are genesis-baked and lost; §2 is the gate this finding feeds.
+   Coder B's custody check covers it:
+   `scripts/ops/key-audit.py --find-address <addr>` walks every env /
+   keystore / wallet file that holds a key deriving to the address —
+   backups included, the key itself never printed.
+4. **Operator-pair env pattern.** The signing and verifying sides of an
+   authority pair deliberately live in different env files:
+   `AGENT_ECONOMICS_OPERATOR_KEY` is in the coordinator env (hub —
+   signing side); `AGENT_ECONOMICS_OPERATOR_ADDRESS` is in
+   `aitbc-blockchain-rpc.env` (all nodes — verifying side). The
+   placement is the design: verifiers run where the key must never
+   exist. Documented here so nobody "consolidates" them into one file.
+
+## 10. Operator sign-off
 
 - [ ] §1 evidence rows closed (or explicitly waived for this cut)
 - [ ] §2 custody checklist complete — every genesis authority has a
