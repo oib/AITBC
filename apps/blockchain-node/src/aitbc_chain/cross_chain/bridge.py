@@ -126,11 +126,17 @@ class CrossChainBridge(BridgeTransferMixin, BridgeValidatorMixin, BridgeFinality
             params = list(sig.parameters.values())
             if not params:
                 return False
-            # A single positional/keyword parameter is treated as chain_id.
-            return len(params) == 1 and params[0].kind in (
+            # The first positional/keyword parameter is treated as chain_id;
+            # any further parameters must be optional so a call with just the
+            # chain_id succeeds (e.g. session_scope(chain_id, create_ok=False)).
+            return params[0].kind in (
                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 inspect.Parameter.KEYWORD_ONLY,
                 inspect.Parameter.POSITIONAL_ONLY,
+            ) and all(
+                p.default is not inspect.Parameter.empty
+                or p.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+                for p in params[1:]
             )
         except (TypeError, ValueError):
             return False
