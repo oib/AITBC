@@ -1086,12 +1086,22 @@ class BridgeTransferMixin(BridgeBase):
         tables, and every finalizer pass would then spam errors. Probe once,
         mark the chain unavailable, and let the finalizer skip it — transfers
         targeting it keep their honest non-terminal state.
+
+        The negative verdict is re-probed every
+        ``bridge_chain_unavailable_retry_seconds`` (default 300): a probe that
+        failed on a transient condition (store file not yet created, sqlite
+        lock held by the producing process during startup) must not silence
+        the chain for the rest of the process's lifetime — a permanent cache
+        entry is exactly how a finalizer pass goes quiet with only a single
+        INFO line to show for it.
         """
         unavailable = getattr(self, "_unavailable_bridge_chains", None)
         if unavailable is None:
-            self._unavailable_bridge_chains: set[str] = set()
+            self._unavailable_bridge_chains: dict[str, float] = {}
             unavailable = self._unavailable_bridge_chains
-        if chain_id in unavailable:
+        retry_after = float(getattr(settings, "bridge_chain_unavailable_retry_seconds", 300))
+        failed_at = unavailable.get(chain_id)
+        if failed_at is not None and (time.monotonic() - failed_at) < retry_after:
             return False
         try:
             with self._session_for(chain_id) as session:
@@ -1099,10 +1109,17 @@ class BridgeTransferMixin(BridgeBase):
                 # have the table without GAP-47 columns (release_amount etc.)
                 # and only a full-row select detects that.
                 session.exec(select(CrossChainTransfer).limit(1)).first()
+            if failed_at is not None:
+                unavailable.pop(chain_id, None)
+                logger.info(
+                    "Bridge store for chain %s became available on re-probe; resuming finalizer passes for it",
+                    chain_id,
+                )
             return True
         except Exception as e:
-            unavailable.add(chain_id)
-            logger.info(
+            unavailable[chain_id] = time.monotonic()
+            log = logger.debug if failed_at is not None else logger.info
+            log(
                 "Bridge store for chain %s is not initialized on this node (%s); "
                 "skipping it in finalizer passes — transfers targeting it stay pending",
                 chain_id,
@@ -1194,9 +1211,22 @@ class BridgeTransferMixin(BridgeBase):
         normal ``confirm_transfer`` verification + release path. Transfers
         that cannot yet settle (lock unsealed, finality pending, validator
         set missing) stay ``pending`` — the honest intermediate state.
+
+        Scope (#662): this process only relays transfers whose target is its
+        OWN ``settings.chain_id``. ``confirm_transfer`` queues the
+        BRIDGE_RELEASE into this process's mempool, and only the proposer of
+        this node's own chain drains that mempool — relaying a transfer that
+        targets another chain would mint a release tx no block producer ever
+        seals, stranding the lock. A bc-2 rpc therefore relays only
+        bc-2-target transfers and an island rpc only island-target ones; the
+        rpc of the target chain sees the pending row because it follows the
+        source chain's store.
         """
         relayed = 0
-        pending = [t for t in self.list_pending_transfers(chain_id) if t.source_chain == chain_id]
+        own_chain = str(getattr(settings, "chain_id", "") or "")
+        pending = [
+            t for t in self.list_pending_transfers(chain_id) if t.source_chain == chain_id and t.target_chain == own_chain
+        ]
         for transfer in pending:
             if not self._chain_db_ready(transfer.target_chain):
                 # The release must be written to the target chain's store;
@@ -1248,9 +1278,41 @@ class BridgeTransferMixin(BridgeBase):
         relayer_enabled = getattr(settings, "bridge_relayer_enabled", True) and getattr(
             settings, "bridge_release_enabled", False
         )
+        # Chains whose worker-thread pass has not returned yet. to_thread
+        # cannot be cancelled once running: a pass that blocks inside sqlite
+        # (the producing process holding a write lock, or a long backfill
+        # commit at ~0.75 headers/second) would otherwise stall the whole
+        # loop — every later chain's phases go silent with nothing logged,
+        # which is how a relay phase can never fire while the loop looks
+        # healthy. Each pass gets ``bridge_finalizer_pass_timeout`` seconds;
+        # on timeout the worker is abandoned (marked in-flight so passes for
+        # the same chain never stack) and the loop moves on to the next chain.
+        pass_timeout = float(getattr(settings, "bridge_finalizer_pass_timeout", 900))
+        inflight = getattr(self, "_finalizer_inflight", None)
+        if inflight is None:
+            self._finalizer_inflight: set[str] = set()
+            inflight = self._finalizer_inflight
         while True:
             try:
                 for chain_id in self._known_chains():
+                    if chain_id in inflight:
+                        logger.debug(
+                            "Bridge finalizer pass for chain %s still running in a worker thread; skipping",
+                            chain_id,
+                        )
+                        continue
+                    inflight.add(chain_id)
+
+                    def _run(cid: str = chain_id) -> None:
+                        # The mark is cleared inside the worker so it is
+                        # released when the pass actually returns — not when
+                        # wait_for gave up on it — which keeps two passes for
+                        # the same chain from ever running concurrently.
+                        try:
+                            self._finalizer_pass(cid, relayer_enabled)
+                        finally:
+                            inflight.discard(cid)
+
                     # Every phase of a pass is synchronous SQLModel work, and the
                     # first pass after a restart is a backfill: one commit per
                     # block the bridge header table is behind, measured at 0.75
@@ -1264,7 +1326,16 @@ class BridgeTransferMixin(BridgeBase):
                     # calls are plain ``def``, and every session is opened inside
                     # the call from a NullPool engine with check_same_thread
                     # disabled, so no session or connection crosses a thread.
-                    await asyncio.to_thread(self._finalizer_pass, chain_id, relayer_enabled)
+                    try:
+                        await asyncio.wait_for(asyncio.to_thread(_run), timeout=pass_timeout)
+                    except TimeoutError:
+                        logger.error(
+                            "Bridge finalizer pass for chain %s exceeded %ss; worker thread abandoned, other chains continue",
+                            chain_id,
+                            pass_timeout,
+                        )
+                    except Exception:
+                        logger.exception("Bridge finalizer pass failed for chain %s", chain_id)
             except Exception:
                 logger.exception("Bridge release finalizer loop failed")
             await asyncio.sleep(interval)

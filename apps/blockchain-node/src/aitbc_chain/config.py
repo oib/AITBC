@@ -552,6 +552,16 @@ class ChainSettings(BaseSettings):
     bridge_batch_size: int = 10  # Max transfers per batch operation
     bridge_monitor_interval: int = 60  # Seconds between bridge health checks
     bridge_header_sync_batch: int = 500  # Max block headers mirrored into the bridge table per finalizer pass
+    # Seconds a single chain's finalizer pass may occupy the worker thread
+    # before the loop abandons it and moves on (the abandoned thread keeps
+    # running; a new pass for that chain is skipped until it returns). Guards
+    # the finalizer loop against a silently wedged sqlite call starving the
+    # other chains' phases.
+    bridge_finalizer_pass_timeout: int = 900
+    # Seconds before a chain whose bridge store failed the readiness probe is
+    # re-probed. A transient failure (store file not yet created, sqlite lock
+    # during startup) must not silence the chain for the process's lifetime.
+    bridge_chain_unavailable_retry_seconds: int = 300
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
     bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
     # Maximum per-lock amount in compute units. 0 = unlimited in
