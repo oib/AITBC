@@ -58,6 +58,20 @@ presence check. Both cases are strict-xfail in the suite; making them
 sealable needs a consensus change (admit `payload.auth` at v9, or sign
 the envelope) — an operator decision, flagged here rather than waived.
 
+**Resolved (2026-10-28) — BNT-1 decided, option 1A.** The operator chose
+the consensus change, delivered as a new state-transition height rather
+than a v9 amendment: `STATE_TRANSITION_V17_HEIGHT` (unset = unarmed)
+admits unsigned protocol transfers carrying a well-formed
+`payload.auth` — `STAKE_LOCK`, `STAKE_RELEASE`, `BOUNTY_LOCK`,
+`BOUNTY_PAYOUT`, `BOUNTY_REFUND` — with the auth re-verified at apply in
+both apply paths and at remote attestation. HTLC emissions and unsigned
+`AUTO_STAKE` carry no auth and stay retired (option 3). The mechanism is
+documented in
+[v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution);
+implementation commit `7f88f7381`. The strict-xfail pins stay — they
+record the historical v9 defect this decision repaired, replayed at v9
+rules on purpose.
+
 ## What is NOT waived
 
 - The **live `BRIDGE_RELEASE` exercise**: kept because only a live release
