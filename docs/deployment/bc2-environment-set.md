@@ -38,7 +38,6 @@ drift apart.
 | `STATE_TRANSITION_V2_HEIGHT` … `STATE_TRANSITION_V14_HEIGHT` | `1` each | falsy thresholds are *inactive*, not height-0; `1` makes producer and replay agree v14 from block 1 (`apps/blockchain-node/tests/golden/GATES.md` `gates1` proof) |
 | `STATE_TRANSITION_V16_HEIGHT` | keep | GPU-ADMISSION-1 gate; unarmed until the operator pins a height fleet-wide — do not write `1` |
 | `BRIDGE_LOCK_LEAF_V2_HEIGHT` | `1` | `>=` gate — activates from block 1 |
-| `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` | `1` | permits first-block sweep |
 | `MULTI_VALIDATOR_CONSENSUS_ENABLED` | `true` | fleet value |
 | `MULTI_VALIDATOR_MIN_ATTESTATIONS` | `2` | fleet value; rehearsal sealed with quorum 2 |
 | `MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS` | `15` | fleet value — **write explicitly on node0** (it currently drifts to the 1.0 default) |
@@ -96,6 +95,8 @@ drift apart.
 | `GOSSIP_BACKEND` | `redis` | **required, proven in rehearsal**: the `/rpc/subscribe/ws` forwarder subscribes the RPC process's own broker; under `mesh` it stays silent and subscribed followers starve. The live fleet already resolves `redis` here (secrets file wins). |
 | `ENABLE_BLOCK_PRODUCTION` | `false` | hub pins this today via `aitbc-blockchain-rpc-override.env` |
 | `BLOCKCHAIN_RPC_API_KEY` / `BLOCKCHAIN_RPC_API_KEY_PEERS` | by name only | RPC key + accepted peer keys — the subscribe/heartbeat/lease auth list |
+| `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` | `1` | permits first-block sweep — **RPC unit, not node**: the sweep pass runs inside `aitbc-blockchain-rpc`; the node-unit pin never reaches it (the zero-sweep defect root cause) |
+| `STATE_TRANSITION_V17_HEIGHT` | `8900` | code literal since `13f72546f` — env override-only; bc-2 env pins removed 28 Oct |
 
 All other names are identical to the node-unit table.
 
