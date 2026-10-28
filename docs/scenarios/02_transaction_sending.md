@@ -91,6 +91,16 @@ Transaction submitted: 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0
 Transaction sent: 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0d3e5f7a9b
 ```
 
+> **Known limitation (bc-2 live sweep, 28 Oct):** `send` accepts
+> `--amount 0` only for the chain's zero-value record types mirrored in
+> the CLI — `MESSAGE`, `GOVERNANCE_EXECUTE`, `GPU_REGISTER`,
+> `GPU_ALLOCATE`, `GPU_MARKET`. Any other `--type` — including
+> `GOVERNANCE_PROPOSE`/`GOVERNANCE_VOTE` (and `GPU_DEREGISTER`, which
+> the chain only adds to the zero-value set from v10) — is refused
+> client-side with `Amount must be positive`. `batch` entries carry no
+> `type` at all, so a `0` amount never passes there either.
+> Self-built zero-amount records need a custom signer.
+
 ### Step 2: Send with Non-Interactive Password (Automation)
 
 For automated agent workflows, provide the password via environment variable or file to avoid TTY prompts:

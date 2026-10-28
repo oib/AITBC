@@ -30,7 +30,7 @@ This scenario demonstrates two real CLI surfaces:
 - `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `close`, `execute`, `list`, `get`, `status`). This is the canonical group.
 - `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed path. The `aitbc operations` group is **deprecated and hidden** from `aitbc --help`; it is kept here only for `voting-power`/`delegate`, which have no `aitbc governance` equivalent (on-chain staking now has the canonical `aitbc stake`).
 
-Live two-node validation so far has proven `aitbc governance status`. Propose/vote/execute against the service are live: with `--wallet <name>` the CLI signs the `GOVERNANCE_*` transaction with your own key and the service verifies and relays it to the chain (client-signed submission, GAP-50). Without `--wallet` the service falls back to its configured proposer key, which only works for that one address. Execution of a passed parameter-change proposal into a running service is still the open P1.7 piece (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)).
+Live two-node validation so far has proven `aitbc governance status`. Propose/vote/execute against the service are live: with `--wallet <name>` the CLI signs the `GOVERNANCE_*` transaction with your own key and the service verifies and relays it to the chain (client-signed submission, GAP-50). Without `--wallet` the service falls back to its configured proposer key, which only works for that one address. Execution of a passed parameter-change proposal into a running service is still the open P1.7 piece (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)). Two CLI gaps surfaced by the bc-2 live sweep (28 Oct) are flagged inline at Steps 1 and 3.
 
 ### Use Case
 
@@ -101,6 +101,18 @@ aitbc governance propose \
 
 To put the proposal on-chain, add `--wallet mywallet` (and `--password` if the wallet is encrypted). The CLI signs the `GOVERNANCE_PROPOSE` tx with that wallet and the service relays it — the returned record then carries a `tx_hash`, `block_height`, and `voting_ends_block`. `--proposer-address` is optional in that mode; it must match the wallet's address if given.
 
+> **Known limitation (bc-2 live sweep, 28 Oct):** neither the
+> client-signed `--wallet` payload nor the service's own proposer-key
+> builder emits `execution_payload`, which a `GOVERNANCE_PROPOSE` must
+> carry from state-transition v13 — on a v13-armed chain the node
+> refuses it at mempool admission (HTTP 400). The service treats the
+> relay as best-effort and only logs the failure, so the proposal is
+> still recorded but never seals (no `tx_hash`/`block_height`, and a
+> later `execute` is refused by the timelock gate). The sweep sealed
+> `prop_76855f71` with a custom signer that sets `execution_payload`
+> (see [v1-v9 waivers](../decisions/v1-v9-live-exercise-waivers.md));
+> CLI support is a pending gap.
+
 **Expected output** (the returned `proposal_id` is used by all later steps):
 
 ```
@@ -152,6 +164,18 @@ aitbc governance vote \
 ```
 
 With `--wallet mywallet` the vote is wallet-signed and relayed on-chain as `GOVERNANCE_VOTE`; the payload's `voting_power` is the voter's real on-chain balance snapshot and the service rejects a payload whose power does not match the chain.
+
+> **Known limitation (bc-2 live sweep, 28 Oct):** the on-chain vote
+> field is `vote_type` (the `--wallet` path emits it correctly). A
+> hand-crafted `GOVERNANCE_VOTE` payload using `vote` instead passes
+> mempool admission, is drained by the proposer, and is skipped — it
+> never seals, and no error reaches the submitter (only a proposer
+> warning log). A direct `aitbc transactions send --type
+> GOVERNANCE_VOTE --amount 0` is also refused client-side (`Amount
+> must be positive`) — the generic send path allows `--amount 0` only
+> for the zero-value type set (`MESSAGE`, `GOVERNANCE_EXECUTE`,
+> `GPU_REGISTER`, `GPU_ALLOCATE`, `GPU_MARKET`) — so a custom signer
+> is the current workaround for self-built `GOVERNANCE_*` records.
 
 **Expected output:**
 
