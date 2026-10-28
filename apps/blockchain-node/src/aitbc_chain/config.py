@@ -905,6 +905,17 @@ class ChainSettings(BaseSettings):
     # default) keeps the rule unarmed: the activation height is a separate
     # operator pin, set on every host together with the validator restart wave.
     state_transition_v16_height: int | None = None
+    # v17 (BNT-1 revival, operator ruling 28 Oct — multisig-accounts moves to
+    # v18): the v9 signature rule additionally admits ``STAKE_LOCK``,
+    # ``STAKE_RELEASE``, ``BOUNTY_LOCK``, ``BOUNTY_PAYOUT`` and
+    # ``BOUNTY_REFUND`` carrying a well-formed ``payload.auth`` in place of a
+    # top-level sender signature — the keyless protocol escrow cannot sign and
+    # the auth is re-verified for binding immediately after (option 1 of
+    # docs/design/v9-unsigned-protocol-transfers.md). HTLC_* and unsigned
+    # AUTO_STAKE stay dead (they emit no auth). ``None`` keeps the rule
+    # unarmed: the activation height is a separate operator pin, set on every
+    # host together with the validator restart wave.
+    state_transition_v17_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its

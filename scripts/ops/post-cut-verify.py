@@ -78,7 +78,7 @@ from dataclasses import dataclass, field
 
 SEVERITY = {"STOP": "STOP", "INVESTIGATE": "INVESTIGATE", "NOTE": "NOTE"}
 
-GATE_NAMES = [f"STATE_TRANSITION_V{i}_HEIGHT" for i in range(2, 15)] + [
+GATE_NAMES = [f"STATE_TRANSITION_V{i}_HEIGHT" for i in range(2, 18)] + [
     "BRIDGE_LOCK_LEAF_V2_HEIGHT",
     "ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT",
 ]

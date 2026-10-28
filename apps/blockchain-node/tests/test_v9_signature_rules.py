@@ -21,7 +21,11 @@ from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.metrics import metrics_registry
 from aitbc_chain.rpc.utils import sign_transaction_data
-from aitbc_chain.state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, v9_signature_verdict
+from aitbc_chain.state.v9_policy import (
+    V9_UNSIGNED_ALLOWED_TX_TYPES,
+    V17_PAYLOAD_AUTH_TX_TYPES,
+    v9_signature_verdict,
+)
 from aitbc_chain.sync import ChainSync
 from sqlmodel import Session, create_engine, select
 
@@ -977,3 +981,447 @@ class TestAttesterTxChecks:
         asyncio.run(svc._handle_request(self._request([self._unsigned_bound_tx()])))
         assert not broker.published
         assert metrics_registry._counters.get("v9_would_reject_attest_missing_signature_total") == 1.0
+
+
+# --------------------------------------------------------------------------
+# v17 (BNT-1 revival): payload.auth admission for protocol transfers
+# --------------------------------------------------------------------------
+
+
+def _stake_escrow_addr() -> str:
+    from aitbc_chain.protocol_escrow import stake_escrow_address
+
+    return stake_escrow_address()
+
+
+def _bounty_escrow_addr() -> str:
+    from aitbc_chain.protocol_escrow import bounty_escrow_address
+
+    return bounty_escrow_address()
+
+
+def _request_sig(private_key: str, message: dict[str, Any]) -> str:
+    """Sign a request-shaped message the way ``verify_request_signature``
+    rebuilds it: keccak256 over the canonical JSON minus ``signature``."""
+    from aitbc.crypto.crypto import sign_transaction_hash
+    from eth_utils import keccak
+
+    canonical = json.dumps(message, sort_keys=True, separators=(",", ":")).encode()
+    return sign_transaction_hash("0x" + keccak(canonical).hex(), private_key)
+
+
+def _payload_auth(signer: str, private_key: str, message: dict[str, Any]) -> dict[str, Any]:
+    """The ``payload.auth`` envelope ``queue_protocol_transfer`` embeds."""
+    return {"signer": signer, "message": message, "signature": _request_sig(private_key, message)}
+
+
+def _stake_lock_auth(message_overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    """A user-staking-shaped auth: the wallet signs the stake request and the
+    RPC embeds it — the exact authorization the v17 rule re-verifies."""
+    message = {
+        "action": "stake",
+        "address": ADDR_VICTIM,
+        "amount": 999,
+        "chain_id": CHAIN,
+        "stake_id": "s-1",
+        "nonce": 0,
+        "timestamp": 1_700_000_000,
+    }
+    message.update(message_overrides or {})
+    return _payload_auth(ADDR_VICTIM, KEY_VICTIM, message)
+
+
+def _unsigned_stake_lock(auth: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The production STAKE_LOCK shape: unsigned top level, auth in payload."""
+    tx = _unsigned_served_tx(
+        to=_stake_escrow_addr(),
+        type="STAKE_LOCK",
+        amount=999,
+        fee=0,
+        payload={"stake_id": "s-1", "lock_days": 30},
+    )
+    if auth is not None:
+        tx["payload"]["auth"] = auth
+    tx["tx_hash"] = _content_hash(tx)
+    return tx
+
+
+def _unsigned_bounty_payout(auth: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Bounty escrow → winner, unsigned, operator auth in payload."""
+    tx = _unsigned_served_tx(
+        to=ADDR_ATTACKER,
+        type="BOUNTY_PAYOUT",
+        amount=999,
+        fee=0,
+        payload={"bounty_id": "b-1", "submission_id": "sub-1"},
+    )
+    tx["from"] = _bounty_escrow_addr()
+    if auth is not None:
+        tx["payload"]["auth"] = auth
+    tx["tx_hash"] = _content_hash(tx)
+    return tx
+
+
+def _seed_bounty_escrow_funded(session_factory) -> None:
+    with session_factory() as session:
+        session.add(Account(chain_id=CHAIN, address=_bounty_escrow_addr(), balance=10**6, nonce=0))
+
+
+class TestV17PayloadAuth:
+    """BNT-1 revival at the import path: unsigned protocol transfers carry
+    ``payload.auth`` and seal only at/above the v17 rule version."""
+
+    def test_v17_unsigned_stake_lock_with_auth_applies(self, session_factory):
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        result = _import(sync, _block(1, [_unsigned_stake_lock(_stake_lock_auth())], version=17))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        assert metrics_registry._counters.get("v9_would_reject_total") is None
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            escrow = session.get(Account, (CHAIN, _stake_escrow_addr()))
+            assert victim is not None and victim.balance == 10**9 - 999
+            assert victim.nonce == 1  # unsigned internals still bump the sender nonce
+            assert escrow is not None and escrow.balance == 999
+
+    def test_v17_unsigned_stake_lock_no_auth_rejected(self, session_factory):
+        """v17 admits the auth shape, not unsigned protocol txs generally."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        _import(sync, _block(1, [_unsigned_stake_lock()], version=17))
+
+        assert metrics_registry._counters.get("v9_would_reject_missing_signature_stake_lock_total") == 1.0
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+            assert session.get(Account, (CHAIN, _stake_escrow_addr())) is None
+
+    def test_v17_unsigned_stake_lock_malformed_auth_rejected(self, session_factory):
+        """An auth that lacks the shape (no message/signature) fails the
+        verdict's presence rule — same reason as no auth at all."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        tx = _unsigned_stake_lock()
+        tx["payload"]["auth"] = {"signer": ADDR_VICTIM}
+        tx["tx_hash"] = _content_hash(tx)
+        _import(sync, _block(1, [tx], version=17))
+
+        assert metrics_registry._counters.get("v9_would_reject_missing_signature_stake_lock_total") == 1.0
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+    def test_v17_unsigned_stake_lock_bad_auth_signature_rejected(self, session_factory):
+        """Well-formed but signed by the wrong key: the verdict admits the
+        shape, then the binding verify rejects — a distinct failure from
+        missing_signature (no v9 counter fires)."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        message = {"action": "stake", "address": ADDR_VICTIM, "amount": 999, "chain_id": CHAIN}
+        forged = {"signer": ADDR_VICTIM, "message": message, "signature": _request_sig(KEY_ATTACKER, message)}
+        _import(sync, _block(1, [_unsigned_stake_lock(forged)], version=17))
+
+        assert metrics_registry._counters.get("v9_would_reject_total") is None
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+    def test_v17_unsigned_stake_lock_bad_binding_rejected(self, session_factory):
+        """A captured "stake" signature must not ride a different transfer:
+        the signed action mismatches the tx type's expected action."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        _import(sync, _block(1, [_unsigned_stake_lock(_stake_lock_auth({"action": "unstake"}))], version=17))
+
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+    def test_v16_unsigned_stake_lock_with_auth_still_rejected(self, session_factory):
+        """The admission is version-gated: the identical tx one version below
+        keeps its v9 verdict — historical blocks replay identically."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        _import(sync, _block(1, [_unsigned_stake_lock(_stake_lock_auth())], version=16))
+
+        assert metrics_registry._counters.get("v9_would_reject_missing_signature_stake_lock_total") == 1.0
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+    def test_v17_signed_stake_lock_bad_auth_rejected(self, session_factory):
+        """A top-level signature does not rescue a bad embedded auth: the
+        present-auth-must-verify rule predates v17 and applies to signed
+        protocol txs too."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        tx = _unsigned_stake_lock(_stake_lock_auth({"action": "unstake"}))
+        tx["signature"] = sign_transaction_data({k: v for k, v in tx.items() if k != "signature"}, KEY_VICTIM)
+        tx["tx_hash"] = _content_hash(tx)
+        _import(sync, _block(1, [tx], version=17))
+
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+    def test_v17_unsigned_bounty_payout_with_auth_applies(self, session_factory):
+        _seed_genesis(session_factory)
+        _seed_bounty_escrow_funded(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        auth = _payload_auth(
+            ADDR_BRIDGE_AUTH,
+            KEY_BRIDGE_AUTH,
+            {"bounty_id": "b-1", "submission_id": "sub-1", "verified": True, "user_address": ADDR_ATTACKER},
+        )
+        result = _import(sync, _block(1, [_unsigned_bounty_payout(auth)], version=17))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        with session_factory() as session:
+            escrow = session.get(Account, (CHAIN, _bounty_escrow_addr()))
+            winner = session.get(Account, (CHAIN, ADDR_ATTACKER))
+            assert escrow is not None and escrow.balance == 10**6 - 999
+            assert winner is not None and winner.balance == 999
+
+    def test_v17_unsigned_transfer_still_rejected(self, session_factory):
+        """The v17 admission covers the five protocol types only — a plain
+        unsigned TRANSFER keeps its v9 verdict at any version."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        _import(sync, _block(1, [_unsigned_served_tx()], version=17))
+
+        assert metrics_registry._counters.get("v9_would_reject_missing_signature_transfer_total") == 1.0
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+    def test_v17_height_pin_arms_height_derived_version(self, session_factory, monkeypatch):
+        """On a v8+ chain the height — not the stamp — decides: a block
+        stamped v9 still applies v17 rules once the pin height is reached."""
+        monkeypatch.setattr(settings, "state_transition_v8_height", 1)
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        monkeypatch.setattr(settings, "state_transition_v17_height", 1)
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        # stamp says 9, height-derived version is 17 → the admission applies.
+        result = _import(sync, _block(1, [_unsigned_stake_lock(_stake_lock_auth())], version=9))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9 - 999
+
+    def test_v17_unsigned_stake_lock_parallel_applies(self, session_factory, monkeypatch):
+        """STAKE_LOCK is not sequential-only — the parallel delta path must
+        admit the same tx (the auth check lives there too)."""
+        monkeypatch.setattr(settings, "parallel_tx_validation", True)
+        monkeypatch.setattr(settings, "conflict_threshold", 1.0)
+
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        result = _import(sync, _block(1, [_unsigned_stake_lock(_stake_lock_auth())], version=17))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9 - 999
+
+    def test_v17_unsigned_stake_lock_bad_auth_parallel_rejected(self, session_factory, monkeypatch):
+        """And the parallel path rejects the forged-signature auth exactly
+        like the sequential one — no sequential/pure divergence."""
+        monkeypatch.setattr(settings, "parallel_tx_validation", True)
+        monkeypatch.setattr(settings, "conflict_threshold", 1.0)
+
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        message = {"action": "stake", "address": ADDR_VICTIM, "amount": 999, "chain_id": CHAIN}
+        forged = {"signer": ADDR_VICTIM, "message": message, "signature": _request_sig(KEY_ATTACKER, message)}
+        _import(sync, _block(1, [_unsigned_stake_lock(forged)], version=17))
+
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+
+class TestV17Attester:
+    """Remote attestation mirrors apply: attest only what apply would
+    accept — the same v17 unsigned/auth admission before signing."""
+
+    @pytest.fixture()
+    def attester(self, session_factory, monkeypatch):
+        from aitbc_chain.consensus.remote_attestation import RemoteAttestationService
+
+        key_attester = "0x" + "cd" * 32
+        addr_attester = derive_ethereum_address(key_attester)
+        monkeypatch.setattr(
+            settings,
+            "validator_set",
+            json.dumps([{"address": ADDR_ATTACKER}, {"address": addr_attester}]),
+        )
+        monkeypatch.setattr(settings, "attestation_lock_enabled", False)
+        broker = _StubBroker()
+        monkeypatch.setattr("aitbc_chain.consensus.remote_attestation.gossip_broker", broker)
+        svc = RemoteAttestationService(CHAIN, {addr_attester: key_attester}, session_factory=session_factory)
+        return svc, broker
+
+    def _request(self, txs: list[dict[str, Any]], **header_overrides: Any) -> dict[str, Any]:
+        from aitbc_chain.consensus.block_hash import compute_block_hash
+
+        header: dict[str, Any] = {
+            "chain_id": CHAIN,
+            "height": 1,
+            "parent_hash": "0x" + "00" * 32,
+            "proposer": ADDR_ATTACKER,
+            "state_root": "0xroot",
+            "bridge_state_root": "0xbridge",
+        }
+        header.update(header_overrides)
+        if "tx_hashes" not in header:
+            header["tx_hashes"] = sorted(str(t.get("tx_hash") or "") for t in txs)
+            header["tx_count"] = len(txs)
+            header["timestamp"] = T0.isoformat()
+        header["hash"] = header_overrides.get("hash") or compute_block_hash(
+            header["chain_id"],
+            header["height"],
+            header["parent_hash"],
+            str(header.get("timestamp") or ""),
+            header.get("tx_hashes") or [],
+            header["proposer"],
+            header.get("state_root") or "",
+            header.get("bridge_state_root") or "",
+        )
+        return {"header": header, "timestamp": 0.0, "transactions": txs}
+
+    def test_v17_attests_unsigned_stake_lock_with_auth(self, session_factory, attester, monkeypatch):
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        monkeypatch.setattr(settings, "state_transition_v17_height", 1)
+        _seed_genesis(session_factory)
+        asyncio.run(svc._handle_request(self._request([_unsigned_stake_lock(_stake_lock_auth())])))
+        assert broker.published, "v17 must attest an auth-carrying protocol transfer"
+
+    def test_v17_refuses_unsigned_stake_lock_no_auth(self, session_factory, attester, monkeypatch):
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        monkeypatch.setattr(settings, "state_transition_v17_height", 1)
+        _seed_genesis(session_factory)
+        asyncio.run(svc._handle_request(self._request([_unsigned_stake_lock()])))
+        assert not broker.published
+        assert metrics_registry._counters.get("v9_would_reject_attest_missing_signature_total") == 1.0
+
+    def test_v17_refuses_unsigned_stake_lock_bad_auth(self, session_factory, attester, monkeypatch):
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        monkeypatch.setattr(settings, "state_transition_v17_height", 1)
+        _seed_genesis(session_factory)
+        message = {"action": "stake", "address": ADDR_VICTIM, "amount": 999, "chain_id": CHAIN}
+        forged = {"signer": ADDR_VICTIM, "message": message, "signature": _request_sig(KEY_ATTACKER, message)}
+        asyncio.run(svc._handle_request(self._request([_unsigned_stake_lock(forged)])))
+        assert not broker.published
+        assert metrics_registry._counters.get("v9_would_reject_attest_invalid_payload_auth_total") == 1.0
+
+    def test_v17_refuses_below_activation(self, session_factory, attester, monkeypatch):
+        """v9 armed, v17 unarmed: the identical tx keeps its old verdict."""
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        monkeypatch.setattr(settings, "state_transition_v17_height", None)
+        _seed_genesis(session_factory)
+        asyncio.run(svc._handle_request(self._request([_unsigned_stake_lock(_stake_lock_auth())])))
+        assert not broker.published
+        assert metrics_registry._counters.get("v9_would_reject_attest_missing_signature_total") == 1.0
+
+
+class TestV17Policy:
+    def test_verdict_v17_payload_auth(self):
+        auth_tx = {
+            "type": "STAKE_LOCK",
+            "payload": {"auth": {"signer": "0xabc", "message": {"a": 1}, "signature": "0xdef"}},
+        }
+        assert v9_signature_verdict(auth_tx, "STAKE_LOCK", 17) is None
+        assert v9_signature_verdict(auth_tx, "STAKE_LOCK", 16) == "missing_signature"
+        assert v9_signature_verdict(auth_tx, "STAKE_LOCK", 9) == "missing_signature"
+        # default arg stays conservative — an un-updated caller never admits.
+        assert v9_signature_verdict(auth_tx, "STAKE_LOCK") == "missing_signature"
+        # no auth at all → still the v9 verdict
+        assert v9_signature_verdict({"type": "STAKE_LOCK"}, "STAKE_LOCK", 17) == "missing_signature"
+        # malformed auth shapes → the verdict's presence rule, not the binding
+        for bad in (
+            {"signer": "0xabc"},  # no message/signature
+            {"signer": "0xabc", "message": {"a": 1}},  # no signature
+            {"signer": "0xabc", "message": "not-a-dict", "signature": "0xdef"},
+            {"signer": "", "message": {"a": 1}, "signature": "0xdef"},
+        ):
+            tx = {"type": "STAKE_LOCK", "payload": {"auth": bad}}
+            assert v9_signature_verdict(tx, "STAKE_LOCK", 17) == "missing_signature"
+        # a type outside the v17 set gains nothing from auth
+        other = {"type": "HTLC_LOCK", "payload": {"auth": {"signer": "x", "message": {}, "signature": "y"}}}
+        assert v9_signature_verdict(other, "HTLC_LOCK", 17) == "missing_signature"
+        # a present top-level signature is still its own admission
+        assert v9_signature_verdict({"type": "STAKE_LOCK", "signature": "0x1"}, "STAKE_LOCK", 17) is None
+
+    def test_v17_allowlist_contents(self):
+        """Exactly the five protocol-transfer types — no more. They must not
+        intersect the bridge exemption (different authority model)."""
+        assert V17_PAYLOAD_AUTH_TX_TYPES == {
+            "STAKE_LOCK",
+            "STAKE_RELEASE",
+            "BOUNTY_LOCK",
+            "BOUNTY_PAYOUT",
+            "BOUNTY_REFUND",
+        }
+        assert V17_PAYLOAD_AUTH_TX_TYPES.isdisjoint(V9_UNSIGNED_ALLOWED_TX_TYPES)
+
+    def test_version_ladder_v17(self, monkeypatch):
+        """get_block_version_for_height picks v17 only at/above its pin."""
+        from aitbc_chain.state.state_transition import get_block_version_for_height
+
+        for v in range(2, 17):
+            monkeypatch.setattr(settings, f"state_transition_v{v}_height", None)
+        monkeypatch.setattr(settings, "state_transition_v16_height", 10)
+        monkeypatch.setattr(settings, "state_transition_v17_height", 20)
+        assert get_block_version_for_height(10) == 16
+        assert get_block_version_for_height(19) == 16
+        assert get_block_version_for_height(20) == 17
+        assert get_block_version_for_height(200) == 17
+        # unarmed → the pin never fires
+        monkeypatch.setattr(settings, "state_transition_v17_height", None)
+        assert get_block_version_for_height(200) == 16
+
+    def test_protocol_transfers_active_gate(self, session_factory, monkeypatch):
+        """The RPC-side gate opens exactly when the next block would apply
+        v17 — head+1 vs the pin, so a queued transfer can actually seal."""
+        from aitbc_chain.protocol_escrow import protocol_transfers_active
+
+        for v in range(10, 17):
+            monkeypatch.setattr(settings, f"state_transition_v{v}_height", None)
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        monkeypatch.setattr(settings, "state_transition_v17_height", 5)
+        _seed_genesis(session_factory)  # head = 0 → next = 1 < 5 → unarmed
+
+        with session_factory() as session:
+            assert protocol_transfers_active(session, CHAIN) is False
+            session.add(
+                Block(
+                    chain_id=CHAIN,
+                    height=4,
+                    hash="0x" + "04" * 32,
+                    parent_hash="0x03",
+                    proposer="p",
+                    timestamp=T0,
+                    tx_count=0,
+                )
+            )
+            session.commit()
+            assert protocol_transfers_active(session, CHAIN) is True

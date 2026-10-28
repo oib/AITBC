@@ -18,8 +18,9 @@ them from the first block. Kept unchanged: it documents the trap.
 
 ``gates1`` sets every gate height to 1 — the corrected ``bc-2`` reading.
 Every falsy-skip threshold fires from block 1 (``height >= 1``), the ``>=``
-gates activate on the same boundary, and the producer stamps
-``state_transition_version=14`` into every block it builds from height 1 on.
+gates activate on the same boundary, and the producer stamps the newest
+armed ``state_transition_version`` into every block it builds from height 1
+on (17 on the BNT-1 build).
 Block 0 is the sole exception on both paths: replay honours its recorded
 stamp (v8 advisory mode needs ``height >= v8_threshold``, so h0 stays in the
 stamp-wins branch) and the producer stamps 1 into it — genesis carries no
@@ -49,6 +50,7 @@ GATE_ATTRS: tuple[str, ...] = (
     "state_transition_v14_height",
     "state_transition_v15_height",
     "state_transition_v16_height",
+    "state_transition_v17_height",
     "bridge_lock_leaf_v2_height",
     "escrow_fee_sweep_pass_min_height",
 )
@@ -69,6 +71,7 @@ DEPLOYED_PINS: dict[str, int] = {
     "state_transition_v14_height": 46100,
     "state_transition_v15_height": 0,
     "state_transition_v16_height": 0,
+    "state_transition_v17_height": 0,
     "bridge_lock_leaf_v2_height": 51000,
     "escrow_fee_sweep_pass_min_height": 35400,
 }

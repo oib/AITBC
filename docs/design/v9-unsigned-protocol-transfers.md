@@ -122,11 +122,55 @@ for AUTO_STAKE and HTLC** (no auth emitted, no users) and **a decision on
 option 1 for staking + bounty**. Whatever is chosen, the RPC handlers
 should stop writing local rows before the lock seals (SD-1 lesson).
 
+## v17 resolution — option 1 implemented (staking + bounty)
+
+The operator chose **option 1 for staking and bounty** and **option 3 for
+HTLC and AUTO_STAKE** — the split the recommendation proposed. The revival
+is a new state-transition version, not a v9 amendment:
+
+- **`STATE_TRANSITION_V17_HEIGHT`** (`config.py`) pins activation. Default
+  unset = unarmed; every validator must carry the same pin
+  (`fleet-config-check.sh` watches it).
+- At `block_version >= 17`, `v9_signature_verdict` admits an unsigned
+  `STAKE_LOCK`, `STAKE_RELEASE`, `BOUNTY_LOCK`, `BOUNTY_PAYOUT`, or
+  `BOUNTY_REFUND` only when `payload.auth` has the well-formed shape
+  (`V17_PAYLOAD_AUTH_TX_TYPES` + `payload_auth_shape` in `v9_policy.py`).
+  Unsigned HTLC and AUTO_STAKE emissions carry no auth and stay rejected
+  at every version.
+- `StateTransition._verify_payload_auth` then re-verifies the evidence
+  cryptographically at apply — signature over the canonical message plus
+  `_payload_auth_binds_transfer` field binding (party, amount, stake /
+  bounty / submission ids, chain, action) — in **both** the sequential
+  `apply_transaction` path and the pure/parallel `compute_state_delta`
+  path (STAKE_LOCK and all three bounty types route through the pure
+  path; only STAKE_RELEASE is sequential-only).
+- Remote attestation performs the identical checks before signing —
+  an attester never attests a block its own apply would reject.
+- Orphan requeue (`block_deltas._admit_orphan`) re-admits an unsigned
+  auth-bearing protocol transfer after fork healing once the auth still
+  verifies — the same "proved itself in a block" carve-out bridge credits
+  already had.
+- The retired RPC handlers (consensus staking, agent staking, bounty)
+  are restored and refuse with HTTP 410 while
+  `protocol_transfers_active(session, chain_id)` is false — i.e. until
+  the *next* block height resolves v17. No transfer is queued that
+  cannot seal.
+- Public transaction submission still requires a top-level signature;
+  `queue_protocol_transfer` remains the only source of unsigned
+  protocol transfers.
+- v9–v16 replay is unchanged: the strict-xfail production-shape pins in
+  `test_v9_type_coverage_replay.py` explicitly replay *at* v9 and keep
+  failing there by design; a parallel `test_v17_*` section replays the
+  same fixtures at v17 and seals the seven auth-bearing emissions.
+
 ## Verifying
 
 ```bash
 venv/bin/python -m pytest tests/unit/test_v9_type_coverage_replay.py -k protocol_transfer
-# 11 xfailed (production shape) + 11 passed (reason == missing_signature)
+# 11 xfailed (production shape, pinned AT v9) + v17 section: 7 auth-bearing
+# emissions seal deterministically, 4 no-auth emissions stay rejected
+venv/bin/python -m pytest apps/blockchain-node/tests/test_v9_signature_rules.py
+# 63 passed — includes TestV17PayloadAuth / TestV17Attester / TestV17Policy
 ```
 
 ## Related

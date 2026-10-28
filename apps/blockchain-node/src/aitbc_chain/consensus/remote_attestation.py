@@ -371,9 +371,31 @@ class RemoteAttestationService:
                         if not sender or not verify_transaction_signature(tx, signature, sender):
                             return "invalid_signature"
                     elif tx_type not in V9_UNSIGNED_ALLOWED_TX_TYPES:
-                        if not sender:
-                            return "missing_sender"
-                        return "missing_signature"
+                        # v17: protocol transfers may authorize via
+                        # payload.auth instead of a sender signature. Attest
+                        # only when apply would accept the same tx: version
+                        # armed, auth well-formed, and verifiably bound.
+                        from ..state.state_transition import (
+                            StateTransition,
+                            get_block_version_for_height,
+                        )
+                        from ..state.v9_policy import (
+                            V17_PAYLOAD_AUTH_TX_TYPES,
+                            _payload_auth_of,
+                            payload_auth_shape,
+                        )
+
+                        auth = _payload_auth_of(tx)
+                        if not (
+                            get_block_version_for_height(height) >= 17
+                            and tx_type in V17_PAYLOAD_AUTH_TX_TYPES
+                            and payload_auth_shape(auth)
+                        ):
+                            if not sender:
+                                return "missing_sender"
+                            return "missing_signature"
+                        if not StateTransition._verify_payload_auth(tx_type, auth, tx):
+                            return "invalid_payload_auth"
                     # Bridge-issued internals are exempt from the *sender*
                     # signature only because the bridge authority's signature
                     # replaces it — attest to neither exemption without it.

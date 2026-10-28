@@ -536,8 +536,8 @@ def _prepare(tx: dict, version: int) -> dict:
     return tx
 
 
-def _replay_twice(tmp_path, tx: dict, tx_hash: str, seeds) -> tuple[Any, Any, bool, str]:
-    """Apply the tx on two identically-seeded DBs at v9 rules.
+def _replay_twice(tmp_path, tx: dict, tx_hash: str, seeds, version: int = V9) -> tuple[Any, Any, bool, str]:
+    """Apply the tx on two identically-seeded DBs at ``version`` rules.
 
     Returns (accounts_a, root_a, ok_b, msg_b) — caller asserts the second
     verdict matches and both surfaces are identical.
@@ -551,15 +551,15 @@ def _replay_twice(tmp_path, tx: dict, tx_hash: str, seeds) -> tuple[Any, Any, bo
                 seed(s)
             s.commit()
 
-    tx = _prepare(tx, V9)
+    tx = _prepare(tx, version)
     with Session(eng_a) as s:
-        ok_a, msg_a = StateTransition().apply_transaction(s, CHAIN, tx, tx_hash, block_version=V9, block_height=HEIGHT)
+        ok_a, msg_a = StateTransition().apply_transaction(s, CHAIN, tx, tx_hash, block_version=version, block_height=HEIGHT)
         if ok_a:
             s.commit()
         else:
             s.rollback()
     with Session(eng_b) as s:
-        ok_b, msg_b = StateTransition().apply_transaction(s, CHAIN, tx, tx_hash, block_version=V9, block_height=HEIGHT)
+        ok_b, msg_b = StateTransition().apply_transaction(s, CHAIN, tx, tx_hash, block_version=version, block_height=HEIGHT)
         if ok_b:
             s.commit()
         else:
@@ -667,9 +667,13 @@ def test_waiver_doc_and_replay_matrix_agree():
 # Live chain (node2 + hub, 2026-10-12): zero of these sealed since v9; the
 # last STAKE_LOCK/RELEASE are at 11073/11042, BOUNTY_*/HTLC_* never.
 #
-# Each case below replays the *exact* emitted shape and is strict-xfail:
-# the suite goes red the day a consensus change makes any of them seal, so
-# the waiver/options decision cannot silently go stale.
+# Each case below replays the *exact* emitted shape at v9 and is
+# strict-xfail: the suite goes red the day a consensus change makes any of
+# them seal *under v9 rules*, so the waiver/options decision cannot
+# silently go stale. The v17 ruling that revived the auth'd emissions is
+# pinned separately at the end of this file — under v17 rules the split is
+# deliberate: emissions carrying ``payload.auth`` seal, emissions with no
+# auth at all (AUTO_STAKE, HTLC_*) stay dead.
 
 HTLC_ADDR = derive_ethereum_address("0x" + "88" * 32)  # stand-in for HTLC_CONTRACT_ADDRESS
 
@@ -837,6 +841,53 @@ def test_protocol_transfer_rejection_reason_is_v9_signature_rule(emission, tmp_p
     try:
         assert not ok_a
         assert "v9 signature rule: missing_signature" in msg_a, f"{emission} rejected for another reason: {msg_a}"
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
+
+
+# --------------------------------------------------------------------------
+# BNT-1 v17 — the ruling's revival half (operator decision 28 Oct).
+#
+# From ``state_transition_v17_height`` the signature rule additionally
+# admits the five protocol-transfer types carrying a well-formed
+# ``payload.auth`` (``V17_PAYLOAD_AUTH_TX_TYPES``), and the existing
+# binding check re-verifies the auth as the authorization. Replayed at v17
+# below: every emission that embeds auth seals — twice, for determinism —
+# while emitters that carry no auth at all (escrow_routes AUTO_STAKE
+# reinvestment, HTLC_*) stay rejected with the exact v9 verdict they had
+# before. v17 admits the payload.auth shape, not unsigned transfers
+# generally.
+
+V17 = 17
+
+_REVIVED_AT_V17 = {
+    "staking.STAKE_LOCK",
+    "staking.STAKE_RELEASE",
+    "agent_staking.STAKE_LOCK",
+    "agent_staking.STAKE_RELEASE",
+    "bounty.BOUNTY_LOCK",
+    "bounty.BOUNTY_PAYOUT",
+    "bounty.BOUNTY_REFUND",
+}
+
+
+@pytest.mark.parametrize("emission", sorted(_PROTOCOL_EMISSIONS), ids=lambda n: n)
+def test_protocol_transfer_production_shape_at_v17(emission, tmp_path):
+    """The v17 ruling, replayed: auth-carrying emissions seal identically on
+    two databases; no-auth emissions keep their v9 rejection."""
+    build, seeds = _PROTOCOL_EMISSIONS[emission]
+    tx = build()
+    tx_hash = _hash("bnt1-v17", emission)
+    eng_a, eng_b, ok_a, msg_a, ok_b, _ = _replay_twice(tmp_path, tx, tx_hash, seeds, version=V17)
+    try:
+        if emission in _REVIVED_AT_V17:
+            assert ok_a and ok_b, f"{emission}: {msg_a}"
+            assert _account_rows(eng_a) == _account_rows(eng_b)
+            assert _state_root(eng_a) == _state_root(eng_b)
+        else:
+            assert not ok_a
+            assert "v9 signature rule: missing_signature" in msg_a, f"{emission} rejected for another reason: {msg_a}"
     finally:
         eng_a.dispose()
         eng_b.dispose()

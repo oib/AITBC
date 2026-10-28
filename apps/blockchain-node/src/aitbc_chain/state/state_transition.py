@@ -963,6 +963,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v17_threshold = getattr(settings, "state_transition_v17_height", None)
+    if v17_threshold and height >= v17_threshold:
+        return 17
     v16_threshold = getattr(settings, "state_transition_v16_height", None)
     if v16_threshold and height >= v16_threshold:
         return 16
@@ -1493,7 +1496,7 @@ class StateTransition:
         if signature and sender_addr:
             if not verify_transaction_signature(tx_data, signature, sender_addr):
                 return (False, f"Invalid signature for transaction {tx_hash}")
-        v9_reason = v9_signature_verdict(tx_data, tx_type)
+        v9_reason = v9_signature_verdict(tx_data, tx_type, block_version)
         if v9_reason is not None:
             count_v9_would_reject(v9_reason, tx_type)
             if block_version >= 9:
