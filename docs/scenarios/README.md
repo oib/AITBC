@@ -215,15 +215,15 @@ The **sealed on bc-2** column is the running 31-type ledger — append as seals 
 
 | Record type | Emitted by | Scenario(s) | sealed on bc-2 |
 |---|---|---|---|
-| `TRANSFER` | `aitbc transactions send` | 02, 59 | — |
+| `TRANSFER` | `aitbc transactions send` | 02, 59 | 9037 |
 | `AI_JOB` | `aitbc ai submit` | 07, 34 | 8720 `0xcaeb41d4…bd68` |
 | `MESSAGE` | `aitbc messaging`, `aitbc agent-msg` | 04, 45 | 8701 `0x22dc0dcc…a76b` |
-| `ESCROW_LOCK` | market job escrow | 07, 34, 54, 75 | — |
-| `ESCROW_RELEASE` | settlement authority on job completion | 07, 34, 48 | — |
+| `ESCROW_LOCK` | market job escrow | 07, 34, 54, 75 | 9042 |
+| `ESCROW_RELEASE` | settlement authority on job completion | 07, 34, 48 | 9046 |
 | `ESCROW_REFUND` | settlement authority / refund path | 25, 34, 44, 55 | — |
 | `ESCROW_FEE_SWEEP` | settlement sweeper (protocol-emitted, authority-signed) | no scenario — ops checker: [first-sweep-observation](../ops/first-sweep-observation.md) | 8744–8749 ×5 (`0xdbbb515d…c8d4` +4) |
-| `GPU_REGISTER` / `GPU_ALLOCATE` / `GPU_DEREGISTER` | `aitbc gpu-onchain` | 09 | REGISTER 8702 `0xf356e94e…5d91`; ALLOCATE 8704 `0x6703780c…fc5b`; DEREGISTER — |
-| `GPU_MARKET` (`offer`/`software_offer`/`software_job`) | `aitbc market offer`, job receipts | 26, 34, 41, 50 | — |
+| `GPU_REGISTER` / `GPU_ALLOCATE` / `GPU_DEREGISTER` | `aitbc gpu-onchain` | 09 | REGISTER 8702 `0xf356e94e…5d91`; ALLOCATE 8704 `0x6703780c…fc5b`; DEREGISTER 9038 |
+| `GPU_MARKET` (`offer`/`software_offer`/`software_job`) | `aitbc market offer`, job receipts | 26, 34, 41, 50 | 9040, 9044 |
 | `STAKE_LOCK` / `STAKE_RELEASE` | `aitbc stake` / `aitbc unstake` (wallet-signed) → revived staking RPC; coordinator-api `/stake` lifecycle (operator `payload.auth`) | 01 steps 26–27, 17, **87**; 83 — client-side wallet-gate refusals; gated live at v17+ (`STATE_TRANSITION_V17_HEIGHT`, 410 while unarmed); **blocked** — consensus `/v1/staking/*` path unsealable at v17 (single-node committed-row defect, Refs #649, pending v18 — [v14-aux-root-nondeterminism](../design/v14-aux-root-nondeterminism.md)); agent-staking `/v1/agent-staking/*` path (scenario 87) remains exercisable | LOCK 8912 `0x4a18e3f3` (agent-staking lane); RELEASE — |
 | `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` | `aitbc bond` | 48 | — |
 | `BOUNTY_LOCK` / `BOUNTY_PAYOUT` / `BOUNTY_REFUND` | protocol escrow via revived bounty surface — coordinator-api `/bounties` lifecycle signs operator `payload.auth` server-side | **86** — deploy→submit→verify (`PAYOUT`) + deploy→expire (`REFUND`), gated live at v17+; `PAYOUT`/`REFUND` were unsealable unsigned under v9–v16 | LOCK 8904 `0x49dc1b37` (+8908 `0xa3a804f3`); PAYOUT 8908 `0x693ef99a`; REFUND 8912 `0xf8c98983` |
@@ -231,8 +231,8 @@ The **sealed on bc-2** column is the running 31-type ledger — append as seals 
 | `BRIDGE_RELEASE` / `BRIDGE_REFUND` | bridge monitor (authority-issued credits) | 59 end-to-end; **88** — the live `BRIDGE_RELEASE` exercise reserved per V-1 (pending the island deploy) — governing runbook: [bridge-release-exercise](../ops/bridge-release-exercise.md) | RELEASE island @156 `b13a6cdc…` + @198 `0aca483b…` (seals on bc-2-island-1, not bc-2); REFUND — |
 | `GOVERNANCE_PROPOSE` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` | `aitbc governance` (client-signed, relayed) | 17 | PROPOSE 8708 `0xee997ce3…282c`; VOTE 8716 `0xdfe148c9…dcd6`; EXECUTE — |
 | `LIQUIDITY_DEPOSIT` / `LIQUIDITY_WITHDRAW` / `LIQUIDITY_CLAIM` | `aitbc wallet liquidity-stake` / `liquidity-unstake` / `liquidity-claim` | 01; 83 (refusals only) | — |
-| `RECEIPT_CLAIM` | protocol-internal | no scenario — replay suite only | — |
-| `IPFS_SUBSCRIPTION` | `aitbc ipfs` | 11 | — |
+| `RECEIPT_CLAIM` | protocol-internal | no scenario — replay suite only | — (replay-only — no live emitter, C finding) |
+| `IPFS_SUBSCRIPTION` | `aitbc ipfs` | 11 | 9040 |
 
 ### Why four types have no play
 
