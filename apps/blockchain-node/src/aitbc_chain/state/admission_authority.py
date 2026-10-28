@@ -71,6 +71,9 @@ AUTHORITY_OPEN_TX_TYPES = frozenset(
         "LIQUIDITY_CLAIM",
         "RECEIPT_CLAIM",
         "IPFS_SUBSCRIPTION",
+        # Record+fee anchor (trading order buy/sell/cancel): signed by its
+        # sender, no apply-path handler, no sender authority — open.
+        "EXCHANGE",
     }
 )
 
