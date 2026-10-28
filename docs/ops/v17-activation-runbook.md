@@ -1,16 +1,14 @@
-# v17 activation runbook — `STATE_TRANSITION_V17_HEIGHT` (DRAFT)
+# v17 activation runbook — `STATE_TRANSITION_V17_HEIGHT` (EXECUTED)
 
-> **Status: DRAFT — awaiting operator approval.** This playbook describes
-> how the v17 pin would be armed; it authorizes nothing. The height `<H>`
-> and the go/no-go are operator decisions.
->
-> **Fleet status (2026-10-28, per Coder A): armed.** The pin is set —
-> `STATE_TRANSITION_V17_HEIGHT=8900` in `blockchain.env` on all five
-> hosts, confirmed in every running node's process environment; the
-> restart wave completed with no seal gaps (order: node0 → hub1 → node1
-> → node2 → hub). Activation expected at block 8900 — §4's post-checks
-> apply then. The remainder of this document stays the reference for
-> what the arming does and what the failure modes mean. Modelled on
+> **Status: EXECUTED (2026-10-28).** The pin armed fleet-wide at
+> `STATE_TRANSITION_V17_HEIGHT=8900` (`blockchain.env` ×5, confirmed in
+> every running node's process environment; restart wave node0 → hub1 →
+> node1 → node2 → hub, no seal gaps). Activation landed: the first
+> revived seal is `BOUNTY_LOCK` @8904 (`0x49dc1b37ec431e97`) — unsigned
+> at top level, `payload.auth` operator-signed and verified at apply;
+> state + aux roots identical on hub/node1/node2. The remainder of this
+> document stays the reference for what the arming does and what the
+> failure modes mean. Modelled on
 > [v14-activation-runbook.md](v14-activation-runbook.md); read the
 > mechanism first:
 > [v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution--option-1-implemented-staking--bounty)
