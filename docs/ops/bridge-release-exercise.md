@@ -109,6 +109,14 @@ live fleet — one lock per finality tier (parameters below):
       `target_chain=bc-2-island-1` at admission; `SUPPORTED_CHAINS`
       stays `bc-2` on the bc-2 units — bc-2-only nodes simply skip the
       island store in finalizer passes.
+- [ ] **Cross-wise validator sets registered** — bc-2's real 4
+      validators on the island under `bc-2`; the island's real 2 on
+      bc-2 under `bc-2-island-1` — each self-signed + admin-signed via
+      `POST /rpc/bridge/validators/register` (Phase 1; the
+      `ensure_supported_chain_validators` backfill installs the wrong
+      local set by default). `BRIDGE_ADMIN_ADDRESS` identity verified
+      against `bridge-validator-keys.env` first (pre-rotation id on
+      hub1+node1 — confirm it's the intended admin).
 - [ ] **The bc-2 `bridge_validators` set is populated** (genesis-seeded;
       verified by `ensure_supported_chain_validators` at startup —
       `BRIDGE_MULTISIG_VALIDATORS=4` is only the fence count
@@ -221,6 +229,36 @@ Note current bc-2 head height for the evidence log.
   `fleet-config-check.sh`. Do **not** touch `SUPPORTED_CHAINS` or
   `BLOCK_PRODUCTION_CHAINS` on the bc-2 units — the island is hosted
   only by its own units.
+- **Cross-wise validator registration — mandatory before the first
+  lock.** Once `BRIDGE_SUPPORTED_CHAINS` lands, each chain must hold
+  the *other* chain's real validator set under the remote chain id —
+  bc-2's 4-validator set registered on `bc-2-island-1` under
+  `chain_id=bc-2`, and the island's 2-validator set registered on
+  bc-2 under `chain_id=bc-2-island-1` — via
+  `POST /rpc/bridge/validators/register`. Do not rely on the
+  backfill: `ensure_supported_chain_validators`
+  (`cross_chain/bridge_validator.py:100-135`) silently installs the
+  *local* chain's set under every served target id — without the
+  explicit registrations the bridge set each side resolves for the
+  remote is wrong from boot (the same wrong-set class that stranded
+  the historical 27251 attempt — "1/6 valid signers"). Each
+  registration body needs the validator's **self-signature** over the
+  canonical JSON `{chain_id, address, public_key, action:"register"}`
+  (per-host `PROPOSER_KEY` signs for its own address) **plus** an
+  authorized **bridge admin signature** (`admin_address` +
+  `admin_signature` — required whenever `bridge_release_enabled`,
+  `rpc/bridge.py:644-654`).
+  - **Admin pre-check first:** confirm `BRIDGE_ADMIN_ADDRESS`
+    (`/etc/aitbc/bridge-validator-keys.env`) is the *intended* admin
+    identity before registering — the file still holds a
+    pre-rotation id on hub1+node1. Registrations under the wrong
+    admin are refused; registrations under a compromised-stale id
+    would be accepted.
+  - Verify the resolved sets afterwards:
+    `GET /rpc/bridge/validators/bc-2` **on an island unit** must list
+    bc-2's 4 real validators, and `GET
+    /rpc/bridge/validators/bc-2-island-1` **on a bc-2 producer** must
+    list the island's 2 — not the backfilled local set.
 
 ### Phase 2 — submit the locks (operator or delegated agent)
 
