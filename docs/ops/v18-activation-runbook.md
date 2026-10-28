@@ -18,8 +18,7 @@
 Fleet: node0, node1, node2, hub1, hub — chain `bc-2`, RPC on
 `127.0.0.1:8202`, chain DB at `/var/lib/aitbc/data/bc-2/chain.db`. The
 island `bc-2-island-1` runs transitions=1 and is out of scope for this
-pin (it already applies v18-equivalent rules from genesis — **DRAFT-impl**,
-confirm its heights once the fix lands).
+pin (it already applies v18-equivalent rules from genesis).
 
 ## 1. What activates at 9600
 
