@@ -26,6 +26,7 @@ class TestBridgeManagerSettlementLifecycle:
         mgr._initialized = True  # bypass initialize() so we don't need real adapters
         return mgr
 
+    @pytest.mark.asyncio
     async def test_create_settlement_returns_id_and_stores_pending(self, manager: BridgeManager) -> None:
         sid = await manager.create_settlement(
             source_chain_id="1000",
@@ -40,6 +41,7 @@ class TestBridgeManagerSettlementLifecycle:
         assert record["status"] == BridgeStatus.PENDING.value
         assert record["payment_amount"] == 42.0
 
+    @pytest.mark.asyncio
     async def test_get_settlement_returns_namespace(self, manager: BridgeManager) -> None:
         sid = await manager.create_settlement(
             source_chain_id="1", target_chain_id="2", amount=10.0, asset_type="AITBC", recipient_address="r"
@@ -48,9 +50,11 @@ class TestBridgeManagerSettlementLifecycle:
         assert result is not None
         assert result.status == BridgeStatus.PENDING.value
 
+    @pytest.mark.asyncio
     async def test_get_settlement_returns_none_for_missing(self, manager: BridgeManager) -> None:
         assert await manager.get_settlement("nonexistent") is None
 
+    @pytest.mark.asyncio
     async def test_list_settlements_paginates(self, manager: BridgeManager) -> None:
         for i in range(5):
             await manager.create_settlement(
@@ -62,6 +66,7 @@ class TestBridgeManagerSettlementLifecycle:
         assert len(page2) == 2
         assert page1[0]["payment_amount"] != page2[0]["payment_amount"]
 
+    @pytest.mark.asyncio
     async def test_cancel_pending_settlement_succeeds(self, manager: BridgeManager) -> None:
         sid = await manager.create_settlement(
             source_chain_id="1", target_chain_id="2", amount=5.0, asset_type="AITBC", recipient_address="r"
@@ -72,9 +77,11 @@ class TestBridgeManagerSettlementLifecycle:
         assert record is not None
         assert record["status"] == BridgeStatus.FAILED.value
 
+    @pytest.mark.asyncio
     async def test_cancel_missing_settlement_returns_false(self, manager: BridgeManager) -> None:
         assert await manager.cancel_settlement("nope", user_id="u") is False
 
+    @pytest.mark.asyncio
     async def test_cancel_completed_settlement_returns_false(self, manager: BridgeManager) -> None:
         sid = await manager.create_settlement(
             source_chain_id="1", target_chain_id="2", amount=5.0, asset_type="AITBC", recipient_address="r"
@@ -82,6 +89,7 @@ class TestBridgeManagerSettlementLifecycle:
         await manager.storage.update_settlement(sid, status=BridgeStatus.COMPLETED)
         assert await manager.cancel_settlement(sid, user_id="u") is False
 
+    @pytest.mark.asyncio
     async def test_process_settlement_no_bridges_marks_failed(self, manager: BridgeManager) -> None:
         # manager has no adapters registered
         sid = await manager.create_settlement(
@@ -108,6 +116,7 @@ class TestBlockchainServiceStakingMethods:
         monkeypatch.setattr(settings, "agent_economics_operator_key", "0x" + "11" * 32)
         monkeypatch.setattr(settings, "agent_economics_operator_address", "0x" + "aa" * 20)
 
+    @pytest.mark.asyncio
     async def test_add_to_stake_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
         from aitbc.exceptions import NetworkError
@@ -118,6 +127,7 @@ class TestBlockchainServiceStakingMethods:
             with pytest.raises(NetworkError):
                 await svc.add_to_stake("stake_1", "0x" + "aa" * 20, 100.0)
 
+    @pytest.mark.asyncio
     async def test_unbond_stake_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
         from aitbc.exceptions import NetworkError
@@ -128,6 +138,7 @@ class TestBlockchainServiceStakingMethods:
             with pytest.raises(NetworkError):
                 await svc.unbond_stake("stake_1", "0x" + "aa" * 20)
 
+    @pytest.mark.asyncio
     async def test_complete_unbonding_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
         from aitbc.exceptions import NetworkError
@@ -138,6 +149,7 @@ class TestBlockchainServiceStakingMethods:
             with pytest.raises(NetworkError):
                 await svc.complete_unbonding("stake_1", "0xABaBaBaBABabABabAbAbABAbABabababaBaBABaB")
 
+    @pytest.mark.asyncio
     async def test_distribute_earnings_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
         from aitbc.exceptions import NetworkError
@@ -148,6 +160,7 @@ class TestBlockchainServiceStakingMethods:
             with pytest.raises(NetworkError):
                 await svc.distribute_earnings("0x1234567890123456789012345678901234567890", 500.0)
 
+    @pytest.mark.asyncio
     async def test_claim_rewards_raises_network_error(self) -> None:
         from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
         from aitbc.exceptions import NetworkError
@@ -158,6 +171,7 @@ class TestBlockchainServiceStakingMethods:
             with pytest.raises(NetworkError):
                 await svc.claim_rewards(["stake_1", "stake_2"])
 
+    @pytest.mark.asyncio
     async def test_mint_tokens_is_awaitable(self) -> None:
         """Verify mint_tokens is an async function (the exchange.py bug was it wasn't awaited)."""
         from coordinator_api.contexts.blockchain.services.blockchain import mint_tokens

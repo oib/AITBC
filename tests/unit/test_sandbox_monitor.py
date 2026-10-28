@@ -23,6 +23,7 @@ def session():
         yield session
 
 
+@pytest.mark.asyncio
 async def test_monitor_sandbox_refuses_with_not_implemented(session):
     session.add(AgentSandboxConfig(id="sandbox_exec-1"))
     session.commit()
@@ -31,12 +32,14 @@ async def test_monitor_sandbox_refuses_with_not_implemented(session):
         await mgr.monitor_sandbox("exec-1")
 
 
+@pytest.mark.asyncio
 async def test_monitor_sandbox_unknown_execution_id(session):
     mgr = AgentSandboxManager(session)
     with pytest.raises(ValueError, match="Sandbox not found"):
         await mgr.monitor_sandbox("nonexistent")
 
 
+@pytest.mark.asyncio
 async def test_create_sandbox_result_is_response_serializable(session):
     """create_sandbox returns an AgentSandboxConfig ORM object; the route must be
     able to serialize it via model_dump(mode='json') — it previously returned the
@@ -50,6 +53,7 @@ async def test_create_sandbox_result_is_response_serializable(session):
     assert isinstance(dumped["security_level"], str)
 
 
+@pytest.mark.asyncio
 async def test_create_sandbox_second_call_conflicts_on_pk(session):
     """Sandbox ids are deterministic (sandbox_{execution_id}) so the router's
     IntegrityError → return-existing path is what makes re-create idempotent."""
@@ -61,6 +65,7 @@ async def test_create_sandbox_second_call_conflicts_on_pk(session):
         await mgr.create_sandbox_environment(execution_id="exec-dupe")
 
 
+@pytest.mark.asyncio
 async def test_model_dump_after_subsequent_commit_returns_empty(session):
     """Pins the live `{}` response: after a second session.commit() the ORM
     instance is expired and model_dump reads an empty __dict__ (no lazy

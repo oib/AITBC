@@ -225,6 +225,7 @@ def test_held_and_disputed_are_still_settleable():
     assert "refunded" not in HELD_STATES
 
 
+@pytest.mark.asyncio
 async def test_an_already_released_payment_is_not_released_again(db_session, job_service):
     job, payment = _completed_job(job_service, db_session)
     payment.status = "released"
@@ -239,6 +240,7 @@ async def test_an_already_released_payment_is_not_released_again(db_session, job
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_an_expired_window_releases_to_the_provider(db_session, job_service, monkeypatch):
     job, payment = _completed_job(job_service, db_session, payment_status=PENDING_ACCEPTANCE)
     payment.status = PENDING_ACCEPTANCE
@@ -261,6 +263,7 @@ async def test_an_expired_window_releases_to_the_provider(db_session, job_servic
     assert db_session.get(Job, job.id).payment_status == "released"
 
 
+@pytest.mark.asyncio
 async def test_a_live_window_is_left_alone(db_session, job_service, monkeypatch):
     job, payment = _completed_job(job_service, db_session, payment_status=PENDING_ACCEPTANCE)
     payment.status = PENDING_ACCEPTANCE
@@ -279,6 +282,7 @@ async def test_a_live_window_is_left_alone(db_session, job_service, monkeypatch)
     assert db_session.get(Job, job.id).payment_status == PENDING_ACCEPTANCE
 
 
+@pytest.mark.asyncio
 async def test_a_dispute_is_never_swept_to_the_provider(db_session, job_service, monkeypatch):
     """A rejection waits for a ruling; a timer must not decide it."""
     job, payment = _completed_job(job_service, db_session, payment_status=PENDING_ACCEPTANCE)
@@ -297,6 +301,7 @@ async def test_a_dispute_is_never_swept_to_the_provider(db_session, job_service,
     assert db_session.get(Job, job.id).payment_status == PENDING_ACCEPTANCE
 
 
+@pytest.mark.asyncio
 async def test_a_release_that_does_not_settle_stays_held_for_the_next_sweep(db_session, job_service, monkeypatch):
     job, payment = _completed_job(job_service, db_session, payment_status=PENDING_ACCEPTANCE)
     payment.status = PENDING_ACCEPTANCE

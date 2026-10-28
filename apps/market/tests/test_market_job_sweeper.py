@@ -283,6 +283,7 @@ class TestSettleDeferralBound:
         created = await service.create_market_job(data)
         return created["job_id"]
 
+    @pytest.mark.asyncio
     async def test_past_bound_absent_escrow_goes_terminal(self, sweeper, monkeypatch) -> None:
         service, sw, _rpc = sweeper
 
@@ -304,6 +305,7 @@ class TestSettleDeferralBound:
         assert payment.status == "settlement_failed"
         assert "settle_deferral_first_at" not in (payment.meta_data or {})
 
+    @pytest.mark.asyncio
     async def test_past_bound_locked_escrow_keeps_deferring(self, sweeper, monkeypatch) -> None:
         service, sw, _rpc = sweeper
 
@@ -328,6 +330,7 @@ class TestSettleDeferralBound:
         payment = await _payment_of(job_id)
         assert payment.meta_data["settle_deferral_first_at"] == first_at
 
+    @pytest.mark.asyncio
     async def test_past_bound_settled_escrow_adopts_the_verdict(self, sweeper, monkeypatch) -> None:
         service, sw, _rpc = sweeper
 
@@ -354,6 +357,7 @@ class TestSettleDeferralBound:
         payment = await _payment_of(job_id)
         assert "settle_deferral_first_at" not in (payment.meta_data or {})
 
+    @pytest.mark.asyncio
     async def test_raised_error_defers_through_the_same_marker(self, sweeper, monkeypatch) -> None:
         """The inverse defect: raised errors (a 500 here) used to retry
         forever and silently -- now they share the bounded deferral."""
@@ -373,6 +377,7 @@ class TestSettleDeferralBound:
         payment = await _payment_of(job_id)
         assert payment.meta_data["settle_deferral_first_at"]
 
+    @pytest.mark.asyncio
     async def test_raised_error_past_bound_uses_the_same_read(self, sweeper, monkeypatch) -> None:
         service, sw, _rpc = sweeper
 
@@ -393,6 +398,7 @@ class TestSettleDeferralBound:
         job = await service.get_market_job(job_id)
         assert job["payment_status"] == "settlement_failed"
 
+    @pytest.mark.asyncio
     async def test_success_clears_the_deferral_marker(self, sweeper, monkeypatch) -> None:
         service, sw, _rpc = sweeper
 
@@ -416,6 +422,7 @@ class TestSettleDeferralBound:
         assert payment.status == "released"
         assert "settle_deferral_first_at" not in (payment.meta_data or {})
 
+    @pytest.mark.asyncio
     async def test_past_bound_verdict_without_hash_keeps_deferring(self, sweeper, monkeypatch) -> None:
         """A row that says 'released' but carries no release hash is the S-8
         dead-hash shape -- never adopt 'settled' from it."""
@@ -442,6 +449,7 @@ class TestSettleDeferralBound:
         payment = await _payment_of(job_id)
         assert payment.meta_data["settle_deferral_first_at"] == first_at
 
+    @pytest.mark.asyncio
     async def test_refund_intended_released_verdict_still_adopts(self, sweeper, monkeypatch) -> None:
         """Kind mismatch, refund sweep sees 'released': reality wins -- the
         row is authoritative for where the money went, so the verdict is
@@ -468,6 +476,7 @@ class TestSettleDeferralBound:
         assert job["payment_status"] == "released"
         assert job["tx_hash"] == "0xpaid-anyway"
 
+    @pytest.mark.asyncio
     async def test_release_intended_refunded_verdict_still_adopts(self, sweeper, monkeypatch) -> None:
         """Kind mismatch, release sweep sees 'refunded': same rule -- adopt
         the row's verdict rather than strand a settled escrow."""
@@ -493,6 +502,7 @@ class TestSettleDeferralBound:
         assert job["payment_status"] == "refunded"
         assert job["refund_tx_hash"] == "0xreturned"
 
+    @pytest.mark.asyncio
     async def test_past_bound_verdict_with_unsealed_hash_keeps_deferring(self, sweeper, monkeypatch) -> None:
         """The S-8 dead-hash shape made stronger: the row names a hash but
         the chain has it with no block height -- never adopted."""
@@ -526,6 +536,7 @@ class TestSettleDeferralBound:
         payment = await _payment_of(job_id)
         assert payment.meta_data["settle_deferral_first_at"] == first_at
 
+    @pytest.mark.asyncio
     async def test_past_bound_verdict_with_unfound_hash_keeps_deferring(self, sweeper, monkeypatch) -> None:
         """A hash the chain does not have at all is the other dead-hash
         shape -- 404 on the lookup, keep deferring."""
@@ -555,6 +566,7 @@ class TestSettleDeferralBound:
         payment = await _payment_of(job_id)
         assert payment.meta_data["settle_deferral_first_at"] == first_at
 
+    @pytest.mark.asyncio
     async def test_past_bound_verdict_hash_lookup_error_keeps_deferring(self, sweeper, monkeypatch) -> None:
         """A failed tx lookup must not be read as 'unsealed' -- an unreadable
         chain is evidence of nothing, so defer rather than adopt or fail."""

@@ -71,6 +71,7 @@ def tracker() -> LeaseTracker:
     return t
 
 
+@pytest.mark.asyncio
 async def test_registering_a_second_chain_keeps_the_first(tracker: LeaseTracker) -> None:
     await tracker.register_subscriber(NODE, "http", CHAIN_A)
     await tracker.register_subscriber(NODE, "http", CHAIN_B)
@@ -80,6 +81,7 @@ async def test_registering_a_second_chain_keeps_the_first(tracker: LeaseTracker)
     assert len(await tracker.get_valid_subscribers()) == 2
 
 
+@pytest.mark.asyncio
 async def test_heartbeat_without_chain_id_extends_every_lease(tracker: LeaseTracker) -> None:
     await tracker.register_subscriber(NODE, "http", CHAIN_A, duration=10)
     await tracker.register_subscriber(NODE, "http", CHAIN_B, duration=10)
@@ -91,6 +93,7 @@ async def test_heartbeat_without_chain_id_extends_every_lease(tracker: LeaseTrac
         assert await tracker.get_lease_expiry(NODE, chain) == pytest.approx(new_expiry)
 
 
+@pytest.mark.asyncio
 async def test_heartbeat_with_chain_id_extends_only_that_lease(tracker: LeaseTracker) -> None:
     await tracker.register_subscriber(NODE, "http", CHAIN_A, duration=10)
     await tracker.register_subscriber(NODE, "http", CHAIN_B, duration=10)
@@ -101,6 +104,7 @@ async def test_heartbeat_with_chain_id_extends_only_that_lease(tracker: LeaseTra
     assert await tracker.get_lease_expiry(NODE, CHAIN_B) < time.time() + 500
 
 
+@pytest.mark.asyncio
 async def test_revoke_targets_one_chain_or_all(tracker: LeaseTracker) -> None:
     await tracker.register_subscriber(NODE, "http", CHAIN_A)
     await tracker.register_subscriber(NODE, "http", CHAIN_B)
@@ -114,6 +118,7 @@ async def test_revoke_targets_one_chain_or_all(tracker: LeaseTracker) -> None:
     assert await tracker.revoke_lease(NODE) is False
 
 
+@pytest.mark.asyncio
 async def test_legacy_node_keyed_lease_still_resolves(tracker: LeaseTracker) -> None:
     """Leases written before the composite key keep working until they expire."""
     fake = tracker._redis
@@ -132,6 +137,7 @@ async def test_legacy_node_keyed_lease_still_resolves(tracker: LeaseTracker) -> 
     assert await tracker.extend_lease(NODE, duration=600) > time.time() + 500
 
 
+@pytest.mark.asyncio
 async def test_registering_replaces_a_legacy_lease(tracker: LeaseTracker) -> None:
     """Re-registration migrates the old key instead of double-counting the node."""
     fake = tracker._redis
@@ -150,6 +156,7 @@ async def test_registering_replaces_a_legacy_lease(tracker: LeaseTracker) -> Non
     assert f"{LEASE_PREFIX}{NODE}" not in fake.hashes  # type: ignore[union-attr]
 
 
+@pytest.mark.asyncio
 async def test_expired_leases_are_cleaned_per_chain(tracker: LeaseTracker) -> None:
     await tracker.register_subscriber(NODE, "http", CHAIN_A, duration=300)
     await tracker.register_subscriber(NODE, "http", CHAIN_B, duration=300)

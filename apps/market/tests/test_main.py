@@ -900,6 +900,7 @@ def test_unregister_offer_refuses_another_providers_valid_signature(client):
     assert detail.json()["endpoint"] == "https://a.example/offer"
 
 
+@pytest.mark.asyncio
 async def test_unregister_offer_rejects_a_claimed_provider_the_signature_does_not_match():
     """Signing with your own key while claiming the victim's provider_address."""
     from aitbc.crypto.crypto import derive_ethereum_address
@@ -912,6 +913,7 @@ async def test_unregister_offer_rejects_a_claimed_provider_the_signature_does_no
     assert await _row_exists("delete-spoof")
 
 
+@pytest.mark.asyncio
 async def test_unregister_offer_rejects_a_registration_signature_replayed_as_a_removal():
     """action scopes the proof: a captured register signature is not a removal proof."""
     await _service_register("delete-replay-register")
@@ -921,6 +923,7 @@ async def test_unregister_offer_rejects_a_registration_signature_replayed_as_a_r
     assert await _row_exists("delete-replay-register")
 
 
+@pytest.mark.asyncio
 async def test_unregister_offer_signature_names_the_offer():
     """plugin_id is in the signed message: a proof for one offer cannot remove another
     of the same provider's."""
@@ -932,6 +935,7 @@ async def test_unregister_offer_signature_names_the_offer():
     assert await _row_exists("delete-second")
 
 
+@pytest.mark.asyncio
 async def test_unregister_offer_rejects_wrong_chain():
     """A removal signed for another chain can't replay here."""
     await _service_register("delete-wrong-chain")
@@ -941,6 +945,7 @@ async def test_unregister_offer_rejects_wrong_chain():
     assert await _row_exists("delete-wrong-chain")
 
 
+@pytest.mark.asyncio
 async def test_unregister_offer_rejects_stale_issued_at():
     """An old captured removal can't be replayed later."""
     import time
@@ -952,12 +957,14 @@ async def test_unregister_offer_rejects_stale_issued_at():
     assert await _row_exists("delete-stale")
 
 
+@pytest.mark.asyncio
 async def test_unregister_offer_missing_row_is_not_found_once_the_proof_is_valid():
     """The existing not-found contract holds for a correctly signed request."""
     with pytest.raises(ValueError, match="Service not found"):
         await _service_unregister("no-such-offer-to-delete", _signed_unregister("no-such-offer-to-delete"))
 
 
+@pytest.mark.asyncio
 async def test_unregister_offer_refuses_a_row_with_no_provider_on_record():
     """A legacy row without a provider has no owner to sign: nobody removes it, which is
     what register already says about updating one. A row without a provider cannot be

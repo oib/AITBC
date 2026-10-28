@@ -85,6 +85,7 @@ def _require_timelock(monkeypatch):
 class TestTimelockCannotBeVerified:
     """Each missing input is a refusal, not an exemption. This is the V23-18 defect."""
 
+    @pytest.mark.asyncio
     async def test_missing_block_height_is_refused(self):
         """The original defect: no block height used to mean no timelock."""
         service = make_service(StubBlockchain(height=10**9))
@@ -93,6 +94,7 @@ class TestTimelockCannotBeVerified:
         with pytest.raises(ValueError, match="no on-chain block height"):
             await service._enforce_execution_timelock(proposal)
 
+    @pytest.mark.asyncio
     async def test_missing_voting_ends_block_is_refused(self):
         """Proposals predating the voting_ends_block column must be re-submitted."""
         service = make_service(StubBlockchain(height=10**9))
@@ -101,6 +103,7 @@ class TestTimelockCannotBeVerified:
         with pytest.raises(ValueError, match="no voting_ends_block"):
             await service._enforce_execution_timelock(proposal)
 
+    @pytest.mark.asyncio
     async def test_unreachable_chain_is_refused(self):
         """An unreachable chain must not become a way to execute early."""
         blockchain = StubBlockchain(error=ConnectionError("connection refused"))
@@ -109,6 +112,7 @@ class TestTimelockCannotBeVerified:
         with pytest.raises(ValueError, match="unreachable"):
             await service._enforce_execution_timelock(make_proposal())
 
+    @pytest.mark.asyncio
     async def test_refusal_does_not_depend_on_reaching_the_chain(self):
         """A proposal with no height is refused without an RPC round trip."""
         blockchain = StubBlockchain(height=10**9)
@@ -121,17 +125,20 @@ class TestTimelockCannotBeVerified:
 
 
 class TestTimelockArithmetic:
+    @pytest.mark.asyncio
     async def test_refused_one_block_early(self):
         service = make_service(StubBlockchain(height=VOTING_ENDS_BLOCK + TIMELOCK - 1))
 
         with pytest.raises(ValueError, match="Timelock not expired"):
             await service._enforce_execution_timelock(make_proposal())
 
+    @pytest.mark.asyncio
     async def test_allowed_exactly_at_expiry(self):
         service = make_service(StubBlockchain(height=VOTING_ENDS_BLOCK + TIMELOCK))
 
         await service._enforce_execution_timelock(make_proposal())  # does not raise
 
+    @pytest.mark.asyncio
     async def test_measured_from_voting_end_not_proposal_creation(self):
         """The window follows the voting period rather than overlapping it.
 
@@ -149,6 +156,7 @@ class TestTimelockArithmetic:
 
 
 class TestEmergencyFastTrack:
+    @pytest.mark.asyncio
     async def test_emergency_uses_accelerated_timelock(self, monkeypatch):
         monkeypatch.setattr(settings, "emergency_timelock_blocks", 7_200)
         height = VOTING_ENDS_BLOCK + 7_200
@@ -161,6 +169,7 @@ class TestEmergencyFastTrack:
         with pytest.raises(ValueError, match="need 43200"):
             await service._enforce_execution_timelock(make_proposal(proposal_type="general"))
 
+    @pytest.mark.asyncio
     async def test_emergency_refusal_says_it_is_a_fast_track(self, monkeypatch):
         """The message distinguishes the two timelocks, so 'not expired' is diagnosable."""
         monkeypatch.setattr(settings, "emergency_timelock_blocks", 7_200)
@@ -171,6 +180,7 @@ class TestEmergencyFastTrack:
 
 
 class TestBypassIsExplicitAndLoud:
+    @pytest.mark.asyncio
     async def test_bypass_requires_the_setting_and_logs(self, monkeypatch, caplog):
         monkeypatch.setattr(settings, "require_execution_timelock", False)
         service = make_service(StubBlockchain(error=AssertionError("must not be called")))
@@ -245,6 +255,7 @@ class TestMigration003:
 class TestCreateProposalRecordsVotingEnd:
     """The producer side. The HTLC lesson: check what writes the quantity, not only what reads it."""
 
+    @pytest.mark.asyncio
     async def test_voting_ends_block_is_recorded_from_the_on_chain_height(self, monkeypatch):
         monkeypatch.setattr(settings, "enable_onchain_submission", True)
         monkeypatch.setattr(settings, "proposer_private_key", "0x" + "11" * 32)
@@ -263,6 +274,7 @@ class TestCreateProposalRecordsVotingEnd:
         assert proposal.block_height == PROPOSAL_BLOCK
         assert proposal.voting_ends_block == PROPOSAL_BLOCK + VOTING_PERIOD
 
+    @pytest.mark.asyncio
     async def test_failed_submission_leaves_no_heights_and_so_blocks_execution(self, monkeypatch):
         """The V23-18 entry point: a best-effort failure must not yield a timelock-free proposal."""
         monkeypatch.setattr(settings, "enable_onchain_submission", True)
@@ -292,6 +304,7 @@ class TestCreateProposalRecordsVotingEnd:
 class TestExecuteProposalEnforcesTimelockOffChain:
     """With on-chain submission off — the shipped default — the timelock still applies."""
 
+    @pytest.mark.asyncio
     async def test_offchain_execution_is_refused_without_a_verifiable_timelock(self, monkeypatch):
         monkeypatch.setattr(settings, "enable_onchain_submission", False)
         monkeypatch.setattr(settings, "proposer_private_key", "")
@@ -306,6 +319,7 @@ class TestExecuteProposalEnforcesTimelockOffChain:
         assert proposal.status != ProposalStatus.EXECUTED
         assert proposal.executed_at is None
 
+    @pytest.mark.asyncio
     async def test_refusal_is_recorded_in_the_execution_log(self, monkeypatch):
         """A refused execution leaves a trace — governance needs the audit trail."""
         monkeypatch.setattr(settings, "enable_onchain_submission", False)
@@ -322,6 +336,7 @@ class TestExecuteProposalEnforcesTimelockOffChain:
         assert logs[0].status == "failed"
         assert "Cannot verify timelock" in logs[0].error_message
 
+    @pytest.mark.asyncio
     async def test_execution_records_its_height_without_erasing_the_creation_height(self, monkeypatch):
         """block_height is the evidence the timelock check reads; execution must not overwrite it."""
         monkeypatch.setattr(settings, "enable_onchain_submission", True)
@@ -339,6 +354,7 @@ class TestExecuteProposalEnforcesTimelockOffChain:
         assert proposal.execution_tx_hash == "0xexec"
         assert proposal.proposal_metadata["execution_block_height"] == 999_999
 
+    @pytest.mark.asyncio
     async def test_offchain_execution_proceeds_once_the_timelock_is_provable(self, monkeypatch):
         monkeypatch.setattr(settings, "enable_onchain_submission", False)
 

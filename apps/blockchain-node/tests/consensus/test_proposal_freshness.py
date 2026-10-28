@@ -83,6 +83,7 @@ class TestPeerBaseUrl:
 
 
 class TestChecker:
+    @pytest.mark.asyncio
     async def test_peer_ahead_is_stale_and_reports_max_peer(self):
         async def fetch(base: str):
             return {
@@ -101,6 +102,7 @@ class TestChecker:
         assert result.peer_url == "https://b.example"
         assert result.peer_height == 104
 
+    @pytest.mark.asyncio
     async def test_same_height_same_hash_is_fresh(self):
         async def fetch(base: str):
             return {"height": 100, "hash": "0xsame"}
@@ -109,6 +111,7 @@ class TestChecker:
         result = await checker.check(100, "0xsame")
         assert result.verdict is FreshnessVerdict.FRESH
 
+    @pytest.mark.asyncio
     async def test_hash_split_minority_holds_majority_proceeds(self):
         """1v3 split: the side holding the minority hash holds, majority proceeds."""
         majority_peers = {
@@ -153,6 +156,7 @@ class TestChecker:
         assert result.our_votes == 1
         assert result.peer_hash == "0xmaj"
 
+    @pytest.mark.asyncio
     async def test_hash_tie_proceeds(self):
         """A hash vote split must not halt the chain: ties proceed."""
         # 1 (self) + 1 agreeing vs 2 rivals — strictly outvoted → hold
@@ -194,6 +198,7 @@ class TestChecker:
         assert result.verdict is FreshnessVerdict.HASH_TIE
         assert result.our_votes == 1 and result.rival_votes == 1
 
+    @pytest.mark.asyncio
     async def test_peer_behind_does_not_block(self):
         async def fetch(base: str):
             return {"height": 99, "hash": "0xold"}
@@ -202,6 +207,7 @@ class TestChecker:
         result = await checker.check(100, "0xours")
         assert result.verdict is FreshnessVerdict.FRESH
 
+    @pytest.mark.asyncio
     async def test_all_peers_unreachable_is_unverified(self):
         async def fetch(base: str):
             return None
@@ -214,11 +220,13 @@ class TestChecker:
         result = await checker.check(100, "0xours")
         assert result.verdict is FreshnessVerdict.UNVERIFIED
 
+    @pytest.mark.asyncio
     async def test_no_peers_is_fresh(self):
         checker = ProposalFreshnessChecker(chain_id="c", peer_urls=[], fetch=Mock())
         result = await checker.check(100, "0xours")
         assert result.verdict is FreshnessVerdict.FRESH
 
+    @pytest.mark.asyncio
     async def test_quarantined_peer_excluded_from_ahead_check(self):
         async def fetch(base: str):
             return {
@@ -235,6 +243,7 @@ class TestChecker:
         assert result.verdict is FreshnessVerdict.QUARANTINED
         assert result.peer_url == "https://a.example"
 
+    @pytest.mark.asyncio
     async def test_quarantined_peer_still_votes_on_hash(self):
         """Quarantine only affects the ahead check, not same-height hash votes."""
         peers = {
@@ -255,6 +264,7 @@ class TestChecker:
         assert result.verdict is FreshnessVerdict.HASH_MISMATCH
         assert result.rival_votes == 3
 
+    @pytest.mark.asyncio
     async def test_malformed_height_counts_as_unreachable(self, monkeypatch):
         """Non-numeric height must not crash check() — the peer is unreachable."""
 
@@ -275,6 +285,7 @@ class TestChecker:
 
 
 class TestGate:
+    @pytest.mark.asyncio
     async def test_stale_head_blocks_and_pulls_from_ahead_peer(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws", "wss://b.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -292,6 +303,7 @@ class TestGate:
         sync_manager.pull_from_peer.assert_called_once_with("test-chain", "https://b.example")
         assert metrics_registry._counters.get("proposal_freshness_stale_total") == 1.0
 
+    @pytest.mark.asyncio
     async def test_fresh_head_proceeds(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -303,6 +315,7 @@ class TestGate:
         p._freshness_fetch = fetch
         assert await p._passes_freshness_gate(_head(100, "0xours")) is True
 
+    @pytest.mark.asyncio
     async def test_minority_hash_blocks_without_pull(self, monkeypatch):
         _peers(
             monkeypatch,
@@ -323,6 +336,7 @@ class TestGate:
         sync_manager.pull_from_peer.assert_not_called()
         assert metrics_registry._counters.get("proposal_freshness_hash_mismatch_total") == 1.0
 
+    @pytest.mark.asyncio
     async def test_hash_tie_proceeds_and_counts_metric(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -335,6 +349,7 @@ class TestGate:
         assert await p._passes_freshness_gate(_head(100, "0xours")) is True
         assert metrics_registry._counters.get("proposal_freshness_hash_tie_total") == 1.0
 
+    @pytest.mark.asyncio
     async def test_all_unreachable_proposes_and_counts_metric(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws", "wss://b.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -347,6 +362,7 @@ class TestGate:
         assert await p._passes_freshness_gate(_head(100, "0xours")) is True
         assert metrics_registry._counters.get("proposal_freshness_unverified_total") == 1.0
 
+    @pytest.mark.asyncio
     async def test_never_runs_when_production_disabled(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", False)
@@ -358,12 +374,14 @@ class TestGate:
         p._freshness_fetch = fetch
         assert await p._passes_freshness_gate(_head(100, "0xours")) is True
 
+    @pytest.mark.asyncio
     async def test_no_peers_configured_proceeds(self, monkeypatch):
         _peers(monkeypatch)
         monkeypatch.setattr(settings, "enable_block_production", True)
         p = _proposer()
         assert await p._passes_freshness_gate(_head(100, "0xours")) is True
 
+    @pytest.mark.asyncio
     async def test_unverified_is_never_cached(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -381,6 +399,7 @@ class TestGate:
         assert calls == 2  # rechecked, not reused
         assert metrics_registry._counters.get("proposal_freshness_unverified_total") == 2.0
 
+    @pytest.mark.asyncio
     async def test_cached_fresh_expires_after_ttl(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -404,6 +423,7 @@ class TestGate:
         assert await p._passes_freshness_gate(head) is True
         assert calls == 2
 
+    @pytest.mark.asyncio
     async def test_verdict_cached_per_head(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -423,6 +443,7 @@ class TestGate:
         assert await p._passes_freshness_gate(_head(105, "0xahead")) is True
         assert calls == 2
 
+    @pytest.mark.asyncio
     async def test_stale_rechecks_and_rekicks_pull_after_ttl(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -444,6 +465,7 @@ class TestGate:
         # pull re-kicked on each fresh check while stale (deduped inside)
         assert sync_manager.pull_from_peer.call_count == 2
 
+    @pytest.mark.asyncio
     async def test_failed_pull_quarantines_peer_then_expires(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -476,6 +498,7 @@ class TestGate:
         assert await p._passes_freshness_gate(head) is False
         assert metrics_registry._counters.get("proposal_freshness_stale_total") == 2.0
 
+    @pytest.mark.asyncio
     async def test_successful_pull_does_not_quarantine(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)
@@ -499,6 +522,7 @@ class TestGate:
         assert await p._passes_freshness_gate(_head(105, "0xahead")) is True
         assert p._freshness_quarantined == {}
 
+    @pytest.mark.asyncio
     async def test_deduped_pull_is_not_blamed(self, monkeypatch):
         """If pull_from_peer did not start (another pull in flight), the peer is not recorded."""
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
@@ -515,6 +539,7 @@ class TestGate:
         assert await p._passes_freshness_gate(_head(100, "0xours")) is False
         assert p._freshness_pulls == {}  # not recorded → cannot be quarantined
 
+    @pytest.mark.asyncio
     async def test_stale_without_sync_manager_still_blocks(self, monkeypatch):
         _peers(monkeypatch, "wss://a.example/rpc/gossip/ws")
         monkeypatch.setattr(settings, "enable_block_production", True)

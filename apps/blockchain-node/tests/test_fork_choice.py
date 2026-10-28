@@ -310,6 +310,7 @@ class TestPushPathForkChoice:
 class TestPullPathForkChoice:
     """_resolve_fork_with_peer: walk-back + branch-weight comparison."""
 
+    @pytest.mark.asyncio
     async def test_peer_branch_wins_and_segment_removed(self, session_factory, monkeypatch):
         # ours: ...3 -> 4(r1) -> 5 — one proposer. peer: ...3 -> 4' -> 5' -> 6'
         # — same single proposer but a longer segment: peer wins on length.
@@ -334,6 +335,7 @@ class TestPullPathForkChoice:
         assert _heights(session_factory) == [(b["height"], b["hash"]) for b in blocks]
         assert metrics_registry._counters.get("sync_fork_choice_remote_wins_total") == 1.0
 
+    @pytest.mark.asyncio
     async def test_lone_proposer_loses_to_majority_segment(self, session_factory, monkeypatch):
         # The partition case: we were isolated and produced 4@round0 and 5
         # alone. The majority produced 4'@round2 then 5', 6' with three
@@ -359,6 +361,7 @@ class TestPullPathForkChoice:
         assert _heights(session_factory) == [(b["height"], b["hash"]) for b in blocks]
         assert metrics_registry._counters.get("sync_fork_choice_remote_wins_total") == 1.0
 
+    @pytest.mark.asyncio
     async def test_full_tie_defers_then_key_decides_after_window(self, session_factory, monkeypatch):
         # 1-vs-1 proposers, 1-vs-1 length: settling by (round, hash) now would
         # let a lone node's round-1 child beat the majority's round-2 child, so
@@ -393,6 +396,7 @@ class TestPullPathForkChoice:
         assert metrics_registry._counters.get("sync_fork_choice_local_wins_total") == 1.0
         assert 3 not in sync._deferred_forks
 
+    @pytest.mark.asyncio
     async def test_full_tie_defers_then_peer_growth_wins_by_length(self, session_factory, monkeypatch):
         # The intended tie outcome: the peer's branch produces another block
         # during the defer window, so the re-check decides by length and the
@@ -419,6 +423,7 @@ class TestPullPathForkChoice:
         assert metrics_registry._counters.get("sync_reorgs_total") == 1.0
         assert 3 not in sync._deferred_forks
 
+    @pytest.mark.asyncio
     async def test_no_common_ancestor_within_window(self, session_factory, monkeypatch):
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95))
@@ -433,6 +438,7 @@ class TestPullPathForkChoice:
         monkeypatch.setattr(sync, "_max_reorg_depth", 2)
         assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=10) is False
 
+    @pytest.mark.asyncio
     async def test_nonempty_segment_escalates_on_pull(self, session_factory, monkeypatch):
         # 1v1/1v1 tie defers once; on the post-window re-check the peer's
         # round-0 child wins the key — but our losing block carries txs and
@@ -455,6 +461,7 @@ class TestPullPathForkChoice:
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
         assert metrics_registry._counters.get("sync_fork_reorg_unsafe_total") == 1.0
 
+    @pytest.mark.asyncio
     async def test_peer_segment_bad_signature_no_reorg(self, session_factory, monkeypatch):
         # The peer's winning-looking segment must validate BEFORE our rows are
         # deleted — a bad signature anywhere in it refuses the reorg.
