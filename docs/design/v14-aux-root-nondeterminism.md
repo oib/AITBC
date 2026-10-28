@@ -3,8 +3,12 @@
 **Status:** Open — confirmed live consensus defect (bc-2, 28 Oct 2026);
 remediation pending operator decision — fix apply-time determinism behind a
 new version height (candidate v18), vs formally waive LIQUIDITY_\*/BOND_\*
-at the current versions. The interim rule below is in force until decided:
-the six types are unsealable — do not submit. The incident is recorded in
+at the current versions. A second live-verified surface — single-node
+committed rows (§ "Mechanism 3") — additionally makes
+`STAKE_LOCK`/`STAKE_RELEASE` via `/v1/staking/*` unsealable **at every
+version including v17**. The interim rule below is in force until decided:
+the six LIQUIDITY_\*/BOND_\* types plus consensus-path `STAKE_*` are
+unsealable — do not submit. The incident is recorded in
 the sweep table of
 [v1-v9-live-exercise-waivers.md](../decisions/v1-v9-live-exercise-waivers.md).
 
@@ -63,6 +67,50 @@ verdict gates are the sharpest edge of the defect: they are not only "same
 tx, different stored bytes" but potentially "different verdict on different
 hosts" — a withdraw or release that passes on the proposer can fail on an
 importer a few seconds later.
+
+## Mechanism 3 — single-node committed rows (queue-time RPC writes)
+
+The apply-time class above needs a *proposed* transaction to fork. A
+sharper variant needs none at all: **`stake` is a committed table whose
+only writers are node-local RPC handlers.** At queue time — outside block
+apply — the revived staking handlers write their domain row on the
+serving node only:
+
+```python
+# rpc/staking.py:244-247 (the /v1/staking/stake queue path)
+locked_until = datetime.now(UTC) + timedelta(days=lock_days)
+stake = Stake(chain_id=chain_id, address=address, amount=amount,
+              locked_until=locked_until, status="active")
+session.add(stake); session.commit()
+```
+
+`block_deltas.py:1079-1087` states the class verbatim: ``stake``,
+``agent_stake`` and ``bounty_contract`` rows "are written by the RPC
+handlers at queue time — outside block apply, so the delta journal can
+never capture them." `table_digest` (`side_root_shadow.py:156+`) hashes
+the table's full contents into the committed fingerprint — and `stake`
+sits in `COMMITTED_TABLES` (`:75`) while `agent_stake` and
+`bounty_contract` do not. The handler's own comment marks the defect's
+age: "The stake row is not part of the state root, so writing it here
+is safe" (`rpc/staking.py:238-243`) — true for the v9 state root, but
+expired the moment v14 started committing the side tables.
+
+**Consequence (verified end-to-end by Coder A):** any sealed
+`STAKE_LOCK` via `/v1/staking/stake` leaves the *submitter's*
+fingerprint divergent — the serving node hashed a row nobody else has —
+so it rejects the very block that sealed its own lock. A single-node
+fork-out: 4/5 quorum holds, no liveness deadlock, but the submitter
+stalls until the row is deleted and the node rejoins (the exact 21 Oct
+12:14 `edge_node_registration` recovery). `STAKE_RELEASE` via
+`/v1/staking/unstake` mutates the same committed row → same outcome.
+
+**Precedent:** this is the misclassification v15 already fixed for
+`edge_node_registration` — `COMMITTED_TABLES_V15` drops it
+(`side_root_shadow.py:77-88`, comment: "Its committed membership was a
+misclassification: any successful register call diverged the
+fingerprint on exactly one node — 21 Oct 12:14 incident — node2 stalled
+at 118 until the row was deleted"). `stake` is the identical case:
+node-local queue-time writer, no apply-path reader or writer.
 
 ## The incident — bc-2, 28 Oct 2026
 
@@ -136,14 +184,37 @@ preimage), so it needs a version gate, same shape as v14–v17:
   ([v17-activation-runbook.md](../ops/v17-activation-runbook.md)).
 - **Regression pin** — the cross-DB `committed_fingerprint` assertion above.
 
+### And the committed-set re-scope (mechanism 3)
+
+`stake` exits the committed set behind the same v18 gate —
+`COMMITTED_TABLES_V18 = COMMITTED_TABLES_V15` minus `"stake"`. The set
+selection is already version-keyed (`committed_tables_for_version`,
+`side_root_shadow.py:91-97`), so pre-v18 blocks keep replaying over the
+old set byte-for-byte — the same shape as the v15
+`edge_node_registration` re-scope. No apply-path code reads or writes
+`stake`, so nothing else gates on it.
+
+The deeper question the fix should pose: if `stake`'s committed
+membership was a misclassification from the start (its only writer is
+node-local and its only readers are local status queries), is the table
+needed in consensus at all — or is the v18 change less a *fix* than a
+*re-scope* admitting the membership was wrong? The same audit applies
+to every remaining committed table's writer set: `liquidity_*`, `bond`,
+`receipt`, `ipfs_subscription` each deserve a "who writes this, and
+where" pass before v18 freezes the next set.
+
 ## Interim rule — unsealable types
 
 `LIQUIDITY_DEPOSIT`, `LIQUIDITY_WITHDRAW`, `LIQUIDITY_CLAIM`,
 `BOND_LOCK`, `BOND_RELEASE`, `BOND_SLASH` are **unsealable** at current
-state-transition versions: do not submit them. Admission validates payload
+state-transition versions, and `STAKE_LOCK`/`STAKE_RELEASE` via
+`/v1/staking/*` are **unsealable at every version including v17**
+(mechanism 3): do not submit them. Admission validates payload
 shape only (`state_transition.py:1358-1367`) — nothing stops a submitted tx
 reaching a proposer, and any proposed instance computes a different
-aux-root on every host and forks the fleet.
+aux-root on every host and forks the fleet; the staking variant does
+not even need a proposal — the queue-time write alone diverges the
+submitter.
 
 - WITHDRAW/CLAIM additionally need a sealed deposit position — none can
   exist.
@@ -153,15 +224,10 @@ aux-root on every host and forks the fleet.
   parameter height-scoped, and the key is absent fleet-wide on bc-2 → apply
   returns "no slash authority configured" (`:2459-2461`) before the bond
   lookup is even reached.
-
-Adjacent surface — same class, currently dormant: `rpc/staking.py:244-245`
-writes a `stake` row with wall-clock `locked_until` before queueing, and
-`stake` is a committed table (`side_root_shadow.py:75`). Inert while the
-staking RPCs refuse with 410, but the v17 revival
-([v9-unsigned-protocol-transfers.md](v9-unsigned-protocol-transfers.md)
-§ v17 resolution) re-arms a node-local writer into a committed table — the
-`edge_node_registration` failure mode (`side_root_shadow.py:78-87`). Audit
-it in the same remediation.
+- **`/v1/agent-staking/*` STAKE_* remains exercisable** — `agent_stake`
+  is not a committed table, so its queue-time rows stay node-local by
+  design (same for `bounty_contract`). Only the `/v1/staking/*`
+  consensus-path plays are blocked.
 
 ## Related
 
