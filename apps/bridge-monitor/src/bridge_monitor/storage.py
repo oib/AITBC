@@ -219,7 +219,13 @@ def create_deposit(
     amount_ait starts at '0' — the oracle-priced value lands via
     update_deposit once crediting is attempted. Returns the generated id,
     or None when the tx hash is already recorded.
+
+    ``eth_tx_hash`` is stored canonicalized — both deposit writers (this
+    monitor's unprefixed ``tx.hash.hex()`` and the wallet-side monitor's
+    ``0x``-prefixed RPC hash) must land on one key or the UNIQUE dedupe
+    lets the same deposit pay twice (issue #668).
     """
+    eth_tx_hash = canon_tx_hash(eth_tx_hash)
     deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
@@ -340,11 +346,12 @@ def update_deposit(
             updates.append("completed_at = ?")
             params.append(datetime.now(UTC).isoformat())
 
-        params.append(eth_tx_hash)
+        params.extend(_tx_hash_keys(eth_tx_hash))
 
         if updates:
             # every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
-            query = f"UPDATE eth_deposits SET {', '.join(updates)} WHERE tx_hash = ?"  # nosec
+            # lower() + both spellings: legacy rows may hold a bare or mixed-case hash (#668)
+            query = f"UPDATE eth_deposits SET {', '.join(updates)} WHERE lower(tx_hash) IN (?, ?)"  # nosec
             cursor.execute(query, params)
             conn.commit()
             return True
@@ -353,11 +360,12 @@ def update_deposit(
 
 
 def get_deposit(eth_tx_hash: str) -> dict[str, Any] | None:
-    """Get deposit by transaction hash."""
+    """Get deposit by transaction hash — any spelling (issue #668: callers
+    pass web3-bare or RPC ``0x`` forms; legacy rows may carry either)."""
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
 
-        cursor.execute(f"{_DEPOSIT_SELECT} WHERE tx_hash = ?", (eth_tx_hash,))
+        cursor.execute(f"{_DEPOSIT_SELECT} WHERE lower(tx_hash) IN (?, ?)", _tx_hash_keys(eth_tx_hash))
         row = cursor.fetchone()
 
         if row:
@@ -482,8 +490,13 @@ def record_outbound(
     ``kind`` is ``refund`` | ``withdrawal`` | ``unidentified``; ``value_eth``
     is stored as a decimal ETH string like ``eth_deposits.amount_eth``.
     INSERT OR IGNORE on the tx-hash PRIMARY KEY makes a re-scan of the same
-    block harmless. Returns True when a row was written.
+    block harmless. Returns True when a row was written. The hash is
+    stored canonicalized — a re-scan through a differently-spelled source
+    must dedupe, not double-ledger (issue #668).
     """
+    tx_hash = canon_tx_hash(tx_hash)
+    if matched_deposit_tx is not None:
+        matched_deposit_tx = canon_tx_hash(matched_deposit_tx)
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -517,7 +530,7 @@ def depositor_tx_hashes() -> dict[str, str]:
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT from_address, tx_hash FROM eth_deposits")
-        return {str(addr).lower(): str(tx) for addr, tx in cursor.fetchall()}
+        return {str(addr).lower(): canon_tx_hash(str(tx)) for addr, tx in cursor.fetchall()}
 
 
 # Fixed literals only — never user input — so the identifier interpolation
@@ -529,15 +542,35 @@ _RELEASE_SOURCES = (
 )
 
 
+_HEX_CHARS = frozenset("0123456789abcdef")
+
+
 def canon_tx_hash(value: str) -> str:
     """Canonical ``0x``-prefixed lowercase form for tx-hash joins.
 
     web3's ``tx.hash.hex()`` is unprefixed while the wallet side writes
     ``eth_tx_hash`` rows ``0x``-prefixed — joins between them must
     normalize both sides or release-leg sends fall through to
-    ``unidentified`` (issue #652).
+    ``unidentified`` (issue #652) and the two deposit writers produce
+    distinct spellings of the same key, defeating the UNIQUE dedupe
+    (issue #668). Non-hex synthetic ids (``manual-…`` payout rows) are
+    not hashes and pass through unchanged.
     """
-    return "0x" + str(value).lower().removeprefix("0x")
+    s = str(value)
+    body = s[2:] if s[:2].lower() == "0x" else s
+    lowered = body.lower()
+    if not lowered or any(c not in _HEX_CHARS for c in lowered):
+        return s
+    return "0x" + lowered
+
+
+def _tx_hash_keys(value: str) -> tuple[str, str]:
+    """Stored spellings a ``tx_hash`` lookup must cover: the canonical
+    ``0x``-lower form plus the legacy unprefixed form written before the
+    #668 storage-boundary normalization. Pair with ``lower(tx_hash)`` in
+    the WHERE clause so mixed-case legacy rows also match."""
+    canon = canon_tx_hash(value)
+    return (canon, canon[2:] if canon.startswith("0x") else canon)
 
 
 def release_sources() -> dict[str, str]:

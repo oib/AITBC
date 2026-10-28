@@ -29,6 +29,33 @@ sqlite3.register_converter("NUMERIC", lambda b: Decimal(b.decode()))
 sqlite3.register_converter("TIMESTAMP", lambda b: b.decode())
 
 
+# Keep in sync with bridge_monitor.storage.canon_tx_hash — this app shares
+# the eth_deposits table with aitbc-bridge-monitor (BRIDGE_DEPOSITS_DB), so
+# both writers must land the same key spelling or the UNIQUE dedupe fails
+# and one ETH deposit can be paid out twice (issue #668). The RPC JSON
+# hash is 0x-prefixed while web3's tx.hash.hex() is bare.
+_HEX_CHARS = frozenset("0123456789abcdef")
+
+
+def _canon_tx_hash(value: str) -> str:
+    """Canonical ``0x``-prefixed lowercase ETH tx hash; non-hex synthetic
+    ids pass through unchanged."""
+    s = str(value)
+    body = s[2:] if s[:2].lower() == "0x" else s
+    lowered = body.lower()
+    if not lowered or any(c not in _HEX_CHARS for c in lowered):
+        return s
+    return "0x" + lowered
+
+
+def _tx_hash_keys(value: str) -> tuple[str, str]:
+    """Stored spellings a tx_hash lookup must cover: canonical plus the
+    legacy unprefixed form written by the other writer. Pair with
+    ``lower(tx_hash)`` so mixed-case legacy rows also match."""
+    canon = _canon_tx_hash(value)
+    return (canon, canon[2:] if canon.startswith("0x") else canon)
+
+
 def _money_str(value: Decimal | float | str | None) -> str:
     """Return a fixed-point, no-exponent decimal string for money amounts."""
     if value is None:
@@ -382,8 +409,11 @@ def insert_deposit(
     recipient: str | None = None,
     deposit_address: str | None = None,
 ) -> str:
-    """Insert a new deposit record."""
+    """Insert a new deposit record. ``tx_hash`` is stored canonicalized —
+    see _canon_tx_hash (issue #668)."""
     import uuid
+
+    tx_hash = _canon_tx_hash(tx_hash)
 
     deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
 
@@ -423,6 +453,8 @@ def insert_exchange_prepay_deposit(tx_hash: str, from_address: str, amount_eth: 
     ``recipient``; the settlement monitor canonicalizes and validates it.
     ``amount_ait`` is 0: no AIT is owed, the credit lands exchange-side."""
     import uuid
+
+    tx_hash = _canon_tx_hash(tx_hash)
 
     deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
     conn = _connect_db()
@@ -529,9 +561,9 @@ def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
         """
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
         FROM eth_deposits
-        WHERE tx_hash = ?
+        WHERE lower(tx_hash) IN (?, ?)
     """,
-        (tx_hash,),
+        _tx_hash_keys(tx_hash),
     )
 
     row = cursor.fetchone()
