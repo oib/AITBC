@@ -491,20 +491,21 @@ aitbc wallet spend --amount 36000000 --description "scenario test spend"
 
 ### Step 26: Stake AIT
 
-Locks funds in staking.
+Locks funds in staking. `--amount` is **AIT-denominated** (a Decimal)
+and `--duration` is integer days.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked.
+Cost: 1 AIT locked.
 
 ```bash
-aitbc wallet stake --amount 36000000 --duration 30d
+aitbc wallet stake --amount 1 --duration 30
 ```
 
 **v17 gate:** this submits a `STAKE_LOCK` through the revived staking
 RPC — activation-gated, it answers HTTP 410 while the next block height
 is below `STATE_TRANSITION_V17_HEIGHT` and goes live at/after the pin.
-Pick the duration deliberately: `--duration 30d` means the position
-cannot release for ~30 days. For a short exercise use `lock_days=1`
-(the minimum — `--duration 1d`), which keeps the release window ~1 day.
+Pick the duration deliberately: `--duration 30` means the position
+cannot release for ~30 days. For a short exercise use `--duration 1`
+(the minimum), which keeps the release window ~1 day.
 
 ### Step 27: Unstake a position
 
@@ -518,8 +519,8 @@ aitbc wallet unstake --stake-id 1
 
 `STAKE_RELEASE` needs the lock matured — ~24h wall-clock on the
 position's `locked_until` plus the v4 height window
-(`lock_height + lock_days*1440` blocks). The step-26 `30d` position
-therefore cannot release inside a normal scenario run; a `--duration 1d`
+(`lock_height + lock_days*1440` blocks). The step-26 30-day position
+therefore cannot release inside a normal scenario run; a `--duration 1`
 stake is releasable the next day.
 
 ### Step 27a: Top-level staking aliases

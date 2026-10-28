@@ -17,9 +17,11 @@ breadcrumb: Home > Scenarios > Bounty Lifecycle
 ## Scenario Overview
 
 The bounty lifecycle is **operator-signed** — no `aitbc` CLI surface
-exists. The preferred path is the coordinator-api on hub, which signs
-server-side with `AGENT_ECONOMICS_OPERATOR_*` and forwards the
-`payload.auth`-bearing protocol emissions to the node. This play runs
+exists, and the coordinator-api's full bounty router is **dead code**
+(`main.py` mounts only the `bounty_flat` stub — `POST /bounties` etc.
+in `contexts/bounty/routers/bounty.py` are never served). The working
+path is the **signed node-RPC** `/v1/bounty/*` surface on `hub:8202`
+with a body signed by `AGENT_ECONOMICS_OPERATOR_KEY`. This play runs
 both halves of the lifecycle so both revived record types seal:
 
 - deploy → submit → verify → **`BOUNTY_PAYOUT`** seals
@@ -35,41 +37,50 @@ defect).
 
 ### Prerequisites
 
-- coordinator-api running on hub with `AGENT_ECONOMICS_OPERATOR_ADDRESS`
-  + `AGENT_ECONOMICS_OPERATOR_KEY` configured (fleet-wide per A's
-  report)
+- node RPC reachable at `hub:8202` with `AGENT_ECONOMICS_OPERATOR_ADDRESS`
+  configured on the rpc unit (the verifying side)
+- `AGENT_ECONOMICS_OPERATOR_KEY` available to the signing script (the
+  reference below reads it on hub)
 - a funded escrow/lock source wallet for the deploy steps
 - head ≥ `STATE_TRANSITION_V17_HEIGHT` (else every play returns 410)
 
 ---
 
-## Operator path (preferred): coordinator-api on hub
+## Operator path: signed node RPC (`hub:8202`)
 
-Set the base URL once; the plays below use `curl` because no CLI
-surface exists for the operator lane.
+Every step signs the request body the same way:
+
+1. Strip `signature` from the payload.
+2. Canonical JSON: `json.dumps(payload, sort_keys=True, separators=(",", ":"))`.
+3. `digest = keccak256(canonical_bytes)`; sign via eth_keys
+   `sign_msg_hash` with `AGENT_ECONOMICS_OPERATOR_KEY`.
+4. Attach the hex signature as `signature` and POST to the node RPC.
+
+Working reference implementation: `hub:/root/v17-bounty_cycle.py`
+(operator-held, not in the repo) — it already exercises the full cycle
+below; the steps here annotate what each call does on-chain. Plays use
+`curl` because no `aitbc` CLI surface exists.
 
 ```bash
-API=http://<hub-coordinator-api>   # coordinator-api on hub
+RPC=http://hub:8202   # node RPC on hub
 ```
 
 ### Step 1: Confirm the gate is open
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' -X POST "$API/bounties" -H 'content-type: application/json' -d '{}'
+curl -s -o /dev/null -w '%{http_code}\n' -X POST "$RPC/v1/bounty/deploy" -H 'content-type: application/json' -d '{}'
 ```
 
 **Expected:** `410` while unarmed (next height < pin); a non-410
-validation/auth response once armed. Do not proceed on 410.
+validation/signature error once armed. Do not proceed on 410.
 
 ### Step 2: Deploy a bounty → `BOUNTY_LOCK`
 
+Sign and POST a deploy body — title, `reward` (units), `funder_wallet`,
+`deadline_height` (give the payout leg generous margin):
+
 ```bash
-curl -s -X POST "$API/bounties" -H 'content-type: application/json' -d '{
-  "title": "scenario-86 payout leg",
-  "reward": "<units>",
-  "funder_wallet": "<funded wallet address>",
-  "deadline_height": "<current head + generous margin>"
-}'
+curl -s -X POST "$RPC/v1/bounty/deploy" -H 'content-type: application/json' -d @signed-deploy.json
 ```
 
 A `BOUNTY_LOCK` seals moving `reward` into bounty escrow. Record the
@@ -77,56 +88,36 @@ A `BOUNTY_LOCK` seals moving `reward` into bounty escrow. Record the
 
 ### Step 3: Submit work
 
+Sign and POST the submission body (`bounty_id`, `worker_wallet`,
+`result_uri`):
+
 ```bash
-curl -s -X POST "$API/bounties/<bounty_id>/submit" -H 'content-type: application/json' -d '{
-  "worker_wallet": "<worker address>",
-  "result_uri": "ipfs://<proof-of-work reference>"
-}'
+curl -s -X POST "$RPC/v1/bounty/<bounty_id>/submit" -H 'content-type: application/json' -d @signed-submit.json
 ```
 
 ### Step 4: Verify the submission → `BOUNTY_PAYOUT`
 
+Sign and POST the verify body (`bounty_id`, `submission_id`, verdict
+accepted):
+
 ```bash
-curl -s -X POST "$API/bounties/<bounty_id>/verify" -H 'content-type: application/json' -d '{
-  "submission_id": "<id from step 3>",
-  "verdict": "accepted"
-}'
+curl -s -X POST "$RPC/v1/bounty/<bounty_id>/verify" -H 'content-type: application/json' -d @signed-verify.json
 ```
 
-The coordinator signs the payout authorization; the node emits a
-`BOUNTY_PAYOUT` carrying `payload.auth`, which seals and pays the
-worker.
+The node re-verifies the operator `payload.auth` and emits a
+`BOUNTY_PAYOUT`, which seals and pays the worker.
 
-### Step 5: Deploy a second bounty, then let it expire → `BOUNTY_REFUND`
+### Step 5: Deploy a second bounty, then expire → `BOUNTY_REFUND`
 
 Deploy as in step 2 with `deadline_height` only a few blocks ahead —
 expiry triggers on the record's own deadline. Once the deadline height
-has passed:
+has passed, sign and POST the expire body:
 
 ```bash
-curl -s -X POST "$API/bounties/<bounty_id_2>/expire" -H 'content-type: application/json' -d '{}'
+curl -s -X POST "$RPC/v1/bounty/<bounty_id>/expire" -H 'content-type: application/json' -d @signed-expire.json
 ```
 
-The coordinator signs the refund; a `BOUNTY_REFUND` seals returning the
-escrowed reward to the funder.
-
----
-
-## Alternative path: direct signed node RPC
-
-The node RPC on `hub:8202` exposes the same lifecycle under its bounty
-router (`/v1/bounty/*`) but requires a **pre-signed body** — sign
-server-side yourself:
-
-1. Strip `signature` from the payload.
-2. Canonical JSON: `json.dumps(payload, sort_keys=True, separators=(",", ":"))`.
-3. `digest = keccak256(canonical_bytes)`; sign via eth_keys
-   `Account.sign_msg_hash`/`sign_msg_hash` with the operator key
-   (`AGENT_ECONOMICS_OPERATOR_KEY`).
-4. Attach the hex signature as `signature` and POST.
-
-Working reference implementation: `hub:/root/v17-bounty_cycle.py`
-(operator-held, not in the repo).
+A `BOUNTY_REFUND` seals returning the escrowed reward to the funder.
 
 ---
 
@@ -138,8 +129,8 @@ sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db \
   "SELECT block_height, type, sender, recipient FROM transaction \
    WHERE type IN ('BOUNTY_LOCK','BOUNTY_PAYOUT','BOUNTY_REFUND') ORDER BY rowid DESC LIMIT 10;"
 
-# bounty record state
-curl -s "$API/bounties/<bounty_id>" | python3 -m json.tool
+# bounty record state — read via the node RPC bounty router
+curl -s "$RPC/v1/bounty/<bounty_id>" | python3 -m json.tool
 ```
 
 **Expected:**
@@ -155,7 +146,7 @@ curl -s "$API/bounties/<bounty_id>" | python3 -m json.tool
 
 - [On-chain record coverage](./README.md#on-chain-record-coverage)
 - [v17 activation runbook](../ops/v17-activation-runbook.md) — gate semantics
-- [v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution) — why these types revive
+- [v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution--option-1-implemented-staking--bounty) — why these types revive
 - [Agent staking lifecycle](./87_agent_staking.md) — same operator-signing machinery
 
 ---
