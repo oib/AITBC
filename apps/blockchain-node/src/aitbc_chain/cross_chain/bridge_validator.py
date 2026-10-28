@@ -110,8 +110,22 @@ class BridgeValidatorMixin(BridgeBase):
         supported = str(getattr(settings, "bridge_supported_chains", ""))
         if not supported:
             return
+        # Chain-aware backfill (Refs #659): the local validator set is only a
+        # plausible stand-in for chains this node actually follows or produces.
+        # Copying it under a bridge-only chain id fabricates a foreign
+        # validator set — that phantom set silently degrades cross-chain
+        # verification (the Lock-A incident: bc-2's 4 installed as the island's
+        # set by every restarted rpc). Bridge-only chains are seeded by
+        # explicit signed registration, never by backfill.
+        followed = {c.strip() for c in str(getattr(settings, "supported_chains", "")).split(",") if c.strip()}
         for target_chain in [c.strip() for c in supported.split(",") if c.strip()]:
             if target_chain == source_chain:
+                continue
+            if target_chain not in followed:
+                logger.info(
+                    "Skipping bridge validator backfill for %s — bridge-only chain, requires explicit registration",
+                    target_chain,
+                )
                 continue
             try:
                 # Ensure target chain tables exist before probing or writing.
