@@ -362,12 +362,14 @@ coverage is enforced by `tests/test_env_doc_coverage.py`.
 | `ESCROW_FEE_RECIPIENT` / `escrow_fee_recipient` | Env fallback for the v11 `ESCROW_FEE_SWEEP` destination when the chain parameter is unset — consensus fails closed without it. Designate the treasury address at deploy time. |
 | `ESCROW_FEE_SWEEP_ENABLED` | Signer-side switch (default off): when set, the escrow release route submits the `ESCROW_FEE_SWEEP` leg after a job's final settlement leg. |
 | `ESCROW_FEE_SWEEP_PASS_ENABLED` / `ESCROW_FEE_SWEEP_PASS_DRY_RUN` | Settlement-sweeper fee-sweep pass controls (default off): `_ENABLED` arms the pass — split from `ESCROW_FEE_SWEEP_ENABLED`, which also gates the release-route retry; `_DRY_RUN` logs and counts without submitting. |
+| `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT` | Floor height for the fee-sweep pass — jobs whose newest sealed settlement leg sits below it are skipped (`config.py:208`, default `35400` = the v11 activation; consumed at `rpc/escrow_settlement_sweeper.py:617`). **Must live in an env file the `aitbc-blockchain-rpc` unit loads** — the pass runs inside the rpc service, not `aitbc-blockchain-node`, so a node-env-only pin never reaches it. bc-2's zero-sweep defect was exactly this (floor `35400` excluded every bc-2 leg → tick-only metrics); the fix moved the pin into the shared `blockchain.env` on all five hosts. |
 | `ESCROW_CHANGE_PASS_ENABLED` / `ESCROW_CHANGE_PASS_DRY_RUN` | Settlement-sweeper change-return pass controls (default off): `_ENABLED` arms it, `_DRY_RUN` logs and counts without submitting. Both unset → the pass is inert. |
 | `HUB_BLOCKCHAIN_RPC_URL` | The proposer's RPC URL for the settlement sweeper's pending-tx probe; conventionally carries the `/rpc` suffix (bare base URLs accepted). Set on every host — a host whose `HUB_RPC_URL`/`BLOCKCHAIN_RPC_URL` points at itself would probe its own mempool, not the proposer's. |
 | `GPU_RETIRED_IDS` | Comma-separated `gpu_id`s that `GPU_REGISTER`/`GPU_ALLOCATE` must not name — consensus-level since v10, so the value must be identical on every node (`fleet-config-check.sh` flags drift). |
 | `ESCROW_RELEASE_LOOKUP_LIMIT` | Max sealed rows scanned when resolving a release (default 10). |
 | `BRIDGE_RELEASE_AUTHORITY` | Fallback authority for `BRIDGE_RELEASE`/`BRIDGE_REFUND` signature checks (chain param takes precedence). |
 | `BOND_ESCROW_ADDRESS` / `BOND_BURN_ADDRESS` / `BOND_SLASH_AUTHORITY_ADDRESS` | Bond escrow, burn sink, and slash-authority addresses. |
+| `AGENT_ECONOMICS_OPERATOR_ADDRESS` | Verifying side of the agent-economics (staking/bounty) operator pair (`rpc/agent_economics_auth.py:17`): the rpc routes check the incoming operator signature against this address (`require_operator_signature`) and stamp it as `payload.auth.signer` on the revived v17 protocol transfers (`STAKE_LOCK`/`STAKE_RELEASE`/`BOUNTY_LOCK`/`BOUNTY_PAYOUT`/`BOUNTY_REFUND`); unset → the routes 503. Apply re-verifies the auth's signature plus its binding to the transfer — the signer stays unbound by design (node-local env, not consensus state). Lives in `aitbc-blockchain-rpc.env` on all five hosts (added in the v17 activation wave; the matching `AGENT_ECONOMICS_OPERATOR_KEY` signing key stays on the coordinator). |
 | `ENERGY_OPERATOR_ADDRESS` | Operator address for energy-settlement flows. |
 | `ENERGY_MAX_RATE_AGE_SECONDS` | Freshness window for a stored native AIT/EUR rate in quote verification — default `86400` everywhere (shared `DEFAULT_MAX_RATE_AGE_SECONDS` in `aitbc/market/energy_pricing.py`, bound by the coordinator `Settings` field, the node RPC fallback, and the CLI). 24h because the `aitbc-native-energy-rate-refresh` timer re-attests the stored rate every 12h; the window must outlast missed runs. Kept fleet-identical by `tests/unit/test_energy_window_defaults.py`. |
 | `ENERGY_RATE_MIN_AIT_PER_EUR` / `ENERGY_RATE_MAX_AIT_PER_EUR` | Plausibility band for `POST /v1/market/native-energy/rate` and the refresher's pre-post check — defaults `0.5` / `8`. The max must stay under ~9.22: `ait_per_eur_scaled` stores rate×1e18 in an int64 column. |
@@ -528,6 +530,12 @@ COORDINATOR_STALE_MINER_REAPER_INTERVAL_SECONDS=60
 COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS=300
 ```
 
+### Agent economics operator signing (hub only)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_ECONOMICS_OPERATOR_KEY` | unset | Private key (hex) the coordinator signs agent-economics staking/bounty payloads with (`config.py:337`; used at `contexts/blockchain/services/blockchain.py:61`). The signature becomes `payload.auth` on the revived v17 protocol transfers; the node's rpc verifies it against `AGENT_ECONOMICS_OPERATOR_ADDRESS`. Signing side — hub only; unset raises `RuntimeError` on the first signed call. |
+
 ### Development-only flags — never set on a live node
 
 | Variable | Default | Description |
@@ -566,8 +574,10 @@ under the old, lenient rules so sealed history stays valid.
 > **bc-2 note**: the heights quoted in this table (11000, 24000, 24650,
 > 24800, 32100, 35400, 37500, and the shadow-mode v9 behavior) are the old
 > chain's history. On the `bc-2` chain every `STATE_TRANSITION_V<N>_HEIGHT`
-> is set to 1 — all rules apply from the first block after genesis and no
-> activation events exist.
+> through v16 is set to 1 — all rules apply from the first block after
+> genesis. `STATE_TRANSITION_V17_HEIGHT` is the exception: pinned at `8900`
+> on all five hosts in the 28 Oct activation wave
+> (`docs/ops/v17-activation-runbook.md`).
 
 | Height knob | What activates |
 |---|---|
@@ -586,7 +596,7 @@ under the old, lenient rules so sealed history stays valid.
 | `STATE_TRANSITION_V14_HEIGHT` | V-3 + V-4 at the same shared ACT-1 height: block headers carry `aux_state_root` (fingerprint over the committed side tables, bound into the block hash and verified at import); a `BRIDGE_LOCK` without derivable leaf data is refused at apply. **Baked default 46100**; moves together with v13 — the STOP-rule "move H" path sets both on every host. |
 | `STATE_TRANSITION_V15_HEIGHT` | EDGE-REG-CONSENSUS-1: `edge_node_registration` leaves the committed side-table set (12 tables instead of 13 at/after the height). **Default unset (unarmed)** — the activation pin is set on every host together with the validator restart wave; a mid-rollout mixed set would reject blocks as `aux_state_root` mismatches. `fleet-config-check.sh` flags drift. |
 | `STATE_TRANSITION_V16_HEIGHT` | GPU-ADMISSION-1 (#384): a `GPU_ALLOCATE` must name `allocation_id` and an existing `gpu_id` — validate_transaction refuses at/after the height, mempool admission refuses at the door; below it apply keeps minting `alloc_<uuid4>`. **Default unset (unarmed)** — the activation pin is set on every host together with the validator restart wave. `fleet-config-check.sh` flags drift. |
-| `STATE_TRANSITION_V17_HEIGHT` | BNT-1 revival: unsigned protocol transfers carrying a verified `payload.auth` seal again for `STAKE_LOCK`, `STAKE_RELEASE`, `BOUNTY_LOCK`, `BOUNTY_PAYOUT`, `BOUNTY_REFUND` (HTLC and AUTO_STAKE stay dead — they emit no auth). The auth must pass signature verification plus transaction-field binding at apply, in both the sequential and pure paths, and at remote attestation. **Default unset (unarmed)** — the pin is set on every host together with the validator restart wave; a mixed fleet rejects the revived types on unarmed nodes. `fleet-config-check.sh` flags drift. |
+| `STATE_TRANSITION_V17_HEIGHT` | BNT-1 revival: unsigned protocol transfers carrying a verified `payload.auth` seal again for `STAKE_LOCK`, `STAKE_RELEASE`, `BOUNTY_LOCK`, `BOUNTY_PAYOUT`, `BOUNTY_REFUND` (HTLC and AUTO_STAKE stay dead — they emit no auth). The auth must pass signature verification plus transaction-field binding at apply, in both the sequential and pure paths, and at remote attestation. **Default unset (unarmed)** — the pin is set on every host together with the validator restart wave; a mixed fleet rejects the revived types on unarmed nodes. On bc-2 the pin is `8900` on all five hosts (28 Oct activation wave); it must stay identical on every validator — each node resolves its own transition heights at apply time, so a mismatch is a replay/fork vector. `fleet-config-check.sh` flags drift. |
 
 **Effective-heights rule**: heights v4/v5/v7/v8 are consensus and hardcoded in
 `aitbc_chain/config.py` — env files cannot move them (an env-drifted fleet
