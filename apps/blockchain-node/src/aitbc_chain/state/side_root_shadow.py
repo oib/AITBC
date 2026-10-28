@@ -87,12 +87,23 @@ COMMITTED_TABLES: tuple[str, ...] = (
 # all 13 tables and replay must reproduce it byte-for-byte.
 COMMITTED_TABLES_V15: tuple[str, ...] = tuple(t for t in COMMITTED_TABLES if t != "edge_node_registration")
 
+# v18 (deterministic committed apply — docs/design/v18-deterministic-committed-apply.md):
+# ``stake`` leaves the committed set. No apply-path code reads or writes it —
+# its only writers are the node-local ``POST /v1/staking/*`` queue-time RPC
+# handlers (``rpc/staking.py``) and its only readers local status queries, so
+# a single-node write forked the submitter off the fleet exactly like
+# ``edge_node_registration`` did before v15. The v14/v15 sets above stay
+# frozen: sealed pre-v18 blocks replay over the V15 set byte-for-byte.
+COMMITTED_TABLES_V18: tuple[str, ...] = tuple(t for t in COMMITTED_TABLES_V15 if t != "stake")
+
 
 def committed_tables_for_version(block_version: int | None) -> tuple[str, ...]:
     """Committed table set for a block version. ``None`` yields the v14 set —
     the historical default — so unversioned callers keep byte-identical
     behaviour on already-recorded eras; consensus paths must pass the sealed
     or computed block version."""
+    if block_version is not None and block_version >= 18:
+        return COMMITTED_TABLES_V18
     if block_version is not None and block_version >= 15:
         return COMMITTED_TABLES_V15
     return COMMITTED_TABLES
@@ -184,7 +195,9 @@ def committed_fingerprint(conn: _DbConn, block_version: int | None = None) -> di
     """Committed digests plus the set fingerprint — the same sha256 over
     ``sorted(table=digest;)`` pairs the probe prints. The table set follows
     ``block_version``: the 13-table v14 set by default, the 12-table v15 set
-    (without ``edge_node_registration``) from the v15 activation height."""
+    (without ``edge_node_registration``) from the v15 activation height, and
+    the 11-table v18 set (additionally without ``stake``) from the v18
+    activation height."""
     digests: dict[str, Any] = {}
     for table in committed_tables_for_version(block_version):
         digests[table] = table_digest(conn, table)

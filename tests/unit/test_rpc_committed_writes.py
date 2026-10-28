@@ -196,6 +196,11 @@ def _scan_rpc() -> list[tuple[str, int, str, str]]:
 #   sync.py import path — full-chain import replaces account/chain_parameter*
 #     (deletes + the insert loop; maintenance path, admin-only; documented
 #     in the v3 design doc)
+#   staking.py stake writers — the queue-time ``/v1/staking/*`` handlers the
+#     v18 spec names as ``stake``'s only writers. ``stake`` leaves the
+#     committed set at v18 (COMMITTED_TABLES_V18), re-scoping these rows to
+#     service state — the same re-scope shape v15 proved for
+#     edge_node_registration.
 _ALLOWED: set[tuple[str, str, str]] = {
     ("rpc/gpu_resources.py", "edge_node_registration", "session.add"),
     ("rpc/gpu_resources.py", "edge_node_registration", "attr-mutation"),
@@ -203,6 +208,7 @@ _ALLOWED: set[tuple[str, str, str]] = {
     ("rpc/sync.py", "account", "session.add"),
     ("rpc/sync.py", "chain_parameter", "sql.delete"),
     ("rpc/sync.py", "chain_parameter_history", "sql.delete"),
+    ("rpc/staking.py", "stake", "session.add"),
 }
 
 
