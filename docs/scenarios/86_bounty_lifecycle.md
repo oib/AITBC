@@ -1,6 +1,7 @@
 # Bounty Lifecycle — deploy → submit → verify (BOUNTY_PAYOUT) + expire (BOUNTY_REFUND)
 
 **Level**: Advanced (operator lane)
+**Status**: ✅ **Exercised on bc-2 (28 Oct)** — `BOUNTY_LOCK` @8904 `0x49dc1b37`, `BOUNTY_PAYOUT` @8908 `0x693ef99a`, `BOUNTY_LOCK` #2 @8908 `0xa3a804f3`, `BOUNTY_REFUND` @8912 `0xf8c98983` — all `payload.auth`-signed, 3 attestations, roots verified
 **Prerequisites**: v17 armed (`STATE_TRANSITION_V17_HEIGHT` set, head past the pin)
 **Estimated Time**: 30 minutes + seal time
 **Last Updated**: 2026-10-28
