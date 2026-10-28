@@ -37,6 +37,17 @@ def session():
         yield session
 
 
+@pytest.fixture(autouse=True)
+def _isolate_ladder_above_v14(monkeypatch):
+    """v17 is code-pinned at 8900 — below this file's H-era heights — so the
+    default ladder answers 17 everywhere these tests probe. Park the rungs
+    above v14 (v16/v17/v18) so the tests exercise only the v13–v15 rungs they
+    assert on; a test may still arm v15 itself via monkeypatch."""
+    monkeypatch.setattr(settings, "state_transition_v16_height", None)
+    monkeypatch.setattr(settings, "state_transition_v17_height", None)
+    monkeypatch.setattr(settings, "state_transition_v18_height", None)
+
+
 # --- The shared height and the version ladder ---------------------------------
 
 
