@@ -71,6 +71,7 @@ def _cancellation_rows(engine) -> list[AIJobCancellation]:
         return session.exec(select(AIJobCancellation)).all()
 
 
+@pytest.mark.asyncio
 async def test_cancel_writes_service_row_and_leaves_sealed_tx_untouched(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)
@@ -86,6 +87,7 @@ async def test_cancel_writes_service_row_and_leaves_sealed_tx_untouched(monkeypa
     assert tx.status == "pending" and tx.payload == sealed_payload
 
 
+@pytest.mark.asyncio
 async def test_second_cancel_refuses(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)
@@ -99,6 +101,7 @@ async def test_second_cancel_refuses(monkeypatch):
     assert len(_cancellation_rows(engine)) == 1
 
 
+@pytest.mark.asyncio
 async def test_completed_job_refuses(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)
@@ -111,6 +114,7 @@ async def test_completed_job_refuses(monkeypatch):
     assert _cancellation_rows(engine) == []
 
 
+@pytest.mark.asyncio
 async def test_unknown_job_404s(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)
@@ -121,6 +125,7 @@ async def test_unknown_job_404s(monkeypatch):
     assert exc.value.status_code == 404
 
 
+@pytest.mark.asyncio
 async def test_cancel_overlay_reaches_list_get_and_stats(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)

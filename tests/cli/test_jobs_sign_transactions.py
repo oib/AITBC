@@ -75,6 +75,7 @@ def test_tampering_with_the_cost_invalidates_the_signature() -> None:
     assert verify_transaction_signature(tx, tx["signature"], signer.address) is False
 
 
+@pytest.mark.asyncio
 async def test_an_unsigned_job_record_is_refused_as_403_not_400() -> None:
     """The refusal must keep its own status code.
 
@@ -90,6 +91,7 @@ async def test_an_unsigned_job_record_is_refused_as_403_not_400() -> None:
     assert "Signature required" in str(excinfo.value.detail)
 
 
+@pytest.mark.asyncio
 async def test_an_unsigned_offer_is_refused_too() -> None:
     """The V23-90 listing exemption is closed: offers sign like every other action."""
     tx = _job_tx(Account.create().address, action="software_offer")

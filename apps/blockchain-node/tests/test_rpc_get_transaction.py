@@ -74,6 +74,7 @@ async def _get(module, tx_hash: str, chain_id: str | None = CHAIN_ID):
     return await module.get_transaction.__wrapped__(None, tx_hash, chain_id)
 
 
+@pytest.mark.asyncio
 async def test_a_transaction_the_chain_holds_is_returned(chain) -> None:
     result = await _get(chain, TX_HASH)
 
@@ -83,6 +84,7 @@ async def test_a_transaction_the_chain_holds_is_returned(chain) -> None:
     assert result["recipient"] == "0xe0383C465aF763F2489B61Ec169bB06E485DAB95"
 
 
+@pytest.mark.asyncio
 async def test_a_transaction_the_chain_does_not_hold_is_a_404(chain) -> None:
     """What `reopen` reads as "this payout is not on the chain"."""
     with pytest.raises(HTTPException) as raised:
@@ -92,6 +94,7 @@ async def test_a_transaction_the_chain_does_not_hold_is_a_404(chain) -> None:
     assert "not found" in raised.value.detail
 
 
+@pytest.mark.asyncio
 async def test_the_lookup_is_scoped_to_the_chain(chain) -> None:
     """A hash from another island must not read as present on this one."""
     with pytest.raises(HTTPException) as raised:
@@ -101,6 +104,7 @@ async def test_the_lookup_is_scoped_to_the_chain(chain) -> None:
 
 
 @pytest.mark.parametrize("omitted", [None, ""])
+@pytest.mark.asyncio
 async def test_an_omitted_chain_id_means_this_node_s_own_chain(chain, omitted) -> None:
     """The defect that reached the hub, in one test.
 

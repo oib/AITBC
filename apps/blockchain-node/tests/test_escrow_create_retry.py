@@ -80,6 +80,7 @@ def _lock_body() -> dict:
     }
 
 
+@pytest.mark.asyncio
 async def test_failed_lock_submit_leaves_no_orphan_and_retry_succeeds(patched, engine, monkeypatch):
     """First submit fails: no contract, no row; the same-job_id retry must succeed."""
     mgr = patched
@@ -114,6 +115,7 @@ async def test_failed_lock_submit_leaves_no_orphan_and_retry_succeeds(patched, e
         assert row.amount == ait_to_units(Decimal("1.0"))
 
 
+@pytest.mark.asyncio
 async def test_retry_clears_residue_left_by_a_failed_create(patched, engine, monkeypatch):
     """A contract/row carrying a job_id with no on-chain lock is submit-failure residue.
 
@@ -164,6 +166,7 @@ async def test_retry_clears_residue_left_by_a_failed_create(patched, engine, mon
         assert row.lock_tx_hash == "0xlockhash"
 
 
+@pytest.mark.asyncio
 async def test_keyless_node_refuses_create_before_money_moves(patched, engine, monkeypatch):
     """A node that cannot sign settlement must not take the buyer's lock.
 
@@ -187,6 +190,7 @@ async def test_keyless_node_refuses_create_before_money_moves(patched, engine, m
         assert session.get(Escrow, JOB_ID) is None
 
 
+@pytest.mark.asyncio
 async def test_create_503_detail_names_hub_url_when_configured(patched, monkeypatch):
     monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", "")
     monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
@@ -199,6 +203,7 @@ async def test_create_503_detail_names_hub_url_when_configured(patched, monkeypa
     assert "https://hub.example.net" in exc_info.value.detail
 
 
+@pytest.mark.asyncio
 async def test_create_503_detail_omits_hub_url_when_unset(patched, monkeypatch):
     monkeypatch.setattr(escrow_routes, "_ESCROW_RELEASE_PRIVATE_KEY", "")
     monkeypatch.setattr(escrow_routes, "_GENESIS_WALLET_PRIVATE_KEY", "")
@@ -211,6 +216,7 @@ async def test_create_503_detail_omits_hub_url_when_unset(patched, monkeypatch):
     assert "http" not in exc_info.value.detail
 
 
+@pytest.mark.asyncio
 async def test_create_refusal_increments_settlement_refused_counter(patched, engine, monkeypatch):
     """Each refused create counts once under op="create"; a keyed create does not count."""
     mgr = patched
@@ -234,6 +240,7 @@ async def test_create_refusal_increments_settlement_refused_counter(patched, eng
     assert child._value.get() == before + 1
 
 
+@pytest.mark.asyncio
 async def test_mismatched_settlement_address_refuses_create(patched, monkeypatch):
     """Key present but disagreeing with ESCROW_RELEASE_ADDRESS is unkeyed for
     settlement purposes — same refusal, still before any submission."""

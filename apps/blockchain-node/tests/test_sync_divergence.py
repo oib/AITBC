@@ -150,6 +150,7 @@ class TestReportDivergence:
 
 
 class TestBulkImportDivergence:
+    @pytest.mark.asyncio
     async def test_rejects_peer_ahead_with_forked_tip(self, session_factory):
         """A peer one block ahead whose parent is not our head must not extend our chain."""
         from unittest.mock import AsyncMock
@@ -172,6 +173,7 @@ class TestBulkImportDivergence:
         assert "sync_divergence_detected_total 1" in prom
         assert "sync_bulk_source_rejected_total 1" in prom
 
+    @pytest.mark.asyncio
     async def test_reports_divergence_instead_of_up_to_date(self, session_factory):
         """The headline fault: the peer is *behind* us on a chain we do not have."""
         _seed(session_factory, 12)
@@ -184,6 +186,7 @@ class TestBulkImportDivergence:
         assert "sync_divergence_detected_total 1" in prom
         assert "sync_diverged 1.0" in prom
 
+    @pytest.mark.asyncio
     async def test_up_to_date_when_the_peer_agrees(self, session_factory):
         _seed(session_factory, 12)
         sync = _sync(session_factory, {"height": 5, "hash": _hash(5, "ours")})
@@ -195,6 +198,7 @@ class TestBulkImportDivergence:
         assert "sync_divergence_detected_total" not in prom
         assert "sync_diverged 0.0" in prom
 
+    @pytest.mark.asyncio
     async def test_no_local_blocks_is_not_divergence(self, session_factory):
         """An empty node must not read a peer's genesis as a disagreement."""
         sync = _sync(session_factory, {"height": -1, "hash": ""})
@@ -278,6 +282,7 @@ class TestSubscriptionClientEscalation:
     """The push path is where 2,787 rejections were logged identically. The counter has to live on
     the client, since ChainSync is rebuilt for every block."""
 
+    @pytest.mark.asyncio
     async def test_reports_after_the_threshold_and_resets_when_a_block_is_accepted(self, monkeypatch):
         from aitbc_chain import subscription_client as sc
         from aitbc_chain.sync_validator import ImportResult
@@ -311,6 +316,7 @@ class TestSubscriptionClientEscalation:
         assert client._consecutive_divergence == 0
         assert "sync_diverged 0.0" in metrics_registry.render_prometheus()
 
+    @pytest.mark.asyncio
     async def test_a_transient_rejection_does_not_accumulate(self, monkeypatch):
         from aitbc_chain import subscription_client as sc
         from aitbc_chain.sync_validator import ImportResult
@@ -335,6 +341,7 @@ class TestSubscriptionClientEscalation:
 
 
 class TestStateSyncRefusesADivergedPeer:
+    @pytest.mark.asyncio
     async def test_balances_are_not_copied_from_a_chain_we_reject(self, session_factory):
         _seed(session_factory, 12)
         with session_factory() as session:

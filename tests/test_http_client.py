@@ -259,6 +259,7 @@ class TestHTTPMethods:
 
 
 class TestAsyncHTTPClient:
+    @pytest.mark.asyncio
     async def test_async_get(self):
         from aitbc.network import AsyncAITBCHTTPClient
 
@@ -401,6 +402,7 @@ class TestAsyncDetailSuffix:
         resp = httpx.Response(status, json=json_body, request=req)
         return httpx.HTTPStatusError("err", request=req, response=resp)
 
+    @pytest.mark.asyncio
     async def test_async_post_detail(self):
         from aitbc.network import AsyncAITBCHTTPClient
 
@@ -410,6 +412,7 @@ class TestAsyncDetailSuffix:
             with pytest.raises(NetworkError, match="bad alloc"):
                 await client.post("/rpc/transaction", json={})
 
+    @pytest.mark.asyncio
     async def test_async_get_detail(self):
         from aitbc.network import AsyncAITBCHTTPClient
 

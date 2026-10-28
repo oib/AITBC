@@ -53,6 +53,7 @@ def bridge_storage(tmp_path, monkeypatch):
 
 
 class TestExchangeReadiness:
+    @pytest.mark.asyncio
     async def test_ready_when_all_required_features_available(self, exchange_db, bridge_storage):
         resp = await _ready()
         assert resp.status_code == 200
@@ -60,6 +61,7 @@ class TestExchangeReadiness:
         assert body["status"] == "ready"
         assert body["checks"] == ["bridge_storage", "database"]
 
+    @pytest.mark.asyncio
     async def test_bridge_storage_checked_by_default(self, exchange_db):
         # Deposits are enabled by default; with no monitor db the surface is dead.
         import aitbc.constants as constants
@@ -69,11 +71,13 @@ class TestExchangeReadiness:
         assert resp.status_code == 503
         assert json.loads(resp.body)["failed"] == ["bridge_storage"]
 
+    @pytest.mark.asyncio
     async def test_bridge_not_required_when_disabled(self, exchange_db, bridge_disabled):
         resp = await _ready()
         assert resp.status_code == 200
         assert json.loads(resp.body)["checks"] == ["database"]
 
+    @pytest.mark.asyncio
     async def test_database_failure_reports_not_ready(self, exchange_db, bridge_storage, monkeypatch, tmp_path):
         # A directory is not a sqlite file — connecting to it fails, which is
         # also how a mispointed EXCHANGE_DATABASE_URL breaks in deployment.
@@ -85,10 +89,12 @@ class TestExchangeReadiness:
         # The reason stays server-side — /ready is unauthenticated.
         assert "unable to open" not in resp.body.decode()
 
+    @pytest.mark.asyncio
     async def test_api_ready_alias(self, exchange_db, bridge_disabled):
         resp = await _dispatch(_request("GET", "/api/ready"), "GET")
         assert resp.status_code == 200
 
+    @pytest.mark.asyncio
     async def test_settlement_envs_checked_when_enabled(self, exchange_db, bridge_storage, monkeypatch):
         # With the settlement flag on, both funding destinations must be
         # configured EIP-55 addresses — readiness surfaces the misconfig
@@ -100,6 +106,7 @@ class TestExchangeReadiness:
         assert resp.status_code == 503
         assert "settlement_envs" in json.loads(resp.body)["failed"]
 
+    @pytest.mark.asyncio
     async def test_settlement_envs_pass_when_configured(self, exchange_db, bridge_storage, monkeypatch):
         monkeypatch.setenv("EXCHANGE_SETTLEMENT_ENABLED", "true")
         monkeypatch.setenv("AIT_SELL_ESCROW", "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
@@ -108,6 +115,7 @@ class TestExchangeReadiness:
         assert resp.status_code == 200
         assert "settlement_envs" in json.loads(resp.body)["checks"]
 
+    @pytest.mark.asyncio
     async def test_settlement_envs_absent_when_flag_off(self, exchange_db, bridge_storage, monkeypatch):
         monkeypatch.delenv("EXCHANGE_SETTLEMENT_ENABLED", raising=False)
         monkeypatch.delenv("AIT_SELL_ESCROW", raising=False)

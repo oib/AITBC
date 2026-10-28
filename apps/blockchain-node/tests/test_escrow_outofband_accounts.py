@@ -39,6 +39,7 @@ from aitbc_chain.rpc.utils import sign_transaction_data
 from aitbc_chain.state.state_root_utils import compute_state_root_full
 from aitbc_chain.state.state_transition import StateTransition
 from sqlmodel import Session, create_engine
+import pytest
 
 CHAIN = "escrow-phantom-fixture"
 BUYER = "0xe8b0db006F34bf5b5d2B22553C017431E8e86e4F"
@@ -134,6 +135,7 @@ def _apply_next_block(engine) -> None:
         session.commit()
 
 
+@pytest.mark.asyncio
 async def test_create_escrow_writes_no_account_rows(engine, monkeypatch):
     """The persist block must write only the local ``Escrow`` bookkeeping
     row — never the committed ``account`` table. On the old code this fails:
@@ -153,6 +155,7 @@ async def test_create_escrow_writes_no_account_rows(engine, monkeypatch):
         assert record.provider == escrow_routes._to_canonical(PROVIDER)
 
 
+@pytest.mark.asyncio
 async def test_two_nodes_equal_roots_after_different_call_history(monkeypatch):
     """Node A served the create call, node B never saw it. Apply the same
     next block on both: the committed account roots must be identical —

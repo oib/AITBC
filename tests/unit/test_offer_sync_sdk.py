@@ -390,11 +390,13 @@ class TestOfferSyncClientInit:
 
 
 class TestOfferSyncClientAsync:
+    @pytest.mark.asyncio
     async def test_aenter_aexit(self) -> None:
         async with OfferSyncClient() as client:
             assert client._client is not None
         assert client._client is None
 
+    @pytest.mark.asyncio
     async def test_close(self) -> None:
         client = OfferSyncClient()
         client._ensure_client()
@@ -402,6 +404,7 @@ class TestOfferSyncClientAsync:
         await client.close()
         assert client._client is None
 
+    @pytest.mark.asyncio
     async def test_close_when_not_initialized(self) -> None:
         client = OfferSyncClient()
         await client.close()  # should not raise
@@ -409,6 +412,7 @@ class TestOfferSyncClientAsync:
 
 
 class TestOfferSyncClientDiscover:
+    @pytest.mark.asyncio
     async def test_discover_offers_success(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(
@@ -443,6 +447,7 @@ class TestOfferSyncClientDiscover:
         assert result.chains_searched == ["ait-hub"]
         assert result.sync_triggered is False
 
+    @pytest.mark.asyncio
     async def test_discover_offers_empty(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(json_data={"offers": [], "total_count": 0})
@@ -455,6 +460,7 @@ class TestOfferSyncClientDiscover:
         assert result.offers == []
         assert result.total_count == 0
 
+    @pytest.mark.asyncio
     async def test_discover_offers_http_error(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(status_code=500)
@@ -468,6 +474,7 @@ class TestOfferSyncClientDiscover:
 
 
 class TestOfferSyncClientSync:
+    @pytest.mark.asyncio
     async def test_sync_offers_success(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(json_data={"synced_chains": ["ait-hub"], "offers_synced": 42})
@@ -480,6 +487,7 @@ class TestOfferSyncClientSync:
         assert result["synced_chains"] == ["ait-hub"]
         assert result["offers_synced"] == 42
 
+    @pytest.mark.asyncio
     async def test_sync_offers_all_chains(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(json_data={"synced_chains": ["ait-hub", "ait-island1"], "offers_synced": 100})
@@ -493,6 +501,7 @@ class TestOfferSyncClientSync:
 
 
 class TestOfferSyncClientSyncStatus:
+    @pytest.mark.asyncio
     async def test_get_sync_status_list(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(
@@ -519,6 +528,7 @@ class TestOfferSyncClientSyncStatus:
         assert entries[0].offer_count == 42
         assert entries[0].stale_count == 3
 
+    @pytest.mark.asyncio
     async def test_get_sync_status_wrapped(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(
@@ -538,6 +548,7 @@ class TestOfferSyncClientSyncStatus:
         assert entries[0].chain_id == "ait-island1"
         assert entries[0].is_syncing is True
 
+    @pytest.mark.asyncio
     async def test_get_sync_status_empty(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(json_data=[])
@@ -551,6 +562,7 @@ class TestOfferSyncClientSyncStatus:
 
 
 class TestOfferSyncClientCachedOffers:
+    @pytest.mark.asyncio
     async def test_get_cached_offers_list(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(
@@ -575,6 +587,7 @@ class TestOfferSyncClientCachedOffers:
         assert len(offers) == 1
         assert offers[0].offer_id == "o1"
 
+    @pytest.mark.asyncio
     async def test_get_cached_offers_wrapped(self) -> None:
         client = OfferSyncClient()
         mock_resp = _mock_response(

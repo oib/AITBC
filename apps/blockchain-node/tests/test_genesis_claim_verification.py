@@ -122,6 +122,7 @@ def _genesis_block(session_factory) -> Block | None:
         return session.exec(select(Block).where(Block.chain_id == CHAIN_ID).where(Block.height == 0)).first()
 
 
+@pytest.mark.asyncio
 async def test_self_consistent_genesis_file_bootstraps(session_factory) -> None:
     node = _proposer(session_factory)
     file_patch = _patch_file(genesis_file=_make_genesis([ALLOC_A, ALLOC_B]))
@@ -138,6 +139,7 @@ async def test_self_consistent_genesis_file_bootstraps(session_factory) -> None:
     assert len(accounts) == 2
 
 
+@pytest.mark.asyncio
 async def test_wrong_state_root_is_refused_and_writes_nothing(session_factory) -> None:
     node = _proposer(session_factory)
     file_patch = _patch_file(genesis_file=_make_genesis([ALLOC_A], root="0x00"))
@@ -152,6 +154,7 @@ async def test_wrong_state_root_is_refused_and_writes_nothing(session_factory) -
         assert session.exec(select(Account).where(Account.chain_id == CHAIN_ID)).all() == []
 
 
+@pytest.mark.asyncio
 async def test_wrong_block_hash_is_refused_and_writes_nothing(session_factory) -> None:
     node = _proposer(session_factory)
     file_patch = _patch_file(genesis_file=_make_genesis([ALLOC_A], block_hash="0x" + "ab" * 32))
@@ -162,6 +165,7 @@ async def test_wrong_block_hash_is_refused_and_writes_nothing(session_factory) -
     assert _genesis_block(session_factory) is None
 
 
+@pytest.mark.asyncio
 async def test_empty_allocations_must_claim_the_empty_root(session_factory) -> None:
     # An empty set is refused when it claims a root it cannot produce —
     # the pre-migration stub shape. A self-consistent empty genesis still
@@ -182,6 +186,7 @@ async def test_empty_allocations_must_claim_the_empty_root(session_factory) -> N
     assert genesis.state_root == _alloc_root([])
 
 
+@pytest.mark.asyncio
 async def test_duplicated_allocation_address_is_refused(session_factory) -> None:
     dup = {"address": ALLOC_A["address"].lower(), "balance": 5, "nonce": 0}
     node = _proposer(session_factory)
@@ -192,6 +197,7 @@ async def test_duplicated_allocation_address_is_refused(session_factory) -> None
     assert _genesis_block(session_factory) is None
 
 
+@pytest.mark.asyncio
 async def test_missing_file_refuses_without_any_rpc_call(session_factory) -> None:
     """RPC genesis bootstrap is removed: no file means a loud refusal, an
     untouched database, and zero network traffic — a partial RPC payload

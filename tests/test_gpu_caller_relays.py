@@ -14,6 +14,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+import pytest
 
 
 def _envelope(tx_type: str = "GPU_REGISTER") -> dict[str, Any]:
@@ -46,6 +47,7 @@ class _FakeAsyncClient:
         return self._resp
 
 
+@pytest.mark.asyncio
 async def test_market_client_register_gpu_forwards_envelope() -> None:
     from aitbc.market.blockchain_rpc import BlockchainRPCClient
 
@@ -60,6 +62,7 @@ async def test_market_client_register_gpu_forwards_envelope() -> None:
     assert result["tx_hash"] == "0x" + "ab" * 32
 
 
+@pytest.mark.asyncio
 async def test_market_client_allocate_gpu_forwards_envelope() -> None:
     from aitbc.market.blockchain_rpc import BlockchainRPCClient
 
@@ -74,6 +77,7 @@ async def test_market_client_allocate_gpu_forwards_envelope() -> None:
     assert fake.posts == [("http://node.test:8202/rpc/gpu/allocate", {"tx": envelope})]
 
 
+@pytest.mark.asyncio
 async def test_poolhub_register_miner_on_chain_relays_envelope() -> None:
     """Pool-hub holds no miner key — it must forward the miner-signed
     envelope untouched rather than build an unsigned body."""

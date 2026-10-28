@@ -21,6 +21,7 @@ import contextlib
 import threading
 
 from aitbc_chain.cross_chain.bridge_transfer import BridgeTransferMixin
+import pytest
 
 CHAIN_ID = "test-chain"
 
@@ -47,6 +48,7 @@ class _Finalizer:
         self.returned = True
 
 
+@pytest.mark.asyncio
 async def test_finalizer_pass_does_not_run_on_the_event_loop() -> None:
     finalizer = _Finalizer()
     loop_thread = threading.get_ident()

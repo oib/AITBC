@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from agent_app import state as app_state
 from agent_app.routing.agent_discovery import AgentInfo, AgentRegistry, AgentStatus, AgentType
 from agent_app.services import nonce_store
+import pytest
 
 
 class _FakeRedis:
@@ -59,6 +60,7 @@ def _agent_payload(agent_id: str) -> str:
     )
 
 
+@pytest.mark.asyncio
 async def test_load_skips_non_dict_keys_in_agent_namespace():
     redis = _FakeRedis()
     # Bad keys first: without the per-key guard the load aborts here and the
@@ -75,6 +77,7 @@ async def test_load_skips_non_dict_keys_in_agent_namespace():
     assert registry.agents["miner-1"].agent_type == AgentType.WORKER
 
 
+@pytest.mark.asyncio
 async def test_load_skips_malformed_agent_record_but_keeps_valid_ones():
     redis = _FakeRedis()
     redis.store["agent:broken"] = '{"agent_id": "broken"}'  # dict but incomplete
@@ -87,6 +90,7 @@ async def test_load_skips_malformed_agent_record_but_keeps_valid_ones():
     assert list(registry.agents) == ["miner-1"]
 
 
+@pytest.mark.asyncio
 async def test_nonce_writes_use_agentnonce_prefix(monkeypatch):
     redis = _FakeRedis()
     monkeypatch.setattr(app_state, "agent_registry", SimpleNamespace(redis_client=redis))

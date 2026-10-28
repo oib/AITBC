@@ -122,6 +122,7 @@ def test_no_call_site_still_uses_the_nonexistent_operator() -> None:
 # --- SLA violations -------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_resolved_violations_can_be_queried_at_all() -> None:
     """``resolved=True`` is the branch that used ``isnot_``; it raised before executing."""
     session = RecordingSession([_StubResult(rows=[])])
@@ -132,6 +133,7 @@ async def test_resolved_violations_can_be_queried_at_all() -> None:
     assert "resolved_at IS NOT NULL" in _sql(session.statements[0])
 
 
+@pytest.mark.asyncio
 async def test_unresolved_violations_still_filter_on_null() -> None:
     """The working branch keeps working: unresolved means resolved_at IS NULL."""
     session = RecordingSession([_StubResult(rows=[])])
@@ -143,6 +145,7 @@ async def test_unresolved_violations_still_filter_on_null() -> None:
     assert "IS NOT NULL" not in sql
 
 
+@pytest.mark.asyncio
 async def test_a_resolved_query_can_also_be_narrowed_to_one_miner() -> None:
     """Both filters compose — the miner predicate is not lost on the resolved path."""
     session = RecordingSession([_StubResult(rows=[])])
@@ -157,6 +160,7 @@ async def test_a_resolved_query_can_also_be_narrowed_to_one_miner() -> None:
 # --- billing sync ---------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_collecting_one_miners_usage_builds_its_query() -> None:
     """``sync_miner_usage`` -> ``_collect_miner_usage`` raised on the eta_ms filter."""
     session = RecordingSession([_StubResult(scalar_value=0), _StubResult(rows=[])])
@@ -168,6 +172,7 @@ async def test_collecting_one_miners_usage_builds_its_query() -> None:
     assert "eta_ms IS NOT NULL" in _sql(session.statements[1])
 
 
+@pytest.mark.asyncio
 async def test_syncing_all_miners_usage_builds_its_query() -> None:
     """The batched path raised inside its transaction, so the whole sync 500'd."""
     session = RecordingSession(
@@ -185,6 +190,7 @@ async def test_syncing_all_miners_usage_builds_its_query() -> None:
     assert "eta_ms IS NOT NULL" in _sql(session.statements[2])
 
 
+@pytest.mark.asyncio
 async def test_a_sync_with_no_miners_never_reaches_the_usage_query() -> None:
     """Guards the early return, so the query assertions above are about real work."""
     session = RecordingSession([_StubResult(rows=[])])

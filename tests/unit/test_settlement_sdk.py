@@ -896,6 +896,7 @@ class TestSettlementClient:
         )
 
     @pytest.mark.parametrize("use_context", [False, True])
+    @pytest.mark.asyncio
     async def test_trading_endpoints_use_trading_key_header(self, monkeypatch: pytest.MonkeyPatch, use_context: bool) -> None:
         requests, clients = self._install_transport(monkeypatch, self._ok)
         client = SettlementClient(
@@ -945,6 +946,7 @@ class TestSettlementClient:
         assert all(c.is_closed for c in clients)
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_keys_fall_back_to_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
         requests, _clients = self._install_transport(monkeypatch, self._ok)
         monkeypatch.setenv("BLOCKCHAIN_RPC_API_KEY", "env-rpc-key-synthetic")
@@ -957,6 +959,7 @@ class TestSettlementClient:
         assert "X-API-Key" not in requests[1].headers
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_explicit_keys_beat_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
         requests, _clients = self._install_transport(monkeypatch, self._ok)
         monkeypatch.setenv("BLOCKCHAIN_RPC_API_KEY", "env-rpc-key-synthetic")
@@ -972,6 +975,7 @@ class TestSettlementClient:
         assert requests[1].headers.get("X-Trading-Api-Key") == "explicit-trading-key"
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_missing_trading_key_does_not_fall_back_to_rpc_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("TRADING_API_KEY", raising=False)
         requests, _clients = self._install_transport(monkeypatch, self._ok)
@@ -984,6 +988,7 @@ class TestSettlementClient:
         assert "Authorization" not in req.headers
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_trading_redirect_is_not_followed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def redirect(request: httpx.Request) -> httpx.Response:
             return httpx.Response(307, headers={"location": "http://other.test/capture"})

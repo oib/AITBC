@@ -10,6 +10,7 @@ from coordinator_api.contexts.governance.services.governance_service import Gove
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
 async def test_regional_council_persisted_across_service_instances(db_session):
     """A council created through GovernanceService is returned by list."""
     service = GovernanceService(db_session)

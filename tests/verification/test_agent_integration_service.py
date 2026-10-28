@@ -6,6 +6,7 @@ Tests systemd deployment, health checks, metrics collection, and alerting rules
 
 import asyncio
 from datetime import UTC, datetime
+import pytest
 
 
 def test_systemd_service_file_generation():
@@ -206,6 +207,7 @@ def test_alerting_rules_configuration():
     return True
 
 
+@pytest.mark.asyncio
 async def test_deployment_rollback_logic():
     """Test deployment rollback logic"""
     print("\nTesting Deployment Rollback Logic")
@@ -254,6 +256,7 @@ async def test_deployment_rollback_logic():
     return True
 
 
+@pytest.mark.asyncio
 async def test_instance_removal_logic():
     """Test instance removal logic"""
     print("\nTesting Instance Removal Logic")

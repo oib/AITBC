@@ -64,6 +64,7 @@ def _rows(engine) -> list[EdgeNodeRegistration]:
         return session.exec(select(EdgeNodeRegistration)).all()
 
 
+@pytest.mark.asyncio
 async def test_register_refused_while_table_committed(monkeypatch):
     """v14-era chain: the table is committed → 4xx, and nothing is written
     on the node that served the call."""
@@ -80,6 +81,7 @@ async def test_register_refused_while_table_committed(monkeypatch):
     assert _rows(engine) == []
 
 
+@pytest.mark.asyncio
 async def test_register_allowed_once_v15_committed_set(monkeypatch):
     """Self-lifting: once the next block would seal at >= v15 the table is
     out of the committed set and the same route writes again — this is the
@@ -120,6 +122,7 @@ def _table_snapshot(engine) -> list[tuple]:
         )
 
 
+@pytest.mark.asyncio
 async def test_list_nodes_returns_count_and_rows(monkeypatch):
     """GET /edge/nodes exists so wave-Y B4 can count committed rows through
     the RPC — no sqlite3, no list-less /edge/info guessing."""
@@ -149,6 +152,7 @@ async def test_list_nodes_returns_count_and_rows(monkeypatch):
     }
 
 
+@pytest.mark.asyncio
 async def test_list_nodes_empty_table_returns_zero(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)
@@ -158,6 +162,7 @@ async def test_list_nodes_empty_table_returns_zero(monkeypatch):
     assert result == {"chain_id": CHAIN, "count": 0, "nodes": []}
 
 
+@pytest.mark.asyncio
 async def test_list_nodes_filters_by_chain(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)
@@ -168,6 +173,7 @@ async def test_list_nodes_filters_by_chain(monkeypatch):
     assert result["count"] == 0 and result["nodes"] == []
 
 
+@pytest.mark.asyncio
 async def test_list_nodes_writes_nothing(monkeypatch):
     """The route is the B4 read path: it must leave the committed table
     byte-identical — called twice, snapshot compared."""

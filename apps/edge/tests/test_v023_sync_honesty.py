@@ -73,12 +73,14 @@ def session(db, monkeypatch):
 
 
 class TestRefusesByDefault:
+    @pytest.mark.asyncio
     async def test_sync_raises_rather_than_reporting_success(self, session, monkeypatch):
         monkeypatch.setattr(svc_module, "ALLOW_SIMULATED_SYNC", False)
 
         with pytest.raises(SyncNotImplementedError, match="not implemented"):
             await DatabaseService().sync_database("db_1")
 
+    @pytest.mark.asyncio
     async def test_nothing_is_written(self, db, session, monkeypatch):
         """The core of V23-17: the fiction was persisted, not merely returned."""
         monkeypatch.setattr(svc_module, "ALLOW_SIMULATED_SYNC", False)
@@ -91,6 +93,7 @@ class TestRefusesByDefault:
         assert db.updated_at == EXISTING_SYNC_AT
         assert session.commits == 0
 
+    @pytest.mark.asyncio
     async def test_missing_database_still_reports_not_found(self, monkeypatch):
         """A more specific answer beats a blanket 501."""
         monkeypatch.setattr(svc_module, "ALLOW_SIMULATED_SYNC", False)
@@ -108,6 +111,7 @@ class TestRefusesByDefault:
 
 
 class TestSimulationModeIsLabelledAndStillWritesNothing:
+    @pytest.mark.asyncio
     async def test_response_is_marked_simulated(self, session, monkeypatch):
         monkeypatch.setattr(svc_module, "ALLOW_SIMULATED_SYNC", True)
 
@@ -117,6 +121,7 @@ class TestSimulationModeIsLabelledAndStillWritesNothing:
         assert "no data was transferred" in result["message"]
         assert "not implemented" in result["notice"]
 
+    @pytest.mark.asyncio
     async def test_simulation_does_not_advance_the_counter(self, db, session, monkeypatch):
         """The flag re-enables a response, not the writes. 100 must not appear anywhere."""
         monkeypatch.setattr(svc_module, "ALLOW_SIMULATED_SYNC", True)
@@ -129,6 +134,7 @@ class TestSimulationModeIsLabelledAndStillWritesNothing:
         assert result["last_sync_at"] == EXISTING_SYNC_AT.isoformat()
         assert session.commits == 0
 
+    @pytest.mark.asyncio
     async def test_repeated_calls_do_not_accumulate(self, db, session, monkeypatch):
         monkeypatch.setattr(svc_module, "ALLOW_SIMULATED_SYNC", True)
         service = DatabaseService()

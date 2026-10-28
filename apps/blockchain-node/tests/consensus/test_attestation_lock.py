@@ -79,6 +79,7 @@ def _service(monkeypatch, our_addr: str, our_key: str, proposer_addr: str) -> tu
 
 
 class TestAttesterLockRecord:
+    @pytest.mark.asyncio
     async def test_signing_a_peer_header_records_the_lock(self, monkeypatch):
         our_addr, our_key, proposer_addr, _ = _keys()
         svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
@@ -91,6 +92,7 @@ class TestAttesterLockRecord:
         assert lock[0] == "0xaaaa"
         assert lock[1] == proposer_addr
 
+    @pytest.mark.asyncio
     async def test_own_proposal_does_not_lock(self, monkeypatch):
         our_addr, our_key, proposer_addr, _ = _keys()
         svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
@@ -101,6 +103,7 @@ class TestAttesterLockRecord:
         assert not broker.published
         assert svc.attestation_lock(100, 60.0) is None
 
+    @pytest.mark.asyncio
     async def test_rival_header_at_locked_height_is_refused(self, monkeypatch):
         our_addr, our_key, proposer_addr, _ = _keys()
         svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
@@ -113,6 +116,7 @@ class TestAttesterLockRecord:
         assert len(broker.published) == 1
         assert svc.attestation_lock(100, 60.0)[0] == "0xaaaa"
 
+    @pytest.mark.asyncio
     async def test_same_height_same_hash_re_signs(self, monkeypatch):
         our_addr, our_key, proposer_addr, _ = _keys()
         svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
@@ -121,6 +125,7 @@ class TestAttesterLockRecord:
         await svc._handle_request(_header(100, "0xaaaa", proposer_addr))
         assert len(broker.published) == 2  # idempotent re-sign is allowed
 
+    @pytest.mark.asyncio
     async def test_rival_signs_after_lock_expiry(self, monkeypatch):
         our_addr, our_key, proposer_addr, _ = _keys()
         svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
@@ -139,6 +144,7 @@ class TestAttesterLockRecord:
         assert svc.attestation_lock(5, 60.0) is None
         assert 5 not in svc._attested
 
+    @pytest.mark.asyncio
     async def test_lock_disabled_flag_restores_double_sign(self, monkeypatch):
         our_addr, our_key, proposer_addr, _ = _keys()
         svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
@@ -166,6 +172,7 @@ class TestProposalSuppression:
         proposer._remote_attestation = attestation  # type: ignore[attr-defined]
         return proposer, sm
 
+    @pytest.mark.asyncio
     async def test_locked_height_fetches_block_and_pulls(self, monkeypatch):
         proposer, sm = self._proposer(("0xaaaa", "0xPROP"))
         monkeypatch.setattr(settings, "gossip_mesh_peer_urls", "wss://peer1.example/rpc/gossip/ws")
@@ -178,6 +185,7 @@ class TestProposalSuppression:
         sm.pull_from_peer.assert_called_once_with("test-chain", "https://peer1.example")
         assert get.await_count == 1
 
+    @pytest.mark.asyncio
     async def test_locked_height_without_serving_peer_still_suppresses(self, monkeypatch):
         proposer, sm = self._proposer(("0xaaaa", "0xPROP"))
         monkeypatch.setattr(settings, "gossip_mesh_peer_urls", "wss://peer1.example/rpc/gossip/ws")
@@ -189,6 +197,7 @@ class TestProposalSuppression:
         assert await proposer._honor_attestation_lock(100) is True
         sm.pull_from_peer.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_peer_serving_different_hash_does_not_pull(self, monkeypatch):
         proposer, sm = self._proposer(("0xaaaa", "0xPROP"))
         monkeypatch.setattr(settings, "gossip_mesh_peer_urls", "wss://peer1.example/rpc/gossip/ws")
@@ -200,18 +209,21 @@ class TestProposalSuppression:
         assert await proposer._honor_attestation_lock(100) is True
         sm.pull_from_peer.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_no_lock_proceeds(self, monkeypatch):
         proposer, sm = self._proposer(None)
         monkeypatch.setattr(settings, "attestation_lock_enabled", True)
         assert await proposer._honor_attestation_lock(100) is False
         sm.pull_from_peer.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_disabled_flag_proceeds(self, monkeypatch):
         proposer, sm = self._proposer(("0xaaaa", "0xPROP"))
         monkeypatch.setattr(settings, "attestation_lock_enabled", False)
         assert await proposer._honor_attestation_lock(100) is False
         sm.pull_from_peer.assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_no_attestation_service_proceeds(self, monkeypatch):
         proposer, sm = self._proposer(None)
         proposer._remote_attestation = None

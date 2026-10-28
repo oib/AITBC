@@ -65,6 +65,7 @@ def modular_inputs(learning_rate, parameters=None, gradients=None) -> dict:
 
 
 class TestTheTrainingCircuitEnforcesItsRange:
+    @pytest.mark.asyncio
     async def test_a_real_learning_rate_proves_and_verifies(self, service):
         proof = await service.generate_proof("ml_training_verification", training_inputs(GOOD_LR))
         assert proof is not None, "0.01 is a valid learning rate and must be provable"
@@ -72,6 +73,7 @@ class TestTheTrainingCircuitEnforcesItsRange:
         result = await service.verify_proof(proof["proof"], proof["public_signals"], circuit_name="ml_training_verification")
         assert result["verified"] is True
 
+    @pytest.mark.asyncio
     async def test_the_public_signals_show_the_parameters_actually_moved(self, service):
         """The old circuit's only provable input left every parameter untouched.
 
@@ -87,24 +89,30 @@ class TestTheTrainingCircuitEnforcesItsRange:
         assert proof["public_signals"][:4] != PARAMS, "a no-op update must not be provable"
         assert proof["public_signals"][4] == "1"
 
+    @pytest.mark.asyncio
     async def test_a_zero_learning_rate_is_refused(self, service):
         """The one value the old constraint permitted."""
         assert await service.generate_proof("ml_training_verification", training_inputs(0)) is None
 
+    @pytest.mark.asyncio
     async def test_a_learning_rate_of_exactly_one_is_refused(self, service):
         assert await service.generate_proof("ml_training_verification", training_inputs(LR_SCALE)) is None
 
+    @pytest.mark.asyncio
     async def test_a_learning_rate_above_one_is_refused(self, service):
         assert await service.generate_proof("ml_training_verification", training_inputs(5 * LR_SCALE)) is None
 
+    @pytest.mark.asyncio
     async def test_a_learning_rate_just_below_one_is_accepted(self, service):
         """The bound is the scale, not an arbitrary small number."""
         assert await service.generate_proof("ml_training_verification", training_inputs(LR_SCALE - 1)) is not None
 
+    @pytest.mark.asyncio
     async def test_a_negative_learning_rate_is_refused(self, service):
         """Expressed as a field element, so `Num2Bits` is what has to catch it."""
         assert await service.generate_proof("ml_training_verification", training_inputs(NEGATIVE_ONE)) is None
 
+    @pytest.mark.asyncio
     async def test_an_update_that_drives_a_parameter_below_zero_is_refused(self, service):
         """Field subtraction wraps, so this used to prove a parameter near the modulus."""
         inputs = training_inputs(GOOD_LR, parameters=["5000", *PARAMS[1:]])
@@ -112,6 +120,7 @@ class TestTheTrainingCircuitEnforcesItsRange:
 
 
 class TestTheModularCircuitValidatesAtAll:
+    @pytest.mark.asyncio
     async def test_a_real_learning_rate_proves_and_verifies(self, service):
         proof = await service.generate_proof("modular_ml_components", modular_inputs(GOOD_LR))
         assert proof is not None
@@ -119,16 +128,20 @@ class TestTheModularCircuitValidatesAtAll:
         result = await service.verify_proof(proof["proof"], proof["public_signals"], circuit_name="modular_ml_components")
         assert result["verified"] is True
 
+    @pytest.mark.asyncio
     async def test_a_zero_learning_rate_is_refused(self, service):
         """`LearningRateValidation` was an empty template; this is what it was supposed to do."""
         assert await service.generate_proof("modular_ml_components", modular_inputs(0)) is None
 
+    @pytest.mark.asyncio
     async def test_a_learning_rate_of_exactly_one_is_refused(self, service):
         assert await service.generate_proof("modular_ml_components", modular_inputs(LR_SCALE)) is None
 
+    @pytest.mark.asyncio
     async def test_a_negative_learning_rate_is_refused(self, service):
         assert await service.generate_proof("modular_ml_components", modular_inputs(NEGATIVE_ONE)) is None
 
+    @pytest.mark.asyncio
     async def test_gradients_are_an_input_and_omitting_them_fails(self, service):
         """They were hardcoded to 1 inside the circuit.
 
@@ -140,6 +153,7 @@ class TestTheModularCircuitValidatesAtAll:
 
         assert await service.generate_proof("modular_ml_components", inputs) is None
 
+    @pytest.mark.asyncio
     async def test_the_gradients_reach_the_arithmetic(self, service):
         """Two different gradient sets must give two different final parameters."""
         doubled = [["2", "2", "2", "2"]] * 3
@@ -151,6 +165,7 @@ class TestTheModularCircuitValidatesAtAll:
         assert unit_proof["public_signals"][:4] == [str(int(p) - 3 * GOOD_LR) for p in PARAMS]
         assert doubled_proof["public_signals"][:4] == [str(int(p) - 6 * GOOD_LR) for p in PARAMS]
 
+    @pytest.mark.asyncio
     async def test_an_out_of_range_gradient_is_refused(self, service):
         """Unbounded, a large gradient puts the product — and the parameter — anywhere."""
         oversized = [["1048576", "1", "1", "1"], *UNIT_GRADIENTS[1:]]
@@ -172,6 +187,7 @@ class TestTheInferenceCircuitVerifiesCorrectness:
     success signal, not just check Groth16 validity.
     """
 
+    @pytest.mark.asyncio
     async def test_a_correct_inference_proves_and_is_computationally_correct(self, service):
         proof = await service.generate_proof("ml_inference_verification", inference_inputs("1", "2", "3", "5"))
         assert proof is not None, "correct inference (1*2+3 == 5) must be provable"
@@ -181,6 +197,7 @@ class TestTheInferenceCircuitVerifiesCorrectness:
         assert result["verified"] is True
         assert result["computation_correct"] is True
 
+    @pytest.mark.asyncio
     async def test_a_wrong_inference_is_not_computationally_correct(self, service):
         proof = await service.generate_proof("ml_inference_verification", inference_inputs("1", "2", "3", "10"))
         assert proof is not None, "the circuit must still be able to compute an incorrect result"
@@ -190,6 +207,7 @@ class TestTheInferenceCircuitVerifiesCorrectness:
         assert result["verified"] is True, "Groth16 proof is valid even though the statement is false"
         assert result["computation_correct"] is False, "verifier must read the public success signal"
 
+    @pytest.mark.asyncio
     async def test_tampering_with_public_signals_breaks_verification(self, service):
         proof = await service.generate_proof("ml_inference_verification", inference_inputs("1", "2", "3", "10"))
         assert proof is not None

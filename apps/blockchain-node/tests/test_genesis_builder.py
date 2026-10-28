@@ -197,6 +197,7 @@ def _built_doc(**overrides):
     return build_genesis_doc(**kwargs)
 
 
+@pytest.mark.asyncio
 async def test_loader_loads_built_doc_and_seeds_params_and_validators(session_factory) -> None:
     node = _proposer(session_factory)
     from unittest.mock import patch
@@ -224,6 +225,7 @@ async def test_loader_loads_built_doc_and_seeds_params_and_validators(session_fa
         assert all(r.address == r.address.lower() for r in rows)
 
 
+@pytest.mark.asyncio
 async def test_digest_mismatch_is_refused(session_factory) -> None:
     doc = _built_doc()
     doc["bridge_validators_digest"] = "0x" + "ff" * 32
@@ -241,6 +243,7 @@ async def test_digest_mismatch_is_refused(session_factory) -> None:
         assert session.exec(select(BridgeValidator).where(BridgeValidator.chain_id == CHAIN_ID)).all() == []
 
 
+@pytest.mark.asyncio
 async def test_validators_without_digest_are_refused(session_factory) -> None:
     doc = _built_doc()
     del doc["bridge_validators_digest"]
@@ -254,6 +257,7 @@ async def test_validators_without_digest_are_refused(session_factory) -> None:
             await node._ensure_genesis_block()
 
 
+@pytest.mark.asyncio
 async def test_legacy_doc_without_validator_keys_still_loads(session_factory) -> None:
     doc = _built_doc()
     del doc["bridge_validators"]

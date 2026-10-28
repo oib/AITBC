@@ -97,6 +97,7 @@ def _verify_kwargs() -> dict:
     return {"job_id": JOB_ID, "buyer": BUYER, "amount_units": ait_to_units(AMOUNT)}
 
 
+@pytest.mark.asyncio
 async def test_verify_sealed_lock_returns_it(patched, monkeypatch):
     tx = _lock_tx()
     sealed = _sealed(tx)
@@ -110,6 +111,7 @@ async def test_verify_sealed_lock_returns_it(patched, monkeypatch):
     get.assert_not_awaited()  # sealed hit short-circuits the mempool probe
 
 
+@pytest.mark.asyncio
 async def test_verify_sealed_lock_with_different_hash_refuses(patched, monkeypatch):
     sealed = _sealed(_lock_tx())
     monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=sealed))
@@ -129,6 +131,7 @@ async def test_verify_sealed_lock_with_different_hash_refuses(patched, monkeypat
         (lambda row: row.update({"type": "TRANSFER"}), "type"),
     ],
 )
+@pytest.mark.asyncio
 async def test_verify_sealed_lock_field_mismatch_refuses(patched, monkeypatch, mutate, field):
     """Mutations hit the sealed row's own keys (sender/recipient/value)."""
     sealed = _sealed(_lock_tx())
@@ -142,6 +145,7 @@ async def test_verify_sealed_lock_field_mismatch_refuses(patched, monkeypatch, m
     assert field in exc_info.value.detail
 
 
+@pytest.mark.asyncio
 async def test_verify_mempool_lock_verifies_and_injects_hash(patched, monkeypatch):
     tx = _lock_tx()
     tx_hash = compute_tx_hash(tx)
@@ -155,6 +159,7 @@ async def test_verify_mempool_lock_verifies_and_injects_hash(patched, monkeypatc
     get.assert_awaited_once()
 
 
+@pytest.mark.asyncio
 async def test_verify_mempool_lock_wrong_field_refuses(patched, monkeypatch):
     tx = _lock_tx()
     tx["payload"]["job_id"] = "other-job"  # wrong job in an otherwise well-formed lock
@@ -167,6 +172,7 @@ async def test_verify_mempool_lock_wrong_field_refuses(patched, monkeypatch):
     assert exc_info.value.status_code == 409
 
 
+@pytest.mark.asyncio
 async def test_verify_lock_nowhere_is_retryable(patched, monkeypatch):
     monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=None))
     monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(return_value=_mempool_response([])))
@@ -177,6 +183,7 @@ async def test_verify_lock_nowhere_is_retryable(patched, monkeypatch):
     assert exc_info.value.headers.get("Retry-After") == "5"
 
 
+@pytest.mark.asyncio
 async def test_verify_lock_probe_failure_is_retryable_not_half_state(patched, monkeypatch):
     monkeypatch.setattr(escrow_routes, "_find_existing_lock_tx", AsyncMock(return_value=None))
     monkeypatch.setattr(escrow_routes.SharedHttpClient, "get", AsyncMock(side_effect=ConnectionError("hub down")))
@@ -186,6 +193,7 @@ async def test_verify_lock_probe_failure_is_retryable_not_half_state(patched, mo
     assert exc_info.value.status_code == 425
 
 
+@pytest.mark.asyncio
 async def test_fund_contract_stores_verified_hash(mgr):
     ok, _, cid = await mgr.create_contract(job_id=JOB_ID, client_address=BUYER, agent_address=PROVIDER, amount=AMOUNT)
     ok, msg = await mgr.fund_contract(cid, "0x" + "ab" * 32, {"tx_hash": "0x" + "ab" * 32})
@@ -195,6 +203,7 @@ async def test_fund_contract_stores_verified_hash(mgr):
     assert contract.lock_tx_hash == "0x" + "ab" * 32
 
 
+@pytest.mark.asyncio
 async def test_fund_contract_rejects_mismatched_verified_lock(mgr):
     ok, _, cid = await mgr.create_contract(job_id=JOB_ID, client_address=BUYER, agent_address=PROVIDER, amount=AMOUNT)
     ok, msg = await mgr.fund_contract(cid, "0x" + "ab" * 32, {"tx_hash": "0x" + "cd" * 32})
@@ -203,6 +212,7 @@ async def test_fund_contract_rejects_mismatched_verified_lock(mgr):
     assert cid not in mgr.active_contracts
 
 
+@pytest.mark.asyncio
 async def test_create_marks_funded_only_on_verifiable_lock(patched, engine, monkeypatch):
     """End to end: submit returns a hash that is visible in the mempool."""
     mgr = patched
@@ -228,6 +238,7 @@ async def test_create_marks_funded_only_on_verifiable_lock(patched, engine, monk
     assert contract.lock_tx_hash == tx_hash
 
 
+@pytest.mark.asyncio
 async def test_create_drops_contract_when_lock_unverifiable(patched, engine, monkeypatch):
     """A submitted hash the node can no longer see must not leave a FUNDED
     contract or a half-created one — the retry starts clean."""

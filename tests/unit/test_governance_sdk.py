@@ -198,11 +198,13 @@ class TestGovernanceClientInit:
 
 
 class TestGovernanceClientContextManager:
+    @pytest.mark.asyncio
     async def test_aenter_creates_client(self) -> None:
         async with GovernanceClient() as c:
             assert c._client is not None
         assert c._client is None
 
+    @pytest.mark.asyncio
     async def test_aexit_closes_client(self) -> None:
         c = GovernanceClient()
         await c.__aenter__()
@@ -214,6 +216,7 @@ class TestGovernanceClientContextManager:
 class TestGovernanceClientMethods:
     """Test all client methods with mocked httpx.AsyncClient."""
 
+    @pytest.mark.asyncio
     async def test_create_proposal(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"proposal_id": "prop_001", "status": "active"})
@@ -223,6 +226,7 @@ class TestGovernanceClientMethods:
         assert result["proposal_id"] == "prop_001"
         c._client.post.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_get_proposal(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"proposal_id": "prop_001", "title": "Test"})
@@ -232,6 +236,7 @@ class TestGovernanceClientMethods:
         assert result["proposal_id"] == "prop_001"
         c._client.get.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_list_proposals_list_response(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, [{"proposal_id": "p1"}, {"proposal_id": "p2"}])
@@ -240,6 +245,7 @@ class TestGovernanceClientMethods:
         result = await c.list_proposals()
         assert len(result) == 2
 
+    @pytest.mark.asyncio
     async def test_list_proposals_wrapped_response(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"proposals": [{"proposal_id": "p1"}]})
@@ -251,6 +257,7 @@ class TestGovernanceClientMethods:
         call_args = c._client.get.call_args
         assert call_args.kwargs["params"]["status"] == "active"
 
+    @pytest.mark.asyncio
     async def test_list_proposals_empty_response(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"unexpected": "shape"})
@@ -259,6 +266,7 @@ class TestGovernanceClientMethods:
         result = await c.list_proposals()
         assert result == []
 
+    @pytest.mark.asyncio
     async def test_cast_vote(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"vote_id": "v1", "status": "recorded"})
@@ -267,6 +275,7 @@ class TestGovernanceClientMethods:
         result = await c.cast_vote({"proposal_id": "p1", "voter": "bob", "vote_type": "for"})
         assert result["vote_id"] == "v1"
 
+    @pytest.mark.asyncio
     async def test_list_votes(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, [{"vote_id": "v1"}, {"vote_id": "v2"}])
@@ -275,6 +284,7 @@ class TestGovernanceClientMethods:
         result = await c.list_votes(proposal_id="p1")
         assert len(result) == 2
 
+    @pytest.mark.asyncio
     async def test_execute_proposal(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"status": "executed", "tx_hash": "0xabc"})
@@ -286,6 +296,7 @@ class TestGovernanceClientMethods:
         call_args = c._client.post.call_args
         assert "prop_001/execute" in call_args.args[0]
 
+    @pytest.mark.asyncio
     async def test_get_status(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"status": "healthy"})
@@ -294,6 +305,7 @@ class TestGovernanceClientMethods:
         result = await c.get_status()
         assert result["status"] == "healthy"
 
+    @pytest.mark.asyncio
     async def test_get_voting_power(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"address": "alice", "voting_power": 1000.0})
@@ -302,6 +314,7 @@ class TestGovernanceClientMethods:
         result = await c.get_voting_power("alice")
         assert result["voting_power"] == 1000.0
 
+    @pytest.mark.asyncio
     async def test_get_analytics(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"period": "daily", "proposals": 5})
@@ -310,6 +323,7 @@ class TestGovernanceClientMethods:
         result = await c.get_analytics(period="daily")
         assert result["proposals"] == 5
 
+    @pytest.mark.asyncio
     async def test_get_params(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"voting_period_blocks": 7200})
@@ -318,6 +332,7 @@ class TestGovernanceClientMethods:
         result = await c.get_params()
         assert result["voting_period_blocks"] == 7200
 
+    @pytest.mark.asyncio
     async def test_health(self) -> None:
         c = GovernanceClient()
         mock_resp = _mock_response(200, {"status": "ok"})
@@ -326,6 +341,7 @@ class TestGovernanceClientMethods:
         result = await c.health()
         assert result["status"] == "ok"
 
+    @pytest.mark.asyncio
     async def test_close(self) -> None:
         c = GovernanceClient()
         mock_client = MagicMock()
@@ -335,11 +351,13 @@ class TestGovernanceClientMethods:
         mock_client.aclose.assert_called_once()
         assert c._client is None
 
+    @pytest.mark.asyncio
     async def test_close_when_not_open(self) -> None:
         c = GovernanceClient()
         await c.close()  # should not raise
         assert c._client is None
 
+    @pytest.mark.asyncio
     async def test_ensure_client_creates_lazy(self) -> None:
         c = GovernanceClient()
         client = c._ensure_client()
