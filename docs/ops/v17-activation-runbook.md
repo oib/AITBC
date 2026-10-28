@@ -6,7 +6,12 @@
 > node1 → node2 → hub, no seal gaps). Activation landed: the first
 > revived seal is `BOUNTY_LOCK` @8904 (`0x49dc1b37ec431e97`) — unsigned
 > at top level, `payload.auth` operator-signed and verified at apply;
-> state + aux roots identical on hub/node1/node2. The remainder of this
+> state + aux roots identical on hub/node1/node2.
+>
+> **Post-execution (28 Oct):** the env pin is removed fleet-wide —
+> `13f72546f` committed `state_transition_v17_height = 8900` as the
+> code literal in `config.py` (env still overrides; `None` still
+> unarms for new chains). The remainder of this
 > document stays the reference for what the arming does and what the
 > failure modes mean. Modelled on
 > [v14-activation-runbook.md](v14-activation-runbook.md); read the
