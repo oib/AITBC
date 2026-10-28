@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
@@ -16,6 +16,7 @@ from ....auth import AdminOrClientDep
 from ....config import settings
 from ...market.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
 from ...payments.acceptance import PENDING_ACCEPTANCE
+from ...payments.operations import begin_operation, complete_operation, fail_operation, record_rejection
 from ...payments.provider_binding import same_address
 from ...payments.services.payments import PaymentService, _computation_is_correct
 from ....custom_types import JobState, job_state_filter_help, parse_job_state_filter
@@ -95,6 +96,36 @@ async def submit_job(
     req: JobCreate,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> Any:
+    # CLI-IDEMPOTENCY-1: an Idempotency-Key binds a retried submission to one
+    # durable outcome — a gateway 502 after the job landed replays the recorded
+    # JobView instead of creating a duplicate. allow_adopt=True: the worst case
+    # of a crashed attempt is a duplicate queued job (the pre-ledger behavior),
+    # which beats pinning the key on a permanent 409 for a non-financial write.
+    key, attempt, early = await begin_operation(
+        request,
+        "submit_job",
+        {"client_id": user["sub"], "body": req.model_dump(mode="python")},
+        allow_adopt=True,
+    )
+    if early is not None:
+        return early
+    try:
+        view = await _submit_job_impl(req, session, user)
+    except HTTPException as e:
+        await record_rejection(key, attempt, e.status_code, {"detail": e.detail})
+        raise
+    except Exception as e:
+        await fail_operation(key, attempt, type(e).__name__)
+        raise
+    await complete_operation(key, attempt, view.model_dump(mode="json"), response_status=201)
+    return view
+
+
+async def _submit_job_impl(
+    req: JobCreate,
+    session: Session,
     user: AdminOrClientDep,
 ) -> JobView:
     req, quote = await _apply_offer_quote(req)
@@ -384,12 +415,39 @@ async def accept_job(
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
-) -> JobView:
+) -> Any:
     """Release the held escrow now, without waiting for the window to expire (G3).
 
     Accepting is the customer's own decision to pay, so it is the one release path
-    that needs no timer and no arbiter.
+    that needs no timer and no arbiter. The Idempotency-Key ledger
+    (CLI-IDEMPOTENCY-1) makes a CLI retry after a gateway blip replay the
+    recorded outcome instead of racing a second release.
     """
+    key, attempt, early = await begin_operation(
+        request,
+        "accept_job",
+        {"client_id": user["sub"], "job_id": job_id},
+        allow_adopt=False,
+    )
+    if early is not None:
+        return early
+    try:
+        view = await _accept_job_impl(job_id, session, user)
+    except HTTPException as e:
+        await record_rejection(key, attempt, e.status_code, {"detail": e.detail})
+        raise
+    except Exception as e:
+        await fail_operation(key, attempt, type(e).__name__)
+        raise
+    await complete_operation(key, attempt, view.model_dump(mode="json"))
+    return view
+
+
+async def _accept_job_impl(
+    job_id: str,
+    session: Session,
+    user: AdminOrClientDep,
+) -> JobView:
     service = JobService(session)
     try:
         job = service.get_job(job_id, client_id=user["sub"])

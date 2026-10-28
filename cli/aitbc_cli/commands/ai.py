@@ -5,6 +5,7 @@ import builtins
 import mimetypes
 import os
 import time
+import uuid
 from decimal import Decimal, InvalidOperation
 
 from typing import Any, cast
@@ -27,6 +28,7 @@ from ..utils.http_client import (
     auth_client_kwargs,
     get_logger,
     http_error_detail,
+    http_response_status,
     origin_base_url,
     service_root_url,
 )
@@ -36,6 +38,53 @@ from ..utils.wallet_secret import wallet_password_options
 logger = get_logger(__name__)
 
 _TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELED", "EXPIRED"}
+
+# Statuses that mean "try again" rather than "the request was wrong": no
+# response at all (DNS/TCP/timeout — the gateway or upstream is down), the
+# whole 5xx range (gateway blips, upstream restarts), and the few 4xx that
+# are explicitly transient (408 timeout, 425 too early, 429 rate limited).
+_TRANSIENT_STATUSES = {408, 425, 429}
+
+
+def _is_transient_error(e: NetworkError) -> bool:
+    """True when the failure is a gateway/network blip worth retrying."""
+    status = http_response_status(e)
+    return status is None or status >= 500 or status in _TRANSIENT_STATUSES
+
+
+def _post_idempotent(
+    http_client: AITBCHTTPClient,
+    path: str,
+    *,
+    json: dict[str, Any] | None = None,
+    idempotency_key: str,
+    in_progress_retries: int = 5,
+    in_progress_delay: float = 2.0,
+) -> dict[str, Any]:
+    """POST with an Idempotency-Key, waiting out in-progress duplicates.
+
+    The client's retry policy already replays ambiguous 5xx/network
+    failures when a key is set. One gap remains: a replay that arrives
+    while the *first* attempt is still executing gets a 409 "already in
+    progress" from the operation ledger — an answer that is neither a
+    success nor a real conflict. Poll through that bounded number of times
+    so a slow first attempt still resolves to its recorded outcome.
+    """
+    for attempt in range(in_progress_retries + 1):
+        try:
+            return http_client.post(path, json=json, idempotency_key=idempotency_key)
+        except NetworkError as e:
+            if http_response_status(e) == 409 and "in progress" in (http_error_detail(e) or "").lower():
+                if attempt < in_progress_retries:
+                    time.sleep(in_progress_delay)
+                    continue
+            raise
+    raise AssertionError("unreachable")
+
+
+def _new_idempotency_key(prefix: str) -> str:
+    """Client-generated Idempotency-Key for one logical CLI operation."""
+    return f"{prefix}-{uuid.uuid4()}"
 
 
 def _auth_headers(ctx) -> dict[str, str] | None:
@@ -132,6 +181,7 @@ def _create_escrow_payment(
     chain_id: str | None,
     offer_id: str | None,
     offer_quantity: Decimal | None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     from ..utils.address import to_canonical
 
@@ -175,7 +225,25 @@ def _create_escrow_payment(
         payload["offer_id"] = offer_id
     if offer_quantity is not None:
         payload["offer_quantity"] = str(offer_quantity)
+    if idempotency_key:
+        return _post_idempotent(coord_http_client, "/v1/payments", json=payload, idempotency_key=idempotency_key)
     return coord_http_client.post("/v1/payments", json=payload)
+
+
+def _try_auto_accept(http_client: AITBCHTTPClient, job_id: str, accept_key: str) -> bool:
+    """Attempt one idempotent accept; returns True if no retry is wanted."""
+    try:
+        _post_idempotent(http_client, f"/v1/jobs/{job_id}/accept", idempotency_key=accept_key)
+    except NetworkError as e:
+        if _is_transient_error(e):
+            # Gateway blip: retry the accept on the next poll — the
+            # Idempotency-Key makes the replay safe.
+            logger.warning("Transient error accepting job %s (will retry): %s", job_id, e)
+            return False
+        logger.warning("Could not auto-accept job %s: %s", job_id, e)
+    except Exception as e:
+        logger.warning("Could not auto-accept job %s: %s", job_id, e)
+    return True
 
 
 def _await_payment_release(
@@ -196,6 +264,7 @@ def _await_payment_release(
     on behalf of the customer so a --wait invocation runs end-to-end.
     """
     accept_attempted = False
+    accept_key = _new_idempotency_key(f"ai-accept-{job_id}")
     while status.get("payment_status") != "released":
         if timed_out():
             abort(
@@ -203,15 +272,14 @@ def _await_payment_release(
                 f"Job {job_id} completed but payment {payment_id} was not released within timeout",
             )
         if not accept_attempted and status.get("payment_status") in ("escrowed", "pending_acceptance"):
-            try:
-                http_client.post(f"/v1/jobs/{job_id}/accept")
-            except Exception as e:
-                logger.warning("Could not auto-accept job %s: %s", job_id, e)
-            accept_attempted = True
+            accept_attempted = _try_auto_accept(http_client, job_id, accept_key)
         time.sleep(min(poll_interval, 2.0))
         try:
             status = http_client.get(f"/v1/jobs/{job_id}")
         except NetworkError as e:
+            if _is_transient_error(e):
+                warning(f"Transient error polling job {job_id} (still waiting): {e}")
+                continue
             abort(ctx, f"Network error while waiting for payment release: {e}", from_exception=e)
         state = status.get("state", state)
         if state != "COMPLETED":
@@ -286,6 +354,11 @@ def _wait_for_job(
             try:
                 status = http_client.get(f"/v1/jobs/{job_id}")
             except NetworkError as e:
+                if _is_transient_error(e):
+                    # A gateway 502/timeout must not abandon --wait: the job
+                    # may still be sealing. Keep polling until the timeout.
+                    warning(f"Transient error polling job {job_id} (still waiting): {e}")
+                    continue
                 abort(ctx, f"Network error while waiting for job {job_id}: {e}", from_exception=e)
             state = status.get("state", state)
 
@@ -315,7 +388,11 @@ def _wait_for_job(
     except KeyboardInterrupt:
         click.echo(f"\nInterrupted; cancelling job {job_id} if still active...")
         try:
-            http_client.post(f"/v1/jobs/{job_id}/cancel")
+            _post_idempotent(
+                http_client,
+                f"/v1/jobs/{job_id}/cancel",
+                idempotency_key=_new_idempotency_key(f"ai-cancel-{job_id}"),
+            )
         except Exception as e:
             logger.warning("Could not cancel job %s after interrupt: %s", job_id, e)
         abort(ctx, f"Wait for job {job_id} cancelled by user")
@@ -490,6 +567,7 @@ def _secure_escrow(
     chain_id,
     offer_id,
     offer_quantity,
+    idempotency_key=None,
 ):
     """If the coordinator priced the job but did not secure an escrow, sign the
     ESCROW_LOCK tx and create the payment in a second step."""
@@ -531,6 +609,7 @@ def _secure_escrow(
             resolved_chain_id,
             offer_id,
             offer_quantity,
+            idempotency_key=idempotency_key,
         )
     except CLIError as e:
         # The job was already accepted by the coordinator; name it so the
@@ -731,8 +810,12 @@ def submit(
             chain_id = chain_id or resolve_chain_id(ctx, rpc_url)
             get_buyer_nonce(ctx, rpc_url, buyer_address)
 
-        # Submit to coordinator
-        result = http_client.post("/v1/jobs", json=job_data)
+        # Submit to coordinator. The Idempotency-Key binds every retry of
+        # this submission to one server-side operation (CLI-IDEMPOTENCY-1):
+        # a gateway 502 after the job landed replays the recorded response
+        # instead of creating a duplicate job.
+        submit_key = _new_idempotency_key("ai-submit")
+        result = _post_idempotent(http_client, "/v1/jobs", json=job_data, idempotency_key=submit_key)
 
         job_id = cast(str, result.get("job_id"))
         success(f"Job submitted: {job_id}")
@@ -750,6 +833,7 @@ def submit(
             chain_id=chain_id,
             offer_id=offer_id,
             offer_quantity=offer_quantity,
+            idempotency_key=f"{submit_key}-escrow",
         )
 
         # A paid job whose escrow could not be secured can never be dispatched --
@@ -905,6 +989,7 @@ def pay(
             chain_id,
             offer_id,
             Decimal(str(offer_quantity)) if offer_quantity is not None else None,
+            idempotency_key=_new_idempotency_key(f"ai-pay-{job_id}"),
         )
 
         success(f"Escrow secured: {payment_result.get('payment_id')}")
@@ -1009,7 +1094,11 @@ def accept(ctx, job_id, coordinator_url, format):
 
         headers = _require_auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
-        result = http_client.post(f"/v1/jobs/{job_id}/accept")
+        result = _post_idempotent(
+            http_client,
+            f"/v1/jobs/{job_id}/accept",
+            idempotency_key=_new_idempotency_key(f"ai-accept-{job_id}"),
+        )
 
         success(f"Job {job_id} accepted and payment released")
         output(result, resolve_output_format(ctx, format))
@@ -1050,9 +1139,11 @@ def refund(ctx, job_id, reason, coordinator_url):
         if not payment_id:
             abort(ctx, f"Job {job_id} has no payment to refund")
 
-        result = http_client.post(
+        result = _post_idempotent(
+            http_client,
             f"/v1/payments/{payment_id}/refund",
             json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
+            idempotency_key=_new_idempotency_key(f"ai-refund-{payment_id}"),
         )
         success(f"Payment {payment_id} for job {job_id} refunded")
         output(result, resolve_output_format(ctx, "table"))
@@ -1080,6 +1171,7 @@ def _sweep_job(http_client: AITBCHTTPClient, job: dict[str, Any], reason: str, d
         http_client.post(
             f"/v1/payments/{payment_id}/refund",
             json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
+            idempotency_key=_new_idempotency_key(f"ai-refund-{payment_id}"),
         )
         counts["refunded"] += 1
         success(f"Refunded payment {payment_id} for job {job_id}")
