@@ -1,6 +1,7 @@
 # Governance Voting
 
 **Level**: Beginner
+**Status**: ✅ **Exercised on bc-2 (28 Oct)** — `GOVERNANCE_PROPOSE` @8708 `0xee997ce3…282c`, `GOVERNANCE_VOTE` @8716 `0xdfe148c9…dcd6`, `GOVERNANCE_EXECUTE` @9278 (executor `0xD9CC189c`, `governance_sweep_marker=bc-2-live-exercise` applied)
 **Prerequisites**: [Scenario 16 Agent Registration](./16_agent_registration.md)
 **Estimated Time**: 20 minutes
 **Last Updated**: 2026-08-21
