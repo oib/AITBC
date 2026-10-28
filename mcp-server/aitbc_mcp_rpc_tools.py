@@ -2216,3 +2216,190 @@ def register_ipfs_rental_token(
         ),
         secret_values,
     )
+
+
+# ---------------------------------------------------------------------------
+# Agent-staking + bounty tools (Refs #657; spec: docs/ops/mcp-agent-economics-tools.md)
+#
+# Each route takes a JSON body whose top-level ``signature`` authorizes the
+# rest — whole-payload keccak canonical-JSON signed with
+# AGENT_ECONOMICS_OPERATOR_KEY (held outside the MCP process; the tool only
+# forwards a ready-made signature). dry_run/confirm gating via _http_write_tool.
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def create_agent_stake(
+    agent_id: Annotated[str, Field(description="Agent identifier to stake.")],
+    operator_address: Annotated[str, Field(description="Operator wallet address (0x…).")],
+    amount: Annotated[str, Field(description="Stake amount in compute-units.")],
+    signature: Annotated[str, Field(description="Operator signature over the request body (keccak canonical-JSON).")],
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Create a new agent stake (seals STAKE_LOCK)."""
+    body = {
+        "agent_id": agent_id,
+        "operator_address": operator_address,
+        "amount": amount,
+        "signature": signature,
+    }
+    return _http_write_tool(role, host, "blockchain-rpc", "agent-staking/stake", body, dry_run, confirm, auth="rpc")
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def add_agent_stake(
+    stake_id: Annotated[str, Field(description="Existing stake identifier.")],
+    amount: Annotated[str, Field(description="Top-up amount in compute-units.")],
+    signature: Annotated[
+        str, Field(description="Operator signature over the request body; signed stake_id must match the path.")
+    ],
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Top up an existing agent stake (seals STAKE_LOCK)."""
+    body = {"stake_id": stake_id, "amount": amount, "signature": signature}
+    return _http_write_tool(
+        role, host, "blockchain-rpc", f"agent-staking/stake/{stake_id}/add", body, dry_run, confirm, auth="rpc"
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def unbond_agent_stake(
+    stake_id: Annotated[str, Field(description="Stake identifier to unbond.")],
+    signature: Annotated[
+        str, Field(description="Operator signature over the request body; signed stake_id must match the path.")
+    ],
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Start unbonding an agent stake (record → unbonding)."""
+    body = {"stake_id": stake_id, "signature": signature}
+    return _http_write_tool(
+        role, host, "blockchain-rpc", f"agent-staking/stake/{stake_id}/unbond", body, dry_run, confirm, auth="rpc"
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def complete_agent_stake(
+    stake_id: Annotated[str, Field(description="Stake identifier to complete.")],
+    signature: Annotated[
+        str, Field(description="Operator signature over the request body; signed stake_id must match the path.")
+    ],
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Complete an unbonded agent stake (seals STAKE_RELEASE)."""
+    body = {"stake_id": stake_id, "signature": signature}
+    return _http_write_tool(
+        role, host, "blockchain-rpc", f"agent-staking/stake/{stake_id}/complete", body, dry_run, confirm, auth="rpc"
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def deploy_bounty(
+    operator_address: Annotated[str, Field(description="Operator wallet address (0x…).")],
+    amount: Annotated[str, Field(description="Bounty amount in compute-units.")],
+    signature: Annotated[str, Field(description="Operator signature over the request body (keccak canonical-JSON).")],
+    title: Annotated[str | None, Field(description="Bounty title.")] = None,
+    description: Annotated[str | None, Field(description="Bounty description.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Deploy a new bounty (seals BOUNTY_LOCK)."""
+    body: dict[str, Any] = {
+        "operator_address": operator_address,
+        "amount": amount,
+        "signature": signature,
+    }
+    if title is not None:
+        body["title"] = title
+    if description is not None:
+        body["description"] = description
+    return _http_write_tool(role, host, "blockchain-rpc", "bounty/deploy", body, dry_run, confirm, auth="rpc")
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def submit_bounty(
+    bounty_id: Annotated[str, Field(description="Bounty identifier.")],
+    submitter_address: Annotated[str, Field(description="Submitter wallet address (0x…).")],
+    signature: Annotated[
+        str, Field(description="Operator signature over the request body; signed bounty_id must match the path.")
+    ],
+    solution: Annotated[str | None, Field(description="Solution payload / reference.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Submit a solution for a bounty (submission record)."""
+    body: dict[str, Any] = {
+        "bounty_id": bounty_id,
+        "submitter_address": submitter_address,
+        "signature": signature,
+    }
+    if solution is not None:
+        body["solution"] = solution
+    return _http_write_tool(role, host, "blockchain-rpc", f"bounty/{bounty_id}/submit", body, dry_run, confirm, auth="rpc")
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def verify_bounty(
+    bounty_id: Annotated[str, Field(description="Bounty identifier.")],
+    signature: Annotated[
+        str, Field(description="Operator signature over the request body; signed bounty_id must match the path.")
+    ],
+    approved: Annotated[bool, Field(description="Whether the submission is approved (BOUNTY_PAYOUT when verified).")] = True,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Verify a bounty submission (seals BOUNTY_PAYOUT when verified; 409 until the lock is funded)."""
+    body = {"bounty_id": bounty_id, "approved": approved, "signature": signature}
+    return _http_write_tool(role, host, "blockchain-rpc", f"bounty/{bounty_id}/verify", body, dry_run, confirm, auth="rpc")
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def dispute_bounty(
+    bounty_id: Annotated[str, Field(description="Bounty identifier.")],
+    signature: Annotated[
+        str, Field(description="Operator signature over the request body; signed bounty_id must match the path.")
+    ],
+    reason: Annotated[str | None, Field(description="Dispute reason.")] = None,
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Dispute a bounty submission (status memo)."""
+    body: dict[str, Any] = {"bounty_id": bounty_id, "signature": signature}
+    if reason is not None:
+        body["reason"] = reason
+    return _http_write_tool(role, host, "blockchain-rpc", f"bounty/{bounty_id}/dispute", body, dry_run, confirm, auth="rpc")
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def expire_bounty(
+    bounty_id: Annotated[str, Field(description="Bounty identifier.")],
+    signature: Annotated[
+        str, Field(description="Operator signature over the request body; signed bounty_id must match the path.")
+    ],
+    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
+    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
+    role: Annotated[NodeRole | None, Field(description="Node role to submit to.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+) -> str:
+    """Expire a bounty past its deadline (seals BOUNTY_REFUND)."""
+    body = {"bounty_id": bounty_id, "signature": signature}
+    return _http_write_tool(role, host, "blockchain-rpc", f"bounty/{bounty_id}/expire", body, dry_run, confirm, auth="rpc")
