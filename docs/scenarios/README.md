@@ -231,7 +231,7 @@ The **sealed on bc-2** column is the running 32-type ledger — append as seals 
 | `BRIDGE_RELEASE` / `BRIDGE_REFUND` | bridge monitor (authority-issued credits) | 59 end-to-end; **88** — the live `BRIDGE_RELEASE` exercise reserved per V-1 (pending the island deploy) — governing runbook: [bridge-release-exercise](../ops/bridge-release-exercise.md) | RELEASE island @156 `b13a6cdc…` + @198 `0aca483b…` (seals on bc-2-island-1, not bc-2); REFUND 9116 (lock @9111 `pending`→`refunded`, +5000 net of 5 fee) |
 | `GOVERNANCE_PROPOSE` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` | `aitbc governance` (client-signed, relayed) | 17 | PROPOSE 8708 `0xee997ce3…282c`; VOTE 8716 `0xdfe148c9…dcd6`; EXECUTE — |
 | `LIQUIDITY_DEPOSIT` / `LIQUIDITY_WITHDRAW` / `LIQUIDITY_CLAIM` | `aitbc wallet liquidity-stake` / `liquidity-unstake` / `liquidity-claim` | 01; 83 (refusals only) | — |
-| `RECEIPT_CLAIM` | protocol-internal | no scenario — replay suite only | — (replay-only — no live emitter, C finding) |
+| `RECEIPT_CLAIM` | settlement RPC — emitted by the node at escrow release when the coordinator hands over the signed receipt of record (#687); the claim carries the issuance record so apply materialises the row | no scenario — replay suite only | — (live emitter wired #687; replay-suite coverage stands) |
 | `IPFS_SUBSCRIPTION` | `aitbc ipfs` | 11 | 9040 |
 | `EXCHANGE` | `aitbc exchange` trading order anchors (buy/sell/cancel) | — | 5564, 5565 |
 
