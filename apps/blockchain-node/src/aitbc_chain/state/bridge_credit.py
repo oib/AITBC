@@ -14,10 +14,13 @@ can no longer mint merely by choosing the right pseudo-sender.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any
 
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 BRIDGE_CREDIT_TX_TYPES = frozenset({"BRIDGE_RELEASE", "BRIDGE_REFUND"})
 # Every tx type whose signature gate resolves the bridge release authority —
@@ -215,14 +218,28 @@ def verify_bridge_credit_signature(tx_data: dict[str, Any], tx_hash: str, author
         return False
 
 
-def bridge_credit_private_key() -> str | None:
+def bridge_credit_private_key(target_chain: str | None = None) -> str | None:
     """Signing key for internally issued bridge credits.
 
-    ``BRIDGE_RELEASE_PRIVATE_KEY`` wins; the operator settlement key
-    ``ESCROW_RELEASE_PRIVATE_KEY`` is the transitional fallback — it resolves
-    to the same address that ``escrow_settlement_authority`` already publishes
-    on-chain, so existing deployments need no new key provisioning.
+    ``BRIDGE_RELEASE_KEYS_JSON`` (a ``{target_chain_id: hex_key}`` map) wins
+    for a named target — a node that serves several bridge directions signs
+    each credit with the authority the *target* chain expects (Refs #692).
+    ``BRIDGE_RELEASE_PRIVATE_KEY`` is the single-key fallback; the operator
+    settlement key ``ESCROW_RELEASE_PRIVATE_KEY`` is the transitional
+    fallback — it resolves to the same address that
+    ``escrow_settlement_authority`` already publishes on-chain.
     """
+    import json
+
+    if target_chain:
+        raw_map = (getattr(settings, "bridge_release_keys_json", "") or os.getenv("BRIDGE_RELEASE_KEYS_JSON", "")).strip()
+        if raw_map:
+            try:
+                key = str(json.loads(raw_map).get(target_chain) or "").strip()
+                if key:
+                    return key
+            except Exception:
+                logger.warning("BRIDGE_RELEASE_KEYS_JSON is not valid JSON — ignoring the per-target key map")
     key = (getattr(settings, "bridge_release_private_key", "") or os.getenv("BRIDGE_RELEASE_PRIVATE_KEY", "")).strip()
     if not key:
         key = os.getenv("ESCROW_RELEASE_PRIVATE_KEY", "").strip()
