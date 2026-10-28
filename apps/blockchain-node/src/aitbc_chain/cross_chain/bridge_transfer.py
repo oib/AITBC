@@ -866,14 +866,7 @@ class BridgeTransferMixin(BridgeBase):
             # configured threshold with fresh signatures over THIS sealed
             # block's canonical header message; verification is unchanged
             # (same message shape, same membership check).
-            try:
-                validator_signatures = self._augment_proof_validator_signatures(block, source_chain, validator_signatures)
-            except Exception:
-                logger.exception(
-                    "Proof signature augmentation failed for block %s height %s — keeping sealed attestations",
-                    source_chain,
-                    block.height,
-                )
+            validator_signatures = self._augment_proof_validator_signatures(block, source_chain, validator_signatures)
 
             return {
                 "source_chain": record.source_chain,
@@ -1003,6 +996,22 @@ class BridgeTransferMixin(BridgeBase):
         best-effort remote attestation round via ``RemoteAttestationService``
         for the still-missing count. Failures degrade to the sealed set.
         """
+        try:
+            return self._augment_proof_validator_signatures_impl(block, source_chain, validator_signatures)
+        except Exception:
+            logger.exception(
+                "Proof signature augmentation failed for block %s height %s — keeping sealed attestations",
+                source_chain,
+                block.height,
+            )
+            return validator_signatures
+
+    def _augment_proof_validator_signatures_impl(
+        self,
+        block: Block,
+        source_chain: str,
+        validator_signatures: list[str],
+    ) -> list[str]:
         from aitbc.bridge import check_threshold, recover_all_signers
 
         threshold = int(getattr(settings, "bridge_multisig_threshold", 3) or 0)
@@ -1038,8 +1047,37 @@ class BridgeTransferMixin(BridgeBase):
         member_addrs = {a.lower() for a in vset.addresses}
         collected = list(validator_signatures)
 
-        # (a) local validator keys — always reachable in this process.
         local_keys = self._local_validator_key_map()
+        needed = self._top_up_local_proof_signatures(block, message, local_keys, member_addrs, covered, collected, needed)
+
+        # (b) remote attestation round for whatever is still missing.
+        if needed > 0:
+            needed = self._top_up_remote_proof_signatures(
+                block, source_chain, message, local_keys, member_addrs, covered, collected, needed
+            )
+
+        if needed > 0:
+            logger.warning(
+                "Bridge proof for %s height %s remains below threshold after augmentation "
+                "(%d signer(s) still missing); peers can only re-attest while the block "
+                "is at/near their tip",
+                source_chain,
+                block.height,
+                needed,
+            )
+        return collected
+
+    def _top_up_local_proof_signatures(
+        self,
+        block: Block,
+        message: dict[str, Any],
+        local_keys: dict[str, str],
+        member_addrs: set[str],
+        covered: set[str],
+        collected: list[str],
+        needed: int,
+    ) -> int:
+        # (a) local validator keys — always reachable in this process.
         from aitbc.crypto.consensus_signing import sign_consensus_message
         from aitbc.crypto.signature_recovery import canonical_address
 
@@ -1060,38 +1098,40 @@ class BridgeTransferMixin(BridgeBase):
             collected.append(signature)
             covered.add(canon)
             needed -= 1
+        return needed
 
-        # (b) remote attestation round for whatever is still missing.
-        if needed > 0:
-            for att in self._collect_remote_proof_attestations(block, source_chain, needed, local_keys):
-                signature = str(att.get("signature") or "")
-                if not signature:
-                    continue
-                try:
-                    recovered = recover_all_signers(message, [signature])
-                except Exception:
-                    recovered = []
-                if not recovered:
-                    continue
-                signer = recovered[0].lower()
-                if signer in covered or signer not in member_addrs:
-                    continue
-                collected.append(signature)
-                covered.add(signer)
-                needed -= 1
-                if needed <= 0:
-                    break
+    def _top_up_remote_proof_signatures(
+        self,
+        block: Block,
+        source_chain: str,
+        message: dict[str, Any],
+        local_keys: dict[str, str],
+        member_addrs: set[str],
+        covered: set[str],
+        collected: list[str],
+        needed: int,
+    ) -> int:
+        from aitbc.bridge import recover_all_signers
 
-        if needed > 0:
-            logger.warning(
-                "Bridge proof for %s height %s remains below threshold after augmentation "
-                "(%d signer(s) still missing); peers can only re-attest while the block "
-                "is at/near their tip",
-                source_chain,
-                block.height,
-                needed,
-            )
-        return collected
+        for att in self._collect_remote_proof_attestations(block, source_chain, needed, local_keys):
+            signature = str(att.get("signature") or "")
+            if not signature:
+                continue
+            try:
+                recovered = recover_all_signers(message, [signature])
+            except Exception:
+                recovered = []
+            if not recovered:
+                continue
+            signer = recovered[0].lower()
+            if signer in covered or signer not in member_addrs:
+                continue
+            collected.append(signature)
+            covered.add(signer)
+            needed -= 1
+            if needed <= 0:
+                break
+        return needed
 
     def _collect_remote_proof_attestations(
         self,
