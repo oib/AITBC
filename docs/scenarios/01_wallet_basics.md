@@ -503,6 +503,11 @@ aitbc wallet stake --amount 1 --duration 30
 **v17 gate:** this submits a `STAKE_LOCK` through the revived staking
 RPC — activation-gated, it answers HTTP 410 while the next block height
 is below `STATE_TRANSITION_V17_HEIGHT` and goes live at/after the pin.
+**Blocked at v17 too (Refs #649, pending the v18 committed-set fix):**
+the `/v1/staking/*` route writes a queue-time row into `stake`, a
+committed table — the submitter's aux fingerprint diverges and it forks
+itself out rejecting the sealing block (single-node divergence; see
+[v14-aux-root-nondeterminism](../design/v14-aux-root-nondeterminism.md)).
 Pick the duration deliberately: `--duration 30` means the position
 cannot release for ~30 days. For a short exercise use `--duration 1`
 (the minimum), which keeps the release window ~1 day.
