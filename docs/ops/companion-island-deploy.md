@@ -116,6 +116,16 @@ Locked inputs:
   the island genesis must carry the bc-2 rows it trusts
   (`BRIDGE_MULTISIG_THRESHOLD=2`); the island-side table is what
   `ensure_supported_chain_validators` checks at startup.
+- **KNOWN TRAP (live-verified 28 Oct):** serving a chain_id before its
+  real validator set is registered backfills the LOCAL set under that
+  id — on the 12:54:58 rpc restart, `ensure_supported_chain_validators`
+  installed bc-2's local 4 validators under `chain_id='bc-2-island-1'`
+  in every bc-2 `chain.db` (verified ×4 hosts: `bc-2`=4 +
+  `bc-2-island-1`=6 rows after the genuine island registrations at
+  13:00; the island's own shadow dbs stayed clean at 2). Sequence
+  rule: register the real set **before** adding the chain to
+  `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`, or deactivate the
+  phantom rows post-registration. Refs #659.
 - `bridge_release_authority` = the island-side release authority
   (genesis `parameters` row — the emitted `BRIDGE_RELEASE`'s
   `payload.bridge_signature` verifies against it; the signing key lives
