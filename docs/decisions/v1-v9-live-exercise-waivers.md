@@ -113,23 +113,33 @@ green, and the fleet keeps agreeing on every block (already verified:
    (The fleet has since cut to `bc-2`; the replayed v9-era blocks are
    historical and identical on every host.)
 
-**Supplementary evidence — Coder C live sweep on `bc-2` (in flight).**
-Coder C is running a live exercise sweep of the remaining user-submitted
-types on `bc-2`. These observations are supplementary — they are not part
-of the close condition above and V-1 does not wait on them. Results to be
-filled in from C's report; do not write outcomes here ahead of it:
+**Supplementary evidence — Coder C live sweep on `bc-2` (final report,
+head ~8736).** Coder C ran a live exercise sweep of the remaining
+user-submitted types on `bc-2`. These observations are supplementary —
+they are not part of the close condition above and V-1 does not wait on
+them:
 
 | type | sealed? | height | tx hash / note |
 |---|---|---|---|
-| MESSAGE | ⬜ pending | — | Coder C sweep |
-| AI_JOB | ⬜ pending | — | Coder C sweep |
-| GPU_ALLOCATE | ⬜ pending | — | Coder C sweep |
-| GOVERNANCE_* | ⬜ pending | — | Coder C sweep — GOVERNANCE_EXECUTE on hold: executor keys exist nowhere in the fleet (Coder A recon); pending operator card |
-| LIQUIDITY_* | ⬜ pending | — | Coder C sweep |
-| BOND_* | ⬜ pending | — | Coder C sweep — BOND_SLASH exercisable via coordinator-api `POST /market/providers/{provider_id}/bonds/slash` on hub (`BOND_SLASH_PRIVATE_KEY`); needs a slashable bond — check bond state via the coordinator bonds endpoints first |
-| BRIDGE_LOCK | ⬜ pending | — | Coder C sweep |
-| BRIDGE_WITHDRAW | ⬜ pending | — | Coder C sweep |
-| ESCROW_FEE_SWEEP | ⬜ pending | — | observation only — Coder C sweep |
+| MESSAGE | ✅ sealed | 8701 | `0x22dc0dcc…c0a76b` — `aitbc messaging send`, node0 `default` |
+| AI_JOB | ✅ sealed | 8720 | `0xcaeb41d4…324bd68` — node0 `POST /ai/submit`, relayed to hub mempool |
+| GPU_ALLOCATE | ✅ sealed | 8704 | `0x6703780c…e22fc5b` — node0 `coin-grant-test-2026-10-27`; fresh `GPU_REGISTER` @8702 `0xf356e94e…2fe35d91` as prep |
+| GOVERNANCE_PROPOSE / VOTE | ✅ sealed | 8708 / 8716 | `0xee997ce3…ffda282c` (`prop_76855f71`) / `0xdfe148c9…339edcd6` — custom signer; the CLI cannot emit v13 `execution_payload` and the vote field is `vote_type`, not `vote` |
+| GOVERNANCE_EXECUTE | ⬛ authority-gated | — | `governance_executors` keys exist nowhere in the fleet; `prop_76855f71` + 1 vote sealed and waiting — pending operator card |
+| LIQUIDITY_* | ❌ unsealable at v16 | — | DEPOSIT **poisoned the chain**: `liq_<random>` stake_id + wall-clock `locked_until` are committed columns → every node computed a different v14 aux-root → 3-vs-2 liveness deadlock at 8705/8706; recovered via delta-journal `revert_losing_segment` (poison dropped, not requeued) + rejoin runbook, clean quorum at 8706 `0x14b9461e…`. WITHDRAW/CLAIM unreachable — no sealed stake can exist |
+| BOND_* | ❌ not exercisable at v16 | — | LOCK deliberately not fired — same nondeterminism class (`locked_until = datetime.now(UTC)` committed on the `bond` row); RELEASE unreachable; SLASH doubly blocked — needs both a sealed bond (impossible at v16) and `bond_slash_authority` (key absent fleet-wide), so the coordinator-api `POST /market/providers/{id}/bonds/slash` path was not attempted |
+| BRIDGE_LOCK | ⬛ config-blocked | — | `initiate_transfer` requires distinct source/target chains; every fleet node supports only `bc-2` — no valid lock target exists; pending operator card |
+| BRIDGE_WITHDRAW | ✅ sealed (chain side) | 8723 | `0x74301648…c2a3656` — 360000 units → `0xF1C83cd9…` on sepolia; **anomaly**: the monitor recorded it as "outbound refund" `aec7a816…` with no ledger row and no ETH payout — chain-side type proven, payout-leg classification open; pending operator card |
+| ESCROW_FEE_SWEEP | ❌ never emitted | — | root cause found: the sweep pass runs inside `aitbc-blockchain-rpc`, but `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT=1` is pinned only in `aitbc-blockchain-node.env` → the rpc unit's default floor `35400` excludes every bc-2 leg → tick-only metrics. Eligible candidates custody-verified (`83631ce6` 900u; `sw_job_20261026012257` 1500u); a one-line env pin + rpc restart would fire it — pending operator card |
+| STAKE_* / BOUNTY_* / HTLC_* / AUTO_STAKE | ⬛ not attempted | — | off-limits per mission — 410 by design before `STATE_TRANSITION_V17_HEIGHT=8900` |
+| BRIDGE_RELEASE / BRIDGE_REFUND | ⬛ not attempted | — | authority issuance; reserved for a separate approved exercise |
+
+The sweep's headline finding: `apply_liquidity_deposit` and `apply_bond`
+stamp nondeterministic values (random ids, wall-clock `locked_until`)
+into committed side-table columns under the v14 aux-root rule, so any
+proposed instance is guaranteed to fork the fleet. Fixing it needs
+apply-time determinism (block time, deterministic ids) plus version
+gating — a code change, not an ops one — pending operator card.
 
 **The BRIDGE_RELEASE reservation stands.** The single live
 `BRIDGE_RELEASE` exercise stays unbuilt and gated on the operator's
