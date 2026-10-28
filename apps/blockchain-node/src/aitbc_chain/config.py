@@ -603,6 +603,12 @@ class ChainSettings(BaseSettings):
     bridge_multisig_timeout: int = 3600  # seconds to collect signatures
     bridge_validator_set_grace_period: int = 7200  # seconds — old epoch valid during rotation
     bridge_block_signature_required: bool = True  # require block header signatures
+    # Max seconds build_proof spends asking remote validators to attest the
+    # sealed block's canonical header when the sealed metadata attestation set
+    # alone is below bridge_multisig_threshold (issue #670). Remote answers only
+    # ever arrive while the sealed block is still at/near a peer's tip (v9
+    # parent-binding), so this is a short best-effort window, not a retry.
+    bridge_proof_attestation_timeout_seconds: float = 2.0
     # v0.10.16: comma-separated list of Ethereum addresses authorized to register
     # bridge validators and ingest remote block headers. Empty means no admin is
     # configured, so validator/header admission is denied when the release fence

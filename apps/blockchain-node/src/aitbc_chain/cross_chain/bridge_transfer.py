@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import threading
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -857,6 +858,23 @@ class BridgeTransferMixin(BridgeBase):
                 except Exception:
                     validator_signatures = []
 
+            # Issue #670: the sealed metadata may carry fewer attestations than
+            # the proof-side multisig threshold needs — the attestation gate
+            # seals blocks with attestations=[] whenever the PBFT commit
+            # certificate covers effective_min, and such proofs stall on
+            # "Threshold not met 1/2" forever. Top the signature list up to the
+            # configured threshold with fresh signatures over THIS sealed
+            # block's canonical header message; verification is unchanged
+            # (same message shape, same membership check).
+            try:
+                validator_signatures = self._augment_proof_validator_signatures(block, source_chain, validator_signatures)
+            except Exception:
+                logger.exception(
+                    "Proof signature augmentation failed for block %s height %s — keeping sealed attestations",
+                    source_chain,
+                    block.height,
+                )
+
             return {
                 "source_chain": record.source_chain,
                 "target_chain": record.target_chain,
@@ -877,6 +895,267 @@ class BridgeTransferMixin(BridgeBase):
                 "proposer_signature": block.signature,
                 "validator_signatures": validator_signatures,
             }
+
+    @staticmethod
+    def _proof_header_message(block: Block) -> dict[str, Any]:
+        """Canonical header message for this sealed block — verifier-identical.
+
+        Built via ``aitbc.bridge.build_verification_message``, the same builder
+        ``_verify_header_threshold_signatures`` runs on the mirrored header.
+        The field set is identical to ``poa._block_header_message``
+        (chain_id, height, hash, parent_hash, proposer, state_root,
+        bridge_state_root), so signatures produced here recover on the verify
+        side without any verifier change.
+        """
+        from aitbc.bridge import build_verification_message
+        from aitbc.bridge.types import BridgeBlockHeader as _VerificationHeader
+
+        return build_verification_message(
+            _VerificationHeader(
+                chain_id=block.chain_id,
+                height=block.height,
+                hash=block.hash,
+                parent_hash=block.parent_hash,
+                proposer=block.proposer,
+                state_root=block.state_root or "",
+                bridge_state_root=block.bridge_state_root or "",
+            )
+        )
+
+    def _local_validator_key_map(self) -> dict[str, str]:
+        """Validator address → private key held by this node (VALIDATOR_KEYS JSON)."""
+        raw = getattr(settings, "validator_keys", "") or ""
+        if not raw.strip():
+            return {}
+        try:
+            data = json.loads(raw)
+        except Exception:
+            logger.warning("VALIDATOR_KEYS is not valid JSON; local proof signing unavailable")
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return {str(a): str(k) for a, k in data.items() if a and k}
+
+    def _proof_source_validator_set(self, source_chain: str) -> Any | None:
+        """Validator set for the source chain, registered set first.
+
+        Falls back to the VALIDATOR_SET env JSON when the bridge registry has
+        no set for the node's own chain — on a producing node env is the
+        membership source of truth, and without it proof augmentation has no
+        membership list to top up against.
+        """
+        vset = None
+        try:
+            vset = self.get_validator_set(source_chain)
+        except Exception as e:
+            logger.debug("Validator set lookup failed for %s: %s", source_chain, e)
+        if vset is not None:
+            return vset
+        raw = getattr(settings, "validator_set", "") or ""
+        own_chain = str(getattr(settings, "chain_id", "") or "")
+        if not raw.strip() or source_chain != own_chain:
+            return vset
+        try:
+            from aitbc.bridge.types import ValidatorInfo, ValidatorSet
+
+            members = json.loads(raw)
+            validators = [
+                ValidatorInfo(
+                    address=str(v["address"]),
+                    public_key=str(v.get("public_key") or v.get("pubkey") or ""),
+                    chain_id=source_chain,
+                    epoch=0,
+                    is_active=bool(v.get("is_active", True)),
+                )
+                for v in members
+                if isinstance(v, dict) and v.get("address")
+            ]
+            if not validators:
+                return None
+            return ValidatorSet(
+                chain_id=source_chain,
+                epoch=0,
+                validators=validators,
+                threshold=int(getattr(settings, "bridge_multisig_threshold", 3)),
+                total=len(validators),
+            )
+        except Exception as e:
+            logger.warning("Failed to parse VALIDATOR_SET for proof augmentation: %s", e)
+            return None
+
+    def _augment_proof_validator_signatures(
+        self,
+        block: Block,
+        source_chain: str,
+        validator_signatures: list[str],
+    ) -> list[str]:
+        """Top up ``validator_signatures`` until the multisig threshold is met.
+
+        Issue #670: blocks sealed on a PBFT commit certificate carry
+        ``attestations=[]`` (or fewer than the threshold) in their metadata,
+        and a proof copied verbatim from them fails the bc-2-side
+        ``_verify_threshold_signatures`` membership/threshold check forever.
+
+        The signatures added here are over the sealed block's canonical
+        header message — the exact shape the verifier rebuilds — so this
+        strengthens provability without weakening verification. Sources, in
+        order: (a) validator keys held locally (``VALIDATOR_KEYS``), (b) a
+        best-effort remote attestation round via ``RemoteAttestationService``
+        for the still-missing count. Failures degrade to the sealed set.
+        """
+        from aitbc.bridge import check_threshold, recover_all_signers
+
+        threshold = int(getattr(settings, "bridge_multisig_threshold", 3) or 0)
+        if threshold <= 1:
+            return validator_signatures
+
+        vset = self._proof_source_validator_set(source_chain)
+        if vset is None:
+            return validator_signatures
+
+        message = self._proof_header_message(block)
+        proposer_sig = block.signature or ""
+        all_sigs = list(validator_signatures)
+        if proposer_sig and proposer_sig not in all_sigs:
+            all_sigs.append(proposer_sig)
+        signers = recover_all_signers(message, all_sigs)
+        meets, count, deduped = check_threshold(signers, vset, threshold)
+        if meets:
+            # Cheap path: sealed attestations + proposer already satisfy the
+            # threshold — keep the proof byte-identical to before.
+            return validator_signatures
+
+        needed = threshold - count
+        logger.info(
+            "Bridge proof for %s height %s has %d/%d signers; collecting %d more",
+            source_chain,
+            block.height,
+            count,
+            threshold,
+            needed,
+        )
+        covered = {s.lower() for s in deduped}
+        member_addrs = {a.lower() for a in vset.addresses}
+        collected = list(validator_signatures)
+
+        # (a) local validator keys — always reachable in this process.
+        local_keys = self._local_validator_key_map()
+        from aitbc.crypto.consensus_signing import sign_consensus_message
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        for address, private_key in local_keys.items():
+            if needed <= 0:
+                break
+            try:
+                canon = canonical_address(address).lower()
+            except Exception:
+                canon = address.lower()
+            if canon == (block.proposer or "").lower() or canon in covered or canon not in member_addrs:
+                continue
+            try:
+                signature = sign_consensus_message(message, private_key)
+            except Exception as e:
+                logger.warning("Failed to sign proof attestation with local key %s: %s", address, e)
+                continue
+            collected.append(signature)
+            covered.add(canon)
+            needed -= 1
+
+        # (b) remote attestation round for whatever is still missing.
+        if needed > 0:
+            for att in self._collect_remote_proof_attestations(block, source_chain, needed, local_keys):
+                signature = str(att.get("signature") or "")
+                if not signature:
+                    continue
+                try:
+                    recovered = recover_all_signers(message, [signature])
+                except Exception:
+                    recovered = []
+                if not recovered:
+                    continue
+                signer = recovered[0].lower()
+                if signer in covered or signer not in member_addrs:
+                    continue
+                collected.append(signature)
+                covered.add(signer)
+                needed -= 1
+                if needed <= 0:
+                    break
+
+        if needed > 0:
+            logger.warning(
+                "Bridge proof for %s height %s remains below threshold after augmentation "
+                "(%d signer(s) still missing); peers can only re-attest while the block "
+                "is at/near their tip",
+                source_chain,
+                block.height,
+                needed,
+            )
+        return collected
+
+    def _collect_remote_proof_attestations(
+        self,
+        block: Block,
+        source_chain: str,
+        needed: int,
+        local_keys: dict[str, str],
+    ) -> list[dict[str, str]]:
+        """Best-effort remote attestations over the sealed block's header.
+
+        Reuses ``RemoteAttestationService.collect_attestations`` — the same
+        gossip request the proposer publishes at seal time — so peers re-sign
+        the identical canonical header message. Two inherent limits:
+
+        - ``collect_attestations`` returns immediately when the node holds no
+          validator keys, so this path is only live on nodes that produce.
+        - v9 attesters re-verify the request's transaction set against their
+          own parent state; a sealed block is attestable only while it is
+          still the peer's tip (the "late request" branch), so this helps the
+          prompt relayer pass right after sealing, not historical rebuilds.
+
+        ``build_proof`` is synchronous and may run while the app event loop is
+        blocked by its own caller, so the collection always runs on a
+        dedicated loop in a worker thread. Backends whose publish path is
+        bound to the main loop simply fail and degrade to zero answers.
+        """
+        if needed <= 0 or not local_keys:
+            return []
+        try:
+            from ..consensus.remote_attestation import RemoteAttestationService
+        except Exception as e:
+            logger.debug("Remote attestation service unavailable for proof build: %s", e)
+            return []
+
+        envelopes: list[dict[str, Any]] = [tx.envelope for tx in (block.transactions or []) if isinstance(tx.envelope, dict)]
+        service = RemoteAttestationService(
+            source_chain,
+            local_keys,
+            session_factory=lambda: self._session_for(source_chain),
+        )
+        timeout = float(getattr(settings, "bridge_proof_attestation_timeout_seconds", 2.0) or 0.0)
+        if timeout <= 0:
+            return []
+
+        result: dict[str, Any] = {}
+
+        def _run() -> None:
+            try:
+                result["atts"] = asyncio.run(
+                    service.collect_attestations(block, needed, timeout=timeout, transactions=envelopes)
+                )
+            except Exception as e:  # noqa: BLE001 - best-effort path, any failure degrades to sealed set
+                result["err"] = e
+
+        worker = threading.Thread(target=_run, name="bridge-proof-attestations", daemon=True)
+        worker.start()
+        worker.join(timeout + 5.0)
+        if worker.is_alive():
+            logger.warning("Remote proof attestation collection timed out for %s height %s", source_chain, block.height)
+            return []
+        if "err" in result:
+            logger.debug("Remote proof attestation collection failed: %s", result["err"])
+            return []
+        return list(result.get("atts") or [])
 
     def _build_lock_event_value(self, record: CrossChainTransfer, height: int | None) -> str:
         """Canonical lock event string the source block at ``height`` committed to."""
