@@ -192,6 +192,8 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 80 | [Required CLI Flags](./80_required_flags.md) | last required-flag gaps exercised as free refusals | `aitbc operations`, `aitbc economics` |
 | 83 | [Staking Options](./83_stake_options.md) | stake/unstake/liquidity-stake/reinvest options as wallet-gate refusals | `aitbc stake`, `aitbc unstake`, `aitbc liquidity-stake`, `aitbc reinvest` |
 | 85 | [Secret-Form Coverage](./85_secret_forms.md) | password-file/stdin refusal plays across all leaves | `aitbc` all groups |
+| 86 | [Bounty Lifecycle](./86_bounty_lifecycle.md) | deploy → submit → verify (`BOUNTY_PAYOUT`) + deploy → expire (`BOUNTY_REFUND`) — operator-signed via coordinator-api | coordinator-api REST, node RPC |
+| 87 | [Agent Staking Lifecycle](./87_agent_staking.md) | stake → add → unbond → complete — operator-signed via coordinator-api; `locked_until` release gate | coordinator-api REST, node RPC |
 | 84 | [Last Uncovered Options](./84_last_options.md) | economics/trade leftovers as auth-gate refusals; census 0 non-secret | `aitbc economics`, `aitbc trade` |
 | 78 | [Market CLI Options](./78_market_options.md) | `aitbc market` money-path and listing options as reads/free refusals (offer-resolution, wallet, quote-verification) | `aitbc market` |
 | 79 | [Exchange CLI Options](./79_exchange_options.md) | `aitbc exchange` + `exchange-island` options as reads/free refusals (wallet gate, cap, island credentials, verifier drift) | `aitbc exchange` |
@@ -219,9 +221,9 @@ the play(s) that can seal it on-chain.
 | `ESCROW_FEE_SWEEP` | settlement sweeper (protocol-emitted, authority-signed) | no scenario — ops checker: [first-sweep-observation](../ops/first-sweep-observation.md) |
 | `GPU_REGISTER` / `GPU_ALLOCATE` / `GPU_DEREGISTER` | `aitbc gpu-onchain` | 09 |
 | `GPU_MARKET` (`offer`/`software_offer`/`software_job`) | `aitbc market offer`, job receipts | 26, 34, 41, 50 |
-| `STAKE_LOCK` / `STAKE_RELEASE` | `aitbc stake` / `aitbc unstake` → revived staking/agent-staking RPCs (protocol `payload.auth` emissions) | 01, 17; 83 — refusals-only under v9–v16 (surfaces 410-retired); sealable again at v17+ once `STATE_TRANSITION_V17_HEIGHT` is armed |
+| `STAKE_LOCK` / `STAKE_RELEASE` | `aitbc stake` / `aitbc unstake` (wallet-signed) → revived staking RPC; coordinator-api `/stake` lifecycle (operator `payload.auth`) | 01 steps 26–27, 17, **87**; 83 — client-side wallet-gate refusals; gated live at v17+ (`STATE_TRANSITION_V17_HEIGHT`, 410 while unarmed) |
 | `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` | `aitbc bond` | 48 |
-| `BOUNTY_LOCK` / `BOUNTY_PAYOUT` / `BOUNTY_REFUND` | protocol escrow (keyless) via revived `/rpc/bounty/*` | no scenario — replay suite + revived endpoints; `PAYOUT`/`REFUND` were unsealable unsigned under v9–v16, seal at v17+ carrying `payload.auth` (see below) |
+| `BOUNTY_LOCK` / `BOUNTY_PAYOUT` / `BOUNTY_REFUND` | protocol escrow via revived bounty surface — coordinator-api `/bounties` lifecycle signs operator `payload.auth` server-side | **86** — deploy→submit→verify (`PAYOUT`) + deploy→expire (`REFUND`), gated live at v17+; `PAYOUT`/`REFUND` were unsealable unsigned under v9–v16 |
 | `BRIDGE_LOCK` / `BRIDGE_WITHDRAW` | `aitbc wallet bridge`, `aitbc bridge` | 20, 59, 76 |
 | `BRIDGE_RELEASE` / `BRIDGE_REFUND` | bridge monitor (authority-issued credits) | 59 end-to-end; one live `BRIDGE_RELEASE` exercise remains reserved per V-1 — draft runbook: [bridge-release-exercise](../ops/bridge-release-exercise.md) |
 | `GOVERNANCE_PROPOSE` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` | `aitbc governance` (client-signed, relayed) | 17 |
@@ -231,9 +233,11 @@ the play(s) that can seal it on-chain.
 
 ### Why four types have no play
 
-`ESCROW_FEE_SWEEP`, `BOUNTY_*`, and `RECEIPT_CLAIM` are emitted by the node
+`ESCROW_FEE_SWEEP` and `RECEIPT_CLAIM` are emitted by the node
 or the settlement authority — a wallet cannot submit them — and
-`BRIDGE_RELEASE`/`BRIDGE_REFUND` are reserved internal issuance. Per
+`BRIDGE_RELEASE`/`BRIDGE_REFUND` are reserved internal issuance. (`BOUNTY_*`
+is no longer replay-only: scenario 86 plays the operator-signed lifecycle
+once v17 is armed.) Per
 operator decision
 [V-1](../decisions/v1-v9-live-exercise-waivers.md), live exercise of the
 types that never sealed under v9 is waived in favor of

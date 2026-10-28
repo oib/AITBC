@@ -27,7 +27,16 @@ breadcrumb: Home > Scenarios > Staking Option Coverage
 > `stake`, `unstake`, and `liquidity-stake` are write commands — every
 > play refuses *before* signing: wallet-file resolution is the first
 > step in each command body, so a nonexistent wallet is a free refusal.
-> Played on node2 (`aitbc 0.25.9`), `logger -t coderA`.
+> The refusal is client-side, so it holds identically whether or not the
+> RPC surface is armed.
+>
+> **v17 gate note (28 Oct):** the staking/agent-staking RPCs are
+> activation-gated — HTTP 410 while the next height is below
+> `STATE_TRANSITION_V17_HEIGHT`, live at/after the pin — not retired.
+> These wallet-gate refusals never reach the RPC, so the plays below
+> stay valid in both worlds. Live post-v17 plays: scenario 01 steps
+> 26–27 (wallet staking) and scenario 87 (operator-signed agent
+> staking). Played on node2 (`aitbc 0.25.9`), `logger -t coderA`.
 
 ## Steps
 
