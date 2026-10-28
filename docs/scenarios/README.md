@@ -198,3 +198,45 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 80 | [Required-Flag Coverage — operations & economics](./80_required_flags.md) | Last four required CLI options exercised as free refusals (wallet gate, lock-days guard, invalid choice) | `aitbc operations`, `aitbc economics` |
 | 81 | [Wallet CLI Options](./81_wallet_options.md) | `aitbc wallet` options as reads/free refusals (wallet gate, dead endpoints, bridge status `--hub-url` drift) | `aitbc wallet` |
 | 82 | [Moneypath Options](./82_moneypath_options.md) | operations/transactions/eth options as reads/free refusals | `aitbc operations`, `aitbc transactions`, `aitbc eth` |
+
+---
+
+## On-chain record coverage
+
+The chain accepts 31 transaction types (`V9_METRIC_KNOWN_TX_TYPES` in
+`apps/blockchain-node/src/aitbc_chain/state/v9_policy.py`). Scenarios are
+organized by feature, not by type — this table maps every record type to
+the play(s) that can seal it on-chain.
+
+| Record type | Emitted by | Scenario(s) |
+|---|---|---|
+| `TRANSFER` | `aitbc transactions send` | 02, 59 |
+| `AI_JOB` | `aitbc ai submit` | 07, 34 |
+| `MESSAGE` | `aitbc messaging`, `aitbc agent-msg` | 04, 45 |
+| `ESCROW_LOCK` | market job escrow | 07, 34, 54, 75 |
+| `ESCROW_RELEASE` | settlement authority on job completion | 07, 34, 48 |
+| `ESCROW_REFUND` | settlement authority / refund path | 25, 34, 44, 55 |
+| `ESCROW_FEE_SWEEP` | settlement sweeper (protocol-emitted, authority-signed) | no scenario — ops checker: [first-sweep-observation](../ops/first-sweep-observation.md) |
+| `GPU_REGISTER` / `GPU_ALLOCATE` / `GPU_DEREGISTER` | `aitbc gpu-onchain` | 09 |
+| `GPU_MARKET` (`offer`/`software_offer`/`software_job`) | `aitbc market offer`, job receipts | 26, 34, 41, 50 |
+| `STAKE_LOCK` / `STAKE_RELEASE` | `aitbc stake` / `aitbc unstake` | 01, 17; 83 (refusals only) |
+| `BOND_LOCK` / `BOND_RELEASE` / `BOND_SLASH` | `aitbc bond` | 48 |
+| `BOUNTY_LOCK` / `BOUNTY_PAYOUT` / `BOUNTY_REFUND` | protocol escrow (keyless) | no scenario — replay suite only; `PAYOUT`/`REFUND` are unsealable unsigned under v9 (see below) |
+| `BRIDGE_LOCK` / `BRIDGE_WITHDRAW` | `aitbc wallet bridge`, `aitbc bridge` | 20, 59, 76 |
+| `BRIDGE_RELEASE` / `BRIDGE_REFUND` | bridge monitor (authority-issued credits) | 59 end-to-end; one live `BRIDGE_RELEASE` exercise remains reserved per V-1 |
+| `GOVERNANCE_PROPOSE` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` | `aitbc governance` (client-signed, relayed) | 17 |
+| `LIQUIDITY_DEPOSIT` / `LIQUIDITY_WITHDRAW` / `LIQUIDITY_CLAIM` | `aitbc wallet liquidity-stake` / `liquidity-unstake` / `liquidity-claim` | 01; 83 (refusals only) |
+| `RECEIPT_CLAIM` | protocol-internal | no scenario — replay suite only |
+| `IPFS_SUBSCRIPTION` | `aitbc ipfs` | 11 |
+
+### Why four types have no play
+
+`ESCROW_FEE_SWEEP`, `BOUNTY_*`, and `RECEIPT_CLAIM` are emitted by the node
+or the settlement authority — a wallet cannot submit them — and
+`BRIDGE_RELEASE`/`BRIDGE_REFUND` are reserved internal issuance. Per
+operator decision
+[V-1](../decisions/v1-v9-live-exercise-waivers.md), live exercise of the
+types that never sealed under v9 is waived in favor of
+`test_v9_type_coverage_replay.py::test_v9_type_replayed[<TYPE>]`
+(fixture-signed blocks replayed twice asserting identical state). That
+suite — not this directory — is the canonical per-type coverage.
