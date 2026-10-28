@@ -187,7 +187,11 @@ curl -s "$PRODUCER_RPC/bridge/validators/bc-2-island-1" | python3 -m json.tool
   - **Lock A = 5,000 units** — below the threshold → the
     3-confirmation `BRIDGE_MIN_CONFIRMATIONS` path (the "small" tier
     that would otherwise only ever serve dust).
-  - **Lock B = 36,000,000 units = 1 AIT** — at/above the threshold →
+  - **Lock B = 30,000,000 units** (resized from 36M — sender
+    `0x08aB80…` holds 34,780,000u; 36M + fees was ~1.26M short. The
+    tier boundary is `>10,000u`, so 30M exercises the same
+    6-confirmation path with margin — recipient expected total across
+    both locks: **30,005,000u**) — at/above the threshold →
     the 6-confirmation `BRIDGE_FINALITY_BLOCKS` path.
   Both far under `BRIDGE_MAX_LOCK_AMOUNT` = 36,000,000,000 raw = 1000
   AIT (fail-closed: `0`/unset refuses locks in production).
@@ -204,7 +208,7 @@ curl -s "$PRODUCER_RPC/bridge/validators/bc-2-island-1" | python3 -m json.tool
 ### Phase 0 — record the parameters
 
 Confirm the resolved set: `bc-2-island-1`, Lock A `5000` + Lock B
-`36000000`, sender = node0 `default` (record its bc-2 address),
+`30000000`, sender = node0 `default` (record its bc-2 address),
 confirming nodes = the island units on hub1/node1. The recipient is
 now recorded: `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40` (generated
 at island deploy — verify it against the deploy record before
@@ -245,7 +249,10 @@ Note current bc-2 head height for the evidence log.
   *local* chain's set under every served target id — without the
   explicit registrations the bridge set each side resolves for the
   remote is wrong from boot (the same wrong-set class that stranded
-  the historical 27251 attempt — "1/6 valid signers"). Each
+  the historical 27251 attempt — "1/6 valid signers"; **live-verified
+  28 Oct** — the 12:54 restart backfilled bc-2's local 4 under
+  `bc-2-island-1` before the genuine registrations ran, see the known
+  trap in [companion-island-deploy](companion-island-deploy.md)). Each
   registration body needs the validator's **self-signature** over the
   canonical JSON `{chain_id, address, public_key, action:"register"}`
   (per-host `PROPOSER_KEY` signs for its own address) **plus** an
@@ -284,11 +291,11 @@ aitbc bridge lock --rpc-url "$PRODUCER_RPC" \
   --sender <node0-default-address> --recipient 0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40 \
   --amount 5000 --wallet-name default
 
-# Lock B — 36,000,000 units = 1 AIT (large tier: 6-confirmation path)
+# Lock B — 30,000,000 units (large tier: 6-confirmation path)
 aitbc bridge lock --rpc-url "$PRODUCER_RPC" \
   --target-chain bc-2-island-1 \
   --sender <node0-default-address> --recipient 0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40 \
-  --amount 36000000 --wallet-name default
+  --amount 30000000 --wallet-name default
 ```
 
 - `--wallet-name default` signs the eight-field replay-guard body and
@@ -405,7 +412,7 @@ lane hiccup while the island is up), it goes through these commands only.
       sealed on `bc-2-island-1`: `sender='bridge_release'`, unsigned at
       top level, `payload.bridge_signature` verifies against the
       island's `bridge_release_authority` (amounts 5,000 and
-      36,000,000, recipient `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40`).
+      30,000,000, recipient `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40`).
 - [ ] Records `completed` on both chain stores.
 - [ ] Identical release txs + state roots on hub1 and node1; identical
       recipient balance (36,005,000 units).
@@ -455,7 +462,7 @@ lane hiccup while the island is up), it goes through these commands only.
 ## Operator sign-off
 
 - [ ] Parameters confirmed: `bc-2-island-1` topology (hub1 + node1
-      dedicated units), Lock A `5,000` / Lock B `36,000,000`,
+      dedicated units), Lock A `5,000` / Lock B `30,000,000`,
       sender = node0 `default`, recipient recorded (Phase 0)
 - [ ] Preconditions verified (locks unpaused fleet-wide, island
       producing, post-8900 `BRIDGE_SUPPORTED_CHAINS` wiring done,

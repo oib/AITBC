@@ -148,9 +148,9 @@ units, ~0.00028 AIT) → this lock takes the 3-confirmation
 also the lock tx hash). A `BRIDGE_LOCK` row seals on bc-2 and the
 `cross_chain_transfer` record appears `pending`.
 
-### Step 3: Lock B — 36,000,000 units = 1 AIT (large-transfer finality path)
+### Step 3: Lock B — 30,000,000 units (large-transfer finality path)
 
-Same command, `--amount 36000000`. At/above the threshold → the
+Same command, `--amount 30000000`. At/above the threshold → the
 6-confirmation `BRIDGE_FINALITY_BLOCKS` path — expect the confirm to
 wait roughly twice as many blocks as Lock A's. Both locks sit far below
 `BRIDGE_MAX_LOCK_AMOUNT` (36,000,000,000 units = 1,000 AIT).
@@ -161,7 +161,7 @@ aitbc bridge lock \
   --target-chain bc-2-island-1 \
   --sender <node0-default-address> \
   --recipient 0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40 \
-  --amount 36000000 \
+  --amount 30000000 \
   --wallet-name default
 ```
 
@@ -215,7 +215,7 @@ sqlite3 /var/lib/aitbc/data/bc-2/chain.db \
 
 **Expected:** two `BRIDGE_RELEASE` rows sealed on `bc-2-island-1`
 (`sender='bridge_release'`, `recipient=0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40`, amounts 5,000 and
-36,000,000) and both bc-2 records at `completed` with `target_tx_hash`
+30,000,000) and both bc-2 records at `completed` with `target_tx_hash`
 set to the release tx hash.
 
 ---
@@ -243,13 +243,13 @@ sqlite3 /var/lib/aitbc/data/bc-2-island-1/chain.db \
 **Expected:**
 
 - Two `BRIDGE_LOCK` rows on bc-2 (`sender=<node0-default-address>`,
-  `recipient='bridge_lock'`, `value` = 5,000 / 36,000,000) — one at each
+  `recipient='bridge_lock'`, `value` = 5,000 / 30,000,000) — one at each
   finality tier: the 5,000 lock confirms once its block header reaches
   `confirmation_count ≥ 3` (`BRIDGE_MIN_CONFIRMATIONS`), the
-  36,000,000 lock needs `≥ 6` (`BRIDGE_FINALITY_BLOCKS`)
+  30,000,000 lock needs `≥ 6` (`BRIDGE_FINALITY_BLOCKS`)
 - Two matching `BRIDGE_RELEASE` rows on `bc-2-island-1` —
   `sender='bridge_release'`, `recipient=0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40`,
-  `payload.amount` = 5,000 / 36,000,000, each carrying
+  `payload.amount` = 5,000 / 30,000,000, each carrying
   `payload.bridge_signature` verifiable against the island's
   `bridge_release_authority`
 - `cross_chain_transfer` flips `pending` → `confirmed` → `completed`
