@@ -40,15 +40,31 @@ def _get_bounty(session: Session, chain_id: str, bounty_id: str) -> BountyContra
     ).first()
 
 
-def _signed_bounty_id_matches(payload: dict[str, Any], bounty_id: str) -> None:
+def _signed_bounty_id_matches(payload: dict[str, Any], bounty_id: str, *, required: bool = False) -> None:
     """If the signed body names a bounty_id it must be the path's.
 
     The auth embedded in the emitted tx is the signed body; a mismatch
     either fails the v17 binding at seal (payload.bounty_id != signed)
     after the record was already mutated, or silently authorizes a bounty
-    other than the one the operator signed. Refuse up front."""
+    other than the one the operator signed. Refuse up front.
+
+    ``required=True`` — set on the payout path — also refuses a signed body
+    with no bounty_id at all. A verified submission drains the bounty
+    escrow, and the apply-time binding for BOUNTY_PAYOUT keys on
+    ``submission_id`` only (bounty_id is compared just when the message
+    carries it), so a signature naming no bounty could be re-pathed onto a
+    different ``/bounty/{id}/verify`` and pay out of the wrong lock.
+
+    Absence stays tolerated on every other path: submit/dispute move no
+    escrow funds, the refund can only pay the signed creator, and
+    signatures issued before the coordinator signed bounty_id keep
+    working."""
     signed = payload.get("bounty_id")
-    if signed is not None and str(signed) != str(bounty_id):
+    if signed is None:
+        if required:
+            raise HTTPException(status_code=400, detail="signed bounty_id is required for payout")
+        return
+    if str(signed) != str(bounty_id):
         raise HTTPException(status_code=400, detail="signed bounty_id does not match the path bounty_id")
 
 
@@ -185,9 +201,9 @@ async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
         _require_supported_chain(chain_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
-    _signed_bounty_id_matches(payload, bounty_id)
     submission_id = payload.get("submission_id")
     verified = bool(payload.get("verified"))
+    _signed_bounty_id_matches(payload, bounty_id, required=verified)
     if not submission_id:
         raise HTTPException(status_code=400, detail="submission_id is required")
     with session_scope() as session:
