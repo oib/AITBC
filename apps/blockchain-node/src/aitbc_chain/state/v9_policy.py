@@ -41,6 +41,49 @@ V9_UNSIGNED_ALLOWED_TX_TYPES = frozenset(
     }
 )
 
+# v17 (BNT-1 revival): protocol-escrow transfers whose only possible
+# top-level signature is none — the escrow address is keyless. From
+# ``state_transition_v17_height`` these types may appear unsigned **iff**
+# ``payload.auth`` is a well-formed ``{"signer", "message", "signature"}``
+# dict; the existing ``_verify_payload_auth`` binding check then runs as the
+# authorization (it already ran at v<9 for any auth that was present, so
+# sealed history replays identically — no sealed tx carries an auth that was
+# previously ignored). Types whose emissions carry no auth at all (HTLC_*,
+# AUTO_STAKE reinvestment) gain nothing here and stay unsealable.
+V17_PAYLOAD_AUTH_TX_TYPES = frozenset(
+    {
+        "STAKE_LOCK",
+        "STAKE_RELEASE",
+        "BOUNTY_LOCK",
+        "BOUNTY_PAYOUT",
+        "BOUNTY_REFUND",
+    }
+)
+
+
+def payload_auth_shape(auth: Any) -> bool:
+    """Whether ``payload.auth`` has the shape the v17 admission requires.
+
+    Shape only — signer/message/signature present and ``message`` a dict.
+    Cryptographic verification and transfer binding stay in
+    ``StateTransition._verify_payload_auth`` so the verdict and the apply
+    check cannot drift into two different rules.
+    """
+    return (
+        isinstance(auth, dict)
+        and bool(auth.get("signer"))
+        and isinstance(auth.get("message"), dict)
+        and bool(auth.get("signature"))
+    )
+
+
+def _payload_auth_of(tx_data: dict[str, Any]) -> Any:
+    payload = tx_data.get("payload")
+    if isinstance(payload, dict):
+        return payload.get("auth")
+    return None
+
+
 # Transaction types that get their own v9 metric series. tx_type is
 # peer-supplied (tx_data["type"] / payload.type) and reaches the verdict
 # unvalidated, so an allowlist is the only safe suffix source — arbitrary
@@ -111,18 +154,24 @@ def count_v9_shadow_checked(tx_type: str) -> None:
         metrics_registry.increment(f"v9_shadow_checked{suffix}_total")
 
 
-def v9_signature_verdict(tx_data: dict[str, Any], tx_type: str) -> str | None:
+def v9_signature_verdict(tx_data: dict[str, Any], tx_type: str, block_version: int = 9) -> str | None:
     """Return the reason ``tx_data`` would be rejected under v9 rules, or
     ``None`` when it satisfies them.
 
     Only signature *presence* is judged here — an attached signature that
     fails verification is already rejected by the existing v7+ checks on
     every path, so its rejection is not v9-specific.
+
+    ``block_version`` is the rule version the containing block applies
+    under; at v17+ a well-formed ``payload.auth`` also satisfies presence
+    for the five protocol-transfer types (V17_PAYLOAD_AUTH_TX_TYPES).
     """
     count_v9_shadow_checked(tx_type)
     if tx_type in V9_UNSIGNED_ALLOWED_TX_TYPES:
         return None
     if tx_data.get("signature") or tx_data.get("sig"):
+        return None
+    if block_version >= 17 and tx_type in V17_PAYLOAD_AUTH_TX_TYPES and payload_auth_shape(_payload_auth_of(tx_data)):
         return None
     return "missing_signature"
 

@@ -1219,7 +1219,8 @@ def stake_tokens(
 ) -> str:
     """Stake AITBC tokens for consensus participation.
 
-    Retired since block version 9 — the node answers HTTP 410
+    Dormant below block version 17 — the node answers HTTP 410 until
+    `STATE_TRANSITION_V17_HEIGHT` arms the payload.auth revival
     (see docs/design/v9-unsigned-protocol-transfers.md).
     """
     body: dict[str, Any] = {
@@ -1280,7 +1281,8 @@ def unstake_tokens(
 ) -> str:
     """Unstake AITBC tokens after the lock period expires.
 
-    Retired since block version 9 — the node answers HTTP 410
+    Dormant below block version 17 — the node answers HTTP 410 until
+    `STATE_TRANSITION_V17_HEIGHT` arms the payload.auth revival
     (see docs/design/v9-unsigned-protocol-transfers.md).
     """
     body: dict[str, Any] = {
