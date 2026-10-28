@@ -594,6 +594,19 @@ class TestV9Policy:
             recognized |= set(re.findall(r'tx_type\s*==\s*"([A-Z_]+)"', text))
             for group in re.findall(r"tx_type\s+in\s*[\{\(]([^\}\)]*)", text):
                 recognized |= set(re.findall(r'"([A-Z_]+)"', group))
+        # Record-only types (issue #688): a signed record+fee anchor such as
+        # EXCHANGE never reaches an apply-path comparison — nothing dispatches
+        # on it — so the grep above cannot see it. Catch them at the emission
+        # side instead: every ``"type": "X"`` literal in a tx body built under
+        # the CLI and the node source tree is a tx type (verified: the only
+        # other ``"type"`` literals in the repo are websocket/envelope fields
+        # in other apps, outside these trees).
+        repo_root = Path(st.__file__).resolve().parents[5]  # …/apps/blockchain-node/src/aitbc_chain/state/x.py → repo
+        emission_files = list((repo_root / "cli" / "aitbc_cli").rglob("*.py")) + list(
+            (repo_root / "apps" / "blockchain-node" / "src").rglob("*.py")
+        )
+        for file in emission_files:
+            recognized |= set(re.findall(r'"type":\s*"([A-Z_]+)"', file.read_text()))
         missing = recognized - V9_METRIC_KNOWN_TX_TYPES
         assert not missing, (
             f"tx types the apply path recognizes are missing from "

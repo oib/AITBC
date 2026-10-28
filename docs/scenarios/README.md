@@ -206,12 +206,12 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 
 ## On-chain record coverage
 
-The chain accepts 31 transaction types (`V9_METRIC_KNOWN_TX_TYPES` in
+The chain accepts 32 transaction types (`V9_METRIC_KNOWN_TX_TYPES` in
 `apps/blockchain-node/src/aitbc_chain/state/v9_policy.py`). Scenarios are
 organized by feature, not by type — this table maps every record type to
 the play(s) that can seal it on-chain.
 
-The **sealed on bc-2** column is the running 31-type ledger — append as seals land (Coder D folds).
+The **sealed on bc-2** column is the running 32-type ledger — append as seals land (Coder D folds).
 
 | Record type | Emitted by | Scenario(s) | sealed on bc-2 |
 |---|---|---|---|
@@ -233,6 +233,7 @@ The **sealed on bc-2** column is the running 31-type ledger — append as seals 
 | `LIQUIDITY_DEPOSIT` / `LIQUIDITY_WITHDRAW` / `LIQUIDITY_CLAIM` | `aitbc wallet liquidity-stake` / `liquidity-unstake` / `liquidity-claim` | 01; 83 (refusals only) | — |
 | `RECEIPT_CLAIM` | protocol-internal | no scenario — replay suite only | — (replay-only — no live emitter, C finding) |
 | `IPFS_SUBSCRIPTION` | `aitbc ipfs` | 11 | 9040 |
+| `EXCHANGE` | `aitbc exchange` trading order anchors (buy/sell/cancel) | — | 5564, 5565 |
 
 ### Why four types have no play
 
