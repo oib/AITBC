@@ -552,6 +552,11 @@ class ChainSettings(BaseSettings):
     bridge_batch_size: int = 10  # Max transfers per batch operation
     bridge_monitor_interval: int = 60  # Seconds between bridge health checks
     bridge_header_sync_batch: int = 500  # Max block headers mirrored into the bridge table per finalizer pass
+    # Opt-in to installing this chain's validator set under a FOREIGN
+    # bridge-supported chain id on an empty table. Off by default: the
+    # local set only stands in for a chain that genuinely shares
+    # validator identities; anything else is a phantom set (Refs #659).
+    bridge_backfill_foreign_validators: bool = False
     # Seconds a single chain's finalizer pass may occupy the worker thread
     # before the loop abandons it and moves on (the abandoned thread keeps
     # running; a new pass for that chain is skipped until it returns). Guards
