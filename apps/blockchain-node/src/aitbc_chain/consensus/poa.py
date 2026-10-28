@@ -171,6 +171,17 @@ def _sanitize_metric_suffix(value: str) -> str:
     return sanitized or "unknown"
 
 
+def _rejection_metadata(reason: str, height: int, timestamp: datetime) -> str:
+    """Serialise why a drained mempool tx was rejected at apply time (#669)."""
+    return json.dumps(
+        {
+            "rejected_reason": reason,
+            "rejected_at_height": height,
+            "rejected_at": timestamp.isoformat(),
+        }
+    )
+
+
 class PoAProposer:
     """Proof-of-Authority block proposer.
 
@@ -758,14 +769,26 @@ class PoAProposer:
             self._propose_phase = "collect_txs"
             _t2 = time.time()
             pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
+            # DRAIN-SKIP-SILENT-1 (#669): every drained tx the apply path
+            # refuses is collected here and written back as status='rejected'
+            # so the submitter's hash query surfaces a terminal outcome instead
+            # of the record vanishing with the mempool entry.
+            rejected_txs: list[tuple[Any, str]] = []
             processed_txs, changed_addresses, ok = self._process_proposal_txs(
-                session, pending_txs, account_map, existing_tx_map, next_height, timestamp
+                session, pending_txs, account_map, existing_tx_map, next_height, timestamp, rejected_txs
             )
             self._logger.debug("[PROPOSE:%s] phase=collect_txs done %.3fs", chain, time.time() - _t2)
             if not ok:
+                # The apply path already rolled the session back; commit the
+                # rejection records on their own so they survive the abort.
+                self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=True)
                 return False
             if self._reject_if_all_invalid(session, pending_txs, processed_txs):
+                self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=True)
                 return False
+            # Success path: the rows join the proposal's own transaction and
+            # commit (or roll back) with the block.
+            self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=False)
             _t3 = time.time()
             self._propose_phase = "assemble_block"
             block, block_hash = self._assemble_proposal_block(
@@ -1141,6 +1164,79 @@ class PoAProposer:
             return None
         return proposer, round_number
 
+    def _persist_rejected_txs(
+        self,
+        session: Session,
+        rejected: list[tuple[Any, str]],
+        next_height: int,
+        timestamp: datetime,
+        *,
+        commit: bool,
+    ) -> None:
+        """Write a terminal ``rejected`` status for drained txs the apply path
+        refused (DRAIN-SKIP-SILENT-1, #669).
+
+        A drained mempool entry is deleted whether or not it seals, so an
+        invalid tx used to disappear without a trace — the submitter's hash
+        query found nothing (or a pre-registered row sat pending forever).
+        Each rejected tx is upserted into the ``transaction`` table with
+        ``status='rejected'``, ``block_height=None`` and the reason in
+        ``tx_metadata``, so ``GET /transactions/{tx_hash}`` reports the
+        outcome. The ``transaction`` table is service state (not part of the
+        committed side-root set), so a proposer-local row cannot diverge
+        consensus; a resubmitted tx that later seals flips the same row back
+        to ``confirmed`` through the normal ``existing_tx_record`` path.
+
+        Rows already ``confirmed`` (pre-registered bridge rows, or sealed
+        duplicates) are left untouched — their status is a ledger fact, not
+        a mempool outcome. ``commit=True`` is for the abort paths, whose
+        session was already rolled back and would otherwise drop the records.
+        """
+        if not rejected:
+            return
+        for tx, reason in rejected:
+            try:
+                existing = session.exec(
+                    select(Transaction).where(
+                        Transaction.chain_id == self._config.chain_id,
+                        Transaction.tx_hash == tx.tx_hash,
+                    )
+                ).first()
+                if existing is not None:
+                    if existing.status == "confirmed":
+                        continue
+                    existing.status = "rejected"
+                    existing.tx_metadata = _rejection_metadata(reason, next_height, timestamp)
+                    session.add(existing)
+                    continue
+                tx_data = tx.content or {}
+                session.add(
+                    Transaction(
+                        chain_id=self._config.chain_id,
+                        tx_hash=tx.tx_hash,
+                        sender=tx_data.get("from", ""),
+                        recipient=tx_data.get("to", ""),
+                        payload=tx_data.get("payload", {}),
+                        envelope=dict(tx_data),
+                        value=tx_data.get("amount", 0),
+                        fee=tx_data.get("fee", 0),
+                        nonce=tx_data.get("nonce", 0),
+                        timestamp=None,
+                        block_height=None,
+                        status="rejected",
+                        type=(tx_data.get("type") or "TRANSFER").upper(),
+                        tx_metadata=_rejection_metadata(reason, next_height, timestamp),
+                    )
+                )
+            except Exception as exc:
+                self._logger.warning("[PROPOSE] Failed to record rejection for tx %s: %s", tx.tx_hash, exc)
+        if commit:
+            try:
+                session.commit()
+            except Exception as exc:
+                session.rollback()
+                self._logger.warning("[PROPOSE] Failed to commit rejected-tx records: %s", exc)
+
     def _process_proposal_txs(
         self,
         session: Session,
@@ -1149,6 +1245,7 @@ class PoAProposer:
         existing_tx_map: dict[str, int],
         next_height: int,
         timestamp: datetime,
+        rejected: list[tuple[Any, str]] | None = None,
     ) -> tuple[list[Any], set[str], bool]:
         """Apply the drained transactions through the state transition.
 
@@ -1211,6 +1308,7 @@ class PoAProposer:
                 block_version,
                 escrow_context,
                 bridge_lock_context,
+                rejected,
             )
             if not ok:
                 return processed_txs, changed_addresses, False
@@ -1218,7 +1316,9 @@ class PoAProposer:
             # threshold), fall back to sequential processing.
             if processed_txs or not pending_txs:
                 return processed_txs, changed_addresses, ok
-        return self._process_txs_sequential(session, pending_txs, account_map, existing_tx_map, next_height, timestamp)
+        return self._process_txs_sequential(
+            session, pending_txs, account_map, existing_tx_map, next_height, timestamp, rejected
+        )
 
     def _reject_if_all_invalid(self, session: Session, pending_txs: list[Any], processed_txs: list[Any]) -> bool:
         """Return True when every drained transaction was rejected and the
@@ -1970,6 +2070,7 @@ class PoAProposer:
         existing_tx_map: dict[str, int],
         next_height: int,
         timestamp: datetime,
+        rejected: list[tuple[Any, str]] | None = None,
     ) -> tuple[list[Any], set[str], bool]:
         """Sequential transaction processing — the fallback for the parallel path.
 
@@ -1977,7 +2078,15 @@ class PoAProposer:
         ``(processed_txs, changed_addresses, ok)``. On a per-transaction
         exception the session is rolled back and ``ok=False`` is returned so the
         caller can abort the proposal with a clean session.
+
+        ``rejected``, when given, collects ``(tx, reason)`` for every drained
+        tx the loop refuses so the caller can persist a terminal status (#669).
         """
+
+        def _reject(tx: Any, reason: str) -> None:
+            if rejected is not None:
+                rejected.append((tx, reason))
+
         processed_txs: list[Any] = []
         changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
         # Collect transaction records created or updated by this
@@ -2008,6 +2117,7 @@ class PoAProposer:
                 )
                 if not sender or not recipient:
                     self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
+                    _reject(tx, "missing sender or recipient")
                     continue
                 # Pre-registered transactions (e.g. bridge releases/refunds) are already
                 # applied by the originating RPC call. Record them in the block without
@@ -2044,6 +2154,7 @@ class PoAProposer:
                                     "[PROPOSE] Skipping pre-registered BRIDGE_LOCK tx %s: failed v9 bridge-lock authorization",
                                     tx.tx_hash,
                                 )
+                                _reject(tx, "failed v9 bridge-lock authorization")
                                 continue
                         elif not verify_bridge_lock_signature(tx.content, tx.tx_hash, bridge_authority or ""):
                             count_v9_would_reject("bridge_lock_unsigned")
@@ -2079,6 +2190,7 @@ class PoAProposer:
                                 tx.tx_hash,
                                 skip_reason,
                             )
+                            _reject(tx, skip_reason)
                             continue
                     existing_tx_record.block_height = next_height
                     existing_tx_record.timestamp = timestamp.isoformat()
@@ -2114,6 +2226,7 @@ class PoAProposer:
                     )
                     if not success:
                         self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
+                        _reject(tx, error_msg or "credit apply failed")
                         continue
                     original_payload = tx.content.get("payload", {})
                     transaction = Transaction(
@@ -2141,6 +2254,7 @@ class PoAProposer:
                 sender_account = account_map.get(sender)
                 if not sender_account:
                     self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
+                    _reject(tx, f"sender account not found for {sender}")
                     continue
                 total_cost = value + fee
                 if sender_account.balance < total_cost:
@@ -2150,6 +2264,7 @@ class PoAProposer:
                         sender_account.balance,
                         total_cost,
                     )
+                    _reject(tx, f"insufficient balance (has {sender_account.balance}, needs {total_cost})")
                     continue
                 # Resolve canonical tx type and validate governance
                 # payloads before mutating state so we can skip invalid
@@ -2167,6 +2282,7 @@ class PoAProposer:
                             tx.tx_hash,
                             ", ".join(gov_errors),
                         )
+                        _reject(tx, f"invalid governance payload: {', '.join(gov_errors)}")
                         continue
                 existing_block_height = existing_tx_map.get(tx.tx_hash)
                 if existing_block_height is not None:
@@ -2206,6 +2322,7 @@ class PoAProposer:
                 )
                 if not success:
                     self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
+                    _reject(tx, error_msg or "state transition rejected transaction")
                     continue
                 if recipient_account is None:
                     # The state transition created it; pick up the real
@@ -2251,6 +2368,7 @@ class PoAProposer:
             except Exception as e:
                 session.rollback()
                 self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
+                _reject(tx, f"processing exception: {e}")
                 return [], set(), False
         # Add transaction records only after all state transitions for
         # this block have succeeded. This keeps them inside the outer
@@ -2271,11 +2389,16 @@ class PoAProposer:
         block_version: int,
         escrow_context: dict[str, dict[str, Any]] | None = None,
         bridge_lock_context: dict[str, dict[str, Any]] | None = None,
+        rejected: list[tuple[Any, str]] | None = None,
     ) -> tuple[list[Any], set[str], bool]:
         """Process transactions in parallel using dependency analysis.
 
         Returns (processed_txs, changed_addresses, success).
         Falls back to sequential if conflict rate exceeds threshold.
+
+        ``rejected``, when given, collects ``(tx, reason)`` for every drained
+        tx validation refused so the caller can persist a terminal status
+        (#669).
         """
         chain_id = self._config.chain_id
         # Build dependency graph from tx read/write sets
@@ -2391,6 +2514,8 @@ class PoAProposer:
                         all_deltas.append((i, delta, tx))
                     else:
                         self._logger.warning("[PROPOSE-PARALLEL] Failed to validate tx %s: %s", tx_hash, delta.error)
+                        if rejected is not None:
+                            rejected.append((tx, delta.error or "parallel validation failed"))
         finally:
             executor.close()
 
