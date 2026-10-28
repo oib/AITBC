@@ -282,6 +282,8 @@ aitbc governance execute --proposal-id prop-001
 
 With `--wallet mywallet` the CLI signs a `GOVERNANCE_EXECUTE` tx and the service relays it on-chain; the executor address must be in the chain's governance-executor allowlist (consensus-enforced). `--executor-address` still works as before.
 
+> **Known limitation (bc-2 live sweep, 28 Oct):** `GOVERNANCE_EXECUTE` is authority-gated on bc-2 — no `governance_executors` key exists in any fleet store; proposals seal but cannot execute; custody resolves at the post-reset chain (the reset-harness custody gate).
+
 **Expected output:**
 
 ```
