@@ -139,3 +139,74 @@ def test_release_sources_normalizes_prefixes(db, tmp_path) -> None:
     assert db.canon_tx_hash("0xAbC123") == "0xabc123"
     assert db.canon_tx_hash("deadbeef") == "0xdeadbeef"
     assert "0xdeadbeef" in sources  # unprefixed row also canonicalized
+
+
+def test_deposit_tx_hash_canonicalized_on_write(db) -> None:
+    """The two deposit writers spell one hash differently — web3's bare
+    ``tx.hash.hex()`` vs the wallet's ``0x``-prefixed RPC hash. Both must
+    land on one canonical key or the UNIQUE dedupe lets the same ETH
+    deposit pay out twice (issue #668)."""
+    assert db.create_deposit("deadbeef01", "0xfrom", "100", "ait1r") is not None
+    # Same deposit via the other spelling must dedupe, not double-insert.
+    assert db.create_deposit("0xDeadBeef01", "0xfrom", "100", "ait1r") is None
+
+    row = db.get_deposit("0xdeadbeef01")
+    assert row is not None
+    assert row["eth_tx_hash"] == "0xdeadbeef01"
+
+
+def test_get_deposit_matches_any_spelling(db, tmp_path) -> None:
+    """Legacy rows (bare or mixed-case) and lookups stay reachable."""
+    import sqlite3
+
+    con = sqlite3.connect(tmp_path / "deposits.db")
+    con.execute(
+        "INSERT INTO eth_deposits (id, tx_hash, from_address, amount_eth, amount_ait, status) "
+        "VALUES ('legacy-bare', 'cafe01', '0xf', '1', '0', 'pending'), "
+        "('legacy-mixed', '0xAbC02', '0xf', '1', '0', 'pending')"
+    )
+    con.commit()
+    con.close()
+
+    for spelling in ("cafe01", "0xcafe01", "0xCAFE01"):
+        assert db.get_deposit(spelling)["id"] == "legacy-bare"
+    for spelling in ("abc02", "0xabc02", "0xABC02"):
+        assert db.get_deposit(spelling)["id"] == "legacy-mixed"
+
+
+def test_update_deposit_matches_any_spelling(db, tmp_path) -> None:
+    """An update keyed by the web3-bare spelling must reach a row written
+    ``0x``-prefixed (and vice versa) — otherwise lifecycle updates silently
+    miss and the deposit re-enters the payout path (issue #668)."""
+    import sqlite3
+
+    con = sqlite3.connect(tmp_path / "deposits.db")
+    con.execute(
+        "INSERT INTO eth_deposits (id, tx_hash, from_address, amount_eth, amount_ait, status) "
+        "VALUES ('d-mixed', '0xF00D03', '0xf', '1', '0', 'pending')"
+    )
+    con.commit()
+    con.close()
+
+    db.update_deposit("f00d03", status=BridgeDepositStatus.COMPLETED)
+    assert db.get_deposit("0xf00d03")["status"] == "completed"
+
+
+def test_canon_tx_hash_passes_nonhex_ids_through(db) -> None:
+    """Synthetic ids (``manual-…`` payout rows) are not tx hashes."""
+    assert db.canon_tx_hash("manual-20260101T000000") == "manual-20260101T000000"
+    assert db.get_deposit("manual-20260101T000000") is None  # no crash on non-hex
+
+
+def test_record_outbound_canonicalizes_tx_hash(db, tmp_path) -> None:
+    """A re-scan spelling the same leg differently must dedupe on the
+    PRIMARY KEY, not double-ledger the outbound leg (issue #668)."""
+    assert db.record_outbound("beef04", "0xto", 10**18, 7, "unidentified") is True
+    assert db.record_outbound("0xBEEF04", "0xto", 10**18, 7, "unidentified") is False
+
+    import sqlite3
+
+    con = sqlite3.connect(tmp_path / "deposits.db")
+    (stored,) = con.execute("SELECT tx_hash FROM bridge_outbound").fetchone()
+    con.close()
+    assert stored == "0xbeef04"

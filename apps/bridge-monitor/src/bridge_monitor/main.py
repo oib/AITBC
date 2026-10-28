@@ -561,7 +561,9 @@ class BridgeMonitor:
         landed — the precondition for an unsafe re-sign). The derived
         envelope_hash stays as the envelope-integrity anchor.
         """
-        if posted and posted != derived:
+        if posted and canon_tx_hash(posted) != canon_tx_hash(derived):
+            # a pure spelling variant (0x/case) of the same hash is not a
+            # different hash — keep the derived one (#668)
             logger.warning("RPC returned hash %s differing from derived %s", posted, derived)
             update_deposit(tx_hash, ait_tx_hash=posted)
 
@@ -810,7 +812,9 @@ class BridgeMonitor:
             envelope = json.loads(signed_raw)
             derived = self._envelope_tx_hash(envelope)
             expected = d.get("envelope_hash") or d.get("ait_tx_hash")
-            if expected and derived != expected:
+            # compare canonicalized — the stored hash keeps whatever
+            # spelling the RPC returned (#668)
+            if expected and canon_tx_hash(derived) != canon_tx_hash(expected):
                 logger.error("Stored envelope hash mismatch for %s (expected %s) — refusing rebroadcast", derived, expected)
                 continue
             posted = self._post_signed_tx(envelope)
@@ -1048,7 +1052,7 @@ class BridgeMonitor:
         A receipt failure records the row ungassed rather than losing the
         leg; ``record_outbound`` dedupes on tx_hash so re-scans are safe.
         """
-        tx_hash = tx.hash.hex()
+        tx_hash = canon_tx_hash(tx.hash.hex())
         to_address = (tx.get("to") or "").lower()
         value_wei = int(tx.get("value", 0) or 0)
         gas_wei: int | None = None
@@ -1169,7 +1173,7 @@ class BridgeMonitor:
                     if to_address and to_address.lower() == self.bridge_eth_address:
                         value = tx.get("value", 0)
                         eth_amount = Decimal(value) / Decimal(10**18)
-                        tx_hash = tx.hash.hex()
+                        tx_hash = canon_tx_hash(tx.hash.hex())
                         if from_address.lower() in self.funding_sources:
                             if create_deposit(
                                 tx_hash,
