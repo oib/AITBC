@@ -529,6 +529,17 @@ _RELEASE_SOURCES = (
 )
 
 
+def canon_tx_hash(value: str) -> str:
+    """Canonical ``0x``-prefixed lowercase form for tx-hash joins.
+
+    web3's ``tx.hash.hex()`` is unprefixed while the wallet side writes
+    ``eth_tx_hash`` rows ``0x``-prefixed — joins between them must
+    normalize both sides or release-leg sends fall through to
+    ``unidentified`` (issue #652).
+    """
+    return "0x" + str(value).lower().removeprefix("0x")
+
+
 def release_sources() -> dict[str, str]:
     """Lowercased ``eth_tx_hash`` -> source label for each release-leg table.
 
@@ -546,7 +557,7 @@ def release_sources() -> dict[str, str]:
             except sqlite3.OperationalError:
                 continue
             for (h,) in cursor.fetchall():
-                out.setdefault(str(h).lower(), label)
+                out.setdefault(canon_tx_hash(h), label)
     return out
 
 
