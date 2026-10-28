@@ -15,6 +15,7 @@ from coordinator_api.schemas import KeyPair
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
 async def test_audit_authorization_signature(tmp_path: Path):
     """Valid audit tokens are accepted and forged tokens are rejected."""
     manager = KeyManager(FileKeyStorage(str(tmp_path)))
@@ -30,6 +31,7 @@ async def test_audit_authorization_signature(tmp_path: Path):
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
 async def test_file_key_storage_restricts_permissions(tmp_path: Path):
     """Private key files are written with 0o600 and the directory with 0o700."""
     storage = FileKeyStorage(str(tmp_path))

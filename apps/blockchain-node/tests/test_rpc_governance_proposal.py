@@ -73,6 +73,7 @@ async def _show(module, proposal_id: str, chain_id: str | None = CHAIN_ID):
     return await module.get_sealed_governance_proposal.__wrapped__(None, proposal_id, chain_id)
 
 
+@pytest.mark.asyncio
 async def test_sealed_propose_returns_execution_payload(wired) -> None:
     module, engine = wired
     _seed(
@@ -99,6 +100,7 @@ async def test_sealed_propose_returns_execution_payload(wired) -> None:
     assert result["execute_tx_hash"] is None
 
 
+@pytest.mark.asyncio
 async def test_execute_sealed_is_reported(wired) -> None:
     module, engine = wired
     _seed(
@@ -119,6 +121,7 @@ async def test_execute_sealed_is_reported(wired) -> None:
     assert result["execute_block_height"] == 50
 
 
+@pytest.mark.asyncio
 async def test_unknown_proposal_id_404s(wired) -> None:
     module, engine = wired
     _seed(
@@ -131,6 +134,7 @@ async def test_unknown_proposal_id_404s(wired) -> None:
     assert exc_info.value.status_code == 404
 
 
+@pytest.mark.asyncio
 async def test_newest_propose_wins(wired) -> None:
     """A re-proposed id resolves to the newest sealed PROPOSE row."""
     module, engine = wired
@@ -151,6 +155,7 @@ async def test_newest_propose_wins(wired) -> None:
     assert result["execution_payload"] == {"v": 2}
 
 
+@pytest.mark.asyncio
 async def test_other_tx_types_do_not_match(wired) -> None:
     """A TRANSFER that happens to carry proposal_id must not resolve."""
     module, engine = wired

@@ -54,6 +54,7 @@ async def _started(redis_mock: AsyncMock) -> OfferLeaseTracker:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_register_subscriber_awaits_the_redis_writes(redis_mock: AsyncMock) -> None:
     tracker = await _started(redis_mock)
 
@@ -64,6 +65,7 @@ async def test_register_subscriber_awaits_the_redis_writes(redis_mock: AsyncMock
     assert time.time() <= expiry <= time.time() + 30
 
 
+@pytest.mark.asyncio
 async def test_register_subscriber_does_not_shadow_into_memory_on_success(redis_mock: AsyncMock) -> None:
     """The in-memory dict is the *fallback*; a successful Redis write must not populate it."""
     tracker = await _started(redis_mock)
@@ -73,6 +75,7 @@ async def test_register_subscriber_does_not_shadow_into_memory_on_success(redis_
     assert tracker._mem_leases == {}
 
 
+@pytest.mark.asyncio
 async def test_register_subscriber_falls_back_to_memory_when_redis_raises(redis_mock: AsyncMock) -> None:
     """A *raised* Redis error is the only thing that reaches the fallback; the bug raised nothing."""
     redis_mock.hset.side_effect = RuntimeError("connection reset")
@@ -89,6 +92,7 @@ async def test_register_subscriber_falls_back_to_memory_when_redis_raises(redis_
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_extend_lease_refuses_an_unregistered_node(redis_mock: AsyncMock) -> None:
     """``EXISTS`` returning 0 must short-circuit — the bug made this branch unreachable."""
     redis_mock.exists.return_value = 0
@@ -101,6 +105,7 @@ async def test_extend_lease_refuses_an_unregistered_node(redis_mock: AsyncMock) 
     redis_mock.expire.assert_not_awaited()
 
 
+@pytest.mark.asyncio
 async def test_extend_lease_renews_an_existing_node(redis_mock: AsyncMock) -> None:
     redis_mock.exists.return_value = 1
     tracker = await _started(redis_mock)
@@ -117,6 +122,7 @@ async def test_extend_lease_renews_an_existing_node(redis_mock: AsyncMock) -> No
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_validate_lease_reads_the_stored_expiry(redis_mock: AsyncMock) -> None:
     future = time.time() + 60
     redis_mock.hget.return_value = str(future)
@@ -126,6 +132,7 @@ async def test_validate_lease_reads_the_stored_expiry(redis_mock: AsyncMock) -> 
     redis_mock.hget.assert_awaited_once_with(KEY, "expiry")
 
 
+@pytest.mark.asyncio
 async def test_validate_lease_revokes_an_expired_lease(redis_mock: AsyncMock) -> None:
     redis_mock.hget.return_value = str(time.time() - 1)
     redis_mock.delete.return_value = 1
@@ -135,6 +142,7 @@ async def test_validate_lease_revokes_an_expired_lease(redis_mock: AsyncMock) ->
     redis_mock.delete.assert_awaited_once_with(KEY)
 
 
+@pytest.mark.asyncio
 async def test_validate_lease_is_false_for_a_missing_key(redis_mock: AsyncMock) -> None:
     redis_mock.hget.return_value = None
     tracker = await _started(redis_mock)
@@ -143,6 +151,7 @@ async def test_validate_lease_is_false_for_a_missing_key(redis_mock: AsyncMock) 
     redis_mock.delete.assert_not_awaited()
 
 
+@pytest.mark.asyncio
 async def test_get_lease_expiry_returns_the_stored_float(redis_mock: AsyncMock) -> None:
     future = time.time() + 60
     redis_mock.hget.return_value = str(future)
@@ -151,6 +160,7 @@ async def test_get_lease_expiry_returns_the_stored_float(redis_mock: AsyncMock) 
     assert await tracker.get_lease_expiry(NODE) == pytest.approx(future)
 
 
+@pytest.mark.asyncio
 async def test_get_lease_expiry_is_zero_for_a_missing_key(redis_mock: AsyncMock) -> None:
     redis_mock.hget.return_value = None
     tracker = await _started(redis_mock)
@@ -163,6 +173,7 @@ async def test_get_lease_expiry_is_zero_for_a_missing_key(redis_mock: AsyncMock)
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_revoke_lease_reports_what_redis_deleted(redis_mock: AsyncMock) -> None:
     redis_mock.delete.return_value = 1
     tracker = await _started(redis_mock)
@@ -171,6 +182,7 @@ async def test_revoke_lease_reports_what_redis_deleted(redis_mock: AsyncMock) ->
     redis_mock.delete.assert_awaited_once_with(KEY)
 
 
+@pytest.mark.asyncio
 async def test_revoke_lease_is_false_when_nothing_was_deleted(redis_mock: AsyncMock) -> None:
     """``DELETE`` returning 0 must read as "not found" — the bug always reported True."""
     redis_mock.delete.return_value = 0
@@ -216,6 +228,7 @@ class _FakeRedis:
         return None
 
 
+@pytest.mark.asyncio
 async def test_round_trip_against_a_fake_redis() -> None:
     """The end-to-end shape the fleet probe checks: the key actually lands, with a TTL."""
     fake = _FakeRedis()
@@ -241,6 +254,7 @@ async def test_round_trip_against_a_fake_redis() -> None:
     assert await tracker.validate_lease(NODE) is False
 
 
+@pytest.mark.asyncio
 async def test_in_memory_fallback_when_redis_is_unavailable() -> None:
     tracker = OfferLeaseTracker("redis://mock:6379/0")
     with patch("redis.asyncio.Redis.from_url", side_effect=RuntimeError("no redis here")):

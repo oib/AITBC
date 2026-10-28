@@ -78,6 +78,7 @@ async def _get(module, chain_id: str | None = CHAIN_ID):
     return await module.get_supply.__wrapped__(None, chain_id)
 
 
+@pytest.mark.asyncio
 async def test_supply_empty_db_zeroes(supply_rpc) -> None:
     module, _engine = supply_rpc
     result = await _get(module)
@@ -92,6 +93,7 @@ async def test_supply_empty_db_zeroes(supply_rpc) -> None:
     assert result["units_per_ait"] == 36_000_000
 
 
+@pytest.mark.asyncio
 async def test_supply_sums_account_rows(supply_rpc) -> None:
     module, engine = supply_rpc
     with _accounts(engine) as session:
@@ -108,6 +110,7 @@ async def test_supply_sums_account_rows(supply_rpc) -> None:
     assert result["accounts_with_balance"] == 2
 
 
+@pytest.mark.asyncio
 async def test_supply_bond_slash_moves_out_of_circulating(supply_rpc, monkeypatch) -> None:
     """A sealed BOND_SLASH grows `bond_burned_units` and drops `circulating_units`
     while `total_balance_units` keeps the slashed amount — asserted via the
@@ -166,6 +169,7 @@ async def test_supply_bond_slash_moves_out_of_circulating(supply_rpc, monkeypatc
     assert result["circulating_units"] == result["total_balance_units"] - 2000
 
 
+@pytest.mark.asyncio
 async def test_supply_fee_burn_nets_by_omission(supply_rpc) -> None:
     """A fee-bearing TRANSFER lowers SUM(balance) by exactly the fee — no burn
     row is involved, the fee is simply never credited."""
@@ -205,6 +209,7 @@ async def test_supply_fee_burn_nets_by_omission(supply_rpc) -> None:
     assert result["circulating_units"] == result["total_balance_units"]
 
 
+@pytest.mark.asyncio
 async def test_supply_mint_counts(supply_rpc) -> None:
     """A credit that lands in an account row (mint path) raises the aggregate."""
     module, engine = supply_rpc
@@ -230,6 +235,7 @@ async def test_supply_mint_counts(supply_rpc) -> None:
     assert second["circulating_units"] == first["circulating_units"] + 7_500
 
 
+@pytest.mark.asyncio
 async def test_supply_height_is_head(supply_rpc) -> None:
     module, engine = supply_rpc
     with _accounts(engine) as session:
@@ -252,6 +258,7 @@ async def test_supply_height_is_head(supply_rpc) -> None:
     assert first == second
 
 
+@pytest.mark.asyncio
 async def test_supply_bond_burn_address_from_code(supply_rpc, monkeypatch) -> None:
     """The burn row is located via the code constant — a configured
     BOND_BURN_ADDRESS path resolves the same way the writer resolves it."""
@@ -271,6 +278,7 @@ async def test_supply_bond_burn_address_from_code(supply_rpc, monkeypatch) -> No
     assert result["circulating_units"] == 1000
 
 
+@pytest.mark.asyncio
 async def test_supply_chain_scope(supply_rpc) -> None:
     """Accounts on another island never leak into this chain's figure."""
     module, engine = supply_rpc

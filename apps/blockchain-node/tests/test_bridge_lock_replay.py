@@ -94,6 +94,7 @@ def _lock_body(*, new_form: bool = True, issued_at=None, nonce="nonce-1", sign_e
     return body
 
 
+@pytest.mark.asyncio
 async def test_new_form_lock_accepted_once_then_replay_refused(bridge_and_nonce):
     fake = bridge_and_nonce
     body = _lock_body()
@@ -110,6 +111,7 @@ async def test_new_form_lock_accepted_once_then_replay_refused(bridge_and_nonce)
     assert fake.initiate_calls == 1
 
 
+@pytest.mark.asyncio
 async def test_fresh_nonce_after_first_still_works(bridge_and_nonce):
     """A *different* signed body (fresh nonce) is a legitimate second lock."""
     fake = bridge_and_nonce
@@ -118,24 +120,28 @@ async def test_fresh_nonce_after_first_still_works(bridge_and_nonce):
     assert fake.initiate_calls == 2
 
 
+@pytest.mark.asyncio
 async def test_expired_issued_at_refused(bridge_and_nonce):
     with pytest.raises(HTTPException) as exc_info:
         await bridge_lock(MagicMock(), _lock_body(issued_at=time.time() - 400))
     assert exc_info.value.status_code == 403
 
 
+@pytest.mark.asyncio
 async def test_future_issued_at_refused(bridge_and_nonce):
     with pytest.raises(HTTPException) as exc_info:
         await bridge_lock(MagicMock(), _lock_body(issued_at=time.time() + 400))
     assert exc_info.value.status_code == 403
 
 
+@pytest.mark.asyncio
 async def test_old_form_accepted_with_flag_off(bridge_and_nonce, monkeypatch):
     monkeypatch.setattr(bridge_mod.settings, "bridge_lock_require_replay_guard", False)
     result = await bridge_lock(MagicMock(), _lock_body(new_form=False))
     assert result["success"] is True
 
 
+@pytest.mark.asyncio
 async def test_old_form_refused_with_flag_on(bridge_and_nonce, monkeypatch):
     monkeypatch.setattr(bridge_mod.settings, "bridge_lock_require_replay_guard", True)
     with pytest.raises(HTTPException) as exc_info:
@@ -143,6 +149,7 @@ async def test_old_form_refused_with_flag_on(bridge_and_nonce, monkeypatch):
     assert exc_info.value.status_code == 400
 
 
+@pytest.mark.asyncio
 async def test_new_fields_present_but_unsigned_refused(bridge_and_nonce):
     """issued_at/nonce in the body but not in the signed dict → signature mismatch."""
     body = _lock_body(new_form=True, sign_extra=False)

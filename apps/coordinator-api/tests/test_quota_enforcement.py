@@ -12,6 +12,7 @@ from coordinator_api.models.multitenant import Tenant
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
 async def test_consume_quota_records_job_id(db_session: Session):
     """UsageRecord should be created with the provided job_id and tenant."""
     tenant = Tenant(name="Test Tenant", slug="test-tenant", contact_email="test@example.com", plan="enterprise")

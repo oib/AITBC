@@ -56,6 +56,7 @@ def _status(miner_id: str, heartbeat_age_s: float) -> MinerStatus:
     )
 
 
+@pytest.mark.asyncio
 async def test_collection_persists_metric_rows(session_factory):
     """A healthy miner gets uptime + response_time + completion_rate rows."""
     async with session_factory() as s:
@@ -80,6 +81,7 @@ async def test_collection_persists_metric_rows(session_factory):
     assert results["violations_detected"] == 0
 
 
+@pytest.mark.asyncio
 async def test_stale_heartbeat_opens_one_violation(session_factory):
     """Heartbeat older than the 300s window → uptime 0 → a single open violation,
     not a fresh row on every pass."""
@@ -104,6 +106,7 @@ async def test_stale_heartbeat_opens_one_violation(session_factory):
     assert violations[0].resolved_at is None
 
 
+@pytest.mark.asyncio
 async def test_recovered_heartbeat_resolves_violation(session_factory):
     """An open violation gets resolved_at set once the metric recovers."""
     async with session_factory() as s:
@@ -127,6 +130,7 @@ async def test_recovered_heartbeat_resolves_violation(session_factory):
     assert open_count == 0
 
 
+@pytest.mark.asyncio
 async def test_miner_without_status_records_zero_uptime(session_factory):
     """A registered miner with no heartbeat row still gets an uptime metric (0%)."""
     async with session_factory() as s:
@@ -142,6 +146,7 @@ async def test_miner_without_status_records_zero_uptime(session_factory):
     assert metrics[0].metric_value == 0.0
 
 
+@pytest.mark.asyncio
 async def test_no_miners_collects_capacity_only(session_factory):
     async with session_factory() as s:
         results = await SLACollector(s).collect_all_miner_metrics()
@@ -150,6 +155,7 @@ async def test_no_miners_collects_capacity_only(session_factory):
     assert results["capacity"]["total_miners"] == 0
 
 
+@pytest.mark.asyncio
 async def test_scheduler_opens_session_per_pass_and_survives_errors(session_factory, monkeypatch):
     """The scheduler must keep looping when a collection pass raises.
 
@@ -180,6 +186,7 @@ async def test_scheduler_opens_session_per_pass_and_survives_errors(session_fact
     assert scheduler._task is None
 
 
+@pytest.mark.asyncio
 async def test_touch_heartbeat_stamps_miner_status(session_factory):
     """Regression: touch_heartbeat must write MinerStatus.last_heartbeat_at --
     the column the SLA collector reads uptime from. It used to update only
@@ -205,6 +212,7 @@ async def test_touch_heartbeat_stamps_miner_status(session_factory):
     assert results["metrics_collected"][0]["uptime_pct"] == 100.0
 
 
+@pytest.mark.asyncio
 async def test_touch_heartbeat_creates_missing_status_row(session_factory):
     """A miner registered without a MinerStatus row still gets one on heartbeat."""
     async with session_factory() as s:

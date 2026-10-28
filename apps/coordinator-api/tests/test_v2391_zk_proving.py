@@ -62,6 +62,7 @@ def test_generic_script_uses_fullprove_not_a_buffer_witness(monkeypatch, tmp_pat
 
 
 @pytest.mark.skipif(not snarkjs_available(), reason="snarkjs is not installed under apps/zk-circuits")
+@pytest.mark.asyncio
 async def test_a_real_proof_verifies_against_the_exported_key(monkeypatch):
     """ml_inference is the smallest circuit whose key is both contributed and real."""
     monkeypatch.setattr(zk_module, "ENABLE_ZK_VERIFICATION", True)
@@ -85,6 +86,7 @@ async def test_a_real_proof_verifies_against_the_exported_key(monkeypatch):
 
 
 @pytest.mark.skipif(not snarkjs_available(), reason="snarkjs is not installed under apps/zk-circuits")
+@pytest.mark.asyncio
 async def test_modular_ml_components_round_trips_after_re_contribution(monkeypatch):
     """The _0001 key that was a renamed _0000 has been re-generated and now proves (V23-91)."""
     monkeypatch.setattr(zk_module, "ENABLE_ZK_VERIFICATION", True)

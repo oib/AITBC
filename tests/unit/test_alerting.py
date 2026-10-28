@@ -14,6 +14,7 @@ from aitbc.alerting import (
     get_alert_manager,
     setup_alerting,
 )
+import pytest
 
 
 class AlwaysTrueRule(AlertRule):
@@ -100,6 +101,7 @@ class TestAlertManager:
         manager.add_channel(channel)
         assert len(manager.channels) == 1
 
+    @pytest.mark.asyncio
     async def test_send_alert(self):
         manager = AlertManager()
         channel = LogAlertChannel()
@@ -109,6 +111,7 @@ class TestAlertManager:
         assert "1" in manager.active_alerts
         assert manager.alert_history == [alert]
 
+    @pytest.mark.asyncio
     async def test_acknowledge_alert(self):
         manager = AlertManager()
         alert = Alert(id="1", severity=AlertSeverity.INFO, title="T", message="M", source="test")
@@ -118,6 +121,7 @@ class TestAlertManager:
         assert alert.status == AlertStatus.ACKNOWLEDGED
         assert alert.acknowledged_by == "user"
 
+    @pytest.mark.asyncio
     async def test_resolve_alert(self):
         manager = AlertManager()
         alert = Alert(id="1", severity=AlertSeverity.INFO, title="T", message="M", source="test")
@@ -127,6 +131,7 @@ class TestAlertManager:
         assert alert.status == AlertStatus.RESOLVED
         assert "1" not in manager.active_alerts
 
+    @pytest.mark.asyncio
     async def test_check_rules_fires(self):
         manager = AlertManager()
         manager.add_channel(LogAlertChannel())
@@ -135,6 +140,7 @@ class TestAlertManager:
         await manager.check_rules()
         assert manager.active_alerts
 
+    @pytest.mark.asyncio
     async def test_check_rules_handles_exception(self):
         manager = AlertManager()
         manager.add_channel(LogAlertChannel())
@@ -144,6 +150,7 @@ class TestAlertManager:
         # No alert should be created; the exception is logged and swallowed.
         assert manager.active_alerts == {}
 
+    @pytest.mark.asyncio
     async def test_start_and_stop(self):
         manager = AlertManager()
 
@@ -156,6 +163,7 @@ class TestAlertManager:
 
 
 class TestLogAlertChannel:
+    @pytest.mark.asyncio
     async def test_send(self):
         channel = LogAlertChannel()
         alert = Alert(id="1", severity=AlertSeverity.INFO, title="T", message="M", source="test")
@@ -163,6 +171,7 @@ class TestLogAlertChannel:
 
 
 class TestWebhookAlertChannel:
+    @pytest.mark.asyncio
     async def test_send_success(self):
         class FakeResponse:
             def raise_for_status(self):
@@ -183,6 +192,7 @@ class TestWebhookAlertChannel:
             alert = Alert(id="1", severity=AlertSeverity.INFO, title="T", message="M", source="test")
             assert await channel.send(alert) is True
 
+    @pytest.mark.asyncio
     async def test_send_failure(self):
         class FakeClient:
             async def __aenter__(self):

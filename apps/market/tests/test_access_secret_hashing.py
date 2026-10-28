@@ -54,6 +54,7 @@ def _token_data(access_key: str, secret: str) -> dict[str, Any]:
     }
 
 
+@pytest.mark.asyncio
 async def test_register_stores_digest_not_plaintext(session: AsyncSession) -> None:
     svc = MarketService(session)
     ak1 = _unique("ak1")
@@ -69,6 +70,7 @@ async def test_register_stores_digest_not_plaintext(session: AsyncSession) -> No
     assert "plain-secret" not in row.access_secret
 
 
+@pytest.mark.asyncio
 async def test_wrong_secret_rejected(session: AsyncSession) -> None:
     svc = MarketService(session)
     ak2 = _unique("ak2")
@@ -76,6 +78,7 @@ async def test_wrong_secret_rejected(session: AsyncSession) -> None:
     assert await svc.get_ipfs_rental_token(ak2, "wrong-secret") is None
 
 
+@pytest.mark.asyncio
 async def test_upsert_rehashes_new_secret(session: AsyncSession) -> None:
     svc = MarketService(session)
     ak3 = _unique("ak3")
@@ -86,6 +89,7 @@ async def test_upsert_rehashes_new_secret(session: AsyncSession) -> None:
     assert await svc.get_ipfs_rental_token(ak3, "second-secret") is not None
 
 
+@pytest.mark.asyncio
 async def test_legacy_plaintext_row_still_verifies(session: AsyncSession) -> None:
     """Rows written before the migration keep working until init_db rewrites them."""
     akl = _unique("akl")
@@ -97,6 +101,7 @@ async def test_legacy_plaintext_row_still_verifies(session: AsyncSession) -> Non
     assert await svc.get_ipfs_rental_token(akl, "legacy-secret") is not None
 
 
+@pytest.mark.asyncio
 async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
     svc = MarketService(session)
     jak = _unique("jak")
@@ -124,6 +129,7 @@ async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
     assert await svc.get_market_job_access_token(jak, "nope") is None
 
 
+@pytest.mark.asyncio
 async def test_migrate_access_secrets_upgrades_plaintext_rows(session: AsyncSession) -> None:
     """The startup migration hashes rows written by pre-migration versions."""
     from market_service import storage
