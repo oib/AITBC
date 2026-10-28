@@ -97,7 +97,8 @@ live fleet — one lock per finality tier (parameters below):
       on **hub1 + node1** as its 2-of-2 PBFT validator set (island
       blocks carry `block_metadata.attestations`). The island units
       host both stores — `bc-2` followed + `bc-2-island-1` produced —
-      so the confirming finalizer runs there.
+      so the confirming finalizer runs there. Deploy spec:
+      [companion-island-deploy.md](companion-island-deploy.md).
 - [ ] **bc-2-side wiring — gated on post-8900** (Coder A holds this
       step): `BRIDGE_SUPPORTED_CHAINS=bc-2,bc-2-island-1` in
       `/etc/aitbc/blockchain.env` on all five hosts, then restart

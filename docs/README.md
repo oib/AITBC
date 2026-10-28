@@ -58,6 +58,10 @@ Operator procedures for the live fleet:
   the V-1-reserved live release: bc-2 lock → relayer confirm →
   authority-signed credit sealed on the target chain → replay
   determinism; ends at sign-off, not execution.
+- [Companion island deploy](ops/companion-island-deploy.md) — runbook
+  skeleton for `bc-2-island-1`: dedicated `aitbc-i2-*` units on hub1 +
+  node1 (2-of-2 PBFT), own genesis/env/ports, the `%N.env`-only safety
+  rule, and the seal gate the lock exercise depends on.
 - [Sell escrow runbook](ops/sell-escrow-runbook.md) — the keyed-escrow
   AIT→ETH sell flow: env keys, the ops-signer-style escrow key slot,
   enable/rollback, and runtime states.
@@ -120,6 +124,9 @@ Operator procedures for the live fleet:
 - [Messaging operability](ops/messaging-operability.md) — the
   `aitbc_messaging_*` metrics, the checkpoint index digest, what each
   alert means and the first read-only commands for it (MSG-6).
+- [MCP agent-economics tools](ops/mcp-agent-economics-tools.md) — SPEC
+  (Refs #657): typed dry_run/confirm wrappers for the revived
+  `/v1/agent-staking/*` and `/v1/bounty/*` operator-signed surfaces.
 
 ## Security
 
