@@ -9612,6 +9612,74 @@
         }
       }
     },
+    "/rpc/security-status": {
+      "get": {
+        "tags": [
+          "rpc"
+        ],
+        "summary": "Bridge security status (runbook alias)",
+        "description": "Runbook probe alias for GET /bridge/security/status.\n\nOps runbooks probe ``/rpc/security-status``; the canonical handler lives\nunder the bridge sub-router. This thin alias keeps the runbook paths valid.",
+        "operationId": "rpc_security_status_route_rpc_security_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Rpc Security Status Route Rpc Security Status Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/oracle-status": {
+      "get": {
+        "tags": [
+          "rpc"
+        ],
+        "summary": "Bridge oracle/verification status (runbook alias)",
+        "description": "Runbook probe alias for GET /bridge/oracle/status.",
+        "operationId": "rpc_oracle_status_route_rpc_oracle_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Rpc Oracle Status Route Rpc Oracle Status Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/cross-chain/rates": {
       "get": {
         "tags": [
@@ -20879,6 +20947,74 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Bridge Oracle Status Route V1 Bridge Oracle Status Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/security-status": {
+      "get": {
+        "tags": [
+          "v1"
+        ],
+        "summary": "Bridge security status (runbook alias)",
+        "description": "Runbook probe alias for GET /bridge/security/status.\n\nOps runbooks probe ``/rpc/security-status``; the canonical handler lives\nunder the bridge sub-router. This thin alias keeps the runbook paths valid.",
+        "operationId": "rpc_security_status_route_v1_security_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Rpc Security Status Route V1 Security Status Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Bridge module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/oracle-status": {
+      "get": {
+        "tags": [
+          "v1"
+        ],
+        "summary": "Bridge oracle/verification status (runbook alias)",
+        "description": "Runbook probe alias for GET /bridge/oracle/status.",
+        "operationId": "rpc_oracle_status_route_v1_oracle_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Rpc Oracle Status Route V1 Oracle Status Get"
                 }
               }
             }

@@ -1855,6 +1855,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/oracle-status",
+          "upstream": "/rpc/oracle-status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/pending",
           "upstream": "/rpc/pending",
           "methods": [
@@ -1873,6 +1880,13 @@
           "upstream": "/rpc/register-account",
           "methods": [
             "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/security-status",
+          "upstream": "/rpc/security-status",
+          "methods": [
+            "GET"
           ]
         },
         {
@@ -3067,6 +3081,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/v1/oracle-status",
+          "upstream": "/v1/oracle-status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/v1/pending",
           "upstream": "/v1/pending",
           "methods": [
@@ -3085,6 +3106,13 @@
           "upstream": "/v1/register-account",
           "methods": [
             "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/security-status",
+          "upstream": "/v1/security-status",
+          "methods": [
+            "GET"
           ]
         },
         {

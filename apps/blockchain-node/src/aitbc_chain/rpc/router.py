@@ -128,11 +128,36 @@ except ImportError as e:
     _import_failed("Bounty sub-router", e)
 
 try:
-    from .routers.bridge import router as bridge_router
+    from .routers.bridge import bridge_oracle_status_route, bridge_security_status_route, router as bridge_router
 
     router.include_router(bridge_router)
 except ImportError as e:
+    bridge_oracle_status_route = None  # type: ignore[assignment]
+    bridge_security_status_route = None  # type: ignore[assignment]
     _import_failed("Bridge sub-router", e)
+
+
+@router.get("/security-status", summary="Bridge security status (runbook alias)")
+@rate_limit(rate=100, per=60)
+async def rpc_security_status_route(request: Request) -> dict[str, Any]:
+    """Runbook probe alias for GET /bridge/security/status.
+
+    Ops runbooks probe ``/rpc/security-status``; the canonical handler lives
+    under the bridge sub-router. This thin alias keeps the runbook paths valid.
+    """
+    if bridge_security_status_route is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_security_status_route(request)  # type: ignore[no-any-return]
+
+
+@router.get("/oracle-status", summary="Bridge oracle/verification status (runbook alias)")
+@rate_limit(rate=100, per=60)
+async def rpc_oracle_status_route(request: Request) -> dict[str, Any]:
+    """Runbook probe alias for GET /bridge/oracle/status."""
+    if bridge_oracle_status_route is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    return await bridge_oracle_status_route(request)  # type: ignore[no-any-return]
+
 
 try:
     from .routers.cross_chain import router as cross_chain_router
