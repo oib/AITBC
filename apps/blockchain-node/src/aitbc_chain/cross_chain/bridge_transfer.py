@@ -132,7 +132,13 @@ class BridgeTransferMixin(BridgeBase):
             )
         logger.warning("%s — proceeding anyway (non-production)", msg)
 
-    def _sign_bridge_credit(self, credit: dict[str, Any], tx_hash: str, payload: dict[str, Any] | None = None) -> None:
+    def _sign_bridge_credit(
+        self,
+        credit: dict[str, Any],
+        tx_hash: str,
+        payload: dict[str, Any] | None = None,
+        target_chain: str | None = None,
+    ) -> None:
         """Attach the bridge authority signature to an issued credit (in place).
 
         Pre-registered ``Transaction`` rows keep it inside ``payload`` (the row
@@ -141,7 +147,7 @@ class BridgeTransferMixin(BridgeBase):
         parameter from v5 — a credit issued with no signing key configured
         still records, but will be rejected once v5 is active.
         """
-        key = bridge_credit_private_key()
+        key = bridge_credit_private_key(target_chain)
         if not key:
             logger.warning(
                 "bridge credit issued without a signing key (BRIDGE_RELEASE_PRIVATE_KEY/ESCROW_RELEASE_PRIVATE_KEY); "
@@ -481,6 +487,7 @@ class BridgeTransferMixin(BridgeBase):
                     },
                     target_tx_hash,
                     payload=release_payload,
+                    target_chain=record.target_chain,
                 )
                 release_tx = Transaction(
                     chain_id=record.target_chain,
@@ -530,7 +537,7 @@ class BridgeTransferMixin(BridgeBase):
                     "timestamp": (record.confirm_time or datetime.now(UTC)).isoformat(),
                     "payload": credit_payload,
                 }
-                self._sign_bridge_credit(credit_dict, target_tx_hash, payload=credit_payload)
+                self._sign_bridge_credit(credit_dict, target_tx_hash, payload=credit_payload, target_chain=record.target_chain)
                 mempool.add(
                     credit_dict,
                     chain_id=record.target_chain,
@@ -666,6 +673,7 @@ class BridgeTransferMixin(BridgeBase):
                     },
                     refund_tx_hash,
                     payload=refund_payload,
+                    target_chain=record.source_chain,
                 )
                 refund_tx = Transaction(
                     chain_id=record.source_chain,
@@ -709,7 +717,7 @@ class BridgeTransferMixin(BridgeBase):
                     "timestamp": datetime.now(UTC).isoformat(),
                     "payload": credit_payload,
                 }
-                self._sign_bridge_credit(credit_dict, refund_tx_hash, payload=credit_payload)
+                self._sign_bridge_credit(credit_dict, refund_tx_hash, payload=credit_payload, target_chain=record.source_chain)
                 mempool.add(
                     credit_dict,
                     chain_id=record.source_chain,
