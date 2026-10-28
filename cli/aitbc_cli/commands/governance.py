@@ -139,6 +139,11 @@ def governance():
 @click.option("--proposer-id", required=True, help="Proposer profile ID")
 @click.option("--proposer-address", default="", help="Proposer wallet address (for on-chain submission)")
 @click.option("--params", default=None, help="JSON-encoded parameters for parameter_change proposals")
+@click.option(
+    "--execution-payload",
+    default=None,
+    help="JSON the EXECUTE binds to (v13). Defaults to --params; required for any non-parameter_change proposal",
+)
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
 @click.option(
     "--wallet",
@@ -158,6 +163,7 @@ def propose(
     proposer_id: str,
     proposer_address: str,
     params: str | None,
+    execution_payload: str | None,
     voting_days: int,
     wallet_name: str | None,
     password: str | None,
@@ -172,6 +178,11 @@ def propose(
         proposal_value = {}
         if params:
             proposal_value = json.loads(params)
+        execution_payload_value = proposal_value
+        if execution_payload:
+            execution_payload_value = json.loads(execution_payload)
+            if not isinstance(execution_payload_value, dict):
+                abort(ctx, "--execution-payload must be a JSON object")
 
         voting_starts = datetime.now(UTC).isoformat()
         voting_ends = (datetime.now(UTC) + timedelta(days=voting_days)).isoformat()
@@ -219,6 +230,11 @@ def propose(
                     "description": description,
                     "proposal_type": proposal_type,
                     "parameters": proposal_value,
+                    # v13 binds GOVERNANCE_EXECUTE to the sealed
+                    # execution_payload — a missing field 400s every
+                    # propose. The params JSON is the execution intent
+                    # unless --execution-payload overrides it.
+                    "execution_payload": execution_payload_value,
                     "voting_starts_block": height,
                     "voting_ends_block": height + voting_days * blocks_per_day,
                 },

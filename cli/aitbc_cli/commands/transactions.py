@@ -38,7 +38,9 @@ DEFAULT_RPC_URL = "http://127.0.0.1:8202"
 # Transaction types whose apply path rejects any nonzero value — mirrors
 # aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES (the node package
 # is not a CLI dependency, so the set is duplicated here).
-_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
+_ZERO_VALUE_TX_TYPES = frozenset(
+    {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET", "GPU_DEREGISTER"}
+)
 
 
 def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
