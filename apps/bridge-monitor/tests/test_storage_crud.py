@@ -120,3 +120,22 @@ def test_db_path_env_precedence(tmp_path, monkeypatch):
     finally:
         monkeypatch.undo()
         importlib.reload(storage)
+
+
+def test_release_sources_normalizes_prefixes(db, tmp_path) -> None:
+    """Unprefixed web3 tx.hash.hex() must join 0x-prefixed release rows (#652)."""
+    import sqlite3
+
+    # release-leg tables live beside the deposits db
+    con = sqlite3.connect(tmp_path / "deposits.db")
+    con.execute("CREATE TABLE eth_withdrawals (eth_tx_hash TEXT)")
+    con.execute("INSERT INTO eth_withdrawals VALUES ('0xAbC123'), ('deadbeef')")
+    con.commit()
+    con.close()
+
+    sources = db.release_sources()
+    assert sources["0xabc123"] == "" or "0xabc123" in sources
+    assert db.canon_tx_hash("abc123") == "0xabc123"
+    assert db.canon_tx_hash("0xAbC123") == "0xabc123"
+    assert db.canon_tx_hash("deadbeef") == "0xdeadbeef"
+    assert "0xdeadbeef" in sources  # unprefixed row also canonicalized
