@@ -43,6 +43,9 @@ Operator procedures for the live fleet:
   be green before pinning the v9 authorization height.
 - [v14 activation runbook](ops/v14-activation-runbook.md) — what activates
   at 46,100, healthy signs, the failure decision tree, and rollback limits.
+- [v17 activation runbook](ops/v17-activation-runbook.md) — DRAFT for the
+  BNT-1 `STATE_TRANSITION_V17_HEIGHT` pin: identical env pin on all five
+  hosts, serial restart wave, stamped-version and revived-RPC post-checks.
 - [Bridge deposit canary](ops/bridge-canary-runbook.md) — staged
   ETH→AIT canary after the shadow window.
 - [BRIDGE_RELEASE exercise](ops/bridge-release-exercise.md) — DRAFT for
