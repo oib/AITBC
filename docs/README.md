@@ -49,6 +49,9 @@ Operator procedures for the live fleet:
 - [Chain reset runbook](ops/chain-reset-runbook.md) — DRAFT template for
   the next chain cut: evidence preconditions, the authority-key custody
   gate, rehearsal machinery, freeze→cut→PONR sequence, abort table.
+- [Service-unit symlinks](ops/service-unit-symlinks.md) — units are
+  symlinks into `/opt/aitbc`; a dirty node checkout mutates live units
+  (the node0 `ReadWritePaths` incident) — `git status` is the check.
 - [Bridge deposit canary](ops/bridge-canary-runbook.md) — staged
   ETH→AIT canary after the shadow window.
 - [BRIDGE_RELEASE exercise](ops/bridge-release-exercise.md) — DRAFT for
