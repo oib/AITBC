@@ -323,6 +323,31 @@ def _load_validator_blobs(paths: list[str], chain_id: str) -> list[dict[str, str
     return out
 
 
+def _probe_node_identity(rpc_url: str) -> tuple[str | None, str | None]:
+    """Return ``(chain_id, node_id)`` of the node behind ``rpc_url``, either may be None.
+
+    ``target_chain_id`` in the admin-signed payload binds the node serving the
+    request — its OWN chain id, not the chain being registered (Refs #679:
+    registering bc-2-island-1 validators on bc-2 nodes needs
+    ``target_chain_id=bc-2``). The node's ``/network-info`` answers with the
+    authoritative value.
+    """
+    import httpx
+
+    try:
+        with httpx.Client(timeout=5) as client:
+            info = client.get(rpc_url.rstrip("/") + "/network-info").json()
+    except Exception:  # noqa: BLE001 - optional probe; callers fall back with a warning
+        return None, None
+    if not isinstance(info, dict):
+        return None, None
+    chain_id = info.get("chain_id") or None
+    node_id = info.get("node_id")
+    if node_id in (None, "unknown"):
+        node_id = None
+    return chain_id, node_id
+
+
 def _post_registration(rpc_url: str, payload: dict[str, Any]) -> dict[str, Any]:
     """POST the signed payload to the bridge validator registration RPC."""
     import httpx
@@ -352,7 +377,8 @@ def _main() -> int:
     parser.add_argument(
         "--chain-id",
         required=True,
-        help="Chain ID to register validators for.",
+        help="Chain ID to register validators for (the remote chain — NOT "
+        "target_chain_id, which is resolved per destination node).",
     )
     parser.add_argument(
         "--rpc-url",
@@ -445,28 +471,43 @@ def _main() -> int:
         public_key = ident["public_key"]
         self_signature = ident["signature"]
 
-        # Build the full payload that the admin will co-sign.
-        payload: dict[str, Any] = {
-            "chain_id": args.chain_id,
-            "address": address,
-            "public_key": public_key,
-            "signature": self_signature,
-            "epoch": args.epoch,
-            "admin_address": admin_address,
-            "issued_at": datetime.now(UTC).isoformat(),
-            "nonce": secrets.token_hex(16),
-            "target_chain_id": args.chain_id,
-        }
-
-        # Admin signature covers the payload excluding admin_signature itself.
-        admin_signature = _sign_dict(admin_key, payload)
-        payload["admin_signature"] = admin_signature
-
         if args.dry_run:
             print(f"[DRY-RUN] {name}: address={address}")
             continue
 
         for rpc_url in args.rpc_url:
+            # target_chain_id binds the node SERVING the request — its own
+            # chain id, not the chain being registered (Refs #679). Probe the
+            # destination so registering a remote island's validators works.
+            node_chain, node_id = _probe_node_identity(rpc_url)
+            target_chain = node_chain or args.chain_id
+            if node_chain is None:
+                _warn(
+                    f"{rpc_url}: could not probe /network-info for the node's own chain id; "
+                    f"falling back to target_chain_id={args.chain_id!r} — this fails unless the "
+                    "node runs that chain itself"
+                )
+
+            # Build the full payload that the admin will co-sign. Fresh
+            # issued_at/nonce per destination: each POST is a separate signed
+            # request and nonces are single-use per node.
+            payload: dict[str, Any] = {
+                "chain_id": args.chain_id,
+                "address": address,
+                "public_key": public_key,
+                "signature": self_signature,
+                "epoch": args.epoch,
+                "admin_address": admin_address,
+                "issued_at": datetime.now(UTC).isoformat(),
+                "nonce": secrets.token_hex(16),
+                "target_chain_id": target_chain,
+            }
+            if node_id:
+                payload["target_node_id"] = node_id
+
+            # Admin signature covers the payload excluding admin_signature itself.
+            payload["admin_signature"] = _sign_dict(admin_key, payload)
+
             result = _post_registration(rpc_url, payload)
             status = result.get("success")
             if status:

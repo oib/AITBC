@@ -134,7 +134,10 @@ Locked inputs:
 - **I-2 registration notes (as run):** `target_chain_id` binds the
   *destination* node's chain — registration payloads for
   `bc-2-island-1` posted to bc-2 nodes needed
-  `target_chain_id=bc-2`. The bridge admin key is workstation-custody:
+  `target_chain_id=bc-2`. Since #679 the 403 detail names this when it
+  trips, and `register_bridge_validators.py` / `aitbc bridge
+  register-validator` resolve it per node from `/network-info`. The
+  bridge admin key is workstation-custody:
   the `BOND_SLASH_PRIVATE_KEY` source line in `bridge-reg-run.env` is
   stale and derives `0x9aCC…` — do not source it for admin signatures.
   node1's pre-existing bc-2 replica gap closed inside I-2 (0 → real 4

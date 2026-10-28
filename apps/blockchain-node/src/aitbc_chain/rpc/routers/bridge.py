@@ -101,7 +101,11 @@ class ValidatorRegisterRequest(BaseModel):
     admin_signature: str | None = Field(default=None, description="Admin signature over the registration payload")
     issued_at: str | None = Field(default=None, description="Replay-guard issue time (ISO-8601 or epoch seconds)")
     nonce: str | None = Field(default=None, description="Single-use replay-guard nonce")
-    target_chain_id: str | None = Field(default=None, description="Replay-guard destination chain binding")
+    target_chain_id: str | None = Field(
+        default=None,
+        description="Replay-guard chain binding: the chain id of the node this request is sent to "
+        "(its own chain) — NOT the chain_id being registered",
+    )
     target_node_id: str | None = Field(default=None, description="Optional replay-guard destination node binding")
 
 
@@ -122,7 +126,11 @@ class BlockHeaderRequest(BaseModel):
     admin_signature: str | None = Field(default=None, description="Admin signature over the header payload")
     issued_at: str | None = Field(default=None, description="Replay-guard issue time (ISO-8601 or epoch seconds)")
     nonce: str | None = Field(default=None, description="Single-use replay-guard nonce")
-    target_chain_id: str | None = Field(default=None, description="Replay-guard destination chain binding")
+    target_chain_id: str | None = Field(
+        default=None,
+        description="Replay-guard chain binding: the chain id of the node this request is sent to "
+        "(its own chain) — NOT the chain_id the header belongs to",
+    )
     target_node_id: str | None = Field(default=None, description="Optional replay-guard destination node binding")
 
 
