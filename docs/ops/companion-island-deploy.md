@@ -116,16 +116,30 @@ Locked inputs:
   the island genesis must carry the bc-2 rows it trusts
   (`BRIDGE_MULTISIG_THRESHOLD=2`); the island-side table is what
   `ensure_supported_chain_validators` checks at startup.
-- **KNOWN TRAP (live-verified 28 Oct):** serving a chain_id before its
-  real validator set is registered backfills the LOCAL set under that
-  id — on the 12:54:58 rpc restart, `ensure_supported_chain_validators`
-  installed bc-2's local 4 validators under `chain_id='bc-2-island-1'`
-  in every bc-2 `chain.db` (verified ×4 hosts: `bc-2`=4 +
-  `bc-2-island-1`=6 rows after the genuine island registrations at
-  13:00; the island's own shadow dbs stayed clean at 2). Sequence
-  rule: register the real set **before** adding the chain to
-  `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`, or deactivate the
-  phantom rows post-registration. Refs #659.
+- **KNOWN TRAP (live-verified + resolved 28 Oct):** serving a chain_id
+  before its real validator set is registered backfills the LOCAL set
+  under that id — on the 12:54:58 rpc restart,
+  `ensure_supported_chain_validators` installed bc-2's local 4
+  validators under `chain_id='bc-2-island-1'` in the bc-2 `chain.db`s.
+  **Cleanup:** the phantoms were **deleted** on hub/hub1/node0/node2
+  (4 each; node1 was never polluted — the backfill raced the real
+  registrations there), restoring `bc-2`=4 + `bc-2-island-1`=2 rows.
+  Deactivation would NOT have worked: `load_validator_set`
+  (`cross_chain/bridge_validator.py:139-150`) has **no `is_active`
+  filter** — deactivated rows still count toward verification, so
+  removal requires `DELETE`. Sequence rule: register the real set
+  **before** adding the chain to
+  `SUPPORTED_CHAINS`/`BRIDGE_SUPPORTED_CHAINS`, or `DELETE` the phantom
+  rows post-registration. Refs #659.
+- **I-2 registration notes (as run):** `target_chain_id` binds the
+  *destination* node's chain — registration payloads for
+  `bc-2-island-1` posted to bc-2 nodes needed
+  `target_chain_id=bc-2`. The bridge admin key is workstation-custody:
+  the `BOND_SLASH_PRIVATE_KEY` source line in `bridge-reg-run.env` is
+  stale and derives `0x9aCC…` — do not source it for admin signatures.
+  node1's pre-existing bc-2 replica gap closed inside I-2 (0 → real 4
+  rows under `bc-2`) — it had been silently degrading node1's own
+  bridge verification.
 - `bridge_release_authority` = the island-side release authority
   (genesis `parameters` row — the emitted `BRIDGE_RELEASE`'s
   `payload.bridge_signature` verifies against it; the signing key lives
