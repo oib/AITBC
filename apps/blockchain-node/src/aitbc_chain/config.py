@@ -928,6 +928,18 @@ class ChainSettings(BaseSettings):
     # not in driftable env pins. ``None`` keeps the rule unarmed for a chain
     # that wants it deferred; per-chain env still overrides the literal.
     state_transition_v17_height: int | None = 8900
+    # v18 (deterministic committed apply — remediates
+    # docs/design/v14-aux-root-nondeterminism.md): at/after this height the
+    # apply output is a pure function of (transaction, prior state, block
+    # header) — ``stake`` leaves the committed side-table set, liquidity
+    # stake ids derive from ``tx_hash`` (``liq_<tx_hash[:16]>``) instead of
+    # ``secrets.token_hex``, and every ``datetime.now(UTC)`` on the apply
+    # path (locked_until, accrual elapsed, bond verdict) is replaced by the
+    # sealed header timestamp. ``None`` (the default) keeps the rule
+    # unarmed: the activation height is a separate operator pin, set on
+    # every host together with the validator restart wave — a mid-rollout
+    # mixed set would reject blocks as aux_state_root mismatches.
+    state_transition_v18_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its

@@ -963,6 +963,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v18_threshold = getattr(settings, "state_transition_v18_height", None)
+    if v18_threshold and height >= v18_threshold:
+        return 18
     v17_threshold = getattr(settings, "state_transition_v17_height", None)
     if v17_threshold and height >= v17_threshold:
         return 17
@@ -1815,6 +1818,7 @@ class StateTransition:
         block_version: int = 2,
         block_height: int | None = None,
         *,
+        block_time: datetime | None = None,
         skip_dedup: bool = False,
     ) -> tuple[bool, str]:
         """
@@ -1834,6 +1838,13 @@ class StateTransition:
                 this height, and a parameter_change applied here takes effect
                 from this height onward — replayed history can never fail
                 because a parameter was set later in the chain.
+            block_time: Sealed block-header timestamp. At block_version >= 18
+                the volatile apply paths (liquidity stake ids/locked_until/
+                accrual, bond locked_until/verdict) derive from it instead of
+                wall-clock ``datetime.now(UTC)`` — the apply output is then a
+                pure function of (transaction, prior state, block header).
+                ``None`` keeps the volatile fallback for pre-v18 replay and
+                non-consensus callers.
 
         Returns:
             Tuple of (success, error_message)
@@ -1857,17 +1868,23 @@ class StateTransition:
         if value < 0 or fee < 0 or value > _MAX_INT64 or fee > _MAX_INT64:
             raise ValueError(f"Transaction value/fee out of range: value={value}, fee={fee}")
         if tx_type == "LIQUIDITY_DEPOSIT":
-            ok, msg = apply_liquidity_deposit(session, chain_id, tx_data, tx_hash, _cache)
+            ok, msg = apply_liquidity_deposit(
+                session, chain_id, tx_data, tx_hash, _cache, block_version=block_version, block_time=block_time
+            )
             if ok:
                 self._processed_tx_hashes.add(tx_hash)
             return (ok, msg)
         if tx_type == "LIQUIDITY_CLAIM":
-            ok, msg = apply_liquidity_claim(session, chain_id, tx_data, tx_hash, _cache)
+            ok, msg = apply_liquidity_claim(
+                session, chain_id, tx_data, tx_hash, _cache, block_version=block_version, block_time=block_time
+            )
             if ok:
                 self._processed_tx_hashes.add(tx_hash)
             return (ok, msg)
         if tx_type == "LIQUIDITY_WITHDRAW":
-            ok, msg = apply_liquidity_withdraw(session, chain_id, tx_data, tx_hash, _cache)
+            ok, msg = apply_liquidity_withdraw(
+                session, chain_id, tx_data, tx_hash, _cache, block_version=block_version, block_time=block_time
+            )
             if ok:
                 self._processed_tx_hashes.add(tx_hash)
             return (ok, msg)
@@ -2084,7 +2101,17 @@ class StateTransition:
                 logger.info("v11: %s swept %s from escrow %s to fee recipient %s", tx_type, value, escrow_addr, recipient_addr)
         if tx_type in ("BOND_LOCK", "BOND_RELEASE", "BOND_SLASH"):
             skip_reason = self._handle_bond_transaction(
-                session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value, block_height
+                session,
+                chain_id,
+                tx_data,
+                tx_hash,
+                tx_type,
+                sender_addr,
+                recipient_addr,
+                value,
+                block_height,
+                block_version=block_version,
+                block_time=block_time,
             )
             if skip_reason:
                 # Fee and nonce still applied — name it, or the "Applied
@@ -2366,6 +2393,9 @@ class StateTransition:
         recipient_addr: str,
         value: int,
         block_height: int | None = None,
+        *,
+        block_version: int | None = None,
+        block_time: datetime | None = None,
     ) -> str | None:
         """Record bond state alongside the on-chain value transfer.
 
@@ -2387,7 +2417,15 @@ class StateTransition:
         if not provider:
             return "missing provider in payload"
 
-        now = datetime.now(UTC)
+        # v18 (deterministic committed apply): the sealed header timestamp
+        # replaces wall-clock ``datetime.now(UTC)`` for every committed value
+        # — locked_until, created_at/updated_at and the release verdict all
+        # become pure functions of (transaction, prior state, block header).
+        # Below v18 (or with no block_time) the volatile path stays for
+        # replay of the pre-v18 era.
+        now = (
+            block_time if (block_version is not None and block_version >= 18 and block_time is not None) else datetime.now(UTC)
+        )
         if tx_type == "BOND_LOCK":
             if not _is_bond_escrow(recipient_addr):
                 return "recipient is not the bond escrow address"

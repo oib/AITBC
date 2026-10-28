@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, cast
 
 from sqlmodel import Session, select
@@ -461,6 +462,7 @@ def compute_state_delta(
     escrow_context: dict[str, dict[str, Any]] | None = None,
     bridge_authority: str | None = None,
     bridge_lock_context: dict[str, dict[str, Any]] | None = None,
+    block_time: datetime | None = None,
 ) -> StateDelta:
     """Compute the state delta for a transaction WITHOUT modifying the DB.
 
@@ -489,6 +491,12 @@ def compute_state_delta(
             for v6+ BRIDGE_REFUND lock binding, from
             ``state_transition.build_bridge_lock_context``. ``None`` fails
             closed on any v6 refund.
+        block_time: Sealed block-header timestamp. The v18 time-dependent
+            types are all in SEQUENTIAL_ONLY_TX_TYPES so the pure path never
+            consumes it — it is accepted here so every caller threads the
+            same header value the sequential apply sees (attester parity),
+            and it stays available if a future version moves a type off the
+            sequential-only list.
 
     Returns:
         StateDelta with balance/nonce changes, or success=False with error.
