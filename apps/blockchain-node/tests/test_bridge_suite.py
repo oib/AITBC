@@ -470,6 +470,9 @@ class TestBridgeValidatorBackfill:
         with (
             patch("aitbc_chain.config.settings.chain_id", "chain-a"),
             patch("aitbc_chain.config.settings.bridge_supported_chains", "chain-a,chain-b"),
+            # Foreign-id backfill is opt-in since #659 — the default-off
+            # gate would skip the copy and leave chain-b empty.
+            patch("aitbc_chain.config.settings.bridge_backfill_foreign_validators", True),
         ):
             bridge.register_validator("chain-a", "0xval1", "0xpub1", 0)
             bridge.register_validator("chain-a", "0xval2", "0xpub2", 0)

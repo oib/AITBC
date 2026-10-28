@@ -63,6 +63,74 @@ class BridgeTransferMixin(BridgeBase):
         if amount > max_amount:
             raise ValueError(f"Amount {amount} exceeds bridge max lock amount {max_amount}")
 
+    def _enforce_signing_key(self, source_chain: str) -> None:
+        """BRIDGE-INTAKE-KEY-1 (#675): admission gate on the release-signing key.
+
+        A lock admitted on a host whose process cannot sign emits a
+        signature-less ``BRIDGE_LOCK`` that drains-and-skips at apply
+        (v9+) and can never sign the ``BRIDGE_RELEASE`` credit
+        (v5+) — the Lock-A/Lock-B incidents: the intake looks accepted
+        and the transfer silently stalls at release time. Check the key
+        *before* any funds move: warn loudly everywhere, refuse the lock
+        outright in production (same fail-closed posture as
+        ``_enforce_lock_cap`` — a misdirected production intake must fail
+        fast instead of vanishing). Development/test environments keep
+        the warn-and-proceed behaviour so key-less single-node setups
+        still work below the signature heights.
+
+        When an authority is configured (``bridge_release_authority`` /
+        ``BRIDGE_RELEASE_AUTHORITY``, falling back to the escrow
+        settlement address), the configured key must also derive to that
+        address — a wrong key fails validation identically to a missing
+        one.
+        """
+        key = bridge_credit_private_key()
+        if key:
+            from aitbc.crypto.signature_recovery import canonical_address
+
+            from ..state.bridge_credit import bridge_release_authority_env
+
+            authority = bridge_release_authority_env()
+            if authority:
+                try:
+                    from aitbc.crypto.crypto import derive_ethereum_address
+
+                    derived = canonical_address(derive_ethereum_address(key))
+                except Exception as e:
+                    logger.warning(
+                        "bridge lock on %s: could not derive address from the configured release signing key (%s); "
+                        "the BRIDGE_LOCK/BRIDGE_RELEASE signatures may fail validation",
+                        source_chain,
+                        e,
+                    )
+                    return
+                if derived != authority:
+                    msg = (
+                        f"bridge lock refused on {source_chain}: the configured release signing key derives to "
+                        f"{derived}, not the bridge release authority {authority} "
+                        "(BRIDGE_RELEASE_PRIVATE_KEY/ESCROW_RELEASE_PRIVATE_KEY mismatch); "
+                        "locks admitted here would fail signature validation downstream"
+                    )
+                    if is_production():
+                        logger.error(msg)
+                        raise ValueError(msg)
+                    logger.warning("%s — proceeding anyway (non-production)", msg)
+            return
+        msg = (
+            f"bridge lock on {source_chain}: this process holds no bridge release signing key "
+            "(BRIDGE_RELEASE_PRIVATE_KEY/ESCROW_RELEASE_PRIVATE_KEY); the BRIDGE_LOCK is emitted "
+            "unsigned and the release credit can never be signed — the transfer will drain-and-skip "
+            "at apply and stall at release time"
+        )
+        if is_production():
+            logger.error("%s — refusing the lock (fail-closed)", msg)
+            raise ValueError(
+                "Bridge locks refused: no release signing key configured "
+                "(BRIDGE_RELEASE_PRIVATE_KEY/ESCROW_RELEASE_PRIVATE_KEY); "
+                "this node cannot sign the release for admitted locks"
+            )
+        logger.warning("%s — proceeding anyway (non-production)", msg)
+
     def _sign_bridge_credit(self, credit: dict[str, Any], tx_hash: str, payload: dict[str, Any] | None = None) -> None:
         """Attach the bridge authority signature to an issued credit (in place).
 
@@ -118,6 +186,10 @@ class BridgeTransferMixin(BridgeBase):
             raise ValueError("release_amount must be non-negative")
 
         self._enforce_lock_cap(amount)
+
+        # BRIDGE-INTAKE-KEY-1 (#675): refuse/warn before any funds move when
+        # this process cannot sign the lock (v9) or the release credit (v5).
+        self._enforce_signing_key(source_chain)
 
         # v0.24.1: bridge locks must be initiated on the node that produces
         # the source chain. Initiating a lock on a follower would update the
