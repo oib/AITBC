@@ -687,6 +687,7 @@ class PoAProposer:
                     tx_rec.tx_hash,
                     block_version=block_version,
                     block_height=parent.height,
+                    block_time=parent.timestamp,
                     skip_dedup=True,
                 )
                 if not success:
@@ -2109,6 +2110,7 @@ class PoAProposer:
                         tx.tx_hash,
                         block_version=block_version,
                         block_height=next_height,
+                        block_time=timestamp,
                     )
                     if not success:
                         self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
@@ -2200,6 +2202,7 @@ class PoAProposer:
                     tx.tx_hash,
                     block_version=block_version,
                     block_height=next_height,
+                    block_time=timestamp,
                 )
                 if not success:
                     self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
@@ -2363,6 +2366,7 @@ class PoAProposer:
                         escrow_context=escrow_context,
                         bridge_authority=bridge_authority,
                         bridge_lock_context=bridge_lock_context,
+                        block_time=timestamp,
                     )
 
                 results = executor.execute_groups([group_items], compute_fn)

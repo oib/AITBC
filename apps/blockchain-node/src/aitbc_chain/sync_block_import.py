@@ -579,6 +579,7 @@ class BlockImportMixin(SyncBase):
                                 escrow_context=escrow_context,
                                 bridge_authority=bridge_authority,
                                 bridge_lock_context=bridge_lock_context,
+                                block_time=timestamp,
                             )
 
                         for group in groups:
@@ -688,6 +689,10 @@ class BlockImportMixin(SyncBase):
                         tx_hash,
                         block_version=block_version,
                         block_height=block_data["height"],
+                        # v18: the sealed header timestamp drives the
+                        # deterministic apply paths — identical to the
+                        # ``timestamp`` the proposer threaded through.
+                        block_time=timestamp,
                     )
                     if not success:
                         logger.warning("[SYNC] Failed to apply transaction %s: %s", tx_hash, error_msg)
