@@ -33,10 +33,17 @@ breadcrumb: Home > Scenarios > Staking Option Coverage
 > **v17 gate note (28 Oct):** the staking/agent-staking RPCs are
 > activation-gated — HTTP 410 while the next height is below
 > `STATE_TRANSITION_V17_HEIGHT`, live at/after the pin — not retired.
+> **Blocked at v17 too (Refs #649, pending the v18 committed-set
+> fix):** the `/v1/staking/*` route writes a queue-time row into the
+> committed `stake` table — the submitter's aux fingerprint diverges
+> and it forks itself out ([v14-aux-root-nondeterminism](../design/v14-aux-root-nondeterminism.md));
+> the wallet-gate refusals here stay client-side and safe — only the
+> live plays are blocked.
 > These wallet-gate refusals never reach the RPC, so the plays below
 > stay valid in both worlds. Live post-v17 plays: scenario 01 steps
-> 26–27 (wallet staking) and scenario 87 (operator-signed agent
-> staking). Played on node2 (`aitbc 0.25.9`), `logger -t coderA`.
+> 26–27 (wallet staking — blocked at v17 as noted) and scenario 87
+> (operator-signed agent staking — unaffected; `agent_stake` is
+> uncommitted). Played on node2 (`aitbc 0.25.9`), `logger -t coderA`.
 
 ## Steps
 
