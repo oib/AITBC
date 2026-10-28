@@ -561,3 +561,44 @@ class TestDepositAddressColumn:
         conn.close()
         assert "deposit_address" in columns
         assert addr is None  # pre-existing row keeps NULL — 'address unknown'
+
+
+class TestDepositTxHashNormalization:
+    """Issue #668: the wallet-side deposit monitor writes tx_hash from the
+    RPC JSON hash (0x-prefixed) while aitbc-bridge-monitor writes web3's
+    bare tx.hash.hex() — both spellings must land on one key or the UNIQUE
+    dedupe fails and a double-enabled second monitor pays the deposit
+    again."""
+
+    def test_insert_deposit_canonicalizes_tx_hash(self, bridge_db):
+        from wallet_app.bridge.bridge_db import get_deposit_by_tx_hash
+
+        insert_deposit("0xAbCd05", "0xfrom", Decimal("1"), Decimal("0"))
+        row = get_deposit_by_tx_hash("0xabcd05")
+        assert row is not None
+        assert row["tx_hash"] == "0xabcd05"
+
+    def test_duplicate_deposit_across_spellings_rejected(self, bridge_db):
+        insert_deposit("0xbeef06", "0xfrom", Decimal("1"), Decimal("0"))
+        with pytest.raises(ValueError):
+            insert_deposit("BEEF06", "0xfrom", Decimal("1"), Decimal("0"))
+
+    def test_get_deposit_by_tx_hash_matches_legacy_spelling(self, bridge_db, tmp_path):
+        """Rows stored by the other writer (bare or mixed-case) are found."""
+        import sqlite3
+
+        conn = sqlite3.connect(bridge_db)
+        conn.execute(
+            "INSERT INTO eth_deposits (id, tx_hash, from_address, amount_eth, amount_ait, status) "
+            "VALUES ('d-bare', 'cafe07', '0xf', '1', '0', 'pending'), "
+            "('d-mixed', '0xDeAd08', '0xf', '1', '0', 'pending')"
+        )
+        conn.commit()
+        conn.close()
+
+        from wallet_app.bridge.bridge_db import get_deposit_by_tx_hash
+
+        for spelling in ("cafe07", "0xcafe07", "0xCAFE07"):
+            assert get_deposit_by_tx_hash(spelling)["id"] == "d-bare"
+        for spelling in ("dead08", "0xdead08", "0xDEAD08"):
+            assert get_deposit_by_tx_hash(spelling)["id"] == "d-mixed"

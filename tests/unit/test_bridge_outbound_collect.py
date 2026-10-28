@@ -161,3 +161,20 @@ def test_eth_withdrawals_release_carries_no_note(tmp_path):
     ledger = _ledger(tmp_path, releases=[tx["tx_hash"]])
     rows = boc.emit_rows([tx], boc._load_depositor_map(ledger), set(), boc._load_release_sources(ledger))
     assert rows[0]["kind"] == "withdrawal" and rows[0]["note"] is None
+
+
+def test_release_join_normalizes_prefixes(tmp_path):
+    """#668: bare web3-spelled txs must join 0x-prefixed release rows and
+    vice versa — the earlier lower()-only join misclassified them."""
+    h = "0xAbC" + "9" * 60
+    ledger = _ledger(tmp_path, releases=[h])
+    releases = boc._load_release_sources(ledger)
+    assert boc._canon_tx_hash(h) in releases
+
+    bare = h[2:].lower()
+    txs = [{"tx_hash": bare, "to": STRANGER, "value_wei": 10, "block_height": 1}]
+    terms = boc.classify(txs, depositors=set(), funding=set(), releases=releases)
+    assert terms["withdrawals_wei"] == 10
+    rows = boc.emit_rows(txs, depositor_map={}, funding=set(), releases=releases)
+    assert rows[0]["kind"] == "withdrawal"
+    assert rows[0]["tx_hash"] == boc._canon_tx_hash(h)  # emitted canonical, like record_outbound

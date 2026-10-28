@@ -104,8 +104,21 @@ _RELEASE_SOURCES = (
 )
 
 
+# Keep in sync with bridge_monitor.storage.canon_tx_hash — standalone like
+# _RELEASE_SOURCES above. The JSON tx list spells hashes however the
+# operator's export produced them (web3 .hex() is bare, RPC JSON is
+# 0x-prefixed) while release-leg rows are 0x-prefixed — the join must
+# canonicalize both sides or release legs misclassify (issues #652, #668).
+def _canon_tx_hash(value: str) -> str:
+    s = str(value)
+    body = s[2:] if s[:2].lower() == "0x" else s
+    if not body or any(c not in "0123456789abcdefABCDEF" for c in body):
+        return s
+    return "0x" + body.lower()
+
+
 def _load_release_sources(ledger: Path | None) -> dict[str, str]:
-    """Lowercased eth_tx_hash -> source label across every release-leg
+    """Canonicalized eth_tx_hash -> source label across every release-leg
     table. Missing tables count as no rows, never an error (ledgers of
     varying age are valid input)."""
     if ledger is None:
@@ -120,7 +133,7 @@ def _load_release_sources(ledger: Path | None) -> dict[str, str]:
             except sqlite3.OperationalError:
                 continue
             for (h,) in rows:
-                out.setdefault(str(h).lower(), label)
+                out.setdefault(_canon_tx_hash(h), label)
     finally:
         con.close()
     return out
@@ -143,7 +156,7 @@ def classify(
         if failed or value == 0:
             continue  # a failed send moves no value; the gas already counted
         to = str(tx["to"]).lower()
-        if str(tx["tx_hash"]).lower() in releases:
+        if _canon_tx_hash(tx["tx_hash"]) in releases:
             terms["withdrawals_wei"] += value  # hash-joined release leg: strongest evidence
         elif to in depositors:
             terms["refunds_wei"] += value
@@ -181,16 +194,16 @@ def emit_rows(
         )
         failed = tx.get("status") in (0, "0", "failed")
         to = str(tx["to"]).lower()
-        tx_hash = str(tx["tx_hash"])
+        tx_hash = _canon_tx_hash(tx["tx_hash"])
         note: str | None = None
         matched: str | None = None
-        if tx_hash.lower() in releases:
+        if tx_hash in releases:
             kind = "withdrawal"
-            note = releases[tx_hash.lower()] or None
+            note = releases[tx_hash] or None
         elif to == self_addr and self_addr:
             kind = "self_send"
         elif to in depositor_map:
-            kind, matched = "refund", depositor_map[to]
+            kind, matched = "refund", _canon_tx_hash(depositor_map[to])
         elif to in funding:
             kind, note = "withdrawal", "float return to funding source"
         else:
