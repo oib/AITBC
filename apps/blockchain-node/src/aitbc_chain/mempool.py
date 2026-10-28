@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from dataclasses import dataclass
 from threading import Lock, RLock
@@ -12,6 +13,8 @@ from sqlalchemy import Column, Float, Index, Integer, MetaData, Text, delete, fu
 from sqlmodel import Field, Session, create_engine, select, text
 
 from .metadata import ChainBase
+
+logger = logging.getLogger(__name__)
 
 from .metrics import mempool_pending_count, mempool_pending_size_bytes, metrics_registry
 
@@ -878,5 +881,16 @@ def init_mempool(backend: str = "memory", db_url: str = "", max_size: int = 10_0
 def get_mempool() -> InMemoryMempool | DatabaseMempool:
     global _MEMPOOL
     if _MEMPOOL is None:
+        # Ghost-mempool guard (Refs #653): reaching get_mempool() before
+        # init_mempool() means a process never ran the app's startup wiring —
+        # a silent in-memory pool that shares nothing with the store of
+        # record, exactly the duality behind mempool ghosts. Keep the
+        # fallback for tests/tooling but make it loud and detectable:
+        # the instance is flagged and the miss is logged once per process.
         _MEMPOOL = InMemoryMempool()
+        _MEMPOOL._implicit = True  # type: ignore[attr-defined]
+        logger.error(
+            "get_mempool() called before init_mempool() — returning a transient in-memory pool; "
+            "entries will be invisible to the configured mempool backend (ghost mempool)"
+        )
     return _MEMPOOL
