@@ -91,6 +91,7 @@ class TestProposerWatchdogPhase:
             ("broadcast", "_broadcast_block", True),
         ],
     )
+    @pytest.mark.asyncio
     async def test_watchdog_logs_phase_at_info(self, proposer, phase_name, stall_in, return_value, monkeypatch, caplog):
         """When a phase stalls, the watchdog ERROR names the active phase."""
         _patch_pipeline(proposer, monkeypatch)
@@ -109,6 +110,7 @@ class TestProposerWatchdogPhase:
             for record in caplog.records
         )
 
+    @pytest.mark.asyncio
     async def test_watchdog_increments_total_metric(self, proposer, monkeypatch):
         """A stalled iteration increments the stalled-iterations counter."""
         _patch_pipeline(proposer, monkeypatch)
@@ -125,6 +127,7 @@ class TestProposerWatchdogPhase:
 
         assert after == before + 1
 
+    @pytest.mark.asyncio
     async def test_phase_metric_tracks_active_phase(self, proposer, monkeypatch):
         """The per-phase stalled-iterations counter is keyed to the active phase."""
         _patch_pipeline(proposer, monkeypatch)
@@ -142,6 +145,7 @@ class TestProposerWatchdogPhase:
 
         assert after == before + 1
 
+    @pytest.mark.asyncio
     async def test_propose_phase_is_set_before_awaits(self, proposer, monkeypatch):
         """The active phase attribute is updated before each await-bearing call."""
         _patch_pipeline(proposer, monkeypatch)

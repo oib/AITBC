@@ -13,6 +13,7 @@ from unittest.mock import patch
 from aitbc_chain.network.island_manager import IslandManager
 from aitbc_chain.rpc import islands as rpc_islands
 from aitbc_chain.rpc.islands import LeaveIslandRequest, leave_island
+import pytest
 
 
 def _mgr() -> IslandManager:
@@ -21,6 +22,7 @@ def _mgr() -> IslandManager:
     return mgr
 
 
+@pytest.mark.asyncio
 async def test_leave_member_success():
     with patch.object(rpc_islands, "get_island_manager", return_value=_mgr()):
         resp = await leave_island(LeaveIslandRequest(island_id="island-uuid-1"))
@@ -29,6 +31,7 @@ async def test_leave_member_success():
     assert resp.status == "left"
 
 
+@pytest.mark.asyncio
 async def test_leave_not_member_carries_code():
     with patch.object(rpc_islands, "get_island_manager", return_value=_mgr()):
         resp = await leave_island(LeaveIslandRequest(island_id="island-never-joined"))
@@ -37,6 +40,7 @@ async def test_leave_not_member_carries_code():
     assert "not a member" in resp.message.lower()
 
 
+@pytest.mark.asyncio
 async def test_leave_default_carries_code():
     with patch.object(rpc_islands, "get_island_manager", return_value=_mgr()):
         resp = await leave_island(LeaveIslandRequest(island_id="default-island"))
@@ -45,6 +49,7 @@ async def test_leave_default_carries_code():
     assert "default island" in resp.message.lower()
 
 
+@pytest.mark.asyncio
 async def test_leave_codes_are_distinct():
     """Mutation guard: not_member and forbidden_default must not collapse."""
     mgr = _mgr()

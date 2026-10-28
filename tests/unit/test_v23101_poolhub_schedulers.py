@@ -132,6 +132,7 @@ def test_a_scheduler_keeps_a_handle_on_its_task(scheduler_cls: type) -> None:
 # --- session per pass ------------------------------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_sla_collection_opens_and_closes_a_session_for_each_pass() -> None:
     factory = _SessionFactory()
     scheduler = SLACollectorScheduler(factory)
@@ -144,6 +145,7 @@ async def test_sla_collection_opens_and_closes_a_session_for_each_pass() -> None
     assert all(s.closed for s in factory.sessions), "a pass left its session open"
 
 
+@pytest.mark.asyncio
 async def test_billing_sync_opens_and_closes_a_session_for_each_pass() -> None:
     # An empty miner list ends sync_all_miners_usage at its early return.
     factory = _SessionFactory([[_StubResult(rows=[])] for _ in range(8)])
@@ -167,6 +169,7 @@ async def test_billing_sync_opens_and_closes_a_session_for_each_pass() -> None:
         (BillingIntegrationScheduler, {"sync_interval_hours": 24}),
     ],
 )
+@pytest.mark.asyncio
 async def test_stop_does_not_leave_the_loop_parked_in_a_sleep(scheduler_cls: type, kwargs: dict[str, Any]) -> None:
     """The interval is long enough that only cancellation can end the task."""
     factory = _SessionFactory([[_StubResult(rows=[])]])
@@ -185,11 +188,13 @@ async def test_stop_does_not_leave_the_loop_parked_in_a_sleep(scheduler_cls: typ
 
 
 @pytest.mark.parametrize("scheduler_cls", [SLACollectorScheduler, BillingIntegrationScheduler])
+@pytest.mark.asyncio
 async def test_stop_is_safe_before_start(scheduler_cls: type) -> None:
     await scheduler_cls(_SessionFactory()).stop()
 
 
 @pytest.mark.parametrize("scheduler_cls", [SLACollectorScheduler, BillingIntegrationScheduler])
+@pytest.mark.asyncio
 async def test_start_twice_runs_one_loop(scheduler_cls: type) -> None:
     factory = _SessionFactory([[_StubResult(rows=[])] for _ in range(4)])
     scheduler = scheduler_cls(factory)
@@ -216,6 +221,7 @@ def _one_miner_with_usage() -> _Session:
     )
 
 
+@pytest.mark.asyncio
 async def test_a_sync_whose_events_all_fail_is_not_reported_as_processed() -> None:
     """The V23-101 defect: three dropped events read as three usage records."""
     integration = BillingIntegration(_one_miner_with_usage())
@@ -232,6 +238,7 @@ async def test_a_sync_whose_events_all_fail_is_not_reported_as_processed() -> No
     assert result["total_usage_records"] == 0
 
 
+@pytest.mark.asyncio
 async def test_a_sync_whose_events_land_is_reported_as_processed() -> None:
     """The success path still counts, so the test above is about the failure."""
     integration = BillingIntegration(_one_miner_with_usage())
@@ -251,6 +258,7 @@ async def test_a_sync_whose_events_land_is_reported_as_processed() -> None:
     assert len(sent) == 3
 
 
+@pytest.mark.asyncio
 async def test_record_usage_still_swallows_so_its_other_callers_are_unchanged() -> None:
     """record_usage keeps its reporting contract; send_usage is the raising one."""
     integration = BillingIntegration(_Session())

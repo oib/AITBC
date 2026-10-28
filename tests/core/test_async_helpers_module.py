@@ -6,6 +6,7 @@ This module has 0% coverage and 192 statements.
 import asyncio
 import importlib.util
 from pathlib import Path
+import pytest
 
 
 # Load module directly by file path to avoid namespace conflicts
@@ -32,6 +33,7 @@ async_helpers = load_module_from_path("aitbc.async_helpers", REPO_ROOT / "aitbc/
 class TestRunSync:
     """Test run_sync function"""
 
+    @pytest.mark.asyncio
     async def test_run_sync(self):
         async def coro():
             return "result"
@@ -39,6 +41,7 @@ class TestRunSync:
         result = await async_helpers.run_sync(coro())
         assert result == "result"
 
+    @pytest.mark.asyncio
     async def test_run_sync_with_value(self):
         async def coro():
             return 42
@@ -55,6 +58,7 @@ class TestRunSync:
 class TestGatherWithConcurrency:
     """Test gather_with_concurrency function"""
 
+    @pytest.mark.asyncio
     async def test_gather_with_concurrency(self):
         async def coro(i):
             await asyncio.sleep(0.01)
@@ -64,6 +68,7 @@ class TestGatherWithConcurrency:
         result = await async_helpers.gather_with_concurrency(coros, limit=3)
         assert result == [i * 2 for i in range(10)]
 
+    @pytest.mark.asyncio
     async def test_gather_with_concurrency_default_limit(self):
         async def coro(i):
             return i
@@ -72,6 +77,7 @@ class TestGatherWithConcurrency:
         result = await async_helpers.gather_with_concurrency(coros)
         assert result == [0, 1, 2, 3, 4]
 
+    @pytest.mark.asyncio
     async def test_gather_with_concurrency_single_item(self):
         async def coro():
             return "single"
@@ -79,6 +85,7 @@ class TestGatherWithConcurrency:
         result = await async_helpers.gather_with_concurrency([coro()])
         assert result == ["single"]
 
+    @pytest.mark.asyncio
     async def test_gather_with_concurrency_empty_list(self):
         result = await async_helpers.gather_with_concurrency([])
         assert result == []
@@ -92,6 +99,7 @@ class TestGatherWithConcurrency:
 class TestRunWithTimeout:
     """Test run_with_timeout function"""
 
+    @pytest.mark.asyncio
     async def test_run_with_timeout_success(self):
         async def coro():
             await asyncio.sleep(0.01)
@@ -100,6 +108,7 @@ class TestRunWithTimeout:
         result = await async_helpers.run_with_timeout(coro(), timeout=1.0)
         assert result == "success"
 
+    @pytest.mark.asyncio
     async def test_run_with_timeout_expired(self):
         async def coro():
             await asyncio.sleep(1.0)
@@ -108,6 +117,7 @@ class TestRunWithTimeout:
         result = await async_helpers.run_with_timeout(coro(), timeout=0.01, default="timeout")
         assert result == "timeout"
 
+    @pytest.mark.asyncio
     async def test_run_with_timeout_default_none(self):
         async def coro():
             await asyncio.sleep(1.0)
@@ -116,6 +126,7 @@ class TestRunWithTimeout:
         result = await async_helpers.run_with_timeout(coro(), timeout=0.01)
         assert result is None
 
+    @pytest.mark.asyncio
     async def test_run_with_timeout_custom_default(self):
         async def coro():
             await asyncio.sleep(1.0)
@@ -133,6 +144,7 @@ class TestRunWithTimeout:
 class TestBatchProcess:
     """Test batch_process function"""
 
+    @pytest.mark.asyncio
     async def test_batch_process(self):
         async def process(item):
             return item * 2
@@ -141,6 +153,7 @@ class TestBatchProcess:
         result = await async_helpers.batch_process(items, process, batch_size=2, delay=0)
         assert result == [2, 4, 6, 8, 10]
 
+    @pytest.mark.asyncio
     async def test_batch_process_with_delay(self):
         async def process(item):
             return item
@@ -149,6 +162,7 @@ class TestBatchProcess:
         result = await async_helpers.batch_process(items, process, batch_size=2, delay=0.01)
         assert result == [1, 2, 3, 4, 5]
 
+    @pytest.mark.asyncio
     async def test_batch_process_single_batch(self):
         async def process(item):
             return item
@@ -157,6 +171,7 @@ class TestBatchProcess:
         result = await async_helpers.batch_process(items, process, batch_size=10, delay=0)
         assert result == [1, 2, 3]
 
+    @pytest.mark.asyncio
     async def test_batch_process_empty_items(self):
         async def process(item):
             return item
@@ -164,6 +179,7 @@ class TestBatchProcess:
         result = await async_helpers.batch_process([], process)
         assert result == []
 
+    @pytest.mark.asyncio
     async def test_batch_process_default_params(self):
         async def process(item):
             return item
@@ -181,6 +197,7 @@ class TestBatchProcess:
 class TestSyncToAsync:
     """Test sync_to_async decorator"""
 
+    @pytest.mark.asyncio
     async def test_sync_to_async(self):
         @async_helpers.sync_to_async
         def sync_func(x):
@@ -193,6 +210,7 @@ class TestSyncToAsync:
         result = await test()
         assert result == 10
 
+    @pytest.mark.asyncio
     async def test_sync_to_async_with_args(self):
         @async_helpers.sync_to_async
         def sync_func(a, b):
@@ -205,6 +223,7 @@ class TestSyncToAsync:
         result = await test()
         assert result == 7
 
+    @pytest.mark.asyncio
     async def test_sync_to_async_with_kwargs(self):
         @async_helpers.sync_to_async
         def sync_func(x, multiplier=2):
@@ -262,6 +281,7 @@ class TestAsyncToSync:
 class TestWaitForCondition:
     """Test wait_for_condition function"""
 
+    @pytest.mark.asyncio
     async def test_wait_for_condition_true_immediately(self):
         condition_met = False
 
@@ -273,6 +293,7 @@ class TestWaitForCondition:
         result = await async_helpers.wait_for_condition(condition, timeout=1.0)
         assert result is True
 
+    @pytest.mark.asyncio
     async def test_wait_for_condition_true_after_delay(self):
         call_count = 0
 
@@ -285,6 +306,7 @@ class TestWaitForCondition:
         assert result is True
         assert call_count == 3
 
+    @pytest.mark.asyncio
     async def test_wait_for_condition_timeout(self):
         async def condition():
             return False
@@ -292,6 +314,7 @@ class TestWaitForCondition:
         result = await async_helpers.wait_for_condition(condition, timeout=0.1, check_interval=0.01)
         assert result is False
 
+    @pytest.mark.asyncio
     async def test_wait_for_condition_custom_interval(self):
         call_count = 0
 
@@ -303,6 +326,7 @@ class TestWaitForCondition:
         result = await async_helpers.wait_for_condition(condition, timeout=1.0, check_interval=0.05)
         assert result is True
 
+    @pytest.mark.asyncio
     async def test_wait_for_condition_default_params(self):
         async def condition():
             return True

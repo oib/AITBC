@@ -77,6 +77,7 @@ class _RecordingClient(BlockchainClient):
         return {"transaction_hash": "0xdeadbeef", "block_height": 12345}
 
 
+@pytest.mark.asyncio
 async def test_signed_tx_relays_when_signature_recovers_to_sender():
     client = _RecordingClient()
     tx = _signed_tx(PRIVKEY)
@@ -85,6 +86,7 @@ async def test_signed_tx_relays_when_signature_recovers_to_sender():
     assert client.relayed is tx
 
 
+@pytest.mark.asyncio
 async def test_signed_tx_rejects_signer_mismatch():
     """A tx signed by A but claiming from=B must fail before relay."""
     client = _RecordingClient()
@@ -94,6 +96,7 @@ async def test_signed_tx_rejects_signer_mismatch():
         await client.submit_signed_governance_tx(tx)
 
 
+@pytest.mark.asyncio
 async def test_signed_tx_rejects_non_self_directed():
     client = _RecordingClient()
     tx = _signed_tx(PRIVKEY)
@@ -103,6 +106,7 @@ async def test_signed_tx_rejects_non_self_directed():
         await client.submit_signed_governance_tx(tx)
 
 
+@pytest.mark.asyncio
 async def test_signed_tx_rejects_nonzero_amount():
     client = _RecordingClient()
     tx = _signed_tx(PRIVKEY, amount=5)
@@ -110,6 +114,7 @@ async def test_signed_tx_rejects_nonzero_amount():
         await client.submit_signed_governance_tx(tx)
 
 
+@pytest.mark.asyncio
 async def test_signed_tx_rejects_missing_fields():
     client = _RecordingClient()
     tx = _signed_tx(PRIVKEY)
@@ -118,6 +123,7 @@ async def test_signed_tx_rejects_missing_fields():
         await client.submit_signed_governance_tx(tx)
 
 
+@pytest.mark.asyncio
 async def test_signed_tx_rejects_malformed_signature():
     client = _RecordingClient()
     tx = _signed_tx(PRIVKEY)
