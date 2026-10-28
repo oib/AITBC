@@ -26,7 +26,12 @@ from sqlalchemy import func, text
 from ..base_models import Block, IPFSSubscription, _to_ait_address
 from ..config import settings
 from ..logger import get_logger
-from .v9_policy import count_v9_would_reject, v9_signature_verdict
+from .v9_policy import (
+    V17_PAYLOAD_AUTH_TX_TYPES,
+    _payload_auth_of,
+    count_v9_would_reject,
+    v9_signature_verdict,
+)
 from ..models import Account, Receipt
 from .bridge_credit import (
     bridge_refund_lock_hash,
@@ -721,7 +726,7 @@ def compute_state_delta(
     # v9: non-internal txs must carry a signature at all — same rule and
     # same allowlist as the sequential path. While the v9 height is unset
     # this only logs/counts the would-reject (shadow mode).
-    v9_reason = v9_signature_verdict(tx_data, tx_type)
+    v9_reason = v9_signature_verdict(tx_data, tx_type, block_version)
     if v9_reason is not None:
         count_v9_would_reject(v9_reason, tx_type)
         if block_version >= 9:
@@ -742,6 +747,29 @@ def compute_state_delta(
             tx_hash,
             v9_reason,
         )
+
+    # Same payload-auth rule as the sequential path: for the protocol
+    # transfer types an ``auth`` that is present must verify and bind —
+    # presence alone is not authorization. An absent auth stays allowed
+    # here: an unsigned one was already rejected by the v9 verdict above,
+    # and pre-auth protocol transfers exist in sealed history.
+    if tx_type in V17_PAYLOAD_AUTH_TX_TYPES:
+        auth = _payload_auth_of(tx_data)
+        if auth is not None:
+            from .state_transition import StateTransition
+
+            if not StateTransition._verify_payload_auth(tx_type, auth, tx_data):
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error=f"Invalid payload auth signature for transaction {tx_hash}",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
 
     sender_account = account_map.get(sender)
     if not sender_account:

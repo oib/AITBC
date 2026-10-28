@@ -1163,17 +1163,29 @@ def _admit_orphan(tx: dict[str, Any], mempool: Any, chain_id: str) -> str:
 
     Bridge credit types (release/refund) have no sender-side admission by
     design — they enter the mempool only from consensus-verified issuance, so
-    an orphaned one proved itself by having been in a block. Everything else
-    goes through the same gate as public intake: signature verification first
-    (a payload without a verifiable signature — e.g. a pre-``envelope``
+    an orphaned one proved itself by having been in a block. v17 protocol
+    transfers (``STAKE_*``/``BOUNTY_*``) are the same class: they entered via
+    ``queue_protocol_transfer`` — unsigned, authorized by ``payload.auth`` —
+    so they re-admit through the internal path once the auth still verifies
+    and binds these exact fields, which is the check apply ran. Everything
+    else goes through the same gate as public intake: signature verification
+    first (a payload without a verifiable signature — e.g. a pre-``envelope``
     reconstruction — can never legitimately re-enter the mempool), then
     ``_validate_transaction_admission`` (sender, balance, nonce window,
     supported chain).
     """
     from ..rpc.transactions import _validate_transaction_admission
     from ..rpc.utils import PREREGISTERED_CREDIT_TX_TYPES, _resolved_tx_type, verify_transaction_signature
+    from .state_transition import StateTransition
+    from .v9_policy import V17_PAYLOAD_AUTH_TX_TYPES
 
-    if _resolved_tx_type(tx) not in PREREGISTERED_CREDIT_TX_TYPES:
+    tx_type = _resolved_tx_type(tx)
+    if tx_type in V17_PAYLOAD_AUTH_TX_TYPES and not tx.get("signature") and not tx.get("sig"):
+        payload = tx.get("payload")
+        auth = payload.get("auth") if isinstance(payload, dict) else None
+        if not StateTransition._verify_payload_auth(tx_type, auth, tx):
+            raise ValueError("orphaned protocol transfer fails payload-auth verification")
+    elif tx_type not in PREREGISTERED_CREDIT_TX_TYPES:
         signature = str(tx.get("signature") or tx.get("sig") or "")
         sender = str(tx.get("from") or tx.get("sender") or "")
         if not verify_transaction_signature(tx, signature, sender):

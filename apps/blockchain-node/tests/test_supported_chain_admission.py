@@ -9,8 +9,10 @@ opens, and a whitelisted chain still queues the governance transaction.
 
 The four H2 protocol-transfer routes the audit also flagged
 (``add_to_agent_stake`` / ``complete_agent_stake`` / ``verify_bounty`` /
-``expire_bounty``) have since been retired outright — they raise HTTP 410
-before any chain-id handling; see ``rpc/retired.py``.
+``expire_bounty``) were retired at v9 and revived gated on v17 — they keep
+the early ``_require_supported_chain`` refusal (a foreign chain still dies
+with HTTP 400) and raise HTTP 410 at the ``protocol_transfers_active`` gate
+while the pin is unarmed; see ``rpc/retired.py``.
 """
 
 from __future__ import annotations
@@ -88,6 +90,7 @@ def _queued(mocker_calls) -> list[str]:
 # --- H1: execute_governance_proposal ----------------------------------------
 
 
+@pytest.mark.asyncio
 async def test_execute_proposal_foreign_chain_refused(rpc_db, monkeypatch) -> None:
     _no_db(monkeypatch)
     mempool = Mock()
@@ -99,6 +102,7 @@ async def test_execute_proposal_foreign_chain_refused(rpc_db, monkeypatch) -> No
     mempool.add.assert_not_called()
 
 
+@pytest.mark.asyncio
 async def test_execute_proposal_supported_chain_queues(rpc_db, monkeypatch) -> None:
     monkeypatch.setattr(staking.settings, "genesis_private_key", EXEC_KEY.to_hex())
     mempool = Mock()
