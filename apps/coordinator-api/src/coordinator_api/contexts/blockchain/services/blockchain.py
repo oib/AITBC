@@ -175,6 +175,7 @@ class BlockchainService:
     ) -> dict[str, Any]:
         payload = self._signed(
             {
+                "bounty_id": bounty_id,
                 "submission_id": submission_id,
                 "verified": verified,
                 "user_address": winner_address,
