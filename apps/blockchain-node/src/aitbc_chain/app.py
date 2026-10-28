@@ -18,7 +18,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .chain_id import ChainIdNotConfigured, resolve_chain_id
-from .database import ChainDbMissingError
+from .database import ChainDbMissingError, ForeignChainDbError
 from .config import settings
 from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
@@ -447,6 +447,12 @@ def create_app() -> FastAPI:
     async def _chain_db_missing(request: Request, exc: ChainDbMissingError) -> JSONResponse:
         _app_logger.error("chain db missing for request %s: %s", request.url.path, exc)
         return JSONResponse(status_code=503, content={"detail": "chain db missing"})
+
+    @app.exception_handler(ForeignChainDbError)
+    async def _foreign_chain_db(request: Request, exc: ForeignChainDbError) -> JSONResponse:
+        # Fixed detail — the exception text names internal lists/env vars.
+        _app_logger.error("foreign chain db open refused for request %s: %s", request.url.path, exc)
+        return JSONResponse(status_code=403, content={"detail": "chain not served by this node"})
 
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)

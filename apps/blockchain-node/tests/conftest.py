@@ -48,6 +48,9 @@ _TEST_CHAIN_IDS = {
     "ait-testnet",
     "ait-mainnet",
     "bc-2.test",
+    # test_no_create_db's existing-file case — an unlisted id would now be
+    # refused as a foreign-chain open (#673) before the file check matters.
+    "real-chain",
 }
 
 

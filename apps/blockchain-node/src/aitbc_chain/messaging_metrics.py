@@ -27,6 +27,7 @@ from collections import OrderedDict
 from typing import Any
 
 from prometheus_client import Counter, Gauge
+from sqlalchemy.exc import OperationalError
 from sqlmodel import col, func, select
 
 from .base_models import Block
@@ -265,6 +266,35 @@ def _prune_digest_labels(wanted: set[tuple[str, str, str]], chains: set[str]) ->
                 pass
 
 
+#: Chains already reported as having no usable local store. supported_chains
+#: is a SERVE list — it may name chains produced elsewhere whose chain.db
+#: this host legitimately does not hold, or whose leftover shadow file holds
+#: no schema. Both used to spam one WARNING per scrape interval
+#: (FOREIGN-CHAIN-DB-1, #673). The gap is reported once at INFO and repeat
+#: scrapes stay quiet; a successful collect clears the note.
+_absent_store_noted: set[str] = set()
+
+_ABSENT_STORE_MARKERS = ("no such table", "unable to open database file")
+
+
+def _is_absent_store_error(exc: BaseException) -> bool:
+    """True when an OperationalError means 'no usable store for this chain'
+    rather than a real query failure — a missing table or an unopenable file."""
+    text = str(exc).lower()
+    return any(marker in text for marker in _ABSENT_STORE_MARKERS)
+
+
+def _note_absent(chain_id: str, exc: BaseException) -> None:
+    if chain_id in _absent_store_noted:
+        return
+    _absent_store_noted.add(chain_id)
+    _logger.info(
+        "messaging metrics: no usable local chain.db for %s — served but not followed here; skipping (%s)",
+        chain_id,
+        exc,
+    )
+
+
 def collect_all(supported_chains: list[str]) -> None:
     """Update scrape gauges for every supported chain. Never raises into the
     /metrics handler — a broken chain must not blank the whole exposition.
@@ -272,7 +302,7 @@ def collect_all(supported_chains: list[str]) -> None:
     Digest label sets are pruned to this scrape's result only after the new
     values are set; a chain that failed to collect keeps its last labels.
     """
-    from .database import session_scope
+    from .database import ChainDbMissingError, session_scope
 
     wanted: set[tuple[str, str, str]] = set()
     collected: set[str] = set()
@@ -280,8 +310,23 @@ def collect_all(supported_chains: list[str]) -> None:
         try:
             with session_scope(chain_id) as session:
                 snap = collect_gauges(session, chain_id)
+            _absent_store_noted.discard(chain_id)
             wanted.add((chain_id, str(snap["checkpoint_height"]), snap["checkpoint_digest"]))
             collected.add(chain_id)
+        except ChainDbMissingError as e:
+            # Served-but-not-followed: no store here. Report once; the next
+            # scrape re-probes cheaply and collects the moment a real store
+            # appears.
+            _note_absent(chain_id, e)
+        except OperationalError as e:
+            # Phantom store: a file exists (a leftover shadow db, #662/#673)
+            # but holds no schema — "no such table" — or cannot be opened at
+            # all. Same class as absent: the node has no usable store for a
+            # chain it only serves. Report once, keep scraping the rest.
+            if _is_absent_store_error(e):
+                _note_absent(chain_id, e)
+            else:
+                _logger.warning("messaging metrics: collect failed for %s: %s", chain_id, e)
         except Exception as e:  # noqa: BLE001 - collect containment — one chain's failure must not prune the rest
             _logger.warning("messaging metrics: collect failed for %s: %s", chain_id, e)
     _prune_digest_labels(wanted, collected)

@@ -118,14 +118,73 @@ class ChainDbMissingError(FileNotFoundError):
     while unrelated missing files keep their own behaviour."""
 
 
-def get_engine(chain_id: str = "", create_ok: bool = False) -> Engine:
+class ForeignChainDbError(PermissionError):
+    """A resolved chain_id outside this process's declared chain set tried
+    to open an existing ``data/<id>/chain.db`` — the "served but not
+    followed" open that let a node read (and WAL-write sidecars into)
+    another island's store with no guard (FOREIGN-CHAIN-DB-1, #673).
+
+    The declared set is the opt-in: ``supported_chains`` (what this node
+    follows/serves), ``bridge_supported_chains`` (what its bridge serves)
+    and ``chain_id``, plus anything the process itself materialized via
+    ``init_db``/``create_ok``. A caller that genuinely needs an unlisted
+    store passes ``allow_foreign=True``; one-off ops tools can set
+    ``AITBC_DB_ALLOW_FOREIGN_CHAINS=1``."""
+
+
+# Chain ids this process materialized itself (init_db / create_ok callers)
+# or explicitly opted into. Unioned with the settings-derived lists on
+# every check, so tests that monkeypatch settings keep working and an
+# operator-run genesis for a not-yet-configured chain registers it here.
+_registered_chain_ids: set[str] = set()
+
+
+def node_chain_ids() -> set[str]:
+    """Chain ids this process declares: followed/served + bridge-served + own."""
+    ids: set[str] = set()
+    for raw in (
+        getattr(settings, "supported_chains", "") or "",
+        getattr(settings, "bridge_supported_chains", "") or "",
+        getattr(settings, "chain_id", "") or "",
+    ):
+        ids.update(c.strip() for c in str(raw).split(",") if c.strip())
+    return ids | _registered_chain_ids
+
+
+def register_chain_db(chain_id: str) -> None:
+    """Opt this process into opening ``chain_id``'s store.
+
+    Called automatically by ``init_db``/``create_ok`` engine creation —
+    whoever materializes a store may also open it. Other callers should
+    prefer configuring the chain in supported/bridge_supported chains.
+    """
+    resolved = resolve_chain_id(chain_id)
+    if resolved:
+        _registered_chain_ids.add(resolved)
+
+
+def _foreign_open_allowed(resolved_chain_id: str) -> bool:
+    if os.environ.get("AITBC_DB_ALLOW_FOREIGN_CHAINS", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    return resolved_chain_id in node_chain_ids()
+
+
+def get_engine(chain_id: str = "", create_ok: bool = False, allow_foreign: bool = False) -> Engine:
     """Return the cached engine for ``chain_id``, creating it on first use.
 
     ``create_ok``: must be True to materialize a missing
     ``data/<chain_id>/chain.db`` (genesis/init/replay callers only). With
     the default False, a missing db file raises FileNotFoundError — the
     guard that keeps a stray chain_id or a computed path from silently
-    creating 0-byte databases (NO-CREATE-DB-OPEN-1, #408).
+    creating 0-byte databases (NO-CREATE-DB-OPEN-1, #408). Creation is
+    itself the opt-in for the chain: a materialized store registers the
+    id for later opens.
+
+    ``allow_foreign``: opening an *existing* store for a chain this
+    process does not declare (not in supported/bridge_supported chains,
+    not created here) raises ForeignChainDbError unless the caller opts
+    in — serving/following lists are the normal declaration
+    (FOREIGN-CHAIN-DB-1, #673).
     """
     resolved_chain_id = resolve_chain_id(chain_id)
 
@@ -134,8 +193,18 @@ def get_engine(chain_id: str = "", create_ok: bool = False) -> Engine:
 
         from pathlib import Path as _Path
 
-        if not create_ok and not _Path(db_path).is_file():
-            raise ChainDbMissingError(f"chain db missing: {db_path} (pass create_ok=True to create — genesis/init only)")
+        if not _Path(db_path).is_file():
+            if not create_ok:
+                raise ChainDbMissingError(f"chain db missing: {db_path} (pass create_ok=True to create — genesis/init only)")
+        elif not create_ok and not allow_foreign and not _foreign_open_allowed(resolved_chain_id):
+            raise ForeignChainDbError(
+                f"chain db for {resolved_chain_id} exists but the chain is not declared by this process "
+                f"(supported_chains / bridge_supported_chains / chain_id / created here); pass allow_foreign=True "
+                f"or set AITBC_DB_ALLOW_FOREIGN_CHAINS=1 for one-off tools"
+            )
+
+        if create_ok:
+            _registered_chain_ids.add(resolved_chain_id)
 
         # SQLCipher applies to whichever chain is configured when the flag and
         # the key file are both present; no chain-id literal gates it.
@@ -252,11 +321,11 @@ _session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False,
 _session_factories: dict[str, sessionmaker] = {}
 
 
-def _get_session_factory(chain_id: str, create_ok: bool = False) -> sessionmaker:
+def _get_session_factory(chain_id: str, create_ok: bool = False, allow_foreign: bool = False) -> sessionmaker:
     """Get (or create and cache) a sessionmaker bound to the chain's engine."""
     resolved_chain_id = resolve_chain_id(chain_id)
     if resolved_chain_id not in _session_factories:
-        engine = get_engine(chain_id, create_ok=create_ok)
+        engine = get_engine(chain_id, create_ok=create_ok, allow_foreign=allow_foreign)
         _session_factories[resolved_chain_id] = sessionmaker(
             bind=engine, autoflush=False, autocommit=False, class_=Session, expire_on_commit=False
         )
@@ -273,13 +342,16 @@ def _secure_session_scope() -> Generator[Session]:
 
 # Public session scope wrapper with validation
 @contextmanager
-def session_scope(chain_id: str = "", create_ok: bool = False) -> Generator[Session]:
+def session_scope(chain_id: str = "", create_ok: bool = False, allow_foreign: bool = False) -> Generator[Session]:
     """Public session scope with application-layer validation
 
     Args:
         chain_id: Chain ID to use for database connection. If empty, uses default chain.
+        create_ok: opt into materializing a missing chain.db (genesis/init only, #408).
+        allow_foreign: opt into opening a store for a chain this process does not
+            declare — refused by default (FOREIGN-CHAIN-DB-1, #673).
     """
-    factory = _get_session_factory(chain_id, create_ok=create_ok)
+    factory = _get_session_factory(chain_id, create_ok=create_ok, allow_foreign=allow_foreign)
     with factory() as session:
         yield session
 
@@ -614,7 +686,9 @@ def init_db(chain_id: str = "") -> None:
     # Create database directory with chain_id subdirectory
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Get or create chain-specific engine
+    # Get or create chain-specific engine. init_db materializes the store, so
+    # the chain is registered as this process's own — later opens of it are
+    # never "foreign" (genesis for a not-yet-configured chain id included).
     engine = get_engine(resolved_chain_id, create_ok=True)
     _hold_keeper_connection(resolved_chain_id, engine)
 
