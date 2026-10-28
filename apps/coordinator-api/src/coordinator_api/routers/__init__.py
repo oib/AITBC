@@ -95,7 +95,8 @@ from ..contexts.agent_coordination.routers.swarm import router as swarm  # noqa:
 from ..contexts.analytics.routers.analytics import router as analytics  # noqa: E402
 
 # Bounty router moved to contexts/bounty
-from ..contexts.bounty.routers.bounty import router as bounty  # noqa: E402
+# NOTE: contexts/bounty/routers/bounty.py was deleted (dead, never mounted — issue #654);
+# the live bounty surface is contexts/bounty/routers/bounty_flat.py loaded lazily in main.py.
 
 # Certification router moved to contexts/certification
 from ..contexts.certification.routers.certification import router as certification  # noqa: E402
@@ -169,7 +170,6 @@ __all__ = [
     "multimodal_health",
     "modality_optimization_health",
     "community",
-    "bounty",
     "confidential",
     "zk_applications",
     "ml_zk_proofs",
