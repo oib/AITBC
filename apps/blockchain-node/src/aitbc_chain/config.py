@@ -912,10 +912,12 @@ class ChainSettings(BaseSettings):
     # top-level sender signature — the keyless protocol escrow cannot sign and
     # the auth is re-verified for binding immediately after (option 1 of
     # docs/design/v9-unsigned-protocol-transfers.md). HTLC_* and unsigned
-    # AUTO_STAKE stay dead (they emit no auth). ``None`` keeps the rule
-    # unarmed: the activation height is a separate operator pin, set on every
-    # host together with the validator restart wave.
-    state_transition_v17_height: int | None = None
+    # AUTO_STAKE stay dead (they emit no auth). The height is code-pinned at
+    # 8900 — the bc-2 activation (fleet wave 28 Oct, operator card 4A): a
+    # permanent historical gate belongs in code like the v4-v14 literals,
+    # not in driftable env pins. ``None`` keeps the rule unarmed for a chain
+    # that wants it deferred; per-chain env still overrides the literal.
+    state_transition_v17_height: int | None = 8900
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
