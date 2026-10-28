@@ -70,7 +70,7 @@ def _patch_pipeline(monkeypatch, apply_deltas):
     monkeypatch.setattr(
         poa_module,
         "compute_state_delta",
-        lambda account_map, tx_data, chain_id, tx_hash, processed, block_version=2, escrow_context=None, bridge_authority=None, bridge_lock_context=None: (
+        lambda account_map, tx_data, chain_id, tx_hash, processed, block_version=2, escrow_context=None, bridge_authority=None, bridge_lock_context=None, block_time=None: (
             StateDelta(
                 sender=tx_data["from"],
                 recipient=tx_data["to"],
@@ -88,7 +88,7 @@ def _patch_pipeline(monkeypatch, apply_deltas):
 
 
 def test_write_phase_failure_rolls_back_and_returns_failure(monkeypatch):
-    def _boom(session, deltas, chain_id, block_version=2):
+    def _boom(session, deltas, chain_id, block_version=2, **kwargs):
         raise RuntimeError("simulated mid-write failure")
 
     _patch_pipeline(monkeypatch, _boom)
@@ -108,7 +108,7 @@ def test_write_phase_failure_after_transaction_adds_rolls_back(monkeypatch):
 
     applied = {"called": False}
 
-    def _apply_ok(session, deltas, chain_id, block_version=2):
+    def _apply_ok(session, deltas, chain_id, block_version=2, **kwargs):
         applied["called"] = True
 
     _patch_pipeline(monkeypatch, _apply_ok)
@@ -126,7 +126,7 @@ def test_write_phase_failure_after_transaction_adds_rolls_back(monkeypatch):
 
 
 def test_happy_path_returns_processed_txs(monkeypatch):
-    def _apply_ok(session, deltas, chain_id, block_version=2):
+    def _apply_ok(session, deltas, chain_id, block_version=2, **kwargs):
         pass
 
     _patch_pipeline(monkeypatch, _apply_ok)
