@@ -261,10 +261,55 @@ async def test_bounty_signed_id_must_match_path(rpc_db, monkeypatch):
     refuses — otherwise the record mutates while the emitted refund/payout
     can never seal (payload.bounty_id != signed)."""
     monkeypatch.setenv("AGENT_ECONOMICS_OPERATOR_ADDRESS", OP_ADDR)
+    for call, args in [
+        (
+            bounty.submit_bounty,
+            (Mock(), "b-1", _signed_operator_body({"bounty_id": "b-2", "submission_id": "sub-1", "user_address": USER})),
+        ),
+        (
+            bounty.verify_bounty,
+            (Mock(), "b-1", _signed_operator_body({"bounty_id": "b-2", "submission_id": "sub-1", "verified": True})),
+        ),
+        (
+            bounty.dispute_bounty,
+            (Mock(), "b-1", _signed_operator_body({"bounty_id": "b-2", "submission_id": "sub-1"})),
+        ),
+        (
+            bounty.expire_bounty,
+            (Mock(), "b-1", _signed_operator_body({"bounty_id": "b-2", "user_address": USER})),
+        ),
+    ]:
+        with pytest.raises(HTTPException) as exc:
+            await call(*args)
+        assert exc.value.status_code == 400, f"{call.__name__}: {exc.value.detail}"
+        assert "bounty_id" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_bounty_verify_payout_requires_signed_bounty_id(rpc_db, monkeypatch):
+    """A verify that pays out must name the bounty inside the signed body.
+
+    The apply-time binding for BOUNTY_PAYOUT keys on submission_id — a
+    signature without bounty_id could be re-pathed onto any
+    ``/bounty/{id}/verify`` and drain a lock it never authorized. verified=
+    True without a signed bounty_id now refuses 400; verified=False moves
+    no funds, so tolerate-missing stays and the request still reaches the
+    unarmed gate (410)."""
+    monkeypatch.setenv("AGENT_ECONOMICS_OPERATOR_ADDRESS", OP_ADDR)
     with pytest.raises(HTTPException) as exc:
-        await bounty.expire_bounty(Mock(), "b-1", _signed_operator_body({"bounty_id": "b-2", "user_address": USER}))
+        await bounty.verify_bounty(Mock(), "b-1", _signed_operator_body({"submission_id": "sub-1", "verified": True}))
     assert exc.value.status_code == 400
     assert "bounty_id" in exc.value.detail
+
+    with pytest.raises(HTTPException) as exc:
+        await bounty.verify_bounty(Mock(), "b-1", _signed_operator_body({"submission_id": "sub-1", "verified": False}))
+    assert exc.value.status_code == 410
+
+    with pytest.raises(HTTPException) as exc:
+        await bounty.verify_bounty(
+            Mock(), "b-1", _signed_operator_body({"bounty_id": "b-1", "submission_id": "sub-1", "verified": True})
+        )
+    assert exc.value.status_code == 410
 
 
 def test_htlc_mutators_raise_retired(rpc_db):
