@@ -16,6 +16,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 
 from .storage import (
     BridgeDepositStatus,
+    canon_tx_hash,
     count_pending_retry,
     create_deposit,
     get_cursor,
@@ -1064,7 +1065,7 @@ class BridgeMonitor:
 
         depositors = depositor_tx_hashes()
         matched: str | None = None
-        release_source = release_sources().get(tx_hash.lower())
+        release_source = release_sources().get(canon_tx_hash(tx_hash))
         if release_source is not None:
             kind = "withdrawal"
             if release_source:
