@@ -14,6 +14,18 @@ AITBC uses three environment configuration files:
 - **`/etc/aitbc/blockchain.env`** - Shared blockchain settings (can be identical across nodes)
 - **`/etc/aitbc/blockchain-secrets.env`** - Shared cluster authentication secrets (must match across nodes)
 
+> **Companion-island env naming:** a companion island co-hosted on a
+> bc-2 machine uses the `aitbc-*-island.env` pattern — one `%N.env`
+> file per island unit (e.g. `aitbc-blockchain-node-island.env` /
+> `aitbc-blockchain-rpc-island.env` for `bc-2-island-1`). An island
+> unit must **never** load bc-2's env files (`node.env`,
+> `blockchain.env`, `blockchain-secrets.env`, `*-secrets.env`):
+> they carry `CHAIN_ID=bc-2`, bc-2's `SUPPORTED_CHAINS`/
+> `BLOCK_PRODUCTION_CHAINS`, `VALIDATOR_SET`, and live bc-2 proposer
+> keys — loading any of them bleeds bc-2's identity and key material
+> into the island process. See
+> [companion-island-deploy.md](../ops/companion-island-deploy.md).
+
 ## node.env Reference
 
 **Location:** `/etc/aitbc/node.env`

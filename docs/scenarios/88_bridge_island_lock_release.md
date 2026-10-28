@@ -69,9 +69,11 @@ Context:
   backfill: `ensure_supported_chain_validators` silently installs the
   *local* set under every served id, so without the registrations
   both sides resolve the wrong remote set from boot — the same
-  wrong-set class that stranded the 27251 attempt. Pre-check: confirm
-  `BRIDGE_ADMIN_ADDRESS` in `bridge-validator-keys.env` is the
-  intended admin (a pre-rotation id sits on hub1+node1).
+  wrong-set class that stranded the 27251 attempt. Pre-check: the
+  intended admin is `BRIDGE_ADMIN_ADDRESS=0xD80372cb` — the
+  pre-rotation `0x02B8F2C6…` id in `bridge-validator-keys.env` on
+  hub1+node1 is a known-stale field Coder B corrects during I-2
+  (Refs #661).
 - The multisig check in `_validate_proof` resolves the validator set
   for the *source* chain, so `BRIDGE_MULTISIG_THRESHOLD=2` is covered
   by bc-2's rows plus lock blocks that carry
@@ -81,8 +83,8 @@ Context:
 - `bridge_release_authority` resolvable island-side (genesis row — the
   emitted credit verifies against it)
 - Sender wallet: node0 `default` (funded on bc-2)
-- Recipient: a fresh address generated on the island at deploy —
-  `<island-addr>` below
+- Recipient: `0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40` — a fresh
+  address recorded at island deploy (10 AIT genesis alloc), used below
 - The lock must be POSTed to a node that **produces bc-2**:
   `initiate_transfer` refuses on non-producers (`ValueError: Source
   chain bc-2 is not produced by this node`). node0 hosts the wallet but
@@ -135,7 +137,7 @@ aitbc bridge lock \
   --rpc-url "$PRODUCER_RPC" \
   --target-chain bc-2-island-1 \
   --sender <node0-default-address> \
-  --recipient <island-addr> \
+  --recipient 0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40 \
   --amount 5000 \
   --wallet-name default          # add --wallet-password if the wallet is encrypted
 ```
@@ -158,7 +160,7 @@ aitbc bridge lock \
   --rpc-url "$PRODUCER_RPC" \
   --target-chain bc-2-island-1 \
   --sender <node0-default-address> \
-  --recipient <island-addr> \
+  --recipient 0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40 \
   --amount 36000000 \
   --wallet-name default
 ```
@@ -212,7 +214,7 @@ sqlite3 /var/lib/aitbc/data/bc-2/chain.db \
 ```
 
 **Expected:** two `BRIDGE_RELEASE` rows sealed on `bc-2-island-1`
-(`sender='bridge_release'`, `recipient=<island-addr>`, amounts 5,000 and
+(`sender='bridge_release'`, `recipient=0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40`, amounts 5,000 and
 36,000,000) and both bc-2 records at `completed` with `target_tx_hash`
 set to the release tx hash.
 
@@ -246,7 +248,7 @@ sqlite3 /var/lib/aitbc/data/bc-2-island-1/chain.db \
   `confirmation_count ≥ 3` (`BRIDGE_MIN_CONFIRMATIONS`), the
   36,000,000 lock needs `≥ 6` (`BRIDGE_FINALITY_BLOCKS`)
 - Two matching `BRIDGE_RELEASE` rows on `bc-2-island-1` —
-  `sender='bridge_release'`, `recipient=<island-addr>`,
+  `sender='bridge_release'`, `recipient=0xc1B940CE2c2a046aCEb624A5d3C63b553C555E40`,
   `payload.amount` = 5,000 / 36,000,000, each carrying
   `payload.bridge_signature` verifiable against the island's
   `bridge_release_authority`
