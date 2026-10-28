@@ -15,6 +15,7 @@ from aitbc_chain.rpc import transactions as txmod
 
 
 @pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_fanout_publishes_envelope_to_each_peer(monkeypatch):
     published: list[tuple[str, str, dict]] = []
 
@@ -52,6 +53,7 @@ async def test_fanout_publishes_envelope_to_each_peer(monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_fanout_no_peers_is_noop(monkeypatch):
     monkeypatch.setattr(aitbc_settings, "gossip_mesh_peer_urls", "")
     tx = {"from": "0xabc"}
@@ -60,6 +62,7 @@ async def test_fanout_no_peers_is_noop(monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_fanout_no_peers_warns(monkeypatch):
     """An empty peer list must not look like a successful fan-out.
 
@@ -84,6 +87,7 @@ async def test_fanout_no_peers_warns(monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_fanout_with_peers_does_not_warn(monkeypatch):
     """The skip warning must not fire when peers are configured."""
     warnings: list[str] = []
@@ -117,6 +121,7 @@ async def test_fanout_with_peers_does_not_warn(monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.asyncio
 async def test_fanout_survives_peer_failure(monkeypatch):
     calls: list[str] = []
 

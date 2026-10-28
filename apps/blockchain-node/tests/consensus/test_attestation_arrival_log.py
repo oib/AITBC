@@ -140,6 +140,7 @@ def _lines(caplog, prefix):
 
 
 class TestProposerArrivalLines:
+    @pytest.mark.asyncio
     async def test_every_kept_answer_is_logged_with_who_when_and_rank(self, monkeypatch, caplog):
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
         block = _block()
@@ -156,6 +157,7 @@ class TestProposerArrivalLines:
         arrived = [int(line.split("arrived_ms=")[1].split()[0]) for line in lines]
         assert arrived == sorted(arrived) and arrived[1] >= 40, "the second answer was sent 50 ms after the first"
 
+    @pytest.mark.asyncio
     async def test_an_answer_that_fails_verification_is_logged_not_counted(self, monkeypatch, caplog):
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
         block = _block()
@@ -169,6 +171,7 @@ class TestProposerArrivalLines:
         assert "outcome=invalid_signature" in lines[0]
         assert "outcome=valid rank=1" in lines[1]
 
+    @pytest.mark.asyncio
     async def test_an_answer_to_an_earlier_block_is_logged_as_stale(self, monkeypatch, caplog):
         """The response topic is shared: a slow validator's answer for block h-1 can land in
         the window of block h. That is the only way a late answer is ever seen."""
@@ -185,6 +188,7 @@ class TestProposerArrivalLines:
         assert "outcome=stale response_height=99" in lines[0]
         assert "outcome=valid rank=1" in lines[1]
 
+    @pytest.mark.asyncio
     async def test_a_response_for_another_chain_is_ignored_and_not_logged(self, monkeypatch, caplog):
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
         block = _block()
@@ -195,6 +199,7 @@ class TestProposerArrivalLines:
         assert got == []
         assert _lines(caplog, ARRIVAL) == []
 
+    @pytest.mark.asyncio
     async def test_no_answer_means_no_line(self, monkeypatch, caplog):
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
 
@@ -205,6 +210,7 @@ class TestProposerArrivalLines:
 
 
 class TestAttesterPublishedLine:
+    @pytest.mark.asyncio
     async def test_publishing_logs_who_answered_for_whom_and_the_request_age(self, monkeypatch, caplog):
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
 
@@ -216,6 +222,7 @@ class TestAttesterPublishedLine:
         age = int(lines[0].split("request_age_ms=")[1])
         assert 250 <= age < 5000
 
+    @pytest.mark.asyncio
     async def test_a_request_without_a_timestamp_still_logs(self, monkeypatch, caplog):
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
         monkeypatch.setattr(
@@ -233,6 +240,7 @@ class TestAttesterPublishedLine:
         assert broker.published, "the attester must answer whether or not the request carries a timestamp"
         assert "request_age_ms=unknown" in _lines(caplog, PUBLISHED)[0]
 
+    @pytest.mark.asyncio
     async def test_a_refused_request_logs_no_published_line(self, monkeypatch, caplog):
         """A request for a block from outside the validator set gets no answer and no line."""
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
@@ -253,6 +261,7 @@ class TestPostQuorumLinger:
 
     FOUR = [PROPOSER, ATTESTER_A, ATTESTER_B, ATTESTER_C]
 
+    @pytest.mark.asyncio
     async def test_a_late_but_valid_answer_lands_inside_the_linger(self, monkeypatch, caplog):
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
         vset = _vs(*self.FOUR)
@@ -269,6 +278,7 @@ class TestPostQuorumLinger:
         assert [a["validator"] for a in got] == [ATTESTER_A[0], ATTESTER_B[0], ATTESTER_C[0]]
         assert "outcome=valid rank=3" in _lines(caplog, ARRIVAL)[2]
 
+    @pytest.mark.asyncio
     async def test_without_linger_the_third_answer_is_never_read(self, monkeypatch, caplog):
         """linger=0 (the default) keeps the seal-at-quorum behaviour exactly."""
         caplog.set_level(logging.INFO, logger=ra_module.logger.name)
@@ -286,6 +296,7 @@ class TestPostQuorumLinger:
         assert [a["validator"] for a in got] == [ATTESTER_A[0], ATTESTER_B[0]]
         assert len(_lines(caplog, ARRIVAL)) == 2
 
+    @pytest.mark.asyncio
     async def test_a_validator_that_never_answers_costs_only_the_linger(self, monkeypatch):
         """The whole point of bounding the linger: an absent validator must not stretch
         collection to the full timeout."""
@@ -302,6 +313,7 @@ class TestPostQuorumLinger:
         assert len(got) == 2
         assert elapsed < 1.0, "collection ended at linger, not at the 5 s timeout"
 
+    @pytest.mark.asyncio
     async def test_all_remote_answered_breaks_without_waiting_for_linger(self, monkeypatch):
         """When every remote validator has answered there is nothing left to wait for,
         even mid-linger."""
@@ -321,6 +333,7 @@ class TestPostQuorumLinger:
         assert len(got) == 3
         assert elapsed < 1.0, "all validators answered: no linger wait"
 
+    @pytest.mark.asyncio
     async def test_the_same_validator_twice_still_counts_once(self, monkeypatch, caplog):
         """Gossip redelivery must not inflate the certificate: the verifier counts
         raw entries, so a duplicate in the list would count twice toward quorum."""

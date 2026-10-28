@@ -556,6 +556,7 @@ class TestRefundTerminality:
             setattr(rec, key, value)
         return rec
 
+    @pytest.mark.asyncio
     async def test_refused_refund_stays_non_terminal(self, mock_session):
         """The retired HTLC mutator raises — the refusal propagates, no
         REFUNDED, no proof."""
@@ -578,6 +579,7 @@ class TestRefundTerminality:
         assert mock_session.escrows["esc_refund"].status == "locked"
         assert mock_session.proofs == []
 
+    @pytest.mark.asyncio
     async def test_never_locked_timeout_refunds_honestly(self, mock_session):
         """A pending escrow that never locked has nothing on-chain to refund:
         terminal REFUNDED is fine, but tx_hash/proof must be null, not
@@ -589,6 +591,7 @@ class TestRefundTerminality:
         assert result["release_proof"] is None
         assert mock_session.proofs == []
 
+    @pytest.mark.asyncio
     async def test_check_timeouts_counts_only_real_refunds(self, mock_session):
         """An expired-but-unmatured escrow must not appear in the refunded
         list — the monitor would otherwise log a refund that never ran."""
@@ -702,6 +705,7 @@ class TestClientProofChainVerification:
         )
         return [self._wire(p) for p in (lock, ver, exe, rel, stl)]
 
+    @pytest.mark.asyncio
     async def test_valid_chain_verifies(self):
         from unittest.mock import AsyncMock
 
@@ -712,6 +716,7 @@ class TestClientProofChainVerification:
         result = await client.verify_proof_chain("e")
         assert result == {"valid": True, "errors": []}
 
+    @pytest.mark.asyncio
     async def test_tampered_chain_reports_errors(self):
         from unittest.mock import AsyncMock
 
@@ -725,6 +730,7 @@ class TestClientProofChainVerification:
         assert result["valid"] is False
         assert any("previous_proof_hash" in e for e in result["errors"])
 
+    @pytest.mark.asyncio
     async def test_empty_chain_is_invalid(self):
         from unittest.mock import AsyncMock
 

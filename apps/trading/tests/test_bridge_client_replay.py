@@ -9,6 +9,7 @@ are dormant today, but a live caller must be able to submit the guarded form.
 from __future__ import annotations
 
 from unittest import mock
+import pytest
 
 
 def _args() -> dict[str, object]:
@@ -22,6 +23,7 @@ def _args() -> dict[str, object]:
     }
 
 
+@pytest.mark.asyncio
 async def test_trading_bridge_client_forwards_replay_fields():
     from aitbc.trading.bridge import TradingBridgeClient
 
@@ -36,6 +38,7 @@ async def test_trading_bridge_client_forwards_replay_fields():
     assert kwargs["nonce"] == "deadbeef"
 
 
+@pytest.mark.asyncio
 async def test_trading_bridge_client_defaults_replay_fields_to_none():
     from aitbc.trading.bridge import TradingBridgeClient
 
@@ -50,6 +53,7 @@ async def test_trading_bridge_client_defaults_replay_fields_to_none():
     assert kwargs["nonce"] is None
 
 
+@pytest.mark.asyncio
 async def test_service_wrapper_forwards_replay_fields():
     from trading_service.clients.bridge import BridgeClient
 

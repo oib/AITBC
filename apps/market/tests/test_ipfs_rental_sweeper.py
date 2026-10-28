@@ -59,6 +59,7 @@ async def _session_factory() -> AsyncIterator[AsyncSession]:
         yield session
 
 
+@pytest.mark.asyncio
 async def test_sweeper_releases_expired_pinned_rental(session: AsyncSession) -> None:
     """A pinned rental past its expiration has its escrow released to the provider."""
     now = datetime.now(UTC)
@@ -101,6 +102,7 @@ async def test_sweeper_releases_expired_pinned_rental(session: AsyncSession) -> 
     assert rpc.refunded == []
 
 
+@pytest.mark.asyncio
 async def test_sweeper_refunds_unpinned_rental(session: AsyncSession) -> None:
     """A rental that was never pinned is refunded to the buyer."""
     now = datetime.now(UTC)
@@ -139,6 +141,7 @@ async def test_sweeper_refunds_unpinned_rental(session: AsyncSession) -> None:
     assert rpc.released == []
 
 
+@pytest.mark.asyncio
 async def test_sweeper_skips_active_not_yet_expired(session: AsyncSession) -> None:
     """A rental still in its term is left untouched."""
     now = datetime.now(UTC)
@@ -177,6 +180,7 @@ async def test_sweeper_skips_active_not_yet_expired(session: AsyncSession) -> No
     assert rpc.refunded == []
 
 
+@pytest.mark.asyncio
 async def test_425_lock_not_sealed_is_retried_by_next_sweep(monkeypatch) -> None:
     """Node answers 425 ('lock not sealed yet') once, then 200.
 
@@ -308,6 +312,7 @@ def _expired_token(access_key: str, rental_id: str, **overrides) -> IpfsRentalTo
     return IpfsRentalToken(**data)
 
 
+@pytest.mark.asyncio
 async def test_failed_settle_stamps_the_deferral_marker() -> None:
     """A settle answer that is not success defers: the token stays 'expired'
     and stamps settle_deferral_first_at instead of looping unmarked."""
@@ -327,6 +332,7 @@ async def test_failed_settle_stamps_the_deferral_marker() -> None:
         assert token.settle_deferral_first_at is not None
 
 
+@pytest.mark.asyncio
 async def test_deferral_past_bound_goes_terminal() -> None:
     """A token whose deferral exceeds the bound leaves the sweep set as
     settlement_failed instead of looping every interval forever."""
@@ -346,6 +352,7 @@ async def test_deferral_past_bound_goes_terminal() -> None:
         assert token.settle_deferral_first_at is None
 
 
+@pytest.mark.asyncio
 async def test_phantom_escrow_goes_terminal_before_the_bound() -> None:
     """A job_id the chain has no escrow row for can never settle: after the
     first deferral a still-absent verify_escrow probe must mark
@@ -366,6 +373,7 @@ async def test_phantom_escrow_goes_terminal_before_the_bound() -> None:
         assert token.settle_deferral_first_at is None
 
 
+@pytest.mark.asyncio
 async def test_present_escrow_still_defers_until_the_bound() -> None:
     """A settle failure whose escrow row exists stays in the retry set: the
     absent-row fast path must not kill rows the chain still knows about."""
@@ -385,6 +393,7 @@ async def test_present_escrow_still_defers_until_the_bound() -> None:
         assert token.settle_deferral_first_at is not None
 
 
+@pytest.mark.asyncio
 async def test_successful_settle_clears_the_deferral_marker() -> None:
     first_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
     async with _session_factory() as session:
@@ -402,6 +411,7 @@ async def test_successful_settle_clears_the_deferral_marker() -> None:
         assert token.settle_deferral_first_at is None
 
 
+@pytest.mark.asyncio
 async def test_stuck_rows_cannot_starve_an_eligible_row() -> None:
     """More stuck rows than the batch limit must not starve an eligible one:
     least-recently-processed-first ordering plus the updated_at bump rotates

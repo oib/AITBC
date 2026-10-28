@@ -246,11 +246,13 @@ class TestTradingClientInit:
 
 
 class TestTradingClientContextManager:
+    @pytest.mark.asyncio
     async def test_aenter_creates_client(self) -> None:
         async with TradingClient() as c:
             assert c._client is not None
         assert c._client is None
 
+    @pytest.mark.asyncio
     async def test_aexit_closes_client(self) -> None:
         c = TradingClient()
         await c.__aenter__()
@@ -260,6 +262,7 @@ class TestTradingClientContextManager:
 
 
 class TestTradingClientMethods:
+    @pytest.mark.asyncio
     async def test_create_trade(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"trade_id": "trade_001", "status": "pending"})
@@ -269,6 +272,7 @@ class TestTradingClientMethods:
         assert result["trade_id"] == "trade_001"
         c._client.post.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_get_trade(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"trade_id": "trade_001", "status": "matched"})
@@ -277,6 +281,7 @@ class TestTradingClientMethods:
         result = await c.get_trade("trade_001")
         assert result["trade_id"] == "trade_001"
 
+    @pytest.mark.asyncio
     async def test_list_trades_list_response(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, [{"trade_id": "t1"}, {"trade_id": "t2"}])
@@ -285,6 +290,7 @@ class TestTradingClientMethods:
         result = await c.list_trades()
         assert len(result) == 2
 
+    @pytest.mark.asyncio
     async def test_list_trades_wrapped_response(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"trades": [{"trade_id": "t1"}]})
@@ -295,6 +301,7 @@ class TestTradingClientMethods:
         call_args = c._client.get.call_args
         assert call_args.kwargs["params"]["status"] == "pending"
 
+    @pytest.mark.asyncio
     async def test_list_trades_empty_response(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"unexpected": "shape"})
@@ -303,6 +310,7 @@ class TestTradingClientMethods:
         result = await c.list_trades()
         assert result == []
 
+    @pytest.mark.asyncio
     async def test_get_trade_status(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"trade_id": "t1", "status": "completed"})
@@ -311,6 +319,7 @@ class TestTradingClientMethods:
         result = await c.get_trade_status("t1")
         assert result["status"] == "completed"
 
+    @pytest.mark.asyncio
     async def test_get_trade_history_list(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, [{"trade_id": "t1"}, {"trade_id": "t2"}])
@@ -319,6 +328,7 @@ class TestTradingClientMethods:
         result = await c.get_trade_history(source_chain="ait-hub")
         assert len(result) == 2
 
+    @pytest.mark.asyncio
     async def test_get_trade_history_wrapped(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"history": [{"trade_id": "t1"}]})
@@ -327,6 +337,7 @@ class TestTradingClientMethods:
         result = await c.get_trade_history()
         assert len(result) == 1
 
+    @pytest.mark.asyncio
     async def test_list_chains_list(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, [{"chain_id": "ait-hub"}, {"chain_id": "ait-2"}])
@@ -335,6 +346,7 @@ class TestTradingClientMethods:
         result = await c.list_chains()
         assert len(result) == 2
 
+    @pytest.mark.asyncio
     async def test_list_chains_wrapped(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"chains": [{"chain_id": "ait-hub"}]})
@@ -343,6 +355,7 @@ class TestTradingClientMethods:
         result = await c.list_chains()
         assert len(result) == 1
 
+    @pytest.mark.asyncio
     async def test_register_chain(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"chain_id": "ait-2", "status": "active"})
@@ -351,6 +364,7 @@ class TestTradingClientMethods:
         result = await c.register_chain("ait-2", "http://node2:8202")
         assert result["chain_id"] == "ait-2"
 
+    @pytest.mark.asyncio
     async def test_get_chain_health(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"chain_id": "ait-hub", "status": "healthy"})
@@ -359,6 +373,7 @@ class TestTradingClientMethods:
         result = await c.get_chain_health("ait-hub")
         assert result["status"] == "healthy"
 
+    @pytest.mark.asyncio
     async def test_health(self) -> None:
         c = TradingClient()
         mock_resp = _mock_response(200, {"status": "healthy"})
@@ -367,6 +382,7 @@ class TestTradingClientMethods:
         result = await c.health()
         assert result["status"] == "healthy"
 
+    @pytest.mark.asyncio
     async def test_close(self) -> None:
         c = TradingClient()
         mock_client = MagicMock()
@@ -376,11 +392,13 @@ class TestTradingClientMethods:
         mock_client.aclose.assert_called_once()
         assert c._client is None
 
+    @pytest.mark.asyncio
     async def test_close_when_not_open(self) -> None:
         c = TradingClient()
         await c.close()
         assert c._client is None
 
+    @pytest.mark.asyncio
     async def test_ensure_client_creates_lazy(self) -> None:
         c = TradingClient()
         client = c._ensure_client()
@@ -415,6 +433,7 @@ class TestTradingClientAuth:
         return TradingConfig(rpc_url="http://trading.test:8104", timeout=11)
 
     @pytest.mark.parametrize("use_context", [False, True])
+    @pytest.mark.asyncio
     async def test_requests_send_trading_key(self, monkeypatch: pytest.MonkeyPatch, use_context: bool) -> None:
         requests, clients = self._install_transport(monkeypatch)
         client = TradingClient(self._config(), api_key="trading-key-synthetic")
@@ -444,6 +463,7 @@ class TestTradingClientAuth:
         assert clients[0].is_closed
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_key_falls_back_to_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
         requests, _clients = self._install_transport(monkeypatch)
         monkeypatch.setenv("TRADING_API_KEY", "env-trading-key-synthetic")
@@ -452,6 +472,7 @@ class TestTradingClientAuth:
         assert requests[0].headers.get("X-Trading-Api-Key") == "env-trading-key-synthetic"
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_explicit_key_beats_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
         requests, _clients = self._install_transport(monkeypatch)
         monkeypatch.setenv("TRADING_API_KEY", "env-trading-key-synthetic")
@@ -460,6 +481,7 @@ class TestTradingClientAuth:
         assert requests[0].headers.get("X-Trading-Api-Key") == "explicit-trading-key"
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_absent_key_stays_headerless(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("TRADING_API_KEY", raising=False)
         requests, _clients = self._install_transport(monkeypatch)
@@ -471,6 +493,7 @@ class TestTradingClientAuth:
         assert "Authorization" not in req.headers
         await client.close()
 
+    @pytest.mark.asyncio
     async def test_close_and_reopen(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _requests, _clients = self._install_transport(monkeypatch)
         client = TradingClient(self._config())
@@ -507,6 +530,7 @@ class TestTradingBridgeClientInit:
 
 
 class TestTradingBridgeClientMethods:
+    @pytest.mark.asyncio
     async def test_lock_escrow(self) -> None:
         mock_bridge = MagicMock()
         mock_bridge.lock = AsyncMock(return_value={"transfer_id": "tx_001", "status": "locked"})
@@ -521,6 +545,7 @@ class TestTradingBridgeClientMethods:
         assert result["transfer_id"] == "tx_001"
         mock_bridge.lock.assert_called_once()
 
+    @pytest.mark.asyncio
     async def test_get_transfer_status(self) -> None:
         mock_bridge = MagicMock()
         mock_bridge.get_transfer = AsyncMock(return_value={"transfer_id": "tx_001", "status": "confirmed"})
@@ -528,6 +553,7 @@ class TestTradingBridgeClientMethods:
         result = await c.get_transfer_status("tx_001")
         assert result["status"] == "confirmed"
 
+    @pytest.mark.asyncio
     async def test_list_pending_transfers(self) -> None:
         mock_bridge = MagicMock()
         mock_bridge.list_pending = AsyncMock(return_value=[{"transfer_id": "tx_001"}])
@@ -535,6 +561,7 @@ class TestTradingBridgeClientMethods:
         result = await c.list_pending_transfers(chain_id="ait-hub")
         assert len(result) == 1
 
+    @pytest.mark.asyncio
     async def test_get_chain_balance(self) -> None:
         mock_bridge = MagicMock()
         mock_bridge.get_balance = AsyncMock(return_value={"chain_id": "ait-hub", "balance": 5000})
@@ -542,6 +569,7 @@ class TestTradingBridgeClientMethods:
         result = await c.get_chain_balance("ait-hub")
         assert result["balance"] == 5000
 
+    @pytest.mark.asyncio
     async def test_check_health(self) -> None:
         mock_bridge = MagicMock()
         mock_bridge.health = AsyncMock(return_value={"status": "healthy", "active_transfers": 3})
@@ -549,6 +577,7 @@ class TestTradingBridgeClientMethods:
         result = await c.check_health()
         assert result["status"] == "healthy"
 
+    @pytest.mark.asyncio
     async def test_close(self) -> None:
         mock_bridge = MagicMock()
         mock_bridge.close = AsyncMock()
@@ -558,6 +587,7 @@ class TestTradingBridgeClientMethods:
 
 
 class TestTradingBridgeClientContextManager:
+    @pytest.mark.asyncio
     async def test_context_manager(self) -> None:
         mock_bridge = MagicMock()
         mock_bridge.__aenter__ = AsyncMock(return_value=mock_bridge)

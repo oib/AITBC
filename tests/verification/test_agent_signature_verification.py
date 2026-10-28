@@ -9,6 +9,7 @@ import json
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
+import pytest
 
 
 def test_signature_generation_and_verification():
@@ -99,6 +100,7 @@ def test_signature_verification_with_tampered_message():
     return True
 
 
+@pytest.mark.asyncio
 async def test_fetch_public_key_from_coordinator():
     """Test fetching public key from coordinator API"""
     print("\nTesting Fetch Public Key from Coordinator API")
@@ -136,6 +138,7 @@ async def test_fetch_public_key_from_coordinator():
     return True
 
 
+@pytest.mark.asyncio
 async def test_receive_message_with_signature():
     """Test receive_message with signature verification"""
     print("\nTesting Receive Message with Signature Verification")

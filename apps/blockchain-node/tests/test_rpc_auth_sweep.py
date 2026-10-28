@@ -296,6 +296,7 @@ class TestVotingPowerFromStake:
         return staking_module
 
     @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_voting_power_comes_from_stake(self, env):
         """Caller claims voting_power=999999; only 250 (the active stake) counts."""
         resp = await env.cast_governance_vote(
@@ -311,6 +312,7 @@ class TestVotingPowerFromStake:
         assert resp["voting_power"] == 250
 
     @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_no_stake_means_no_power(self, env):
         resp = await env.cast_governance_vote(
             None,
@@ -325,6 +327,7 @@ class TestVotingPowerFromStake:
         assert resp["voting_power"] == 0
 
     @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_checksummed_stake_row_matches_lowercase_voter(self, env):
         """Stake rows are written EIP-55-checksummed by the state transition;
         the request address is lowercased. The lookup must still match."""
@@ -352,6 +355,7 @@ class TestVotingPowerFromStake:
         assert resp["voting_power"] == 777
 
     @pytest.mark.anyio
+    @pytest.mark.asyncio
     async def test_zero_power_vote_on_zero_quorum_proposal_does_not_500(self, env):
         """quorum_required defaults to 0; a 0-power vote made total_votes=0 ≥ 0,
         then divided by zero. The proposal must stay 'active', not crash."""

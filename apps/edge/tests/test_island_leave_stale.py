@@ -73,6 +73,7 @@ def _patch_rpc(monkeypatch, reply: dict[str, Any]):
     monkeypatch.setattr(svc_mod, "BlockchainRPCClient", lambda **kw: _StubRPC(reply))
 
 
+@pytest.mark.asyncio
 async def test_left_deletes_row(monkeypatch, seeded_session):
     _patch_rpc(
         monkeypatch,
@@ -83,6 +84,7 @@ async def test_left_deletes_row(monkeypatch, seeded_session):
     assert await _row_count(seeded_session) == 0
 
 
+@pytest.mark.asyncio
 async def test_not_member_deletes_row(monkeypatch, seeded_session):
     """Chain says we are already gone — the edge row is stale and must go."""
     _patch_rpc(
@@ -101,6 +103,7 @@ async def test_not_member_deletes_row(monkeypatch, seeded_session):
     assert await _row_count(seeded_session) == 0
 
 
+@pytest.mark.asyncio
 async def test_not_member_via_status_only_deletes_row(monkeypatch, seeded_session):
     """A reply carrying the code only in `status` is also recognised."""
     _patch_rpc(
@@ -111,6 +114,7 @@ async def test_not_member_via_status_only_deletes_row(monkeypatch, seeded_sessio
     assert await _row_count(seeded_session) == 0
 
 
+@pytest.mark.asyncio
 async def test_forbidden_default_keeps_row(monkeypatch, seeded_session):
     _patch_rpc(
         monkeypatch,
@@ -127,6 +131,7 @@ async def test_forbidden_default_keeps_row(monkeypatch, seeded_session):
     assert await _row_count(seeded_session) == 1
 
 
+@pytest.mark.asyncio
 async def test_legacy_codeless_failure_keeps_row(monkeypatch, seeded_session):
     """Pre-#573 shape: success:false with no code/status — must not delete."""
     _patch_rpc(

@@ -170,6 +170,7 @@ def _apply(engine, tx: dict[str, Any]) -> tuple[bool, str]:
         return ok, err
 
 
+@pytest.mark.asyncio
 async def test_register_writes_no_row_and_two_nodes_agree(monkeypatch):
     """Node A serves the register call; node B never sees it. The fixed
     route writes no ``gpu_registration`` row on A — after the same sealed
@@ -201,6 +202,7 @@ async def test_register_writes_no_row_and_two_nodes_agree(monkeypatch):
     assert _fingerprint(engine_a) == _fingerprint(engine_b)
 
 
+@pytest.mark.asyncio
 async def test_allocate_writes_no_row_and_register_then_allocate(monkeypatch):
     """Register seals first, then allocate: both tables stay in lockstep on
     the two nodes; the allocate route itself writes nothing."""
@@ -238,6 +240,7 @@ def test_allocate_before_register_rejected_onchain():
     assert "not found" in err.lower()
 
 
+@pytest.mark.asyncio
 async def test_unsigned_and_legacy_bodies_refused():
     """No ``tx`` → clear 400; wrong type / missing signature / missing
     sender → 400. Nothing is written, nothing is submitted."""
