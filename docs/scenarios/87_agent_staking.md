@@ -4,7 +4,7 @@
 **Prerequisites**: v17 armed (`STATE_TRANSITION_V17_HEIGHT` set, head past the pin)
 **Estimated Time**: 20 minutes + lock maturity
 **Last Updated**: 2026-10-28
-**Version**: 1.0
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -17,10 +17,10 @@ breadcrumb: Home > Scenarios > Agent Staking Lifecycle
 ## Scenario Overview
 
 Agent staking is **operator-signed** — no `aitbc` CLI surface exists.
-The coordinator-api on hub signs server-side via
-`AGENT_ECONOMICS_OPERATOR_*` and forwards the `payload.auth`-bearing
-`STAKE_LOCK`/`STAKE_RELEASE` emissions. This play walks the full
-position lifecycle:
+The working path is the **signed node-RPC** surface on `hub:8202`
+(`/v1/agent-staking/*`): the node re-verifies the operator's
+`payload.auth` and forwards `STAKE_LOCK`/`STAKE_RELEASE` emissions.
+This play walks the full position lifecycle:
 
 - **stake** — create a position → `STAKE_LOCK` seals
 - **add** — top up the position → `STAKE_LOCK` seals
@@ -35,62 +35,75 @@ scenario 01 steps 26–27; wallet-gate option refusals are scenario 83.)
 **Lock-maturity gate:** `unbond` and `complete` are refused while the
 position's `locked_until` is in the future — the same ~24h wall-clock +
 v4 height-window (`lock_height + lock_days*1440`) rule as wallet
-staking. Deploy the position with `lock_days=1` (the minimum) if the
-release half must complete within a day.
+staking. The refusal reads `Lock period has not ended`. Deploy the
+position with the minimum lock period (1 day) if the release half must
+complete within a day.
 
 ### Prerequisites
 
-- coordinator-api on hub with `AGENT_ECONOMICS_OPERATOR_ADDRESS` +
-  `AGENT_ECONOMICS_OPERATOR_KEY` configured
+- node RPC reachable at `hub:8202` with `AGENT_ECONOMICS_OPERATOR_ADDRESS`
+  configured on the rpc unit
+- `AGENT_ECONOMICS_OPERATOR_KEY` available to the signing script
 - a funded wallet to back the position
 - head ≥ `STATE_TRANSITION_V17_HEIGHT`
 
 ---
 
-## Steps — coordinator-api on hub
+## Operator path: signed node RPC (`hub:8202`)
+
+Every step signs the request body the same way:
+
+1. Strip `signature` from the payload.
+2. Canonical JSON: `json.dumps(payload, sort_keys=True, separators=(",", ":"))`.
+3. `digest = keccak256(canonical_bytes)`; sign via eth_keys
+   `sign_msg_hash` with `AGENT_ECONOMICS_OPERATOR_KEY`.
+4. Attach the hex signature as `signature` and POST.
+
+Working reference implementation: `hub:/root/v17-bounty_cycle.py`
+(bounty flavor, same recipe — operator-held, not in the repo).
 
 ```bash
-API=http://<hub-coordinator-api>   # coordinator-api on hub
+RPC=http://hub:8202   # node RPC on hub
 ```
 
 ### Step 1: Create a stake position → `STAKE_LOCK`
 
+Sign and POST a stake body (`agent_wallet`, `amount`, `lock_period`):
+
 ```bash
-curl -s -X POST "$API/stake" -H 'content-type: application/json' -d '{
-  "agent_wallet": "<agent address>",
-  "amount": "<units>",
-  "lock_days": 1
-}'
+curl -s -X POST "$RPC/v1/agent-staking/stake" -H 'content-type: application/json' -d @signed-stake.json
 ```
 
 Record `stake_id`. A `STAKE_LOCK` seals with the operator's
-`payload.auth`; the position's `locked_until` starts now.
+`payload.auth`; the position's `locked_until` starts now and its status
+is `active`.
 
 ### Step 2: Add to the position → `STAKE_LOCK`
 
+Sign and POST the add body (`additional_amount`):
+
 ```bash
-curl -s -X POST "$API/stake/<stake_id>/add" -H 'content-type: application/json' -d '{
-  "amount": "<additional units>"
-}'
+curl -s -X POST "$RPC/v1/agent-staking/stake/<stake_id>/add" -H 'content-type: application/json' -d @signed-add.json
 ```
 
 A second `STAKE_LOCK` seals; `locked_until` may extend per the position
-rules — re-read `GET /stake/<stake_id>` before proceeding.
+rules — re-read the position (`GET /v1/agent-staking/stake/<stake_id>`)
+before proceeding.
 
 ### Step 3: Unbond — release-window gate
 
 ```bash
-curl -s -X POST "$API/stake/<stake_id>/unbond" -H 'content-type: application/json' -d '{}'
+curl -s -X POST "$RPC/v1/agent-staking/stake/<stake_id>/unbond" -H 'content-type: application/json' -d @signed-unbond.json
 ```
 
-**Expected while locked:** refusal naming `locked_until` — this is the
-intended gate, not a failure. Once `locked_until` (wall-clock) and the
-height window have passed, unbond begins the release.
+**Expected while locked:** refusal `Lock period has not ended` — this
+is the intended gate, not a failure. Once `locked_until` (wall-clock)
+and the height window have passed, unbond begins the release.
 
 ### Step 4: Complete the release → `STAKE_RELEASE`
 
 ```bash
-curl -s -X POST "$API/stake/<stake_id>/complete" -H 'content-type: application/json' -d '{}'
+curl -s -X POST "$RPC/v1/agent-staking/stake/<stake_id>/complete" -H 'content-type: application/json' -d @signed-complete.json
 ```
 
 After the unbonding window settles, complete finalizes the position and
@@ -98,19 +111,17 @@ a `STAKE_RELEASE` seals returning the principal to the agent wallet.
 
 ---
 
-## Alternative path: direct signed node RPC
+## Secondary path: coordinator-api (`/v1/stake`)
 
-Same mechanics as the bounty lane — the node RPC on `hub:8202` accepts
-operator-signed bodies directly:
-
-1. Strip `signature` from the payload.
-2. Canonical JSON: `json.dumps(payload, sort_keys=True, separators=(",", ":"))`.
-3. `digest = keccak256(canonical_bytes)`; sign via eth_keys
-   `sign_msg_hash` with `AGENT_ECONOMICS_OPERATOR_KEY`.
-4. Attach as `signature` and POST.
-
-Working reference: `hub:/root/v17-bounty_cycle.py` (bounty flavor, same
-recipe).
+The coordinator-api on hub serves the same lifecycle under `/v1`
+(`POST /v1/stake`, `/v1/stake/{id}/add`, `/v1/stake/{id}/unbond`,
+`/v1/stake/{id}/complete`) and signs server-side via
+`AGENT_ECONOMICS_OPERATOR_KEY` — but every handler requires
+`get_current_user_required` (a coordinator account JWT), so it is
+secondary for ops plays. Field shape differs from the node path:
+`lock_period` (int, days, 1–365; not `lock_days`), `amount` in **AIT**
+(`ait_to_units` conversion server-side; minimum 100 AIT, maximum
+100 000 AIT), and the add step takes `additional_amount`.
 
 ---
 
@@ -121,7 +132,7 @@ sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db \
   "SELECT block_height, type, sender, recipient FROM transaction \
    WHERE type IN ('STAKE_LOCK','STAKE_RELEASE') ORDER BY rowid DESC LIMIT 10;"
 
-curl -s "$API/stake/<stake_id>" | python3 -m json.tool
+curl -s "$RPC/v1/agent-staking/stake/<stake_id>" | python3 -m json.tool
 ```
 
 **Expected:**
@@ -129,7 +140,7 @@ curl -s "$API/stake/<stake_id>" | python3 -m json.tool
 - two `STAKE_LOCK` rows (create + add) carrying `payload.auth`
 - one `STAKE_RELEASE` row after complete — recipient = agent wallet
 - the stake record shows `locked_until` and transitions
-  staked → unbonding → completed
+  active → unbonding → completed
 
 ---
 
@@ -139,9 +150,9 @@ curl -s "$API/stake/<stake_id>" | python3 -m json.tool
 - [Scenario 01](./01_wallet_basics.md) steps 26–27 — wallet-signed staking
 - [Scenario 83](./83_stake_options.md) — wallet-gate refusal plays
 - [v17 activation runbook](../ops/v17-activation-runbook.md)
-- [v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution)
+- [v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution--option-1-implemented-staking--bounty)
 
 ---
 
 *Last updated: 2026-10-28*
-*Version: 1.0*
+*Version: 1.1*
