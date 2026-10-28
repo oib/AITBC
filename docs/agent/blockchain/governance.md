@@ -14,6 +14,8 @@ The canonical group is `aitbc governance` (governance service, port 8105):
 
 > **Deprecated path:** the wallet-signed on-chain RPC commands (`aitbc operations governance proposal|vote|get-proposal|voting-power|delegate|execute`) still work but the `aitbc operations` group is deprecated and hidden from `aitbc --help`. Prefer `aitbc governance`; use `aitbc stake`/`aitbc unstake` for on-chain staking.
 
+> **Known limitations (bc-2 live sweep, 28 Oct):** on a v13-armed chain, `aitbc governance propose` cannot seal a `GOVERNANCE_PROPOSE` — neither the CLI's `--wallet` signing nor the service's proposer-key fallback emits the `execution_payload` the v13 rule requires, so the node refuses it at mempool admission (HTTP 400) and the best-effort relay only logs a warning: the proposal exists service-side but never lands on-chain (no `tx_hash`/`block_height`, and `execute` is later refused by the timelock gate). For votes, the `GOVERNANCE_VOTE` payload field is `vote_type`, not `vote` — a wrong field passes admission, is drained by the proposer, and is skipped with no error surfaced. Self-built `GOVERNANCE_*` records need a custom signer (`aitbc transactions send --amount 0` also refuses the type client-side).
+
 ## RPC Endpoints
 
 - `POST /rpc/governance/vote` - Cast governance vote
