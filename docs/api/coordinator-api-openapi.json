@@ -71,16 +71,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "TEE attestation is not enabled on this coordinator",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       },
@@ -855,7 +845,7 @@
           "client"
         ],
         "summary": "Accept a result and release payment",
-        "description": "Release the held escrow now, without waiting for the window to expire (G3).\n\nAccepting is the customer's own decision to pay, so it is the one release path\nthat needs no timer and no arbiter.",
+        "description": "Release the held escrow now, without waiting for the window to expire (G3).\n\nAccepting is the customer's own decision to pay, so it is the one release path\nthat needs no timer and no arbiter. The Idempotency-Key ledger\n(CLI-IDEMPOTENCY-1) makes a CLI retry after a gateway blip replay the\nrecorded outcome instead of racing a second release.",
         "operationId": "accept_job_v1_jobs__job_id__accept_post",
         "parameters": [
           {
@@ -907,36 +897,6 @@
           },
           "403": {
             "description": "Role required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "job not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "the escrow release did not settle on-chain; the payment stays held and will be retried",
             "content": {
               "application/json": {
                 "schema": {
