@@ -107,8 +107,9 @@ To put the proposal on-chain, add `--wallet mywallet` (and `--password` if the w
 > carry from state-transition v13 — on a v13-armed chain the node
 > refuses it at mempool admission (HTTP 400). The service treats the
 > relay as best-effort and only logs the failure, so the proposal is
-> still recorded but never seals (no `tx_hash`/`block_height`, and a
-> later `execute` is refused by the timelock gate). The sweep sealed
+> still recorded but never seals (no `tx_hash`/`block_height`); a later
+> `execute` has nothing to execute — the apply check is
+> executor-allowlist + `execution_payload` match only, no timelock. The sweep sealed
 > `prop_76855f71` with a custom signer that sets `execution_payload`
 > (see [v1-v9 waivers](../decisions/v1-v9-live-exercise-waivers.md));
 > CLI support is a pending gap.
@@ -274,7 +275,10 @@ Abstain Votes       100
 
 ### Step 8: Execute a Passed Proposal
 
-Once the voting period ends and the proposal passes, execute it to enact the changes.
+Execute a proposal when its `execution_payload` is ready — the apply
+path checks the executor-allowlist + the payload match only; the
+voting window is **not** an execute gate (an executor may execute an
+unpopular or still-open proposal — record note at Step 3).
 
 ```bash
 aitbc governance execute --proposal-id prop-001
