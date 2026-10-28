@@ -150,8 +150,19 @@ def _distribute_to_pool(
     return True
 
 
-def _realize_fixed_apy(session: Session, chain_id: str, pool: LiquidityPool, stake: LiquidityStake) -> int:
+def _realize_fixed_apy(
+    session: Session,
+    chain_id: str,
+    pool: LiquidityPool,
+    stake: LiquidityStake,
+    now: datetime | None = None,
+) -> int:
     """Realize fixed APY for a stake by moving emission treasury into the pool reward pool.
+
+    ``now`` is the sealed block-header timestamp on the v18+ apply path —
+    the accrual window is then a pure function of (transaction, prior state,
+    block header). ``None`` keeps the wall-clock behaviour for pre-v18
+    replay and queue-time RPC callers.
 
     Returns the number of compute-units added to the pool reward-per-share.
     """
@@ -160,7 +171,7 @@ def _realize_fixed_apy(session: Session, chain_id: str, pool: LiquidityPool, sta
     created = stake.created_at
     if created.tzinfo is None:
         created = created.replace(tzinfo=UTC)
-    elapsed = (datetime.now(UTC) - created).total_seconds()
+    elapsed = ((now or datetime.now(UTC)) - created).total_seconds()
     apy = _tier_apy(stake.lock_days)
     fixed = _apy_reward_units(stake.amount, apy, elapsed)
     if fixed <= 0:
