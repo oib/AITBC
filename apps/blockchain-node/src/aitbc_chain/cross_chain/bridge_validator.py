@@ -111,19 +111,23 @@ class BridgeValidatorMixin(BridgeBase):
         if not supported:
             return
         # Chain-aware backfill (Refs #659): the local validator set is only a
-        # plausible stand-in for chains this node actually follows or produces.
-        # Copying it under a bridge-only chain id fabricates a foreign
-        # validator set — that phantom set silently degrades cross-chain
-        # verification (the Lock-A incident: bc-2's 4 installed as the island's
-        # set by every restarted rpc). Bridge-only chains are seeded by
-        # explicit signed registration, never by backfill.
-        followed = {c.strip() for c in str(getattr(settings, "supported_chains", "")).split(",") if c.strip()}
+        # plausible stand-in for a foreign chain when an operator has
+        # deliberately shared validator identities across chains — never
+        # the default. Copying the local set under a foreign chain id
+        # fabricates that chain's validator set from the wrong identities
+        # (the Lock-A incident: bc-2's 4 installed as the island's set by
+        # every restarted rpc). supported_chains cannot be the criterion:
+        # the rpc override lists chains this process *serves*, not chains
+        # it produces. Foreign chains are seeded by explicit signed
+        # registration; the opt-in flag exists for a genuine shared-set
+        # deployment.
+        backfill_foreign = bool(getattr(settings, "bridge_backfill_foreign_validators", False))
         for target_chain in [c.strip() for c in supported.split(",") if c.strip()]:
             if target_chain == source_chain:
                 continue
-            if target_chain not in followed:
-                logger.info(
-                    "Skipping bridge validator backfill for %s — bridge-only chain, requires explicit registration",
+            if not backfill_foreign:
+                logger.debug(
+                    "Skipping bridge validator backfill for %s — foreign chain, requires explicit registration (set bridge_backfill_foreign_validators to opt in)",
                     target_chain,
                 )
                 continue
