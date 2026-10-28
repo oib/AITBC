@@ -160,6 +160,7 @@ class BlockchainService:
     ) -> dict[str, Any]:
         payload = self._signed(
             {
+                "bounty_id": bounty_id,
                 "submission_id": submission_id,
                 "user_address": submitter_address,
                 "zk_proof": zk_proof,
@@ -188,6 +189,7 @@ class BlockchainService:
     ) -> dict[str, Any]:
         payload = self._signed(
             {
+                "bounty_id": bounty_id,
                 "submission_id": submission_id,
                 "user_address": disputer_address,
                 "dispute_reason": dispute_reason,
