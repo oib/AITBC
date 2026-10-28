@@ -72,3 +72,52 @@ the envelope) — an operator decision, flagged here rather than waived.
 `test_v9_type_coverage_replay.py` lands on main, all 22 parametrized cases
 green, and the fleet keeps agreeing on every block (already verified:
 8584 v9-era blocks identical across all five hosts at head 39089).
+
+## Close-out (2026-10-28)
+
+**Condition met.** All three legs of the close condition hold on `main`:
+
+1. **The replay suite landed and is green.** The harness lives at
+   `tests/unit/test_v9_type_coverage_replay.py` — the suite in `2c6707d8d`,
+   the production-shape xfail pins in `f54decccc`, the v17 section in
+   `7f88f7381`. A full run reports **44 passed + 13 strict xfailed** (57
+   cases). All 22 parametrized `test_v9_type_replayed` cases are green:
+   20 pass, and `BOUNTY_PAYOUT`/`BOUNTY_REFUND` are strict-xfail **by
+   design** — they pin the historical v9 defect (the unsigned production
+   shape was unsealable after block 30400), replay deliberately at v9
+   rules, and would flip to XPASS the day v9 admitted them. The other 11
+   xfails are the same pin on the production-emission cases.
+2. **The v17 section proves the BNT-1 revival deterministically.** The
+   seven emissions carrying a well-formed `payload.auth` — the
+   `STAKE_LOCK`/`STAKE_RELEASE` shapes emitted by staking and
+   agent-staking plus `BOUNTY_LOCK`/`BOUNTY_PAYOUT`/`BOUNTY_REFUND` —
+   seal on two independent databases with identical accounts and state
+   root. The four no-auth emissions (`AUTO_STAKE`, the HTLC shapes) keep
+   the exact v9 `missing_signature` rejection at v17.
+3. **Fleet agreement already held at waiver time** — 8584 v9-era blocks
+   identical across all five hosts at head 39089, as recorded above.
+   (The fleet has since cut to `bc-2`; the replayed v9-era blocks are
+   historical and identical on every host.)
+
+**Supplementary evidence — Coder C live sweep on `bc-2` (in flight).**
+Coder C is running a live exercise sweep of the remaining user-submitted
+types on `bc-2`. These observations are supplementary — they are not part
+of the close condition above and V-1 does not wait on them. Results to be
+filled in from C's report; do not write outcomes here ahead of it:
+
+| type | sealed? | height | tx hash / note |
+|---|---|---|---|
+| MESSAGE | ⬜ pending | — | Coder C sweep |
+| AI_JOB | ⬜ pending | — | Coder C sweep |
+| GPU_ALLOCATE | ⬜ pending | — | Coder C sweep |
+| GOVERNANCE_* | ⬜ pending | — | Coder C sweep |
+| LIQUIDITY_* | ⬜ pending | — | Coder C sweep |
+| BOND_* | ⬜ pending | — | Coder C sweep |
+| BRIDGE_LOCK | ⬜ pending | — | Coder C sweep |
+| BRIDGE_WITHDRAW | ⬜ pending | — | Coder C sweep |
+| ESCROW_FEE_SWEEP | ⬜ pending | — | observation only — Coder C sweep |
+
+**The BRIDGE_RELEASE reservation stands.** The single live
+`BRIDGE_RELEASE` exercise stays unbuilt and gated on the operator's
+explicit approval; the draft runbook lives at
+`docs/ops/bridge-release-exercise.md`.
