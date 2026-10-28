@@ -9,8 +9,8 @@ stays unbuilt and requires the operator's approval at that time.
 **Why this is safe:** a sealed transaction proves two things — admission
 and deterministic apply — and a fixture-chain replay proves the same two
 things without a chain write. The replay harness
-(`tests/apps/blockchain-node/test_v9_type_coverage_replay.py`, to be
-built per the round-8 design) constructs synthetic blocks at v9 rules,
+(`tests/unit/test_v9_type_coverage_replay.py` — built; see the V-1
+close-out below) constructs synthetic blocks at v9 rules,
 signs them with fixture keys, mints prerequisite rows, and replays the
 block twice asserting identical final state — the same determinism check
 the V-2 adversarial replay test uses.
@@ -67,7 +67,7 @@ admits unsigned protocol transfers carrying a well-formed
 both apply paths and at remote attestation. HTLC emissions and unsigned
 `AUTO_STAKE` carry no auth and stay retired (option 3). The mechanism is
 documented in
-[v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution);
+[v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution--option-1-implemented-staking--bounty);
 implementation commit `7f88f7381`. The strict-xfail pins stay — they
 record the historical v9 defect this decision repaired, replayed at v9
 rules on purpose.
@@ -127,7 +127,7 @@ them:
 | GOVERNANCE_PROPOSE / VOTE | ✅ sealed | 8708 / 8716 | `0xee997ce3…ffda282c` (`prop_76855f71`) / `0xdfe148c9…339edcd6` — custom signer; the CLI cannot emit v13 `execution_payload` and the vote field is `vote_type`, not `vote` |
 | GOVERNANCE_EXECUTE | ⬛ authority-gated | — | `governance_executors` keys exist nowhere in the fleet; `prop_76855f71` + 1 vote sealed and waiting — pending operator card |
 | LIQUIDITY_* | ❌ unsealable at v16 | — | DEPOSIT **poisoned the chain**: `liq_<random>` stake_id + wall-clock `locked_until` are committed columns → every node computed a different v14 aux-root → 3-vs-2 liveness deadlock at 8705/8706; recovered via delta-journal `revert_losing_segment` (poison dropped, not requeued) + rejoin runbook, clean quorum at 8706 `0x14b9461e…`. WITHDRAW/CLAIM unreachable — no sealed stake can exist |
-| BOND_* | ❌ not exercisable at v16 | — | LOCK deliberately not fired — same nondeterminism class (`locked_until = datetime.now(UTC)` committed on the `bond` row); RELEASE unreachable; SLASH doubly blocked — needs both a sealed bond (impossible at v16) and `bond_slash_authority` (key absent fleet-wide), so the coordinator-api `POST /market/providers/{id}/bonds/slash` path was not attempted |
+| BOND_* | ❌ not exercisable at v16 | — | LOCK deliberately not fired — same nondeterminism class (`locked_until = datetime.now(UTC)` committed on the `bond` row); RELEASE unreachable; SLASH doubly blocked — needs both a sealed bond (impossible at v16) and `bond_slash_authority` (key absent fleet-wide). On-chain `BOND_SLASH` emission lives in `BondSlashingService.slash()` (`contexts/market/services/bond_slashing.py`, signs via `BOND_SLASH_PRIVATE_KEY`/`BOND_SLASH_AUTHORITY_ADDRESS`), invoked by job-scoped emitters — `infrastructure/routers/miner.py:379` on TEE/ZK verification failure, `infrastructure/routers/admin.py:334,413` on dispute rulings — not by the domain-status-only bonds endpoint |
 | BRIDGE_LOCK | ⬛ config-blocked | — | `initiate_transfer` requires distinct source/target chains; every fleet node supports only `bc-2` — no valid lock target exists; pending operator card |
 | BRIDGE_WITHDRAW | ✅ sealed (chain side) | 8723 | `0x74301648…c2a3656` — 360000 units → `0xF1C83cd9…` on sepolia; **anomaly**: the monitor recorded it as "outbound refund" `aec7a816…` with no ledger row and no ETH payout — chain-side type proven, payout-leg classification open; pending operator card |
 | ESCROW_FEE_SWEEP | ❌ never emitted | — | root cause found: the sweep pass runs inside `aitbc-blockchain-rpc`, but `ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT=1` is pinned only in `aitbc-blockchain-node.env` → the rpc unit's default floor `35400` excludes every bc-2 leg → tick-only metrics. Eligible candidates custody-verified (`83631ce6` 900u; `sw_job_20261026012257` 1500u); a one-line env pin + rpc restart would fire it — pending operator card |

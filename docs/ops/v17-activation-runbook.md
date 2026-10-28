@@ -13,7 +13,7 @@
 > what the arming does and what the failure modes mean. Modelled on
 > [v14-activation-runbook.md](v14-activation-runbook.md); read the
 > mechanism first:
-> [v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution)
+> [v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution--option-1-implemented-staking--bounty)
 > (implementation `7f88f7381`).
 
 Fleet: node0, node1, node2, hub1, hub — chain `bc-2`, RPC on
@@ -79,6 +79,10 @@ Identical value, every host, before any restart:
    `aitbc-blockchain-node` **and** `aitbc-blockchain-rpc` on each (the
    revived RPC gate is evaluated in the RPC process; an unrestarted RPC
    unit keeps 410-ing after `<H>`).
+   - Historical note (bc-2 actual): the completed 8900 wave ran
+     **node0 → hub1 → node1 → node2 → hub** with no seal gaps — the
+     order above is the prescribed default, not a record of what ran;
+     any serial order works provided quorum holds between hosts.
    - Per host: confirm service up + head advancing + attestations
      flowing before the next host. Never two validators in one window.
 4. After the wave: the drift check's env-diff line for

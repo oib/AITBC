@@ -250,7 +250,7 @@ Post-v17 note (28 Oct): under v9–v16 the protocol-emitted
 v9 exempts only `BRIDGE_*`). v17 — `STATE_TRANSITION_V17_HEIGHT` —
 admits them carrying verified `payload.auth`, and the retired RPC
 surfaces return behind an activation gate (HTTP 410 while unarmed): see
-[v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution)
+[v17 resolution](../design/v9-unsigned-protocol-transfers.md#v17-resolution--option-1-implemented-staking--bounty)
 and [v17-activation-runbook](../ops/v17-activation-runbook.md). The
 `HTLC_*` and unsigned `AUTO_STAKE` shapes remain dead — no auth to
 verify — so their replay-suite citations still stand.

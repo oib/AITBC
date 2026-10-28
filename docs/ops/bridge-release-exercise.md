@@ -128,9 +128,13 @@ curl -s http://127.0.0.1:8202/rpc/bridge/pending | python3 -m json.tool # → []
 - `<island>` chain id and host layout (recommend: produced by all four
   bc-2 validators, hosted on all five hosts — gives replay evidence on
   every node).
-- Lock amount in compute-units (≤ `BRIDGE_MAX_LOCK_AMOUNT` = 1000 AIT;
-  keep under `BRIDGE_LARGE_TRANSFER_THRESHOLD` = 10000 AIT so
-  `BRIDGE_MIN_CONFIRMATIONS=3` suffices — anything larger demands 6).
+- Lock amount in compute-units (≤ `BRIDGE_MAX_LOCK_AMOUNT` = 1000 AIT).
+  Note the finality path is effectively fixed:
+  `BRIDGE_LARGE_TRANSFER_THRESHOLD` = 10000 **raw units** (~0.00028 AIT)
+  — any realistic lock is "large" and waits for
+  `BRIDGE_FINALITY_BLOCKS` = 6 confirmations; the lighter
+  `BRIDGE_MIN_CONFIRMATIONS` = 3 path only serves dust below the
+  threshold (`bridge_finality.py:_check_finality_for_transfer`).
 - Sender wallet, recipient address, exercising node.
 
 ## Procedure
@@ -177,7 +181,9 @@ sqlite3 /var/lib/aitbc/data/bc-2/chain.db \
 ```
 
 Expected within a few `bridge_monitor_interval` (60 s) passes after the
-lock block reaches `BRIDGE_MIN_CONFIRMATIONS` (3) confirmations:
+lock block reaches `BRIDGE_FINALITY_BLOCKS` (6) confirmations — the
+3-confirmation `BRIDGE_MIN_CONFIRMATIONS` path applies only to
+sub-threshold dust (see open parameters):
 
 - `bridge_block_header` rows for `bc-2` mirror past the lock height.
 - `Bridge relayer: confirm …` / `Relayed 1 bridge transfers on chain bc-2`.
