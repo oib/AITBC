@@ -435,6 +435,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _app_logger.warning("Blockchain node shutdown did not complete within 18s; systemd will kill the process")
 
 
+async def _foreign_chain_db_error(request: Request, exc: Exception) -> JSONResponse:
+    # Fixed detail — the exception text names internal lists/env vars.
+    _app_logger.error("foreign chain db open refused for request %s: %s", request.url.path, exc)
+    return JSONResponse(status_code=403, content={"detail": "chain not served by this node"})
+
+
 def create_app() -> FastAPI:
     configure_logging(level="INFO", service_name="blockchain-rpc", to_file=True)
     app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
@@ -448,11 +454,7 @@ def create_app() -> FastAPI:
         _app_logger.error("chain db missing for request %s: %s", request.url.path, exc)
         return JSONResponse(status_code=503, content={"detail": "chain db missing"})
 
-    @app.exception_handler(ForeignChainDbError)
-    async def _foreign_chain_db(request: Request, exc: ForeignChainDbError) -> JSONResponse:
-        # Fixed detail — the exception text names internal lists/env vars.
-        _app_logger.error("foreign chain db open refused for request %s: %s", request.url.path, exc)
-        return JSONResponse(status_code=403, content={"detail": "chain not served by this node"})
+    app.add_exception_handler(ForeignChainDbError, _foreign_chain_db_error)
 
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
