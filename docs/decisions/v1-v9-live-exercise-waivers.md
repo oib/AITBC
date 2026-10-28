@@ -124,9 +124,9 @@ filled in from C's report; do not write outcomes here ahead of it:
 | MESSAGE | ⬜ pending | — | Coder C sweep |
 | AI_JOB | ⬜ pending | — | Coder C sweep |
 | GPU_ALLOCATE | ⬜ pending | — | Coder C sweep |
-| GOVERNANCE_* | ⬜ pending | — | Coder C sweep |
+| GOVERNANCE_* | ⬜ pending | — | Coder C sweep — GOVERNANCE_EXECUTE on hold: executor keys exist nowhere in the fleet (Coder A recon); pending operator card |
 | LIQUIDITY_* | ⬜ pending | — | Coder C sweep |
-| BOND_* | ⬜ pending | — | Coder C sweep |
+| BOND_* | ⬜ pending | — | Coder C sweep — BOND_SLASH exercisable via coordinator-api `POST /market/providers/{provider_id}/bonds/slash` on hub (`BOND_SLASH_PRIVATE_KEY`); needs a slashable bond — check bond state via the coordinator bonds endpoints first |
 | BRIDGE_LOCK | ⬜ pending | — | Coder C sweep |
 | BRIDGE_WITHDRAW | ⬜ pending | — | Coder C sweep |
 | ESCROW_FEE_SWEEP | ⬜ pending | — | observation only — Coder C sweep |
