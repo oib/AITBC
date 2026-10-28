@@ -1,7 +1,10 @@
 # Bridge Island Lock → Release — bc-2 → bc-2-island-1 (first live lock)
 
-**Status: pending island deploy (Coder B's lane)** — this play cannot
-run until `bc-2-island-1` produces blocks.
+**Status: ✅ exercised on bc-2 → bc-2-island-1 (28 Oct)** — Lock A
+(5,000u): bc-2 @8932 `0xfb2bb32c…` → island `BRIDGE_RELEASE` @156
+`b13a6cdc…`; Lock B (30,000,000u): bc-2 @9004 `0x1dc9a5d8…` → island
+`BRIDGE_RELEASE` @198 `0aca483b…`; ledger pending→confirmed→completed
+×2; recipient 360,000,000 → 390,005,000; roots identical hub1↔node1.
 **Level**: Advanced (operator lane)
 **Prerequisites**: island `bc-2-island-1` sealing blocks; `BRIDGE_SUPPORTED_CHAINS` wired + rpc restarted; `BRIDGE_LOCKS_PAUSED=false` fleet-wide
 **Estimated Time**: 15 minutes + finality/relay time
