@@ -57,15 +57,27 @@ Context:
   on its producers; that part is the deploy's job, not this play's.
 - `BRIDGE_LOCKS_PAUSED=false` fleet-wide (already set — this play is
   the first lock it admits)
-- `bridge_validators` rows present island-side (genesis-seeded;
-  `ensure_supported_chain_validators` would otherwise backfill the bc-2
-  set at startup) **and** the bc-2-side set populated — the multisig
-  check in `_validate_proof` resolves the validator set for the
-  *source* chain, so `BRIDGE_MULTISIG_THRESHOLD=2` is covered by bc-2's
-  rows plus lock blocks that carry `block_metadata.attestations`. That
-  is the other half of the 27251 failure — "Threshold not met: 1/6
-  valid signers (need 2)" because that source block carried only the
-  proposer signature.
+- **Cross-wise validator sets registered** — after
+  `BRIDGE_SUPPORTED_CHAINS` lands, each chain must hold the remote's
+  real set under the remote chain id BEFORE the first lock: bc-2's
+  4-validator set on the island under `chain_id=bc-2`, and the
+  island's 2-validator set on bc-2 under `chain_id=bc-2-island-1`, via
+  `POST /rpc/bridge/validators/register` (validator self-signature over
+  `{chain_id, address, public_key, action:"register"}` — per-host
+  `PROPOSER_KEY` — **plus** an authorized bridge admin signature,
+  required while `bridge_release_enabled`). Do not rely on the
+  backfill: `ensure_supported_chain_validators` silently installs the
+  *local* set under every served id, so without the registrations
+  both sides resolve the wrong remote set from boot — the same
+  wrong-set class that stranded the 27251 attempt. Pre-check: confirm
+  `BRIDGE_ADMIN_ADDRESS` in `bridge-validator-keys.env` is the
+  intended admin (a pre-rotation id sits on hub1+node1).
+- The multisig check in `_validate_proof` resolves the validator set
+  for the *source* chain, so `BRIDGE_MULTISIG_THRESHOLD=2` is covered
+  by bc-2's rows plus lock blocks that carry
+  `block_metadata.attestations`. That is the other half of the 27251
+  failure — "Threshold not met: 1/6 valid signers (need 2)" because
+  that source block carried only the proposer signature.
 - `bridge_release_authority` resolvable island-side (genesis row — the
   emitted credit verifies against it)
 - Sender wallet: node0 `default` (funded on bc-2)
@@ -98,6 +110,9 @@ curl -s "$PRODUCER_RPC/bridge/validators/bc-2-island-1" | python3 -m json.tool
 #   ^ the validators endpoint validates chain_id against SUPPORTED_CHAINS —
 #     on a host that does not host the island it 400s ("not in
 #     supported_chains"); probe an island producer (hub1 / node1) instead.
+# cross-wise check (on an island unit): must show bc-2's REAL 4 validators,
+# not a backfilled local set
+curl -s "http://<island-rpc>/rpc/bridge/validators/bc-2" | python3 -m json.tool
 ```
 
 **Expected:** `BRIDGE_LOCKS_PAUSED=false`; `release_enabled: true`;
