@@ -1,7 +1,13 @@
 {
   "version": 1,
   "doc": "docs/deployment/bc2-environment-set.md",
-  "hosts": ["hub", "hub1", "node0", "node1", "node2"],
+  "hosts": [
+    "hub",
+    "hub1",
+    "node0",
+    "node1",
+    "node2"
+  ],
   "units": [
     "aitbc-blockchain-node",
     "aitbc-blockchain-rpc",
@@ -26,138 +32,814 @@
   "schema": {
     "op": "set | drop | drop-if-matches | keep | none",
     "scope": "carrying (every probed file currently declaring the name) | units:<csv> (unit-exclusive env files of those units) | files:<csv>",
-    "class": "public (old values printable) | secret | operator | wiring | carry — anything else is presence-only",
+    "class": "public (old values printable) | secret | operator | wiring | carry \u2014 anything else is presence-only",
     "value": "scalar | {host: scalar} | \"operator-supplied\"",
     "hosts": "optional restrict",
     "match": "prefix for drop-if-matches"
   },
   "rows": [
-    {"name": "CHAIN_ID", "op": "set", "value": "bc-2", "scope": "carrying", "class": "public"},
-    {"name": "SUPPORTED_CHAINS", "op": "set", "value": "bc-2", "scope": "carrying", "class": "public"},
-    {"name": "BLOCK_PRODUCTION_CHAINS", "op": "set", "value": "bc-2", "scope": "carrying", "class": "public"},
-    {"name": "BRIDGE_SUPPORTED_CHAINS", "op": "set", "value": "bc-2", "scope": "carrying", "class": "public"},
-
-    {"name": "STATE_TRANSITION_V2_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V3_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V4_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V5_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V6_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V7_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V8_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V9_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V10_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V11_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V12_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V13_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V14_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "STATE_TRANSITION_V16_HEIGHT", "op": "keep", "scope": "carrying", "class": "carry", "note": "GPU-ADMISSION-1 gate; unarmed until the operator pins a height fleet-wide"},
-    {"name": "BRIDGE_LOCK_LEAF_V2_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-    {"name": "ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT", "op": "set", "value": "1", "scope": "carrying", "class": "public"},
-
-    {"name": "MULTI_VALIDATOR_CONSENSUS_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "MULTI_VALIDATOR_MIN_ATTESTATIONS", "op": "set", "value": "2", "scope": "carrying", "class": "public"},
-    {"name": "MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS", "op": "set", "value": "15", "scope": "carrying", "class": "public"},
-    {"name": "ATTESTATION_POST_QUORUM_LINGER_SECONDS", "op": "set", "value": "2.0", "scope": "carrying", "class": "public"},
-    {"name": "PBFT_CONSENSUS_ENABLED", "op": "set", "value": "false", "scope": "carrying", "class": "public"},
-    {"name": "PBFT_VIEW_CHANGE_TIMEOUT", "op": "set", "value": "30", "scope": "carrying", "class": "public"},
-    {"name": "MAX_EMPTY_BLOCK_INTERVAL", "op": "set", "value": "60", "scope": "carrying", "class": "public"},
-    {"name": "BLOCK_TIME_SECONDS", "op": "set", "value": "60", "scope": "carrying", "class": "public"},
-    {"name": "PARALLEL_TX_VALIDATION", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-
-    {"name": "ENABLE_BLOCK_PRODUCTION", "op": "set", "value": {"hub": "true", "hub1": "true", "node0": "false", "node1": "true", "node2": "true"}, "scope": "units:aitbc-blockchain-node", "class": "public"},
-    {"name": "ENABLE_BLOCK_PRODUCTION", "op": "set", "value": "false", "scope": "units:aitbc-blockchain-rpc", "class": "public"},
-    {"name": "GOSSIP_BACKEND", "op": "set", "value": "mesh", "scope": "units:aitbc-blockchain-node", "class": "public"},
-    {"name": "GOSSIP_BACKEND", "op": "set", "value": "redis", "scope": "units:aitbc-blockchain-rpc", "class": "public"},
-    {"name": "GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "op": "set", "value": "256", "scope": "carrying", "class": "public"},
-
-    {"name": "SYNC_MANAGER_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "SYNC_STATE_ROOT_VALIDATION_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "AUTO_SYNC_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "AUTO_SYNC_THRESHOLD", "op": "set", "value": "0", "scope": "carrying", "class": "public"},
-    {"name": "STATE_SYNC_MAX_GAP", "op": "set", "value": "-1", "scope": "carrying", "class": "public"},
-    {"name": "SUBSCRIPTION_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "SUBSCRIPTION_TRANSPORT", "op": "set", "value": "websocket", "scope": "carrying", "class": "public"},
-
-    {"name": "BRIDGE_MULTISIG_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "BRIDGE_MULTISIG_THRESHOLD", "op": "set", "value": "2", "scope": "carrying", "class": "public"},
-    {"name": "BRIDGE_RELEASE_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "BRIDGE_LOCKS_PAUSED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "BRIDGE_REQUIRE_MERKLE_PROOF", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "BRIDGE_LOCK_REQUIRE_REPLAY_GUARD", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "CROSS_CHAIN_REQUIRE_REPLAY_GUARD", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "SIDE_ROOT_SHADOW_ENABLED", "op": "set", "value": "true", "scope": "carrying", "class": "public"},
-    {"name": "BRIDGE_ROOT_SHADOW_CHECK", "op": "set", "value": "false", "scope": "carrying", "class": "public"},
-
-    {"name": "ESCROW_RELEASE_ADDRESS", "op": "keep", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct); live value is already public in repo docs"},
-    {"name": "ESCROW_FEE_RECIPIENT", "op": "keep", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct); live value is already public in repo docs"},
-
-    {"name": "GOSSIP_WEBSOCKET_URL", "op": "drop-if-matches", "match": "wss://hub.example.net", "scope": "carrying", "note": "stale line in one hub env file"},
-    {"name": "NATIVE_CHAIN_ID", "op": "drop", "scope": "units:aitbc-coordinator-api", "hosts": ["hub"], "note": "stale old-chain pin; coordinator derives from CHAIN_ID when unset (#307)"},
-
-    {"name": "DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-agent-coordinator", "class": "public", "note": "bare getenv reader (config.py:137); stamps chain_id on task/escrow rows"},
-    {"name": "DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-gpu", "class": "public", "note": "no env_prefix on gpu Settings — bare DEFAULT_CHAIN_ID binds (config.py:29)"},
-    {"name": "POOLHUB_DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-pool-hub", "class": "public", "note": "env_prefix poolhub_ (settings.py:92)"},
-    {"name": "TRADING_DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-trading", "class": "public", "note": "env_prefix trading_ (config.py:42); offer sync chain"},
-    {"name": "GOVERNANCE_DEFAULT_CHAIN_ID", "op": "set", "value": "bc-2", "scope": "units:aitbc-governance", "class": "public", "note": "env_prefix governance_ (config.py:35); hub_chain response fields"},
-
-    {"name": "GPU_RETIRED_IDS", "op": "keep", "scope": "carrying", "class": "carry", "note": "carry the live list"},
-    {"name": "MARKET_ROLE", "op": "keep", "scope": "carrying", "class": "carry"},
-    {"name": "DB_TYPE", "op": "keep", "scope": "carrying", "class": "carry", "note": "postgresql on node0/node2, sqlite on hub/hub1 — live drift, not a reset decision"},
-
-    {"name": "VALIDATOR_SET", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "the four current validators, no rotation"},
-    {"name": "VALIDATOR_KEYS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "secret", "note": "proposer units only"},
-    {"name": "PROPOSER_ID", "op": "set", "value": "operator-supplied", "scope": "units:aitbc-blockchain-node", "class": "operator", "note": "unit's own validator address"},
-    {"name": "PROPOSER_KEY", "op": "set", "value": "operator-supplied", "scope": "units:aitbc-blockchain-node", "class": "secret"},
-    {"name": "TRUSTED_PROPOSERS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "genesis,<the four current validators>"},
-    {"name": "GENESIS_ADDRESS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator"},
-    {"name": "GENESIS_WALLET_ADDRESS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator"},
-    {"name": "BRIDGE_ADMIN_ADDRESSES", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
-    {"name": "BRIDGE_RELEASE_AUTHORITY", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
-    {"name": "BRIDGE_MULTISIG_VALIDATORS", "op": "set", "value": "4", "scope": "carrying", "class": "public", "note": "integer count, not an address list; membership comes from the genesis bridge_validators rows"},
-    {"name": "BRIDGE_MAX_LOCK_AMOUNT", "op": "set", "value": "36000000000", "scope": "carrying", "class": "public", "note": "1000 AIT (decided 20 Oct)"},
-    {"name": "BOND_BURN_ADDRESS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
-    {"name": "BOND_SLASH_AUTHORITY_ADDRESS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "operator", "note": "keep live (decided 20 Oct)"},
-    {"name": "BLOCKCHAIN_RPC_API_KEY", "op": "keep", "scope": "carrying", "class": "secret", "note": "shared fleet key; enroll followers at the cut"},
-    {"name": "BLOCKCHAIN_RPC_API_KEY_PEERS", "op": "keep", "scope": "carrying", "class": "secret"},
-    {"name": "COORDINATOR_API_KEY", "op": "keep", "scope": "carrying", "class": "secret"},
-    {"name": "DATABASE_URL", "op": "keep", "scope": "carrying", "class": "secret"},
-    {"name": "DB_PASS", "op": "keep", "scope": "carrying", "class": "secret"},
-    {"name": "AITBC_DEFAULT_WALLET", "op": "keep", "scope": "carrying", "class": "operator"},
-    {"name": "WALLET_DIR", "op": "keep", "scope": "carrying", "class": "operator"},
-
-    {"name": "GOSSIP_MESH_PEER_URLS", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "GOSSIP_WEBSOCKET_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring", "note": "the bc-2 hub gossip WS URL"},
-    {"name": "DEFAULT_PEER_RPC_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "HUB_RPC_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "HUB_BLOCKCHAIN_RPC_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "HUB_DISCOVERY_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "AITBC_SYNC_SOURCE", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "AITBC_SYNC_IMPORT_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "BLOCKCHAIN_RPC_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "POOL_HUB_URL", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "AITBC_CHAIN_ENV_FILE", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "AITBC_DATA_DIR", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "AITBC_CONFIG_DIR", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "AITBC_LOG_DIR", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "P2P_NODE_ID", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring", "note": "per-node stable id, enrolled with BLOCKCHAIN_RPC_API_KEY"},
-    {"name": "P2P_BIND_HOST", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "P2P_BIND_PORT", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "RPC_BIND_HOST", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-    {"name": "RPC_BIND_PORT", "op": "set", "value": "operator-supplied", "scope": "carrying", "class": "wiring"},
-
-    {"name": "NETWORK_ID", "op": "none", "note": "inert: no reader in the code"},
-    {"name": "WALLET_PORT", "op": "none", "note": "inert: port is the aitbc/constants.py constant"},
-    {"name": "MEMPOOL_BACKEND", "op": "none", "note": "unset → default"},
-    {"name": "GOSSIP_AUTH_ENABLED", "op": "none", "note": "unset → true (default)"},
-    {"name": "GOSSIP_PROTOCOL_VERSION", "op": "none", "note": "unset → 2"},
-    {"name": "SYNC_VALIDATE_SIGNATURES", "op": "none", "note": "unset → default"},
-    {"name": "BRIDGE_MULTISIG_TIMEOUT", "op": "none", "note": "unset → 3600"},
-    {"name": "BRIDGE_VALIDATOR_SET_GRACE_PERIOD", "op": "none", "note": "unset → 7200"},
-    {"name": "BRIDGE_RELAYER_ENABLED", "op": "none", "note": "unset → true; AND-gated on release"},
-    {"name": "BRIDGE_MIN_CONFIRMATIONS", "op": "none", "note": "unset → 3"},
-    {"name": "BRIDGE_FINALITY_BLOCKS", "op": "none", "note": "unset → 6"},
-    {"name": "BRIDGE_BLOCK_SIGNATURE_REQUIRED", "op": "none", "note": "unset → true"},
-    {"name": "BRIDGE_VERIFICATION_MODE", "op": "none", "note": "unset → in_process"},
-    {"name": "BRIDGE_ADMIN_ADDRESS", "op": "none", "scope": "files:bridge-validator-keys.env", "note": "ruling 20 Oct: leave — key-bearing file; only scripts/ops/register_bridge_validators.py reads it; C3 does not edit (plural BRIDGE_ADMIN_ADDRESSES carries)"}
+    {
+      "name": "CHAIN_ID",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "SUPPORTED_CHAINS",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BLOCK_PRODUCTION_CHAINS",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_SUPPORTED_CHAINS",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V2_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V3_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V4_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V5_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V6_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V7_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V8_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V9_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V10_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V11_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V12_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V13_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V14_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_TRANSITION_V16_HEIGHT",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "carry",
+      "note": "GPU-ADMISSION-1 gate; unarmed until the operator pins a height fleet-wide"
+    },
+    {
+      "name": "BRIDGE_LOCK_LEAF_V2_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "ESCROW_FEE_SWEEP_PASS_MIN_HEIGHT",
+      "op": "set",
+      "value": "1",
+      "scope": "units:aitbc-blockchain-rpc",
+      "class": "public"
+    },
+    {
+      "name": "MULTI_VALIDATOR_CONSENSUS_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "MULTI_VALIDATOR_MIN_ATTESTATIONS",
+      "op": "set",
+      "value": "2",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS",
+      "op": "set",
+      "value": "15",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "ATTESTATION_POST_QUORUM_LINGER_SECONDS",
+      "op": "set",
+      "value": "2.0",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "PBFT_CONSENSUS_ENABLED",
+      "op": "set",
+      "value": "false",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "PBFT_VIEW_CHANGE_TIMEOUT",
+      "op": "set",
+      "value": "30",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "MAX_EMPTY_BLOCK_INTERVAL",
+      "op": "set",
+      "value": "60",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BLOCK_TIME_SECONDS",
+      "op": "set",
+      "value": "60",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "PARALLEL_TX_VALIDATION",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "ENABLE_BLOCK_PRODUCTION",
+      "op": "set",
+      "value": {
+        "hub": "true",
+        "hub1": "true",
+        "node0": "false",
+        "node1": "true",
+        "node2": "true"
+      },
+      "scope": "units:aitbc-blockchain-node",
+      "class": "public"
+    },
+    {
+      "name": "ENABLE_BLOCK_PRODUCTION",
+      "op": "set",
+      "value": "false",
+      "scope": "units:aitbc-blockchain-rpc",
+      "class": "public"
+    },
+    {
+      "name": "GOSSIP_BACKEND",
+      "op": "set",
+      "value": "mesh",
+      "scope": "units:aitbc-blockchain-node",
+      "class": "public"
+    },
+    {
+      "name": "GOSSIP_BACKEND",
+      "op": "set",
+      "value": "redis",
+      "scope": "units:aitbc-blockchain-rpc",
+      "class": "public"
+    },
+    {
+      "name": "GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP",
+      "op": "set",
+      "value": "256",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "SYNC_MANAGER_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "SYNC_STATE_ROOT_VALIDATION_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "AUTO_SYNC_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "AUTO_SYNC_THRESHOLD",
+      "op": "set",
+      "value": "0",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "STATE_SYNC_MAX_GAP",
+      "op": "set",
+      "value": "-1",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "SUBSCRIPTION_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "SUBSCRIPTION_TRANSPORT",
+      "op": "set",
+      "value": "websocket",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_MULTISIG_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_MULTISIG_THRESHOLD",
+      "op": "set",
+      "value": "2",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_RELEASE_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_LOCKS_PAUSED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_REQUIRE_MERKLE_PROOF",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_LOCK_REQUIRE_REPLAY_GUARD",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "CROSS_CHAIN_REQUIRE_REPLAY_GUARD",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "SIDE_ROOT_SHADOW_ENABLED",
+      "op": "set",
+      "value": "true",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "BRIDGE_ROOT_SHADOW_CHECK",
+      "op": "set",
+      "value": "false",
+      "scope": "carrying",
+      "class": "public"
+    },
+    {
+      "name": "ESCROW_RELEASE_ADDRESS",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "keep live (decided 20 Oct); live value is already public in repo docs"
+    },
+    {
+      "name": "ESCROW_FEE_RECIPIENT",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "keep live (decided 20 Oct); live value is already public in repo docs"
+    },
+    {
+      "name": "GOSSIP_WEBSOCKET_URL",
+      "op": "drop-if-matches",
+      "match": "wss://hub.example.net",
+      "scope": "carrying",
+      "note": "stale line in one hub env file"
+    },
+    {
+      "name": "NATIVE_CHAIN_ID",
+      "op": "drop",
+      "scope": "units:aitbc-coordinator-api",
+      "hosts": [
+        "hub"
+      ],
+      "note": "stale old-chain pin; coordinator derives from CHAIN_ID when unset (#307)"
+    },
+    {
+      "name": "DEFAULT_CHAIN_ID",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "units:aitbc-agent-coordinator",
+      "class": "public",
+      "note": "bare getenv reader (config.py:137); stamps chain_id on task/escrow rows"
+    },
+    {
+      "name": "DEFAULT_CHAIN_ID",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "units:aitbc-gpu",
+      "class": "public",
+      "note": "no env_prefix on gpu Settings \u2014 bare DEFAULT_CHAIN_ID binds (config.py:29)"
+    },
+    {
+      "name": "POOLHUB_DEFAULT_CHAIN_ID",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "units:aitbc-pool-hub",
+      "class": "public",
+      "note": "env_prefix poolhub_ (settings.py:92)"
+    },
+    {
+      "name": "TRADING_DEFAULT_CHAIN_ID",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "units:aitbc-trading",
+      "class": "public",
+      "note": "env_prefix trading_ (config.py:42); offer sync chain"
+    },
+    {
+      "name": "GOVERNANCE_DEFAULT_CHAIN_ID",
+      "op": "set",
+      "value": "bc-2",
+      "scope": "units:aitbc-governance",
+      "class": "public",
+      "note": "env_prefix governance_ (config.py:35); hub_chain response fields"
+    },
+    {
+      "name": "GPU_RETIRED_IDS",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "carry",
+      "note": "carry the live list"
+    },
+    {
+      "name": "MARKET_ROLE",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "carry"
+    },
+    {
+      "name": "DB_TYPE",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "carry",
+      "note": "postgresql on node0/node2, sqlite on hub/hub1 \u2014 live drift, not a reset decision"
+    },
+    {
+      "name": "VALIDATOR_SET",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "the four current validators, no rotation"
+    },
+    {
+      "name": "VALIDATOR_KEYS",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "secret",
+      "note": "proposer units only"
+    },
+    {
+      "name": "PROPOSER_ID",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "units:aitbc-blockchain-node",
+      "class": "operator",
+      "note": "unit's own validator address"
+    },
+    {
+      "name": "PROPOSER_KEY",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "units:aitbc-blockchain-node",
+      "class": "secret"
+    },
+    {
+      "name": "TRUSTED_PROPOSERS",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "genesis,<the four current validators>"
+    },
+    {
+      "name": "GENESIS_ADDRESS",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator"
+    },
+    {
+      "name": "GENESIS_WALLET_ADDRESS",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator"
+    },
+    {
+      "name": "BRIDGE_ADMIN_ADDRESSES",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "keep live (decided 20 Oct)"
+    },
+    {
+      "name": "BRIDGE_RELEASE_AUTHORITY",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "keep live (decided 20 Oct)"
+    },
+    {
+      "name": "BRIDGE_MULTISIG_VALIDATORS",
+      "op": "set",
+      "value": "4",
+      "scope": "carrying",
+      "class": "public",
+      "note": "integer count, not an address list; membership comes from the genesis bridge_validators rows"
+    },
+    {
+      "name": "BRIDGE_MAX_LOCK_AMOUNT",
+      "op": "set",
+      "value": "36000000000",
+      "scope": "carrying",
+      "class": "public",
+      "note": "1000 AIT (decided 20 Oct)"
+    },
+    {
+      "name": "BOND_BURN_ADDRESS",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "keep live (decided 20 Oct)"
+    },
+    {
+      "name": "BOND_SLASH_AUTHORITY_ADDRESS",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "operator",
+      "note": "keep live (decided 20 Oct)"
+    },
+    {
+      "name": "BLOCKCHAIN_RPC_API_KEY",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "secret",
+      "note": "shared fleet key; enroll followers at the cut"
+    },
+    {
+      "name": "BLOCKCHAIN_RPC_API_KEY_PEERS",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "secret"
+    },
+    {
+      "name": "COORDINATOR_API_KEY",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "secret"
+    },
+    {
+      "name": "DATABASE_URL",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "secret"
+    },
+    {
+      "name": "DB_PASS",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "secret"
+    },
+    {
+      "name": "AITBC_DEFAULT_WALLET",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "operator"
+    },
+    {
+      "name": "WALLET_DIR",
+      "op": "keep",
+      "scope": "carrying",
+      "class": "operator"
+    },
+    {
+      "name": "GOSSIP_MESH_PEER_URLS",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "GOSSIP_WEBSOCKET_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring",
+      "note": "the bc-2 hub gossip WS URL"
+    },
+    {
+      "name": "DEFAULT_PEER_RPC_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "HUB_RPC_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "HUB_BLOCKCHAIN_RPC_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "HUB_DISCOVERY_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "AITBC_SYNC_SOURCE",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "AITBC_SYNC_IMPORT_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "BLOCKCHAIN_RPC_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "POOL_HUB_URL",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "AITBC_CHAIN_ENV_FILE",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "AITBC_DATA_DIR",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "AITBC_CONFIG_DIR",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "AITBC_LOG_DIR",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "P2P_NODE_ID",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring",
+      "note": "per-node stable id, enrolled with BLOCKCHAIN_RPC_API_KEY"
+    },
+    {
+      "name": "P2P_BIND_HOST",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "P2P_BIND_PORT",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "RPC_BIND_HOST",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "RPC_BIND_PORT",
+      "op": "set",
+      "value": "operator-supplied",
+      "scope": "carrying",
+      "class": "wiring"
+    },
+    {
+      "name": "NETWORK_ID",
+      "op": "none",
+      "note": "inert: no reader in the code"
+    },
+    {
+      "name": "WALLET_PORT",
+      "op": "none",
+      "note": "inert: port is the aitbc/constants.py constant"
+    },
+    {
+      "name": "MEMPOOL_BACKEND",
+      "op": "none",
+      "note": "unset \u2192 default"
+    },
+    {
+      "name": "GOSSIP_AUTH_ENABLED",
+      "op": "none",
+      "note": "unset \u2192 true (default)"
+    },
+    {
+      "name": "GOSSIP_PROTOCOL_VERSION",
+      "op": "none",
+      "note": "unset \u2192 2"
+    },
+    {
+      "name": "SYNC_VALIDATE_SIGNATURES",
+      "op": "none",
+      "note": "unset \u2192 default"
+    },
+    {
+      "name": "BRIDGE_MULTISIG_TIMEOUT",
+      "op": "none",
+      "note": "unset \u2192 3600"
+    },
+    {
+      "name": "BRIDGE_VALIDATOR_SET_GRACE_PERIOD",
+      "op": "none",
+      "note": "unset \u2192 7200"
+    },
+    {
+      "name": "BRIDGE_RELAYER_ENABLED",
+      "op": "none",
+      "note": "unset \u2192 true; AND-gated on release"
+    },
+    {
+      "name": "BRIDGE_MIN_CONFIRMATIONS",
+      "op": "none",
+      "note": "unset \u2192 3"
+    },
+    {
+      "name": "BRIDGE_FINALITY_BLOCKS",
+      "op": "none",
+      "note": "unset \u2192 6"
+    },
+    {
+      "name": "BRIDGE_BLOCK_SIGNATURE_REQUIRED",
+      "op": "none",
+      "note": "unset \u2192 true"
+    },
+    {
+      "name": "BRIDGE_VERIFICATION_MODE",
+      "op": "none",
+      "note": "unset \u2192 in_process"
+    },
+    {
+      "name": "BRIDGE_ADMIN_ADDRESS",
+      "op": "none",
+      "scope": "files:bridge-validator-keys.env",
+      "note": "ruling 20 Oct: leave \u2014 key-bearing file; only scripts/ops/register_bridge_validators.py reads it; C3 does not edit (plural BRIDGE_ADMIN_ADDRESSES carries)"
+    },
+    {
+      "name": "STATE_TRANSITION_V17_HEIGHT",
+      "op": "drop",
+      "value": "8900",
+      "scope": "carrying",
+      "class": "public"
+    }
   ]
 }
