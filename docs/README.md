@@ -46,6 +46,9 @@ Operator procedures for the live fleet:
 - [v17 activation runbook](ops/v17-activation-runbook.md) — DRAFT for the
   BNT-1 `STATE_TRANSITION_V17_HEIGHT` pin: identical env pin on all five
   hosts, serial restart wave, stamped-version and revived-RPC post-checks.
+- [v18 activation runbook](ops/v18-activation-runbook.md) — DRAFT for
+  the committed-set/apply fix: pre-checks, pin wave, aux-root canary,
+  liq/bond test seals, rollback, literal-pin follow-up (Refs #649)
 - [Chain reset runbook](ops/chain-reset-runbook.md) — DRAFT template for
   the next chain cut: evidence preconditions, the authority-key custody
   gate, rehearsal machinery, freeze→cut→PONR sequence, abort table.
