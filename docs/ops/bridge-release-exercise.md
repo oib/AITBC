@@ -1,7 +1,8 @@
 # BRIDGE_RELEASE live exercise — runbook (DRAFT FOR APPROVAL)
 
-> **Status: DRAFT — parameters resolved by operator decision; still
-> awaiting operator approval.** Writing this runbook authorizes nothing.
+> **Status: APPROVED — awaiting execution.** Parameters resolved and
+> approved by operator decision (cards 1B + 2 + "do it with proposed
+> values"). Flips to EXECUTED when the exercise actually lands.
 > V-1 waived live exercises for all 22 fixture-replayable types but
 > explicitly reserved the one live `BRIDGE_RELEASE` exercise "pending
 > operator approval" — see
