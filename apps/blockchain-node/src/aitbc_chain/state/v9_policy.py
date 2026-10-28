@@ -125,6 +125,7 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         "LIQUIDITY_CLAIM",
         "RECEIPT_CLAIM",
         "IPFS_SUBSCRIPTION",
+        "EXCHANGE",
     }
 )
 
