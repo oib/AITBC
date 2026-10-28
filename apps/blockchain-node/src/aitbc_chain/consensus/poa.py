@@ -2532,7 +2532,14 @@ class PoAProposer:
         changed_addresses: set[str] = set()
         try:
             if successful_deltas:
-                apply_deltas_to_db(session, successful_deltas, chain_id, block_version)
+                apply_deltas_to_db(
+                    session,
+                    successful_deltas,
+                    chain_id,
+                    block_version,
+                    block_height=next_height,
+                    block_time=timestamp,
+                )
 
             # Pre-registered rows (bridge credits, MESSAGE) already exist with
             # block_height NULL — stamp the stored row instead of inserting a
