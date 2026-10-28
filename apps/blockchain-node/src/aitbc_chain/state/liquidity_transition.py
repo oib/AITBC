@@ -50,12 +50,30 @@ def _debit_nonce(session: Session, chain_id: str, address: str, amount: int, fee
     )
 
 
+def _v18_apply_time(block_version: int | None, block_time: datetime | None) -> datetime | None:
+    """Return the sealed header timestamp when the v18 deterministic-apply
+    gate is armed for this transaction, else ``None``.
+
+    At v18 the committed apply output must be a pure function of
+    (transaction, prior state, block header) — the header timestamp replaces
+    wall-clock reads and tx_hash replaces random ids. ``block_time`` may be
+    ``None`` for non-consensus callers; the volatile path then stays
+    (unreachable on sealed v18 replay — the gate always carries a header
+    timestamp — but kept for safety)."""
+    if block_version is not None and block_version >= 18 and block_time is not None:
+        return block_time
+    return None
+
+
 def apply_liquidity_deposit(
     session: Session,
     chain_id: str,
     tx_data: dict[str, Any],
     tx_hash: str,
     cache: Any,
+    *,
+    block_version: int | None = None,
+    block_time: datetime | None = None,
 ) -> tuple[bool, str]:
     """Apply a LIQUIDITY_DEPOSIT transaction."""
     sender = _to_ait_address(tx_data.get("from", ""))
@@ -84,20 +102,30 @@ def apply_liquidity_deposit(
     session.add(main_account)
 
     pool = _get_or_create_pool(session, chain_id, pool_id)
+    v18_now = _v18_apply_time(block_version, block_time)
+    # v18: the id derives from tx_hash (unique per tx) and every stored
+    # timestamp from the sealed header — two hosts applying the same sealed
+    # tx commit byte-identical rows. Below v18 the volatile shapes stay for
+    # replay of the (empty) pre-v18 era of this type.
+    now = v18_now or datetime.now(UTC)
     stake = LiquidityStake(
-        stake_id=_generate_stake_id(),
+        stake_id=f"liq_{tx_hash[:16]}" if v18_now is not None else _generate_stake_id(),
         chain_id=chain_id,
         pool_id=pool_id,
         address=sender,
         amount=value,
         lock_days=lock_days,
-        locked_until=datetime.now(UTC) + timedelta(days=lock_days),
+        locked_until=now + timedelta(days=lock_days),
         reward_per_share_at_stake=pool.reward_per_share,
         rewards_claimed=0,
         status="active",
     )
+    if v18_now is not None:
+        # created_at feeds _realize_fixed_apy's accrual window — it must be
+        # header-derived or elapsed differs across hosts.
+        stake.created_at = now
     pool.total_staked += value
-    pool.updated_at = datetime.now(UTC)
+    pool.updated_at = now
     session.add(stake)
     session.add(pool)
     session.flush()
@@ -114,6 +142,9 @@ def apply_liquidity_claim(
     tx_data: dict[str, Any],
     tx_hash: str,
     cache: Any,
+    *,
+    block_version: int | None = None,
+    block_time: datetime | None = None,
 ) -> tuple[bool, str]:
     """Apply a LIQUIDITY_CLAIM transaction."""
     sender = _to_ait_address(tx_data.get("from", ""))
@@ -138,8 +169,11 @@ def apply_liquidity_claim(
 
     pool = _get_or_create_pool(session, chain_id, pool_id)
 
+    # v18: accrue to the sealed header timestamp so every host computes the
+    # identical reward amount.
+    now = _v18_apply_time(block_version, block_time) or datetime.now(UTC)
     # Realize fixed APY before computing rewards
-    _realize_fixed_apy(session, chain_id, pool, stake)
+    _realize_fixed_apy(session, chain_id, pool, stake, now=now)
     rewards = _pending_rewards(stake, pool)
     if rewards <= 0:
         # Still charge the fee and advance nonce if the user wants to refresh
@@ -171,7 +205,7 @@ def apply_liquidity_claim(
     sender_account.balance += rewards
     treasury_account.balance -= rewards
     stake.rewards_claimed += rewards
-    stake.updated_at = datetime.now(UTC)
+    stake.updated_at = now
     session.add(sender_account)
     session.add(treasury_account)
     session.add(stake)
@@ -189,6 +223,9 @@ def apply_liquidity_withdraw(
     tx_data: dict[str, Any],
     tx_hash: str,
     cache: Any,
+    *,
+    block_version: int | None = None,
+    block_time: datetime | None = None,
 ) -> tuple[bool, str]:
     """Apply a LIQUIDITY_WITHDRAW transaction."""
     sender = _to_ait_address(tx_data.get("from", ""))
@@ -204,9 +241,13 @@ def apply_liquidity_withdraw(
         return (False, "Stake does not belong to sender")
     if stake.status != "active":
         return (False, f"Stake is not active: {stake.status}")
+    # v18: the lock verdict compares the sealed header timestamp, not wall
+    # clock — a withdraw at the lock boundary returns the same verdict on
+    # every host.
+    now = _v18_apply_time(block_version, block_time) or datetime.now(UTC)
     if stake.locked_until and stake.locked_until.tzinfo is None:
         stake.locked_until = stake.locked_until.replace(tzinfo=UTC)
-    if stake.locked_until and datetime.now(UTC) < stake.locked_until:
+    if stake.locked_until and now < stake.locked_until:
         return (False, f"Stake still locked until {stake.locked_until.isoformat()}")
 
     sender_account = session.get(Account, (chain_id, sender))
@@ -218,7 +259,7 @@ def apply_liquidity_withdraw(
     pool = _get_or_create_pool(session, chain_id, pool_id)
 
     # Realize fixed APY and compute total rewards
-    _realize_fixed_apy(session, chain_id, pool, stake)
+    _realize_fixed_apy(session, chain_id, pool, stake, now=now)
     rewards = _pending_rewards(stake, pool)
 
     accounts = _ensure_pool_accounts(session, chain_id)
@@ -251,12 +292,12 @@ def apply_liquidity_withdraw(
 
     stake.status = "withdrawn"
     stake.rewards_claimed += rewards
-    stake.updated_at = datetime.now(UTC)
+    stake.updated_at = now
     pool.total_staked -= stake.amount
     if pool.total_staked <= 0:
         pool.total_staked = 0
         pool.reward_per_share = Decimal("0")
-    pool.updated_at = datetime.now(UTC)
+    pool.updated_at = now
     session.add(stake)
     session.add(pool)
     session.flush()

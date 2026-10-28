@@ -26,7 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -536,11 +536,16 @@ def _prepare(tx: dict, version: int) -> dict:
     return tx
 
 
-def _replay_twice(tmp_path, tx: dict, tx_hash: str, seeds, version: int = V9) -> tuple[Any, Any, bool, str]:
+def _replay_twice(
+    tmp_path, tx: dict, tx_hash: str, seeds, version: int = V9, block_time: datetime | None = None
+) -> tuple[Any, Any, bool, str]:
     """Apply the tx on two identically-seeded DBs at ``version`` rules.
 
     Returns (accounts_a, root_a, ok_b, msg_b) — caller asserts the second
-    verdict matches and both surfaces are identical.
+    verdict matches and both surfaces are identical. ``block_time`` is the
+    sealed header timestamp v18's deterministic apply derives committed
+    values from; the same value is passed on both databases exactly as two
+    hosts importing the same sealed block would.
     """
     eng_a = _new_engine(tmp_path, "a")
     eng_b = _new_engine(tmp_path, "b")
@@ -553,13 +558,17 @@ def _replay_twice(tmp_path, tx: dict, tx_hash: str, seeds, version: int = V9) ->
 
     tx = _prepare(tx, version)
     with Session(eng_a) as s:
-        ok_a, msg_a = StateTransition().apply_transaction(s, CHAIN, tx, tx_hash, block_version=version, block_height=HEIGHT)
+        ok_a, msg_a = StateTransition().apply_transaction(
+            s, CHAIN, tx, tx_hash, block_version=version, block_height=HEIGHT, block_time=block_time
+        )
         if ok_a:
             s.commit()
         else:
             s.rollback()
     with Session(eng_b) as s:
-        ok_b, msg_b = StateTransition().apply_transaction(s, CHAIN, tx, tx_hash, block_version=version, block_height=HEIGHT)
+        ok_b, msg_b = StateTransition().apply_transaction(
+            s, CHAIN, tx, tx_hash, block_version=version, block_height=HEIGHT, block_time=block_time
+        )
         if ok_b:
             s.commit()
         else:
@@ -888,6 +897,297 @@ def test_protocol_transfer_production_shape_at_v17(emission, tmp_path):
         else:
             assert not ok_a
             assert "v9 signature rule: missing_signature" in msg_a, f"{emission} rejected for another reason: {msg_a}"
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
+
+
+# --------------------------------------------------------------------------
+# v18 — deterministic committed apply
+# (docs/design/v18-deterministic-committed-apply.md, §4 acceptance checklist)
+#
+# At block_version >= 18 the apply output is a pure function of
+# (transaction, prior state, block header): ``stake`` leaves the committed
+# table set, liquidity stake ids derive from ``liq_<tx_hash[:16]>``, and
+# every wall-clock read on the apply path (locked_until, accrual elapsed,
+# bond verdict) is replaced by the sealed header timestamp. Each test below
+# is the two-database replay the bc-2 incident failed: same tx, same seeds,
+# same header timestamp — identical committed surface.
+
+from aitbc_chain.state.side_root_shadow import (
+    COMMITTED_TABLES,
+    COMMITTED_TABLES_V15,
+    COMMITTED_TABLES_V18,
+    committed_fingerprint,
+    committed_tables_for_version,
+)
+
+V18 = 18
+V18_BLOCK_TIME = datetime(2026, 6, 1, tzinfo=UTC)
+V18_BOUNDARY = V18_BLOCK_TIME + timedelta(days=30)
+
+
+def _committed_fp(engine, version: int) -> str:
+    """Committed-surface fingerprint at ``version`` rules — the value that
+    seals into ``aux_state_root`` at v14+."""
+    with Session(engine) as s:
+        return committed_fingerprint(s.connection().connection, version)["fingerprint"]
+
+
+def _liq_rows(engine) -> list[tuple]:
+    with Session(engine) as s:
+        rows = s.exec(select(LiquidityStake).where(LiquidityStake.chain_id == CHAIN)).all()
+        return sorted((r.stake_id, r.address, r.amount, r.lock_days, r.locked_until, r.status) for r in rows)
+
+
+def _bond_rows(engine) -> list[tuple]:
+    with Session(engine) as s:
+        rows = s.exec(select(Bond).where(Bond.chain_id == CHAIN)).all()
+        return sorted((r.bond_id, r.provider, r.amount, r.locked_until, r.status) for r in rows)
+
+
+def test_v18_committed_tables_drop_stake():
+    """The v18 set is the V15 set minus ``stake``; the frozen sets below the
+    gate are untouched so sealed v14–v17 history replays byte-for-byte."""
+    assert COMMITTED_TABLES_V18 == tuple(t for t in COMMITTED_TABLES_V15 if t != "stake")
+    assert "stake" not in COMMITTED_TABLES_V18
+    assert len(COMMITTED_TABLES_V18) == 11
+    assert committed_tables_for_version(18) == COMMITTED_TABLES_V18
+    assert committed_tables_for_version(17) == COMMITTED_TABLES_V15
+    assert committed_tables_for_version(15) == COMMITTED_TABLES_V15
+    assert committed_tables_for_version(14) == COMMITTED_TABLES
+    assert committed_tables_for_version(None) == COMMITTED_TABLES
+
+
+def test_v18_gate_resolution(monkeypatch):
+    """get_block_version_for_height returns 18 only at/after the pinned
+    activation height; unarmed (None) the descending chain is unchanged."""
+    from aitbc_chain.state.state_transition import get_block_version_for_height
+
+    # The pin must sit above every earlier activation literal (v17 = 8900)
+    # so the just-below branch resolves to 17, not an older version.
+    monkeypatch.setattr(settings, "state_transition_v18_height", 50_000)
+    assert get_block_version_for_height(50_000) == 18
+    assert get_block_version_for_height(50_001) == 18
+    assert get_block_version_for_height(49_999) == 17
+    monkeypatch.setattr(settings, "state_transition_v18_height", None)
+    assert get_block_version_for_height(999_999) == 17
+
+
+def test_v18_liquidity_deposit_commits_identically(tmp_path):
+    """§4: the same LIQUIDITY_DEPOSIT applied on two independent databases
+    produces identical ``liquidity_stake`` rows and identical committed
+    fingerprints — stake_id derives from tx_hash, locked_until from the
+    header timestamp. The exact divergence the bc-2 incident hit."""
+    build, signer, seeds = _CASES["LIQUIDITY_DEPOSIT"]
+    tx = _attach_sender_sig(build(), signer)
+    tx_hash = _hash("v18", "LIQUIDITY_DEPOSIT")
+    eng_a, eng_b, ok_a, msg_a, ok_b, msg_b = _replay_twice(
+        tmp_path, tx, tx_hash, seeds, version=V18, block_time=V18_BLOCK_TIME
+    )
+    try:
+        assert ok_a, f"first apply failed: {msg_a}"
+        assert ok_b, f"replay diverged in verdict: {msg_b}"
+        rows_a = _liq_rows(eng_a)
+        assert rows_a == _liq_rows(eng_b)
+        (stake_id, _addr, _amount, _days, locked_until, _status) = rows_a[0]
+        assert stake_id == f"liq_{tx_hash[:16]}"
+        # SQLite returns naive datetimes — normalize before comparing.
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=UTC)
+        assert locked_until == V18_BLOCK_TIME
+        assert _account_rows(eng_a) == _account_rows(eng_b)
+        assert _committed_fp(eng_a, V18) == _committed_fp(eng_b, V18)
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
+
+
+def _seed_v18_locked_stake(session: Session) -> None:
+    """An active 30-day liquidity stake locked until V18_BOUNDARY — fixed
+    timestamps so both fixture databases start byte-identical."""
+    from aitbc_chain.state.liquidity import pool_main_address, pool_treasury_address
+
+    session.add(Account(chain_id=CHAIN, address=pool_main_address(), balance=50_000, nonce=0))
+    session.add(Account(chain_id=CHAIN, address=pool_treasury_address(), balance=100_000, nonce=0))
+    session.add(LiquidityPool(pool_id="main", chain_id=CHAIN, total_staked=10_000, reward_per_share=Decimal("0")))
+    session.add(
+        LiquidityStake(
+            stake_id="liq-v18-1",
+            chain_id=CHAIN,
+            pool_id="main",
+            address=BUYER,
+            amount=10_000,
+            lock_days=30,
+            locked_until=V18_BOUNDARY,
+            reward_per_share_at_stake=Decimal("0"),
+            rewards_claimed=0,
+            status="active",
+            created_at=V18_BLOCK_TIME,
+        )
+    )
+
+
+def test_v18_liquidity_withdraw_boundary_verdict_parity(tmp_path):
+    """§4: a withdraw one second before the lock boundary rejects on both
+    hosts; at exactly ``locked_until`` it applies on both. The verdict
+    compares block_time, so no host can disagree."""
+    withdraw = _attach_sender_sig(
+        _tx(BUYER, BUYER, 0, "LIQUIDITY_WITHDRAW", {"pool_id": "main", "stake_id": "liq-v18-1"}),
+        BUYER_KEY,
+    )
+    wd_hash = _hash("v18", "withdraw-boundary")
+    eng_a = _new_engine(tmp_path, "a")
+    eng_b = _new_engine(tmp_path, "b")
+    try:
+        for eng, tag in ((eng_a, "a"), (eng_b, "b")):
+            with Session(eng) as s:
+                _seed_common(s)
+                _seed_v18_locked_stake(s)
+                s.commit()
+                tx = _prepare(dict(withdraw), V18)
+                ok_early, msg_early = StateTransition().apply_transaction(
+                    s,
+                    CHAIN,
+                    tx,
+                    wd_hash,
+                    block_version=V18,
+                    block_height=HEIGHT,
+                    block_time=V18_BOUNDARY - timedelta(seconds=1),
+                )
+                assert not ok_early, f"{tag}: withdraw before locked_until applied: {msg_early}"
+                assert "still locked" in msg_early
+                s.rollback()
+                ok_at, msg_at = StateTransition().apply_transaction(
+                    s,
+                    CHAIN,
+                    tx,
+                    wd_hash,
+                    block_version=V18,
+                    block_height=HEIGHT,
+                    block_time=V18_BOUNDARY,
+                )
+                assert ok_at, f"{tag}: withdraw at locked_until rejected: {msg_at}"
+                s.commit()
+        assert _liq_rows(eng_a) == _liq_rows(eng_b)
+        assert _committed_fp(eng_a, V18) == _committed_fp(eng_b, V18)
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
+
+
+def _seed_v18_boundary_bond(session: Session) -> None:
+    """An active bond locked until V18_BOUNDARY, escrow funded — both
+    fixture databases byte-identical."""
+    session.add(Account(chain_id=CHAIN, address=_BOND_ESCROW_ADDRESS, balance=5000, nonce=0))
+    session.add(Account(chain_id=CHAIN, address=_BOND_BURN_ADDRESS, balance=0, nonce=0))
+    session.add(
+        Bond(
+            chain_id=CHAIN,
+            bond_id="bond-v18-1",
+            provider=PROVIDER,
+            amount=5000,
+            locked_until=V18_BOUNDARY,
+            status="active",
+            created_tx_hash=_hash("bond-lock", "bond-v18-1"),
+            created_at=V18_BLOCK_TIME,
+            updated_at=V18_BLOCK_TIME,
+        )
+    )
+
+
+def test_v18_bond_release_boundary_verdict_parity(tmp_path):
+    """§4: BOND_RELEASE one second before locked_until keeps the bond active
+    on both hosts; at the boundary it releases identically. Same verdict on
+    every host because the comparison is against block_time."""
+    release = _attach_sender_sig(
+        _tx(PROVIDER, PROVIDER, 0, "BOND_RELEASE", {"bond_id": "bond-v18-1", "provider": PROVIDER}, fee=0),
+        PROVIDER_KEY,
+    )
+    rel_hash = _hash("v18", "bond-release-boundary")
+    eng_a = _new_engine(tmp_path, "a")
+    eng_b = _new_engine(tmp_path, "b")
+    try:
+        for eng, tag in ((eng_a, "a"), (eng_b, "b")):
+            with Session(eng) as s:
+                _seed_common(s)
+                _seed_v18_boundary_bond(s)
+                s.commit()
+                tx = _prepare(dict(release), V18)
+                ok_early, _ = StateTransition().apply_transaction(
+                    s,
+                    CHAIN,
+                    tx,
+                    rel_hash,
+                    block_version=V18,
+                    block_height=HEIGHT,
+                    block_time=V18_BOUNDARY - timedelta(seconds=1),
+                )
+                # The fee/nonce apply either way — the verdict that must
+                # agree is the bond effect, not the return flag.
+                s.rollback()
+                bond = s.exec(select(Bond).where(Bond.chain_id == CHAIN, Bond.bond_id == "bond-v18-1")).first()
+                assert bond is not None and bond.status == "active", f"{tag}: bond released early"
+                ok_at, msg_at = StateTransition().apply_transaction(
+                    s,
+                    CHAIN,
+                    tx,
+                    rel_hash,
+                    block_version=V18,
+                    block_height=HEIGHT,
+                    block_time=V18_BOUNDARY,
+                )
+                assert ok_at, f"{tag}: release at boundary failed: {msg_at}"
+                s.commit()
+        rows_a = _bond_rows(eng_a)
+        assert rows_a == _bond_rows(eng_b)
+        assert rows_a[0][4] == "released"
+        assert _committed_fp(eng_a, V18) == _committed_fp(eng_b, V18)
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
+
+
+# §4 regression pin: the replay harness now compares ``committed_fingerprint``
+# across both databases at v18 — the committed surface the v9-era suite never
+# asserted on (it compared verdicts, account rows and state roots only).
+_V18_FINGERPRINT_TYPES = ["MESSAGE", "LIQUIDITY_DEPOSIT", "BOND_LOCK", "BOND_RELEASE", "STAKE_LOCK"]
+
+
+@pytest.mark.parametrize("tx_type", _V18_FINGERPRINT_TYPES, ids=lambda t: t)
+def test_v18_replay_committed_fingerprint(tx_type, tmp_path):
+    """Replay the type at v18 on two databases — same verdict and identical
+    ``committed_fingerprint`` at v18 rules."""
+    build, signer, seeds = _CASES[tx_type]
+    tx = build()
+    if signer is not None:
+        _attach_sender_sig(tx, signer)
+    tx_hash = tx.get("tx_hash") or _hash("v18-replay", tx_type)
+    eng_a, eng_b, ok_a, msg_a, ok_b, msg_b = _replay_twice(
+        tmp_path, tx, tx_hash, seeds, version=V18, block_time=V18_BLOCK_TIME
+    )
+    try:
+        assert ok_a, f"{tx_type} failed to apply at v18: {msg_a}"
+        assert ok_b, f"{tx_type} replay diverged in verdict: {msg_b}"
+        assert _committed_fp(eng_a, V18) == _committed_fp(eng_b, V18), (
+            f"{tx_type}: committed surface diverged between identical replays"
+        )
+    finally:
+        eng_a.dispose()
+        eng_b.dispose()
+
+
+@pytest.mark.parametrize("version", [9, 14, 15, 17], ids=lambda v: f"v{v}")
+def test_pre_v18_replay_stays_byte_identical(version, tmp_path):
+    """§4: below the v18 gate nothing changed — the volatile apply paths and
+    the committed table sets are untouched, so a pre-v18 tx replays to an
+    identical committed fingerprint on two databases at that version's
+    rules."""
+    tx = _attach_sender_sig(_tx(BUYER, PROVIDER, 0, "MESSAGE", {"text": "pre-v18 pin"}), BUYER_KEY)
+    eng_a, eng_b, ok_a, msg_a, ok_b, msg_b = _replay_twice(tmp_path, tx, _hash("pre-v18", version), (), version=version)
+    try:
+        assert ok_a and ok_b, f"{msg_a} / {msg_b}"
+        assert _committed_fp(eng_a, version) == _committed_fp(eng_b, version)
     finally:
         eng_a.dispose()
         eng_b.dispose()
