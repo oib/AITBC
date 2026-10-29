@@ -46,7 +46,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc blockchain consensus validators` | `/rpc/consensus/validators{query}` | — | —
 | `aitbc blockchain height` | `/rpc/height` | `get_height_route` (core.py) | —
 | `aitbc blockchain instances` | `/rpc/chains` | `list_chains_route` (core.py) | —
-| `aitbc blockchain list` | `/rpc/islands` | — | —
+| `aitbc blockchain list` | `/rpc/islands` | `list_islands_route` (islands.py) | —
 | `aitbc blockchain start` | `/rpc/chains/start` | `start_chain_route` (core.py) | —
 | `aitbc blockchain stop` | `/rpc/chains/stop` | `stop_chain_route` (core.py) | —
 | `aitbc blockchain sync-status` | `/rpc/head` | `get_head_route` (core.py) | —
@@ -199,6 +199,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet bridge sell lock` | `/rpc/account/{from_address}` | `get_account_route` (core.py) | —
 | `aitbc wallet bridge sell lock` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet bridge withdraw` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
+| `aitbc wallet liquidity-claim` | `/rpc/chain` | — | —
 | `aitbc wallet liquidity-claim` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet rewards` | `/rpc/liquidity/stakes/` | — | —
 | `aitbc wallet send` | `/rpc/account/` | — | —
