@@ -224,7 +224,7 @@ repos:
         entry: bash scripts/ci/check-mcp-cli-drift.sh
         language: system
         pass_filenames: false
-        files: ^(cli/aitbc_cli/|mcp-server/aitbc_mcp_(server|cli_tools_generated(_[a-z0-9_]+)?\.py)|scripts/(dev/generate_mcp_cli_tools\.py|ci/check-mcp-cli-drift\.sh))
+        files: ^(cli/aitbc_cli/|mcp-server/|apps/.*/src/|scripts/(dev/(generate_mcp_cli_tools|gen_mcp_tool_inventory)\.py|ci/(check-mcp-cli-drift\.sh|check-mcp-tool-surface\.py)|docs/gen_(doc_mesh|cli_command_docs)\.py)|docs/reference/mcp-tool-inventory\.md)
         stages: [pre-commit]
 
       - id: website-asset-stamp
