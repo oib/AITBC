@@ -85,6 +85,20 @@ def _known_types() -> list[str]:
     return sorted(gcd._known_record_types())
 
 
+def _dead_types() -> set[str]:
+    """Record types that are dead by design (replay-pinned only).
+
+    Parsed from ``DEAD_RECORD_TYPES`` in ``v9_policy.py`` — the module has
+    relative imports and cannot be exec'd standalone, so read the literal
+    set via AST instead.
+    """
+    tree = ast.parse((REPO / "apps/blockchain-node/src/aitbc_chain/state/v9_policy.py").read_text())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "DEAD_RECORD_TYPES":
+            return {elt.value for elt in ast.walk(node.value) if isinstance(elt, ast.Constant) and isinstance(elt.value, str)}
+    return set()
+
+
 def parse_ledger(known: set[str]) -> dict[str, dict[str, str]]:
     """docs/scenarios/README.md coverage ledger -> {type: {sealed, emitted}}."""
     rows = _table_rows(DOCS / "scenarios" / "README.md", "## On-chain record coverage")
@@ -395,7 +409,10 @@ def emit_record_hub(ctx: dict) -> str:
         feat = _links_cell(idx["features"], "../features/")
         routes = _route_cell(ctx["routes_by_type"].get(t, set()))
         waiver = _waiver_cell(t, ctx)
-        lines.append(f"| `{t}` | {sealed} | {cli} | {scen} | {feat} | {routes} | {waiver} | `V9_METRIC_KNOWN_TX_TYPES` |")
+        dead = " ☠ *(dead — replay-pinned)*" if t in ctx["dead"] else ""
+        lines.append(
+            f"| `{t}`{dead} | {sealed} | {cli} | {scen} | {feat} | {routes} | {waiver} | `V9_METRIC_KNOWN_TX_TYPES` |"
+        )
     lines.append("")
     return "\n".join(lines)
 
@@ -485,6 +502,7 @@ def build_context() -> dict:
             routes_by_type.setdefault(t, set()).add(r.path)
     return {
         "known": known_list,
+        "dead": _dead_types(),
         "ledger": parse_ledger(known),
         "waivers": parse_waivers(known),
         "decisions": parse_decisions(known),
