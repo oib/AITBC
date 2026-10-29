@@ -1,31 +1,25 @@
-# Join Pool
+# Match Request Submission
 
-Join a miner to a pool
+Submit a job to the pool-hub matcher and receive the top-scoring miners — the live equivalent of "joining" compute capacity to work.
+
+> Previously described a removed pool-CRUD surface (v0.6.7); rewritten to the live pool-hub/coordinator surface.
 
 - **Status**: ✅
-- **Release**: v0.6.7
+- **Release**: current
 
 ## Implementation Details
 
-- `apps/miner/production_miner.py` — Real GPU Miner Client for AITBC - runs on host with actual GPU
-- `apps/pool-hub/src/poolhub/repositories/miner_repository.py` — Coordinates miner registry persistence across PostgreSQL and Redis.
-- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py` — List jobs assigned to a specific miner
-- `Blockchain Node` exposes `POST /rpc/islands/join` (operation `join_island_route_rpc_islands_join_post`) — Join an island
-- `Coordinator API` exposes `POST /v1/admin/debug/create-test-miner` (operation `create_test_miner_v1_admin_debug_create_test_miner_post`) — Create a test miner for debugging
-- `Coordinator API` exposes `GET /v1/market/miner-offers` (operation `list_miner_offers_v1_market_miner_offers_get`) — List all miner offers
+- `Pool Hub` exposes `POST /v1/match` — handler `match_endpoint` in `apps/pool-hub/src/poolhub/app/routers/match.py:34`. Body (`MatchRequestPayload`, `apps/pool-hub/src/poolhub/app/schemas.py:10`): `job_id`, `requirements` (normalized — `min_vram_gb`, `min_ram_gb`, `capabilities_any`), `hints` (`region`), `top_k`.
+- The handler persists a `match_requests` row (`models.py:91`) via `MatchRepository.create_request`, pulls active miners via `MinerRepository.list_active_miners` (`apps/pool-hub/src/poolhub/repositories/miner_repository.py:146`), filters/ranks in `_select_candidates` (`match.py:78`) — hard filters on VRAM/RAM/required-capabilities/region, then score-sorted top_k — and records each pick as a `match_results` row (`models.py:104`) with `score`, `explain` (`_compose_explain`, `match.py:115`), `eta_ms`, `price`.
+- Response (`MatchResponse`, `schemas.py:38`): `job_id` plus `candidates` of `MatchCandidate` (`schemas.py:18`) with `miner_id`, `addr`, `proto`, `score`, `explain`, `eta_ms`, `price`.
+- On the coordinator side, a miner "joins" work by polling: `POST /v1/miners/poll` (`poll`, `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:359`) returns the next assigned job.
 
 ## Examples
 
-- `POST /join` (`join_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `POST /leave` (`leave_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `GET /` (`list_islands` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `GET /{island_id}` (`get_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `POST /bridge` (`request_bridge` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `POST /rpc/islands/join` (`join_island_route_rpc_islands_join_post`) on `Blockchain Node`
-- `POST /v1/admin/debug/create-test-miner` (`create_test_miner_v1_admin_debug_create_test_miner_post`) on `Coordinator API`
-- `GET /v1/market/miner-offers` (`list_miner_offers_v1_market_miner_offers_get`) on `Coordinator API`
+- `POST /v1/match` (`match_endpoint` in `apps/pool-hub/src/poolhub/app/routers/match.py:34`) on `Pool Hub`
+- `POST /v1/miners/poll` (`poll` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:359`) on `Coordinator API`
 
 ## Operational Notes
 
-- **Status / Release:** `✅` / `v0.6.7`
-- Manages pool configuration, worker tracking, and payout scheduling.
+- **Status / Release:** `✅` / current
+- There is no `join pool` call — matching is per-request: every `POST /v1/match` re-evaluates the live miner roster, so "membership" is implicit in being registered and heartbeating.
