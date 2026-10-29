@@ -1,31 +1,24 @@
-# Leave Pool
+# Leaving the Miner Roster
 
-Remove a miner from a pool
+Take a miner out of the matchable set — the live equivalent of "leaving a pool".
+
+> Previously described a removed pool-CRUD surface (v0.6.7); rewritten to the live pool-hub/coordinator surface.
 
 - **Status**: ✅
-- **Release**: v0.6.7
+- **Release**: current
 
 ## Implementation Details
 
-- `apps/miner/production_miner.py` — Real GPU Miner Client for AITBC - runs on host with actual GPU
-- `apps/pool-hub/src/poolhub/repositories/miner_repository.py` — Coordinates miner registry persistence across PostgreSQL and Redis.
-- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py` — List jobs assigned to a specific miner
-- `Blockchain Node` exposes `POST /rpc/islands/leave` (operation `leave_island_route_rpc_islands_leave_post`) — Leave an island
-- `Coordinator API` exposes `POST /v1/admin/debug/create-test-miner` (operation `create_test_miner_v1_admin_debug_create_test_miner_post`) — Create a test miner for debugging
-- `Coordinator API` exposes `GET /v1/market/miner-offers` (operation `list_miner_offers_v1_market_miner_offers_get`) — List all miner offers
+- There is no explicit pool-hub "leave" endpoint. A miner leaves the matchable set by stopping `POST /v1/miners/heartbeat` (`miner_heartbeat`, `apps/pool-hub/src/poolhub/app/routers/miners.py:85`): the heartbeat feeds `miner_status.last_heartbeat_at` (`models.py:75`) and `touch_heartbeat` (`apps/pool-hub/src/poolhub/repositories/miner_repository.py:118`), and once it goes stale the miner stops passing `list_active_miners` (:146), which is what `POST /v1/match` (`match.py:34`) draws candidates from.
+- On the coordinator, leaving formally is `DELETE /v1/miners/{miner_id}` (`deregister_miner`, `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:797`); the `StaleMinerReaper` (`apps/coordinator-api/src/coordinator_api/main.py:250`) marks silent miners `OFFLINE` automatically.
+- A miner that merely wants to stop taking work but stay registered can also report itself busy via the heartbeat `status`/`current_jobs` fields (`MinerHeartbeatRequest`, `miners.py:38`), which sets `miner_status.busy`/`queue_len` and lowers match priority.
 
 ## Examples
 
-- `POST /join` (`join_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `POST /leave` (`leave_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `GET /` (`list_islands` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `GET /{island_id}` (`get_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `POST /bridge` (`request_bridge` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `POST /rpc/islands/leave` (`leave_island_route_rpc_islands_leave_post`) on `Blockchain Node`
-- `POST /v1/admin/debug/create-test-miner` (`create_test_miner_v1_admin_debug_create_test_miner_post`) on `Coordinator API`
-- `GET /v1/market/miner-offers` (`list_miner_offers_v1_market_miner_offers_get`) on `Coordinator API`
+- `DELETE /v1/miners/{miner_id}` (`deregister_miner` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:797`) on `Coordinator API`
+- `POST /v1/miners/heartbeat` (`miner_heartbeat` in `apps/pool-hub/src/poolhub/app/routers/miners.py:85`) on `Pool Hub` — ceasing it is the leave mechanism
 
 ## Operational Notes
 
-- **Status / Release:** `✅` / `v0.6.7`
-- Manages pool configuration, worker tracking, and payout scheduling.
+- **Status / Release:** `✅` / current
+- Match requests/results (`match_requests`, `match_results`) are retained after a miner leaves; they are historical records, not memberships.
