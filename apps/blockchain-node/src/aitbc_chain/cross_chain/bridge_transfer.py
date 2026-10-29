@@ -314,6 +314,10 @@ class BridgeTransferMixin(BridgeBase):
             )
             session.add(transfer_record)
             session.commit()
+            # #696: write-through register with the shared ledger service —
+            # fire-and-log; a ledger outage never fails the lock and the
+            # local row remains the fallback cache.
+            self._ledger_register(transfer_record)
             transfer = BridgeTransfer(
                 transfer_id=transfer_id,
                 source_chain=source_chain,
@@ -1451,6 +1455,13 @@ class BridgeTransferMixin(BridgeBase):
                     logger.exception("Failed to update source-chain bridge record for %s", record.transfer_id)
                 session.commit()
                 finalized += 1
+                # #696: mirror the terminal state in the shared ledger.
+                self._ledger_writeback(
+                    record.transfer_id,
+                    "completed",
+                    target_tx_hash=record.target_tx_hash,
+                    proof_hash=record.proof_hash,
+                )
                 in_memory = self._pending_transfers.get(record.transfer_id)
                 if in_memory:
                     in_memory.status = BridgeStatus.completed
@@ -1601,6 +1612,101 @@ class BridgeTransferMixin(BridgeBase):
                 break
         return stored
 
+    def _ledger_register(self, record: CrossChainTransfer) -> None:
+        """Best-effort write-through registration with the shared ledger (#696).
+
+        No-op when ``BRIDGE_LEDGER_URL`` is unset; failures are logged inside
+        the client and never propagate — the local row is the fallback.
+        """
+        try:
+            from .bridge_ledger import ledger_enabled, register_transfer
+
+            if ledger_enabled():
+                register_transfer(record)
+        except Exception:
+            logger.exception("Bridge ledger register failed for %s", record.transfer_id)
+
+    def _ledger_writeback(
+        self,
+        transfer_id: str,
+        status: str,
+        target_tx_hash: str | None = None,
+        proof_hash: str | None = None,
+    ) -> None:
+        """Best-effort status writeback to the shared ledger (#696)."""
+        try:
+            from .bridge_ledger import ledger_enabled, write_status
+
+            if ledger_enabled():
+                write_status(transfer_id, status, target_tx_hash=target_tx_hash, proof_hash=proof_hash)
+        except Exception:
+            logger.exception("Bridge ledger status writeback failed for %s", transfer_id)
+
+    def _ledger_local_record(self, row: dict[str, Any]) -> CrossChainTransfer | None:
+        """Materialise a service-side pending row into the local source-chain store.
+
+        ``build_proof``/``confirm_transfer`` read the ``CrossChainTransfer``
+        record from the local store of the transfer's source chain; a row that
+        only exists in the shared ledger would otherwise relay as "Transfer
+        not found". The upsert is keyed on ``transfer_id`` and never overwrites
+        a row the local store already holds.
+        """
+        transfer_id = str(row.get("transfer_id") or "")
+        source_chain = str(row.get("source_chain") or "")
+        if not transfer_id or not source_chain:
+            return None
+        try:
+            with self._session_for(source_chain) as session:
+                record = session.get(CrossChainTransfer, transfer_id)
+                if record is None:
+                    lock_time = row.get("lock_time")
+                    record = CrossChainTransfer(
+                        transfer_id=transfer_id,
+                        source_chain=source_chain,
+                        target_chain=str(row.get("target_chain") or ""),
+                        sender=str(row.get("sender") or ""),
+                        recipient=str(row.get("recipient") or ""),
+                        amount=int(row.get("amount") or 0),
+                        asset=str(row.get("asset") or "native"),
+                        status="pending",
+                        source_tx_hash=row.get("source_tx_hash") or transfer_id,
+                        lock_time=datetime.fromisoformat(lock_time) if isinstance(lock_time, str) else None,
+                        release_amount=row.get("release_amount"),
+                    )
+                    session.add(record)
+                    session.commit()
+                    session.refresh(record)
+                return record
+        except Exception:
+            logger.exception("Bridge relayer: failed to materialise ledger row %s locally", transfer_id[:16])
+            return None
+
+    def _pending_worklist(self, chain_id: str, own_chain: str) -> list[BridgeTransfer]:
+        """Relayer worklist for source chain ``chain_id``.
+
+        #696: when ``BRIDGE_LEDGER_URL`` is set the list comes from the shared
+        ledger's ``GET /pending?target_chain=<own_chain>`` instead of the local
+        ``status='pending'`` scan — an unreachable service yields an empty list
+        (skip the pass). Unset URL = today's local-scan behaviour.
+        """
+        from .bridge_ledger import fetch_pending, ledger_enabled
+
+        if not ledger_enabled():
+            return [
+                t for t in self.list_pending_transfers(chain_id) if t.source_chain == chain_id and t.target_chain == own_chain
+            ]
+        rows = fetch_pending(own_chain)
+        if rows is None:
+            return []
+        worklist: list[BridgeTransfer] = []
+        for row in rows:
+            if row.get("source_chain") != chain_id:
+                continue
+            record = self._ledger_local_record(row)
+            if record is not None and record.status == "pending":
+                worklist.append(self._build_transfer_from_record(record))
+        return worklist
+
     def _relay_pending_transfers(self, chain_id: str) -> int:
         """Confirm pending source-chain transfers whose lock has finality.
 
@@ -1623,9 +1729,7 @@ class BridgeTransferMixin(BridgeBase):
         """
         relayed = 0
         own_chain = str(getattr(settings, "chain_id", "") or "")
-        pending = [
-            t for t in self.list_pending_transfers(chain_id) if t.source_chain == chain_id and t.target_chain == own_chain
-        ]
+        pending = self._pending_worklist(chain_id, own_chain)
         for transfer in pending:
             if not self._chain_db_ready(transfer.target_chain):
                 # The release must be written to the target chain's store;
@@ -1648,8 +1752,16 @@ class BridgeTransferMixin(BridgeBase):
                 logger.exception("Bridge relayer: failed to build proof for %s", transfer.transfer_id[:16])
                 continue
             try:
-                self.confirm_transfer(transfer.transfer_id, proof)
+                confirmed = self.confirm_transfer(transfer.transfer_id, proof)
                 relayed += 1
+                # #696: monotonic writeback to the shared ledger so the row
+                # the relayer consumed leaves the pending worklist.
+                self._ledger_writeback(
+                    transfer.transfer_id,
+                    "confirmed",
+                    target_tx_hash=confirmed.target_tx_hash,
+                    proof_hash=hashlib.sha256(json.dumps(proof, sort_keys=True).encode()).hexdigest(),
+                )
             except ValueError as e:
                 # Finality/threshold/validator-set failures stay pending; the
                 # record keeps its honest state and we retry next interval.

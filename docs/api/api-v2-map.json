@@ -964,6 +964,34 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/bridge/ledger/pending",
+          "upstream": "/rpc/bridge/ledger/pending",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/ledger/register",
+          "upstream": "/rpc/bridge/ledger/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/ledger/{transfer_id}",
+          "upstream": "/rpc/bridge/ledger/{transfer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/ledger/{transfer_id}/status",
+          "upstream": "/rpc/bridge/ledger/{transfer_id}/status",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/bridge/lock",
           "upstream": "/rpc/bridge/lock",
           "methods": [
@@ -2237,6 +2265,34 @@
           "upstream": "/v1/bridge/health",
           "methods": [
             "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/ledger/pending",
+          "upstream": "/v1/bridge/ledger/pending",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/ledger/register",
+          "upstream": "/v1/bridge/ledger/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/ledger/{transfer_id}",
+          "upstream": "/v1/bridge/ledger/{transfer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/ledger/{transfer_id}/status",
+          "upstream": "/v1/bridge/ledger/{transfer_id}/status",
+          "methods": [
+            "POST"
           ]
         },
         {
