@@ -18,11 +18,17 @@ aitbc wallet staking-info [OPTIONS]
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
+| `--wallet-name` | text | — | no | Wallet name (overrides the group-level value) |
+| `--wallet-path` | text | — | no | Direct path to wallet file (overrides --wallet-name) |
+| `--rpc-url` | text | — | no | Blockchain RPC URL (overrides the group/config resolution) |
+| `--chain-id` | text | — | no | Chain ID to sign with (skips auto-detection) |
 
 ## Examples
 
 ```bash
 aitbc wallet staking-info
+RPC_URL=http://127.0.0.1:8202/rpc
+aitbc wallet staking-info --rpc-url "$RPC_URL"
 ```
 
 ## Related

@@ -9,6 +9,7 @@ import aitbc_mcp_cli_tools_generated_account  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent_comm  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent_msg  # noqa: F401
+import aitbc_mcp_cli_tools_generated_agent_staking  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent_task  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent_wallet  # noqa: F401
 import aitbc_mcp_cli_tools_generated_ai  # noqa: F401
@@ -17,6 +18,7 @@ import aitbc_mcp_cli_tools_generated_auth  # noqa: F401
 import aitbc_mcp_cli_tools_generated_blockchain  # noqa: F401
 import aitbc_mcp_cli_tools_generated_bond  # noqa: F401
 import aitbc_mcp_cli_tools_generated_bootstrap  # noqa: F401
+import aitbc_mcp_cli_tools_generated_bounty  # noqa: F401
 import aitbc_mcp_cli_tools_generated_brand  # noqa: F401
 import aitbc_mcp_cli_tools_generated_bridge  # noqa: F401
 import aitbc_mcp_cli_tools_generated_cluster  # noqa: F401
@@ -45,6 +47,7 @@ import aitbc_mcp_cli_tools_generated_grant  # noqa: F401
 import aitbc_mcp_cli_tools_generated_health  # noqa: F401
 import aitbc_mcp_cli_tools_generated_http  # noqa: F401
 import aitbc_mcp_cli_tools_generated_ipfs  # noqa: F401
+import aitbc_mcp_cli_tools_generated_liquidity  # noqa: F401
 import aitbc_mcp_cli_tools_generated_liquidity_stake  # noqa: F401
 import aitbc_mcp_cli_tools_generated_list  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market  # noqa: F401

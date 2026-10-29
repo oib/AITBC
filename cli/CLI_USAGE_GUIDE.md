@@ -21,7 +21,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `compliance` — Compliance policy, classification, and audit commands.. Subcommands: `check`, `classify`, `export-audit`
 - `confidential` — Confidential TEE-signed transaction commands.. Subcommands: `balance`, `send`
 - `config` — Manage CLI configuration. Subcommands: `check`, `check-keys`, `edit`, `environments`, `export`, `get`, `get-secret`, `import-config`, `path`, `profiles`, `reset`, `set`, `set-secret`, `show`, `unset`, `validate`
-- `contract` — Smart contract operations. Subcommands: `call`, `deploy`
+- `contract` — Smart contract operations. Subcommands: `call`, `deploy`, `list`, `messaging-messages`, `messaging-reputation`, `messaging-search`, `messaging-state`, `messaging-topics`, `verify`
 - `crosschain` — Cross-chain trading operations. Subcommands: `bridge`, `bridge-status`, `confirm`, `pools`, `rates`, `stats`, `status`, `swap`, `swaps`
 - `dashboard` — Operational dashboards for customers and shops.. Subcommands: `customer`, `shop`
 - `deploy` — Deploy and manage white-label platform configurations.. Subcommands: `deploy-brand`
@@ -79,3 +79,6 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `stake` — Stake AITBC tokens on-chain for a configurable lock duration
 - `unstake` — Unstake tokens once the lock period ends and withdraw the principal
 - `eth` — Inspect public Sepolia ETH activity — read-only, key-free, no polling. Subcommands: `transfers`
+- `agent-staking` — Manage agent-economy stakes (operator-signed /rpc/agent-staking routes). Subcommands: `add`, `claim`, `complete`, `distribute`, `performance`, `stake`, `status`, `unbond`
+- `bounty` — Manage bounty locks and submissions (operator-signed /rpc/bounty routes). Subcommands: `deploy`, `dispute`, `expire`, `status`, `submit`, `verify`
+- `liquidity` — Build unsigned LIQUIDITY_* transactions via the node's build routes. Subcommands: `build-claim`, `build-deposit`, `build-withdraw`
