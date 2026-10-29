@@ -91,6 +91,12 @@ def test_lock_then_refund_nonce_sequence(bridge, engine):
     _seed(engine, "chain-a", "0xsender", 10_000)
 
     transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecipient", 1000)
+    # #703 seal gate: refund binds the lock's sealed row — mark it sealed.
+    with Session(engine) as session:
+        tx = session.exec(select(Transaction).where(Transaction.tx_hash == transfer.transfer_id)).one()
+        tx.block_height = 1
+        session.add(tx)
+        session.commit()
     bridge.refund_transfer(transfer.transfer_id, "0xsender")
 
     # Lock: 0 -> 1. Refund: 1 -> 2.

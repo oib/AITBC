@@ -27,12 +27,12 @@ from eth_utils import keccak
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, create_engine
+from sqlmodel import Session, create_engine, select
 
 from aitbc_chain.metadata import chain_metadata
 
 from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge
-from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer
+from aitbc_chain.models import Account, BridgeBlockHeader, CrossChainTransfer, Transaction
 from aitbc_chain.network.bridge_manager import BridgeManager
 from aitbc_chain.rpc.router import router
 
@@ -215,6 +215,14 @@ class TestBridgeUnlock:
             assert acct is not None
             balance_after_lock = acct.balance
             assert balance_after_lock < amount * 2
+
+        # #703 seal gate: refund binds the lock's sealed Transaction row —
+        # mark the intake row sealed before the refund call.
+        with Session(engine) as session:
+            tx = session.exec(select(Transaction).where(Transaction.tx_hash == transfer.transfer_id)).one()
+            tx.block_height = 1
+            session.add(tx)
+            session.commit()
 
         # Unlock (refund)
         refunded = bridge.refund_transfer(transfer.transfer_id, sender)
