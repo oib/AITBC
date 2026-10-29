@@ -20,6 +20,11 @@ from sqlmodel import Session, select
 from ..config import settings
 from ..logger import get_logger
 from ..metrics import metrics_registry
+from ..chain_isolation_metrics import (
+    record_chain_id_validation_failure,
+    record_chain_isolation_violation,
+    record_cross_chain_transaction_attempt,
+)
 from ..base_models import (
     Block,
     Bond,
@@ -1324,6 +1329,9 @@ class StateTransition:
         """
         tx_chain_id = tx_data.get("chain_id")
         if tx_chain_id and tx_chain_id != chain_id:
+            record_cross_chain_transaction_attempt(source_chain=tx_chain_id, target_chain=chain_id, node=chain_id)
+            record_chain_id_validation_failure(expected_chain=chain_id, actual_chain=tx_chain_id, node=chain_id)
+            record_chain_isolation_violation("cross_chain_tx_rejected", node=chain_id)
             logger.warning(
                 "Chain isolation violation: Transaction %s has chain_id=%s but node is configured for chain_id=%s. Rejecting cross-chain transaction.",
                 tx_hash,

@@ -12,6 +12,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ...logger import get_logger
 from ..utils import get_supported_chains, validate_chain_id
+from ...chain_isolation_metrics import record_chain_id_validation_failure
 
 _logger = get_logger(__name__)
 
@@ -24,6 +25,9 @@ def _validate_chain_id(chain_id: str) -> None:
     Raises HTTPException(400) if the chain_id is not in the whitelist.
     """
     if not validate_chain_id(chain_id):
+        record_chain_id_validation_failure(
+            expected_chain=str(get_supported_chains()), actual_chain=chain_id, node="bridge-rpc"
+        )
         raise HTTPException(
             status_code=400,
             detail=f"Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
