@@ -19,6 +19,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import sys
+from typing import Any
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -202,6 +203,207 @@ def test_generated_tools_forward_only_real_flags():
             if flag not in real:
                 failures.append(f"{gen.path_to_func_name(path)} emits --{flag} but `aitbc {' '.join(path)}` has no such flag")
     assert not failures, "Generated MCP tools emit flags the CLI does not declare:\n" + "\n".join(failures)
+
+
+# ---------------------------------------------------------------------------
+# Hand-maintained module: aitbc_mcp_cli_tools.py
+#
+# The hand file wraps calls differently from the generated modules: instead of
+# ``_collect_options`` it passes ``(role, host, group, subcommand, args,
+# options, ...)`` positionally to ``_aitbc_cli_read_tool`` /
+# ``_run_aitbc_cli_write`` and builds option dicts via literals and
+# ``options["flag"] = ...`` assignments.  The checks below parse the same
+# literals and validate them against the Click tree: every emitted
+# (group, subcommand) path must resolve to a real command, and every forwarded
+# flag name must be a real option on the leaf (``options`` /
+# ``subcommand_options``) or on the first-level group (``group_options``).
+# ---------------------------------------------------------------------------
+
+HAND_PATH = MCP_SERVER_DIR / "aitbc_mcp_cli_tools.py"
+HAND_WRAPPERS = {"_aitbc_cli_read_tool", "_run_aitbc_cli_write"}
+_OPTION_DICT_NAMES = {"options", "group_options", "subcommand_options"}
+
+
+def _str_constant(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _token_list(node: ast.AST | None) -> list[str] | None:
+    """Literal ``str`` / ``list[str]`` / ``None`` → token list; else None."""
+    if node is None or (isinstance(node, ast.Constant) and node.value is None):
+        return []
+    s = _str_constant(node)
+    if s is not None:
+        import shlex
+
+        return shlex.split(s)
+    if isinstance(node, (ast.List, ast.Tuple)):
+        out: list[str] = []
+        for elt in node.elts:
+            v = _str_constant(elt)
+            if v is None:
+                return None
+            out.append(v)
+        return out
+    return None
+
+
+def _dict_keys(node: ast.AST) -> set[str]:
+    """Constant string keys of a dict literal."""
+    if not isinstance(node, ast.Dict):
+        return set()
+    keys: set[str] = set()
+    for k in node.keys:
+        v = _str_constant(k)
+        if v is not None:
+            keys.add(v)
+    return keys
+
+
+def _call_arg(call: ast.Call, index: int, name: str) -> ast.AST | None:
+    """Positional-or-keyword argument of a call, keyword wins."""
+    for kw in call.keywords:
+        if kw.arg == name:
+            return kw.value
+    if len(call.args) > index:
+        return call.args[index]
+    return None
+
+
+def _func_option_literals(node: ast.FunctionDef) -> dict[str, set[str]]:
+    """All flag names each option-dict variable can carry in one function.
+
+    Collects keys from ``X = {...}`` / ``X: t = {...}`` assignments and
+    ``X["flag"] = ...`` subscript writes for X in _OPTION_DICT_NAMES.  A key
+    set to ``None``/``True`` renders as a bare ``--flag``; any other value as
+    ``--flag=value`` — both are forwarded flags either way.
+    """
+    keys: dict[str, set[str]] = {name: set() for name in _OPTION_DICT_NAMES}
+    for stmt in ast.walk(node):
+        if isinstance(stmt, ast.Assign):
+            if isinstance(stmt.value, ast.Dict):
+                for tgt in stmt.targets:
+                    if isinstance(tgt, ast.Name) and tgt.id in keys:
+                        keys[tgt.id] |= _dict_keys(stmt.value)
+            for tgt in stmt.targets:
+                if (
+                    isinstance(tgt, ast.Subscript)
+                    and isinstance(tgt.value, ast.Name)
+                    and tgt.value.id in keys
+                    and isinstance(tgt.slice, ast.Constant)
+                ):
+                    keys[tgt.value.id].add(str(tgt.slice.value))
+        elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.value, ast.Dict):
+            if isinstance(stmt.target, ast.Name) and stmt.target.id in keys:
+                keys[stmt.target.id] |= _dict_keys(stmt.value)
+    return keys
+
+
+def _hand_emissions() -> list[dict[str, Any]]:
+    """Parse the hand file; one record per literal ``aitbc`` wrapper call."""
+    out: list[dict[str, Any]] = []
+    tree = ast.parse(HAND_PATH.read_text())
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        var_keys = _func_option_literals(node)
+        for stmt in ast.walk(node):
+            if not (isinstance(stmt, ast.Call) and getattr(stmt.func, "id", "") in HAND_WRAPPERS):
+                continue
+            group = _str_constant(_call_arg(stmt, 2, "group"))
+            if group is None:
+                continue  # non-literal group (helper internals) — nothing to check
+            sub_tokens = _token_list(_call_arg(stmt, 3, "subcommand"))
+            arg_tokens = _token_list(_call_arg(stmt, 4, "args"))
+
+            def keys_for(node_value: ast.AST | None, var_keys: dict[str, set[str]] = var_keys) -> set[str]:
+                if isinstance(node_value, ast.Dict):
+                    return _dict_keys(node_value)
+                if isinstance(node_value, ast.Name) and node_value.id in var_keys:
+                    return var_keys[node_value.id]
+                return set()
+
+            # ``options`` is the only positional dict (index 5); group_options /
+            # subcommand_options are keyword-only in both helpers.
+            leaf_flags = keys_for(_call_arg(stmt, 5, "options")) | keys_for(_call_arg(stmt, 99, "subcommand_options"))
+            group_flags = keys_for(_call_arg(stmt, 99, "group_options"))
+            out.append(
+                {
+                    "tool": node.name,
+                    "group": group,
+                    "sub_tokens": sub_tokens,
+                    "arg_tokens": arg_tokens,
+                    "leaf_flags": leaf_flags,
+                    "group_flags": group_flags,
+                }
+            )
+    return out
+
+
+def _resolve_leaf(group: str, tokens: list[str] | None) -> tuple[click.Command | None, str | None]:
+    """Walk ``aitbc <group> <tokens...>`` down the Click tree.
+
+    Returns (command, error): command is the deepest resolvable node (a leaf
+    unless tokens ran out on a group).  Literal leading ``args`` tokens can
+    continue the path because Click consumes them as subcommand names.
+    """
+    if tokens is None:
+        return None, f"non-literal subcommand under group {group!r}"
+    top = gen.cli.commands.get(group)
+    if top is None:
+        return None, f"unknown aitbc group {group!r}"
+    node: click.Command = top
+    for tok in tokens:
+        if not isinstance(node, click.Group):
+            break
+        nxt = node.commands.get(tok)
+        if nxt is None:
+            break
+        node = nxt
+    return node, None
+
+
+def _real_flags(cmd: click.Command) -> set[str]:
+    return {n for p in cmd.params if isinstance(p, click.Option) for n in _real_flag_names(p)}
+
+
+def test_hand_written_tools_resolve_to_click_commands():
+    """Every literal (group, subcommand) in aitbc_mcp_cli_tools.py must resolve."""
+    emissions = _hand_emissions()
+    assert len(emissions) > 40, "sanity: the hand file wraps dozens of CLI calls"
+    failures: list[str] = []
+    for e in emissions:
+        tokens = list(e["sub_tokens"] or []) + list(e["arg_tokens"] or [])
+        cmd, err = _resolve_leaf(e["group"], tokens)
+        path = f"aitbc {e['group']} {' '.join(tokens)}".rstrip()
+        if err:
+            failures.append(f"{e['tool']}: {err} ({path})")
+        elif cmd is None or isinstance(cmd, click.Group):
+            failures.append(f"{e['tool']}: `{path}` does not resolve to a leaf command")
+    assert not failures, "Stale command paths in aitbc_mcp_cli_tools.py:\n" + "\n".join(failures)
+
+
+def test_hand_written_tools_forward_only_real_flags():
+    """Flags emitted by the hand file must exist on the resolved command."""
+    failures: list[str] = []
+    for e in _hand_emissions():
+        tokens = list(e["sub_tokens"] or []) + list(e["arg_tokens"] or [])
+        cmd, err = _resolve_leaf(e["group"], tokens)
+        if err or cmd is None or isinstance(cmd, click.Group):
+            continue  # path failures are reported by the resolver test
+        path = f"aitbc {e['group']} {' '.join(tokens)}".rstrip()
+        leaf_real = _real_flags(cmd)
+        top = gen.cli.commands.get(e["group"])
+        group_real = _real_flags(top) if isinstance(top, click.Group) else leaf_real
+        for flag in sorted(e["leaf_flags"]):
+            if flag not in leaf_real:
+                failures.append(f"{e['tool']}: emits --{flag} but `{path}` has no such option")
+        for flag in sorted(e["group_flags"]):
+            if flag not in group_real:
+                failures.append(f"{e['tool']}: emits group option --{flag} but `aitbc {e['group']}` has no such option")
+    assert not failures, "aitbc_mcp_cli_tools.py emits flags the CLI does not declare:\n" + "\n".join(failures)
 
 
 def _dual_flag_failures(func_name: str, tool: dict, params: list, eligible) -> list[str]:
