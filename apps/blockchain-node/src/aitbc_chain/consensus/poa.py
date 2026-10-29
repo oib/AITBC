@@ -394,6 +394,30 @@ class PoAProposer:
             seen.add(canonical_address(sender))
         return len(seen)
 
+    def _remote_validators_configured(self, proposer_c: str) -> bool:
+        """True when consensus members other than ``proposer_c`` are configured.
+
+        ``proposer_c`` must already be canonicalised. ``VALIDATOR_SET`` is the
+        membership source of truth, so it is consulted first; the registered
+        (persisted) validator set is the fallback when env is unset or
+        unparseable. Distinguishes "single-validator island" from "remotes
+        configured but missing from the active view" for the #693 floor guard.
+        """
+        raw = getattr(settings, "validator_set", "") or ""
+        if raw.strip():
+            try:
+                env = json.loads(raw)
+            except Exception:
+                env = None
+            if isinstance(env, list):
+                return any(
+                    isinstance(v, dict) and bool(v.get("address")) and canonical_address(v["address"]) != proposer_c
+                    for v in env
+                )
+        if self._multi_validator is not None:
+            return any(canonical_address(addr) != proposer_c for addr in self._multi_validator.validators)
+        return False
+
     async def _collect_attestations(
         self, block: Block, transactions: list[dict[str, Any]] | None = None
     ) -> list[dict[str, str]]:
@@ -406,6 +430,9 @@ class PoAProposer:
         attestations: list[dict[str, str]] = []
         seen: set[str] = set()
 
+        if self._multi_validator is not None:
+            # #693: never size the attestation round off a poisoned empty view.
+            self._multi_validator.reload_state_if_anomalous()
         active_validators = (
             self._multi_validator.get_consensus_participants()
             if self._multi_validator is not None
@@ -2029,14 +2056,35 @@ class PoAProposer:
         if self._multi_validator:
             attestations = await self._collect_attestations(block, transactions=transactions)
             configured_min = getattr(settings, "multi_validator_min_attestations", 0)
+            # _collect_attestations already ran the #693 anomaly re-read, so the
+            # participants here are the post-recovery view.
             active_validators = self._multi_validator.get_consensus_participants()
-            effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
-            if configured_min > effective_min:
+            proposer_c = canonical_address(block.proposer)
+            remote_active = sum(1 for a in active_validators if canonical_address(a) != proposer_c)
+            if remote_active:
+                effective_min = max(0, min(configured_min, remote_active))
+            elif self._remote_validators_configured(proposer_c):
+                # #693 seal-floor guard: remote validators are configured but
+                # none are active — the degraded-view case that produced the
+                # hub1 reject storm. Hold the configured floor so the proposer
+                # STALLS below it instead of sealing a block every follower
+                # rejects. A genuine single-validator island (no remotes
+                # configured) takes the else branch and keeps floor 0.
+                effective_min = configured_min
+                if effective_min:
+                    self._logger.error(
+                        "No non-proposer validators are active but remotes are configured; "
+                        "holding min_attestations floor at %d instead of degrading to 0 (#693)",
+                        effective_min,
+                    )
+            else:
+                effective_min = 0
+            if remote_active and configured_min > effective_min:
                 self._logger.warning(
                     "Configured min_attestations %d reduced to %d because only %d non-proposer validators are active",
                     configured_min,
                     effective_min,
-                    max(0, len(active_validators) - 1),
+                    remote_active,
                 )
             if attestations:
                 metadata_dict["attestations"] = attestations
