@@ -29,6 +29,7 @@ aitbc genesis init --create-wallet --register-service
 ## Further reading
 
 - [CLI command reference (cli/CLI_USAGE_GUIDE.md)](../../cli/CLI_USAGE_GUIDE.md) — detailed command and workflow reference
+- [Per-command reference (commands/)](commands/README.md) — generated page per `aitbc` command: options, examples, related scenarios/features
 - [CLI click overview (CLICK_CLI.md)](CLICK_CLI.md) — command-tree and group catalog
 - [CLI developer guide (CLI_DEVELOPER_GUIDE.md)](CLI_DEVELOPER_GUIDE.md) — extending and packaging the CLI
 - [CLI testing notes (testing.md)](testing.md) — validation and test conventions
