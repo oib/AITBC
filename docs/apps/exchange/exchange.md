@@ -50,7 +50,6 @@ PYTHONPATH=/opt/aitbc venv/bin/python -m apps.exchange.simple_exchange.server --
 ```
 apps/exchange/
 ├── aitbc-exchange.service    # systemd unit (port 8106)
-├── exchange_wrapper.sh       # wrapper script
 ├── README.md
 ├── simple_exchange/
 │   ├── server.py             # CLI entry point (argparse → uvicorn)

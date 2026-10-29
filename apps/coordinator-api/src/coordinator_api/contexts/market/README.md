@@ -60,12 +60,14 @@ GPU and global compute market — offers, matching, analytics, and provider inte
 
 ## Services
 
+- bond_slashing.py
+- bond_slash_sweeper.py
 - external_providers.py
 - global_market.py
 - global_market_integration.py
 - market_analytics.py
 - market.py
-- market_enhanced.py
-- market_enhanced_simple.py
+- native_energy.py
+- ollama_queue.py
 - plugin_manager.py
 - resource_matcher.py

@@ -31,7 +31,6 @@ Provides JSON API endpoints for blockchain data:
 ### Chain Information
 - `GET /api/chains` - List supported chains
 - `GET /api/chain/head` - Get current chain head
-- `GET /api/chain/info` - Get chain information
 
 ### Blocks
 - `GET /api/blocks/{height}` - Get block by height (includes full transaction list)
@@ -39,7 +38,7 @@ Provides JSON API endpoints for blockchain data:
 - `GET /api/blocks/non-empty` - Get latest blocks that contain transactions
 - `GET /api/blocks/by-hash/{hash}` - Get block by hash
 - `GET /api/blocks/by-address/{address}` - Get all blocks containing transactions for an address
-- `GET /api/blocks/search` - Advanced block search
+- `GET /api/search/blocks` - Advanced block search
 
 ### Transactions
 - `GET /api/transactions/{tx_hash}` - Get transaction by hash
