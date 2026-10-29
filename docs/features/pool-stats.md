@@ -1,33 +1,32 @@
-# Pool Stats
+# Pool-Hub SLA Metrics & Reward Payouts
 
-Get pool statistics
+Aggregate operational statistics for the miner fleet: SLA metrics/violations, capacity snapshots, and reward payout records.
+
+> Previously described a removed pool-CRUD surface (v0.6.7); rewritten to the live pool-hub/coordinator surface.
 
 - **Status**: ✅
-- **Release**: v0.6.7
+- **Release**: current
 
 ## Implementation Details
 
-- `aitbc/network/http_pool.py` — import asyncio from typing import Any import httpx from aitbc.aitbc_logging import get_logger logger...
-- API endpoint `GET /security-stats` implemented in `apps/coordinator-api/src/coordinator_api/contexts/security/routers/security_router.py`
-- API endpoint `GET /bounties/stats` implemented in `apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/bounties.py`
-- API endpoint `GET /staking-stats` implemented in `apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/staking.py`
-- API endpoint `GET /v1/exchange/market-stats` implemented in `apps/trading/src/trading_service/routers/exchange_compat.py`
-- `Blockchain Node` exposes `GET /rpc/ai/stats` (operation `ai_stats_rpc_ai_stats_get`) — AI service statistics
-- `Coordinator API` exposes `GET /v1/market/stats` (operation `get_market_stats_v1_market_stats_get`) — Get market summary statistics
-- `Coordinator API` exposes `GET /v1/bounty/stats` (operation `get_stats_v1_bounty_stats_get`) — Get bounty statistics
+- `Pool Hub` exposes `GET /v1/sla/metrics` (`get_all_sla_metrics`, `apps/pool-hub/src/poolhub/app/routers/sla.py:117`) and `GET /v1/sla/metrics/{miner_id}` (:100) over the `sla_metrics` table (`apps/pool-hub/src/poolhub/models.py:157`: `metric_type`, `metric_value`, `threshold`, `is_violation`).
+- `GET /v1/sla/violations` (`get_sla_violations`, `sla.py:133`) reads `sla_violations` (`models.py:174`: `violation_type`, `severity`, `violation_duration_ms`, `resolved_at`). `GET /v1/sla/status` (`get_sla_status`, `sla.py:323`) returns a fleet-wide SLA summary.
+- Capacity stats: `GET /v1/sla/capacity/snapshots` (:164), `GET /v1/sla/capacity/forecast` (:184), `GET /v1/sla/capacity/recommendations` (:206) over `capacity_snapshots` (`models.py:193`: `total_miners`, `active_miners`, `capacity_utilization_pct`, `forecast_capacity`).
+- Collection is manual or scheduled: `POST /v1/sla/metrics/collect` (`collect_sla_metrics`, `sla.py:151`); the `SLACollectorScheduler` and `BillingIntegrationScheduler` only run when `POOLHUB_ENABLE_SLA_COLLECTION` / `POOLHUB_ENABLE_BILLING_SYNC` are set (`apps/pool-hub/src/poolhub/app/main.py:47-60`).
+- Reward payouts: the `reward_payouts` table (`models.py:211`) records per-miner per-epoch payouts with a `uq_reward_payout_miner_chain_epoch` unique constraint; rows are claimed and settled inside `BlockchainClient.distribute_rewards` (`apps/pool-hub/src/poolhub/clients/blockchain.py:149`), which submits the reward transaction and marks rows `paid`/`failed`. There is no HTTP endpoint exposing payout rows — they are a DB-level audit trail (note: `distribute_rewards` currently has no in-tree caller).
+- Prometheus metrics for the service itself: `GET /metrics` (`metrics_endpoint`, `apps/pool-hub/src/poolhub/app/routers/metrics.py:10`).
+- `Coordinator API` exposes `POST /v1/miners/{miner_id}/earnings` (`get_miner_earnings`, `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:688`) — per-miner earnings aggregation from completed jobs.
 
 ## Examples
 
-- `GET /security-stats` (`get_security_statistics` in `apps/coordinator-api/src/coordinator_api/contexts/security/routers/security_router.py`)
-- `GET /bounties/stats` (`get_bounty_statistics` in `apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/bounties.py`)
-- `GET /staking-stats` (`get_staking_statistics` in `apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/staking.py`)
-- `GET /v1/exchange/market-stats` (`get_market_stats` in `apps/trading/src/trading_service/routers/exchange_compat.py`)
-- `GET /agents/{agent_wallet}/staking-pool` (`get_staking_pool` in `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py`)
-- `GET /rpc/ai/stats` (`ai_stats_rpc_ai_stats_get`) on `Blockchain Node`
-- `GET /v1/market/stats` (`get_market_stats_v1_market_stats_get`) on `Coordinator API`
-- `GET /v1/bounty/stats` (`get_stats_v1_bounty_stats_get`) on `Coordinator API`
+- `GET /v1/sla/metrics` (`get_all_sla_metrics` in `apps/pool-hub/src/poolhub/app/routers/sla.py:117`) on `Pool Hub`
+- `GET /v1/sla/violations` (`get_sla_violations` in `apps/pool-hub/src/poolhub/app/routers/sla.py:133`) on `Pool Hub`
+- `GET /v1/sla/status` (`get_sla_status` in `apps/pool-hub/src/poolhub/app/routers/sla.py:323`) on `Pool Hub`
+- `GET /v1/sla/capacity/snapshots` (`get_capacity_snapshots` in `apps/pool-hub/src/poolhub/app/routers/sla.py:164`) on `Pool Hub`
+- `POST /v1/miners/{miner_id}/earnings` (`get_miner_earnings` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:688`) on `Coordinator API`
+- `GET /metrics` (`metrics_endpoint` in `apps/pool-hub/src/poolhub/app/routers/metrics.py:10`) on `Pool Hub`
 
 ## Operational Notes
 
-- **Status / Release:** `✅` / `v0.6.7`
-- Manages pool configuration, worker tracking, and payout scheduling.
+- **Status / Release:** `✅` / current
+- "Pool stats" in the old sense = the SLA/capacity endpoints plus the `reward_payouts` audit table. SLA metrics are only populated when collection runs (manual POST or the schedulers being enabled).

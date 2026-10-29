@@ -1,33 +1,27 @@
-# Pool Miners
+# Miner Roster
 
-Get miners in a pool
+List the miners registered with the network — the live equivalent of "miners in a pool".
+
+> Previously described a removed pool-CRUD surface (v0.6.7); rewritten to the live pool-hub/coordinator surface.
 
 - **Status**: ✅
-- **Release**: v0.6.7
+- **Release**: current
 
 ## Implementation Details
 
-- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/miners.py` — Deregister a miner from the system
-- `aitbc/network/http_pool.py` — import asyncio from typing import Any import httpx from aitbc.aitbc_logging import get_logger logger...
-- API endpoint `GET /agents/{agent_wallet}/staking-pool` implemented in `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py`
-- API endpoint `GET /v1/admin/miners` implemented in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py`
-- API endpoint `POST /miners/{miner_id}/earnings` implemented in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`
-- `Blockchain Node` exposes `GET /rpc/mining/miners` (operation `list_miners_route_rpc_mining_miners_get`) — List active miners
-- `Coordinator API` exposes `GET /v1/admin/miners` (operation `list_miners_v1_admin_miners_get`) — List miners
-- `Coordinator API` exposes `POST /v1/miners/{miner_id}/earnings` (operation `get_miner_earnings_v1_miners__miner_id__earnings_post`) — Get miner earnings
+- `Coordinator API` exposes `GET /v1/admin/miners` — handler `list_miners` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py:159` (admin JWT, rate-limited). Returns `items[]` with `miner_id`, `status`, `inflight`, `concurrency`, `region`, `last_heartbeat`, `average_job_duration_ms`, `jobs_completed`, `jobs_failed`, `last_receipt_id` from the coordinator's `Miner` domain model.
+- `Pool Hub` keeps its roster in the `miners` table (`apps/pool-hub/src/poolhub/models.py:48`) with live state in `miner_status` (:75); it is traversed internally by `MinerRepository.iter_miners` / `list_active_miners` (`apps/pool-hub/src/poolhub/repositories/miner_repository.py:139` / :146) for `POST /v1/match` — there is no public pool-hub roster endpoint.
+- Per-miner operational reads: `GET /v1/miners/status` (self, `miners.py:105`), `POST /v1/miners/{miner_id}/jobs` (`list_miner_jobs`, coordinator `miner.py:644`), `POST /v1/miners/{miner_id}/earnings` (`get_miner_earnings`, coordinator `miner.py:688`).
+- `Blockchain Node` exposes `GET /rpc/mining/miners` (operation `list_miners_route_rpc_mining_miners_get`) — active miners aggregated from the coordinator.
 
 ## Examples
 
-- `GET /agents/{agent_wallet}/staking-pool` (`get_staking_pool` in `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py`)
-- `GET /v1/admin/miners` (`list_miners` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py`) — `monitor.py` no longer registers routes
-- `POST /miners/{miner_id}/earnings` (`get_miner_earnings` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`)
-- `GET /staking/pools` (`get_developer_staking_pools` in `apps/coordinator-api/src/coordinator_api/contexts/governance/routers/governance_enhanced.py`)
-- `GET /bridge/liquidity-pools` (`get_liquidity_pools` in `apps/coordinator-api/src/coordinator_api/contexts/cross_chain/routers/cross_chain_integration.py`)
+- `GET /v1/admin/miners` (`list_miners` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py:159`) on `Coordinator API`
+- `GET /v1/miners/status` (`miner_status` in `apps/pool-hub/src/poolhub/app/routers/miners.py:105`) on `Pool Hub`
+- `POST /v1/miners/{miner_id}/jobs` (`list_miner_jobs` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:644`) on `Coordinator API`
 - `GET /rpc/mining/miners` (`list_miners_route_rpc_mining_miners_get`) on `Blockchain Node`
-- `GET /v1/admin/miners` (`list_miners_v1_admin_miners_get`) on `Coordinator API`
-- `POST /v1/miners/{miner_id}/earnings` (`get_miner_earnings_v1_miners__miner_id__earnings_post`) on `Coordinator API`
 
 ## Operational Notes
 
-- **Status / Release:** `✅` / `v0.6.7`
-- The pool-hub manages miner registration, job assignment, scoring, and reward distribution.
+- **Status / Release:** `✅` / current
+- The roster is flat — miners belong to the network, not to per-pool groupings; `region` and `capabilities` are the filtering dimensions used by `/v1/match`.

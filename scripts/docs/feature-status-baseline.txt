@@ -165,15 +165,13 @@ docs/features/5-mining-pool-hub.md:Report Job Failure  # no evidence token in ro
 docs/features/5-mining-pool-hub.md:List Jobs  # no evidence token in row
 docs/features/5-mining-pool-hub.md:Get Earnings  # no evidence token in row
 docs/features/5-mining-pool-hub.md:Update Capabilities  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Create Pool  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Get Pool  # no evidence token in row
-docs/features/5-mining-pool-hub.md:List Pools  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Update Pool  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Delete Pool  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Pool Stats  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Join Pool  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Leave Pool  # no evidence token in row
-docs/features/5-mining-pool-hub.md:Pool Miners  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Miner Registration  # no evidence token in row
+docs/features/5-mining-pool-hub.md:List Miners & Match Entities  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Update Miner Capabilities  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Miner Deregistration  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Match Request Submission  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Leaving the Miner Roster  # no evidence token in row
+docs/features/5-mining-pool-hub.md:Miner Roster  # no evidence token in row
 docs/features/5-mining-pool-hub.md:Start/Stop Mining  # no evidence token in row
 docs/features/5-mining-pool-hub.md:Mining Status  # no evidence token in row
 docs/features/5-mining-pool-hub.md:List Miners  # no evidence token in row
