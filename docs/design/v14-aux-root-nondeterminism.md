@@ -5,8 +5,8 @@ remediation pending operator decision — fix apply-time determinism behind a
 new version height (candidate v18), vs formally waive LIQUIDITY_\*/BOND_\*
 at the current versions. A second live-verified surface — single-node
 committed rows (§ "Mechanism 3") — additionally makes
-`STAKE_LOCK`/`STAKE_RELEASE` via `/v1/staking/*` unsealable **at every
-version including v17**. The interim rule below is in force until decided:
+`STAKE_LOCK`/`STAKE_RELEASE` via `/v1/staking/*` unsealable at
+**v16/v17 — retracted at v18 (9600)**. The interim rule below is in force until decided:
 the six LIQUIDITY_\*/BOND_\* types plus consensus-path `STAKE_*` are
 unsealable — do not submit. The incident is recorded in
 the sweep table of
@@ -203,12 +203,18 @@ to every remaining committed table's writer set: `liquidity_*`, `bond`,
 `receipt`, `ipfs_subscription` each deserve a "who writes this, and
 where" pass before v18 freezes the next set.
 
-## Interim rule — unsealable types
+## Interim rule — unsealable types (RETRACTED at v18)
+
+> **29 Oct:** all entries below lifted — the v18 deterministic-apply
+> bundle activated cleanly at 9600 (zero divergence); see
+> [v18-activation-runbook](../ops/v18-activation-runbook.md). The
+> history stays for the record; per-type seals are tracked in the
+> waiver table and coverage ledger.
 
 `LIQUIDITY_DEPOSIT`, `LIQUIDITY_WITHDRAW`, `LIQUIDITY_CLAIM`,
-`BOND_LOCK`, `BOND_RELEASE`, `BOND_SLASH` are **unsealable** at current
+`BOND_LOCK`, `BOND_RELEASE`, `BOND_SLASH` were **unsealable** at current
 state-transition versions, and `STAKE_LOCK`/`STAKE_RELEASE` via
-`/v1/staking/*` are **unsealable at every version including v17**
+`/v1/staking/*` were **unsealable at v16/v17**
 (mechanism 3): do not submit them. Admission validates payload
 shape only (`state_transition.py:1358-1367`) — nothing stops a submitted tx
 reaching a proposer, and any proposed instance computes a different
