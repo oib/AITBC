@@ -1,12 +1,13 @@
 # v18 activation runbook — `STATE_TRANSITION_V18_HEIGHT` (DRAFT)
 
-> **Status: DRAFT — written ahead of implementation.** The v18
-> remediation is specced in
+> **Status: EXECUTED (28 Oct) — clean activation.** `STATE_TRANSITION_V18_HEIGHT=9600`
+> armed fleet-wide and activated: the 9600 boundary crossed with
+> **zero aux-root divergence** (canary clean). The remediation spec:
 > [v18-deterministic-committed-apply](../design/v18-deterministic-committed-apply.md)
-> (Refs #649) and decided by operator Card 6 = A. The implementation
-> is shipped and the pin wave is done: `STATE_TRANSITION_V18_HEIGHT=9600`
-> armed fleet-wide; activation pending at head 9600 — §4 post-checks
-> apply then.
+> (Refs #649); decided by operator Card 6 = A. The unsealable list is
+> retracted — LIQUIDITY_*/BOND_*/consensus-STAKE_* are exercisable
+> post-9600; per-type seal heights fold as they land.
+> Literal-pin follow-up per §7 pending the usual proof window.
 >
 > **WARNING — sharper than v17:** v18 changes the *committed set*
 > (`stake` exits `COMMITTED_TABLES_V18`). A mixed fleet at a ≥v18 block
