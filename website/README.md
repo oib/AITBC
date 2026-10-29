@@ -48,7 +48,7 @@ website/
 ├── AITBC.svg               # Logo
 ├── style.css               # Main stylesheet
 ├── vendor/                 # Vendored third-party assets
-└── DEPLOYMENT.md           # Deployment documentation (legacy)
+└── og-image.png            # Social preview image (og:image)
 ```
 
 ## Agent-First Endpoints
