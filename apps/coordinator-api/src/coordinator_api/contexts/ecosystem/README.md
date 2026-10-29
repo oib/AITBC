@@ -1,5 +1,7 @@
 # ecosystem
 
+> **Unmounted:** the `ecosystem_dashboard` router is imported but never include_router'd in coordinator_api/main.py — these routes 404.
+
 Ecosystem dashboard — aggregate metrics and health across the platform.
 
 ## Domain Models

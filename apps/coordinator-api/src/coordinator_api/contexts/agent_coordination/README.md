@@ -49,6 +49,12 @@ Agent coordination — workflows, swarms, deployments, creativity, and performan
 - GET /executions
 - POST /workflows/{workflow_id}/cancel
 - GET /workflows/{workflow_id}/executions
+
+The rows below came from `swarm.py` / `agent_messaging.py`. Both routers
+are now intentionally empty (mock endpoints removed — see their module
+docstrings): they stay imported/mounted but register no routes, so every
+row here **404s**:
+
 - GET /list
 - POST /join
 - POST /coordinate

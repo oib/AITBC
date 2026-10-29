@@ -1,5 +1,7 @@
 # analytics
 
+> **Unmounted:** the `analytics` router is imported but never include_router'd in coordinator_api/main.py — these routes 404.
+
 Analytics — advanced analytics and performance monitoring.
 
 ## Domain Models

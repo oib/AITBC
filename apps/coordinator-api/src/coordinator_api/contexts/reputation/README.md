@@ -11,7 +11,6 @@ Reputation system — scoring, history, and reputation services.
 - GET /profile/{agent_id}
 - POST /profile/{agent_id}
 - POST /feedback/{agent_id}
-- POST /job-completion
 - GET /trust-score/{agent_id}
 - GET /leaderboard
 - GET /metrics
