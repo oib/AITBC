@@ -9,6 +9,7 @@ Database migration scripts for the Coordinator API.
 | `001_initial_schema.sql` | Initial database schema (tables) |
 | `002_indexes.sql` | Performance indexes |
 | `003_data_migration.py` | Data migration utilities |
+| `004_payments.sql` | Payments tables |
 
 ## Running Migrations
 

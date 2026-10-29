@@ -4,7 +4,9 @@ Payments — processing, settlement, and payment schema storage.
 
 ## Domain Models
 
-- payment.py
+- escrow_relay.py
+- escrow_release_relay.py
+- escrow_refund_relay.py
 
 ## Routes
 
