@@ -124,7 +124,6 @@ apps/exchange/
 │   ├── config.py            # Settings
 │   ├── db.py                # Database layer
 │   └── handlers/            # Route handlers
-├── exchange_wrapper.sh      # systemd wrapper
 ├── aitbc-exchange.service   # unit file
 └── tests/                   # Exchange tests
 ```

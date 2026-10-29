@@ -20,7 +20,7 @@ no
 
 ## Service
 
-4 systemd service(s): aitbc-blockchain-node.service, aitbc-blockchain-p2p.service, aitbc-blockchain-rpc.service, aitbc-blockchain-sync.service
+3 systemd service(s): aitbc-blockchain-node.service, aitbc-blockchain-p2p.service, aitbc-blockchain-rpc.service
 
 ## Core Service
 

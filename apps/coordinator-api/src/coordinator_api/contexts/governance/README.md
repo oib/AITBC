@@ -38,5 +38,7 @@ Governance — proposals, voting, DAO operations, and policy management.
 
 ## Services
 
-- dao_governance_service.py
+- dispute_resolution.py
+- economic_proposal_service.py
 - governance_service.py
+- grant_service.py

@@ -10,7 +10,7 @@ genesis" for most gates.** The version-resolution code treats `0`/falsy
 thresholds as *inactive* — the rule never activates. Only the `>=`-style
 non-version gates (`bridge_lock_leaf_v2_height`, `escrow_fee_sweep_pass_min_height`)
 treat `0` as "on". The uniform bc-2 value is therefore **`1`**: every produced
-block (heights >= 1) resolves to the newest armed ruleset — v17 on this
+block (heights >= 1) resolves to the newest armed ruleset — v18 on this
 build — on both the producer and the replay path. Proven empirically by the
 `gates1` profile.
 
@@ -36,24 +36,25 @@ Env names are the pydantic field names uppercased (`STATE_TRANSITION_V9_HEIGHT`,
 | `state_transition_v14_height` | 46100 | 46100 | truthy `and h >= t` | 1 | v14 inactive — no aux-state-root commit/check, unreadable bridge leaves grandfathered | `state_transition.py:965-967`; default `config.py:890` |
 | `state_transition_v15_height` | None (`config.py:898`; unset = unarmed) | 0 — never set on the corpus chain (bc-2 carries 1732) | truthy `and h >= t` | — | v15 inactive — `edge_node_registration` stays committed | `state_transition.py:965-966`; default `config.py:898` |
 | `state_transition_v16_height` | unset | — (unpinned) | truthy `and h >= t` | 1 | v16 inactive — GPU_ALLOCATE keeps minting `alloc_<uuid4>` when `allocation_id` is omitted; missing `gpu_id` dies at apply | `state_transition.py` cascade; field `config.py` ~L906 (GPU-ADMISSION-1 #384) |
-| `state_transition_v17_height` | None | — (unpinned) | truthy `and h >= t` | 1 | v17 inactive — unsigned `STAKE_LOCK`/`STAKE_RELEASE`/`BOUNTY_*` stay rejected as `missing_signature` even with `payload.auth`; HTLC/AUTO_STAKE rejected at every version | `state_transition.py` cascade top; field `config.py` ~L918 (BNT-1 revival) |
+| `state_transition_v17_height` | 8900 (code-pinned, `config.py:946`) | — | truthy `and h >= t` | 1 | v17 inactive — unsigned `STAKE_LOCK`/`STAKE_RELEASE`/`BOUNTY_*` stay rejected as `missing_signature` even with `payload.auth`; HTLC/AUTO_STAKE rejected at every version | `state_transition.py` cascade; field `config.py:946` (BNT-1 revival) |
+| `state_transition_v18_height` | 9600 (code-pinned, `config.py:958`) | 9600 — armed fleet-wide 2026-10-28, live on bc-2 | truthy `and h >= t` | 1 | v18 inactive — apply stays nondeterministic: `secrets.token_hex` liquidity stake ids and `datetime.now(UTC)` on the apply path (locked_until, accrual, bond verdict) instead of tx-hash-derived ids and the sealed header timestamp | `state_transition.py` cascade top (`:967-969`); field `config.py:958` (v14-aux-root-nondeterminism remediation) |
 
 Replay-path readers: `get_block_version` (`state_transition.py:906-955`)
 checks the v8 switch first (`:923-924`), then walks v7..v2 with `> 0 and
 height >= t`, stamp wins below v8.
 Producer-path readers: `get_block_version_for_height`
-(`state_transition.py:958-1014`) walks v17..v9 on truthiness, v8..v3 on
+(`state_transition.py:958-1014`) walks v18..v9 on truthiness, v8..v3 on
 `> 0`, and has the v2 special tail (`if t > 0 and h < t: return 1;
 return 2` — with t=0 the `return 2` always hits). The two tails disagree
 under all-zero: replay v1, producer v2 — a produced block would not replay
 under the rules it was built with. `gates1` removes the divergence: both
-paths resolve **1** at height 0 and **17** at every height >= 1.
+paths resolve **1** at height 0 and **18** at every height >= 1.
 
 ### Producer-side stamp
 
 - `poa.py:786` — new blocks stamp
   `block_metadata.state_transition_version = get_block_version_for_height(next_height)`;
-  under `gates1` every produced block (h >= 1) stamps **17**.
+  under `gates1` every produced block (h >= 1) stamps **18**.
 - `poa.py:1153, 1265, 2126` — block building uses the same function; the
   `>= 14` at `:1265` gates aux-root production.
 - `remote_attestation.py:183` — `>= 9` check on produced heights.
@@ -116,9 +117,9 @@ consensus: inherit live values unless the release decides otherwise.
 - **h0:** replay `get_block_version` = 1, producer `for_height` = 1 — agree.
   Genesis is prebuilt, not produced, so this only matters for replaying a
   supplied block 0.
-- **h1+:** both paths = **17**. A producer-built block (stamped 17) is
+- **h1+:** both paths = **18**. A producer-built block (stamped 18) is
   accepted by the replay path at the same height; an unstamped or mis-stamped
-  (stamp=1) block also resolves 17 — stamps cannot downgrade post-v8 blocks.
+  (stamp=1) block also resolves 18 — stamps cannot downgrade post-v8 blocks.
 - **v14 aux-root from block 1:** the v14 rule requires `aux_state_root` on
   import (`sync_block_import.py:801`) and refuses unreadable bridge leaves
   (`state_transition.py:1445`) — both live on the empty h1 block; recorded in
@@ -133,7 +134,7 @@ consensus: inherit live values unless the release decides otherwise.
   release (v5), deactivated-GPU allocate / non-registrant deregister (v10),
   wrong-recipient fee sweep (v11), unreadable bridge leaf (v14),
   immature/spent stake release (v4) — all recorded in
-  `expected/gates1/synthetic/`. At v17 an unsigned
+  `expected/gates1/synthetic/`. At v17+ an unsigned
   `STAKE_*`/`BOUNTY_*` emission additionally needs a verified, field-bound
   `payload.auth` to seal; unsigned HTLC/AUTO_STAKE carry none and stay
   rejected.

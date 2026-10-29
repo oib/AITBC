@@ -3,9 +3,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+# The repo convention is a single venv at the checkout root (`<repo>/venv`);
+# fall back to a per-app .venv only if present.
 VENV_PYTHON="$ROOT_DIR/.venv/bin/python"
 if [ ! -x "$VENV_PYTHON" ]; then
-  echo "[devnet] Virtualenv not found at $VENV_PYTHON. Please create it: python -m venv .venv && .venv/bin/pip install -r requirements.txt"
+  VENV_PYTHON="$ROOT_DIR/../../venv/bin/python"
+fi
+if [ ! -x "$VENV_PYTHON" ]; then
+  echo "[devnet] No virtualenv found. Expected the repo-root venv at $ROOT_DIR/../../venv (created by setup.sh / poetry install from the checkout root)."
   exit 1
 fi
 export PYTHONPATH="${ROOT_DIR}/src:${ROOT_DIR}/scripts:${PYTHONPATH:-}"
