@@ -514,6 +514,22 @@ class TestBlockScopedRefund:
             )
             session.commit()
 
+        # #703 seal gate: refund binds the lock's sealed Transaction row.
+        from aitbc_chain.models import Transaction
+
+        with Session(engine) as session:
+            session.add(
+                Transaction(
+                    chain_id="chain-a",
+                    tx_hash=transfer_id,
+                    block_height=1,
+                    sender=sender,
+                    recipient="bridge_lock",
+                    payload={"type": "BRIDGE_LOCK", "amount": 1_000},
+                )
+            )
+            session.commit()
+
         bridge.refund_transfer(transfer_id, sender)
 
         with Session(engine) as session:
