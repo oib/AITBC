@@ -7,9 +7,10 @@ import "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol
 import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
+import "@openzeppelin/contracts/governance/TimelockController.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./SafeMath.sol";
 
 /**
  * @title AgentDAO
@@ -91,6 +92,11 @@ contract AgentDAO is
         bool challenged;
         address challenger;
         uint256 challengeEnd;
+        // Stored execution parameters (needed to execute by proposalId)
+        address[] targets;
+        uint256[] values;
+        bytes[] calldatas;
+        bytes32 descriptionHash;
     }
 
     // State variables
@@ -133,7 +139,7 @@ contract AgentDAO is
         TimelockController _timelock
     )
         Governor("AgentDAO")
-        GovernorSettings(VOTING_DELAY, VOTING_PERIOD, PROPOSAL_THRESHOLD)
+        GovernorSettings(uint48(VOTING_DELAY), uint32(VOTING_PERIOD), PROPOSAL_THRESHOLD)
         GovernorVotes(IVotes(_governanceToken))
         GovernorVotesQuorumFraction(QUORUM_PERCENTAGE)
         GovernorTimelockControl(_timelock)
@@ -148,7 +154,7 @@ contract AgentDAO is
      * @dev Create voting snapshot with anti-flash-loan protection
      * @return snapshotId ID of the created snapshot
      */
-    function createVotingSnapshot() external returns (uint256 snapshotId) {
+    function createVotingSnapshot() public returns (uint256 snapshotId) {
         snapshotId = ++snapshotCounter;
         VotingSnapshot storage snapshot = votingSnapshots[snapshotId];
 
@@ -195,7 +201,7 @@ contract AgentDAO is
         bytes[] memory calldatas,
         string memory description,
         ProposalType proposalType
-    ) public override returns (uint256 proposalId) {
+    ) public returns (uint256 proposalId) {
         // Check proposal threshold and create snapshot
         uint256 votingPower = getVotingPower(msg.sender, snapshotCounter);
         require(votingPower >= PROPOSAL_THRESHOLD, "Insufficient voting power");
@@ -214,6 +220,10 @@ contract AgentDAO is
         proposal.proposalType = proposalType;
         proposal.proposalBond = PROPOSAL_THRESHOLD;
         proposal.challengeEnd = block.timestamp + 2 days;
+        proposal.targets = targets;
+        proposal.values = values;
+        proposal.calldatas = calldatas;
+        proposal.descriptionHash = keccak256(bytes(description));
 
         // Check if multi-sig approval is needed for critical proposals
         if (proposalType == ProposalType.EMERGENCY_ACTION || proposalType == ProposalType.PROTOCOL_UPGRADE) {
@@ -359,7 +369,7 @@ contract AgentDAO is
      */
     function execute(
         uint256 proposalId
-    ) public payable override {
+    ) public payable {
         Proposal storage proposal = proposals[proposalId];
 
         require(
@@ -374,7 +384,12 @@ contract AgentDAO is
         }
 
         proposal.executed = true;
-        super.execute(proposalId);
+        super.execute(
+            proposal.targets,
+            proposal.values,
+            proposal.calldatas,
+            proposal.descriptionHash
+        );
 
         // Return proposal bond if successful
         if (proposal.proposalBond > 0) {
@@ -391,6 +406,19 @@ contract AgentDAO is
         uint256 count = 0;
         // This is simplified - in production, iterate through signers
         return count;
+    }
+
+    /**
+     * @dev Get the type of a proposal
+     * @param proposalId ID of the proposal
+     * @return proposalType The proposal type
+     */
+    function getProposalType(uint256 proposalId)
+        external
+        view
+        returns (ProposalType)
+    {
+        return proposals[proposalId].proposalType;
     }
 
     /**
@@ -417,25 +445,109 @@ contract AgentDAO is
     }
 
     // Required overrides
-    function votingDelay() public pure override returns (uint256) {
+    function votingDelay()
+        public
+        pure
+        override(Governor, GovernorSettings)
+        returns (uint256)
+    {
         return VOTING_DELAY;
     }
 
-    function votingPeriod() public pure override returns (uint256) {
+    function votingPeriod()
+        public
+        pure
+        override(Governor, GovernorSettings)
+        returns (uint256)
+    {
         return VOTING_PERIOD;
     }
 
-    function quorum(uint256 blockNumber)
+    function quorum(uint256 timepoint)
         public
         view
-        override
+        override(Governor, GovernorVotesQuorumFraction)
         returns (uint256)
     {
         return (governanceToken.totalSupply() * QUORUM_PERCENTAGE) / 100;
     }
 
-    function proposalThreshold() public pure override returns (uint256) {
+    function proposalThreshold()
+        public
+        pure
+        override(Governor, GovernorSettings)
+        returns (uint256)
+    {
         return PROPOSAL_THRESHOLD;
+    }
+
+    function state(uint256 proposalId)
+        public
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (ProposalState)
+    {
+        return super.state(proposalId);
+    }
+
+    function proposalNeedsQueuing(uint256 proposalId)
+        public
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (bool)
+    {
+        return super.proposalNeedsQueuing(proposalId);
+    }
+
+    function _queueOperations(
+        uint256 proposalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) returns (uint48) {
+        return
+            super._queueOperations(
+                proposalId,
+                targets,
+                values,
+                calldatas,
+                descriptionHash
+            );
+    }
+
+    function _executeOperations(
+        uint256 proposalId,
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) {
+        super._executeOperations(
+            proposalId,
+            targets,
+            values,
+            calldatas,
+            descriptionHash
+        );
+    }
+
+    function _cancel(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) internal override(Governor, GovernorTimelockControl) returns (uint256) {
+        return super._cancel(targets, values, calldatas, descriptionHash);
+    }
+
+    function _executor()
+        internal
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (address)
+    {
+        return super._executor();
     }
 
     /**

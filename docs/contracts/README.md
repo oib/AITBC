@@ -66,10 +66,18 @@ Production Solidity contracts live in `contracts/contracts/`:
 
 ### Governance contracts
 
+The `contracts/governance/` Foundry subproject (vendored `lib/` with
+forge-std + OpenZeppelin; build with `cd contracts/governance && forge build`,
+test with `forge test`) contains:
+
 | Contract | Source |
 |----------|--------|
 | `AITBCGovernanceToken` | [AITBCGovernanceToken.sol](../../contracts/governance/src/AITBCGovernanceToken.sol) |
 | `AITBCVoting` | [AITBCVoting.sol](../../contracts/governance/src/AITBCVoting.sol) |
+| `AgentDAO` | [AgentDAO.sol](../../contracts/governance/src/AgentDAO.sol) |
+| `GPUStaking` | [GPUStaking.sol](../../contracts/governance/src/GPUStaking.sol) |
+| `GovernanceAgentWallet` | [GovernanceAgentWallet.sol](../../contracts/governance/src/GovernanceAgentWallet.sol) |
+| `SafeMath` (vendored OZ v4 lib) | [SafeMath.sol](../../contracts/governance/src/SafeMath.sol) |
 
 ### Development and verification
 
