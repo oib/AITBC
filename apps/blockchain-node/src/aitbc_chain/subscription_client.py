@@ -157,6 +157,21 @@ class SubscriptionClient:
                 },
             )
             return True
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                # Lease is gone server-side — heartbeats can never succeed
+                # again. Re-register instead of spinning on the dead lease.
+                logger.warning(
+                    "Lease not found on hub (404), re-registering",
+                    extra={"hub_url": self._hub_url, "node_id": self._node_id},
+                )
+                return await self._subscribe()
+            logger.warning(
+                "Heartbeat failed (hub unreachable): %s",
+                str(e),
+                extra={"hub_url": self._hub_url, "node_id": self._node_id},
+            )
+            return False
         except Exception as e:
             logger.warning(
                 "Heartbeat failed (hub unreachable): %s",
@@ -302,6 +317,17 @@ class SubscriptionClient:
                                 extra={"node_id": self._node_id},
                             )
             except websockets.exceptions.ConnectionClosed as e:
+                if e.rcvd is not None and e.rcvd.code == 1008:
+                    # Policy violation = no valid lease. Retrying the socket
+                    # reuses the same missing lease (infinite 1008 loop) —
+                    # return so the outer loop re-registers via _subscribe().
+                    logger.warning(
+                        "WebSocket closed 1008 (no valid lease), returning to re-register",
+                        extra={"ws_url": ws_url, "node_id": self._node_id},
+                    )
+                    subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
+                    self._set_sync_mode("pull")
+                    break
                 logger.warning(
                     "WebSocket connection closed, reconnecting",
                     extra={"ws_url": ws_url, "node_id": self._node_id, "error": str(e)},
