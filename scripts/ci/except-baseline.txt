@@ -441,7 +441,6 @@
       1 scripts/migrate_encrypt_wallets.py
       1 scripts/migration/create_advanced_market_tables.py
       1 scripts/migration/create_agent_tables.py
-      1 scripts/migration/migrate_mock_state_to_redis.py
       1 scripts/migration/migrate_plugin_to_market.py
       4 scripts/migration/scale_balances_3600x.py
       1 scripts/monitoring/monitor-prs.py
@@ -469,7 +468,6 @@
       1 scripts/utils/rotate_service_accounts.py
       1 scripts/utils/run_production_node.py
       1 scripts/utils/verify-db-schema.py
-      3 scripts/verification/test_host_miner.py
       1 tests/cli/conftest.py
       1 tests/contract_tests/test_blockchain_rpc_contract.py
       2 tests/cross_phase/test_critical_failures.py
