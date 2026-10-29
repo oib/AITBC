@@ -14,12 +14,12 @@
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, rate(block_processing_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.95, rate(blockchain_block_processing_duration_seconds_bucket[5m]))",
             "legendFormat": "95th percentile",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.50, rate(block_processing_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.50, rate(blockchain_block_processing_duration_seconds_bucket[5m]))",
             "legendFormat": "50th percentile",
             "refId": "B"
           }
@@ -46,7 +46,7 @@
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
         "targets": [
           {
-            "expr": "block_height",
+            "expr": "blockchain_block_height",
             "legendFormat": "Block Height",
             "refId": "A"
           }
@@ -63,17 +63,17 @@
       },
       {
         "id": 3,
-        "title": "Job Processing Duration",
+        "title": "Transaction Processing Duration",
         "type": "graph",
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, rate(job_processing_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.95, rate(blockchain_transaction_processing_duration_seconds_bucket[5m]))",
             "legendFormat": "95th percentile",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.50, rate(job_processing_duration_seconds_bucket[5m]))",
+            "expr": "histogram_quantile(0.50, rate(blockchain_transaction_processing_duration_seconds_bucket[5m]))",
             "legendFormat": "50th percentile",
             "refId": "B"
           }
@@ -90,12 +90,12 @@
       },
       {
         "id": 4,
-        "title": "Jobs in Queue",
+        "title": "Mempool Pending Transactions",
         "type": "graph",
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
         "targets": [
           {
-            "expr": "jobs_in_queue",
+            "expr": "blockchain_mempool_pending_count",
             "legendFormat": "Queued Jobs",
             "refId": "A"
           }
@@ -161,12 +161,12 @@
       },
       {
         "id": 7,
-        "title": "Job Success Rate",
+        "title": "Transaction Confirmation Rate",
         "type": "stat",
         "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
         "targets": [
           {
-            "expr": "rate(jobs_total{status=\"completed\"}[5m]) / rate(jobs_total[5m]) * 100",
+            "expr": "rate(blockchain_transactions_total{status=\"confirmed\"}[5m]) / rate(blockchain_transactions_total[5m]) * 100",
             "legendFormat": "Success Rate",
             "refId": "A"
           }
@@ -186,12 +186,12 @@
       },
       {
         "id": 8,
-        "title": "Job Failure Rate",
+        "title": "Transaction Rejection Rate",
         "type": "stat",
         "gridPos": {"h": 4, "w": 6, "x": 6, "y": 24},
         "targets": [
           {
-            "expr": "rate(jobs_total{status=\"failed\"}[5m]) / rate(jobs_total[5m]) * 100",
+            "expr": "rate(blockchain_transactions_total{status=\"rejected\"}[5m]) / rate(blockchain_transactions_total[5m]) * 100",
             "legendFormat": "Failure Rate",
             "refId": "A"
           }
@@ -216,7 +216,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 12, "y": 24},
         "targets": [
           {
-            "expr": "service_uptime_seconds",
+            "expr": "time() - process_start_time_seconds",
             "legendFormat": "Uptime",
             "refId": "A"
           }
@@ -239,7 +239,7 @@
         "gridPos": {"h": 4, "w": 6, "x": 18, "y": 24},
         "targets": [
           {
-            "expr": "service_restart_count",
+            "expr": "changes(process_start_time_seconds[1h])",
             "legendFormat": "Restarts",
             "refId": "A"
           }

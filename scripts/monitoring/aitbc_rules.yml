@@ -643,10 +643,13 @@ groups:
   # AITBC_ATTESTATION_WINDOW_BLOCKS (default 200) blocks of each local
   # chain.db read-only and emits aitbc_attestation_* series.
   #
-  # NOT LOADED anywhere yet: this group is committed for review, and the
-  # exporter has no systemd timer yet — wiring the textfile run and adding
-  # the group to a host's Prometheus rule_files are both operator
-  # decisions. Until then these alerts can never fire.
+  # This group loads with the rest of aitbc_rules.yml on every host whose
+  # prometheus.yml lists it under rule_files (all of them) — no separate
+  # rule_files entry is needed. What remains an operator decision is
+  # installing the exporter's systemd timer
+  # (aitbc-attestation-arrival.{service,timer}) on the hosts whose chain.dbs
+  # should be read: until the exporter runs, the aitbc_attestation_* series
+  # are absent and these alerts cannot fire.
   #
   # The window briefly mixes two eras during a validator-set rotation
   # (the set is derived per-window); every rule's for: absorbs that.
