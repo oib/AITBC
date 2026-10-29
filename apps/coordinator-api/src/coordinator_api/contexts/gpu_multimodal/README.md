@@ -1,6 +1,6 @@
 # gpu_multimodal
 
-> **Unmounted:** the `gpu_multimodal_health` router is imported but never include_router'd in coordinator_api/main.py — these routes 404.
+> **Unmounted:** the `gpu_multimodal_health` router was deleted in issue #701 (imported in routers/__init__.py but never mounted)..
 
 GPU-accelerated multimodal processing and health monitoring.
 
@@ -10,8 +10,7 @@ GPU-accelerated multimodal processing and health monitoring.
 
 ## Routes
 
-- GET /health
-- GET /health/deep
+None — the context's only router was retired.
 
 ## Services
 
