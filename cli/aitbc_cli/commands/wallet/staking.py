@@ -32,6 +32,54 @@ from . import _emit_wallet_path_note, _load_wallet, _resave_wallet, wallet
 LIQUIDITY_FEE_DEFAULT_AIT = DEFAULT_TX_FEE_AIT
 
 
+def wallet_override_options(f):
+    """Add command-level ``--wallet-name``/``--wallet-path``/``--rpc-url``.
+
+    The ``aitbc wallet`` group resolves the wallet before the subcommand runs,
+    and every resolution failure in this module tells the operator to ``pass
+    --wallet-path <file>``, ``pass --chain-id`` or ``point --rpc-url at a
+    serving node`` — options click rejects at subcommand position. These
+    mirrors accept them there and rebind through the group's own callback so
+    precedence stays identical.
+    """
+    f = click.option("--chain-id", "chain_id_override", default=None, help="Chain ID to sign with (skips auto-detection)")(f)
+    f = click.option(
+        "--rpc-url", "rpc_url_override", default=None, help="Blockchain RPC URL (overrides the group/config resolution)"
+    )(f)
+    f = click.option(
+        "--wallet-path", "wallet_path_override", default=None, help="Direct path to wallet file (overrides --wallet-name)"
+    )(f)
+    f = click.option(
+        "--wallet-name", "wallet_name_override", default=None, help="Wallet name (overrides the group-level value)"
+    )(f)
+    return f
+
+
+def _rebind_wallet_overrides(
+    ctx: click.Context,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
+    rpc_url_override: str | None,
+    chain_id_override: str | None,
+) -> None:
+    """Apply command-level wallet/rpc/chain overrides like the group callback."""
+    if rpc_url_override:
+        ctx.obj["rpc_url"] = rpc_url_override
+    if chain_id_override:
+        # Same meaning as the group flag: an explicit chain id wins over
+        # detection everywhere downstream (_get_chain_id honors it).
+        ctx.obj["chain_id_explicit"] = chain_id_override
+        ctx.obj["chain_id"] = chain_id_override
+    if wallet_name_override or wallet_path_override:
+        ctx.invoke(
+            wallet,
+            wallet_name=wallet_name_override,
+            wallet_path=wallet_path_override,
+            use_daemon=ctx.obj.get("use_daemon", True),
+            chain_id=ctx.obj.get("chain_id_explicit"),
+        )
+
+
 def _brand_token_symbol() -> str:
     """Return the active brand token symbol, falling back to the default."""
     try:
@@ -213,8 +261,21 @@ def _stake_release_preflight(
 @click.option("--duration", type=int, default=30, help="Staking duration in days")
 @click.pass_context
 @wallet_password_options
-def stake(ctx, amount: Decimal, duration: int, password: str | None, password_file: str | None, password_stdin: bool):
+@wallet_override_options
+def stake(
+    ctx,
+    amount: Decimal,
+    duration: int,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
+    rpc_url_override: str | None,
+    chain_id_override: str | None,
+):
     """Stake AITBC tokens on the blockchain for a configurable duration."""
+    _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_sign_path"]
 
@@ -310,8 +371,20 @@ def stake(ctx, amount: Decimal, duration: int, password: str | None, password_fi
 @click.option("--stake-id", "stake_id", required=True, help="Numeric stake ID returned by 'stake'.")
 @click.pass_context
 @wallet_password_options
-def unstake(ctx, stake_id: str, password: str | None, password_file: str | None, password_stdin: bool):
+@wallet_override_options
+def unstake(
+    ctx,
+    stake_id: str,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
+    rpc_url_override: str | None,
+    chain_id_override: str | None,
+):
     """Unstake tokens and withdraw the principal for the given stake ID."""
+    _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_sign_path"]
 
@@ -413,8 +486,20 @@ def unstake(ctx, stake_id: str, password: str | None, password_file: str | None,
 @click.option("--address", "address_override", default=None, help="Query this address instead of the active wallet")
 @click.pass_context
 @wallet_password_options
-def staking_info(ctx, address_override: str | None, password: str | None, password_file: str | None, password_stdin: bool):
+@wallet_override_options
+def staking_info(
+    ctx,
+    address_override: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
+    rpc_url_override: str | None,
+    chain_id_override: str | None,
+):
     """Show current staking information and rewards from the blockchain RPC."""
+    _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_sign_path"]
 
@@ -479,6 +564,7 @@ def staking_info(ctx, address_override: str | None, password: str | None, passwo
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.pass_context
 @wallet_password_options
+@wallet_override_options
 def liquidity_stake(
     ctx,
     amount: Decimal,
@@ -488,8 +574,13 @@ def liquidity_stake(
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
+    rpc_url_override: str | None,
+    chain_id_override: str | None,
 ):
     """Stake tokens into an on-chain liquidity pool to earn rewards."""
+    _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     # liquidity_stake re-saves the wallet file — configured-dir resolution only (CLI-6c).
     wallet_path = ctx.obj.get("wallet_path")
@@ -581,8 +672,21 @@ def liquidity_stake(
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.pass_context
 @wallet_password_options
-def liquidity_claim(ctx, stake_id: str, fee: Decimal, password: str | None, password_file: str | None, password_stdin: bool):
+@wallet_override_options
+def liquidity_claim(
+    ctx,
+    stake_id: str,
+    fee: Decimal,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
+    rpc_url_override: str | None,
+    chain_id_override: str | None,
+):
     """Claim accrued liquidity rewards for the given stake ID."""
+    _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_sign_path")
     if not wallet_path or not Path(wallet_path).exists():
@@ -649,8 +753,21 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal, password: str | None, pass
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @click.pass_context
 @wallet_password_options
-def liquidity_unstake(ctx, stake_id: str, fee: Decimal, password: str | None, password_file: str | None, password_stdin: bool):
+@wallet_override_options
+def liquidity_unstake(
+    ctx,
+    stake_id: str,
+    fee: Decimal,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    wallet_name_override: str | None,
+    wallet_path_override: str | None,
+    rpc_url_override: str | None,
+    chain_id_override: str | None,
+):
     """Withdraw a liquidity stake and its accumulated rewards."""
+    _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     # liquidity_unstake re-saves the wallet file — configured-dir resolution only (CLI-6c).
     wallet_path = ctx.obj.get("wallet_path")
