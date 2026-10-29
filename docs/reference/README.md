@@ -43,6 +43,7 @@
 
 ## Related
 
+- [Feature ↔ Scenario ↔ Record Mesh](./feature-scenario-record-mesh.md) — cross-index: record type → `aitbc` CLI path → scenario(s) → feature doc(s)
 - [Architecture](../architecture/) — System design docs
 - [Security](../security/) — Security guides
 - [Release Notes](../releases/README.md) — Current development status
