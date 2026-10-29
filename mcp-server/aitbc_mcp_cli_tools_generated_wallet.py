@@ -1184,16 +1184,19 @@ def aitbc_wallet_liquidity_claim(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
-    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
-    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    wallet_name_override: Annotated[str | None, Field(description="Wallet name (overrides the group-level value)")] = None,
+    wallet_path_override: Annotated[
+        str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")
+    ] = None,
+    rpc_url_override: Annotated[
+        str | None, Field(description="Blockchain RPC URL (overrides the group/config resolution)")
+    ] = None,
+    chain_id_override: Annotated[str | None, Field(description="Chain ID to sign with (skips auto-detection)")] = None,
     use_daemon: Annotated[
         bool | None,
         Field(
             description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
         ),
-    ] = None,
-    chain_id: Annotated[
-        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1205,12 +1208,20 @@ def aitbc_wallet_liquidity_claim(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file"},
+        values={
+            "stake_id": "stake-id",
+            "fee": "fee",
+            "password_file": "password-file",
+            "wallet_name_override": "wallet-name",
+            "wallet_path_override": "wallet-path",
+            "rpc_url_override": "rpc-url",
+            "chain_id_override": "chain-id",
+        },
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_daemon": "use-daemon"},
-        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+        values={},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1256,16 +1267,19 @@ def aitbc_wallet_liquidity_stake(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
-    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
-    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    wallet_name_override: Annotated[str | None, Field(description="Wallet name (overrides the group-level value)")] = None,
+    wallet_path_override: Annotated[
+        str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")
+    ] = None,
+    rpc_url_override: Annotated[
+        str | None, Field(description="Blockchain RPC URL (overrides the group/config resolution)")
+    ] = None,
+    chain_id_override: Annotated[str | None, Field(description="Chain ID to sign with (skips auto-detection)")] = None,
     use_daemon: Annotated[
         bool | None,
         Field(
             description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
         ),
-    ] = None,
-    chain_id: Annotated[
-        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1277,12 +1291,22 @@ def aitbc_wallet_liquidity_stake(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"amount": "amount", "pool": "pool", "lock_days": "lock-days", "fee": "fee", "password_file": "password-file"},
+        values={
+            "amount": "amount",
+            "pool": "pool",
+            "lock_days": "lock-days",
+            "fee": "fee",
+            "password_file": "password-file",
+            "wallet_name_override": "wallet-name",
+            "wallet_path_override": "wallet-path",
+            "rpc_url_override": "rpc-url",
+            "chain_id_override": "chain-id",
+        },
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_daemon": "use-daemon"},
-        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+        values={},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1326,16 +1350,19 @@ def aitbc_wallet_liquidity_unstake(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
-    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
-    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    wallet_name_override: Annotated[str | None, Field(description="Wallet name (overrides the group-level value)")] = None,
+    wallet_path_override: Annotated[
+        str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")
+    ] = None,
+    rpc_url_override: Annotated[
+        str | None, Field(description="Blockchain RPC URL (overrides the group/config resolution)")
+    ] = None,
+    chain_id_override: Annotated[str | None, Field(description="Chain ID to sign with (skips auto-detection)")] = None,
     use_daemon: Annotated[
         bool | None,
         Field(
             description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
         ),
-    ] = None,
-    chain_id: Annotated[
-        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1347,12 +1374,20 @@ def aitbc_wallet_liquidity_unstake(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"stake_id": "stake-id", "fee": "fee", "password_file": "password-file"},
+        values={
+            "stake_id": "stake-id",
+            "fee": "fee",
+            "password_file": "password-file",
+            "wallet_name_override": "wallet-name",
+            "wallet_path_override": "wallet-path",
+            "rpc_url_override": "rpc-url",
+            "chain_id_override": "chain-id",
+        },
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_daemon": "use-daemon"},
-        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+        values={},
     )
     args = None
     target = _host_for_role(role, host)
@@ -1940,16 +1975,19 @@ def aitbc_wallet_stake(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
-    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
-    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    wallet_name_override: Annotated[str | None, Field(description="Wallet name (overrides the group-level value)")] = None,
+    wallet_path_override: Annotated[
+        str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")
+    ] = None,
+    rpc_url_override: Annotated[
+        str | None, Field(description="Blockchain RPC URL (overrides the group/config resolution)")
+    ] = None,
+    chain_id_override: Annotated[str | None, Field(description="Chain ID to sign with (skips auto-detection)")] = None,
     use_daemon: Annotated[
         bool | None,
         Field(
             description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
         ),
-    ] = None,
-    chain_id: Annotated[
-        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1961,12 +1999,20 @@ def aitbc_wallet_stake(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"amount": "amount", "duration": "duration", "password_file": "password-file"},
+        values={
+            "amount": "amount",
+            "duration": "duration",
+            "password_file": "password-file",
+            "wallet_name_override": "wallet-name",
+            "wallet_path_override": "wallet-path",
+            "rpc_url_override": "rpc-url",
+            "chain_id_override": "chain-id",
+        },
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_daemon": "use-daemon"},
-        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+        values={},
     )
     args = None
     target = _host_for_role(role, host)
@@ -2165,16 +2211,19 @@ def aitbc_wallet_unstake(
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
-    wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
-    wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
+    wallet_name_override: Annotated[str | None, Field(description="Wallet name (overrides the group-level value)")] = None,
+    wallet_path_override: Annotated[
+        str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")
+    ] = None,
+    rpc_url_override: Annotated[
+        str | None, Field(description="Blockchain RPC URL (overrides the group/config resolution)")
+    ] = None,
+    chain_id_override: Annotated[str | None, Field(description="Chain ID to sign with (skips auto-detection)")] = None,
     use_daemon: Annotated[
         bool | None,
         Field(
             description="Use wallet daemon for read operations (list/balance/address lookup); signing always uses a file wallet"
         ),
-    ] = None,
-    chain_id: Annotated[
-        str | None, Field(description="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -2186,12 +2235,19 @@ def aitbc_wallet_unstake(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"stake_id": "stake-id", "password_file": "password-file"},
+        values={
+            "stake_id": "stake-id",
+            "password_file": "password-file",
+            "wallet_name_override": "wallet-name",
+            "wallet_path_override": "wallet-path",
+            "rpc_url_override": "rpc-url",
+            "chain_id_override": "chain-id",
+        },
     )
     group_options: dict[str, Any] = _collect_options(
         locals(),
         flags={"use_daemon": "use-daemon"},
-        values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
+        values={},
     )
     args = None
     target = _host_for_role(role, host)
