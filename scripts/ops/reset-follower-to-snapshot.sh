@@ -10,14 +10,14 @@
 #
 # Environment:
 #   CHAIN_ID   - chain id (required; refuses when unset)
-#   HUB        - hub host for snapshot (default: hub.aitbc.invalid)
+#   HUB        - hub host for snapshot (default: hub.aitbc.bubuit.net)
 #   SSH_USER   - ssh user on hub (default: root)
 #   DB_DIR     - local data directory (default: /var/lib/aitbc/data)
 
 set -euo pipefail
 
 CHAIN_ID="${CHAIN_ID:?CHAIN_ID is not set}"
-HUB="${HUB:-hub.aitbc.invalid}"
+HUB="${HUB:-hub.aitbc.bubuit.net}"
 SSH_USER="${SSH_USER:-root}"
 DB_DIR="${DB_DIR:-/var/lib/aitbc/data}"
 DB="${DB_DIR}/${CHAIN_ID}/chain.db"
