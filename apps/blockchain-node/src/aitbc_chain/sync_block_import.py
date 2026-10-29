@@ -560,6 +560,7 @@ class BlockImportMixin(SyncBase):
                             select(ChainTransaction.tx_hash).where(
                                 ChainTransaction.chain_id == self._chain_id,
                                 ChainTransaction.tx_hash.in_(all_tx_hashes),  # type: ignore[attr-defined]
+                                ChainTransaction.status != "rejected",
                             )
                         ).all()
                         existing_tx_hashes = set(existing_rows)

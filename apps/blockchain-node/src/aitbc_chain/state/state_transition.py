@@ -1354,7 +1354,11 @@ class StateTransition:
             # Persistent replay protection: the in-memory set above is lost on
             # restart; the DB unique constraint on (chain_id, tx_hash) is not.
             persisted_tx = session.exec(
-                select(Transaction.tx_hash).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
+                select(Transaction.tx_hash).where(
+                    Transaction.chain_id == chain_id,
+                    Transaction.tx_hash == tx_hash,
+                    Transaction.status != "rejected",
+                )
             ).first()
             if persisted_tx is not None:
                 logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
