@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
-Genesis Block Initialization Script
+DEPRECATED FOR NEW SCHEMAS — Genesis Block Initialization Script
+
+Creates pre-v1 block-table schemas (missing bridge_state_root /
+aux_state_root / signature columns and the uix_block_chain_hash
+constraint; genesis hash is a simplified sha256 string, not consensus-
+derived). Real genesis: `genesis_builder.py` /
+`scripts/ops/create-genesis-block.py`. Kept for historical islands
+running the old schema.
+
 
 This script creates genesis blocks and initializes accounts for AITBC chains.
 It can be used to set up new chains or re-initialize existing ones.
