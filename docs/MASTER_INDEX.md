@@ -57,7 +57,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 1475
+- **Markdown files under docs/**: 1476
 
 | Directory | Files | Description |
 |---|---|---|
@@ -76,7 +76,7 @@ docs/
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 26 | Deployment and infrastructure setup |
-| [design](design/) | 17 | Design documents and decisions |
+| [design](design/) | 18 | Design documents and decisions |
 | [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 29 | New-user onboarding and setup |
@@ -894,6 +894,7 @@ Inbound markdown links per document (top referrers).
 | [design/msg8-direct-messages.md](design/msg8-direct-messages.md) | [design/README.md](design/README.md), [design/msg1-onchain-messaging.md](design/msg1-onchain-messaging.md) |
 | [design/multisig-accounts.md](design/multisig-accounts.md) | [design/README.md](design/README.md) |
 | [design/node-held-wallet-access.md](design/node-held-wallet-access.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md), [ops/ops-signer-runbook.md](ops/ops-signer-runbook.md) |
+| [design/shared-transfer-ledger.md](design/shared-transfer-ledger.md) | [design/README.md](design/README.md) |
 | [design/v14-aux-root-nondeterminism.md](design/v14-aux-root-nondeterminism.md) | [decisions/README.md](decisions/README.md), [decisions/v1-v9-live-exercise-waivers.md](decisions/v1-v9-live-exercise-waivers.md), [design/README.md](design/README.md), +6 more |
 | [design/v18-deterministic-committed-apply.md](design/v18-deterministic-committed-apply.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md), [ops/v18-activation-runbook.md](ops/v18-activation-runbook.md) |
 | [design/v3-side-table-root-shadow.md](design/v3-side-table-root-shadow.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md), [design/v14-aux-root-nondeterminism.md](design/v14-aux-root-nondeterminism.md), +1 more |
