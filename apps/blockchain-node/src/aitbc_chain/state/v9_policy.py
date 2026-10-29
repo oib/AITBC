@@ -129,6 +129,22 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
     }
 )
 
+# Dead record types — enum history is replay-pinned; no live path emits
+# them. RECEIPT_CLAIM remains in V9_METRIC_KNOWN_TX_TYPES above because
+# historical sealed txs still need metric accounting on replay; the
+# HTLC_*/AUTO_STAKE names were never re-added after their emitters were
+# removed (option 3, decision register).
+DEAD_RECORD_TYPES = frozenset(
+    {
+        "HTLC_LOCK",
+        "HTLC_CLAIM",
+        "HTLC_REFUND",
+        "HTLC_SECRET",
+        "AUTO_STAKE",
+        "RECEIPT_CLAIM",
+    }
+)
+
 
 def _type_suffix(tx_type: str) -> str:
     """Per-type metric suffix for a peer-supplied type name, or ``_other``."""
