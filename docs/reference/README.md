@@ -46,6 +46,7 @@
 - [Feature ↔ Scenario ↔ Record Mesh](./feature-scenario-record-mesh.md) — cross-index: record type → `aitbc` CLI path → scenario(s) → feature doc(s)
 - [Record types](./record-types.md) — generated per-type hub: seal evidence, CLI pages, scenarios, feature docs, RPC routes, waivers
 - [CLI ↔ RPC route map](./cli-rpc-route-map.md) — generated `aitbc` command → `/rpc/...` route → owner function → record types
+- [MCP tool inventory](./mcp-tool-inventory.md) — generated table of every `@mcp.tool`: name, file, kind (rpc/cli/generated/other), route or command literal
 - [Record-type test map](../testing/record-type-test-map.md) — generated record type → `tests/` files index
 - [Architecture](../architecture/) — System design docs
 - [Security](../security/) — Security guides

@@ -49,3 +49,10 @@ if [ "$drifted" -ne 0 ]; then
   echo "Run: $PYTHON scripts/dev/generate_mcp_cli_tools.py --mode all --split-by-group  (self-formats its output)" >&2
   exit 1
 fi
+
+# The generated-diff above cannot see the hand-written files' route/command
+# literals (the stale `cross-chain/swap` -> 404, `market offers`, and
+# `unpin --rental-id` bugs all lived there). Validate them against the live
+# Click tree and the FastAPI routers, and keep the inventory doc in sync.
+"$PYTHON" scripts/ci/check-mcp-tool-surface.py
+"$PYTHON" scripts/dev/gen_mcp_tool_inventory.py --check
