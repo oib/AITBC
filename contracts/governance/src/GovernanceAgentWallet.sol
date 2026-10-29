@@ -2,15 +2,15 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./SafeMath.sol";
 import "./AgentDAO.sol";
 
 /**
- * @title AgentWallet
+ * @title GovernanceAgentWallet
  * @dev Smart contract wallet for AI agents to participate in agent DAO governance
  * @notice Enables autonomous voting and reputation-based governance participation
  */
-contract AgentWallet is Ownable {
+contract GovernanceAgentWallet is Ownable {
     using SafeMath for uint256;
 
     // Agent roles matching AgentDAO
@@ -83,7 +83,7 @@ contract AgentWallet is Ownable {
         agentState.isActive = true;
         agentState.authorizedCallers[_owner] = true;
 
-        dao = AgentDAO(_daoContract);
+        dao = AgentDAO(payable(_daoContract));
         governanceToken = IERC20(_governanceToken);
 
         // Set default voting strategy based on role
@@ -96,7 +96,10 @@ contract AgentWallet is Ownable {
      * @dev Register agent with agent DAO
      */
     function registerWithDAO() external onlyAuthorized {
-        dao.registerAgentWallet(address(this), agentState.role);
+        dao.registerAgentWallet(
+            address(this),
+            AgentDAO.AgentRole(uint8(agentState.role))
+        );
     }
 
     /**
@@ -108,8 +111,8 @@ contract AgentWallet is Ownable {
     function castVote(
         uint256 proposalId,
         bool support,
-        string calldata reason
-    ) external onlyAuthorized onlyActiveAgent {
+        string memory reason
+    ) public onlyAuthorized onlyActiveAgent {
         require(!agentState.votedProposals[proposalId], "Already voted");
 
         // Check reputation requirement
@@ -138,7 +141,7 @@ contract AgentWallet is Ownable {
         require(!agentState.votedProposals[proposalId], "Already voted");
 
         // Get proposal details from DAO
-        (, , , , , , , , , ) = dao.getProposal(proposalId);
+        dao.getProposalType(proposalId);
 
         // Determine vote based on strategy
         bool support = _calculateAutonomousVote(proposalId);
@@ -232,7 +235,7 @@ contract AgentWallet is Ownable {
      */
     function _calculateAutonomousVote(uint256 proposalId) internal view returns (bool) {
         // Get proposal type preference
-        (, , , AgentDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
+        AgentDAO.ProposalType proposalType = dao.getProposalType(proposalId);
         uint8 preference = votingStrategy.roleVotingPreferences[proposalType];
 
         // Combine with general support threshold
@@ -252,7 +255,7 @@ contract AgentWallet is Ownable {
         uint256 proposalId,
         bool support
     ) internal view returns (string memory) {
-        (, , , AgentDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
+        AgentDAO.ProposalType proposalType = dao.getProposalType(proposalId);
 
         string memory roleString = _roleToString(agentState.role);
         string memory actionString = support ? "support" : "oppose";
