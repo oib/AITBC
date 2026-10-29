@@ -17,8 +17,11 @@ breadcrumb: Home > Scenarios > Bounty Lifecycle
 
 ## Scenario Overview
 
-The bounty lifecycle is **operator-signed** — no `aitbc` CLI surface
-exists, and the coordinator-api's full bounty router is **dead code**
+The bounty lifecycle is **operator-signed** — since `3465dc438` the
+`aitbc bounty` group (`deploy`/`submit`/`verify`/`dispute`/`expire`/`status`)
+is the operator-facing surface; the curl evidence below predates it and
+remains the sealed-proof reference. The coordinator-api's full bounty
+router is **dead code**
 (`main.py` mounts only the `bounty_flat` stub — `POST /bounties` etc.
 in `contexts/bounty/routers/bounty.py` are never served). The working
 path is the **signed node-RPC** `/v1/bounty/*` surface on `hub:8202`
@@ -59,8 +62,9 @@ Every step signs the request body the same way:
 
 Working reference implementation: `hub:/root/v17-bounty_cycle.py`
 (operator-held, not in the repo) — it already exercises the full cycle
-below; the steps here annotate what each call does on-chain. Plays use
-`curl` because no `aitbc` CLI surface exists.
+below; the steps here annotate what each call does on-chain. Plays used
+`curl` because no `aitbc` CLI surface existed — the `aitbc bounty` group
+(3465dc438) now covers the same signed-POST flow.
 
 ```bash
 RPC=http://hub:8202   # node RPC on hub
