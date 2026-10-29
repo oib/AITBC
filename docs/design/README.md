@@ -20,5 +20,6 @@ designs themselves.
 | [node-held-wallet-access.md](node-held-wallet-access.md) | Implemented behind a flag (SEC-2, 2026-10-13) |
 | [v14-aux-root-nondeterminism.md](v14-aux-root-nondeterminism.md) | Confirmed live defect (bc-2, 28 Oct) — remediation pending (candidate v18); LIQUIDITY_\*/BOND_\* + `/v1/staking/*` STAKE_\* unsealable meanwhile |
 | [v18-deterministic-committed-apply.md](v18-deterministic-committed-apply.md) | Decided by operator (Card 6 = A — fix) — remediation spec for the implementation lane (Refs #649); activation not yet scheduled |
+| [shared-transfer-ledger.md](shared-transfer-ledger.md) | Drafted for operator decision — shared-pg design for the rpc-local transfer-ledger gap (Refs #696); no implementation |
 | [v3-side-table-root-shadow.md](v3-side-table-root-shadow.md) | Design only; operator decision 2026-10-12 |
 | [v9-unsigned-protocol-transfers.md](v9-unsigned-protocol-transfers.md) | Audit + options paper; decision owed |
