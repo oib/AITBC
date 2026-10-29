@@ -159,3 +159,49 @@ def test_pending_row_is_flipped_to_rejected(tmp_path):
         assert rows[0].status == "rejected"
         assert "bridge-lock authorization" in json.loads(rows[0].tx_metadata)["rejected_reason"]
     engine.dispose()
+
+
+def test_rejected_tombstone_does_not_block_sealed_reapply(tmp_path):
+    """#704: an intake-rejected row must not count as processed — when the same
+    tx later seals in a block, the apply path lands over the tombstone."""
+    engine = _engine(tmp_path)
+    canonical_sender = _to_ait_address(SENDER)
+    with Session(engine) as session:
+        session.add(Account(chain_id=CHAIN, address=canonical_sender, balance=10_000, nonce=0))
+        session.add(Account(chain_id=CHAIN, address=RECIPIENT, balance=0, nonce=0))
+        # the tombstone the intake rejection wrote (insufficient balance then)
+        session.add(
+            Transaction(
+                chain_id=CHAIN,
+                tx_hash=TX_HASH,
+                sender=SENDER,
+                recipient=RECIPIENT,
+                payload={"type": "TRANSFER"},
+                envelope={},
+                created_at=datetime.now(UTC),
+                nonce=0,
+                value=1,
+                fee=1,
+                type="TRANSFER",
+                status="rejected",
+                timestamp=0.0,
+                tx_metadata='{"rejected_reason": "insufficient balance", "rejected_at_height": 1}',
+            )
+        )
+        session.commit()
+
+    proposer = _proposer()
+    tx = _pending_tx()
+    rejected: list[tuple[Any, str]] = []
+    with Session(engine) as session:
+        account = session.get(Account, (CHAIN, canonical_sender))
+        processed, _changed, ok = proposer._process_txs_sequential(
+            session, [tx], {canonical_sender: account}, {}, next_height=2, timestamp=T0, rejected=rejected
+        )
+        assert ok is True
+        # The tombstone no longer counts as processed: whatever verdict the tx
+        # earns downstream, it is NOT the replay-attack reason. (The fake sig
+        # below fails real signature validation — that reject is expected and
+        # irrelevant to the gate under test.)
+        for _t, reason in rejected:
+            assert "replay" not in str(reason).lower()
