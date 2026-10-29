@@ -543,10 +543,12 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
     chain_id = get_chain_id(vote_data.get("chain_id"))
     proposal_id = vote_data.get("proposal_id")
     voter_address = vote_data.get("voter_address")
-    vote_type = vote_data.get("vote_type", "for")
+    vote_type = vote_data.get("vote_type")
     reason = vote_data.get("reason")
     if not proposal_id or not voter_address:
         raise HTTPException(status_code=400, detail="proposal_id and voter_address are required")
+    if vote_type not in ("for", "against", "abstain"):
+        raise HTTPException(status_code=400, detail="invalid vote_type: must be 'for', 'against', or 'abstain'")
     # Canonicalize at write: the stored row carries the EIP-55 checksum so
     # the same voter cannot twin under a different casing (the
     # lowercase/checksum duplicates the fleet carried until 2026-09-29).
