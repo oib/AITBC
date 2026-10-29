@@ -17,26 +17,36 @@ groups:
       - record: aitbc:bridge_locked_amount
         expr: blockchain_bridge_total_locked_amount
 
-      - alert: BlockProposedButNoSubscribers
+      - alert: GossipBlockDeliveryFailing
+        # Real delivery failure: blocks are published to the mesh but every
+        # peer push for the blocks topic fails. A single dead peer does not
+        # fire this — fan-out tolerates partial failure; zero successes does
+        # not. Replaces BlockProposedButNoSubscribers, which measured the
+        # local lease registry (meaningless for mesh delivery) and fired
+        # critical on fully healthy propagation (#705).
         expr: |
           (
-            blockchain_poa_valid_subscribers{chain_id!~".*island.*"} == 0
-            and on() (increase(blockchain_poa_broadcast_skipped_total{chain_id!~".*island.*"}[1m]) > 0)
+            increase(gossip_mesh_publications_topic_blocks_bc_2[5m]) > 0
+            and on() (increase(gossip_mesh_peer_publish_topic_blocks_bc_2[5m]) == 0)
+            and on() (increase(gossip_mesh_peer_publish_failed_topic_blocks_bc_2[5m]) > 0)
           )
-        for: 1m
+        for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Block {{ $labels.chain_id }} produced but has zero valid subscribers"
-          description: "Proposer is producing blocks on {{ $labels.chain_id }} but no follower is subscribed; blocks are not being broadcast."
+          summary: "bc-2 blocks published on {{ $labels.instance }} but every peer push fails"
+          description: "The proposer is publishing bc-2 blocks to the gossip mesh but no peer push succeeds — peers cannot hear this proposer and are falling back to pull-sync."
 
       - alert: BroadcastSkipped
+        # The counter now only increments when gossip_broker.publish raises —
+        # a genuine skipped broadcast (local bus publish failure), not the
+        # zero-lease metric it counted before #705.
         expr: increase(blockchain_poa_broadcast_skipped_total{chain_id!~".*island.*"}[5m]) > 0
         for: 1m
         labels:
           severity: warning
         annotations:
-          summary: "Blocks are being skipped on {{ $labels.chain_id }} due to no subscribers"
+          summary: "Block broadcast on {{ $labels.chain_id }} failed at publish"
 
       - alert: ServiceDown
         # 1m fired on sub-minute restart blips during deploy waves

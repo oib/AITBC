@@ -116,9 +116,9 @@ class MeshGossipBackend(GossipBackend):
         async def _run() -> None:
             try:
                 await asyncio.wait_for(coro_factory(), timeout=self._peer_publish_timeout)
-                metrics_registry.increment("gossip_mesh_peer_publish_total")
+                _increment_publication("gossip_mesh_peer_publish", topic)
             except Exception as e:
-                metrics_registry.increment("gossip_mesh_peer_publish_failed_total")
+                _increment_publication("gossip_mesh_peer_publish_failed", topic)
                 logger.info("Mesh gossip publish to peer %s on %s failed: %s", name, topic, e)
 
         task = create_task_with_logging(_run(), name=f"mesh-gossip-publish:{name}:{topic}")
