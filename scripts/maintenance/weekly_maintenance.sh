@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Weekly maintenance tasks
 
 echo "=== Weekly Maintenance ==="
@@ -14,6 +15,6 @@ cd /opt/aitbc && git pull origin main
 systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
 
 # Run health check
-/opt/aitbc/scripts/health_check.sh
+/opt/aitbc/scripts/monitoring/health_check.sh
 
 echo "=== Weekly Maintenance Complete ==="
