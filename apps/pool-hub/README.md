@@ -20,7 +20,7 @@ no
 
 ## Service
 
-No systemd service file
+1 systemd service: `aitbc-pool-hub.service` (in this directory)
 
 ## Core Service
 

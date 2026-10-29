@@ -1,5 +1,7 @@
 # certification
 
+> **Unmounted:** the `certification` router is imported but never include_router'd in coordinator_api/main.py — these routes 404.
+
 Certification services for agents, models, and compliance.
 
 ## Domain Models
