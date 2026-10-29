@@ -17,7 +17,11 @@ breadcrumb: Home > Scenarios > Agent Staking Lifecycle
 
 ## Scenario Overview
 
-Agent staking is **operator-signed** — no `aitbc` CLI surface exists.
+Agent staking is **operator-signed** — since `3465dc438` the
+`aitbc agent-staking` group (`stake`/`add`/`unbond`/`complete`/
+`performance`/`distribute`/`claim`/`status`) is the operator-facing
+surface; the curl evidence below predates it and remains the
+sealed-proof reference.
 The working path is the **signed node-RPC** surface on `hub:8202`
 (`/v1/agent-staking/*`): the node re-verifies the operator's
 `payload.auth` and forwards `STAKE_LOCK`/`STAKE_RELEASE` emissions.
