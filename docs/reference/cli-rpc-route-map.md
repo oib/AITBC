@@ -9,6 +9,8 @@ association is keyword-based best-effort; `—` means unmatched.
 
 | `aitbc` command | Route literal | Owner function | Record type(s) |
 |---|---|---|---|
+| *(unattributed — cli/aitbc_cli/commands/agent_staking.py)* | `/rpc/agent-staking` | — | —
+| *(unattributed — cli/aitbc_cli/commands/bounty.py)* | `/rpc/bounty` | — | —
 | *(unattributed — cli/aitbc_cli/commands/market/__init__.py)* | `/rpc/accounts/` | — | —
 | *(unattributed — cli/aitbc_cli/commands/market/__init__.py)* | `/rpc/accounts/{address}` | — | —
 | *(unattributed — cli/aitbc_cli/commands/node/bridge.py)* | `/rpc/islands/bridge` | — | —
@@ -36,6 +38,18 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc agent get-identity` | `/rpc/identity/{agent_id}{query}` | `get_agent_identity_route` (staking.py) | —
 | `aitbc agent register-identity` | `/rpc/identity/register` | `register_agent_identity_route` (staking.py) | —
 | `aitbc agent verify-identity` | `/rpc/identity/verify` | `verify_agent_identity_route` (staking.py) | —
+| `aitbc agent-staking add` | `/rpc/agent-staking/stake/` | `create_agent_stake_route` (agent_economy.py) | —
+| `aitbc agent-staking add` | `/rpc/agent-staking/stake/{stake_id}/add` | `add_to_agent_stake_route` (agent_economy.py) | —
+| `aitbc agent-staking claim` | `/rpc/agent-staking/claim-rewards` | `record_claim_route` (agent_economy.py) | —
+| `aitbc agent-staking complete` | `/rpc/agent-staking/stake/` | `create_agent_stake_route` (agent_economy.py) | —
+| `aitbc agent-staking complete` | `/rpc/agent-staking/stake/{stake_id}/complete` | `complete_agent_stake_route` (agent_economy.py) | —
+| `aitbc agent-staking distribute` | `/rpc/agent-staking/agents/` | — | —
+| `aitbc agent-staking distribute` | `/rpc/agent-staking/agents/{agent_wallet}/distribute` | `record_distribute_route` (agent_economy.py) | —
+| `aitbc agent-staking performance` | `/rpc/agent-staking/performance` | `record_performance_route` (agent_economy.py) | —
+| `aitbc agent-staking stake` | `/rpc/agent-staking/stake` | `create_agent_stake_route` (agent_economy.py) | —
+| `aitbc agent-staking status` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
+| `aitbc agent-staking unbond` | `/rpc/agent-staking/stake/` | `create_agent_stake_route` (agent_economy.py) | —
+| `aitbc agent-staking unbond` | `/rpc/agent-staking/stake/{stake_id}/unbond` | `unbond_agent_stake_route` (agent_economy.py) | —
 | `aitbc blockchain block` | `/rpc/blocks/` | — | —
 | `aitbc blockchain block` | `/rpc/blocks/{block_height}` | `get_block_route` (core.py) | —
 | `aitbc blockchain consensus slashing-history` | `/rpc/consensus/slashing-history` | `consensus_slashing_history_route` (consensus.py) | —
@@ -51,11 +65,31 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc blockchain stop` | `/rpc/chains/stop` | `stop_chain_route` (core.py) | —
 | `aitbc blockchain sync-status` | `/rpc/head` | `get_head_route` (core.py) | —
 | `aitbc blockchain sync-status` | `/rpc/network-info` | `get_network_info_route` (core.py) | —
+| `aitbc bounty deploy` | `/rpc/bounty/deploy` | `deploy_bounty_route` (bounty.py) | —
+| `aitbc bounty dispute` | `/rpc/bounty/` | — | —
+| `aitbc bounty dispute` | `/rpc/bounty/{bounty_id}/dispute` | `dispute_bounty_route` (bounty.py) | —
+| `aitbc bounty expire` | `/rpc/bounty/` | — | —
+| `aitbc bounty expire` | `/rpc/bounty/{bounty_id}/expire` | `expire_bounty_route` (bounty.py) | —
+| `aitbc bounty status` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
+| `aitbc bounty submit` | `/rpc/bounty/` | — | —
+| `aitbc bounty submit` | `/rpc/bounty/{bounty_id}/submit` | `submit_bounty_route` (bounty.py) | —
+| `aitbc bounty verify` | `/rpc/bounty/` | — | —
+| `aitbc bounty verify` | `/rpc/bounty/{bounty_id}/verify` | `verify_bounty_route` (bounty.py) | —
 | `aitbc coin-requests execute` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc coin-requests reconcile` | `/rpc/transaction/` | `submit_transaction_route` (core.py) | —
 | `aitbc coin-requests reconcile` | `/rpc/transaction/{tx_hash}` | `get_transaction_route` (core.py) | —
 | `aitbc contract call` | `/rpc/contracts/call` | `call_contract_route` (contracts.py) | —
 | `aitbc contract deploy` | `/rpc/contracts/deploy` | `deploy_contract_route` (contracts.py) | —
+| `aitbc contract list` | `/rpc/contracts` | `list_contracts_route` (contracts.py) | —
+| `aitbc contract messaging-messages` | `/rpc/contracts/messaging/topics/` | `get_forum_topics_route` (contracts.py) | —
+| `aitbc contract messaging-messages` | `/rpc/contracts/messaging/topics/{topic_id}/messages` | `get_topic_messages_route` (contracts.py) | —
+| `aitbc contract messaging-reputation` | `/rpc/contracts/messaging/agents/` | — | —
+| `aitbc contract messaging-reputation` | `/rpc/contracts/messaging/agents/{address}/reputation` | `get_agent_reputation_route` (contracts.py) | —
+| `aitbc contract messaging-search` | `/rpc/contracts/messaging/messages/search` | `search_messages_route` (contracts.py) | —
+| `aitbc contract messaging-state` | `/rpc/contracts/messaging/state` | `get_messaging_contract_state_route` (contracts.py) | —
+| `aitbc contract messaging-state` | `/rpc/contracts/messaging/state{params}` | — | —
+| `aitbc contract messaging-topics` | `/rpc/contracts/messaging/topics` | `get_forum_topics_route` (contracts.py) | —
+| `aitbc contract verify` | `/rpc/contracts/verify` | `verify_contract_route` (contracts.py) | —
 | `aitbc crosschain bridge` | `/rpc/cross-chain/bridge/` | `create_cross_chain_bridge` (cross_chain.py) | —
 | `aitbc crosschain bridge` | `/rpc/cross-chain/bridge/{bridge_id}` | `get_cross_chain_bridge` (cross_chain.py) | —
 | `aitbc crosschain bridge` | `/rpc/cross-chain/bridge` | `create_cross_chain_bridge` (cross_chain.py) | —
@@ -102,6 +136,9 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc gpu-onchain list` | `/rpc/gpus` | `list_gpus` (gpu_resources.py) | —
 | `aitbc gpu-onchain query` | `/rpc/gpu/info/` | — | —
 | `aitbc gpu-onchain query` | `/rpc/gpu/info/{gpu_id}` | `get_gpu` (gpu_resources.py) | —
+| `aitbc liquidity build-claim` | `/rpc/liquidity/build-claim` | `build_claim` (liquidity.py) | `LIQUIDITY_CLAIM`
+| `aitbc liquidity build-deposit` | `/rpc/liquidity/build-deposit` | `build_deposit` (liquidity.py) | `LIQUIDITY_DEPOSIT`
+| `aitbc liquidity build-withdraw` | `/rpc/liquidity/build-withdraw` | `build_withdraw` (liquidity.py) | `LIQUIDITY_WITHDRAW`
 | `aitbc market cancel` | `/rpc/escrow/` | — | —
 | `aitbc market cancel` | `/rpc/escrow/{job_id}/refund` | `refund_escrow` (escrow_routes.py) | `ESCROW_REFUND`
 | `aitbc market escrow create` | `/rpc/escrow/create` | `create_escrow` (escrow_routes.py) | `ESCROW_LOCK`

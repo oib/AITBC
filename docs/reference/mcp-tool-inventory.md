@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**788 tools** across 81 modules.
+**812 tools** across 84 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 132 |
-| generated | 534 |
+| generated | 558 |
 | other | 7 |
 | rpc | 115 |
 
@@ -18,6 +18,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_agent.py | 20 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_comm.py | 10 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_msg.py | 5 |
+| mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | 8 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_wallet.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_ai.py | 11 |
@@ -26,6 +27,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_blockchain.py | 18 |
 | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | 7 |
 | mcp-server/aitbc_mcp_cli_tools_generated_bootstrap.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_brand.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_bridge.py | 18 |
 | mcp-server/aitbc_mcp_cli_tools_generated_cluster.py | 3 |
@@ -33,7 +35,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_compliance.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_confidential.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_config.py | 18 |
-| mcp-server/aitbc_mcp_cli_tools_generated_contract.py | 2 |
+| mcp-server/aitbc_mcp_cli_tools_generated_contract.py | 9 |
 | mcp-server/aitbc_mcp_cli_tools_generated_crosschain.py | 5 |
 | mcp-server/aitbc_mcp_cli_tools_generated_dashboard.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_deploy.py | 1 |
@@ -54,6 +56,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_health.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_http.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_ipfs.py | 7 |
+| mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_liquidity_stake.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_list.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market.py | 35 |
@@ -217,6 +220,14 @@
 | `aitbc_agent_msg_receive` | mcp-server/aitbc_mcp_cli_tools_generated_agent_msg.py | generated | `aitbc agent-msg receive` |
 | `aitbc_agent_msg_request_coins` | mcp-server/aitbc_mcp_cli_tools_generated_agent_msg.py | generated | `aitbc agent-msg request-coins` |
 | `aitbc_agent_msg_send` | mcp-server/aitbc_mcp_cli_tools_generated_agent_msg.py | generated | `aitbc agent-msg send` |
+| `aitbc_agent_staking_add` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking add` |
+| `aitbc_agent_staking_claim` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking claim` |
+| `aitbc_agent_staking_complete` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking complete` |
+| `aitbc_agent_staking_distribute` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking distribute` |
+| `aitbc_agent_staking_performance` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking performance` |
+| `aitbc_agent_staking_stake` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking stake` |
+| `aitbc_agent_staking_status` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking status` |
+| `aitbc_agent_staking_unbond` | mcp-server/aitbc_mcp_cli_tools_generated_agent_staking.py | generated | `aitbc agent-staking unbond` |
 | `aitbc_agent_task_hire` | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | generated | `aitbc agent-task hire` |
 | `aitbc_agent_task_result` | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | generated | `aitbc agent-task result` |
 | `aitbc_agent_task_status` | mcp-server/aitbc_mcp_cli_tools_generated_agent_task.py | generated | `aitbc agent-task status` |
@@ -267,6 +278,12 @@
 | `aitbc_bond_status` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond status` |
 | `aitbc_bond_top_up` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond top-up` |
 | `aitbc_bootstrap_bootstrap_env` | mcp-server/aitbc_mcp_cli_tools_generated_bootstrap.py | generated | `aitbc bootstrap bootstrap-env` |
+| `aitbc_bounty_deploy` | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | generated | `aitbc bounty deploy` |
+| `aitbc_bounty_dispute` | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | generated | `aitbc bounty dispute` |
+| `aitbc_bounty_expire` | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | generated | `aitbc bounty expire` |
+| `aitbc_bounty_status` | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | generated | `aitbc bounty status` |
+| `aitbc_bounty_submit` | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | generated | `aitbc bounty submit` |
+| `aitbc_bounty_verify` | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | generated | `aitbc bounty verify` |
 | `aitbc_brand_list` | mcp-server/aitbc_mcp_cli_tools_generated_brand.py | generated | `aitbc brand list` |
 | `aitbc_brand_show` | mcp-server/aitbc_mcp_cli_tools_generated_brand.py | generated | `aitbc brand show` |
 | `aitbc_bridge_attest` | mcp-server/aitbc_mcp_cli_tools_generated_bridge.py | generated | `aitbc bridge attest` |
@@ -323,6 +340,13 @@
 | `aitbc_config_validate` | mcp-server/aitbc_mcp_cli_tools_generated_config.py | generated | `aitbc config validate` |
 | `aitbc_contract_call` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract call` |
 | `aitbc_contract_deploy` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract deploy` |
+| `aitbc_contract_list` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract list` |
+| `aitbc_contract_messaging_messages` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract messaging-messages` |
+| `aitbc_contract_messaging_reputation` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract messaging-reputation` |
+| `aitbc_contract_messaging_search` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract messaging-search` |
+| `aitbc_contract_messaging_state` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract messaging-state` |
+| `aitbc_contract_messaging_topics` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract messaging-topics` |
+| `aitbc_contract_verify` | mcp-server/aitbc_mcp_cli_tools_generated_contract.py | generated | `aitbc contract verify` |
 | `aitbc_crosschain_bridge` | mcp-server/aitbc_mcp_cli_tools_generated_crosschain.py | generated | `aitbc crosschain bridge` |
 | `aitbc_crosschain_bridge_status` | mcp-server/aitbc_mcp_cli_tools_generated_crosschain.py | generated | `aitbc crosschain bridge-status` |
 | `aitbc_crosschain_confirm` | mcp-server/aitbc_mcp_cli_tools_generated_crosschain.py | generated | `aitbc crosschain confirm` |
@@ -459,6 +483,9 @@
 | `aitbc_ipfs_pin` | mcp-server/aitbc_mcp_cli_tools_generated_ipfs.py | generated | `aitbc ipfs pin` |
 | `aitbc_ipfs_unpin` | mcp-server/aitbc_mcp_cli_tools_generated_ipfs.py | generated | `aitbc ipfs unpin` |
 | `aitbc_ipfs_upload` | mcp-server/aitbc_mcp_cli_tools_generated_ipfs.py | generated | `aitbc ipfs upload` |
+| `aitbc_liquidity_build_claim` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity build-claim` |
+| `aitbc_liquidity_build_deposit` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity build-deposit` |
+| `aitbc_liquidity_build_withdraw` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity build-withdraw` |
 | `aitbc_liquidity_stake` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity_stake.py | generated | `aitbc liquidity-stake` |
 | `aitbc_list` | mcp-server/aitbc_mcp_cli_tools_generated_list.py | generated | `aitbc list` |
 | `aitbc_market_cancel` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market cancel` |
