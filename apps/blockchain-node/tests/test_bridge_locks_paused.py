@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine, select
 
-from aitbc_chain.base_models import CrossChainTransfer
+from aitbc_chain.base_models import CrossChainTransfer, Transaction
 from aitbc_chain.config import settings
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
 from aitbc_chain.cross_chain.bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL, BridgeLocksPausedError
@@ -131,6 +131,13 @@ class TestInitiateTransferPaused:
         monkeypatch.setattr(settings, "block_scoped_preregistered_transactions", False)
         _seed(engine, "chain-a", "0xsender", 10_000)
         transfer = bridge.initiate_transfer("chain-a", "chain-b", "0xsender", "0xrecipient", 1000)
+        # #703 seal gate: the refund binds the lock's sealed Transaction row —
+        # the intake row exists unsealed here, so mark it sealed.
+        with Session(engine) as session:
+            tx = session.exec(select(Transaction).where(Transaction.tx_hash == transfer.transfer_id)).one()
+            tx.block_height = 1
+            session.add(tx)
+            session.commit()
         monkeypatch.setattr(settings, "bridge_locks_paused", True)
 
         bridge.refund_transfer(transfer.transfer_id, "0xsender")
