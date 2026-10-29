@@ -161,6 +161,7 @@ Operator procedures for the live fleet:
 ## Reference
 
 [Index](reference/README.md) —
+[record types](reference/record-types.md),
 [all routes](reference/all-routes.md),
 [packages](reference/packages.md),
 [repository structure](reference/REPOSITORY_STRUCTURE.md),
