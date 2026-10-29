@@ -11,7 +11,7 @@ Infrastructure monitoring — dashboards, metrics, and system health.
 - GET /dashboard
 - GET /status
 - GET /miners
-- GET /dashboard/history — **unmounted, 404** (`monitor.py` is now an empty router)
+- (`monitor.py` deleted in issue #701 — it was an empty router overlapping `monitoring_dashboard`)
 - GET /jobs
 - GET /dashboard
 - GET /dashboard/summary

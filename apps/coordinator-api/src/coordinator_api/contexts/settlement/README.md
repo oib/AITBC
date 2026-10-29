@@ -1,6 +1,6 @@
 # settlement
 
-> **Unmounted:** the `settlement` router (cross-chain settlement routes) is imported but never include_router'd in coordinator_api/main.py — these routes 404.
+> **Unmounted:** the `settlement` router (4 `/cross-chain*` routes) was deleted in issue #701 (imported in routers/__init__.py but never mounted)..
 
 Settlement — transaction finalization and reconciliation.
 
@@ -10,10 +10,7 @@ Settlement — transaction finalization and reconciliation.
 
 ## Routes
 
-- POST /cross-chain
-- GET /cross-chain/{settlement_id}
-- GET /cross-chain
-- DELETE /cross-chain/{settlement_id}
+None — the context's only router was retired.
 
 ## Services
 
