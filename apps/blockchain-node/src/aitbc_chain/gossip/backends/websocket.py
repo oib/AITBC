@@ -298,11 +298,10 @@ class WebsocketGossipBackend(GossipBackend):
         from aitbc.aitbc_logging import get_logger
 
         logger = get_logger(__name__)
-        if not self._running:
-            return
-        if self._ref_counts.get(topic, 0) <= 0:
-            return
+        reschedule = False
         try:
+            if not self._running or self._ref_counts.get(topic, 0) <= 0:
+                return
             delay = self._reconnect_backoff.get(topic, 0.5)
             logger.info("WebSocket gossip reconnect for %s after %ss", topic, delay)
             await asyncio.sleep(delay)
@@ -314,9 +313,13 @@ class WebsocketGossipBackend(GossipBackend):
             current = self._reconnect_backoff.get(topic, 0.5)
             self._reconnect_backoff[topic] = min(current * 2, 30.0)
             logger.warning("WebSocket gossip reconnect failed for %s: %s", topic, e)
-            self._schedule_reconnect(topic)
+            reschedule = True
         finally:
+            # Discard before scheduling: the next task must own the marker,
+            # otherwise the nested schedule is suppressed and retries stop.
             self._reconnecting.discard(topic)
+            if reschedule:
+                self._schedule_reconnect(topic)
 
     async def _cleanup(self, topic: str) -> None:
         async with self._connect_lock(topic):

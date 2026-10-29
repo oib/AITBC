@@ -1922,3 +1922,79 @@ tests:
             exp_annotations:
               summary: "No incus proxy probe results reaching Prometheus"
               description: "probe_success{job=\"blackbox-incus-proxy\"} has no series for 15m — the blackbox scrape job or exporter is gone. Proxies still work but the wedge watch is blind; check the blackbox_exporter unit and the blackbox-incus-proxy job in prometheus.yml."
+
+  # GOSSIP-RECOVERY-1 (#705): the zero-lease metric was meaningless for mesh
+  # delivery — the critical now fires only when blocks are published and
+  # every peer push fails. Three cases below.
+  - interval: 30s
+    input_series:
+      # Case A (fires): blocks published, zero successful peer pushes,
+      # failures occurring from t=5m.
+      - series: 'gossip_mesh_publications_topic_blocks_bc_2{instance="node1:9009", job="blockchain-node"}'
+        values: '0x10 1+1x30'
+      - series: 'gossip_mesh_peer_publish_topic_blocks_bc_2{instance="node1:9009", job="blockchain-node"}'
+        values: '0+0x40'
+      - series: 'gossip_mesh_peer_publish_failed_topic_blocks_bc_2{instance="node1:9009", job="blockchain-node"}'
+        values: '0x10 1+1x30'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: GossipBlockDeliveryFailing
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: GossipBlockDeliveryFailing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: "node1:9009"
+              job: blockchain-node
+            exp_annotations:
+              summary: "bc-2 blocks published on node1:9009 but every peer push fails"
+              description: "The proposer is publishing bc-2 blocks to the gossip mesh but no peer push succeeds — peers cannot hear this proposer and are falling back to pull-sync."
+
+  # Case B (silent): publications + any successful push — partial fan-out
+  # with failures is tolerated, must not alert.
+  - interval: 30s
+    input_series:
+      - series: 'gossip_mesh_publications_topic_blocks_bc_2{instance="node2:9009", job="blockchain-node"}'
+        values: '0x10 1+1x30'
+      - series: 'gossip_mesh_peer_publish_topic_blocks_bc_2{instance="node2:9009", job="blockchain-node"}'
+        values: '0x10 1+1x30'
+      - series: 'gossip_mesh_peer_publish_failed_topic_blocks_bc_2{instance="node2:9009", job="blockchain-node"}'
+        values: '0x10 1+1x30'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: GossipBlockDeliveryFailing
+        exp_alerts: []
+
+  # Case C (silent): peer pushes fail but nothing published — the proposer
+  # gate means an idle host does not alert on unrelated publish failures.
+  - interval: 30s
+    input_series:
+      - series: 'gossip_mesh_publications_topic_blocks_bc_2{instance="node0:9009", job="blockchain-node"}'
+        values: '0+0x40'
+      - series: 'gossip_mesh_peer_publish_topic_blocks_bc_2{instance="node0:9009", job="blockchain-node"}'
+        values: '0+0x40'
+      - series: 'gossip_mesh_peer_publish_failed_topic_blocks_bc_2{instance="node0:9009", job="blockchain-node"}'
+        values: '0x10 1+1x30'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: GossipBlockDeliveryFailing
+        exp_alerts: []
+
+  # BroadcastSkipped: the counter now means a genuine publish failure; the
+  # rule expr is unchanged and must still fire on an increment.
+  - interval: 30s
+    input_series:
+      - series: 'blockchain_poa_broadcast_skipped_total{instance="node1:9009", job="blockchain-node", chain_id="bc-2"}'
+        values: '0x10 1+0x30'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: BroadcastSkipped
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: "node1:9009"
+              job: blockchain-node
+              chain_id: "bc-2"
+            exp_annotations:
+              summary: "Block broadcast on bc-2 failed at publish"
