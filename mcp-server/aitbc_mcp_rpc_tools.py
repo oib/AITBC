@@ -1629,7 +1629,7 @@ def create_cross_chain_swap(
         body["issued_at"] = issued_at
     if nonce is not None:
         body["nonce"] = nonce
-    return _http_write_tool(role, host, "blockchain-rpc", "cross-chain/swap", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "swap", body, dry_run, confirm)
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
