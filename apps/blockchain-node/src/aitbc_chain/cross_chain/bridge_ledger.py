@@ -44,7 +44,9 @@ def ledger_enabled() -> bool:
 
 
 def _headers() -> dict[str, str]:
-    key = os.environ.get("BLOCKCHAIN_RPC_API_KEY")
+    # Dedicated key first: the ledger service may be a different host's rpc,
+    # whose expected BLOCKCHAIN_RPC_API_KEY differs from the local one.
+    key = os.environ.get("BRIDGE_LEDGER_API_KEY") or os.environ.get("BLOCKCHAIN_RPC_API_KEY")
     return {"X-API-Key": key} if key else {}
 
 
