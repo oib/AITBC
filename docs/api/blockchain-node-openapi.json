@@ -9612,6 +9612,329 @@
         }
       }
     },
+    "/rpc/bridge/ledger/register": {
+      "post": {
+        "tags": [
+          "rpc",
+          "bridge-ledger"
+        ],
+        "summary": "Register a pending transfer (idempotent upsert)",
+        "description": "Upsert the intake transfer row keyed on ``transfer_id``.\n\nA re-register of an existing row returns it unchanged \u2014 the service\nnever regresses a status the relayer already advanced.",
+        "operationId": "ledger_register_route_rpc_bridge_ledger_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedgerRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ledger Register Route Rpc Bridge Ledger Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/rpc/bridge/ledger/pending": {
+      "get": {
+        "tags": [
+          "rpc",
+          "bridge-ledger"
+        ],
+        "summary": "Relayer worklist for a target chain",
+        "description": "Rows whose ``target_chain`` matches and status is ``pending``.\n\nThis replaces the relayer's local ``status='pending'`` scan.",
+        "operationId": "ledger_pending_route_rpc_bridge_ledger_pending_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "target_chain",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target Chain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ledger Pending Route Rpc Bridge Ledger Pending Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/bridge/ledger/{transfer_id}/status": {
+      "post": {
+        "tags": [
+          "rpc",
+          "bridge-ledger"
+        ],
+        "summary": "Monotonic status writeback",
+        "description": "Advance a row's status \u2014 pending\u2192confirmed\u2192completed (or terminal).\n\nSame-status writebacks are idempotent no-ops; any transition that is\nnot strictly monotonic is rejected with 400.",
+        "operationId": "ledger_status_route_rpc_bridge_ledger__transfer_id__status_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transfer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedgerStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ledger Status Route Rpc Bridge Ledger  Transfer Id  Status Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status '{new_status}' (allowed: {sorted(_STATUS_RANK)}) / Out-of-order status transition: {record.status} -> {new_status} (writeback is monotonic only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transfer not found: {transfer_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rpc/bridge/ledger/{transfer_id}": {
+      "get": {
+        "tags": [
+          "rpc",
+          "bridge-ledger"
+        ],
+        "summary": "Read a single transfer row",
+        "description": "Single-row read \u2014 the transplant-script replacement.",
+        "operationId": "ledger_read_route_rpc_bridge_ledger__transfer_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transfer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ledger Read Route Rpc Bridge Ledger  Transfer Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transfer not found: {transfer_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/security-status": {
       "get": {
         "tags": [
@@ -20964,6 +21287,329 @@
         }
       }
     },
+    "/v1/bridge/ledger/register": {
+      "post": {
+        "tags": [
+          "v1",
+          "bridge-ledger"
+        ],
+        "summary": "Register a pending transfer (idempotent upsert)",
+        "description": "Upsert the intake transfer row keyed on ``transfer_id``.\n\nA re-register of an existing row returns it unchanged \u2014 the service\nnever regresses a status the relayer already advanced.",
+        "operationId": "ledger_register_route_v1_bridge_ledger_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedgerRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ledger Register Route V1 Bridge Ledger Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/v1/bridge/ledger/pending": {
+      "get": {
+        "tags": [
+          "v1",
+          "bridge-ledger"
+        ],
+        "summary": "Relayer worklist for a target chain",
+        "description": "Rows whose ``target_chain`` matches and status is ``pending``.\n\nThis replaces the relayer's local ``status='pending'`` scan.",
+        "operationId": "ledger_pending_route_v1_bridge_ledger_pending_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "target_chain",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Target Chain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ledger Pending Route V1 Bridge Ledger Pending Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/ledger/{transfer_id}/status": {
+      "post": {
+        "tags": [
+          "v1",
+          "bridge-ledger"
+        ],
+        "summary": "Monotonic status writeback",
+        "description": "Advance a row's status \u2014 pending\u2192confirmed\u2192completed (or terminal).\n\nSame-status writebacks are idempotent no-ops; any transition that is\nnot strictly monotonic is rejected with 400.",
+        "operationId": "ledger_status_route_v1_bridge_ledger__transfer_id__status_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transfer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedgerStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ledger Status Route V1 Bridge Ledger  Transfer Id  Status Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status '{new_status}' (allowed: {sorted(_STATUS_RANK)}) / Out-of-order status transition: {record.status} -> {new_status} (writeback is monotonic only)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transfer not found: {transfer_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/ledger/{transfer_id}": {
+      "get": {
+        "tags": [
+          "v1",
+          "bridge-ledger"
+        ],
+        "summary": "Read a single transfer row",
+        "description": "Single-row read \u2014 the transplant-script replacement.",
+        "operationId": "ledger_read_route_v1_bridge_ledger__transfer_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transfer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Transfer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ledger Read Route V1 Bridge Ledger  Transfer Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transfer not found: {transfer_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ledger store unavailable / Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/security-status": {
       "get": {
         "tags": [
@@ -24639,6 +25285,144 @@
         ],
         "title": "LeaveIslandResponse",
         "description": "Response model for leaving an island"
+      },
+      "LedgerRegisterRequest": {
+        "properties": {
+          "transfer_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Transfer Id"
+          },
+          "source_chain": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Chain"
+          },
+          "target_chain": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Target Chain"
+          },
+          "sender": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Sender"
+          },
+          "recipient": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Recipient"
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Amount"
+          },
+          "asset": {
+            "type": "string",
+            "title": "Asset",
+            "default": "native"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "pending"
+          },
+          "source_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Tx Hash"
+          },
+          "lock_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lock Time"
+          },
+          "release_amount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transfer_id",
+          "source_chain",
+          "target_chain",
+          "sender",
+          "recipient",
+          "amount"
+        ],
+        "title": "LedgerRegisterRequest",
+        "description": "Intake upsert \u2014 the CrossChainTransfer record fields."
+      },
+      "LedgerStatusRequest": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Status"
+          },
+          "target_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Tx Hash"
+          },
+          "proof_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proof Hash"
+          },
+          "confirm_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "LedgerStatusRequest",
+        "description": "Relayer writeback \u2014 monotonic status plus proof/release anchors."
       },
       "LogEntry": {
         "properties": {

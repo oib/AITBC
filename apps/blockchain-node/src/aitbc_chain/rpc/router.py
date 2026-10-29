@@ -136,6 +136,13 @@ except ImportError as e:
     bridge_security_status_route = None  # type: ignore[assignment]
     _import_failed("Bridge sub-router", e)
 
+try:
+    from .routers.bridge_ledger import router as bridge_ledger_router
+
+    router.include_router(bridge_ledger_router)
+except ImportError as e:
+    _import_failed("Bridge ledger sub-router", e)
+
 
 @router.get("/security-status", summary="Bridge security status (runbook alias)")
 @rate_limit(rate=100, per=60)

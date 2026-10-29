@@ -582,6 +582,11 @@ class ChainSettings(BaseSettings):
     # bridge_release_enabled in the finalizer loop, so this flag alone cannot
     # move value; disabling it turns the loop back into finalize-only.
     bridge_relayer_enabled: bool = True
+    # Shared transfer ledger (issue #696): base URL of the rpc hosting the
+    # /rpc/bridge/ledger/* surface (hub's rpc in production). Unset = the
+    # relayer keeps its local status='pending' scan — byte-for-byte today's
+    # behaviour; intake does no write-through register.
+    bridge_ledger_url: str = ""
 
     # GAP-47: cross-chain swap quote table. Comma-separated
     # "from_chain::to_chain=rate" or "chain:token::chain:token=rate" entries
