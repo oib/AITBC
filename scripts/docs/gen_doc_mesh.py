@@ -155,7 +155,7 @@ class Route:
     types: set[str] = field(default_factory=set)
 
 
-_ROUTE_DEC = re.compile(r'@router\.(get|post|put|delete|patch|websocket)\(\s*"([^"]+)"')
+_ROUTE_DEC = re.compile(r'@router\.(get|post|put|delete|patch|websocket)\(\s*"([^"]*)"')
 _PREFIX = re.compile(r'APIRouter\(\s*prefix="([^"]*)"')
 _FUNC = re.compile(r"(?:async\s+)?def\s+(\w+)")
 
