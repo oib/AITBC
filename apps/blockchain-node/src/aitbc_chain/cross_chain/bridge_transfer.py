@@ -625,6 +625,27 @@ class BridgeTransferMixin(BridgeBase):
             if record.sender != sender:
                 raise ValueError("Only the original sender can refund this transfer")
 
+            # #703 emission-before-seal guard: the apply-side v6 gate binds the
+            # refund to a SEALED BRIDGE_LOCK row — a refund emitted while its
+            # lock is still unsealed can never apply and strands the amount.
+            source_hash = (record.source_tx_hash or "").strip()
+            if not source_hash:
+                raise ValueError(
+                    f"Transfer {transfer_id} has no recorded source tx — refund refused "
+                    "until the lock is recorded (pre-#669 row)"
+                )
+            lock_tx = session.exec(
+                select(Transaction).where(
+                    Transaction.chain_id == record.source_chain,
+                    Transaction.tx_hash == source_hash,
+                )
+            ).first()
+            if lock_tx is None or lock_tx.block_height is None:
+                height = lock_tx.block_height if lock_tx else "unsealed"
+                raise ValueError(
+                    f"Lock {source_hash} not yet sealed (height {height}) — refund refused; retry after the lock seals"
+                )
+
             refund_delay = getattr(settings, "bridge_refund_delay_seconds", 0)
             if refund_delay:
                 lock_time = record.lock_time or record.confirm_time or datetime.now(UTC)
