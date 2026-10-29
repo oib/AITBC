@@ -67,7 +67,7 @@ poa_valid_subscribers = Gauge(
 
 poa_broadcast_skipped_total = Counter(
     "blockchain_poa_broadcast_skipped_total",
-    "Blocks skipped because there were zero valid subscribers",
+    "Block broadcasts that failed to publish to the local gossip bus",
     ["chain_id"],
 )
 
