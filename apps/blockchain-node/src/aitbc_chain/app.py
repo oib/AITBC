@@ -26,6 +26,7 @@ from .lease_tracker import lease_tracker
 from .logger import get_logger
 from .mempool import init_mempool
 from .metrics import metrics_registry
+from . import chain_isolation_metrics as _chain_isolation_metrics  # noqa: F401 — registers counters on the default registry
 from .network.island_manager import create_island_manager
 from .rpc.escrow_routes import get_node_wallet_address
 from .rpc.escrow_routes import router as escrow_router
