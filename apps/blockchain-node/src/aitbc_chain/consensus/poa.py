@@ -394,6 +394,16 @@ class PoAProposer:
             seen.add(canonical_address(sender))
         return len(seen)
 
+    def _consensus_participants_anomaly_checked(self) -> list[str]:
+        """Consensus participants after the #693 anomaly re-read.
+
+        Never sizes an attestation round off a poisoned empty view.
+        """
+        if self._multi_validator is None:
+            return list(self._validator_keys.keys())
+        self._multi_validator.reload_state_if_anomalous()
+        return self._multi_validator.get_consensus_participants()
+
     def _remote_validators_configured(self, proposer_c: str) -> bool:
         """True when consensus members other than ``proposer_c`` are configured.
 
@@ -430,14 +440,7 @@ class PoAProposer:
         attestations: list[dict[str, str]] = []
         seen: set[str] = set()
 
-        if self._multi_validator is not None:
-            # #693: never size the attestation round off a poisoned empty view.
-            self._multi_validator.reload_state_if_anomalous()
-        active_validators = (
-            self._multi_validator.get_consensus_participants()
-            if self._multi_validator is not None
-            else list(self._validator_keys.keys())
-        )
+        active_validators = self._consensus_participants_anomaly_checked()
         configured_min = getattr(settings, "multi_validator_min_attestations", 0)
         # The configured minimum cannot exceed the number of validators that are
         # allowed to attest (everyone except the proposer).  This prevents an
@@ -2024,6 +2027,37 @@ class PoAProposer:
         session.commit()
         self._logger.info("Created %s accounts from genesis allocations", created)
 
+    def _effective_min_attestations(self, block: Block, active_validators: list[str], configured_min: int) -> int:
+        """Effective attestation floor — the #693 seal guard.
+
+        Remote actives clamp the configured floor (unchanged). Remotes
+        configured but none active: HOLD the floor — counted attestations
+        below it stall the proposer instead of sealing a block every
+        follower rejects. No remotes configured: floor 0 — a genuine
+        single-validator island keeps sealing.
+        """
+        proposer_c = canonical_address(block.proposer)
+        remote_active = sum(1 for a in active_validators if canonical_address(a) != proposer_c)
+        if remote_active:
+            effective_min = max(0, min(configured_min, remote_active))
+            if configured_min > effective_min:
+                self._logger.warning(
+                    "Configured min_attestations %d reduced to %d because only %d non-proposer validators are active",
+                    configured_min,
+                    effective_min,
+                    remote_active,
+                )
+            return effective_min
+        if self._remote_validators_configured(proposer_c):
+            if configured_min:
+                self._logger.error(
+                    "No non-proposer validators are active but remotes are configured; "
+                    "holding min_attestations floor at %d instead of degrading to 0 (#693)",
+                    configured_min,
+                )
+            return configured_min
+        return 0
+
     async def _collect_and_gate_attestations(
         self,
         block: Block,
@@ -2058,34 +2092,9 @@ class PoAProposer:
             configured_min = getattr(settings, "multi_validator_min_attestations", 0)
             # _collect_attestations already ran the #693 anomaly re-read, so the
             # participants here are the post-recovery view.
-            active_validators = self._multi_validator.get_consensus_participants()
-            proposer_c = canonical_address(block.proposer)
-            remote_active = sum(1 for a in active_validators if canonical_address(a) != proposer_c)
-            if remote_active:
-                effective_min = max(0, min(configured_min, remote_active))
-            elif self._remote_validators_configured(proposer_c):
-                # #693 seal-floor guard: remote validators are configured but
-                # none are active — the degraded-view case that produced the
-                # hub1 reject storm. Hold the configured floor so the proposer
-                # STALLS below it instead of sealing a block every follower
-                # rejects. A genuine single-validator island (no remotes
-                # configured) takes the else branch and keeps floor 0.
-                effective_min = configured_min
-                if effective_min:
-                    self._logger.error(
-                        "No non-proposer validators are active but remotes are configured; "
-                        "holding min_attestations floor at %d instead of degrading to 0 (#693)",
-                        effective_min,
-                    )
-            else:
-                effective_min = 0
-            if remote_active and configured_min > effective_min:
-                self._logger.warning(
-                    "Configured min_attestations %d reduced to %d because only %d non-proposer validators are active",
-                    configured_min,
-                    effective_min,
-                    remote_active,
-                )
+            effective_min = self._effective_min_attestations(
+                block, self._multi_validator.get_consensus_participants(), configured_min
+            )
             if attestations:
                 metadata_dict["attestations"] = attestations
             if effective_min and len(attestations) < effective_min:
