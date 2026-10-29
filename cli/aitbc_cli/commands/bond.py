@@ -9,7 +9,7 @@ import click
 
 from ..config import get_config
 from ..utils import output, resolve_output_format
-from ..auth import AuthManager
+from ..auth import AuthManager, ExpiredAdminToken
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
@@ -38,14 +38,17 @@ def _api_client(ctx, coordinator_url: str | None = None, timeout: int | None = N
     if not url:
         abort(ctx, "Coordinator URL not configured")
 
-    token = ctx.obj.get("api_key") or ""
-    if not token:
-        ambient = config.api_key or ""
-        stored = AuthManager().get_credential("client") or ""
-        # Bond routes require an admin/client role, which only a JWT can carry:
-        # a non-JWT ambient key authenticates as the node's miner identity and
-        # would always be rejected, so the stored client credential wins.
-        token = ambient if _looks_like_jwt(ambient) else (stored or ambient)
+    try:
+        stored = AuthManager().get_admin_token() or ""
+    except ExpiredAdminToken as e:
+        abort(ctx, str(e))
+    # Bond routes authenticate via require_auth — a Bearer JWT is the only
+    # accepted credential, so a non-JWT key (miner key resolved from env, or a
+    # non-JWT stored credential) can never pass and always 401s. Prefer the
+    # first candidate that actually is a JWT; otherwise keep the existing
+    # precedence (flag > ambient > stored).
+    candidates = [ctx.obj.get("api_key") or "", config.api_key or "", stored]
+    token = next((t for t in candidates if _looks_like_jwt(t)), "") or next((t for t in candidates if t), "")
 
     headers: dict[str, str] | None = None
     client_kwargs: dict[str, Any] = {"base_url": url, "timeout": timeout or config.timeout or 30, "headers": headers}
