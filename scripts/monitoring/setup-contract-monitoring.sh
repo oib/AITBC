@@ -27,16 +27,16 @@ cat > "${MONITORING_DIR}/config/${NETWORK}/contracts.json" << EOF
         "gas_price_spike": 100
       }
     },
-    "AgentMarket": {
-      "address": "\${AGENT_MARKET_ADDRESS}",
+    "AgentMarketplaceV2": {
+      "address": "\${AGENT_MARKETPLACE_V2_ADDRESS}",
       "monitor_events": ["AgentRegistered", "AgentDeregistered", "JobPosted", "JobCompleted"],
       "alert_thresholds": {
         "failed_registrations": 3,
         "market downtime": 300
       }
     },
-    "StakingContract": {
-      "address": "\${STAKING_CONTRACT_ADDRESS}",
+    "AgentStaking": {
+      "address": "\${AGENT_STAKING_ADDRESS}",
       "monitor_events": ["StakeDeposited", "StakeWithdrawn", "RewardsDistributed"],
       "alert_thresholds": {
         "unusual_withdrawals": 10,

@@ -127,7 +127,7 @@ bash scripts/deploy-testnet.sh
 After deployment, record the contract addresses:
 
 - `PaymentProcessor` - Handles payment processing
-- `AgentMarket` - Manages agent registration and job postings
+- `AgentMarketplaceV2` - Manages agent registration and job postings
 - `AgentStaking` / `StakingPoolFactory` - handle staking and rewards
 
 ---
@@ -214,8 +214,8 @@ export ETHERSCAN_API_KEY=<your-etherscan-api-key>
 # Verify PaymentProcessor
 npx hardhat verify --network mainnet <PAYMENT_PROCESSOR_ADDRESS> --constructor-args <args-file.js>  # args files are written per-deploy; there is no tracked scripts/deployment/args/ dir
 
-# Verify AgentMarket
-npx hardhat verify --network mainnet <AGENT_MARKET_ADDRESS> --constructor-args <args-file.js>
+# Verify AgentMarketplaceV2
+npx hardhat verify --network mainnet <AGENT_MARKETPLACE_V2_ADDRESS> --constructor-args <args-file.js>
 
 # Verify the staking contract
 npx hardhat verify --network mainnet <STAKING_CONTRACT_ADDRESS> --constructor-args <args-file.js>
