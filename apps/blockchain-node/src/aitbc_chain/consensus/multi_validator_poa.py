@@ -241,6 +241,37 @@ class MultiValidatorPoA:
             if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
         ]
 
+    def reload_state_if_anomalous(self) -> bool:
+        """Sentinel re-read for the empty-active-view failure (#693).
+
+        A consensus participant set that reads empty while validators are
+        registered — in memory or via ``VALIDATOR_SET`` — is never a steady
+        state: it means the in-memory view was poisoned by a transient empty
+        load (e.g. a failed startup DB read that fell back to an unparseable
+        env set, or a wipe that predates the empty-env guard). Serving the
+        empty view silently degrades the node to proposing/attesting as if it
+        were alone, which is what produced the hub1 2026-10-28 reject storm.
+
+        Forces a fresh ``load_state`` (DB row first, env fallback) and returns
+        True when a re-read ran. Callers should re-read the participants after
+        this returns. Returns False when the view is healthy or genuinely
+        unconfigured, so single-validator islands are never penalised.
+        """
+        if self.get_consensus_participants():
+            return False
+        registered = any(v.role in (ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR) for v in self.validators.values())
+        env_configured = bool(getattr(settings, "validator_set", "") or "")
+        if not registered and not env_configured:
+            return False
+        logger.error(
+            "Consensus participant set reads EMPTY for chain %s while %d validator(s) "
+            "are registered%s — forcing a state re-read (#693)",
+            self.chain_id,
+            len(self.validators),
+            " and VALIDATOR_SET is configured" if env_configured else "",
+        )
+        return self.load_state()
+
     def can_resume_consensus(self) -> bool:
         """Check if consensus can resume after network partition"""
         if not self.network_partitioned:
@@ -593,7 +624,23 @@ class MultiValidatorPoA:
         applies the removal side. A validator that is env-present but
         row-inactive stays inactive: re-enabling a deactivated validator is a
         deliberate act, not an env diff.
+
+        #693: an empty ``env_addresses`` while validators are registered is a
+        sentinel for a broken env read (empty/misparsed ``VALIDATOR_SET``),
+        not a fleet-wide removal. Applying it deactivates every validator and
+        ``save_state`` persists the wipe, so the active consensus set reads
+        empty until manual repair — the hub1 2026-10-28 incident. Refuse the
+        diff; a genuine full removal is done by deactivating each member, not
+        by passing an empty env set.
         """
+        if not env_addresses and self.validators:
+            logger.error(
+                "Refusing to deactivate the entire validator set: env diff is empty "
+                "but %d validators are registered — treating it as a bad VALIDATOR_SET "
+                "read, not a mass removal",
+                len(self.validators),
+            )
+            return []
         deactivated = []
         for addr, validator in self.validators.items():
             if addr not in env_addresses and validator.is_active:
