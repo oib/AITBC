@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+NOTE: the agent_* tables this creates are referenced by no current
+application code (dead schema — kept for historical migration runs).
+
 Agent Database Setup Script
 
 Creates and verifies Agent autonomy feature database tables.
