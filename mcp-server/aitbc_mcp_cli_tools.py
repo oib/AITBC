@@ -499,7 +499,7 @@ def list_my_market_offers(
     ] = None,
 ) -> str:
     """List software offers published by the local wallet/node."""
-    return _aitbc_cli_read_tool(role, host, "market", "offers", options={"sort": sort})
+    return _aitbc_cli_read_tool(role, host, "market", "list", options={"sort": sort, "mine": True})
 
 
 # ---------------------------------------------------------------------------
@@ -583,9 +583,7 @@ def pin_ipfs(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def unpin_ipfs(
-    rental_id: Annotated[str, Field(description="Rental ID to unpin.")],
-    refund: Annotated[bool, Field(description="Refund the escrow for this rental.")] = False,
-    reason: Annotated[str, Field(description="Reason for refund.")] = "buyer_requested",
+    cid: Annotated[str, Field(description="IPFS content ID (CID) to unpin.")],
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
     role: Annotated[
@@ -597,13 +595,8 @@ def unpin_ipfs(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Unpin a CID and end an IPFS rental."""
-    subcommand_options: dict[str, str | None] = {"rental-id": rental_id, "reason": reason}
-    if refund:
-        subcommand_options["refund"] = None
-    return _run_aitbc_cli_write(
-        role, host, "ipfs", "unpin", None, None, dry_run, confirm, subcommand_options=subcommand_options
-    )
+    """Unpin a CID from the local IPFS node."""
+    return _run_aitbc_cli_write(role, host, "ipfs", "unpin", None, None, dry_run, confirm, subcommand_options={"cid": cid})
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))

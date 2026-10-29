@@ -1,9 +1,12 @@
-# MCP tools for the agent-economics RPC surfaces — SPEC (Refs #657)
+# MCP tools for the agent-economics RPC surfaces (Refs #657)
 
-> **Status: SPEC only — no code in this commit.** Coder B implements the
-> tools against this contract. REST on the node RPC is the canonical
-> surface (operator decision 8B); the tools are thin typed wrappers over
-> it, not a second implementation.
+> **Status: IMPLEMENTED** — all nine tools land in
+> `mcp-server/aitbc_mcp_rpc_tools.py` (`create_agent_stake`,
+> `add_agent_stake`, `unbond_agent_stake`, `complete_agent_stake`,
+> `deploy_bounty`, `submit_bounty`, `verify_bounty`, `dispute_bounty`,
+> `expire_bounty`), thin typed wrappers over the node RPC routes below.
+> REST on the node RPC is the canonical surface (operator decision 8B);
+> the tools are not a second implementation.
 
 The v17 revival (BNT-1) restored the agent-staking and bounty routes on
 the chain node's RPC: they refuse with HTTP 410 while
