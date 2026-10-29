@@ -29,7 +29,7 @@ def main():
     # Create credential files for sensitive values
     credentials = {
         "api_hash_secret": env_vars.get("API_KEY_HASH_SECRET", token_hex(32)),
-        "proposer_id": env_vars.get("proposer_id", ""),
+        "proposer_id": env_vars.get("PROPOSER_ID", ""),
         "keystore_password": env_vars.get("KEYSTORE_PASSWORD", token_hex(32)),
     }
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # scripts/git-pre-commit-hook.sh
 
 echo "🔍 Checking file locations before commit..."
@@ -31,22 +32,7 @@ ROOT_FORBIDDEN_DIRS=(
 for pattern in "${ROOT_FORBIDDEN_PATTERNS[@]}"; do
     if ls $pattern 1> /dev/null 2>&1; then
         echo "❌ ERROR: Found files matching '$pattern' at root level"
-        echo "📁 Suggested location:"
-
-        case $pattern in
-            "test_*.py"|"test_*.sh"|"run_mc_test.sh")
-                echo "   → dev/tests/"
-                ;;
-            "patch_*.py"|"fix_*.py"|"simple_test.py")
-                echo "   → dev/tools/scripts/"
-                ;;
-            "MULTI_*.md")
-                echo "   → dev/tools/multi-chain/"
-                ;;
-        esac
-
-        echo "💡 Run: ./scripts/move-to-right-folder.sh --auto"
-        echo "💡 Or manually: mv $pattern <suggested-directory>/"
+        echo "💡 Move it under a proper directory before committing."
         exit 1
     fi
 done
@@ -55,19 +41,7 @@ done
 for dir in "${ROOT_FORBIDDEN_DIRS[@]}"; do
     if [[ -d "$dir" && "$dir" != "." && "$dir" != ".." && ! "$dir" =~ ^\.git ]]; then
         echo "❌ ERROR: Found directory '$dir' at root level"
-        echo "📁 Suggested location:"
-
-        case $dir in
-            "node_modules"|".venv"|"cli_env")
-                echo "   → dev/env/"
-                ;;
-            ".pytest_cache"|".ruff_cache"|".vscode")
-                echo "   → dev/cache/"
-                ;;
-        esac
-
-        echo "💡 Run: ./scripts/move-to-right-folder.sh --auto"
-        echo "💡 Or manually: mv $dir <suggested-directory>/"
+        echo "💡 Remove or ignore it before committing."
         exit 1
     fi
 done
@@ -84,20 +58,20 @@ for file in $NEW_FILES; do
 
         case "$filename" in
             test_*.py|test_*.sh)
-                echo "⚠️  WARNING: Test file '$filename' should be in dev/tests/"
-                echo "💡 Consider: git reset HEAD $filename && mv $filename dev/tests/ && git add dev/tests/$filename"
+                echo "⚠️  WARNING: Test file '$filename' should live under tests/ or the app's tests/ dir"
+                echo "💡 Consider: git reset HEAD $filename && mv $filename tests/ && git add tests/$filename"
                 ;;
             patch_*.py|fix_*.py)
-                echo "⚠️  WARNING: Patch file '$filename' should be in dev/tools/scripts/"
-                echo "💡 Consider: git reset HEAD $filename && mv $filename dev/tools/scripts/ && git add dev/tools/scripts/$filename"
+                echo "⚠️  WARNING: Patch file '$filename' should be in scripts/dev/"
+                echo "💡 Consider: git reset HEAD $filename && mv $filename scripts/dev/ && git add scripts/dev/$filename"
                 ;;
             MULTI_*.md)
-                echo "⚠️  WARNING: Multi-chain file '$filename' should be in dev/tools/multi-chain/"
-                echo "💡 Consider: git reset HEAD $filename && mv $filename dev/tools/multi-chain/ && git add dev/tools/multi-chain/$filename"
+                echo "⚠️  WARNING: Multi-chain file '$filename' should be in docs/"
+                echo "💡 Consider: git reset HEAD $filename && mv $filename docs/ && git add docs/$filename"
                 ;;
             .aitbc.yaml|.aitbc.yaml.example|.env.production|.nvmrc|.lycheeignore)
-                echo "⚠️  WARNING: Configuration file '$filename' should be in config/"
-                echo "💡 Consider: git reset HEAD $filename && mv $filename config/ && git add config/$filename"
+                echo "⚠️  WARNING: Configuration file '$filename' at root"
+                echo "💡 Consider: keep it only if the toolchain expects it at root"
                 ;;
         esac
     fi
