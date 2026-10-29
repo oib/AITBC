@@ -1,6 +1,6 @@
 # analytics
 
-> **Unmounted:** the `analytics` router is imported but never include_router'd in coordinator_api/main.py — these routes 404.
+> **Unmounted:** the `analytics` router was deleted in issue #701 (imported in routers/__init__.py but never mounted)..
 
 Analytics — advanced analytics and performance monitoring.
 
@@ -10,29 +10,7 @@ Analytics — advanced analytics and performance monitoring.
 
 ## Routes
 
-- POST /data-collection
-- GET /insights
-- GET /metrics
-- GET /overview
-- POST /dashboards
-- GET /dashboards/{dashboard_id}
-- POST /reports
-- GET /reports/{report_id}
-- POST /insights/generate
-- GET /insights/{insight_id}
-- GET /market/trends
-- GET /market/segments
-- GET /competitors/analysis
-- GET /forecasts/{metric_name}
-- GET /alerts/active
-- POST /alerts/acknowledge/{alert_id}
-- GET /performance/benchmarks
-- GET /custom/queries
-- POST /custom/queries
-- POST /custom/queries/{query_id}/execute
-- GET /export/data
-- GET /realtime/metrics
-- GET /health
+None — the context's only router was retired.
 
 ## Services
 

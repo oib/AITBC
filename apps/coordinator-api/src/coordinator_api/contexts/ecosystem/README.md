@@ -1,6 +1,6 @@
 # ecosystem
 
-> **Unmounted:** the `ecosystem_dashboard` router is imported but never include_router'd in coordinator_api/main.py — these routes 404.
+> **Unmounted:** the `ecosystem_dashboard` router was deleted in issue #701 (imported in routers/__init__.py but never mounted)..
 
 Ecosystem dashboard — aggregate metrics and health across the platform.
 
@@ -10,22 +10,7 @@ Ecosystem dashboard — aggregate metrics and health across the platform.
 
 ## Routes
 
-- GET /ecosystem/developer-earnings
-- GET /ecosystem/agent-utilization
-- GET /ecosystem/treasury-allocation
-- GET /ecosystem/staking-metrics
-- GET /ecosystem/bounty-analytics
-- GET /ecosystem/overview
-- GET /ecosystem/metrics
-- GET /ecosystem/health-score
-- GET /ecosystem/growth-indicators
-- GET /ecosystem/top-performers
-- GET /ecosystem/predictions
-- GET /ecosystem/alerts
-- GET /ecosystem/comparison
-- GET /ecosystem/export
-- GET /ecosystem/real-time
-- GET /ecosystem/kpi-dashboard
+None — the context's only router was retired.
 
 ## Services
 
