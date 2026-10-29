@@ -3,8 +3,8 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./SafeMath.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title GPUStaking
@@ -105,7 +105,7 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _stakingToken) {
+    constructor(address _stakingToken) Ownable(msg.sender) {
         stakingToken = IERC20(_stakingToken);
 
         // Create default staking pool
@@ -377,9 +377,9 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         // Base rewards * utilization * provider share * time
         uint256 baseRewards = pool.rewardRate.mul(timePassed);
         uint256 utilizationMultiplier = pool.utilizationRate.mul(1e4).div(MAX_UTILIZATION);
-        uint256 rewards = baseRewards.mul(utilizationMultiplier).mul(providerShare).div(1e22);
+        uint256 pendingReward = baseRewards.mul(utilizationMultiplier).mul(providerShare).div(1e22);
 
-        return rewards;
+        return pendingReward;
     }
 
     /**

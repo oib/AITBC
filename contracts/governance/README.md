@@ -1,66 +1,35 @@
-## Foundry
+# AITBC Governance Contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Foundry project containing the AITBC governance and agent-coordination
+contract set. This is a standalone subproject of the AITBC monorepo — its
+dependencies are vendored under `lib/` (git submodules: `forge-std` and
+`openzeppelin-contracts`, pinned in `foundry.lock`).
 
-Foundry consists of:
+## Contracts
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+| Contract | File | Purpose |
+|----------|------|---------|
+| `AITBCGovernanceToken` | `src/AITBCGovernanceToken.sol` | ERC-20 governance token with staking-based voting power |
+| `AITBCVoting` | `src/AITBCVoting.sol` | Simple proposal/voting contract on top of the governance token |
+| `AgentDAO` | `src/AgentDAO.sol` | OpenZeppelin Governor-based DAO (settings, counting, votes, quorum fraction, timelock) with agent-wallet registry, proposal bonds, voting snapshots and multi-sig gates for critical proposal types |
+| `GPUStaking` | `src/GPUStaking.sol` | GPU resource staking pools with reward distribution and provider reputation |
+| `GovernanceAgentWallet` | `src/GovernanceAgentWallet.sol` | Smart wallet letting AI agents register with the `AgentDAO` and vote autonomously per a configurable strategy |
+| `SafeMath` | `src/SafeMath.sol` | Vendored OpenZeppelin v4 SafeMath library (removed upstream in v5; kept for `GPUStaking`/`AgentDAO` arithmetic) |
 
-## Documentation
+## Build & test
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
+Requires [Foundry](https://book.getfoundry.sh/). From this directory:
 
 ```shell
-$ forge test
+forge build    # compile (solc 0.8.24, via_ir, evm cancun — see foundry.toml)
+forge test     # run test/*.t.sol suites
 ```
 
-### Format
+If `lib/` is empty (fresh clone), populate the pinned submodules first:
 
 ```shell
-$ forge fmt
+forge install   # or: git submodule update --init --recursive
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+OpenZeppelin contracts resolve via the remapping in `foundry.toml`
+(`@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/`).
