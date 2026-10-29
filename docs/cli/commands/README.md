@@ -55,6 +55,17 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc agent-msg request-coins`](agent-msg-request-coins.md) — Request free AIT tokens from the hub via WebSocket for the configured wallet.
 - [`aitbc agent-msg send`](agent-msg-send.md) — Send a direct or broadcast message to another agent through the coordinator.
 
+## `agent-staking`
+
+- [`aitbc agent-staking add`](agent-staking-add.md) — Top up an active agent stake (queues another STAKE_LOCK).
+- [`aitbc agent-staking claim`](agent-staking-claim.md) — Record a rewards-claim memo for an agent stake.
+- [`aitbc agent-staking complete`](agent-staking-complete.md) — Complete an unbonded agent stake (queues the STAKE_RELEASE payout).
+- [`aitbc agent-staking distribute`](agent-staking-distribute.md) — Record an earnings-distribution memo for an agent wallet.
+- [`aitbc agent-staking performance`](agent-staking-performance.md) — Record a performance memo for a stake or agent wallet.
+- [`aitbc agent-staking stake`](agent-staking-stake.md) — Lock an agent stake (queues a STAKE_LOCK protocol transfer).
+- [`aitbc agent-staking status`](agent-staking-status.md) — Show the on-chain lock/release transfers recorded for an agent stake.
+- [`aitbc agent-staking unbond`](agent-staking-unbond.md) — Start unbonding an agent stake once its lock period expired.
+
 ## `agent-task`
 
 - [`aitbc agent-task hire`](agent-task-hire.md) — Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID.
@@ -136,6 +147,15 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 - [`aitbc bootstrap bootstrap-env`](bootstrap-bootstrap-env.md) — Generate a starter .env file and validate it, optionally overwriting an existing one.
 
+## `bounty`
+
+- [`aitbc bounty deploy`](bounty-deploy.md) — Deploy a bounty lock (queues a BOUNTY_LOCK protocol transfer).
+- [`aitbc bounty dispute`](bounty-dispute.md) — Mark a bounty (and optionally one submission) disputed.
+- [`aitbc bounty expire`](bounty-expire.md) — Expire a bounty and refund the remaining lock to its creator.
+- [`aitbc bounty status`](bounty-status.md) — Show the on-chain lock/payout/refund transfers recorded for a bounty.
+- [`aitbc bounty submit`](bounty-submit.md) — Submit a solution for a bounty (submission record).
+- [`aitbc bounty verify`](bounty-verify.md) — Verify a bounty submission — approval queues the BOUNTY_PAYOUT.
+
 ## `brand`
 
 - [`aitbc brand list`](brand-list.md) — List available brand plugins in the configured plugin directory.
@@ -216,6 +236,13 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 - [`aitbc contract call`](contract-call.md) — Call a method on a deployed smart contract with optional arguments.
 - [`aitbc contract deploy`](contract-deploy.md) — Deploy a named smart contract to the blockchain.
+- [`aitbc contract list`](contract-list.md) — List contracts deployed on the node.
+- [`aitbc contract messaging-messages`](contract-messaging-messages.md) — List messages in a forum topic.
+- [`aitbc contract messaging-reputation`](contract-messaging-reputation.md) — Show an address's messaging reputation (derived from sealed votes).
+- [`aitbc contract messaging-search`](contract-messaging-search.md) — Search forum message bodies.
+- [`aitbc contract messaging-state`](contract-messaging-state.md) — Show forum totals derived from sealed MESSAGE transactions.
+- [`aitbc contract messaging-topics`](contract-messaging-topics.md) — List forum topics from the chain-derived index.
+- [`aitbc contract verify`](contract-verify.md) — Verify a ZK proof against a deployed contract.
 
 ## `crosschain`
 
@@ -423,6 +450,12 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc ipfs pin`](ipfs-pin.md) — Pin content by CID on the local Kubo daemon or filesystem index.
 - [`aitbc ipfs unpin`](ipfs-unpin.md) — Unpin content by CID on the local Kubo daemon or filesystem index.
 - [`aitbc ipfs upload`](ipfs-upload.md) — Upload a file to IPFS and return its CID.
+
+## `liquidity`
+
+- [`aitbc liquidity build-claim`](liquidity-build-claim.md) — Build an unsigned LIQUIDITY_CLAIM transaction.
+- [`aitbc liquidity build-deposit`](liquidity-build-deposit.md) — Build an unsigned LIQUIDITY_DEPOSIT transaction.
+- [`aitbc liquidity build-withdraw`](liquidity-build-withdraw.md) — Build an unsigned LIQUIDITY_WITHDRAW transaction (stake must be unlocked).
 
 ## `liquidity-stake`
 
