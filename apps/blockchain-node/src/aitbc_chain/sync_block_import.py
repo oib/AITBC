@@ -17,6 +17,7 @@ from .config import settings
 from .logger import get_logger
 from .metrics import (
     block_height,
+    block_processing_duration,
     metrics_registry,
     sync_blocks_imported,
     sync_failures_total,
@@ -270,6 +271,7 @@ class BlockImportMixin(SyncBase):
                         result = self._append_block(session, block_data, transactions, skip_state_root_validation)
                         duration = time.perf_counter() - start
                         metrics_registry.observe("sync_import_duration_seconds", duration)
+                        block_processing_duration.observe(duration)
                         return result
                     except Exception as append_exc:
                         reason = str(append_exc).lower()
