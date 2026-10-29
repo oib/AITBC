@@ -9,13 +9,9 @@ Multimodal AI — fusion, modality optimization, and RL across modalities.
 ## Routes
 
 Only `multi_modal_rl.py` (`/v1/multi-modal-rl/*`) is mounted. The two
-`_health.py` routers are imported in `routers/__init__.py` but never
-`include_router`'d in main.py — their rows below 404.
-
-From `modality_optimization_health.py` — **unmounted, 404**:
-
-- GET /health
-- GET /health/deep
+`_health.py` routers (`multimodal_health.py`, `modality_optimization_health.py`)
+were deleted in issue #701 — imported in `routers/__init__.py` but never
+mounted.
 
 From `multi_modal_rl.py` (mounted at `/v1/multi-modal-rl`):
 
@@ -25,11 +21,6 @@ From `multi_modal_rl.py` (mounted at `/v1/multi-modal-rl`):
 - POST /jobs/{job_id}/cancel
 - GET /jobs
 - GET /health
-
-From `multimodal_health.py` — **unmounted, 404**:
-
-- GET /health
-- GET /health/deep
 
 ## Services
 

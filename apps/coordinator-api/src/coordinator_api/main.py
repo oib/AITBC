@@ -75,7 +75,6 @@ from .routers import (
     islands_proxy,
     media,
     miner,
-    monitor,
     multi_modal_rl,
     services,
     swarm,
@@ -836,7 +835,8 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(market_gpu, prefix="/v1")
     app.include_router(market_offers, prefix="/v1")
     app.include_router(market_bonds.router, prefix="/v1")
-    app.include_router(monitor, prefix="/v1")
+    # monitor.py was retired (issue #701): the empty router overlapped the
+    # mounted monitoring_dashboard surface and is gone, not just unmounted.
     app.include_router(miner, prefix="/v1")
     app.include_router(islands_proxy, prefix="/v1")
     app.include_router(cross_chain, prefix="/v1")

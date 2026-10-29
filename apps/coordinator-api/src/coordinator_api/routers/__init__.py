@@ -82,27 +82,27 @@ except ImportError:
     agent_security_router = None  # type: ignore[assignment]
     logger.warning("Security router not available")
 
-# Analytics router moved to contexts/analytics
-# Advanced AI router moved to contexts/advanced_ai
-from ..contexts.advanced_ai.routers.adaptive_learning_health import router as adaptive_learning_health  # noqa: E402
+# Retired in issue #701: analytics.routers.analytics and
+# advanced_ai.routers.adaptive_learning_health were imported here but never
+# mounted; the modules have been deleted.
 from ..contexts.agent_coordination.routers.agent_creativity import router as agent_creativity  # noqa: E402
 from ..contexts.agent_coordination.routers.agent_integration_router import router as agent_integration_router  # noqa: E402
 from ..contexts.agent_coordination.routers.agent_performance import router as agent_performance  # noqa: E402
 
 # Agent coordination routers moved to contexts/agent_coordination
 from ..contexts.agent_coordination.routers.agent_router import router as agent_router  # noqa: E402
+
+# swarm and agent_messaging (above) are deliberately empty routers: their mock
+# endpoints were removed and they stay mounted but register no routes.
 from ..contexts.agent_coordination.routers.swarm import router as swarm  # noqa: E402
-from ..contexts.analytics.routers.analytics import router as analytics  # noqa: E402
 
 # Bounty router moved to contexts/bounty
 # NOTE: contexts/bounty/routers/bounty.py was deleted (dead, never mounted — issue #654);
 # the live bounty surface is contexts/bounty/routers/bounty_flat.py loaded lazily in main.py.
 
-# Certification router moved to contexts/certification
-from ..contexts.certification.routers.certification import router as certification  # noqa: E402
-
-# Community router moved to contexts/community
-from ..contexts.community.routers.community import router as community  # noqa: E402
+# Retired in issue #701: certification.routers.certification and
+# community.routers.community were imported here but never mounted; the
+# modules have been deleted.
 
 # Confidential router moved to contexts/confidential
 from ..contexts.confidential.routers.confidential import router as confidential  # noqa: E402
@@ -110,29 +110,34 @@ from ..contexts.confidential.routers.confidential import router as confidential 
 # Developer platform router moved to contexts/developer_platform
 from ..contexts.developer_platform.routers.developer_platform import router as developer_platform  # noqa: E402
 
-# Ecosystem router moved to contexts/ecosystem
-from ..contexts.ecosystem.routers.ecosystem_dashboard import router as ecosystem_dashboard  # noqa: E402
+# Retired in issue #701: ecosystem.routers.ecosystem_dashboard was imported
+# here but never mounted; the module has been deleted.
 
-# Enterprise integration router moved to contexts/enterprise_integration
+# partners is deliberately unmounted: imported for the module contract (and
+# its tests), but main.py never include_router's it — see the note at the
+# registration site.
 from ..contexts.enterprise_integration.routers.partners import router as partners  # noqa: E402
 
-# GPU multimodal router moved to contexts/gpu_multimodal
-from ..contexts.gpu_multimodal.routers.gpu_multimodal_health import router as gpu_multimodal_health  # noqa: E402
+# Retired in issue #701: gpu_multimodal.routers.gpu_multimodal_health,
+# multimodal.routers.multimodal_health, and
+# multimodal.routers.modality_optimization_health were imported here but
+# never mounted; the modules have been deleted.
 
 # Infrastructure routers moved to contexts/infrastructure
-from ..contexts.infrastructure.routers.monitor import router as monitor  # noqa: E402
+# Retired in issue #701: infrastructure.routers.monitor (an empty router
+# overlapping monitoring_dashboard) was unmounted and deleted.
 from ..contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard  # noqa: E402
-from ..contexts.multimodal.routers.modality_optimization_health import router as modality_optimization_health  # noqa: E402
 
 # Multimodal routers moved to contexts/multimodal
 from ..contexts.multimodal.routers.multi_modal_rl import router as multi_modal_rl  # noqa: E402
-from ..contexts.multimodal.routers.multimodal_health import router as multimodal_health  # noqa: E402
 
-# Settlement router moved to contexts/settlement
-from ..contexts.settlement.routers.settlement import router as settlement  # noqa: E402
+# Retired in issue #701: settlement.routers.settlement (the 4 /cross-chain*
+# routes) was imported here but never mounted; the module has been deleted.
 from ..contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proofs  # noqa: E402
 
-# ZK applications routers moved to contexts/zk_applications
+# zk_applications is deliberately unmounted: imported for the module
+# contract, but main.py never include_router's it (the mounted ZK surface is
+# zk_proofs / ml_zk_proofs / fhe).
 from ..contexts.zk_applications.routers.zk_applications import router as zk_applications  # noqa: E402
 
 # Islands proxy router moved to contexts/infrastructure
@@ -164,12 +169,7 @@ __all__ = [
     "trading",
     "agent",
     "agent_security_router",
-    "analytics",
-    "certification",
     "multi_modal_rl",
-    "multimodal_health",
-    "modality_optimization_health",
-    "community",
     "confidential",
     "zk_applications",
     "ml_zk_proofs",
@@ -179,11 +179,6 @@ __all__ = [
     "agent_performance",
     "swarm",
     "partners",
-    "adaptive_learning_health",
-    "ecosystem_dashboard",
-    "gpu_multimodal_health",
-    "settlement",
-    "monitor",
     "monitoring_dashboard",
     "islands_proxy",
     "inference",
