@@ -56,13 +56,20 @@ Production Solidity contracts live in `contracts/contracts/`:
 | `TreasuryManager` | [TreasuryManager.sol](../../contracts/contracts/TreasuryManager.sol) |
 | `ZKReceiptVerifier` | [ZKReceiptVerifier.sol](../../contracts/contracts/ZKReceiptVerifier.sol) |
 
+> **External/phase-N only:** `AgentCommunication`, `AgentMemory`,
+> `AgentServiceMarketplace`, `CrossChainReputation`, `KnowledgeGraphMarket`,
+> `MemoryVerifier`, `AgentMarketplaceV2`, `DAOGovernance`,
+> `DAOGovernanceEnhanced`, `ContractRegistry`, `TreasuryManager`,
+> `RewardDistributor`, `PerformanceAggregator` and `StakingPoolFactory`
+> currently have **no in-repo consumers** — they are kept for external
+> integrators and later phases.
+
 ### Governance contracts
 
 | Contract | Source |
 |----------|--------|
 | `AITBCGovernanceToken` | [AITBCGovernanceToken.sol](../../contracts/governance/src/AITBCGovernanceToken.sol) |
 | `AITBCVoting` | [AITBCVoting.sol](../../contracts/governance/src/AITBCVoting.sol) |
-| `Counter` | [Counter.sol](../../contracts/governance/src/Counter.sol) |
 
 ### Development and verification
 

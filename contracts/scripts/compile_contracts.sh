@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "=== AITBC Smart Contract Compilation ==="
 
@@ -21,9 +22,6 @@ contracts=(
     "contracts/DisputeResolution.sol"
     "contracts/EscrowService.sol"
     "contracts/DynamicPricing.sol"
-    "test/contracts/MockERC20.sol"
-    "test/contracts/MockZKVerifier.sol"
-    "test/contracts/MockGroth16Verifier.sol"
 )
 
 echo "Compiling contracts..."
