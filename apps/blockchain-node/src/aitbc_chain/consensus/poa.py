@@ -31,6 +31,7 @@ from ..logger import get_logger
 from ..metrics import (
     block_height,
     metrics_registry,
+    poa_broadcast_skipped_total,
     poa_valid_subscribers,
 )
 from ..models import Account, Block, CrossChainTransfer
@@ -1704,6 +1705,8 @@ class PoAProposer:
             subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
             subscriber_count = len(subscribers)
             poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(subscriber_count)
+            if subscriber_count == 0:
+                poa_broadcast_skipped_total.labels(chain_id=self._config.chain_id).inc()
             self._logger.info(
                 "[BROADCAST] block=%s, topic=%s, valid_subscribers=%s", block.height, gossip_topic, subscriber_count
             )
