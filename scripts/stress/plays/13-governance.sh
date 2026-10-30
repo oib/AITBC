@@ -18,9 +18,11 @@ addr=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" balance 2>/dev/
 # --- PROPOSE
 title="stress-$(date +%s)"
 # v13+ requires the propose to carry the execution_payload it commits to —
-# the campaign's write-only marker parameter_change is the replayable shape
+# the campaign's nested parameter_change marker shape (action/parameter/value).
+# NOTE: GOVERNANCE_PROPOSE fee=360000u, GOVERNANCE_VOTE fee=1440000u — the
+# play wallet needs ~2M units funded per lifecycle (funding rule covers it).
 out=$("$AITBC_BIN" --output=json governance propose --title "$title" --description "stress play $title" \
-      --type parameter_change --params "{\"governance_sweep_marker\":\"$title\"}" \
+      --type parameter_change --execution-payload "{\"action\":\"parameter_change\",\"parameter\":\"governance_sweep_marker\",\"value\":\"$title\"}" \
       --proposer-id "$WALLET" --proposer-address "$addr" --wallet "$WALLET" 2>&1) || fail propose "governance propose failed: $out"
 prop=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"(?:proposal[_-]?id[\"'\'':= ]+)([A-Za-z0-9_-]+)", sys.stdin.read(), re.I); print(m.group(1) if m else "")')
 tx=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
