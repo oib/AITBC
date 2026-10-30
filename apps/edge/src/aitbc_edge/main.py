@@ -119,13 +119,13 @@ setup_cors(app, allow_origins=settings.cors_origins)
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
+def health_check() -> dict[str, str]:
     """Health check endpoint"""
     return create_simple_health_response("edge-api", version="0.1.0")
 
 
 @app.get("/ready")
-async def readiness_check() -> dict[str, str]:
+def readiness_check() -> dict[str, str]:
     """Readiness check endpoint"""
     return {"status": "ready", "service": "edge-api", "version": "0.1.0"}
 
@@ -139,7 +139,7 @@ app.include_router(metrics, prefix=f"{settings.api_prefix}/metrics", tags=["metr
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global exception handler"""
     logger.error("Unhandled exception: %s", exc)
     return JSONResponse(

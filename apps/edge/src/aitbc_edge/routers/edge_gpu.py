@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/balance")
-async def edge_gpu_balance() -> JSONResponse:
+def edge_gpu_balance() -> JSONResponse:
     """Placeholder for the edge GPU/wallet balance endpoint."""
     return JSONResponse(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -27,7 +27,7 @@ async def edge_gpu_balance() -> JSONResponse:
 
 
 @router.post("/transfer")
-async def edge_gpu_transfer(payload: dict[str, Any]) -> JSONResponse:
+def edge_gpu_transfer(payload: dict[str, Any]) -> JSONResponse:
     """Placeholder for the edge GPU/wallet transfer endpoint."""
     _ = payload
     return JSONResponse(
