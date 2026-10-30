@@ -276,13 +276,64 @@ class BlockImportMixin(SyncBase):
                     except Exception as append_exc:
                         reason = str(append_exc).lower()
                         if "unique" in reason and "constraint" in reason:
-                            metrics_registry.increment("sync_blocks_duplicate_total")
-                            logger.info("Concurrent block import: height %s already inserted, treating as duplicate", height)
+                            # A unique violation here is not automatically a
+                            # committed duplicate: a concurrent import can mark
+                            # the height and roll back afterwards, and a
+                            # tx-row collision surfaces the same error text.
+                            # Roll back the dead transaction and check the
+                            # committed view before deciding (Refs #712).
+                            session.rollback()
+                            committed = session.exec(
+                                select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)
+                            ).first()
+                            if committed is not None and committed.hash == block_hash:
+                                metrics_registry.increment("sync_blocks_duplicate_total")
+                                logger.info(
+                                    "Concurrent block import: height %s already inserted, treating as duplicate", height
+                                )
+                                return self._make_import_result(
+                                    accepted=False,
+                                    height=height,
+                                    block_hash=block_hash,
+                                    reason="Block already exists (concurrent import)",
+                                )
+                            if committed is None:
+                                # Phantom marker: the concurrent attempt that
+                                # claimed the height has rolled back. Retry the
+                                # append once — without this the block is
+                                # permanently reported as already present and
+                                # the importer stalls (Refs #712).
+                                try:
+                                    result = self._append_block(session, block_data, transactions, skip_state_root_validation)
+                                    duration = time.perf_counter() - start
+                                    metrics_registry.observe("sync_import_duration_seconds", duration)
+                                    block_processing_duration.observe(duration)
+                                    return result
+                                except Exception as retry_exc:
+                                    session.rollback()
+                                    logger.warning(
+                                        "Retry after phantom height marker failed for height %s: %s",
+                                        height,
+                                        retry_exc,
+                                    )
+                                    return self._make_import_result(
+                                        accepted=False,
+                                        height=height,
+                                        block_hash=block_hash,
+                                        reason=f"Import conflict (retryable): {retry_exc}",
+                                    )
+                            logger.warning(
+                                "Unique violation importing height %s but committed block %s differs from %s",
+                                height,
+                                committed.hash,
+                                block_hash,
+                            )
                             return self._make_import_result(
                                 accepted=False,
                                 height=height,
                                 block_hash=block_hash,
-                                reason="Block already exists (concurrent import)",
+                                reason=f"Divergent committed block at height {height}",
+                                diverged=True,
                             )
                         logger.exception("Append block failed for height %s", height)
                         return self._make_import_result(
