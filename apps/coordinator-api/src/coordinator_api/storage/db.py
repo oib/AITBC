@@ -33,7 +33,7 @@ def get_engine() -> Engine:
             _engine = create_engine(
                 effective_url,
                 echo=settings.db_echo,
-                connect_args={"check_same_thread": False},
+                connect_args={"check_same_thread": False, "timeout": 15},
                 poolclass=QueuePool,
                 pool_size=5,
                 max_overflow=10,
