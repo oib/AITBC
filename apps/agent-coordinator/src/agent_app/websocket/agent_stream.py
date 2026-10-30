@@ -111,7 +111,7 @@ class ConnectionManager:
             for sub in subscriptions:
                 topic = sub.get("topic")
                 if topic:
-                    await self.subscribe(agent_id, topic)
+                    self.subscribe(agent_id, topic)
                     logger.info("Restored subscription %s for %s", topic, agent_id)
         except Exception as e:
             logger.warning("Could not load subscriptions for %s: %s", agent_id, e)
@@ -159,7 +159,7 @@ class ConnectionManager:
                 await self.send_personal_message(message, agent_id)
         logger.info("Broadcast message to %s agents (topic: %s)", len(recipients), topic)
 
-    async def subscribe(self, agent_id: str, topic: str) -> None:
+    def subscribe(self, agent_id: str, topic: str) -> None:
         """Subscribe agent to topic"""
         if agent_id not in self.agent_topics:
             self.agent_topics[agent_id] = set()
@@ -169,7 +169,7 @@ class ConnectionManager:
         self.topic_subscriptions[topic].add(agent_id)
         logger.info("Agent %s subscribed to topic %s", agent_id, topic)
 
-    async def unsubscribe(self, agent_id: str, topic: str) -> None:
+    def unsubscribe(self, agent_id: str, topic: str) -> None:
         """Unsubscribe agent from topic"""
         if agent_id in self.agent_topics:
             self.agent_topics[agent_id].discard(topic)
@@ -260,14 +260,14 @@ class AgentStreamHandler:
         if message_type == "subscribe":
             topic = payload.get("topic")
             if topic:
-                await self.connection_manager.subscribe(agent_id, topic)
+                self.connection_manager.subscribe(agent_id, topic)
                 await websocket.send_json(
                     {"type": "subscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                 )
         elif message_type == "unsubscribe":
             topic = payload.get("topic")
             if topic:
-                await self.connection_manager.unsubscribe(agent_id, topic)
+                self.connection_manager.unsubscribe(agent_id, topic)
                 await websocket.send_json(
                     {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                 )
@@ -391,9 +391,7 @@ async def ping_handler(message: dict[str, Any], connection_manager: ConnectionMa
     return {"action": "pong_sent", "recipient": sender, "original_ping": message.get("id")}
 
 
-async def hello_handler(
-    message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
-) -> dict[str, Any]:
+def hello_handler(message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket) -> dict[str, Any]:
     """Handle HELLO messages"""
     sender = message.get("sender_id", "unknown")
     logger.info("HELLO received from %s", sender)

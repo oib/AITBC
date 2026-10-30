@@ -54,7 +54,7 @@ class RealTimeLearningSystem:
         self.learning_rate = 0.01
         self.prediction_window = timedelta(hours=1)
 
-    async def record_experience(self, experience_data: dict[str, Any]) -> dict[str, Any]:
+    def record_experience(self, experience_data: dict[str, Any]) -> dict[str, Any]:
         """Record a new learning experience"""
         try:
             experience = LearningExperience(
@@ -71,7 +71,7 @@ class RealTimeLearningSystem:
             self.performance_history.append(
                 {"timestamp": experience.timestamp, "reward": experience.reward, "performance": experience.performance_metrics}
             )
-            await self._adaptive_learning_check()
+            self._adaptive_learning_check()
             return {
                 "status": "success",
                 "experience_id": experience.experience_id,
@@ -81,7 +81,7 @@ class RealTimeLearningSystem:
             logger.error("Error recording experience: %s", e)
             return {"status": "error", "message": str(e)}
 
-    async def _adaptive_learning_check(self) -> None:
+    def _adaptive_learning_check(self) -> None:
         """Check if adaptive learning should be triggered"""
         if len(self.performance_history) < 10:
             return
@@ -91,20 +91,20 @@ class RealTimeLearningSystem:
             older_performance = list(self.performance_history)[-20:-10]
             older_avg_reward = statistics.mean(p["reward"] for p in older_performance)
             if older_avg_reward - avg_reward > self.adaptation_threshold:
-                await self._trigger_adaptation()
+                self._trigger_adaptation()
 
-    async def _trigger_adaptation(self) -> None:
+    def _trigger_adaptation(self) -> None:
         """Trigger system adaptation based on learning"""
         try:
             recent_experiences = self.experiences[-50:]
-            patterns = await self._analyze_patterns(recent_experiences)
-            await self._update_predictive_models(patterns)
-            await self._optimize_system_parameters(patterns)
+            patterns = self._analyze_patterns(recent_experiences)
+            self._update_predictive_models(patterns)
+            self._optimize_system_parameters(patterns)
             logger.info("Adaptive learning triggered successfully")
         except Exception as e:
             logger.error("Error in adaptive learning: %s", e)
 
-    async def _analyze_patterns(self, experiences: list[LearningExperience]) -> dict[str, Any]:
+    def _analyze_patterns(self, experiences: list[LearningExperience]) -> dict[str, Any]:
         """Analyze patterns in recent experiences"""
         patterns: dict[str, Any] = {
             "successful_actions": defaultdict(int),
@@ -126,7 +126,7 @@ class RealTimeLearningSystem:
                 patterns["optimal_conditions"][key] = statistics.mean(values)
         return patterns
 
-    async def _update_predictive_models(self, patterns: dict[str, Any]) -> None:
+    def _update_predictive_models(self, patterns: dict[str, Any]) -> None:
         """Update predictive models based on patterns"""
         performance_model = PredictiveModel(
             model_id="performance_predictor",
@@ -147,7 +147,7 @@ class RealTimeLearningSystem:
         )
         self.models["success"] = success_model
 
-    async def _optimize_system_parameters(self, patterns: dict[str, Any]) -> None:
+    def _optimize_system_parameters(self, patterns: dict[str, Any]) -> None:
         """Optimize system parameters based on patterns"""
         recent_rewards = [p["reward"] for p in list(self.performance_history)[-10:]]
         avg_reward = statistics.mean(recent_rewards)
@@ -156,7 +156,7 @@ class RealTimeLearningSystem:
         elif avg_reward > 0.8:
             self.learning_rate = max(0.001, self.learning_rate * 0.9)
 
-    async def predict_performance(self, context: dict[str, Any], action: str) -> dict[str, Any]:
+    def predict_performance(self, context: dict[str, Any], action: str) -> dict[str, Any]:
         """Predict performance for a given action in context"""
         try:
             if "performance" not in self.models:
@@ -202,7 +202,7 @@ class RealTimeLearningSystem:
                 similarities.append(0.0)
         return statistics.mean(similarities) if similarities else 0.0
 
-    async def get_learning_statistics(self) -> dict[str, Any]:
+    def get_learning_statistics(self) -> dict[str, Any]:
         """Get comprehensive learning statistics"""
         try:
             total_experiences = len(self.experiences)
@@ -242,14 +242,14 @@ class RealTimeLearningSystem:
         """Get the time of the last adaptation"""
         return datetime.now(UTC).isoformat() if len(self.experiences) > 50 else None
 
-    async def recommend_action(self, context: dict[str, Any], available_actions: list[str]) -> dict[str, Any]:
+    def recommend_action(self, context: dict[str, Any], available_actions: list[str]) -> dict[str, Any]:
         """Recommend the best action based on learning"""
         try:
             if not available_actions:
                 return {"status": "error", "message": "No available actions provided"}
             action_predictions = {}
             for action in available_actions:
-                prediction = await self.predict_performance(context, action)
+                prediction = self.predict_performance(context, action)
                 if prediction["status"] == "success":
                     action_predictions[action] = prediction["predicted_performance"]
             if not action_predictions:

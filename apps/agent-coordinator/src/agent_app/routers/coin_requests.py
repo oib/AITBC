@@ -99,7 +99,7 @@ class RegisterRequest(BaseModel):
 # requests a minute to be worth it, so this route gets a much tighter bucket
 # than the service-wide 100/min.
 @rate_limit(rate=30, per=60)
-async def register_coin_request(
+def register_coin_request(
     request: Request, req: RegisterRequest, x_api_key: str | None = Header(default=None)
 ) -> dict[str, Any]:
     """Record a follower's coin request here so it can later be executed.
@@ -206,7 +206,7 @@ def _warn_on_mismatch(req: RemoteExecuteRequest, stored_amount: int, stored_addr
 
 @router.post("/execute")
 @rate_limit(rate=20, per=60)
-async def remote_execute_coin_request(
+def remote_execute_coin_request(
     request: Request, req: RemoteExecuteRequest, x_api_key: str | None = Header(default=None)
 ) -> dict[str, Any]:
     """
