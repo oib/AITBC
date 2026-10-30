@@ -211,7 +211,7 @@ async def synthesize_cross_domain(
 
 
 @router.get("/capabilities/{agent_id}")
-async def list_agent_creative_capabilities(
+def list_agent_creative_capabilities(
     agent_id: str,
     user: AdminDep,
     session: Annotated[Session, Depends(get_session)],

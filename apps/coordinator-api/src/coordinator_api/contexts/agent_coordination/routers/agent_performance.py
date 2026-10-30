@@ -348,7 +348,7 @@ async def allocate_resources(
 
 @router.get("/resources", response_model=list[ResourceAllocationResponse])
 @rate_limit(rate=60, per=60)
-async def list_resource_allocations(
+def list_resource_allocations(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     agent_id: str | None = Query(default=None),
@@ -372,7 +372,7 @@ async def list_resource_allocations(
 
 @router.post("/resources/{allocation_id}/deallocate", response_model=ResourceAllocationResponse)
 @rate_limit(rate=20, per=60)
-async def deallocate_resource(
+def deallocate_resource(
     request: Request, allocation_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> ResourceAllocationResponse:
     """Release a resource allocation"""

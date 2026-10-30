@@ -82,7 +82,7 @@ def _hash(value: str) -> str:
 
 @router.post("/partners/register", response_model=PartnerResponse)
 @rate_limit(rate=10, per=60)
-async def register_partner(
+def register_partner(
     partner: PartnerRegister, request: Request, session: Annotated[Session, Depends(get_session)]
 ) -> PartnerResponse:
     """Register a new partner application"""
@@ -123,7 +123,7 @@ async def register_partner(
 
 @router.post("/partners/webhooks", response_model=WebhookResponse)
 @rate_limit(rate=20, per=60)
-async def create_webhook(
+def create_webhook(
     webhook: WebhookCreate, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
 ) -> WebhookResponse:
     """Create a webhook subscription"""
@@ -166,9 +166,7 @@ async def create_webhook(
 
 @router.get("/partners/webhooks")
 @rate_limit(rate=50, per=60)
-async def list_webhooks(
-    request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
-) -> list[WebhookResponse]:
+def list_webhooks(request: Request, session: Annotated[Session, Depends(get_session)], api_key: str) -> list[WebhookResponse]:
     """List partner webhooks"""
 
     # Verify partner
@@ -192,7 +190,7 @@ async def list_webhooks(
 
 @router.delete("/partners/webhooks/{webhook_id}")
 @rate_limit(rate=20, per=60)
-async def delete_webhook(
+def delete_webhook(
     webhook_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
 ) -> dict[str, str]:
     """Delete a webhook"""
@@ -216,7 +214,7 @@ async def delete_webhook(
 
 @router.get("/partners/analytics/usage")
 @rate_limit(rate=30, per=60)
-async def get_usage_analytics(
+def get_usage_analytics(
     request: Request, session: Annotated[Session, Depends(get_session)], api_key: str, period: str = "24h"
 ) -> dict[str, Any]:
     """Get API usage analytics"""
@@ -246,7 +244,7 @@ async def get_usage_analytics(
 # parameterized path — FastAPI matches routes in registration order.
 @router.get("/partners/{partner_id}")
 @rate_limit(rate=50, per=60)
-async def get_partner(
+def get_partner(
     partner_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
 ) -> dict[str, Any]:
     """Get partner information"""

@@ -601,7 +601,7 @@ async def optimize_transaction_routing(
 
 @router.get("/chains/supported", response_model=list[dict[str, Any]])
 @rate_limit(rate=500, per=60)
-async def get_supported_chains(request: Request) -> list[dict[str, Any]]:
+def get_supported_chains(request: Request) -> list[dict[str, Any]]:
     """Get list of supported blockchain chains"""
     try:
         supported_chains = WalletAdapterFactory.get_supported_chains()
@@ -616,7 +616,7 @@ async def get_supported_chains(request: Request) -> list[dict[str, Any]]:
 
 @router.get("/chains/{chain_id}/info", response_model=dict[str, Any])
 @rate_limit(rate=500, per=60)
-async def get_chain_info(request: Request, chain_id: int, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_chain_info(request: Request, chain_id: int, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get information about a specific chain"""
     try:
         info = WalletAdapterFactory.get_chain_info(chain_id)
@@ -662,7 +662,7 @@ async def get_cross_chain_health(request: Request, session: Annotated[Session, D
 
 @router.get("/config", response_model=dict[str, Any])
 @rate_limit(rate=500, per=60)
-async def get_cross_chain_config(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_cross_chain_config(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get cross-chain integration configuration"""
     try:
         supported_chains = WalletAdapterFactory.get_supported_chains()
@@ -720,7 +720,7 @@ async def get_cross_chain_config(request: Request, session: Annotated[Session, D
 
 @router.get("/bridge/whitelist", response_model=dict[str, Any])
 @rate_limit(rate=500, per=60)
-async def get_bridge_whitelist(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_bridge_whitelist(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get current bridge whitelist configuration"""
     try:
         bridge_service = BridgeClientAdapter(session=session)

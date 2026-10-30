@@ -54,7 +54,7 @@ class ZKComputationRequest(BaseModel):
 
 
 @router.post("/zk/identity/commit")
-async def create_identity_commitment(
+def create_identity_commitment(
     user: UserProfile, session: Annotated[Session, Depends(get_session)], salt: str | None = None
 ) -> dict[str, str]:
     """Create a privacy-preserving identity commitment"""
@@ -74,9 +74,7 @@ async def create_identity_commitment(
 
 
 @router.post("/zk/membership/verify")
-async def verify_group_membership(
-    request: ZKMembershipRequest, session: Annotated[Session, Depends(get_session)]
-) -> dict[str, Any]:
+def verify_group_membership(request: ZKMembershipRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Verify that a user is a member of a group without revealing which user
     Demo implementation - in production would use actual ZK-SNARKs
@@ -119,7 +117,7 @@ async def verify_group_membership(
 
 
 @router.post("/zk/market/private-bid")
-async def submit_private_bid(request: PrivateBidRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, str]:
+def submit_private_bid(request: PrivateBidRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, str]:
     """
     Submit a bid to the market without revealing the amount
     Uses commitment scheme to hide bid amount while allowing verification
@@ -147,7 +145,7 @@ async def submit_private_bid(request: PrivateBidRequest, session: Annotated[Sess
 
 
 @router.post("/zk/computation/verify")
-async def verify_computation_proof(
+def verify_computation_proof(
     request: ZKComputationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """
@@ -178,7 +176,7 @@ async def verify_computation_proof(
 
 
 @router.post("/zk/receipt/attest")
-async def create_private_receipt(
+def create_private_receipt(
     job_id: str, user_address: str, computation_result: str, privacy_level: str = "basic"
 ) -> dict[str, Any]:
     """
@@ -204,7 +202,7 @@ async def create_private_receipt(
 
 
 @router.get("/zk/anonymity/sets")
-async def get_anonymity_sets() -> dict[str, Any]:
+def get_anonymity_sets() -> dict[str, Any]:
     """Get available anonymity sets for privacy operations"""
 
     return {
@@ -219,7 +217,7 @@ async def get_anonymity_sets() -> dict[str, Any]:
 
 
 @router.post("/zk/stealth/address")
-async def generate_stealth_address(recipient_public_key: str, sender_random: str | None = None) -> dict[str, str]:
+def generate_stealth_address(recipient_public_key: str, sender_random: str | None = None) -> dict[str, str]:
     """
     Generate a stealth address for private payments
     Demo implementation
@@ -250,7 +248,7 @@ async def generate_stealth_address(recipient_public_key: str, sender_random: str
 
 
 @router.get("/zk/status")
-async def get_zk_status() -> dict[str, Any]:
+def get_zk_status() -> dict[str, Any]:
     """Get the status of ZK features in AITBC"""
 
     # Check if ZK service is enabled

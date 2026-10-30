@@ -231,7 +231,7 @@ async def create_trade_request(
 
 @router.get("/requests/{request_id}", response_model=TradeRequestResponse)
 @rate_limit(rate=200, per=60)
-async def get_trade_request(
+def get_trade_request(
     request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> TradeRequestResponse:
     """Get trade request details"""
@@ -280,7 +280,7 @@ async def find_matches(request: Request, request_id: str, session: Annotated[Ses
 
 @router.get("/requests/{request_id}/matches")
 @rate_limit(rate=200, per=60)
-async def get_trade_matches(
+def get_trade_matches(
     request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> list[TradeMatchResponse]:
     """Get trade matches for a request"""
@@ -354,7 +354,7 @@ async def initiate_negotiation(
 
 @router.get("/negotiations/{negotiation_id}", response_model=NegotiationResponse)
 @rate_limit(rate=200, per=60)
-async def get_negotiation(
+def get_negotiation(
     request: Request, negotiation_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> NegotiationResponse:
     """Get negotiation details"""
@@ -390,9 +390,7 @@ async def get_negotiation(
 
 @router.get("/matches/{match_id}")
 @rate_limit(rate=200, per=60)
-async def get_trade_match(
-    request: Request, match_id: str, session: Annotated[Session, Depends(get_session)]
-) -> TradeMatchResponse:
+def get_trade_match(request: Request, match_id: str, session: Annotated[Session, Depends(get_session)]) -> TradeMatchResponse:
     """Get trade match details"""
     try:
         match = session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).scalars().first()
@@ -442,7 +440,7 @@ async def get_trading_summary(
 
 @router.get("/requests")
 @rate_limit(rate=200, per=60)
-async def list_trade_requests(
+def list_trade_requests(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     agent_id: str | None = None,
@@ -486,7 +484,7 @@ async def list_trade_requests(
 
 @router.get("/matches")
 @rate_limit(rate=200, per=60)
-async def list_trade_matches(
+def list_trade_matches(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     agent_id: str | None = None,
@@ -533,7 +531,7 @@ async def list_trade_matches(
 
 @router.get("/negotiations")
 @rate_limit(rate=200, per=60)
-async def list_negotiations(
+def list_negotiations(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     agent_id: str | None = None,
@@ -576,7 +574,7 @@ async def list_negotiations(
 
 @router.get("/analytics")
 @rate_limit(rate=200, per=60)
-async def get_trading_analytics(
+def get_trading_analytics(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     period_type: str | None = None,
