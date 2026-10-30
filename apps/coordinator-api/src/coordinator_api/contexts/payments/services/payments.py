@@ -12,6 +12,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
+from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -556,10 +557,10 @@ class PaymentService:
 
     async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
-        job = self._require_owned_job(job_id, client_id)
+        job = await run_in_threadpool(self._require_owned_job, job_id, client_id)
         try:
             meta = self._payment_meta(payment_data)
-            amount, quote = self._resolve_payment_quote(job, job_id, payment_data, meta)
+            amount, quote = await run_in_threadpool(self._resolve_payment_quote, job, job_id, payment_data, meta)
 
             payment = JobPayment(
                 job_id=job_id,
@@ -573,12 +574,12 @@ class PaymentService:
             await self._route_escrow(payment, payment_data, quote)
             self._sync_job_payment(job, payment, payment_data)
             self.session.add(job)
-            self.session.commit()
-            self.session.refresh(payment)
+            await run_in_threadpool(self.session.commit)
+            await run_in_threadpool(self.session.refresh, payment)
             logger.info("Payment created successfully: %s", payment.id)
             return payment
         except Exception as e:
-            self.session.rollback()
+            await run_in_threadpool(self.session.rollback)
             logger.error("Failed to create payment: %s", e)
             raise
 
@@ -631,7 +632,7 @@ class PaymentService:
         meta["energy_is_protected"] = True
         payment.meta_data = meta
 
-        self._verify_evm_receipt(payment, payment_data, quote)
+        await run_in_threadpool(self._verify_evm_receipt, payment, payment_data, quote)
 
     def _verify_evm_receipt(
         self,
@@ -863,7 +864,9 @@ class PaymentService:
             f"{self.blockchain_rpc_url}/rpc/escrow/create",
             json=payload,
         )
-        escrow = self._record_escrowed(payment, buyer, provider, contract_id=escrow_data.get("contract_id"))
+        escrow = await run_in_threadpool(
+            self._record_escrowed, payment, buyer, provider, contract_id=escrow_data.get("contract_id")
+        )
         logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
         return escrow
 
@@ -968,7 +971,9 @@ class PaymentService:
             return None, False
         if lock_tx_hash is None:
             return None, True
-        return self._record_escrowed(payment, buyer, provider, contract_id, lock_tx_hash=lock_tx_hash, recovered=True), False
+        return await run_in_threadpool(
+            self._record_escrowed, payment, buyer, provider, contract_id, lock_tx_hash=lock_tx_hash, recovered=True
+        ), False
 
     def _mark_escrow_failed(self, payment: JobPayment, kind: str, detail: str) -> None:
         """Mark a payment whose escrow never landed as ``failed`` with a
@@ -1011,8 +1016,8 @@ class PaymentService:
         # /rpc/escrow/create. The chain side also guards (an existing ESCROW_LOCK for
         # the job short-circuits the route), but stopping here avoids the round-trip
         # and keeps the coordinator ledger authoritative about what it already did.
-        existing_escrow = (
-            self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
+        existing_escrow = await run_in_threadpool(
+            lambda: self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
         )
         if existing_escrow is not None or payment.escrowed_at is not None or payment.escrow_address:
             logger.warning(
@@ -1088,20 +1093,20 @@ class PaymentService:
                 )
                 if escrow is not None:
                     self.session.add(escrow)
-                self.session.commit()
+                await run_in_threadpool(self.session.commit)
                 logger.info("Created crypto escrow for payment %s", payment.id)
                 return escrow
             except NetworkError as e:
                 logger.error("Failed to create crypto escrow: %s", e)
                 payment.status = "failed"
                 payment.updated_at = datetime.now(UTC)
-                self.session.commit()
+                await run_in_threadpool(self.session.commit)
                 return None
         except Exception as e:
             logger.error("Error creating crypto escrow: %s", e)
             payment.status = "failed"
             payment.updated_at = datetime.now(UTC)
-            self.session.commit()
+            await run_in_threadpool(self.session.commit)
             return None
 
     def open_acceptance_window(self, job_id: str, payment_id: str, window_seconds: int) -> datetime | None:
@@ -1455,7 +1460,7 @@ class PaymentService:
         the caller can keep the 425-deferral marker: an unreachable node says
         nothing about the lock, so it must not end the deferral streak."""
         try:
-            release_body = self._build_release_body(reason, payment, job)
+            release_body = await run_in_threadpool(self._build_release_body, reason, payment, job)
             release_data = await client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
                 json=release_body,
@@ -1474,7 +1479,7 @@ class PaymentService:
             # A response claiming settlement without a hash is a claim without
             # proof (S-10): _record_release_outcome records it as
             # settlement_failed, never released, and returns False.
-            return self._record_release_outcome(payment, job, payment_id, job_id, release_data)
+            return await run_in_threadpool(self._record_release_outcome, payment, job, payment_id, job_id, release_data)
         except NetworkError as e:
             status_error = _find_http_status_error(e)
             if status_error is not None and status_error.response.status_code == 425:
@@ -1510,10 +1515,10 @@ class PaymentService:
 
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner using the blockchain escrow contract."""
-        payment = self.session.get(JobPayment, payment_id)
+        payment = await run_in_threadpool(self.session.get, JobPayment, payment_id)
         if payment is None or payment.job_id != job_id:
             return False
-        self._require_owned_job(payment.job_id, client_id)
+        await run_in_threadpool(self._require_owned_job, payment.job_id, client_id)
         # G3: "pending_acceptance" and "disputed" are escrowed money under another
         # name -- the funds are still locked -- so a release from either is the same
         # on-chain operation. Anything outside HELD_STATES has already settled.
@@ -1527,16 +1532,16 @@ class PaymentService:
         # through the admin retry-release route once the blocker is fixed.
         meta = dict(payment.meta_data or {})
         attempts = int(meta.get(META_RELEASE_ATTEMPTS) or 0)
-        if self._release_attempts_exhausted(payment, job_id, payment_id, meta, attempts):
+        if await run_in_threadpool(self._release_attempts_exhausted, payment, job_id, payment_id, meta, attempts):
             return False
         meta[META_RELEASE_ATTEMPTS] = attempts + 1
         payment.meta_data = meta
         self.session.add(payment)
-        self.session.commit()
-        job = self.session.get(Job, job_id)
+        await run_in_threadpool(self.session.commit)
+        job = await run_in_threadpool(self.session.get, Job, job_id)
         if job is None:
             logger.error("Escrow release blocked for job %s: job not found", job_id)
-            self._end_425_streak(payment, meta)
+            await run_in_threadpool(self._end_425_streak, payment, meta)
             return False
         if job.state != JobState.completed.value:
             logger.error(
@@ -1546,9 +1551,9 @@ class PaymentService:
                 job.state,
                 JobState.completed.value,
             )
-            self._end_425_streak(payment, meta)
+            await run_in_threadpool(self._end_425_streak, payment, meta)
             return False
-        receipt = self._get_receipt_of_record(job)
+        receipt = await run_in_threadpool(self._get_receipt_of_record, job)
         if not _computation_is_correct(receipt, job):
             logger.error(
                 "Escrow release blocked for job %s payment %s: computation not attested (zk_status=%s, computation_correct=%s)",
@@ -1557,7 +1562,7 @@ class PaymentService:
                 receipt.get("zk_status") if receipt else None,
                 receipt.get("computation_correct") if receipt else None,
             )
-            self._end_425_streak(payment, meta)
+            await run_in_threadpool(self._end_425_streak, payment, meta)
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
@@ -1573,12 +1578,12 @@ class PaymentService:
                     meta[META_RELEASE_ATTEMPTS] = attempts
                 payment.meta_data = meta
                 self.session.add(payment)
-                self.session.commit()
+                await run_in_threadpool(self.session.commit)
                 return False
             # True or False: both are definitive answers (False can only be an
             # HTTP answer that was not 425 -- transport errors re-raise below),
             # so the deferral streak is over and the marker is cleared.
-            self._end_425_streak(payment, dict(payment.meta_data or {}))
+            await run_in_threadpool(self._end_425_streak, payment, dict(payment.meta_data or {}))
             return submitted
         except Exception as e:
             # No definitive outcome (transport failure, ambiguous post-send
@@ -1687,7 +1692,7 @@ class PaymentService:
                 job_id,
                 payment_id,
             )
-            self._mark_refunded(payment, job, payment_id, None)
+            await run_in_threadpool(self._mark_refunded, payment, job, payment_id, None)
             logger.info("Marked unbacked payment %s as refunded for job %s", payment_id, job_id)
             return True
 
@@ -1696,7 +1701,7 @@ class PaymentService:
             # Only accept the DB marker when the same hash is visible on-chain.
             chain_refund_hash = await _lookup_chain_refund(self.blockchain_rpc_url, client, job_id)
             if chain_refund_hash:
-                self._mark_refunded(payment, job, payment_id, chain_refund_hash)
+                await run_in_threadpool(self._mark_refunded, payment, job, payment_id, chain_refund_hash)
                 logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
                 return True
             # No on-chain refund exists yet; fall through to submit a real one.
@@ -1724,7 +1729,8 @@ class PaymentService:
             if not refund_data or not refund_data.get("success"):
                 logger.error("Blockchain escrow refund failed for %s: %s", job_id, refund_data)
                 return False
-            self._mark_refunded(
+            await run_in_threadpool(
+                self._mark_refunded,
                 payment,
                 job,
                 payment_id,
@@ -1740,15 +1746,15 @@ class PaymentService:
         self, client_id: str, job_id: str, payment_id: str, reason: str, *, is_admin: bool = False
     ) -> bool:
         """Refund payment to client"""
-        payment = self.session.get(JobPayment, payment_id)
+        payment = await run_in_threadpool(self.session.get, JobPayment, payment_id)
         if payment is None or payment.job_id != job_id:
             return False
         if is_admin:
-            job = self.session.get(Job, payment.job_id)
+            job = await run_in_threadpool(self.session.get, Job, payment.job_id)
             if job is None:
                 return False
         else:
-            job = self._require_owned_job(payment.job_id, client_id)
+            job = await run_in_threadpool(self._require_owned_job, payment.job_id, client_id)
         # B-residue: already-refunded rows may carry a pre-5b0455921 local hash.
         # Fix the denormalised cache, but continue so the chain can return the
         # authoritative on-chain hash.
@@ -1756,7 +1762,7 @@ class PaymentService:
             if job.payment_status != "refunded":
                 job.payment_status = "refunded"
                 self.session.add(job)
-                self.session.commit()
+                await run_in_threadpool(self.session.commit)
         # G3: a held or disputed payment is still refundable; the escrow never moved.
         # B-residue: already-refunded rows are allowed through so stale hashes can
         # be reconciled against the real on-chain transaction.
