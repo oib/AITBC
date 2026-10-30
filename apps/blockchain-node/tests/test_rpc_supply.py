@@ -7,6 +7,7 @@ committed table: at a given height the answer is identical on every synced host.
 """
 
 from __future__ import annotations
+import inspect
 
 import json
 from contextlib import contextmanager
@@ -75,7 +76,8 @@ def _accounts(engine):
 
 
 async def _get(module, chain_id: str | None = CHAIN_ID):
-    return await module.get_supply.__wrapped__(None, chain_id)
+    result = module.get_supply.__wrapped__(None, chain_id)
+    return await result if inspect.isawaitable(result) else result
 
 
 @pytest.mark.asyncio

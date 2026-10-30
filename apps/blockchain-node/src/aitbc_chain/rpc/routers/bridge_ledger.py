@@ -86,7 +86,7 @@ def _row(record: Any) -> dict[str, Any]:
 
 @router.post("/register", summary="Register a pending transfer (idempotent upsert)")
 @rate_limit(rate=60, per=60)
-async def ledger_register_route(request: Request, body: LedgerRegisterRequest) -> dict[str, Any]:
+def ledger_register_route(request: Request, body: LedgerRegisterRequest) -> dict[str, Any]:
     """Upsert the intake transfer row keyed on ``transfer_id``.
 
     A re-register of an existing row returns it unchanged — the service
@@ -127,7 +127,7 @@ async def ledger_register_route(request: Request, body: LedgerRegisterRequest) -
 
 @router.get("/pending", summary="Relayer worklist for a target chain")
 @rate_limit(rate=120, per=60)
-async def ledger_pending_route(request: Request, target_chain: str) -> dict[str, Any]:
+def ledger_pending_route(request: Request, target_chain: str) -> dict[str, Any]:
     """Rows whose ``target_chain`` matches and status is ``pending``.
 
     This replaces the relayer's local ``status='pending'`` scan.
@@ -156,7 +156,7 @@ async def ledger_pending_route(request: Request, target_chain: str) -> dict[str,
 
 @router.post("/{transfer_id}/status", summary="Monotonic status writeback")
 @rate_limit(rate=60, per=60)
-async def ledger_status_route(request: Request, transfer_id: str, body: LedgerStatusRequest) -> dict[str, Any]:
+def ledger_status_route(request: Request, transfer_id: str, body: LedgerStatusRequest) -> dict[str, Any]:
     """Advance a row's status — pending→confirmed→completed (or terminal).
 
     Same-status writebacks are idempotent no-ops; any transition that is
@@ -201,7 +201,7 @@ async def ledger_status_route(request: Request, transfer_id: str, body: LedgerSt
 
 @router.get("/{transfer_id}", summary="Read a single transfer row")
 @rate_limit(rate=120, per=60)
-async def ledger_read_route(request: Request, transfer_id: str) -> dict[str, Any]:
+def ledger_read_route(request: Request, transfer_id: str) -> dict[str, Any]:
     """Single-row read — the transplant-script replacement."""
     try:
         from ...base_models import CrossChainTransfer

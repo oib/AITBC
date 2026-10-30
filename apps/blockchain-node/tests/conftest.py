@@ -28,6 +28,7 @@ os.environ.setdefault("AITBC_CHAIN_ENV_FILE", "")
 from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Block, Receipt, Transaction  # noqa: F401 - ensure models imported for metadata
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
 
@@ -191,7 +192,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 @pytest.fixture(name="engine")
 def engine_fixture():
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     chain_metadata.create_all(engine)
     try:
         yield engine

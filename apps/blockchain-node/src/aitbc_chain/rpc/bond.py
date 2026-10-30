@@ -24,7 +24,7 @@ _logger = get_logger(__name__)
 
 
 @rate_limit(rate=100, per=60)
-async def get_bond(request: Request, bond_id: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_bond(request: Request, bond_id: str, chain_id: str | None = None) -> dict[str, Any]:
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
         bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
@@ -46,7 +46,7 @@ async def get_bond(request: Request, bond_id: str, chain_id: str | None = None) 
 
 
 @rate_limit(rate=100, per=60)
-async def list_bonds(request: Request, provider: str, chain_id: str | None = None) -> dict[str, Any]:
+def list_bonds(request: Request, provider: str, chain_id: str | None = None) -> dict[str, Any]:
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
         bonds = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.provider == canonical_address(provider))).all()

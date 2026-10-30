@@ -312,9 +312,7 @@ def _swap_status_payload(swap: CrossChainSwap, bridge: Any) -> dict[str, Any]:
 
 @router.get("/cross-chain/rates", summary="Get cross-chain exchange rates")
 @rate_limit(rate=50, per=60)
-async def get_cross_chain_rates(
-    request: Request, from_chain: str | None = None, to_chain: str | None = None
-) -> dict[str, Any]:
+def get_cross_chain_rates(request: Request, from_chain: str | None = None, to_chain: str | None = None) -> dict[str, Any]:
     """Return operator-configured cross-chain swap rates.
 
     Same-asset pairs always settle at parity (1.0). Rates for other pairs
@@ -339,7 +337,7 @@ async def get_cross_chain_rates(
 
 @router.post("/swap", summary="Create cross-chain swap")
 @rate_limit(rate=20, per=60)
-async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -> dict[str, Any]:
+def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -> dict[str, Any]:
     """Create a cross-chain swap: a signed, rate-quoted bridge lock.
 
     ``amount`` is integer compute-units locked on the source chain. The
@@ -482,7 +480,7 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
 
 @router.get("/cross-chain/swap/{swap_id}", summary="Get cross-chain swap status")
 @rate_limit(rate=100, per=60)
-async def get_cross_chain_swap(request: Request, swap_id: str) -> dict[str, Any]:
+def get_cross_chain_swap(request: Request, swap_id: str) -> dict[str, Any]:
     """Return the real status of a cross-chain swap."""
     bridge = _get_bridge()
     swap = None
@@ -506,7 +504,7 @@ async def get_cross_chain_swap(request: Request, swap_id: str) -> dict[str, Any]
 
 @router.get("/cross-chain/swaps", summary="List cross-chain swaps")
 @rate_limit(rate=50, per=60)
-async def list_cross_chain_swaps(
+def list_cross_chain_swaps(
     request: Request, user_address: str | None = None, status: str | None = None, limit: int = 100
 ) -> dict[str, Any]:
     """List persisted cross-chain swaps with optional filters."""
@@ -537,7 +535,7 @@ async def list_cross_chain_swaps(
 
 @router.post("/cross-chain/bridge", summary="Create cross-chain bridge transaction")
 @rate_limit(rate=20, per=60)
-async def create_cross_chain_bridge(request: Request, bridge_data: dict[str, Any]) -> dict[str, Any]:
+def create_cross_chain_bridge(request: Request, bridge_data: dict[str, Any]) -> dict[str, Any]:
     """Create a cross-chain bridge transfer: a signed real bridge lock.
 
     ``amount`` is integer compute-units. The returned ``bridge_id`` is the
@@ -607,7 +605,7 @@ async def create_cross_chain_bridge(request: Request, bridge_data: dict[str, Any
 
 @router.get("/cross-chain/bridge/{bridge_id}", summary="Get cross-chain bridge status")
 @rate_limit(rate=100, per=60)
-async def get_cross_chain_bridge(request: Request, bridge_id: str) -> dict[str, Any]:
+def get_cross_chain_bridge(request: Request, bridge_id: str) -> dict[str, Any]:
     """Return the real status of a cross-chain bridge transfer.
 
     ``bridge_id`` is the transfer id (identical to the source lock tx hash).
@@ -626,7 +624,7 @@ async def get_cross_chain_bridge(request: Request, bridge_id: str) -> dict[str, 
 
 @router.get("/cross-chain/pools", summary="Show cross-chain liquidity pools")
 @rate_limit(rate=50, per=60)
-async def get_cross_chain_pools(request: Request) -> dict[str, Any]:
+def get_cross_chain_pools(request: Request) -> dict[str, Any]:
     """Return cross-chain liquidity pools.
 
     There is no cross-chain AMM — swaps settle through fixed-rate bridge
@@ -640,7 +638,7 @@ async def get_cross_chain_pools(request: Request) -> dict[str, Any]:
 
 @router.get("/cross-chain/stats", summary="Show cross-chain trading statistics")
 @rate_limit(rate=50, per=60)
-async def get_cross_chain_stats(request: Request) -> dict[str, Any]:
+def get_cross_chain_stats(request: Request) -> dict[str, Any]:
     """Return aggregate statistics computed from real persisted records."""
     bridge = _get_bridge()
     swap_stats: dict[str, dict[str, Any]] = {}

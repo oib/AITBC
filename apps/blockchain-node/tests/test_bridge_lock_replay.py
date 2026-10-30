@@ -99,13 +99,13 @@ async def test_new_form_lock_accepted_once_then_replay_refused(bridge_and_nonce)
     fake = bridge_and_nonce
     body = _lock_body()
 
-    result = await bridge_lock(MagicMock(), dict(body))
+    result = bridge_lock(MagicMock(), dict(body))
     assert result["success"] is True
     assert fake.initiate_calls == 1
 
     # Same captured body re-posted — the nonce is spent.
     with pytest.raises(HTTPException) as exc_info:
-        await bridge_lock(MagicMock(), dict(body))
+        bridge_lock(MagicMock(), dict(body))
     assert exc_info.value.status_code == 403
     assert "nonce" in exc_info.value.detail.lower()
     assert fake.initiate_calls == 1
@@ -115,29 +115,29 @@ async def test_new_form_lock_accepted_once_then_replay_refused(bridge_and_nonce)
 async def test_fresh_nonce_after_first_still_works(bridge_and_nonce):
     """A *different* signed body (fresh nonce) is a legitimate second lock."""
     fake = bridge_and_nonce
-    assert (await bridge_lock(MagicMock(), _lock_body(nonce="n1")))["success"] is True
-    assert (await bridge_lock(MagicMock(), _lock_body(nonce="n2")))["success"] is True
+    assert (bridge_lock(MagicMock(), _lock_body(nonce="n1")))["success"] is True
+    assert (bridge_lock(MagicMock(), _lock_body(nonce="n2")))["success"] is True
     assert fake.initiate_calls == 2
 
 
 @pytest.mark.asyncio
 async def test_expired_issued_at_refused(bridge_and_nonce):
     with pytest.raises(HTTPException) as exc_info:
-        await bridge_lock(MagicMock(), _lock_body(issued_at=time.time() - 400))
+        bridge_lock(MagicMock(), _lock_body(issued_at=time.time() - 400))
     assert exc_info.value.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_future_issued_at_refused(bridge_and_nonce):
     with pytest.raises(HTTPException) as exc_info:
-        await bridge_lock(MagicMock(), _lock_body(issued_at=time.time() + 400))
+        bridge_lock(MagicMock(), _lock_body(issued_at=time.time() + 400))
     assert exc_info.value.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_old_form_accepted_with_flag_off(bridge_and_nonce, monkeypatch):
     monkeypatch.setattr(bridge_mod.settings, "bridge_lock_require_replay_guard", False)
-    result = await bridge_lock(MagicMock(), _lock_body(new_form=False))
+    result = bridge_lock(MagicMock(), _lock_body(new_form=False))
     assert result["success"] is True
 
 
@@ -145,7 +145,7 @@ async def test_old_form_accepted_with_flag_off(bridge_and_nonce, monkeypatch):
 async def test_old_form_refused_with_flag_on(bridge_and_nonce, monkeypatch):
     monkeypatch.setattr(bridge_mod.settings, "bridge_lock_require_replay_guard", True)
     with pytest.raises(HTTPException) as exc_info:
-        await bridge_lock(MagicMock(), _lock_body(new_form=False))
+        bridge_lock(MagicMock(), _lock_body(new_form=False))
     assert exc_info.value.status_code == 400
 
 
@@ -154,6 +154,6 @@ async def test_new_fields_present_but_unsigned_refused(bridge_and_nonce):
     """issued_at/nonce in the body but not in the signed dict → signature mismatch."""
     body = _lock_body(new_form=True, sign_extra=False)
     with pytest.raises(HTTPException) as exc_info:
-        await bridge_lock(MagicMock(), body)
+        bridge_lock(MagicMock(), body)
     assert exc_info.value.status_code == 403
     assert "Invalid sender signature" in exc_info.value.detail

@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 
 
-async def _stub(request: Request, *args: Any, **kwargs: Any) -> dict[str, Any]:
+def _stub(request: Request, *args: Any, **kwargs: Any) -> dict[str, Any]:
     raise HTTPException(status_code=503, detail="Contract service not available")
 
 

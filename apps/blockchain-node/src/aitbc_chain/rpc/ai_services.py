@@ -102,7 +102,7 @@ def _job_from_tx(tx: Transaction, cancelled_ids: set[str] | None = None) -> dict
 
 
 @router.post("/ai/submit", summary="Submit AI job", tags=["ai"])
-async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
+def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
     """Submit a new AI job to the mempool.
 
     The job is an ordinary chain transaction paying ``AI_SERVICE_RECIPIENT``, so
@@ -180,7 +180,7 @@ async def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
 
 
 @router.get("/ai/jobs", summary="List AI jobs", tags=["ai"])
-async def ai_list_jobs(wallet_address: str | None = None, status: str | None = None) -> dict[str, Any]:
+def ai_list_jobs(wallet_address: str | None = None, status: str | None = None) -> dict[str, Any]:
     """Get list of AI jobs, optionally filtered by wallet address or status"""
     try:
         metrics_registry.increment("rpc_ai_list_total")
@@ -215,7 +215,7 @@ async def ai_list_jobs(wallet_address: str | None = None, status: str | None = N
 
 
 @router.get("/ai/job/{job_id}", summary="Get AI job by ID", tags=["ai"])
-async def ai_get_job(job_id: str) -> dict[str, Any]:
+def ai_get_job(job_id: str) -> dict[str, Any]:
     """Get a specific AI job by ID"""
     try:
         metrics_registry.increment("rpc_ai_get_total")
@@ -247,7 +247,7 @@ async def ai_get_job(job_id: str) -> dict[str, Any]:
 
 
 @router.post("/ai/job/{job_id}/cancel", summary="Cancel AI job", tags=["ai"])
-async def ai_cancel_job(job_id: str) -> dict[str, Any]:
+def ai_cancel_job(job_id: str) -> dict[str, Any]:
     """Cancel an AI job"""
     try:
         metrics_registry.increment("rpc_ai_cancel_total")
@@ -293,7 +293,7 @@ async def ai_cancel_job(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/ai/stats", summary="AI service statistics", tags=["ai"])
-async def ai_stats() -> dict[str, Any]:
+def ai_stats() -> dict[str, Any]:
     """Get AI service statistics"""
     try:
         metrics_registry.increment("rpc_ai_stats_total")

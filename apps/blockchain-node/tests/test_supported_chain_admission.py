@@ -96,7 +96,7 @@ async def test_execute_proposal_foreign_chain_refused(rpc_db, monkeypatch) -> No
     mempool = Mock()
     monkeypatch.setattr(staking, "get_mempool", lambda: mempool)
     with pytest.raises(HTTPException) as exc:
-        await staking.execute_governance_proposal(Mock(), "p1", executor_address=EXECUTOR, chain_id=FOREIGN)
+        staking.execute_governance_proposal(Mock(), "p1", executor_address=EXECUTOR, chain_id=FOREIGN)
     assert exc.value.status_code == 400
     assert "unsupported chain_id" in exc.value.detail
     mempool.add.assert_not_called()
@@ -125,7 +125,7 @@ async def test_execute_proposal_supported_chain_queues(rpc_db, monkeypatch) -> N
         session.add(Account(chain_id=CHAIN, address=_to_ait_address(EXECUTOR), balance=10, nonce=0))
         session.commit()
 
-    result = await staking.execute_governance_proposal(Mock(), "p1", executor_address=EXECUTOR, chain_id=CHAIN)
+    result = staking.execute_governance_proposal(Mock(), "p1", executor_address=EXECUTOR, chain_id=CHAIN)
 
     assert result["success"] is True
     assert result["transaction_hash"] == "0xgovtx"
