@@ -3,6 +3,7 @@ P2P Trading Protocol API Endpoints
 REST API for agent-to-agent trading, matching, negotiation, and settlement
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
@@ -13,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 from sqlmodel import select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -191,22 +193,25 @@ async def create_trade_request(
             end_time = datetime.fromisoformat(request_data.end_time)
         if request_data.expires_at:
             expires_at = datetime.fromisoformat(request_data.expires_at)
-        trade_request = await trading_protocol.create_trade_request(
-            buyer_agent_id=request_data.buyer_agent_id,
-            trade_type=request_data.trade_type,
-            title=request_data.title,
-            description=request_data.description,
-            requirements=request_data.requirements,
-            budget_range=request_data.budget_range,
-            start_time=start_time,
-            end_time=end_time,
-            duration_hours=request_data.duration_hours,
-            urgency_level=request_data.urgency_level,
-            preferred_regions=request_data.preferred_regions,
-            excluded_regions=request_data.excluded_regions,
-            service_level_required=request_data.service_level_required,
-            tags=request_data.tags,
-            expires_at=expires_at,
+        trade_request = await run_in_threadpool(
+            asyncio.run,
+            trading_protocol.create_trade_request(
+                buyer_agent_id=request_data.buyer_agent_id,
+                trade_type=request_data.trade_type,
+                title=request_data.title,
+                description=request_data.description,
+                requirements=request_data.requirements,
+                budget_range=request_data.budget_range,
+                start_time=start_time,
+                end_time=end_time,
+                duration_hours=request_data.duration_hours,
+                urgency_level=request_data.urgency_level,
+                preferred_regions=request_data.preferred_regions,
+                excluded_regions=request_data.excluded_regions,
+                service_level_required=request_data.service_level_required,
+                tags=request_data.tags,
+                expires_at=expires_at,
+            ),
         )
         return TradeRequestResponse(
             request_id=trade_request.request_id,
@@ -268,7 +273,7 @@ async def find_matches(request: Request, request_id: str, session: Annotated[Ses
     """Find matching sellers for a trade request"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
-        matches = await trading_protocol.find_matches(request_id)
+        matches = await run_in_threadpool(asyncio.run, trading_protocol.find_matches(request_id))
         return matches  # type: ignore[return-value]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -327,8 +332,13 @@ async def initiate_negotiation(
     """Initiate negotiation between buyer and seller"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
-        negotiation = await trading_protocol.initiate_negotiation(
-            match_id=negotiation_data.match_id, initiator=negotiation_data.initiator, strategy=negotiation_data.strategy
+        negotiation = await run_in_threadpool(
+            asyncio.run,
+            trading_protocol.initiate_negotiation(
+                match_id=negotiation_data.match_id,
+                initiator=negotiation_data.initiator,
+                strategy=negotiation_data.strategy,
+            ),
         )
         return NegotiationResponse(
             negotiation_id=negotiation.negotiation_id,
@@ -430,7 +440,7 @@ async def get_trading_summary(
     """Get comprehensive trading summary for an agent"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
-        summary = await trading_protocol.get_trading_summary(agent_id)
+        summary = await run_in_threadpool(asyncio.run, trading_protocol.get_trading_summary(agent_id))
         return TradingSummaryResponse(**summary)
     except Exception as e:
         logger.error("Error getting trading summary for %s: %s", agent_id, str(e))
@@ -647,9 +657,13 @@ async def simulate_trade_matching(
             excluded_regions=request_data.excluded_regions,
             service_level_required=request_data.service_level_required,
         )
-        seller_offers = await trading_protocol.get_available_sellers(temp_request)
-        seller_reputations = await trading_protocol.get_seller_reputations([offer["agent_id"] for offer in seller_offers])
-        matches = trading_protocol.matching_engine.find_matches(temp_request, seller_offers, seller_reputations)
+        seller_offers = await run_in_threadpool(asyncio.run, trading_protocol.get_available_sellers(temp_request))
+        seller_reputations = await run_in_threadpool(
+            asyncio.run, trading_protocol.get_seller_reputations([offer["agent_id"] for offer in seller_offers])
+        )
+        matches = await run_in_threadpool(
+            trading_protocol.matching_engine.find_matches, temp_request, seller_offers, seller_reputations
+        )
         return {
             "simulation": True,
             "request_details": {

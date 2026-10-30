@@ -3,6 +3,7 @@ Cross-Chain Integration API Router
 REST API endpoints for enhanced multi-chain wallet adapter, cross-chain bridge service, and transaction manager
 """
 
+import asyncio
 import ipaddress
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -33,6 +34,7 @@ from coordinator_api.contexts.cross_chain.services.multi_chain_transaction_manag
 from coordinator_api.storage.db import get_session
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from ....auth import AdminDep, AuthDep
 
@@ -139,9 +141,12 @@ async def create_enhanced_wallet(
 
     wallet_type = WalletType.EOA
     metadata = {"owner_address": owner_address, "chain_id": str(chain_id)}
-    wallet = await _wallet_service(session).create_wallet(
-        WalletCreate(agent_id=user["sub"], wallet_type=wallet_type, metadata=metadata),
-        settings.wallet_encryption_password,
+    wallet = await run_in_threadpool(
+        asyncio.run,
+        _wallet_service(session).create_wallet(
+            WalletCreate(agent_id=user["sub"], wallet_type=wallet_type, metadata=metadata),
+            settings.wallet_encryption_password,
+        ),
     )
     return WalletResponse.model_validate(wallet).model_dump()
 
@@ -160,12 +165,12 @@ async def get_wallet_balance(
     try:
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
-        rpc_url = _resolve_rpc_url(session, chain_id)
+        wallet = await run_in_threadpool(_require_agent_wallet, session, wallet_address, user["sub"])
+        rpc_url = await run_in_threadpool(_resolve_rpc_url, session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
-        if not await adapter.validate_address(wallet.address):
+        if not await run_in_threadpool(asyncio.run, adapter.validate_address(wallet.address)):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
-        balance_data = await adapter.get_balance(wallet.address, token_address)
+        balance_data = await run_in_threadpool(asyncio.run, adapter.get_balance(wallet.address, token_address))
         return balance_data
     except HTTPException:
         raise
@@ -196,23 +201,31 @@ async def execute_wallet_transaction(
             raise HTTPException(status_code=400, detail="Private key must not be supplied in transaction data")
         if not settings.wallet_encryption_password:
             raise HTTPException(status_code=400, detail="Wallet encryption password is not configured")
-        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
+        wallet = await run_in_threadpool(_require_agent_wallet, session, wallet_address, user["sub"])
         if wallet.id is None:
             raise HTTPException(status_code=500, detail="Wallet has no ID")
-        rpc_url = _resolve_rpc_url(session, chain_id)
+        rpc_url = await run_in_threadpool(_resolve_rpc_url, session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
-        if not await adapter.validate_address(wallet.address) or not await adapter.validate_address(to_address):
+        if not await run_in_threadpool(asyncio.run, adapter.validate_address(wallet.address)) or not await run_in_threadpool(
+            asyncio.run, adapter.validate_address(to_address)
+        ):
             raise HTTPException(status_code=400, detail="Invalid addresses provided")
-        keys = await _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password)
-        transaction_data = await adapter.execute_transaction(
-            from_address=wallet.address,
-            to_address=to_address,
-            amount=amount,
-            token_address=token_address,
-            data=data,
-            gas_limit=gas_limit,
-            gas_price=gas_price,
-            private_key=keys["private_key"],
+        keys = await run_in_threadpool(
+            asyncio.run,
+            _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password),
+        )
+        transaction_data = await run_in_threadpool(
+            asyncio.run,
+            adapter.execute_transaction(
+                from_address=wallet.address,
+                to_address=to_address,
+                amount=amount,
+                token_address=token_address,
+                data=data,
+                gas_limit=gas_limit,
+                gas_price=gas_price,
+                private_key=keys["private_key"],
+            ),
         )
         return transaction_data
     except HTTPException:
@@ -238,12 +251,14 @@ async def get_wallet_transaction_history(
     try:
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
-        rpc_url = _resolve_rpc_url(session, chain_id)
+        wallet = await run_in_threadpool(_require_agent_wallet, session, wallet_address, user["sub"])
+        rpc_url = await run_in_threadpool(_resolve_rpc_url, session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
-        if not await adapter.validate_address(wallet.address):
+        if not await run_in_threadpool(asyncio.run, adapter.validate_address(wallet.address)):
             raise HTTPException(status_code=400, detail="Invalid wallet address")
-        transactions = await adapter.get_transaction_history(wallet.address, limit, offset, from_block, to_block)
+        transactions = await run_in_threadpool(
+            asyncio.run, adapter.get_transaction_history(wallet.address, limit, offset, from_block, to_block)
+        )
         return transactions
     except HTTPException:
         raise
@@ -267,13 +282,16 @@ async def sign_message(
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
         if not settings.wallet_encryption_password:
             raise HTTPException(status_code=400, detail="Wallet encryption password is not configured")
-        wallet = _require_agent_wallet(session, wallet_address, user["sub"])
+        wallet = await run_in_threadpool(_require_agent_wallet, session, wallet_address, user["sub"])
         if wallet.id is None:
             raise HTTPException(status_code=500, detail="Wallet has no ID")
-        rpc_url = _resolve_rpc_url(session, chain_id)
+        rpc_url = await run_in_threadpool(_resolve_rpc_url, session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
-        keys = await _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password)
-        signature_data = await adapter.secure_sign_message(message, keys["private_key"])
+        keys = await run_in_threadpool(
+            asyncio.run,
+            _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password),
+        )
+        signature_data = await run_in_threadpool(asyncio.run, adapter.secure_sign_message(message, keys["private_key"]))
         return {"signature": signature_data, "message": message, "chain_id": chain_id}
     except HTTPException:
         raise
@@ -295,9 +313,9 @@ async def verify_signature(
     try:
         if chain_id is None:
             raise HTTPException(status_code=400, detail="chain_id parameter is required")
-        rpc_url = _resolve_rpc_url(session, chain_id)
+        rpc_url = await run_in_threadpool(_resolve_rpc_url, session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
-        is_valid = await adapter.verify_signature(message, signature, address)
+        is_valid = await run_in_threadpool(asyncio.run, adapter.verify_signature(message, signature, address))
         return {
             "valid": is_valid,
             "message": message,
@@ -338,17 +356,20 @@ async def create_bridge_request(
             source_chain_id: {"rpc_url": settings.blockchain_rpc_url},
             target_chain_id: {"rpc_url": settings.blockchain_rpc_url},
         }
-        await bridge_service.initialize_bridge(chain_configs)
-        bridge_request = await bridge_service.create_bridge_request(
-            user_address=user_address,
-            source_chain_id=source_chain_id,
-            target_chain_id=target_chain_id,
-            amount=amount,
-            token_address=token_address,
-            target_address=target_address,
-            protocol=protocol,
-            security_level=security_level,
-            deadline_minutes=deadline_minutes,
+        await run_in_threadpool(asyncio.run, bridge_service.initialize_bridge(chain_configs))
+        bridge_request = await run_in_threadpool(
+            asyncio.run,
+            bridge_service.create_bridge_request(
+                user_address=user_address,
+                source_chain_id=source_chain_id,
+                target_chain_id=target_chain_id,
+                amount=amount,
+                token_address=token_address,
+                target_address=target_address,
+                protocol=protocol,
+                security_level=security_level,
+                deadline_minutes=deadline_minutes,
+            ),
         )
         return bridge_request
     except Exception:
@@ -363,7 +384,7 @@ async def get_bridge_request_status(
     """Get status of a bridge request"""
     try:
         bridge_service = BridgeClientAdapter(session=session)
-        status = await bridge_service.get_bridge_request_status(bridge_request_id)
+        status = await run_in_threadpool(asyncio.run, bridge_service.get_bridge_request_status(bridge_request_id))
         return status
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting bridge request status") from None
@@ -381,7 +402,7 @@ async def cancel_bridge_request(
     """Cancel a bridge request"""
     try:
         bridge_service = BridgeClientAdapter(session=session)
-        result = await bridge_service.cancel_bridge_request(bridge_request_id, reason)
+        result = await run_in_threadpool(asyncio.run, bridge_service.cancel_bridge_request(bridge_request_id, reason))
         return result
     except Exception:
         raise HTTPException(status_code=500, detail="Error cancelling bridge request") from None
@@ -395,7 +416,7 @@ async def get_bridge_statistics(
     """Get bridge statistics"""
     try:
         bridge_service = BridgeClientAdapter(session=session)
-        stats = await bridge_service.get_bridge_statistics(time_period_hours)
+        stats = await run_in_threadpool(asyncio.run, bridge_service.get_bridge_statistics(time_period_hours))
         return stats
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting bridge statistics") from None
@@ -407,7 +428,7 @@ async def get_liquidity_pools(request: Request, session: Annotated[Session, Depe
     """Get all liquidity pool information"""
     try:
         bridge_service = BridgeClientAdapter(session=session)
-        pools = await bridge_service.get_liquidity_pools()
+        pools = await run_in_threadpool(asyncio.run, bridge_service.get_liquidity_pools())
         return pools
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting liquidity pools") from None
@@ -439,23 +460,26 @@ async def submit_transaction(
     try:
         tx_manager = ChainTransactionManager(session)
         chain_configs = {chain_id: {"rpc_url": settings.blockchain_rpc_url}}
-        await tx_manager.initialize(chain_configs)
-        result = await tx_manager.submit_transaction(
-            user_id=user_id,
-            chain_id=chain_id,
-            transaction_type=transaction_type,
-            from_address=from_address,
-            to_address=to_address,
-            amount=amount,
-            token_address=token_address,
-            data=data,
-            priority=priority,
-            routing_strategy=routing_strategy,
-            gas_limit=gas_limit,
-            gas_price=gas_price,
-            max_fee_per_gas=max_fee_per_gas,
-            deadline_minutes=deadline_minutes,
-            metadata=metadata,
+        await run_in_threadpool(asyncio.run, tx_manager.initialize(chain_configs))
+        result = await run_in_threadpool(
+            asyncio.run,
+            tx_manager.submit_transaction(
+                user_id=user_id,
+                chain_id=chain_id,
+                transaction_type=transaction_type,
+                from_address=from_address,
+                to_address=to_address,
+                amount=amount,
+                token_address=token_address,
+                data=data,
+                priority=priority,
+                routing_strategy=routing_strategy,
+                gas_limit=gas_limit,
+                gas_price=gas_price,
+                max_fee_per_gas=max_fee_per_gas,
+                deadline_minutes=deadline_minutes,
+                metadata=metadata,
+            ),
         )
         return result
     except Exception:
@@ -481,17 +505,20 @@ async def get_transaction_history(
     try:
         tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": settings.blockchain_rpc_url}, 1001: {"rpc_url": settings.blockchain_rpc_url}}
-        await tx_manager.initialize(chain_configs)
-        history = await tx_manager.get_transaction_history(
-            user_id=user_id,
-            chain_id=chain_id,
-            transaction_type=transaction_type,
-            status=status,
-            priority=priority,
-            limit=limit,
-            offset=offset,
-            from_date=from_date,
-            to_date=to_date,
+        await run_in_threadpool(asyncio.run, tx_manager.initialize(chain_configs))
+        history = await run_in_threadpool(
+            asyncio.run,
+            tx_manager.get_transaction_history(
+                user_id=user_id,
+                chain_id=chain_id,
+                transaction_type=transaction_type,
+                status=status,
+                priority=priority,
+                limit=limit,
+                offset=offset,
+                from_date=from_date,
+                to_date=to_date,
+            ),
         )
         if not history or len(history) == 0:
             return [
@@ -563,8 +590,8 @@ async def get_transaction_statistics(
     try:
         tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": settings.blockchain_rpc_url}, 1001: {"rpc_url": settings.blockchain_rpc_url}}
-        await tx_manager.initialize(chain_configs)
-        stats = await tx_manager.get_transaction_statistics(time_period_hours, chain_id)
+        await run_in_threadpool(asyncio.run, tx_manager.initialize(chain_configs))
+        stats = await run_in_threadpool(asyncio.run, tx_manager.get_transaction_statistics(time_period_hours, chain_id))
         return stats
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting transaction statistics") from None
@@ -586,13 +613,16 @@ async def optimize_transaction_routing(
     try:
         tx_manager = ChainTransactionManager(session)
         chain_configs = {1000: {"rpc_url": settings.blockchain_rpc_url}, 1001: {"rpc_url": settings.blockchain_rpc_url}}
-        await tx_manager.initialize(chain_configs)
-        optimization = await tx_manager.optimize_transaction_routing(
-            transaction_type=transaction_type,
-            amount=amount,
-            from_chain=from_chain,
-            to_chain=to_chain,
-            urgency=urgency,
+        await run_in_threadpool(asyncio.run, tx_manager.initialize(chain_configs))
+        optimization = await run_in_threadpool(
+            asyncio.run,
+            tx_manager.optimize_transaction_routing(
+                transaction_type=transaction_type,
+                amount=amount,
+                from_chain=from_chain,
+                to_chain=to_chain,
+                urgency=urgency,
+            ),
         )
         return optimization
     except Exception:
@@ -640,10 +670,10 @@ async def get_cross_chain_health(request: Request, session: Annotated[Session, D
         bridge_service = BridgeClientAdapter(session=session)
         tx_manager = ChainTransactionManager(session)
         chain_configs = {chain_id: {"rpc_url": settings.blockchain_rpc_url} for chain_id in [1000, 1001]}
-        await bridge_service.initialize_bridge(chain_configs)
-        await tx_manager.initialize(chain_configs)
-        bridge_stats = await bridge_service.get_bridge_statistics(24)
-        tx_stats = await tx_manager.get_transaction_statistics(24)
+        await run_in_threadpool(asyncio.run, bridge_service.initialize_bridge(chain_configs))
+        await run_in_threadpool(asyncio.run, tx_manager.initialize(chain_configs))
+        bridge_stats = await run_in_threadpool(asyncio.run, bridge_service.get_bridge_statistics(24))
+        tx_stats = await run_in_threadpool(asyncio.run, tx_manager.get_transaction_statistics(24))
         return {
             "status": "healthy",
             "supported_chains": len(supported_chains),
@@ -652,7 +682,7 @@ async def get_cross_chain_health(request: Request, session: Annotated[Session, D
             "transactions_submitted": tx_stats["total_transactions"],
             "transaction_success_rate": tx_stats["success_rate"],
             "average_processing_time": tx_stats["average_processing_time_seconds"],
-            "active_liquidity_pools": len(await bridge_service.get_liquidity_pools()),
+            "active_liquidity_pools": len(await run_in_threadpool(asyncio.run, bridge_service.get_liquidity_pools())),
             "last_updated": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
@@ -743,7 +773,7 @@ async def add_bridge_whitelist_entry(
     """Add a cross-chain transfer pair to the bridge whitelist"""
     try:
         bridge_service = BridgeClientAdapter(session=session)
-        await bridge_service.add_allowed_transfer(source_chain_id, target_chain_id)
+        await run_in_threadpool(asyncio.run, bridge_service.add_allowed_transfer(source_chain_id, target_chain_id))
         return {
             "status": "added",
             "source_chain_id": source_chain_id,

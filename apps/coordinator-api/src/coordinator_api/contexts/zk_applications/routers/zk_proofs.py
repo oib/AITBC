@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.rate_limiting import rate_limit
 
@@ -197,7 +198,7 @@ async def verify_job_receipt(
 ) -> VerificationResponse:
     """Verify the ZK receipt proof that was attached to a completed job."""
     try:
-        job = session.get(Job, req.job_id)
+        job = await run_in_threadpool(session.get, Job, req.job_id)
         if not job or not job.receipt:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -232,7 +233,7 @@ async def verify_job_receipt(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"No model circuit registered for {model_id}",
                 )
-            inputs = model_registry.compute_public_inputs(job, job.result, model)
+            inputs = await run_in_threadpool(model_registry.compute_public_inputs, job, job.result, model)
             expected_public = model_registry.expected_public_signals(inputs["public_inputs"])
             result = await zk_service.verify_model_proof(zk_proof["proof"], zk_proof["public_signals"], expected_public)
         else:
