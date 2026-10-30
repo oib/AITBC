@@ -85,7 +85,7 @@ async def test_an_unsigned_job_record_is_refused_as_403_not_400() -> None:
     as a 400 for as long as it was.
     """
     with pytest.raises(HTTPException) as excinfo:
-        await submit_market_transaction(None, _job_tx(Account.create().address))
+        submit_market_transaction(None, _job_tx(Account.create().address))
 
     assert excinfo.value.status_code == 403
     assert "Signature required" in str(excinfo.value.detail)
@@ -97,7 +97,7 @@ async def test_an_unsigned_offer_is_refused_too() -> None:
     tx = _job_tx(Account.create().address, action="software_offer")
 
     with pytest.raises(HTTPException) as excinfo:
-        await submit_market_transaction(None, tx)
+        submit_market_transaction(None, tx)
 
     assert excinfo.value.status_code == 403
     assert "Signature required" in str(excinfo.value.detail)
