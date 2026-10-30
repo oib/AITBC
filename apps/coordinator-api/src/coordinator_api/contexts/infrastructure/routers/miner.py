@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy import update
 from sqlmodel import Session, col, select
 from aitbc_shared import JobPayment
@@ -337,7 +338,7 @@ async def register(
     user: MinerDep,
 ) -> dict[str, Any]:
     service = MinerService(session)
-    record = service.register(user["sub"], req)
+    record = await run_in_threadpool(service.register, user["sub"], req)
     return {"status": "ok", "session_token": record.session_token}
 
 
@@ -350,7 +351,7 @@ async def heartbeat(
     user: MinerDep,
 ) -> dict[str, str]:
     try:
-        MinerService(session).heartbeat(user["sub"], req)
+        await run_in_threadpool(MinerService(session).heartbeat, user["sub"], req)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not registered") from None
     return {"status": "ok"}
@@ -364,7 +365,7 @@ async def poll(
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
 ) -> AssignedJob | Response:
-    job = MinerService(session).poll(user["sub"], req.max_wait_seconds)
+    job = await run_in_threadpool(MinerService(session).poll, user["sub"], req.max_wait_seconds)
     if job is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     return job  # type: ignore[no-any-return]
@@ -437,7 +438,7 @@ async def submit_result(
     miner_service = MinerService(session)
     receipt_service = ReceiptService(session)
     try:
-        job = job_service.get_job(job_id)
+        job = await run_in_threadpool(job_service.get_job, job_id)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     # Only the assigned miner may deliver a result, and only while the job is
@@ -447,7 +448,7 @@ async def submit_result(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
     if job.state != JobState.running:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"job is {job.state}, not running")
-    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     payment_amount = payment.amount if payment else None
     is_shadow = _is_shadow_mode(job)
     job.result = req.result
@@ -473,12 +474,12 @@ async def submit_result(
         metrics["duration_ms"] = duration_ms
     if duration_ms is not None:
         duration_ms = int(duration_ms)
-    receipt = receipt_service.create_receipt(job, user["sub"], req.result, metrics)
+    receipt = await run_in_threadpool(receipt_service.create_receipt, job, user["sub"], req.result, metrics)
     receipt = await _attach_zk_proof(receipt, job, req.result, payment_amount=payment_amount)
     receipt = await _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
     receipt = _apply_tee_computation_attestation(receipt, job, req.result, payment_amount=payment_amount)
     if receipt:
-        receipt = receipt_service.sign_receipt(receipt)
+        receipt = await run_in_threadpool(receipt_service.sign_receipt, receipt)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     job.completed_at = datetime.now(UTC)
@@ -487,16 +488,18 @@ async def submit_result(
     # Keep the JobReceipt row in sync with the final receipt (after ZK/TEE
     # attachments) so downstream consumers use the authoritative payload.
     if job.receipt_id and receipt:
-        receipt_row = session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
+        receipt_row = await run_in_threadpool(
+            lambda: session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
+        )
         if receipt_row:
             receipt_row.payload = receipt
             session.add(receipt_row)
-            session.commit()
+            await run_in_threadpool(session.commit)
     success = True
-    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     spot_check_record: dict[str, Any] | None = None
     if is_shadow:
-        spot_check_record = SpotCheckService(session).complete_spot_check(job)
+        spot_check_record = await run_in_threadpool(SpotCheckService(session).complete_spot_check, job)
     elif payment and payment.status == "escrowed":
         from ...payments.services.payments import PaymentService
 
@@ -568,15 +571,19 @@ async def submit_result(
             success = await _settle_completed_job(session, payment_service, job)
         if not success:
             logger.error("Failed to settle payment %s for job %s", job.payment_id, job.id)
-    miner_service.release(
-        user["sub"], success=success, duration_ms=duration_ms, receipt_id=receipt["receipt_id"] if receipt else None
+    await run_in_threadpool(
+        miner_service.release,
+        user["sub"],
+        success=success,
+        duration_ms=duration_ms,
+        receipt_id=receipt["receipt_id"] if receipt else None,
     )
 
     # For deterministic-decoding jobs that are not themselves spot-checks,
     # schedule a shadow re-run. This is log-only and does not block settlement.
     if not is_shadow:
         try:
-            SpotCheckService(session).schedule_if_eligible(job)
+            await run_in_threadpool(SpotCheckService(session).schedule_if_eligible, job)
         except Exception as spot_err:
             logger.warning("Failed to schedule spot-check for job %s: %s", job_id, spot_err)
 
@@ -613,7 +620,7 @@ async def submit_failure(
 ) -> dict[str, str]:
     try:
         service = JobService(session)
-        job = service.fail_job(job_id, user["sub"], req.error_message)
+        job = await run_in_threadpool(service.fail_job, job_id, user["sub"], req.error_message)
 
         # G5: a bonded provider that reports a failure has delivered a bad result.
         from ...market.services.bond_slashing import BondSlashingService, SlashingCondition
@@ -672,7 +679,7 @@ async def list_miner_jobs(
             filters["state"] = state.value
     try:
         service = JobService(session)
-        jobs = service.list_jobs(assigned_miner_id=miner_id, limit=limit, offset=offset, **filters)
+        jobs = await run_in_threadpool(service.list_jobs, assigned_miner_id=miner_id, limit=limit, offset=offset, **filters)
         return {
             "jobs": service.to_views(jobs),
             "total": len(jobs),
@@ -701,7 +708,8 @@ async def get_miner_earnings(
         from ...infrastructure.services.jobs import JobService
 
         job_service = JobService(session)
-        completed_jobs = job_service.list_jobs(
+        completed_jobs = await run_in_threadpool(
+            job_service.list_jobs,
             assigned_miner_id=miner_id,
             state="COMPLETED",
             limit=10000,
@@ -717,7 +725,12 @@ async def get_miner_earnings(
         payments = {}
         if payment_ids:
             payments = {
-                p.id: p for p in session.execute(select(JobPayment).where(col(JobPayment.id).in_(payment_ids))).scalars().all()
+                p.id: p
+                for p in (
+                    await run_in_threadpool(
+                        lambda: session.execute(select(JobPayment).where(col(JobPayment.id).in_(payment_ids))).scalars().all()
+                    )
+                )
             }
         for job in completed_jobs:
             payment = payments.get(job.payment_id) if job.payment_id else None
@@ -778,7 +791,7 @@ async def update_miner_capabilities(
     """Update capabilities for a registered miner"""
     try:
         service = MinerService(session)
-        record = service.register(user["sub"], req)
+        record = await run_in_threadpool(service.register, user["sub"], req)
         return {
             "miner_id": miner_id,
             "status": "updated",
@@ -805,7 +818,7 @@ async def deregister_miner(
     """Deregister a miner from the coordinator"""
     try:
         service = MinerService(session)
-        service.deregister(miner_id)
+        await run_in_threadpool(service.deregister, miner_id)
         return {"miner_id": miner_id, "status": "deregistered"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found") from None
@@ -831,7 +844,7 @@ async def fail_job(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         job_service = JobService(session)
-        job_service.fail_job(job_id, user["sub"], fail_req.error_message)
+        await run_in_threadpool(job_service.fail_job, job_id, user["sub"], fail_req.error_message)
 
         # Record the failure in the reputation service.
         try:
@@ -903,11 +916,11 @@ async def complete_job(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         job_service = JobService(session)
-        job = job_service.get_job(job_id)
+        job = await run_in_threadpool(job_service.get_job, job_id)
         if job.assigned_miner_id != user["sub"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
         result = {"output": complete_req.output, "receipt": _strip_miner_receipt_verdicts(complete_req.receipt)}
-        job = job_service.execute_job(job_id, result)
+        job = await run_in_threadpool(job_service.execute_job, job_id, result)
 
         # Record completion in the reputation service so dispatch can use it.
         receipt = complete_req.receipt or {}
@@ -919,7 +932,7 @@ async def complete_job(
             response_time = (float(receipt["completed_at"]) - float(receipt["started_at"])) * 1000.0
         # Earnings come from the persisted payment row — the request body's
         # receipt["price"] is caller-controlled and must not feed reputation.
-        payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+        payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
         earnings = Decimal(str(payment.amount)) if payment is not None and payment.amount is not None else Decimal("0")
         try:
             reputation_service = ReputationService(session)
