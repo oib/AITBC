@@ -34,6 +34,9 @@ the shared hub-side lock so all coders see it). Parallel plays call
 
 ## Wallet funding (operator rule)
 Each host's `default` is the play wallet; `STRESS_WALLET_<host>` overrides.
+- `STRESS_OPERATOR_WALLET` / `STRESS_OPERATOR_WALLET_<host>` — operator-signed leaves (agent-staking/bounty, #709): custody-store name, default `agent-econ-operator`; file lives at `/var/lib/aitbc/wallets/<name>.json` (node1-only today — pin those plays to node1 or stage the key deliberately)
+- `STRESS_OPERATOR_WALLET_PATH` — explicit operator wallet file path override
+- Admin JWT (#710): `aitbc auth login --wallet <w> --password-file <pw> --credential-name admin --coordinator-url https://hub.aitbc.bubuit.net/c` mints/refreshes the coordinator admin JWT that `bond`/market routes require (expiry → 401, re-login not a code fix)
 New exercise wallets may be funded from treasury (coin-grant `0xCE6C…` /
 island genesis) — dev-fleet funding, no escalation. Top-up at ~50k balance
 floor, logged as a TRANSFER play. `insufficient balance` → top-up, not a
