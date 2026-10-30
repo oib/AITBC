@@ -26,7 +26,7 @@ OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
 
 @router.post("/consensus/node/register")
 @rate_limit(rate=50, per=60)
-async def register_consensus_node(request: Request, node_data: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
+def register_consensus_node(request: Request, node_data: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
     """Register a node in the consensus network.
 
     Phase C admin/operator-only: consensus membership changes are
@@ -43,9 +43,7 @@ async def register_consensus_node(request: Request, node_data: dict[str, Any], p
 
 @router.post("/consensus/proposal/create")
 @rate_limit(rate=50, per=60)
-async def create_consensus_proposal(
-    request: Request, proposal_data: dict[str, Any], principal: OptionalAgent
-) -> dict[str, Any]:
+def create_consensus_proposal(request: Request, proposal_data: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
     """Create a new consensus proposal (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "consensus_proposal_create")
     try:
@@ -58,7 +56,7 @@ async def create_consensus_proposal(
 
 @router.post("/consensus/proposal/{proposal_id}/vote")
 @rate_limit(rate=50, per=60)
-async def cast_consensus_vote(
+def cast_consensus_vote(
     request: Request, proposal_id: str, node_id: str, vote: bool, principal: OptionalAgent
 ) -> dict[str, Any]:
     """Cast a vote for a proposal (Phase C admin/operator-only — the
@@ -74,7 +72,7 @@ async def cast_consensus_vote(
 
 @router.get("/consensus/proposal/{proposal_id}")
 @rate_limit(rate=200, per=60)
-async def get_proposal_status(request: Request, proposal_id: str, principal: OptionalAgent) -> dict[str, Any]:
+def get_proposal_status(request: Request, proposal_id: str, principal: OptionalAgent) -> dict[str, Any]:
     """Get proposal status (Phase C: any resolved principal)."""
     authorize_any_principal(principal, "consensus_proposal_status")
     try:
@@ -87,7 +85,7 @@ async def get_proposal_status(request: Request, proposal_id: str, principal: Opt
 
 @router.put("/consensus/algorithm")
 @rate_limit(rate=50, per=60)
-async def set_consensus_algorithm(
+def set_consensus_algorithm(
     request: Request,
     principal: OptionalAgent,
     algorithm: str = Query(..., description="Consensus algorithm"),
@@ -104,7 +102,7 @@ async def set_consensus_algorithm(
 
 @router.get("/consensus/statistics")
 @rate_limit(rate=200, per=60)
-async def get_consensus_statistics(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def get_consensus_statistics(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Get consensus statistics (Phase C: any resolved principal — leaks
     internal consensus state to anonymous callers otherwise)."""
     authorize_any_principal(principal, "consensus_statistics")
@@ -118,7 +116,7 @@ async def get_consensus_statistics(request: Request, principal: OptionalAgent) -
 
 @router.put("/consensus/node/{node_id}/status")
 @rate_limit(rate=50, per=60)
-async def update_node_status(request: Request, node_id: str, is_active: bool, principal: OptionalAgent) -> dict[str, Any]:
+def update_node_status(request: Request, node_id: str, is_active: bool, principal: OptionalAgent) -> dict[str, Any]:
     """Update node status (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "consensus_node_status")
     try:
@@ -131,7 +129,7 @@ async def update_node_status(request: Request, node_id: str, is_active: bool, pr
 
 @router.get("/advanced-features/status")
 @rate_limit(rate=200, per=60)
-async def get_advanced_features_status(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def get_advanced_features_status(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Get status of all advanced features"""
     authorize_any_principal(principal, "advanced_features_status")
     try:

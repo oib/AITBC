@@ -168,7 +168,7 @@ def _coerce_bool(value: Any) -> bool:
     return str(value).lower() in ("true", "1", "yes")
 
 
-async def _sender_bound_identity(sender: str, recovered: str) -> str | None:
+def _sender_bound_identity(sender: str, recovered: str) -> str | None:
     """Check the sender's registry-bound identity against the recovered signer.
 
     Returns the failure reason (``unbound_sender`` | ``identity_mismatch``)
@@ -224,7 +224,7 @@ async def _verify_message_signature(req: SendMessageRequest) -> tuple[str, str |
     recovered = recover_agent_envelope_signer(req.signing_payload(), req.signature)
     if recovered is None or canonical_address(recovered) != canonical_address(req.signer):
         return "invalid", "invalid_signature"
-    identity_failure = await _sender_bound_identity(req.sender, recovered)
+    identity_failure = _sender_bound_identity(req.sender, recovered)
     if identity_failure is not None:
         return "invalid", identity_failure
     freshness_failure = await _check_envelope_freshness(req)
@@ -767,7 +767,7 @@ def get_load_balancer_stats(request: Request, principal: OptionalAgent) -> dict[
 
 @router.get("/registry/stats")
 @rate_limit(rate=200, per=60)
-async def get_registry_stats(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def get_registry_stats(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Get agent registry statistics.
 
     Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
@@ -788,7 +788,7 @@ async def get_registry_stats(request: Request, principal: OptionalAgent) -> dict
 
 @router.get("/agents/service/{service}")
 @rate_limit(rate=200, per=60)
-async def get_agents_by_service(request: Request, service: str) -> dict[str, Any]:
+def get_agents_by_service(request: Request, service: str) -> dict[str, Any]:
     """Get agents that provide a specific service"""
     try:
         if not state.agent_registry:
@@ -810,7 +810,7 @@ async def get_agents_by_service(request: Request, service: str) -> dict[str, Any
 
 @router.get("/agents/capability/{capability}")
 @rate_limit(rate=200, per=60)
-async def get_agents_by_capability(request: Request, capability: str) -> dict[str, Any]:
+def get_agents_by_capability(request: Request, capability: str) -> dict[str, Any]:
     """Get agents that have a specific capability"""
     try:
         if not state.agent_registry:
