@@ -1,7 +1,8 @@
 """Coordinator API main entry point."""
 
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+import time
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, FastAPI, Request
@@ -12,6 +13,7 @@ from prometheus_client import Counter, Histogram, generate_latest, make_asgi_app
 from prometheus_client.core import CollectorRegistry
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from slowapi.util import get_remote_address
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
@@ -498,6 +500,85 @@ def _assert_production_config() -> None:
             raise RuntimeError("Production FHE provider is not available; install 'tenseal'")
 
 
+class RequestIDContextMiddleware:
+    """Set request ID in context for HTTP client propagation.
+
+    Pure ASGI rather than ``BaseHTTPMiddleware``: the decorator form spawns an
+    anyio task and copies contextvars on every request.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        setup_request_id_context(Request(scope))
+        await self.app(scope, receive, send)
+
+
+class SecurityGateMiddleware:
+    """Security middleware for input validation and logging."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
+        client_ip = get_client_ip(request)
+        scope.setdefault("state", {})["client_ip"] = client_ip
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > 10 * 1024 * 1024:
+            logger.warning("Request too large from %s: %s bytes", client_ip, content_length)
+            await JSONResponse(status_code=413, content={"detail": "Request entity too large"})(scope, receive, send)
+            return
+        user_agent = request.headers.get("user-agent", "")
+        suspicious_patterns = ["sqlmap", "nmap", "nikto", "burp"]
+        for pattern in suspicious_patterns:
+            if pattern.lower() in user_agent.lower():
+                logger.warning("Suspicious user agent from %s: %s", client_ip, user_agent)
+                await JSONResponse(status_code=403, content={"detail": "Access denied"})(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
+class APIMetricsMiddleware:
+    """API request/error counters and response-time collection."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        start_time = time.perf_counter()
+        metrics_collector.increment_api_requests()
+        status_code = 500
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+            if status_code >= 400:
+                metrics_collector.increment_api_errors()
+        except Exception:
+            metrics_collector.increment_api_errors()
+            raise
+        finally:
+            duration = time.perf_counter() - start_time
+            metrics_collector.record_api_response_time(duration)
+            metrics_collector.update_cache_stats(cache_manager.get_stats())
+
+
 def _add_middleware(app: FastAPI) -> None:
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PerformanceLoggingMiddleware)
@@ -513,45 +594,9 @@ def _add_middleware(app: FastAPI) -> None:
             "Authentication middleware disabled (test_mode=%s, auth_enabled=%s)", settings.test_mode, settings.auth_enabled
         )
 
-    @app.middleware("http")
-    async def request_id_context_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        """Set request ID in context for HTTP client propagation."""
-        setup_request_id_context(request)
-        return await call_next(request)
-
-    @app.middleware("http")
-    async def security_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        """Security middleware for input validation and logging."""
-        client_ip = get_client_ip(request)
-        request.state.client_ip = client_ip
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > 10 * 1024 * 1024:
-            logger.warning("Request too large from %s: %s bytes", client_ip, content_length)
-            return JSONResponse(status_code=413, content={"detail": "Request entity too large"})
-        user_agent = request.headers.get("user-agent", "")
-        suspicious_patterns = ["sqlmap", "nmap", "nikto", "burp"]
-        for pattern in suspicious_patterns:
-            if pattern.lower() in user_agent.lower():
-                logger.warning("Suspicious user agent from %s: %s", client_ip, user_agent)
-                return JSONResponse(status_code=403, content={"detail": "Access denied"})
-        return await call_next(request)
-
-    @app.middleware("http")
-    async def request_metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        start_time = __import__("time").perf_counter()
-        metrics_collector.increment_api_requests()
-        try:
-            response = await call_next(request)
-            if response.status_code >= 400:
-                metrics_collector.increment_api_errors()
-            return response
-        except Exception:
-            metrics_collector.increment_api_errors()
-            raise
-        finally:
-            duration = __import__("time").perf_counter() - start_time
-            metrics_collector.record_api_response_time(duration)
-            metrics_collector.update_cache_stats(cache_manager.get_stats())
+    app.add_middleware(RequestIDContextMiddleware)
+    app.add_middleware(SecurityGateMiddleware)
+    app.add_middleware(APIMetricsMiddleware)
 
 
 def _register_rate_limit_metrics(app: FastAPI) -> None:
