@@ -23,7 +23,7 @@ from typing import Annotated, Any, TypeVar, cast
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from aitbc.aitbc_logging import get_logger
 
@@ -46,7 +46,7 @@ class AuthenticationError(Exception):
 # ---------------------------------------------------------------------------
 
 
-class AuthMiddleware(BaseHTTPMiddleware):
+class AuthMiddleware:
     """Middleware to enforce auth requirements based on route security matrix.
 
     This middleware automatically:
@@ -55,15 +55,30 @@ class AuthMiddleware(BaseHTTPMiddleware):
     2. Verifies token/API-key validity
     3. Checks role requirements from security matrix
     4. Adds user info to request state
+
+    Pure ASGI rather than ``BaseHTTPMiddleware``: the base class spawns an
+    anyio task and copies contextvars on every request.
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def _respond(self, response: Response, scope: Scope, receive: Receive, send: Send) -> None:
+        await response(scope, receive, send)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         path = request.url.path
 
         # Skip auth for public routes
         auth_level = get_auth_level(path, request.method)
         if auth_level == AuthLevel.NONE:
-            return cast(Response, await call_next(request))
+            await self.app(scope, receive, send)
+            return
 
         authorization = request.headers.get("Authorization")
         if authorization and authorization.startswith("Bearer "):
@@ -75,40 +90,66 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
                 user_role = payload.get("role")
                 if not check_role_match(auth_level, user_role):
-                    return Response(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        content='{"detail": "Forbidden"}',
-                        media_type="application/json",
+                    await self._respond(
+                        Response(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            content='{"detail": "Forbidden"}',
+                            media_type="application/json",
+                        ),
+                        scope,
+                        receive,
+                        send,
                     )
+                    return
 
                 # Add user info to request state using the canonical `sub` claim,
                 # falling back to the legacy `user_id` claim for compatibility.
-                request.state.user = payload
-                request.state.user_id = payload.get("sub") or payload.get("user_id")
-                request.state.user_role = user_role
-                return cast(Response, await call_next(request))
+                state = scope.setdefault("state", {})
+                state["user"] = payload
+                state["user_id"] = payload.get("sub") or payload.get("user_id")
+                state["user_role"] = user_role
+                await self.app(scope, receive, send)
+                return
 
             except HTTPException as exc:
                 if exc.status_code == status.HTTP_403_FORBIDDEN:
-                    return Response(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        content='{"detail": "Forbidden"}',
-                        media_type="application/json",
+                    await self._respond(
+                        Response(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            content='{"detail": "Forbidden"}',
+                            media_type="application/json",
+                        ),
+                        scope,
+                        receive,
+                        send,
                     )
-                return Response(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content='{"detail": "Invalid token"}',
-                    media_type="application/json",
-                    headers={"WWW-Authenticate": "Bearer"},
+                    return
+                await self._respond(
+                    Response(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        content='{"detail": "Invalid token"}',
+                        media_type="application/json",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    ),
+                    scope,
+                    receive,
+                    send,
                 )
+                return
             except (ValueError, TypeError) as e:
                 logger.error("AuthMiddleware error: %s", e)
-                return Response(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content='{"detail": "Invalid token"}',
-                    media_type="application/json",
-                    headers={"WWW-Authenticate": "Bearer"},
+                await self._respond(
+                    Response(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        content='{"detail": "Invalid token"}',
+                        media_type="application/json",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    ),
+                    scope,
+                    receive,
+                    send,
                 )
+                return
 
         # Fallback to miner API key authentication via X-Api-Key header. This
         # lets production miners authenticate on routes like /v1/miners/*
@@ -120,16 +161,24 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 user = require_miner_api_key(request)
                 user_role = user.get("role")
                 if not check_role_match(auth_level, user_role):
-                    return Response(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        content='{"detail": "Forbidden"}',
-                        media_type="application/json",
+                    await self._respond(
+                        Response(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            content='{"detail": "Forbidden"}',
+                            media_type="application/json",
+                        ),
+                        scope,
+                        receive,
+                        send,
                     )
+                    return
 
-                request.state.user = user
-                request.state.user_id = user.get("sub")
-                request.state.user_role = user_role
-                return cast(Response, await call_next(request))
+                state = scope.setdefault("state", {})
+                state["user"] = user
+                state["user_id"] = user.get("sub")
+                state["user_role"] = user_role
+                await self.app(scope, receive, send)
+                return
             except HTTPException as exc:
                 # `exc.detail` says which of the two it was, and they need different actions:
                 # "No miner API keys configured" is a deployment fault, "Invalid or missing API
@@ -139,24 +188,41 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 # The reason is logged, not returned: an unauthenticated caller learns nothing
                 # about the server's configuration, and the operator reads the journal anyway.
                 logger.warning("X-Api-Key rejected on %s: %s", request.url.path, exc.detail)
-                return Response(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content='{"detail": "Invalid API key"}',
-                    media_type="application/json",
+                await self._respond(
+                    Response(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        content='{"detail": "Invalid API key"}',
+                        media_type="application/json",
+                    ),
+                    scope,
+                    receive,
+                    send,
                 )
+                return
             except (ValueError, TypeError) as e:
                 logger.error("AuthMiddleware API key error: %s", e)
-                return Response(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    content='{"detail": "Invalid API key"}',
-                    media_type="application/json",
+                await self._respond(
+                    Response(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        content='{"detail": "Invalid API key"}',
+                        media_type="application/json",
+                    ),
+                    scope,
+                    receive,
+                    send,
                 )
+                return
 
-        return Response(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            content='{"detail": "Authentication required"}',
-            media_type="application/json",
-            headers={"WWW-Authenticate": "Bearer"},
+        await self._respond(
+            Response(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content='{"detail": "Authentication required"}',
+                media_type="application/json",
+                headers={"WWW-Authenticate": "Bearer"},
+            ),
+            scope,
+            receive,
+            send,
         )
 
 
