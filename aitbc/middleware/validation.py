@@ -2,51 +2,66 @@
 Request validation middleware for FastAPI
 """
 
-from collections.abc import Awaitable, Callable
-
-from fastapi import HTTPException, Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from fastapi.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class RequestValidationMiddleware(BaseHTTPMiddleware):
-    """Middleware to validate incoming requests."""
+class RequestValidationMiddleware:
+    """Middleware to validate incoming requests.
+
+    Pure ASGI rather than ``BaseHTTPMiddleware``: the base class spawns an
+    anyio task and copies contextvars on every request.
+    """
 
     def __init__(
         self,
         app: ASGIApp,
         max_request_size: int = 10 * 1024 * 1024,  # 10MB default
     ) -> None:
-        super().__init__(app)
+        self.app = app
         self.max_request_size = max_request_size
 
-    async def _read_body_with_limit(self, request: Request) -> bytes:
-        """Read the request body up to max_request_size + 1 bytes."""
-        body = b""
-        limit = self.max_request_size + 1
-        async for chunk in request.stream():
-            body += chunk
-            if len(body) > limit:
-                logger.warning(
-                    "Request too large: client=%s",
-                    request.client.host if request.client else "unknown",
-                )
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"Request too large. Maximum size is {self.max_request_size} bytes",
-                )
-        return body
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        client = scope.get("client")
+        client_host = client[0] if client else "unknown"
+
         # Read the actual request body; this enforces the size limit regardless of
         # a chunked transfer or a spoofed Content-Length header.
-        request._body = await self._read_body_with_limit(request)
+        body = b""
+        limit = self.max_request_size + 1
+        more_body = True
+        while more_body:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            if message["type"] != "http.request":
+                continue
+            body += message.get("body", b"")
+            more_body = message.get("more_body", False)
+            if len(body) > limit:
+                logger.warning("Request too large: client=%s", client_host)
+                await JSONResponse(
+                    status_code=413,
+                    content={"detail": f"Request too large. Maximum size is {self.max_request_size} bytes"},
+                )(scope, receive, send)
+                return
 
-        # Process request
-        response = await call_next(request)
+        # Replay the buffered body to the downstream app.
+        body_sent = False
 
-        return response
+        async def replay_receive() -> Message:
+            nonlocal body_sent
+            if not body_sent:
+                body_sent = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            return await receive()
+
+        await self.app(scope, replay_receive, send)
