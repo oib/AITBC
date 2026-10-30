@@ -1348,19 +1348,27 @@ class StateTransition:
         # dedup would reject the very txs it is asked to re-apply, so it opts
         # out via skip_dedup. That call site is the only one allowed to.
         if not skip_dedup:
-            if tx_hash in self._processed_tx_hashes:
+            # One row lookup drives both checks. A ``status=rejected``
+            # writeback is a verdict, not a processed transaction — the
+            # in-memory set is not status-aware, so a hash it holds from an
+            # earlier rejected apply must fall through to re-application
+            # rather than firing replay (Refs #712 follow-up; same family
+            # as #704's DB-side fix).
+            persisted_row = session.exec(
+                select(Transaction.tx_hash, Transaction.status).where(
+                    Transaction.chain_id == chain_id,
+                    Transaction.tx_hash == tx_hash,
+                )
+            ).first()
+            persisted_status = persisted_row[1] if persisted_row is not None else None
+            if persisted_status == "rejected":
+                self._processed_tx_hashes.discard(tx_hash)
+            if tx_hash in self._processed_tx_hashes and persisted_status != "rejected":
                 logger.warning("Replay attack detected: Transaction %s already processed", tx_hash)
                 return (False, f"Transaction {tx_hash} already processed (replay attack)")
             # Persistent replay protection: the in-memory set above is lost on
             # restart; the DB unique constraint on (chain_id, tx_hash) is not.
-            persisted_tx = session.exec(
-                select(Transaction.tx_hash).where(
-                    Transaction.chain_id == chain_id,
-                    Transaction.tx_hash == tx_hash,
-                    Transaction.status != "rejected",
-                )
-            ).first()
-            if persisted_tx is not None:
+            if persisted_row is not None and persisted_status != "rejected":
                 logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
                 return (False, f"Transaction {tx_hash} already processed (replay attack)")
         sender_addr = _to_ait_address(tx_data.get("from") or "")
