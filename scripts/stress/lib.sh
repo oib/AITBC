@@ -7,6 +7,11 @@ set -euo pipefail
 # Plays accept: --host <h> --chain <id> --wallet <name> --amount <units>
 #   --rpc-url <url> --tag <label>
 HOST="$(hostname -s)"; CHAIN="bc-2"; WALLET="${STRESS_WALLET:-default}"
+# Operator-signed leaves (agent-staking/bounty) must sign with the
+# AGENT_ECONOMICS_OPERATOR wallet, not the play wallet (Refs #709).
+OPERATOR_WALLET="${STRESS_OPERATOR_WALLET:-agent-econ-operator}"
+opw="STRESS_OPERATOR_WALLET_${HOST}"; OPERATOR_WALLET="${!opw:-$OPERATOR_WALLET}"
+OPERATOR_WALLET_PATH="${STRESS_OPERATOR_WALLET_PATH:-/var/lib/aitbc/wallets/${OPERATOR_WALLET}.json}"
 AMOUNT="100"; RPC_URL=""; TAG=""
 while [ $# -gt 0 ]; do case "$1" in
   --host) HOST="$2"; shift 2;;
