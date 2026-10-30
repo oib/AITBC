@@ -193,7 +193,7 @@ async def generate_transparency_report(
 
 @router.post("/slash-appeals", status_code=201)
 @rate_limit(rate=60, per=60)
-async def submit_slash_appeal(
+def submit_slash_appeal(
     request: Request,
     appeal_request: SlashAppealRequest,
     session: Annotated[Session, Depends(get_session)],

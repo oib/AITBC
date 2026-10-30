@@ -28,7 +28,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/debug-settings", summary="Debug settings")
 @rate_limit(rate=100, per=60)
-async def debug_settings(request: Request, user: AdminDep) -> dict:
+def debug_settings(request: Request, user: AdminDep) -> dict:
     def mask_keys(keys: list[str]) -> list[str]:
         return [key[:8] + "..." if len(key) > 8 else "***" for key in keys]
 
@@ -42,7 +42,7 @@ async def debug_settings(request: Request, user: AdminDep) -> dict:
 
 @router.post("/debug/create-test-miner", summary="Create a test miner for debugging")
 @rate_limit(rate=10, per=60)
-async def create_test_miner(
+def create_test_miner(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
@@ -102,7 +102,7 @@ async def create_test_miner(
 @router.get("/stats", summary="Get coordinator stats")
 @rate_limit(rate=100, per=60)
 @cached(**get_cache_config("job_list"))
-async def get_stats(
+def get_stats(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     # OLD: api_key: str = Header(default=None, alias="X-Api-Key")
@@ -132,7 +132,7 @@ async def get_stats(
 
 @router.get("/jobs", summary="List jobs")
 @rate_limit(rate=100, per=60)
-async def list_jobs(
+def list_jobs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
@@ -158,7 +158,7 @@ async def list_jobs(
 
 @router.get("/miners", summary="List miners")
 @rate_limit(rate=100, per=60)
-async def list_miners(
+def list_miners(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
@@ -190,7 +190,7 @@ async def list_miners(
 
 @router.get("/status", summary="Get system status", response_model=None)
 @rate_limit(rate=100, per=60)
-async def get_system_status(
+def get_system_status(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     # OLD: admin_key: Annotated[str, Depends(require_admin_key())],
@@ -667,7 +667,7 @@ def collect_sweeper_report() -> dict[str, Any]:
 
 @router.get("/sweepers", summary="List background sweeper tasks, their status and configuration")
 @rate_limit(rate=60, per=60)
-async def list_sweepers(request: Request, user: AdminDep) -> dict[str, Any]:
+def list_sweepers(request: Request, user: AdminDep) -> dict[str, Any]:
     """Report every background sweeper this coordinator manages.
 
     Read-only: it reports what the tasks are doing, it does not start, stop or
