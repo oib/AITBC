@@ -9,6 +9,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from coordinator_api.contexts.agent_identity.services.manager import AgentIdentityManager
@@ -118,7 +119,7 @@ async def get_cross_chain_offer_details(
     """Get detailed cross-chain information for a specific offer"""
     try:
         stmt = select(GlobalMarketOffer).where(GlobalMarketOffer.id == offer_id)
-        offer = session.execute(stmt).scalars().first()
+        offer = await run_in_threadpool(lambda: session.execute(stmt).scalars().first())
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")
         cross_chain_availability = await integration_service._get_cross_chain_availability(offer)

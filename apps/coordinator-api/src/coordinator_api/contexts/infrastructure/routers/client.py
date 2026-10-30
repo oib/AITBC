@@ -147,7 +147,7 @@ async def _submit_job_impl(
         )
 
     service = JobService(session)
-    job = service.create_job(user["sub"], req)
+    job = await run_in_threadpool(service.create_job, user["sub"], req)
     if req.payment_amount and req.payment_amount > 0:
         if req.buyer_lock_signature:
             # One-step submission: the client has already signed the ESCROW_LOCK tx.
@@ -175,14 +175,14 @@ async def _submit_job_impl(
                 payment = await payment_service.create_payment(user["sub"], job.id, payment_create)
                 job.payment_id = payment.id
                 job.payment_status = payment.status
-                session.commit()
-                session.refresh(job)
+                await run_in_threadpool(session.commit)
+                await run_in_threadpool(session.refresh, job)
                 logger.info("Payment created for job %s: %s", job.id, payment.id)
             except Exception as e:
                 # Rollback any partial payment changes before marking as skipped.
                 # This prevents orphaned payment records from a partially-successful create_payment.
-                session.rollback()
-                session.refresh(job)
+                await run_in_threadpool(session.rollback)
+                await run_in_threadpool(session.refresh, job)
                 # The job is still created so the client can retry the escrow against it,
                 # but it will not be dispatched while payment_status is "skipped" (G4).
                 logger.warning(
@@ -191,8 +191,8 @@ async def _submit_job_impl(
                     e,
                 )
                 job.payment_status = "skipped"
-                session.commit()
-                session.refresh(job)
+                await run_in_threadpool(session.commit)
+                await run_in_threadpool(session.refresh, job)
         else:
             # Two-step submission: the job is created with quoted terms but no escrow yet.
             # The client must call POST /v1/payments with a signed ESCROW_LOCK to secure it.
@@ -451,18 +451,18 @@ async def _accept_job_impl(
 ) -> JobView:
     service = JobService(session)
     try:
-        job = service.get_job(job_id, client_id=user["sub"])
+        job = await run_in_threadpool(service.get_job, job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
-    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     if not payment or payment.status != PENDING_ACCEPTANCE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
         )
-    payment = session.get(JobPayment, job.payment_id)
+    payment = await run_in_threadpool(session.get, JobPayment, job.payment_id)
     assert payment is not None
-    receipt = PaymentService(session)._get_receipt_of_record(job)
+    receipt = await run_in_threadpool(PaymentService(session)._get_receipt_of_record, job)
     if not _computation_is_correct(receipt, job):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -481,8 +481,8 @@ async def _accept_job_impl(
         )
     job.payment_status = payment.status
     session.add(job)
-    session.commit()
-    session.refresh(job)
+    await run_in_threadpool(session.commit)
+    await run_in_threadpool(session.refresh, job)
     logger.info("Client %s accepted job %s; released payment %s", user["sub"], job.id, job.payment_id)
     return service.to_view(job)  # type: ignore[no-any-return]
 
