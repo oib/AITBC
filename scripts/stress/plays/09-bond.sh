@@ -11,6 +11,9 @@ dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstri
 # bond needs a stored coordinator JWT — auth login once (idempotent)
 echo x | "$AITBC_BIN" auth login --wallet "$WALLET" --password-stdin >/dev/null 2>&1 || true
 out=$("$AITBC_BIN" --output=json bond create --provider-id "$pid" --amount "$dec" 2>&1) || fail bond "bond create failed: $out"
+# pending->active: create under required_amount leaves the bond pending;
+# top-up to meet it transitions to active.
+out=$("$AITBC_BIN" --output=json bond top-up --provider-id "$pid" --amount "$dec" 2>&1) || true
 # Bond is coordinator-state — verify the record transitions pending->active
 # (the BOND_LOCK chain emission may not fire per-create; bond status is the
 # honest confirmation signal for this surface).
