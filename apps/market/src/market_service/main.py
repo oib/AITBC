@@ -185,7 +185,7 @@ async def _fail_operation(key: str, attempt: int, error: str, *, terminal: bool 
 
 
 @app.get("/health")
-async def health() -> HealthResponse:
+def health() -> HealthResponse:
     """Health check endpoint"""
     return HealthResponse(**create_simple_health_response("market-service"))
 
@@ -234,19 +234,19 @@ def _check_operations_db() -> None:
 
 
 @app.get("/live")
-async def live() -> dict[str, str]:
+def live() -> dict[str, str]:
     """Liveness check - verifies service is not stuck"""
     return {"status": "alive", "service": "market-service"}
 
 
 @app.get("/v1/market/status")
-async def market_status() -> dict[str, str]:
+def market_status() -> dict[str, str]:
     """Get market status"""
     return {"status": "operational", "service": "market-service", "message": "Market service is running"}
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
-async def metrics() -> PlainTextResponse:
+def metrics() -> PlainTextResponse:
     """Prometheus metrics endpoint"""
     return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
@@ -740,7 +740,7 @@ async def calculate_dynamic_pricing(
 
 
 @app.get("/v1/market/plugins")
-async def get_plugins(plugin_type: str | None = None, status: str = "approved") -> Any:
+def get_plugins(plugin_type: str | None = None, status: str = "approved") -> Any:
     """Get market plugins"""
     logger.info("GET /v1/market/plugins called with type=%s, status=%s", plugin_type, status)
     return {
@@ -1547,7 +1547,7 @@ _MARKET_GOVERNANCE_PARAMETERS: dict[str, type] = {
 
 
 @app.post("/v1/market/parameters/apply")
-async def apply_market_parameter(
+def apply_market_parameter(
     request: ParameterChangeRequest,
     authenticated: Annotated[dict[str, Any], Depends(require_market_api_key)],
 ) -> dict[str, Any]:
