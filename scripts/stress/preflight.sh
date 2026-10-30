@@ -10,9 +10,12 @@ MIN_BAL="${STRESS_MIN_BAL:-50000}"
 OUT="$STATE_DIR/stress-preflight.json"
 mkdir -p "$STATE_DIR"
 rows=(); rc=0
-PROBE='b=$({ set -a; [ -f /etc/aitbc/aitbc-blockchain-rpc.env ] && . /etc/aitbc/aitbc-blockchain-rpc.env; [ -f /etc/aitbc/blockchain-secrets.env ] && . /etc/aitbc/blockchain-secrets.env; set +a; export AITBC_WALLET_DIR="${AITBC_WALLET_DIR:-/var/lib/aitbc/wallets}"; /usr/local/bin/aitbc --output=json wallet balance "'"$WALLET"'" 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin).get(\"balance\",\"0\"))" 2>/dev/null; } || echo 0); a=$(systemctl is-active aitbc-blockchain-node 2>/dev/null||echo ?); k=$( { set -a; . /etc/aitbc/aitbc-blockchain-rpc.env 2>/dev/null; . /etc/aitbc/blockchain-secrets.env 2>/dev/null; set +a; code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -H "X-API-Key: ${BRIDGE_LEDGER_API_KEY:-none}" https://hub.aitbc.bubuit.net/rpc/bridge/ledger/pending); [ "$code" = 200 ] && echo 200 || echo "$code"; } ); printf "{\"node\":\"%s\",\"balance\":%s,\"ledger\":%s}" "$a" "${b:-0}" "${k:-000}"'
+LEDGER="${STRESS_LEDGER_URL:-https://hub.aitbc.bubuit.net}"
+PROBE='b=$(/usr/local/bin/aitbc --output=json wallet --wallet-name "'"$WALLET"'" balance 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin).get(\"balance\",0))" 2>/dev/null || echo 0); a=$(systemctl is-active aitbc-blockchain-node 2>/dev/null||echo ?); k=$( { set -a; . /etc/aitbc/aitbc-blockchain-rpc.env 2>/dev/null; . /etc/aitbc/blockchain-secrets.env 2>/dev/null; set +a; code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -H "X-API-Key: ${BRIDGE_LEDGER_API_KEY:-none}" "$LEDGER/rpc/bridge/ledger/pending?target_chain=bc-2-island-1"); [ "$code" = 200 ] && echo 200 || echo "$code"; } ); printf "{\"node\":\"%s\",\"balance\":%s,\"ledger\":%s}" "$a" "${b:-0}" "${k:-000}"'
 for h in $HOSTS; do
   url=$(stress_rpc_url "$h")
+  [ "$h" = "hub" ] && LEDGER=http://127.0.0.1:8202 || LEDGER=https://hub.aitbc.bubuit.net
+  export LEDGER
   ht=$(curl -sf --max-time 10 "$url/rpc/status" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("height",-1))' 2>/dev/null || echo -1)
   if [ "$(hostname -s)" = "$h" ]; then row=$(bash -c "$PROBE" 2>/dev/null || echo '{"node":"probe-fail","balance":0,"ledger":"000"}')
   else row=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" "$PROBE" 2>/dev/null || echo '{"node":"no-ssh","balance":-1,"ledger":"no-ssh"}'); fi
