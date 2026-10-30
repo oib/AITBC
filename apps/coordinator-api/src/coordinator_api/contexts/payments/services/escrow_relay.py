@@ -22,6 +22,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
+from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, select
 
 from aitbc.network import AsyncAITBCHTTPClient
@@ -147,11 +148,11 @@ class EscrowRelayService:
 
         amount_units = self._amount_units(body.get("amount"))
         if not is_admin:
-            self._check_buyer_binding(client_id, buyer)
+            await run_in_threadpool(self._check_buyer_binding, client_id, buyer)
         self._check_amount_cap(is_admin, amount_units)
 
         lock_hash = _lock_tx_hash(lock_tx)
-        existing = self._existing_relay(client_id, job_id, lock_hash)
+        existing = await run_in_threadpool(self._existing_relay, client_id, job_id, lock_hash)
         if existing is not None:
             if existing.lock_hash != lock_hash:
                 raise HTTPException(
@@ -195,7 +196,7 @@ class EscrowRelayService:
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
         row = EscrowRelay(client_id=client_id, job_id=job_id, lock_hash=lock_hash, contract_id=contract_id)
         self.session.add(row)
-        self.session.commit()
+        await run_in_threadpool(self.session.commit)
         # Audit: one line per relay — never log lock_tx or signature content.
         logger.info(
             "Escrow relayed: client_id=%s job_id=%s contract_id=%s",
