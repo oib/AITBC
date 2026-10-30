@@ -13,6 +13,28 @@ only if it does not match an entry below. Update this file as issues land.
 - #696 shared transfer-ledger service — live (dd6a7343a + eb8b14054);
   `BRIDGE_LEDGER_URL` fleet-wide, `BRIDGE_LEDGER_API_KEY` dedicated env
 
+
+## STRESS-1 series (closed — do not refile)
+- STRESS-SYNC-1 (#712) mempool-view NULL-height tx row poisons block commit —
+  UNIQUE(tx_hash) rollback mislabeled `concurrent duplicate`; cleared by
+  deleting the poison row; fix = UPSERT tx row with block_height at commit
+- STRESS-MEMPOOL-1 (#717) in-memory `_slots` nonce index desyncs from pg
+  mempool — phantom occupancy locks the sender's next nonce until rpc restart;
+  fix = verify occupancy against pg at check time
+- STRESS-CLI-1 (#707) harness `cli wallet address <name>` positional arg —
+  resolves empty; use `wallet --wallet-name <n> balance` JSON
+- STRESS-CLI-2 (#708) stub plays echo ok/null tx_hash — 02/03/04/05/06/11/13
+  were no-ops pre-skeletons; lifecycle bodies landed 7c183c7/39c5f4d/44da2e1
+- #709/#710 operator-wallet staging + addr resolution — superseded by
+  STRESS_OPERATOR_WALLET_<host> pin (node1 -> agent-econ-operator)
+- `aitbc bounty deploy|expire` CLI signature fails require_operator_signature
+  (403) — plays use direct signed envelopes on /rpc/bounty/*; CLI fix = B lane
+- BRIDGE_REFUND emission-before-seal (#703 class) — unlock fired on an
+  unsealed lock emits a refund that dies at apply; terminal + stranded
+- Agent-stake `unbond` returns ok-shaped response while stake stays active —
+  quietly-swallowed gated refusal; maturity legs need state-verify, not just
+  exit-code
+
 ## Open / expected noise — dedupe against these
 - `AITBCJournalErrors` on node1 rpc — intermittent restart-window noise
 - node1 `bridge-headers store failed` lines — pre-existing, unrelated to stress
