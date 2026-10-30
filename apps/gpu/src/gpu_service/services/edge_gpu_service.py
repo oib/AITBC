@@ -239,7 +239,7 @@ class EdgeGPUService:
             logger.error("Failed to discover GPUs for miner %s: %s", miner_id, e)
             return {"miner_id": miner_id, "gpus": [], "registered": 0, "edge_optimized": 0, "error": str(e)}
 
-    async def optimize_inference_for_edge(self, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
+    def optimize_inference_for_edge(self, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
         """Optimize ML inference request for edge GPU"""
         return {"gpu_id": gpu_id, "model_name": model_name, "optimized": True, "latency_reduction": 0.0}
 
