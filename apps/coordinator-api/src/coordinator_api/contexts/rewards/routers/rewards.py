@@ -135,7 +135,7 @@ async def get_reward_profile(
     """Get comprehensive reward profile for an agent"""
     reward_engine = RewardEngine(session)
     try:
-        profile_data = await run_in_threadpool(asyncio.run, reward_engine.get_reward_summary(agent_id))
+        profile_data = await run_in_threadpool(reward_engine.get_reward_summary, agent_id)
         if "error" in profile_data:
             raise HTTPException(status_code=404, detail=profile_data["error"])
         return RewardProfileResponse(**profile_data)
@@ -155,7 +155,7 @@ async def create_reward_profile(
     """Create a new reward profile for an agent"""
     reward_engine = RewardEngine(session)
     try:
-        profile = await run_in_threadpool(asyncio.run, reward_engine.create_reward_profile(agent_id))
+        profile = await run_in_threadpool(reward_engine.create_reward_profile, agent_id)
         return {
             "message": "Reward profile created successfully",
             "agent_id": profile.agent_id,

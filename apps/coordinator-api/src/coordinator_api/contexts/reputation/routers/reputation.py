@@ -152,7 +152,7 @@ async def get_reputation_profile(
     """Get comprehensive reputation profile for an agent"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
-        profile_data = await run_in_threadpool(asyncio.run, reputation_service.get_reputation_summary(agent_id))
+        profile_data = await run_in_threadpool(reputation_service.get_reputation_summary, agent_id)
         if "error" in profile_data:
             raise HTTPException(status_code=404, detail=profile_data["error"])
         return ReputationProfileResponse(**profile_data)
@@ -173,7 +173,7 @@ async def create_reputation_profile(
     _require_self_or_admin(user, agent_id)
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
-        reputation = await run_in_threadpool(asyncio.run, reputation_service.create_reputation_profile(agent_id))
+        reputation = await run_in_threadpool(reputation_service.create_reputation_profile, agent_id)
         return {
             "message": "Reputation profile created successfully",
             "agent_id": reputation.agent_id,

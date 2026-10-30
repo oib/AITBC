@@ -9,7 +9,6 @@ from sqlalchemy import select
 from sqlmodel import Session
 
 from ..domain.economic_proposal import EconomicParameterProposal, EconomicProposalStatus
-from starlette.concurrency import run_in_threadpool
 
 
 def _to_decimal(value: Decimal | str | float | int | None) -> Decimal:
@@ -34,7 +33,7 @@ class EconomicProposalService:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    async def create_proposal(
+    def create_proposal(
         self,
         proposer_id: str,
         parameter_name: str,
@@ -56,15 +55,15 @@ class EconomicProposalService:
             voting_ends=now + timedelta(days=voting_days),
         )
         self.session.add(proposal)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, proposal))
+        self.session.commit()
+        self.session.refresh(proposal)
         return proposal
 
-    async def get_proposal(self, proposal_id: str) -> EconomicParameterProposal | None:
+    def get_proposal(self, proposal_id: str) -> EconomicParameterProposal | None:
         """Get a proposal by ID."""
-        return await run_in_threadpool(self.session.get, EconomicParameterProposal, proposal_id)
+        return self.session.get(EconomicParameterProposal, proposal_id)
 
-    async def list_proposals(
+    def list_proposals(
         self,
         *,
         proposer_id: str | None = None,
@@ -82,16 +81,16 @@ class EconomicProposalService:
         if status:
             stmt = stmt.where(EconomicParameterProposal.status == status)  # type: ignore[arg-type]
         stmt = stmt.order_by(EconomicParameterProposal.created_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
-        return list((await run_in_threadpool(self.session.execute, stmt)).scalars().all())
+        return list(self.session.execute(stmt).scalars().all())
 
-    async def vote(
+    def vote(
         self,
         proposal_id: str,
         vote: str,
         voting_power: float = 0.0,
     ) -> EconomicParameterProposal:
         """Cast a vote on a proposal."""
-        proposal = await self.get_proposal(proposal_id)
+        proposal = self.get_proposal(proposal_id)
         if proposal is None:
             raise ValueError(f"proposal {proposal_id} not found")
 
@@ -106,13 +105,13 @@ class EconomicProposalService:
             raise ValueError(f"invalid vote: {vote}")
 
         self.session.add(proposal)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, proposal))
+        self.session.commit()
+        self.session.refresh(proposal)
         return proposal
 
-    async def execute_proposal(self, proposal_id: str) -> EconomicParameterProposal:
+    def execute_proposal(self, proposal_id: str) -> EconomicParameterProposal:
         """Mark a passed proposal as executed and move proposed_value to current_value."""
-        proposal = await self.get_proposal(proposal_id)
+        proposal = self.get_proposal(proposal_id)
         if proposal is None:
             raise ValueError(f"proposal {proposal_id} not found")
 
@@ -128,6 +127,6 @@ class EconomicProposalService:
             proposal.executed_at = _utc_now()
 
         self.session.add(proposal)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, proposal))
+        self.session.commit()
+        self.session.refresh(proposal)
         return proposal

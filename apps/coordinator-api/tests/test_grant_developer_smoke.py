@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import tempfile
 from datetime import datetime
 
@@ -22,15 +21,15 @@ def test_grant_developer_lifecycle() -> None:
 
     with Session(engine) as session:
         dev_service = DeveloperService(session)
-        developer = asyncio.run(dev_service.register(DeveloperCreate(wallet_address="0xabc123", name="Smoke Dev")))
+        developer = dev_service.register(DeveloperCreate(wallet_address="0xabc123", name="Smoke Dev"))
         assert developer.wallet_address == "0xabc123"
 
         grant_service = GrantService(session)
-        grant = asyncio.run(grant_service.create_grant(developer.id, "Smoke Grant", "description", "100.5", voting_days=1))
+        grant = grant_service.create_grant(developer.id, "Smoke Grant", "description", "100.5", voting_days=1)
         assert grant.status.value == "submitted"
         assert float(grant.requested_amount) == 100.5
 
-        voted = asyncio.run(grant_service.vote(grant.id, "for", 10.0))
+        voted = grant_service.vote(grant.id, "for", 10.0)
         assert voted.votes_for == 10.0
 
         # Move voting end into the past so the proposal can be resolved.
@@ -38,10 +37,10 @@ def test_grant_developer_lifecycle() -> None:
         session.add(voted)
         session.commit()
 
-        resolved = asyncio.run(grant_service.process_grant(voted.id))
+        resolved = grant_service.process_grant(voted.id)
         assert resolved.status.value == "approved"
         assert float(resolved.approved_amount) == 100.5
 
-        final = asyncio.run(grant_service.disburse(resolved.id, amount="100.5"))
+        final = grant_service.disburse(resolved.id, amount="100.5")
         assert final.status.value == "completed"
         assert float(final.disbursed_amount) == 100.5

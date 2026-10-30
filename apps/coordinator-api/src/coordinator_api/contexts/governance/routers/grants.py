@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Annotated
 
@@ -42,14 +41,12 @@ async def create_grant(
     """Create a new grant proposal."""
     try:
         return await run_in_threadpool(
-            asyncio.run,
-            service.create_grant(
-                developer_id=body.developer_id,
-                title=body.title,
-                description=body.description,
-                requested_amount=body.requested_amount,
-                voting_days=body.voting_days,
-            ),
+            service.create_grant,
+            developer_id=body.developer_id,
+            title=body.title,
+            description=body.description,
+            requested_amount=body.requested_amount,
+            voting_days=body.voting_days,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -72,7 +69,7 @@ async def list_grants(
     """List grant proposals."""
     try:
         return await run_in_threadpool(
-            asyncio.run, service.list_grants(developer_id=developer_id, status=status, limit=limit, offset=offset)
+            service.list_grants, developer_id=developer_id, status=status, limit=limit, offset=offset
         )
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
@@ -89,7 +86,7 @@ async def get_grant(
 ) -> GrantProposal:
     """Get a grant proposal by ID."""
     try:
-        grant = await run_in_threadpool(asyncio.run, service.get_grant(grant_id))
+        grant = await run_in_threadpool(service.get_grant, grant_id)
         if not grant:
             raise HTTPException(status_code=404, detail="Grant not found")
         return grant
@@ -112,14 +109,12 @@ async def create_milestone(
     """Add a milestone to a grant proposal."""
     try:
         return await run_in_threadpool(
-            asyncio.run,
-            service.create_milestone(
-                grant_id=grant_id,
-                title=body.title,
-                description=body.description,
-                amount=body.amount,
-                due_date=body.due_date,
-            ),
+            service.create_milestone,
+            grant_id=grant_id,
+            title=body.title,
+            description=body.description,
+            amount=body.amount,
+            due_date=body.due_date,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -138,7 +133,7 @@ async def list_milestones(
 ) -> list[GrantMilestone]:
     """List milestones for a grant proposal."""
     try:
-        return await run_in_threadpool(asyncio.run, service.get_milestones(grant_id))
+        return await run_in_threadpool(service.get_milestones, grant_id)
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -154,7 +149,7 @@ async def process_grant(
 ) -> GrantProposal:
     """Resolve a grant proposal after the voting period ends."""
     try:
-        return await run_in_threadpool(asyncio.run, service.process_grant(grant_id))
+        return await run_in_threadpool(service.process_grant, grant_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -173,9 +168,7 @@ async def vote_grant(
 ) -> GrantProposal:
     """Vote on a grant proposal."""
     try:
-        return await run_in_threadpool(
-            asyncio.run, service.vote(grant_id=grant_id, vote=body.vote, voting_power=body.voting_power)
-        )
+        return await run_in_threadpool(service.vote, grant_id=grant_id, vote=body.vote, voting_power=body.voting_power)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -194,9 +187,7 @@ async def disburse_grant(
 ) -> GrantProposal:
     """Disburse funds for a grant or milestone."""
     try:
-        return await run_in_threadpool(
-            asyncio.run, service.disburse(grant_id=grant_id, milestone_id=body.milestone_id, amount=body.amount)
-        )
+        return await run_in_threadpool(service.disburse, grant_id=grant_id, milestone_id=body.milestone_id, amount=body.amount)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:

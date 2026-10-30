@@ -28,7 +28,7 @@ async def create_bounty(
     """Create a new bounty task."""
 
     try:
-        bounty = await run_in_threadpool(asyncio.run, dev_service.create_bounty(request))
+        bounty = await run_in_threadpool(dev_service.create_bounty, request)
 
         return {
             "success": True,
@@ -59,7 +59,7 @@ async def list_bounties(
     """List bounty tasks with optional status filter."""
 
     try:
-        bounties = await run_in_threadpool(asyncio.run, dev_service.list_bounties(status, limit or 100, offset or 0))
+        bounties = await run_in_threadpool(dev_service.list_bounties, status, limit or 100, offset or 0)
 
         return [
             {
@@ -94,7 +94,7 @@ async def get_my_submissions(
     """Get all submissions by a developer."""
 
     try:
-        submissions = await run_in_threadpool(asyncio.run, dev_service.get_my_submissions(developer_id))
+        submissions = await run_in_threadpool(dev_service.get_my_submissions, developer_id)
 
         result = []
         for sub in submissions[(offset or 0) : (offset or 0) + (limit or 100)]:
@@ -129,7 +129,7 @@ async def get_bounty_statistics(
     """Get comprehensive bounty statistics."""
 
     try:
-        stats = await run_in_threadpool(asyncio.run, dev_service.get_bounty_statistics())
+        stats = await run_in_threadpool(dev_service.get_bounty_statistics)
         return stats
 
     except Exception:
@@ -147,7 +147,7 @@ async def get_bounty_details(
     """Get detailed bounty information."""
 
     try:
-        bounty_details = await run_in_threadpool(asyncio.run, dev_service.get_bounty_details(bounty_id))
+        bounty_details = await run_in_threadpool(dev_service.get_bounty_details, bounty_id)
         return bounty_details  # type: ignore[return-value]
 
     except HTTPException:
@@ -168,7 +168,7 @@ async def submit_bounty_solution(
     """Submit a solution for a bounty."""
 
     try:
-        submission = await run_in_threadpool(asyncio.run, dev_service.submit_bounty(bounty_id, request))
+        submission = await run_in_threadpool(dev_service.submit_bounty, bounty_id, request)
 
         return {
             "success": True,
@@ -220,9 +220,7 @@ async def review_bounty_submission(
                 "message": "Submission approved and reward distributed",
             }
         else:
-            submission = await run_in_threadpool(
-                asyncio.run, dev_service.reject_submission(submission_id, reviewer_address, review_notes)
-            )
+            submission = await run_in_threadpool(dev_service.reject_submission, submission_id, reviewer_address, review_notes)
             developer = await run_in_threadpool(session.get, DeveloperProfile, submission.developer_id)
             bounty = await run_in_threadpool(session.get, BountyTask, submission.bounty_id)
             return {

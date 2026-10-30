@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -46,15 +45,13 @@ async def create_proposal(
     governance_requests_total.labels(endpoint="/economic-proposals", method="POST").inc()
     try:
         return await run_in_threadpool(
-            asyncio.run,
-            service.create_proposal(
-                proposer_id=payload.proposer_id,
-                parameter_name=payload.parameter_name,
-                current_value=payload.current_value,
-                proposed_value=payload.proposed_value,
-                unit=payload.unit,
-                voting_days=payload.voting_days,
-            ),
+            service.create_proposal,
+            proposer_id=payload.proposer_id,
+            parameter_name=payload.parameter_name,
+            current_value=payload.current_value,
+            proposed_value=payload.proposed_value,
+            unit=payload.unit,
+            voting_days=payload.voting_days,
         )
     except Exception as e:
         governance_errors_total.labels(endpoint="/economic-proposals", method="POST", error_type="internal").inc()
@@ -73,7 +70,7 @@ async def get_proposal(
     """Get an economic parameter proposal by ID."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}", method="GET").inc()
     try:
-        proposal = await run_in_threadpool(asyncio.run, service.get_proposal(proposal_id))
+        proposal = await run_in_threadpool(service.get_proposal, proposal_id)
         if proposal is None:
             raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Proposal not found")
         return proposal
@@ -101,14 +98,12 @@ async def list_proposals(
     governance_requests_total.labels(endpoint="/economic-proposals", method="GET").inc()
     try:
         return await run_in_threadpool(
-            asyncio.run,
-            service.list_proposals(
-                proposer_id=proposer_id,
-                parameter_name=parameter_name,
-                status=status,
-                limit=limit,
-                offset=offset,
-            ),
+            service.list_proposals,
+            proposer_id=proposer_id,
+            parameter_name=parameter_name,
+            status=status,
+            limit=limit,
+            offset=offset,
         )
     except Exception as e:
         governance_errors_total.labels(endpoint="/economic-proposals", method="GET", error_type="internal").inc()
@@ -127,7 +122,7 @@ async def vote_on_proposal(
     """Cast a vote on an economic parameter proposal."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/votes", method="POST").inc()
     try:
-        return await run_in_threadpool(asyncio.run, service.vote(proposal_id, payload.vote, payload.voting_power))
+        return await run_in_threadpool(service.vote, proposal_id, payload.vote, payload.voting_power)
     except ValueError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/votes", method="POST", error_type="invalid_request"
@@ -151,7 +146,7 @@ async def execute_proposal(
     """Execute an economic parameter proposal after voting closes."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/execute", method="POST").inc()
     try:
-        return await run_in_threadpool(asyncio.run, service.execute_proposal(proposal_id))
+        return await run_in_threadpool(service.execute_proposal, proposal_id)
     except ValueError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/execute", method="POST", error_type="invalid_request"

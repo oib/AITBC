@@ -1,6 +1,5 @@
 """Regional hub management endpoints for the Developer Platform."""
 
-import asyncio
 from typing import Annotated, Any
 
 from aitbc.rate_limiting import rate_limit
@@ -29,7 +28,7 @@ async def create_regional_hub(
     """Create a regional developer hub."""
 
     try:
-        hub = await run_in_threadpool(asyncio.run, dev_service.create_regional_hub(name, region, description, manager_address))
+        hub = await run_in_threadpool(dev_service.create_regional_hub, name, region, description, manager_address)
 
         return {
             "success": True,
@@ -57,7 +56,7 @@ async def get_regional_hubs(
     """Get all regional developer hubs."""
 
     try:
-        hubs = await run_in_threadpool(asyncio.run, dev_service.get_regional_hubs())
+        hubs = await run_in_threadpool(dev_service.get_regional_hubs)
 
         return [
             {
@@ -89,7 +88,7 @@ async def get_hub_developers(
     """Get developers in a regional hub."""
 
     try:
-        developers = await run_in_threadpool(asyncio.run, dev_service.get_hub_developers(hub_id))
+        developers = await run_in_threadpool(dev_service.get_hub_developers, hub_id)
 
         return [
             {

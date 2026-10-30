@@ -558,18 +558,16 @@ class P2PTradingProtocol:
         logger.info("Created trade request %s for agent %s", trade_request.request_id, buyer_agent_id)
         return trade_request
 
-    async def find_matches(self, request_id: str) -> list[dict[str, Any]]:
+    def find_matches(self, request_id: str) -> list[dict[str, Any]]:
         """Find matching sellers for a trade request"""
         trade_request = (
-            (await run_in_threadpool(self.session.execute, select(TradeRequest).where(TradeRequest.request_id == request_id)))
-            .scalars()
-            .first()
+            self.session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).scalars().first()
         )
         if not trade_request:
             raise ValueError(f"Trade request {request_id} not found")
-        seller_offers = await self.get_available_sellers(trade_request)
+        seller_offers = self.get_available_sellers(trade_request)
         seller_ids = [offer["agent_id"] for offer in seller_offers]
-        seller_reputations = await self.get_seller_reputations(seller_ids)
+        seller_reputations = self.get_seller_reputations(seller_ids)
         matches = self.matching_engine.find_matches(trade_request, seller_offers, seller_reputations)
         trade_matches = []
         for match in matches:
@@ -591,11 +589,11 @@ class P2PTradingProtocol:
             )
             self.session.add(trade_match)
             trade_matches.append(trade_match)
-        (await run_in_threadpool(self.session.commit))
+        self.session.commit()
         trade_request.match_count = len(trade_matches)
         trade_request.best_match_score = matches[0]["match_score"] if matches else 0.0
         trade_request.updated_at = datetime.now(UTC)
-        (await run_in_threadpool(self.session.commit))
+        self.session.commit()
         logger.info("Found %s matches for request %s", len(trade_matches), request_id)
         return [match["seller_agent_id"] for match in matches]
 
@@ -643,7 +641,7 @@ class P2PTradingProtocol:
         logger.info("Initiated negotiation %s for match %s", negotiation.negotiation_id, match_id)
         return negotiation
 
-    async def get_available_sellers(self, trade_request: TradeRequest) -> list[dict[str, Any]]:
+    def get_available_sellers(self, trade_request: TradeRequest) -> list[dict[str, Any]]:
         """Get available sellers for a trade request (mock implementation)"""
         mock_sellers = [
             {
@@ -667,53 +665,34 @@ class P2PTradingProtocol:
         ]
         return mock_sellers
 
-    async def get_seller_reputations(self, seller_ids: list[str]) -> dict[str, float]:
+    def get_seller_reputations(self, seller_ids: list[str]) -> dict[str, float]:
         """Get seller reputations (mock implementation)"""
         mock_reputations = {"seller_001": 750.0, "seller_002": 650.0}
         return {seller_id: mock_reputations.get(seller_id, 500.0) for seller_id in seller_ids}
 
-    async def get_trading_summary(self, agent_id: str) -> dict[str, Any]:
+    def get_trading_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive trading summary for an agent"""
-        requests = (
-            (
-                await run_in_threadpool(
-                    self.session.execute, select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)
-                )
-            )
-            .scalars()
-            .all()
-        )
+        requests = self.session.execute(select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)).scalars().all()
         matches = (
-            (
-                await run_in_threadpool(
-                    self.session.execute,
-                    select(TradeMatch).where(
-                        or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id)
-                    ),
-                )
+            self.session.execute(
+                select(TradeMatch).where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))
             )
             .scalars()
             .all()
         )
         negotiations = (
-            (
-                await run_in_threadpool(
-                    self.session.execute,
-                    select(TradeNegotiation).where(
-                        or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id)
-                    ),
+            self.session.execute(
+                select(TradeNegotiation).where(
+                    or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id)
                 )
             )
             .scalars()
             .all()
         )
         agreements = (
-            (
-                await run_in_threadpool(
-                    self.session.execute,
-                    select(TradeAgreement).where(
-                        or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id)
-                    ),
+            self.session.execute(
+                select(TradeAgreement).where(
+                    or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id)
                 )
             )
             .scalars()
