@@ -13,10 +13,9 @@ spend_guard "$AMOUNT" || true
 dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
 out=$(cli transactions send --from "$WALLET" --to "$addr" --amount "$dec" 2>&1) || fail send "transactions send failed: $out"
 tx=$(printf '%s' "$out" | python3 -c 'import json,sys,re
-try:
-  d=json.loads(sys.stdin.read()); print(d.get("tx_hash",""))
-except Exception:
-  m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")' <<<"$out")
+s=sys.stdin.read()
+m=re.search(r"0x[0-9a-fA-F]{64}", s)
+print(m.group(0) if m else "")')
 [ -n "$tx" ] || fail send "no tx_hash in response"
 bh=$(wait_seal "$tx") || exit $?
 echo "sealed $tx at height $bh"
