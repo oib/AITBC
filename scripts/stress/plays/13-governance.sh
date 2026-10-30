@@ -2,11 +2,15 @@
 # LANE: serial
 # MODE: loop
 # Governance lifecycle: PROPOSE → VOTE → EXECUTE (wallet-signed on-chain
-# txs). Execute may legitimately refuse before tally/quorum — a refusal
-# there is logged as expected_refusal, not a failure.
+# txs). Executes are coordinator-api routed — RUN ON HUB (or wherever a
+# coordinator endpoint is reachable); the executor path is gated by the
+# governance_executors chain parameter (provisioned key lives on hub).
+# Encrypted wallets: export AITBC_WALLET_PASSWORD (read on-host from
+# /etc/aitbc env — never echoed). Execute refusals = expected_refusal.
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_acquire || exit 75
+[ -z "${AITBC_WALLET_PASSWORD:-}" ] && [ -z "${STRESS_WALLET_PASSWORD:-}" ] || export AITBC_WALLET_PASSWORD="${AITBC_WALLET_PASSWORD:-$STRESS_WALLET_PASSWORD}"
 
 addr=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
