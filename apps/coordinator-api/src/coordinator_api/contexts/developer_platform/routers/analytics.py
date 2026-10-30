@@ -1,6 +1,5 @@
 """Platform analytics and health endpoints for the Developer Platform."""
 
-import asyncio
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -29,7 +28,7 @@ async def get_platform_overview(
     try:
         # Get bounty statistics with fallback
         try:
-            bounty_stats = await run_in_threadpool(asyncio.run, dev_service.get_bounty_statistics())
+            bounty_stats = await run_in_threadpool(dev_service.get_bounty_statistics)
         except Exception:
             bounty_stats = {"total": 150, "active": 45, "completed": 95, "total_payout": 250000.0}
 

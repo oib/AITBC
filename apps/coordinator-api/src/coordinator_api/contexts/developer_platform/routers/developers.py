@@ -1,6 +1,5 @@
 """Developer profile management endpoints for the Developer Platform."""
 
-import asyncio
 from typing import Annotated, Any
 
 from aitbc.rate_limiting import rate_limit
@@ -27,7 +26,7 @@ async def register_developer(
     """Register a new developer profile."""
 
     try:
-        profile = await run_in_threadpool(asyncio.run, dev_service.register_developer(request))
+        profile = await run_in_threadpool(dev_service.register_developer, request)
 
         return {
             "success": True,
@@ -55,7 +54,7 @@ async def get_developer_profile(
     """Get developer profile by wallet address."""
 
     try:
-        profile = await run_in_threadpool(asyncio.run, dev_service.get_developer_profile(wallet_address))
+        profile = await run_in_threadpool(dev_service.get_developer_profile, wallet_address)
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
 
@@ -90,7 +89,7 @@ async def update_developer_profile(
     """Update developer profile."""
 
     try:
-        profile = await run_in_threadpool(asyncio.run, dev_service.update_developer_profile(wallet_address, updates))
+        profile = await run_in_threadpool(dev_service.update_developer_profile, wallet_address, updates)
 
         return {
             "success": True,
@@ -118,7 +117,7 @@ async def get_leaderboard(
     """Get developer leaderboard sorted by reputation score."""
 
     try:
-        developers = await run_in_threadpool(asyncio.run, dev_service.get_leaderboard(limit or 100, offset or 0))
+        developers = await run_in_threadpool(dev_service.get_leaderboard, limit or 100, offset or 0)
 
         return [
             {
@@ -149,7 +148,7 @@ async def get_developer_stats(
     """Get comprehensive developer statistics."""
 
     try:
-        stats = await run_in_threadpool(asyncio.run, dev_service.get_developer_stats(wallet_address))
+        stats = await run_in_threadpool(dev_service.get_developer_stats, wallet_address)
         return stats
 
     except HTTPException:

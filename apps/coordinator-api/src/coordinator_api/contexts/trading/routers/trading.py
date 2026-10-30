@@ -273,7 +273,7 @@ async def find_matches(request: Request, request_id: str, session: Annotated[Ses
     """Find matching sellers for a trade request"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
-        matches = await run_in_threadpool(asyncio.run, trading_protocol.find_matches(request_id))
+        matches = await run_in_threadpool(trading_protocol.find_matches, request_id)
         return matches  # type: ignore[return-value]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -440,7 +440,7 @@ async def get_trading_summary(
     """Get comprehensive trading summary for an agent"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
-        summary = await run_in_threadpool(asyncio.run, trading_protocol.get_trading_summary(agent_id))
+        summary = await run_in_threadpool(trading_protocol.get_trading_summary, agent_id)
         return TradingSummaryResponse(**summary)
     except Exception as e:
         logger.error("Error getting trading summary for %s: %s", agent_id, str(e))
@@ -657,9 +657,9 @@ async def simulate_trade_matching(
             excluded_regions=request_data.excluded_regions,
             service_level_required=request_data.service_level_required,
         )
-        seller_offers = await run_in_threadpool(asyncio.run, trading_protocol.get_available_sellers(temp_request))
+        seller_offers = await run_in_threadpool(trading_protocol.get_available_sellers, temp_request)
         seller_reputations = await run_in_threadpool(
-            asyncio.run, trading_protocol.get_seller_reputations([offer["agent_id"] for offer in seller_offers])
+            trading_protocol.get_seller_reputations, [offer["agent_id"] for offer in seller_offers]
         )
         matches = await run_in_threadpool(
             trading_protocol.matching_engine.find_matches, temp_request, seller_offers, seller_reputations

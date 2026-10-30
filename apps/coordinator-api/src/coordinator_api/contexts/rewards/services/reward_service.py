@@ -187,16 +187,10 @@ class RewardEngine:
         self.session = session
         self.calculator = RewardCalculator()
 
-    async def create_reward_profile(self, agent_id: str) -> AgentRewardProfile:
+    def create_reward_profile(self, agent_id: str) -> AgentRewardProfile:
         """Create a new reward profile for an agent"""
         existing = (
-            (
-                await run_in_threadpool(
-                    self.session.execute, select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
-                )
-            )
-            .scalars()
-            .first()
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
         )
         if existing:
             return existing  # type: ignore[no-any-return]
@@ -208,8 +202,8 @@ class RewardEngine:
             updated_at=datetime.now(UTC),
         )
         self.session.add(profile)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, profile))
+        self.session.commit()
+        self.session.refresh(profile)
         logger.info("Created reward profile for agent %s", agent_id)
         return profile
 
@@ -222,7 +216,7 @@ class RewardEngine:
         reference_date: datetime | None = None,
     ) -> dict[str, Any]:
         """Calculate and distribute reward for an agent"""
-        await self.create_reward_profile(agent_id)
+        self.create_reward_profile(agent_id)
         reward_calculation = await run_in_threadpool(
             self.calculator.calculate_total_reward, agent_id, base_amount, performance_metrics, self.session
         )
@@ -411,51 +405,39 @@ class RewardEngine:
         self.session.add(event)
         (await run_in_threadpool(self.session.commit))
 
-    async def get_reward_summary(self, agent_id: str) -> dict[str, Any]:
+    def get_reward_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive reward summary for an agent"""
         profile = (
-            (
-                await run_in_threadpool(
-                    self.session.execute, select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
-                )
-            )
-            .scalars()
-            .first()
+            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
         )
         if not profile:
             return {"error": "Reward profile not found"}
         recent_calculations = (
-            (
-                await run_in_threadpool(
-                    self.session.execute,
-                    select(RewardCalculation)
-                    .where(
-                        and_(
-                            RewardCalculation.agent_id == agent_id,
-                            RewardCalculation.calculated_at >= datetime.now(UTC) - timedelta(days=30),
-                        )
+            self.session.execute(
+                select(RewardCalculation)
+                .where(
+                    and_(
+                        RewardCalculation.agent_id == agent_id,
+                        RewardCalculation.calculated_at >= datetime.now(UTC) - timedelta(days=30),
                     )
-                    .order_by(desc(RewardCalculation.calculated_at))  # type: ignore[arg-type]
-                    .limit(10),
                 )
+                .order_by(desc(RewardCalculation.calculated_at))  # type: ignore[arg-type]
+                .limit(10)
             )
             .scalars()
             .all()
         )
         recent_distributions = (
-            (
-                await run_in_threadpool(
-                    self.session.execute,
-                    select(RewardDistribution)
-                    .where(
-                        and_(
-                            RewardDistribution.agent_id == agent_id,
-                            RewardDistribution.created_at >= datetime.now(UTC) - timedelta(days=30),
-                        )
+            self.session.execute(
+                select(RewardDistribution)
+                .where(
+                    and_(
+                        RewardDistribution.agent_id == agent_id,
+                        RewardDistribution.created_at >= datetime.now(UTC) - timedelta(days=30),
                     )
-                    .order_by(desc(RewardDistribution.created_at))  # type: ignore[arg-type]
-                    .limit(10),
                 )
+                .order_by(desc(RewardDistribution.created_at))  # type: ignore[arg-type]
+                .limit(10)
             )
             .scalars()
             .all()
