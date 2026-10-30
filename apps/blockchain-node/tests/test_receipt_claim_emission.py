@@ -60,7 +60,7 @@ async def test_submit_receipt_claim_posts_signed_claim_with_carried_record(relea
 
     with (
         patch.object(escrow_routes, "_find_existing_receipt_claim", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock, return_value=signed_receipt["provider"]),
+        patch.object(escrow_routes, "_resolve_chain_account", new_callable=MagicMock, return_value=signed_receipt["provider"]),
         patch.object(escrow_routes, "_settlement_next_nonce", new_callable=AsyncMock, return_value=6) as mock_nonce,
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):

@@ -156,7 +156,7 @@ async def test_export_chain_filters_records_by_chain_id(isolated_engine, mock_re
         )
         session.commit()
 
-    result = await rpc_sync.export_chain(mock_request, chain_id="chain-a")
+    result = rpc_sync.export_chain(mock_request, chain_id="chain-a")
 
     assert result["success"] is True
     assert result["export_data"]["chain_id"] == "chain-a"

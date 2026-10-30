@@ -37,19 +37,19 @@ def _derive_contract_address(deployer: str, name: str, timestamp: int) -> str:
 
 
 @rate_limit(rate=50, per=60)
-async def deploy_messaging_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, Any]:
+def deploy_messaging_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, Any]:
     """Retired: there is no messaging contract — forum messages are MESSAGE transactions."""
     raise messaging_reads.messaging_not_on_chain("deploy/messaging")
 
 
 @rate_limit(rate=200, per=60)
-async def list_contracts(request: Request) -> dict[str, Any]:
+def list_contracts(request: Request) -> dict[str, Any]:
     """List all deployed contracts from the database"""
     return contract_service.list_contracts()
 
 
 @rate_limit(rate=50, per=60)
-async def deploy_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, Any]:
+def deploy_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, Any]:
     """Deploy a new smart contract to the blockchain.
 
     Stores the contract in the on-chain database with a deterministically
@@ -99,7 +99,7 @@ async def deploy_contract(request: Request, deploy_data: dict[str, Any]) -> dict
 
 
 @rate_limit(rate=50, per=60)
-async def call_contract(request: Request, call_data: dict[str, Any]) -> dict[str, Any]:
+def call_contract(request: Request, call_data: dict[str, Any]) -> dict[str, Any]:
     """Call a method on a deployed contract.
 
     Looks up the contract in the database and returns its stored state.
@@ -142,7 +142,7 @@ async def call_contract(request: Request, call_data: dict[str, Any]) -> dict[str
 
 
 @rate_limit(rate=50, per=60)
-async def verify_contract(request: Request, verify_data: dict[str, Any]) -> dict[str, Any]:
+def verify_contract(request: Request, verify_data: dict[str, Any]) -> dict[str, Any]:
     """Verify a ZK proof against a contract.
 
     Checks that the contract exists and is deployed. Returns the actual
@@ -212,58 +212,56 @@ async def verify_contract(request: Request, verify_data: dict[str, Any]) -> dict
 # MESSAGE transaction, and votes/moderation/reputation are MSG-2 scope.
 
 
-async def get_messaging_contract_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def get_messaging_contract_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Forum totals derived from sealed MESSAGE transactions."""
-    result: dict[str, Any] = await messaging_reads.messaging_state(request, chain_id=chain_id)
+    result: dict[str, Any] = messaging_reads.messaging_state(request, chain_id=chain_id)
     return result
 
 
-async def get_forum_topics(
-    request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"
-) -> dict[str, Any]:
+def get_forum_topics(request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> dict[str, Any]:
     """List forum topics (chain-derived; implicit topics, no creation call)."""
-    topics: dict[str, Any] = await messaging_reads.forum_topics(request, limit=limit, offset=offset, sort_by=sort_by)
+    topics: dict[str, Any] = messaging_reads.forum_topics(request, limit=limit, offset=offset, sort_by=sort_by)
     return topics
 
 
 @rate_limit(rate=50, per=60)
-async def create_forum_topic(request: Request, topic_data: dict[str, Any]) -> dict[str, Any]:
+def create_forum_topic(request: Request, topic_data: dict[str, Any]) -> dict[str, Any]:
     """Retired: topics are implicit — the first signed post creates them."""
     raise messaging_reads.messaging_not_on_chain("topics/create")
 
 
-async def get_topic_messages(
+def get_topic_messages(
     request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"
 ) -> dict[str, Any]:
     """Get messages for a topic slug (chain-derived)."""
-    messages: dict[str, Any] = await messaging_reads.forum_topic_messages(
+    messages: dict[str, Any] = messaging_reads.forum_topic_messages(
         request, topic_id, limit=limit, offset=offset, sort_by=sort_by
     )
     return messages
 
 
 @rate_limit(rate=50, per=60)
-async def post_message(request: Request, message_data: dict[str, Any]) -> dict[str, Any]:
+def post_message(request: Request, message_data: dict[str, Any]) -> dict[str, Any]:
     """Retired: post by signing a MESSAGE transaction, not via RPC mutation."""
     raise messaging_reads.messaging_not_on_chain("messages/post")
 
 
 @rate_limit(rate=50, per=60)
-async def vote_message(request: Request, message_id: str, vote_data: dict[str, Any]) -> dict[str, Any]:
+def vote_message(request: Request, message_id: str, vote_data: dict[str, Any]) -> dict[str, Any]:
     """Not an RPC write: a vote is a signed MESSAGE transaction."""
     raise messaging_reads.messaging_not_on_chain(
         "votes: sign a 'vote' envelope instead — aitbc messaging vote <tx_hash> up|down|retract"
     )
 
 
-async def search_messages(request: Request, query: str, limit: int = 50) -> dict[str, Any]:
+def search_messages(request: Request, query: str, limit: int = 50) -> dict[str, Any]:
     """Search forum message bodies (chain-derived, bounded)."""
-    found: dict[str, Any] = await messaging_reads.forum_search(request, query=query, limit=limit)
+    found: dict[str, Any] = messaging_reads.forum_search(request, query=query, limit=limit)
     return found
 
 
 @rate_limit(rate=200, per=60)
-async def get_agent_reputation(request: Request, agent_id: str) -> dict[str, Any]:
+def get_agent_reputation(request: Request, agent_id: str) -> dict[str, Any]:
     """Reputation is derived from sealed votes (MSG-2). ``agent_id`` was
     dropped by MSG-1 — the parameter is now the address itself; anything
     that does not look like one is refused."""
@@ -283,7 +281,7 @@ async def get_agent_reputation(request: Request, agent_id: str) -> dict[str, Any
 
 
 @rate_limit(rate=50, per=60)
-async def moderate_message(request: Request, message_id: str, moderation_data: dict[str, Any]) -> dict[str, Any]:
+def moderate_message(request: Request, message_id: str, moderation_data: dict[str, Any]) -> dict[str, Any]:
     """Not an RPC write: moderation is a signed MESSAGE transaction."""
     raise messaging_reads.messaging_not_on_chain(
         "moderation: sign an action envelope instead — aitbc messaging hide|unhide|pin|unpin|lock|unlock|mod-grant|mod-revoke"

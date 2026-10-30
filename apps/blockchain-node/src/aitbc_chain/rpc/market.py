@@ -105,7 +105,7 @@ def _chain_db_path() -> Path:
 
 
 @router.get("/market/listings", summary="List market items", tags=["market"])
-async def market_listings() -> dict[str, Any]:
+def market_listings() -> dict[str, Any]:
     """Get all market listings from blockchain"""
     try:
         metrics_registry.increment("rpc_market_listings_total")
@@ -241,7 +241,7 @@ async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
 
 
 @router.get("/market/listing/{listing_id}", summary="Get market listing by ID", tags=["market"])
-async def market_get_listing(listing_id: str) -> dict[str, Any]:
+def market_get_listing(listing_id: str) -> dict[str, Any]:
     """Get a specific market listing"""
     try:
         metrics_registry.increment("rpc_market_get_total")

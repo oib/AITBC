@@ -58,7 +58,7 @@ def _offer_tx(amount: int, action: str = "software_offer") -> dict[str, Any]:
 async def test_unsigned_offer_with_amount_rejected(action: str):
     """An unsigned offer carrying amount>0 is refused before mempool."""
     with pytest.raises(HTTPException) as exc_info:
-        await tx_mod.submit_market_transaction(MagicMock(), _offer_tx(10**9, action))
+        tx_mod.submit_market_transaction(MagicMock(), _offer_tx(10**9, action))
     assert exc_info.value.status_code == 403
 
 
@@ -67,7 +67,7 @@ async def test_unsigned_offer_with_amount_rejected(action: str):
 async def test_unsigned_zero_amount_offer_rejected(action: str):
     """The V23-90 exemption is closed: unsigned listings get 403."""
     with pytest.raises(HTTPException) as exc_info:
-        await tx_mod.submit_market_transaction(MagicMock(), _offer_tx(0, action))
+        tx_mod.submit_market_transaction(MagicMock(), _offer_tx(0, action))
     assert exc_info.value.status_code == 403
     assert "signature" in exc_info.value.detail.lower()
 
@@ -95,7 +95,7 @@ async def test_unsigned_offer_rejected_regardless_of_fee():
     tx = _offer_tx(0)
     tx["fee"] = 10**9  # would have wiped the named account before the cap
     with pytest.raises(HTTPException) as exc_info:
-        await tx_mod.submit_market_transaction(MagicMock(), tx)
+        tx_mod.submit_market_transaction(MagicMock(), tx)
     assert exc_info.value.status_code == 403
 
 
@@ -119,7 +119,7 @@ async def test_signed_zero_amount_offer_admitted():
         patch.object(tx_mod, "session_scope", fake_session_scope),
         patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
     ):
-        result = await tx_mod.submit_market_transaction(MagicMock(), tx)
+        result = tx_mod.submit_market_transaction(MagicMock(), tx)
     assert result["success"] is True
     assert mempool.add.call_args[0][0]["fee"] == DEFAULT_TX_FEE_UNITS
 
@@ -143,7 +143,7 @@ async def test_signed_offer_above_cap_admitted():
         patch.object(tx_mod, "session_scope", fake_session_scope),
         patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
     ):
-        result = await tx_mod.submit_market_transaction(MagicMock(), tx)
+        result = tx_mod.submit_market_transaction(MagicMock(), tx)
     assert result["success"] is True
     assert mempool.add.call_args[0][0]["fee"] == 10**9
 
@@ -165,7 +165,7 @@ async def test_offer_with_signature_for_other_sender_rejected():
         patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
         pytest.raises(HTTPException) as exc_info,
     ):
-        await tx_mod.submit_market_transaction(MagicMock(), tx)
+        tx_mod.submit_market_transaction(MagicMock(), tx)
     assert exc_info.value.status_code == 403
 
 

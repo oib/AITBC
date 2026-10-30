@@ -18,33 +18,33 @@ router = APIRouter(prefix="/bounty", tags=["agent-economy"])
 
 @router.post("/deploy", summary="Deploy bounty lock")
 @rate_limit(rate=20, per=60)
-async def deploy_bounty_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+def deploy_bounty_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Lock bounty reward amount. Operator-signed."""
-    return await deploy_bounty(request, body)  # type: ignore[no-any-return]
+    return deploy_bounty(request, body)  # type: ignore[no-any-return]
 
 
 @router.post("/{bounty_id}/submit", summary="Submit bounty solution")
 @rate_limit(rate=20, per=60)
-async def submit_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    return await submit_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
+def submit_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    return submit_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
 
 
 @router.post("/{bounty_id}/verify", summary="Verify bounty submission")
 @rate_limit(rate=20, per=60)
-async def verify_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    return await verify_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
+def verify_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    return verify_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
 
 
 @router.post("/{bounty_id}/dispute", summary="Dispute bounty submission")
 @rate_limit(rate=20, per=60)
-async def dispute_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    return await dispute_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
+def dispute_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    return dispute_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
 
 
 @router.post("/{bounty_id}/expire", summary="Expire bounty and refund")
 @rate_limit(rate=20, per=60)
-async def expire_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    return await expire_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
+def expire_bounty_route(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    return expire_bounty(request, bounty_id, body)  # type: ignore[no-any-return]
 
 
 __all__ = ["router"]

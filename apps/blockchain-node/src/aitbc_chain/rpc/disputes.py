@@ -41,7 +41,7 @@ def _raise_for_failed_dispute_call(result: dict[str, Any], fallback_detail: str)
     raise HTTPException(status_code=status_code, detail=detail)
 
 
-async def file_dispute(
+def file_dispute(
     request: FileDisputeRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
 ) -> FileDisputeResponse:
     """
@@ -72,7 +72,7 @@ async def file_dispute(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def submit_evidence(
+def submit_evidence(
     request: SubmitEvidenceRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
 ) -> SubmitEvidenceResponse:
     """
@@ -101,7 +101,7 @@ async def submit_evidence(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def verify_evidence(
+def verify_evidence(
     request: VerifyEvidenceRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
 ) -> VerifyEvidenceResponse:
     """
@@ -129,7 +129,7 @@ async def verify_evidence(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def submit_arbitration_vote(
+def submit_arbitration_vote(
     request: SubmitArbitrationVoteRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
 ) -> SubmitArbitrationVoteResponse:
     """
@@ -156,7 +156,7 @@ async def submit_arbitration_vote(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def authorize_arbitrator(
+def authorize_arbitrator(
     request: AuthorizeArbitratorRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
 ) -> AuthorizeArbitratorResponse:
     """
@@ -183,7 +183,7 @@ async def authorize_arbitrator(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_active_disputes() -> dict[str, Any]:
+def get_active_disputes() -> dict[str, Any]:
     """
     Get all active disputes.
     This retrieves information from the DisputeResolution smart contract.
@@ -202,7 +202,7 @@ async def get_active_disputes() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_authorized_arbitrators() -> dict[str, Any]:
+def get_authorized_arbitrators() -> dict[str, Any]:
     """
     Get all authorized arbitrators.
     This retrieves information from the DisputeResolution smart contract.
@@ -221,7 +221,7 @@ async def get_authorized_arbitrators() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_arbitrator_disputes(arbitrator_address: str) -> dict[str, Any]:
+def get_arbitrator_disputes(arbitrator_address: str) -> dict[str, Any]:
     """
     Get all disputes assigned to an arbitrator.
     This retrieves information from the DisputeResolution smart contract.
@@ -240,7 +240,7 @@ async def get_arbitrator_disputes(arbitrator_address: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_user_disputes(user_address: str) -> dict[str, Any]:
+def get_user_disputes(user_address: str) -> dict[str, Any]:
     """
     Get all disputes for a specific user.
     This retrieves information from the DisputeResolution smart contract.
@@ -259,7 +259,7 @@ async def get_user_disputes(user_address: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_dispute(dispute_id: int) -> GetDisputeResponse:
+def get_dispute(dispute_id: int) -> GetDisputeResponse:
     """
     Get details of a specific dispute.
     This retrieves information from the DisputeResolution smart contract.
@@ -292,7 +292,7 @@ async def get_dispute(dispute_id: int) -> GetDisputeResponse:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
+def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
     """
     Get all evidence submitted for a dispute.
     This retrieves information from the DisputeResolution smart contract.
@@ -325,7 +325,7 @@ async def get_dispute_evidence(dispute_id: int) -> list[GetEvidenceResponse]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_arbitration_votes(dispute_id: int) -> list[GetArbitrationVotesResponse]:
+def get_arbitration_votes(dispute_id: int) -> list[GetArbitrationVotesResponse]:
     """
     Get all arbitration votes for a dispute.
     This retrieves information from the DisputeResolution smart contract.

@@ -57,7 +57,7 @@ def _resolve_chain_id(chain_id_arg: str | None) -> str:
 
 @router.get("/pools", summary="List liquidity pools")
 @rate_limit(rate=100, per=60)
-async def list_pools(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
+def list_pools(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         pools = session.exec(select(LiquidityPool).where(LiquidityPool.chain_id == resolved)).all()
@@ -83,7 +83,7 @@ async def list_pools(request: Request, chain_id: str | None = None) -> dict[str,
 
 @router.get("/pools/{pool_id}", summary="Get a liquidity pool")
 @rate_limit(rate=100, per=60)
-async def get_pool(request: Request, pool_id: str, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
+def get_pool(request: Request, pool_id: str, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         pool = _get_or_create_pool(session, resolved, pool_id)
@@ -103,7 +103,7 @@ async def get_pool(request: Request, pool_id: str, chain_id: str | None = None) 
 
 @router.get("/stakes/{address}", summary="List liquidity stakes for an address")
 @rate_limit(rate=100, per=60)
-async def list_stakes(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def list_stakes(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         stakes = session.exec(
@@ -147,7 +147,7 @@ async def list_stakes(request: Request, address: str, chain_id: str | None = Non
 
 @router.get("/stakes/{stake_id}/rewards", summary="Get pending rewards for a stake")
 @rate_limit(rate=100, per=60)
-async def get_stake_rewards(request: Request, stake_id: str, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
+def get_stake_rewards(request: Request, stake_id: str, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         stake = session.get(LiquidityStake, (stake_id, resolved))
@@ -168,7 +168,7 @@ async def get_stake_rewards(request: Request, stake_id: str, chain_id: str | Non
 
 @router.post("/build-deposit", summary="Build an unsigned LIQUIDITY_DEPOSIT transaction")
 @rate_limit(rate=50, per=60)
-async def build_deposit(request: Request, body: BuildDepositRequest, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
+def build_deposit(request: Request, body: BuildDepositRequest, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         account = session.get(Account, (resolved, body.address))
@@ -193,7 +193,7 @@ async def build_deposit(request: Request, body: BuildDepositRequest, chain_id: s
 
 @router.post("/build-claim", summary="Build an unsigned LIQUIDITY_CLAIM transaction")
 @rate_limit(rate=50, per=60)
-async def build_claim(request: Request, body: BuildClaimRequest, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
+def build_claim(request: Request, body: BuildClaimRequest, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         stake = session.get(LiquidityStake, (body.stake_id, resolved))
@@ -221,7 +221,7 @@ async def build_claim(request: Request, body: BuildClaimRequest, chain_id: str |
 
 @router.post("/build-withdraw", summary="Build an unsigned LIQUIDITY_WITHDRAW transaction")
 @rate_limit(rate=50, per=60)
-async def build_withdraw(request: Request, body: BuildWithdrawRequest, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
+def build_withdraw(request: Request, body: BuildWithdrawRequest, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         stake = session.get(LiquidityStake, (body.stake_id, resolved))

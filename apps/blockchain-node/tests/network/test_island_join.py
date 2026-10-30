@@ -63,7 +63,7 @@ class TestJoinIslandRpc:
                 chain_id="ait-testchain.local",
                 is_hub=True,
             )
-            response = await join_island(request)
+            response = join_island(request)
 
         assert isinstance(response, JoinIslandResponse)
         assert response.success is True
@@ -87,7 +87,7 @@ class TestJoinIslandRpc:
                 island_name="default",
                 chain_id="ait-testchain.local",
             )
-            response = await join_island(request)
+            response = join_island(request)
 
         assert response.success is True
         assert response.status == "already_member"
@@ -104,7 +104,7 @@ class TestJoinIslandRpc:
                 island_name="unknown",
                 chain_id="ait-unknown",
             )
-            response = await join_island(request)
+            response = join_island(request)
 
         assert response.success is False
         assert response.status == "failed"

@@ -299,7 +299,7 @@ class TestVotingPowerFromStake:
     @pytest.mark.asyncio
     async def test_voting_power_comes_from_stake(self, env):
         """Caller claims voting_power=999999; only 250 (the active stake) counts."""
-        resp = await env.cast_governance_vote(
+        resp = env.cast_governance_vote(
             None,
             {
                 "proposal_id": "p1",
@@ -314,7 +314,7 @@ class TestVotingPowerFromStake:
     @pytest.mark.anyio
     @pytest.mark.asyncio
     async def test_no_stake_means_no_power(self, env):
-        resp = await env.cast_governance_vote(
+        resp = env.cast_governance_vote(
             None,
             {
                 "proposal_id": "p1",
@@ -343,7 +343,7 @@ class TestVotingPowerFromStake:
                 )
             )
             s.commit()
-        resp = await env.cast_governance_vote(
+        resp = env.cast_governance_vote(
             None,
             {
                 "proposal_id": "p1",
@@ -375,7 +375,7 @@ class TestVotingPowerFromStake:
                 )
             )
             s.commit()
-        resp = await env.cast_governance_vote(
+        resp = env.cast_governance_vote(
             None,
             {
                 "proposal_id": "p-zeroq",

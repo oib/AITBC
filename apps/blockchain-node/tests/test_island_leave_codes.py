@@ -25,7 +25,7 @@ def _mgr() -> IslandManager:
 @pytest.mark.asyncio
 async def test_leave_member_success():
     with patch.object(rpc_islands, "get_island_manager", return_value=_mgr()):
-        resp = await leave_island(LeaveIslandRequest(island_id="island-uuid-1"))
+        resp = leave_island(LeaveIslandRequest(island_id="island-uuid-1"))
     assert resp.success is True
     assert resp.code == "left"
     assert resp.status == "left"
@@ -34,7 +34,7 @@ async def test_leave_member_success():
 @pytest.mark.asyncio
 async def test_leave_not_member_carries_code():
     with patch.object(rpc_islands, "get_island_manager", return_value=_mgr()):
-        resp = await leave_island(LeaveIslandRequest(island_id="island-never-joined"))
+        resp = leave_island(LeaveIslandRequest(island_id="island-never-joined"))
     assert resp.success is False
     assert resp.code == "not_member"
     assert "not a member" in resp.message.lower()
@@ -43,7 +43,7 @@ async def test_leave_not_member_carries_code():
 @pytest.mark.asyncio
 async def test_leave_default_carries_code():
     with patch.object(rpc_islands, "get_island_manager", return_value=_mgr()):
-        resp = await leave_island(LeaveIslandRequest(island_id="default-island"))
+        resp = leave_island(LeaveIslandRequest(island_id="default-island"))
     assert resp.success is False
     assert resp.code == "forbidden_default"
     assert "default island" in resp.message.lower()
@@ -54,6 +54,6 @@ async def test_leave_codes_are_distinct():
     """Mutation guard: not_member and forbidden_default must not collapse."""
     mgr = _mgr()
     with patch.object(rpc_islands, "get_island_manager", return_value=mgr):
-        not_member = await leave_island(LeaveIslandRequest(island_id="island-never-joined"))
-        forbidden = await leave_island(LeaveIslandRequest(island_id="default-island"))
+        not_member = leave_island(LeaveIslandRequest(island_id="island-never-joined"))
+        forbidden = leave_island(LeaveIslandRequest(island_id="default-island"))
     assert not_member.code != forbidden.code

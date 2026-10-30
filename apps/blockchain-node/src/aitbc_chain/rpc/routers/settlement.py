@@ -261,7 +261,7 @@ async def extend_timeout_route(request: Request, escrow_id: str, body: dict[str,
 
 @router.post("/{escrow_id}/dispute", summary="File a dispute for an escrow")
 @rate_limit(rate=10, per=60)
-async def file_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+def file_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
     """File a dispute for an escrow, halting automatic timeout/refund."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -293,7 +293,7 @@ async def file_escrow_dispute_route(request: Request, escrow_id: str, body: dict
 
 @router.post("/{escrow_id}/resolve", summary="Resolve a dispute")
 @rate_limit(rate=10, per=60)
-async def resolve_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+def resolve_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
     """Resolve a dispute for an escrow.
 
     Resolution is "complete" (release to seller) or "refund" (refund buyer).

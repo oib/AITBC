@@ -171,7 +171,7 @@ class TestMarketRoute:
         mempool.add = MagicMock(return_value="0xtxhash")
         with patch("aitbc_chain.mempool.get_mempool", return_value=mempool), patch.object(tx_mod, "_queue_peer_fanout"):
             try:
-                return await tx_mod.submit_market_transaction(MagicMock(), tx), mempool
+                return tx_mod.submit_market_transaction(MagicMock(), tx), mempool
             except HTTPException as exc:
                 return exc, mempool
 

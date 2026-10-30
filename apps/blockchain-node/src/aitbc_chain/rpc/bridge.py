@@ -110,7 +110,7 @@ def _verify_lock_signature(
 
 
 @rate_limit(rate=20, per=60)
-async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, Any]:
+def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, Any]:
     """
     Initiate a cross-chain bridge transfer by locking funds.
 
@@ -191,7 +191,7 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
 
 
 @rate_limit(rate=20, per=60)
-async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict[str, Any]:
+def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict[str, Any]:
     """
     Confirm a cross-chain bridge transfer and release funds.
 
@@ -259,7 +259,7 @@ async def bridge_confirm(request: Request, confirm_data: dict[str, Any]) -> dict
 
 
 @rate_limit(rate=100, per=60)
-async def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, Any]:
+def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, Any]:
     """Get the status of a cross-chain transfer"""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
@@ -295,7 +295,7 @@ async def get_bridge_transfer(request: Request, transfer_id: str) -> dict[str, A
 
 
 @rate_limit(rate=100, per=60)
-async def get_bridge_proof(
+def get_bridge_proof(
     request: Request,
     transfer_id: str,
     source_chain: str | None = None,
@@ -334,7 +334,7 @@ async def get_bridge_proof(
 
 
 @rate_limit(rate=50, per=60)
-async def list_pending_transfers(request: Request, chain_id: str | None = None) -> list[dict[str, Any]]:
+def list_pending_transfers(request: Request, chain_id: str | None = None) -> list[dict[str, Any]]:
     """List all pending cross-chain transfers"""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
@@ -370,7 +370,7 @@ _BRIDGE_TRANSFER_STATUSES = frozenset({"pending", "locked", "confirmed", "comple
 
 
 @rate_limit(rate=50, per=60)
-async def list_bridge_transfers(
+def list_bridge_transfers(
     request: Request,
     chain_id: str | None = None,
     status: str | None = None,
@@ -435,7 +435,7 @@ async def list_bridge_transfers(
 
 
 @rate_limit(rate=20, per=60)
-async def bridge_unlock(request: Request, unlock_data: dict[str, Any]) -> dict[str, Any]:
+def bridge_unlock(request: Request, unlock_data: dict[str, Any]) -> dict[str, Any]:
     """Refund/cancel a pending bridge transfer — return locked funds to sender.
 
     v0.7.0 §B2: Only transfers in 'pending' or 'locked' status can be refunded.
@@ -482,7 +482,7 @@ async def bridge_unlock(request: Request, unlock_data: dict[str, Any]) -> dict[s
 
 
 @rate_limit(rate=100, per=60)
-async def get_bridge_balance(request: Request, chain_id: str) -> dict[str, Any]:
+def get_bridge_balance(request: Request, chain_id: str) -> dict[str, Any]:
     """Get the total locked balance for a chain (sum of pending/locked transfers)."""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
@@ -507,7 +507,7 @@ async def get_bridge_balance(request: Request, chain_id: str) -> dict[str, Any]:
 
 
 @rate_limit(rate=100, per=60)
-async def bridge_health(request: Request) -> dict[str, Any]:
+def bridge_health(request: Request) -> dict[str, Any]:
     """Get bridge health status — active transfers, pending count, configuration."""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
@@ -543,7 +543,7 @@ async def bridge_health(request: Request) -> dict[str, Any]:
 
 
 @rate_limit(rate=20, per=60)
-async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
+def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Batch confirm multiple cross-chain transfers.
 
     Gated by ``bridge_release_enabled`` same as single confirm.
@@ -619,7 +619,7 @@ async def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> 
 
 
 @rate_limit(rate=20, per=60)
-async def register_validator(request: Request, reg_data: dict[str, Any]) -> dict[str, Any]:
+def register_validator(request: Request, reg_data: dict[str, Any]) -> dict[str, Any]:
     """Register a bridge validator for a chain (v0.7.1 §B5).
 
     The registration must be signed by the validator's private key to prove
@@ -683,7 +683,7 @@ async def register_validator(request: Request, reg_data: dict[str, Any]) -> dict
 
 
 @rate_limit(rate=100, per=60)
-async def get_validator_set(request: Request, chain_id: str) -> dict[str, Any]:
+def get_validator_set(request: Request, chain_id: str) -> dict[str, Any]:
     """Get the validator set for a chain (v0.7.1 §B5).
 
     Optional query param ``epoch`` selects a specific epoch (defaults to current).
@@ -736,7 +736,7 @@ async def get_validator_set(request: Request, chain_id: str) -> dict[str, Any]:
 
 
 @rate_limit(rate=100, per=60)
-async def bridge_security_status(request: Request) -> dict[str, Any]:
+def bridge_security_status(request: Request) -> dict[str, Any]:
     """Get bridge security status (v0.7.1 §B5).
 
     Returns the multi-sig configuration, validator count, current epoch,
@@ -817,7 +817,7 @@ async def bridge_security_status(request: Request) -> dict[str, Any]:
 
 
 @rate_limit(rate=20, per=60)
-async def store_block_header(request: Request, header_data: dict[str, Any]) -> dict[str, Any]:
+def store_block_header(request: Request, header_data: dict[str, Any]) -> dict[str, Any]:
     """Store a remote chain block header (v0.7.2 §B4).
 
     The header must include: chain_id, height, hash, proposer, state_root.
@@ -863,7 +863,7 @@ async def store_block_header(request: Request, header_data: dict[str, Any]) -> d
 
 
 @rate_limit(rate=100, per=60)
-async def get_block_header(request: Request, chain_id: str, height: int) -> dict[str, Any]:
+def get_block_header(request: Request, chain_id: str, height: int) -> dict[str, Any]:
     """Get a stored block header with finality status (v0.7.2 §B5)."""
     try:
         from ..cross_chain.bridge import get_cross_chain_bridge
@@ -891,7 +891,7 @@ async def get_block_header(request: Request, chain_id: str, height: int) -> dict
 
 
 @rate_limit(rate=100, per=60)
-async def bridge_oracle_status(request: Request) -> dict[str, Any]:
+def bridge_oracle_status(request: Request) -> dict[str, Any]:
     """Get bridge oracle/verification status (v0.7.2 §B7).
 
     Reports: verification mode, finality config, block header counts,

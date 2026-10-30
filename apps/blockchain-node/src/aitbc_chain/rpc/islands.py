@@ -190,7 +190,7 @@ async def _subscriber_peer_count() -> int:
         return 0
 
 
-async def join_island(payload: JoinIslandRequest, request: Request | None = None) -> JoinIslandResponse:
+def join_island(payload: JoinIslandRequest, request: Request | None = None) -> JoinIslandResponse:
     """
     Join an island for edge compute operations.
     Calls IslandManager.join_island to register the node as a member of the specified island.
@@ -245,7 +245,7 @@ async def join_island(payload: JoinIslandRequest, request: Request | None = None
     )
 
 
-async def leave_island(payload: LeaveIslandRequest, request: Request | None = None) -> LeaveIslandResponse:
+def leave_island(payload: LeaveIslandRequest, request: Request | None = None) -> LeaveIslandResponse:
     """
     Leave an island.
     Calls IslandManager.leave_island to remove the node from the specified island.
@@ -338,7 +338,7 @@ async def get_island(island_id: str) -> dict[str, Any]:
     }
 
 
-async def request_bridge(payload: BridgeRequestRequest, request: Request | None = None) -> BridgeRequestResponse:
+def request_bridge(payload: BridgeRequestRequest, request: Request | None = None) -> BridgeRequestResponse:
     """
     Request a bridge to another island for cross-island communication.
     Calls IslandManager.request_bridge to initiate a bridge request.

@@ -113,7 +113,7 @@ async def test_submit_payment_tx_signs_with_settlement_key(release_key, monkeypa
 
     with (
         patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock) as mock_resolve,
+        patch.object(escrow_routes, "_resolve_chain_account", new_callable=MagicMock) as mock_resolve,
         patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock) as mock_nonce,
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
@@ -156,7 +156,7 @@ async def test_retried_release_builds_an_identical_transaction(release_key, monk
     sent = []
     with (
         patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock) as mock_resolve,
+        patch.object(escrow_routes, "_resolve_chain_account", new_callable=MagicMock) as mock_resolve,
         patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock) as mock_nonce,
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
@@ -286,7 +286,7 @@ async def test_submit_payment_tx_refuses_unresolvable_provider(release_key, monk
 
     with (
         patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_resolve_chain_account", new_callable=MagicMock, return_value=None),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
     ):
         tx_hash = await escrow_routes._submit_payment_tx(
@@ -332,7 +332,7 @@ async def test_submit_refund_tx_refuses_unresolvable_buyer(release_key, monkeypa
 
     escrow_routes = _reload_routes()
 
-    with patch.object(escrow_routes, "_resolve_chain_account", new_callable=AsyncMock, return_value=None):
+    with patch.object(escrow_routes, "_resolve_chain_account", new_callable=MagicMock, return_value=None):
         tx_hash = await escrow_routes._submit_refund_tx(
             buyer="0x3333333333333333333333333333333333333333",
             provider="0x2222222222222222222222222222222222222222",
@@ -624,7 +624,7 @@ async def test_submit_refund_tx_re_raises_on_submission_failure(release_key, mon
         patch.object(
             escrow_routes,
             "_resolve_chain_account",
-            new_callable=AsyncMock,
+            new_callable=MagicMock,
             return_value="0x3333333333333333333333333333333333333333",
         ),
         patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=5),

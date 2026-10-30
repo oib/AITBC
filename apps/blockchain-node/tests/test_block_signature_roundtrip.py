@@ -130,7 +130,7 @@ async def test_blocks_range_serves_the_signature(node_a, mock_request):
     proposer = EthAccount.create()
     block_hash, signature = _produce_signed_block(node_a, proposer, 1, genesis_hash)
 
-    result = await rpc_blocks.get_blocks_range(mock_request, start=1, end=1, chain_id=CHAIN)
+    result = rpc_blocks.get_blocks_range(mock_request, start=1, end=1, chain_id=CHAIN)
 
     (served,) = result["blocks"]
     assert served["signature"] == signature
@@ -143,7 +143,7 @@ async def test_get_block_serves_the_signature(node_a, mock_request):
     proposer = EthAccount.create()
     block_hash, signature = _produce_signed_block(node_a, proposer, 1, genesis_hash)
 
-    served = await rpc_blocks.get_block(mock_request, height=1, chain_id=CHAIN)
+    served = rpc_blocks.get_block(mock_request, height=1, chain_id=CHAIN)
 
     assert served["signature"] == signature
     assert verify_block_signature(block_hash, served["signature"], proposer.address)
@@ -162,8 +162,8 @@ async def test_cached_and_uncached_headers_agree(node_a, mock_request):
     proposer = EthAccount.create()
     _produce_signed_block(node_a, proposer, 1, genesis_hash)
 
-    first = await rpc_blocks.get_block(mock_request, height=1, chain_id=CHAIN)
-    second = await rpc_blocks.get_block(mock_request, height=1, chain_id=CHAIN)
+    first = rpc_blocks.get_block(mock_request, height=1, chain_id=CHAIN)
+    second = rpc_blocks.get_block(mock_request, height=1, chain_id=CHAIN)
 
     assert first["signature"] == second["signature"]
     assert set(first) == set(second)
@@ -181,7 +181,7 @@ async def test_signature_survives_a_sync_hop(node_a, tmp_path, monkeypatch, mock
     proposer = EthAccount.create()
     block_hash, signature = _produce_signed_block(node_a, proposer, 1, genesis_hash)
 
-    exported = (await rpc_blocks.get_blocks_range(mock_request, start=1, end=1, chain_id=CHAIN))["blocks"][0]
+    exported = (rpc_blocks.get_blocks_range(mock_request, start=1, end=1, chain_id=CHAIN))["blocks"][0]
     exported["chain_id"] = CHAIN
 
     node_b = _engine_for(tmp_path, "node_b.db")
@@ -199,7 +199,7 @@ async def test_signature_survives_a_sync_hop(node_a, tmp_path, monkeypatch, mock
         assert stored.signature == signature, "node B validated the signature and then discarded it"
 
         # And re-servable, so a third node can authenticate the block from B.
-        reexported = (await rpc_blocks.get_blocks_range(mock_request, start=1, end=1, chain_id=CHAIN))["blocks"][0]
+        reexported = (rpc_blocks.get_blocks_range(mock_request, start=1, end=1, chain_id=CHAIN))["blocks"][0]
         assert verify_block_signature(block_hash, reexported["signature"], proposer.address)
     finally:
         node_b.dispose()

@@ -78,7 +78,7 @@ async def test_cancel_writes_service_row_and_leaves_sealed_tx_untouched(monkeypa
     seeded = _seed_job(engine, status="pending")
     sealed_payload = dict(seeded.payload)
 
-    result = await ai_services.ai_cancel_job(JOB_ID)
+    result = ai_services.ai_cancel_job(JOB_ID)
 
     assert result["status"] == "cancelled"
     rows = _cancellation_rows(engine)
@@ -93,9 +93,9 @@ async def test_second_cancel_refuses(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
     _seed_job(engine, status="pending")
 
-    await ai_services.ai_cancel_job(JOB_ID)
+    ai_services.ai_cancel_job(JOB_ID)
     with pytest.raises(HTTPException) as exc:
-        await ai_services.ai_cancel_job(JOB_ID)
+        ai_services.ai_cancel_job(JOB_ID)
 
     assert exc.value.status_code == 400 and "cancelled" in exc.value.detail
     assert len(_cancellation_rows(engine)) == 1
@@ -108,7 +108,7 @@ async def test_completed_job_refuses(monkeypatch):
     _seed_job(engine, status="completed")
 
     with pytest.raises(HTTPException) as exc:
-        await ai_services.ai_cancel_job(JOB_ID)
+        ai_services.ai_cancel_job(JOB_ID)
 
     assert exc.value.status_code == 400 and "completed" in exc.value.detail
     assert _cancellation_rows(engine) == []
@@ -120,7 +120,7 @@ async def test_unknown_job_404s(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
 
     with pytest.raises(HTTPException) as exc:
-        await ai_services.ai_cancel_job("nope")
+        ai_services.ai_cancel_job("nope")
 
     assert exc.value.status_code == 404
 
@@ -131,17 +131,17 @@ async def test_cancel_overlay_reaches_list_get_and_stats(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
     _seed_job(engine, status="pending")
 
-    await ai_services.ai_cancel_job(JOB_ID)
+    ai_services.ai_cancel_job(JOB_ID)
 
-    listed = await ai_services.ai_list_jobs()
+    listed = ai_services.ai_list_jobs()
     assert listed["jobs"][0]["status"] == "cancelled"
-    cancelled_only = await ai_services.ai_list_jobs(status="cancelled")
+    cancelled_only = ai_services.ai_list_jobs(status="cancelled")
     assert len(cancelled_only["jobs"]) == 1
-    pending_only = await ai_services.ai_list_jobs(status="pending")
+    pending_only = ai_services.ai_list_jobs(status="pending")
     assert pending_only["jobs"] == []
 
-    got = await ai_services.ai_get_job(JOB_ID)
+    got = ai_services.ai_get_job(JOB_ID)
     assert got["job"]["status"] == "cancelled"
 
-    stats = await ai_services.ai_stats()
+    stats = ai_services.ai_stats()
     assert stats["status_breakdown"] == {"cancelled": 1}

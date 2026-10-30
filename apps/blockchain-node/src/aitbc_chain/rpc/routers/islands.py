@@ -49,20 +49,20 @@ except ImportError as e:
 
 @router.post("/join", summary="Join an island", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
-async def join_island_route(body: JoinIslandRequest, request: Request) -> JoinIslandResponse:
+def join_island_route(body: JoinIslandRequest, request: Request) -> JoinIslandResponse:
     """Join an island for edge compute operations"""
     if join_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await join_island(body, request)
+    return join_island(body, request)
 
 
 @router.post("/leave", summary="Leave an island", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
-async def leave_island_route(body: LeaveIslandRequest, request: Request) -> LeaveIslandResponse:
+def leave_island_route(body: LeaveIslandRequest, request: Request) -> LeaveIslandResponse:
     """Leave an island"""
     if leave_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await leave_island(body, request)
+    return leave_island(body, request)
 
 
 @router.get("", summary="List all islands")
@@ -85,8 +85,8 @@ async def get_island_route(request: Request, island_id: str) -> dict[str, Any]:
 
 @router.post("/bridge", summary="Request a bridge to another island", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
-async def request_bridge_route(body: BridgeRequestRequest, request: Request) -> BridgeRequestResponse:
+def request_bridge_route(body: BridgeRequestRequest, request: Request) -> BridgeRequestResponse:
     """Request a bridge to another island for cross-island communication"""
     if request_bridge is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await request_bridge(body, request)
+    return request_bridge(body, request)

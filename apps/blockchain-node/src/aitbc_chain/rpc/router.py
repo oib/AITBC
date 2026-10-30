@@ -146,7 +146,7 @@ except ImportError as e:
 
 @router.get("/security-status", summary="Bridge security status (runbook alias)")
 @rate_limit(rate=100, per=60)
-async def rpc_security_status_route(request: Request) -> dict[str, Any]:
+def rpc_security_status_route(request: Request) -> dict[str, Any]:
     """Runbook probe alias for GET /bridge/security/status.
 
     Ops runbooks probe ``/rpc/security-status``; the canonical handler lives
@@ -154,16 +154,16 @@ async def rpc_security_status_route(request: Request) -> dict[str, Any]:
     """
     if bridge_security_status_route is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_security_status_route(request)  # type: ignore[no-any-return]
+    return bridge_security_status_route(request)  # type: ignore[no-any-return]
 
 
 @router.get("/oracle-status", summary="Bridge oracle/verification status (runbook alias)")
 @rate_limit(rate=100, per=60)
-async def rpc_oracle_status_route(request: Request) -> dict[str, Any]:
+def rpc_oracle_status_route(request: Request) -> dict[str, Any]:
     """Runbook probe alias for GET /bridge/oracle/status."""
     if bridge_oracle_status_route is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
-    return await bridge_oracle_status_route(request)  # type: ignore[no-any-return]
+    return bridge_oracle_status_route(request)  # type: ignore[no-any-return]
 
 
 try:
@@ -187,7 +187,7 @@ _import_lock = asyncio.Lock()
 
 @router.post("/mining/start", summary="Start mining")
 @rate_limit(rate=10, per=60)
-async def start_mining_route(
+def start_mining_route(
     request: Request,
     mining_data: dict,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
@@ -213,7 +213,7 @@ async def start_mining_route(
 
 @router.post("/mining/stop", summary="Stop mining")
 @rate_limit(rate=10, per=60)
-async def stop_mining_route(
+def stop_mining_route(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> dict[str, Any]:
@@ -316,7 +316,7 @@ async def list_miners_route(
 
 @router.get("/pending", summary="Get pending transactions")
 @rate_limit(rate=100, per=60)
-async def get_pending_transactions_route(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+def get_pending_transactions_route(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Get pending transactions from mempool (alias for /mempool)"""
     try:
         mempool = get_mempool_instance()

@@ -44,7 +44,7 @@ class GetLogsResponse(BaseModel):
 
 
 @rate_limit(rate=200, per=60)
-async def get_logs(request: Request, logs_request: GetLogsRequest, chain_id: str | None = None) -> GetLogsResponse:
+def get_logs(request: Request, logs_request: GetLogsRequest, chain_id: str | None = None) -> GetLogsResponse:
     """
     Query smart contract event logs using eth_getLogs-compatible endpoint.
     Filters Receipt model for logs matching contract address and event topics.
