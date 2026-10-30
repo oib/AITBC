@@ -141,3 +141,52 @@ def test_unique_violation_with_committed_different_hash_diverges(sync_factory, m
     result = sync.import_block(_block())
     assert result.accepted is False
     assert "duplicate" not in (result.reason or "").lower()
+
+
+def test_rejected_tombstone_reapplies_and_upgrades(sync_factory, monkeypatch):
+    """A status=rejected row is a verdict, not a processed tx: dedup must
+    fall through, and the sealed-row write upgrades the tombstone instead
+    of colliding on (chain_id, tx_hash)."""
+    engine, factory = sync_factory
+    from aitbc_chain.base_models import Transaction as ChainTransaction
+    from aitbc_chain.state.state_transition import get_state_transition
+
+    with Session(engine) as session:
+        session.add(
+            ChainTransaction(
+                chain_id=CHAIN,
+                tx_hash="0x" + "cc" * 32,
+                sender="0x" + "ab" * 20,
+                recipient="0x" + "cd" * 20,
+                payload={},
+                nonce=0,
+                value=0,
+                fee=0,
+                type="RECEIPT_CLAIM",
+                status="rejected",
+            )
+        )
+        session.commit()
+
+    st = get_state_transition()
+    st._processed_tx_hashes.add("0x" + "cc" * 32)  # poisoned as if by a prior attempt
+    with Session(engine) as session:
+        ok, msg = st.apply_transaction(
+            session,
+            CHAIN,
+            {
+                "from": "0x" + "ab" * 20,
+                "to": "0x" + "cd" * 20,
+                "type": "RECEIPT_CLAIM",
+                "tx_hash": "0x" + "cc" * 32,
+                "amount": 0,
+                "fee": 0,
+                "nonce": 0,
+                "chain_id": CHAIN,
+                "payload": {},
+                "signature": "0x" + "22" * 65,
+            },
+            "0x" + "cc" * 32,
+        )
+    assert "replay attack" not in (msg or ""), f"tombstone must not dedup-block: {msg}"
+    assert "0x" + "cc" * 32 not in st._processed_tx_hashes or ok
