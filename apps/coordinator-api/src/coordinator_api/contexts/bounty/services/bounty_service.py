@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 
 from ..domain.bounty import Bounty, BountyStats, BountyStatus, BountySubmission, BountyTier, SubmissionStatus
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -69,21 +70,21 @@ class BountyService:
                 platform_fee=platform_fee,
             )
             self.session.add(bounty)  # type: ignore[union-attr]
-            self.session.commit()  # type: ignore[union-attr]
-            self.session.refresh(bounty)  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.commit))  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.refresh, bounty))  # type: ignore[union-attr]
             logger.info("Created bounty %s: %s", bounty.bounty_id, title)
             return bounty
         except Exception as e:
             logger.error("Failed to create bounty: %s", e)
-            self.session.rollback()  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.rollback))  # type: ignore[union-attr]
             raise
 
     async def get_bounty(self, bounty_id: str) -> Bounty | None:
         """Get bounty by ID"""
         try:
             stmt = select(Bounty).where(Bounty.bounty_id == bounty_id)  # type: ignore[arg-type]
-            result = self.session.execute(stmt).scalar_one_or_none()  # type: ignore[union-attr]
-            return result
+            result = (await run_in_threadpool(self.session.execute, stmt)).scalar_one_or_none()  # type: ignore[union-attr]
+            return result  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Failed to get bounty %s: %s", bounty_id, e)
             raise
@@ -130,7 +131,7 @@ class BountyService:
             query = query.order_by(desc(Bounty.creation_time))  # type: ignore[arg-type]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
-            result = self.session.execute(query).scalars().all()  # type: ignore[union-attr]
+            result = (await run_in_threadpool(self.session.execute, query)).scalars().all()  # type: ignore[union-attr]
             return list(result)
         except Exception as e:
             logger.error("Failed to get bounties: %s", e)
@@ -153,8 +154,11 @@ class BountyService:
         """Create a bounty submission"""
         try:
             bounty = (
-                self.session.execute(  # type: ignore[union-attr]
-                    select(Bounty).where(Bounty.bounty_id == bounty_id).with_for_update()  # type: ignore[arg-type]
+                (
+                    await run_in_threadpool(
+                        self.session.execute,  # type: ignore[union-attr]
+                        select(Bounty).where(Bounty.bounty_id == bounty_id).with_for_update(),  # type: ignore[arg-type]
+                    )
                 )
                 .scalars()
                 .first()
@@ -170,7 +174,7 @@ class BountyService:
             existing_stmt = select(BountySubmission).where(
                 and_(BountySubmission.bounty_id == bounty_id, BountySubmission.submitter_address == submitter_address)  # type: ignore[arg-type]
             )
-            existing = self.session.execute(existing_stmt).scalar_one_or_none()  # type: ignore[union-attr]
+            existing = (await run_in_threadpool(self.session.execute, existing_stmt)).scalar_one_or_none()  # type: ignore[union-attr]
             if existing:
                 raise ValueError("Already submitted to this bounty")
             submission = BountySubmission(
@@ -188,13 +192,13 @@ class BountyService:
             )
             self.session.add(submission)  # type: ignore[union-attr]
             bounty.submission_count += 1
-            self.session.commit()  # type: ignore[union-attr]
-            self.session.refresh(submission)  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.commit))  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.refresh, submission))  # type: ignore[union-attr]
             logger.info("Created submission %s for bounty %s", submission.submission_id, bounty_id)
             return submission
         except Exception as e:
             logger.error("Failed to create submission: %s", e)
-            self.session.rollback()  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.rollback))  # type: ignore[union-attr]
             raise
 
     async def get_bounty_submissions(self, bounty_id: str) -> list[BountySubmission]:
@@ -205,7 +209,7 @@ class BountyService:
                 .where(BountySubmission.bounty_id == bounty_id)  # type: ignore[arg-type]
                 .order_by(desc(BountySubmission.submission_time))  # type: ignore[arg-type]
             )
-            result = self.session.execute(stmt).scalars().all()  # type: ignore[union-attr]
+            result = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()  # type: ignore[union-attr]
             return list(result)
         except Exception as e:
             logger.error("Failed to get bounty submissions: %s", e)
@@ -219,7 +223,7 @@ class BountyService:
             stmt = select(BountySubmission).where(
                 and_(BountySubmission.submission_id == submission_id, BountySubmission.bounty_id == bounty_id)  # type: ignore[arg-type]
             )
-            submission = self.session.execute(stmt).scalar_one_or_none()  # type: ignore[union-attr]
+            submission = (await run_in_threadpool(self.session.execute, stmt)).scalar_one_or_none()  # type: ignore[union-attr]
             if not submission:
                 raise ValueError("Submission not found")
             if submission.status != SubmissionStatus.PENDING:
@@ -234,12 +238,12 @@ class BountyService:
                     bounty.winning_submission_id = submission.submission_id  # type: ignore[union-attr]
                     bounty.winner_address = submission.submitter_address  # type: ignore[union-attr]
                     logger.info("Bounty %s completed by %s", bounty_id, submission.submitter_address)
-            self.session.commit()  # type: ignore[union-attr]
-            self.session.refresh(submission)  # type: ignore[union-attr]
-            return submission
+            (await run_in_threadpool(self.session.commit))  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.refresh, submission))  # type: ignore[union-attr]
+            return submission  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Failed to verify submission: %s", e)
-            self.session.rollback()  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.rollback))  # type: ignore[union-attr]
             raise
 
     async def create_dispute(
@@ -250,25 +254,25 @@ class BountyService:
             stmt = select(BountySubmission).where(
                 and_(BountySubmission.submission_id == submission_id, BountySubmission.bounty_id == bounty_id)  # type: ignore[arg-type]
             )
-            submission = self.session.execute(stmt).scalar_one_or_none()  # type: ignore[union-attr]
+            submission = (await run_in_threadpool(self.session.execute, stmt)).scalar_one_or_none()  # type: ignore[union-attr]
             if not submission:
                 raise ValueError("Submission not found")
             if submission.status != SubmissionStatus.VERIFIED:
                 raise ValueError("Can only dispute verified submissions")
-            if datetime.now(UTC) - submission.verification_time > timedelta(days=1):  # type: ignore[operator]
+            if datetime.now(UTC) - submission.verification_time > timedelta(days=1):
                 raise ValueError("Dispute window expired")
             submission.status = SubmissionStatus.DISPUTED
             submission.dispute_reason = dispute_reason
             submission.dispute_time = datetime.now(UTC)
             bounty = await self.get_bounty(bounty_id)
             bounty.status = BountyStatus.DISPUTED  # type: ignore[union-attr]
-            self.session.commit()  # type: ignore[union-attr]
-            self.session.refresh(submission)  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.commit))  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.refresh, submission))  # type: ignore[union-attr]
             logger.info("Created dispute for submission %s", submission_id)
-            return submission
+            return submission  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Failed to create dispute: %s", e)
-            self.session.rollback()  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.rollback))  # type: ignore[union-attr]
             raise
 
     async def get_user_created_bounties(
@@ -282,7 +286,7 @@ class BountyService:
             query = query.order_by(desc(Bounty.creation_time))  # type: ignore[arg-type]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
-            result = self.session.execute(query).scalars().all()  # type: ignore[union-attr]
+            result = (await run_in_threadpool(self.session.execute, query)).scalars().all()  # type: ignore[union-attr]
             return list(result)
         except Exception as e:
             logger.error("Failed to get user created bounties: %s", e)
@@ -299,7 +303,7 @@ class BountyService:
             query = query.order_by(desc(BountySubmission.submission_time))  # type: ignore[arg-type]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
-            result = self.session.execute(query).scalars().all()  # type: ignore[union-attr]
+            result = (await run_in_threadpool(self.session.execute, query)).scalars().all()  # type: ignore[union-attr]
             return list(result)
         except Exception as e:
             logger.error("Failed to get user submissions: %s", e)
@@ -331,7 +335,7 @@ class BountyService:
                 .order_by(desc(func.sum(Bounty.reward_amount)))
                 .limit(limit)
             )
-            result = self.session.execute(stmt).all()  # type: ignore[union-attr]  # multi-column select, .all() returns Row objects
+            result = (await run_in_threadpool(self.session.execute, stmt)).all()  # type: ignore[union-attr]  # multi-column select, .all() returns Row objects
             leaderboard: list[dict[str, Any]] = []
             for row in result:
                 leaderboard.append(
@@ -360,21 +364,21 @@ class BountyService:
             else:
                 start_date = datetime.now(UTC) - timedelta(days=30)
             total_stmt = select(func.count(Bounty.bounty_id)).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
-            total_bounties = self.session.execute(total_stmt).scalar() or 0  # type: ignore[union-attr]
+            total_bounties = (await run_in_threadpool(self.session.execute, total_stmt)).scalar() or 0  # type: ignore[union-attr]
             active_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
                 and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.ACTIVE)  # type: ignore[arg-type]
             )
-            active_bounties = self.session.execute(active_stmt).scalar() or 0  # type: ignore[union-attr]
+            active_bounties = (await run_in_threadpool(self.session.execute, active_stmt)).scalar() or 0  # type: ignore[union-attr]
             completed_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
                 and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)  # type: ignore[arg-type]
             )
-            completed_bounties = self.session.execute(completed_stmt).scalar() or 0  # type: ignore[union-attr]
+            completed_bounties = (await run_in_threadpool(self.session.execute, completed_stmt)).scalar() or 0  # type: ignore[union-attr]
             total_locked_stmt = select(func.sum(Bounty.reward_amount)).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
-            total_value_locked = self.session.execute(total_locked_stmt).scalar() or 0.0  # type: ignore[union-attr]
+            total_value_locked = (await run_in_threadpool(self.session.execute, total_locked_stmt)).scalar() or 0.0  # type: ignore[union-attr]
             total_rewards_stmt = select(func.sum(Bounty.reward_amount)).where(
                 and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)  # type: ignore[arg-type]
             )
-            total_rewards_paid = self.session.execute(total_rewards_stmt).scalar() or 0.0  # type: ignore[union-attr]
+            total_rewards_paid = (await run_in_threadpool(self.session.execute, total_rewards_stmt)).scalar() or 0.0  # type: ignore[union-attr]
             success_rate = completed_bounties / total_bounties * 100 if total_bounties > 0 else 0.0
             avg_reward = total_value_locked / total_bounties if total_bounties > 0 else 0.0
             tier_stmt = (
@@ -382,18 +386,18 @@ class BountyService:
                 .where(Bounty.creation_time >= start_date)
                 .group_by(Bounty.tier)
             )
-            tier_result = self.session.execute(tier_stmt).all()  # type: ignore[union-attr]  # multi-column select, .all() returns Row objects
+            tier_result = (await run_in_threadpool(self.session.execute, tier_stmt)).all()  # type: ignore[union-attr]  # multi-column select, .all() returns Row objects
             tier_distribution = {row.tier.value: row.count for row in tier_result}
             expired_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
                 and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.EXPIRED)  # type: ignore[arg-type]
             )
-            expired_bounties = self.session.execute(expired_stmt).scalar() or 0  # type: ignore[union-attr]
+            expired_bounties = (await run_in_threadpool(self.session.execute, expired_stmt)).scalar() or 0  # type: ignore[union-attr]
             disputed_stmt = select(func.count(Bounty.bounty_id)).where(  # type: ignore[arg-type]
                 and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.DISPUTED)  # type: ignore[arg-type]
             )
-            disputed_bounties = self.session.execute(disputed_stmt).scalar() or 0  # type: ignore[union-attr]
+            disputed_bounties = (await run_in_threadpool(self.session.execute, disputed_stmt)).scalar() or 0  # type: ignore[union-attr]
             fees_stmt = select(func.sum(Bounty.platform_fee + Bounty.creation_fee)).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
-            total_fees_collected = self.session.execute(fees_stmt).scalar() or 0.0  # type: ignore[union-attr]
+            total_fees_collected = (await run_in_threadpool(self.session.execute, fees_stmt)).scalar() or 0.0  # type: ignore[union-attr]
             stats = BountyStats(
                 period_start=start_date,
                 period_end=datetime.now(UTC),
@@ -419,7 +423,7 @@ class BountyService:
         """Get all bounty categories"""
         try:
             stmt = select(Bounty.category).where(and_(Bounty.category.isnot(None), Bounty.category != "")).distinct()  # type: ignore[arg-type, call-overload, union-attr]
-            result = self.session.execute(stmt).scalars().all()  # type: ignore[union-attr]
+            result = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()  # type: ignore[union-attr]
             return list(result)
         except Exception as e:
             logger.error("Failed to get categories: %s", e)
@@ -429,7 +433,7 @@ class BountyService:
         """Get popular bounty tags"""
         try:
             stmt = select(Bounty.tags).where(func.array_length(Bounty.tags, 1) > 0).limit(limit)  # type: ignore[call-overload]
-            result = self.session.execute(stmt).scalars().all()  # type: ignore[union-attr]
+            result = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()  # type: ignore[union-attr]
             all_tags = []
             for tags in result:
                 all_tags.extend(tags)
@@ -449,7 +453,7 @@ class BountyService:
             )
             offset = (page - 1) * limit
             stmt = stmt.offset(offset).limit(limit)
-            result = self.session.execute(stmt).scalars().all()  # type: ignore[union-attr]
+            result = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()  # type: ignore[union-attr]
             return list(result)
         except Exception as e:
             logger.error("Failed to search bounties: %s", e)
@@ -466,11 +470,11 @@ class BountyService:
             if datetime.now(UTC) <= bounty.deadline:
                 raise ValueError("Deadline has not passed")
             bounty.status = BountyStatus.EXPIRED
-            self.session.commit()  # type: ignore[union-attr]
-            self.session.refresh(bounty)  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.commit))  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.refresh, bounty))  # type: ignore[union-attr]
             logger.info("Expired bounty %s", bounty_id)
             return bounty
         except Exception as e:
             logger.error("Failed to expire bounty: %s", e)
-            self.session.rollback()  # type: ignore[union-attr]
+            (await run_in_threadpool(self.session.rollback))  # type: ignore[union-attr]
             raise

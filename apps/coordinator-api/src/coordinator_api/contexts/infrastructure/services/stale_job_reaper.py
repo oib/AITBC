@@ -33,6 +33,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ....storage.db import get_engine
 from ..domain import Job, Miner
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -191,7 +192,7 @@ class StaleJobReaper:
         while True:
             await asyncio.sleep(self.interval_seconds)
             try:
-                self.run_once()
+                (await run_in_threadpool(self.run_once))
             except asyncio.CancelledError:
                 raise
             except Exception as e:

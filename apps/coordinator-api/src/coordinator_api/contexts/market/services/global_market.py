@@ -25,6 +25,7 @@ from ..domain.global_market import (
     MarketStatus,
     RegionStatus,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -69,13 +70,13 @@ class GlobalMarketService:
                 region_statuses[region_code] = MarketStatus.ACTIVE
             global_offer.region_statuses = region_statuses
             self.session.add(global_offer)
-            self.session.commit()
-            self.session.refresh(global_offer)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, global_offer))
             logger.info("Created global offer %s for agent %s", global_offer.id, agent_id)
             return global_offer
         except Exception as e:
             logger.error("Error creating global offer: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_global_offers(
@@ -96,7 +97,7 @@ class GlobalMarketService:
             if region and region != "global":
                 stmt = stmt.where(GlobalMarketOffer.regions_available.contains([region]))  # type: ignore[attr-defined]
             stmt = stmt.order_by(desc(GlobalMarketOffer.created_at)).offset(offset).limit(limit)  # type: ignore[arg-type]
-            offers = self.session.execute(stmt).scalars().all()
+            offers = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
             current_time = datetime.now(UTC)
             valid_offers = []
             for offer in offers:
@@ -113,7 +114,7 @@ class GlobalMarketService:
         """Create a global market transaction"""
         try:
             stmt = select(GlobalMarketOffer).where(GlobalMarketOffer.id == request.offer_id)
-            offer = self.session.execute(stmt).scalars().first()
+            offer = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not offer:
                 raise ValueError("Offer not found")
             if offer.available_capacity < request.quantity:
@@ -156,13 +157,13 @@ class GlobalMarketService:
             offer.total_transactions += 1
             offer.updated_at = datetime.now(UTC)
             self.session.add(transaction)
-            self.session.commit()
-            self.session.refresh(transaction)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, transaction))
             logger.info("Created global transaction %s for offer %s", transaction.id, offer.id)
             return transaction
         except Exception as e:
             logger.error("Error creating global transaction: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_global_transactions(
@@ -178,7 +179,7 @@ class GlobalMarketService:
             if status:
                 stmt = stmt.where(GlobalMarketTransaction.status == status)
             stmt = stmt.order_by(desc(GlobalMarketTransaction.created_at)).offset(offset).limit(limit)  # type: ignore[arg-type]
-            transactions = self.session.execute(stmt).scalars().all()
+            transactions = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
             return transactions  # type: ignore[return-value]
         except Exception as e:
             logger.error("Error getting global transactions: %s", e)
@@ -193,13 +194,13 @@ class GlobalMarketService:
                 GlobalMarketAnalytics.period_end <= request.end_date,
                 GlobalMarketAnalytics.region == request.region,
             )
-            existing_analytics = self.session.execute(stmt).scalars().first()
+            existing_analytics = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if existing_analytics:
                 return existing_analytics  # type: ignore[no-any-return]
             analytics = await self._generate_analytics(request)
             self.session.add(analytics)
-            self.session.commit()
-            self.session.refresh(analytics)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, analytics))
             return analytics
         except Exception as e:
             logger.error("Error getting market analytics: %s", e)
@@ -212,7 +213,7 @@ class GlobalMarketService:
         )
         if request.region != "global":
             stmt = stmt.where(GlobalMarketOffer.regions_available.contains([request.region]))  # type: ignore[attr-defined]
-        offers = self.session.execute(stmt).scalars().all()
+        offers = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
         stmt = select(GlobalMarketTransaction).where(
             GlobalMarketTransaction.created_at >= request.start_date,
             GlobalMarketTransaction.created_at <= request.end_date,
@@ -222,7 +223,7 @@ class GlobalMarketService:
                 (GlobalMarketTransaction.source_region == request.region)
                 | (GlobalMarketTransaction.target_region == request.region)
             )
-        transactions = self.session.execute(stmt).scalars().all()
+        transactions = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
         total_offers = len(offers)
         total_transactions = len(transactions)
         total_volume = sum(tx.total_amount for tx in transactions)
@@ -254,14 +255,14 @@ class GlobalMarketService:
     async def _get_active_regions(self) -> list[MarketRegion]:
         """Get all active market regions"""
         stmt = select(MarketRegion).where(MarketRegion.status == RegionStatus.ACTIVE)
-        regions = self.session.execute(stmt).scalars().all()
+        regions = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
         return regions  # type: ignore[return-value]
 
     async def get_region_health(self, region_code: str) -> dict[str, Any]:
         """Get health status for a specific region"""
         try:
             stmt = select(MarketRegion).where(MarketRegion.region_code == region_code)
-            region = self.session.execute(stmt).scalars().first()
+            region = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not region:
                 return {"status": "not_found"}
             health_score = region.health_score
@@ -288,7 +289,7 @@ class GlobalMarketService:
                 .where(GlobalMarketAnalytics.region == region, GlobalMarketAnalytics.created_at >= cutoff_time)
                 .order_by(desc(GlobalMarketAnalytics.created_at))  # type: ignore[arg-type]
             )
-            analytics = self.session.execute(stmt).scalars().first()
+            analytics = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if analytics:
                 return {
                     "total_transactions": analytics.total_transactions,
@@ -326,20 +327,20 @@ class RegionManager:
                 priority_weight=configuration.get("priority_weight", 1.0),
             )
             self.session.add(region)
-            self.session.commit()
-            self.session.refresh(region)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, region))
             logger.info("Created market region %s", region_code)
             return region
         except Exception as e:
             logger.error("Error creating region %s: %s", region_code, e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def update_region_health(self, region_code: str, health_metrics: dict[str, Any]) -> MarketRegion:
         """Update region health metrics"""
         try:
             stmt = select(MarketRegion).where(MarketRegion.region_code == region_code)
-            region = self.session.execute(stmt).scalars().first()
+            region = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not region:
                 raise ValueError(f"Region {region_code} not found")
             region.health_score = health_metrics.get("health_score", 1.0)
@@ -353,13 +354,13 @@ class RegionManager:
                 region.status = RegionStatus.ACTIVE
             else:
                 region.status = RegionStatus.ACTIVE
-            self.session.commit()
-            self.session.refresh(region)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, region))
             logger.info("Updated health for region %s: %s", region_code, region.health_score)
             return region  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Error updating region health %s: %s", region_code, e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_optimal_region(self, service_type: str, user_location: str | None = None) -> MarketRegion:
@@ -370,7 +371,7 @@ class RegionManager:
                 .where(MarketRegion.status == RegionStatus.ACTIVE)
                 .order_by(desc(MarketRegion.priority_weight))  # type: ignore[arg-type]
             )
-            regions = self.session.execute(stmt).scalars().all()
+            regions = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
             if not regions:
                 raise ValueError("No active regions available")
             if user_location:

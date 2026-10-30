@@ -19,6 +19,7 @@ from ..domain.reputation import (
     ReputationLevel,
     TrustScoreCategory,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -204,7 +205,15 @@ class ReputationService:
 
     async def create_reputation_profile(self, agent_id: str) -> AgentReputation:
         """Create a new reputation profile for an agent"""
-        existing = self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+        existing = (
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentReputation).where(AgentReputation.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
+        )
         if existing:
             return existing  # type: ignore[no-any-return]
         reputation = AgentReputation(
@@ -218,8 +227,8 @@ class ReputationService:
             updated_at=datetime.now(UTC),
         )
         self.session.add(reputation)
-        self.session.commit()
-        self.session.refresh(reputation)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, reputation))
         logger.info("Created reputation profile for agent %s", agent_id)
         return reputation
 
@@ -228,7 +237,7 @@ class ReputationService:
         reputation = await self.create_reputation_profile(agent_id)
         old_trust_score = reputation.trust_score
         old_reputation_level = reputation.reputation_level
-        new_trust_score = self.calculator.calculate_composite_trust_score(agent_id, self.session)
+        new_trust_score = await run_in_threadpool(self.calculator.calculate_composite_trust_score, agent_id, self.session)
         new_reputation_level = self.calculator.determine_reputation_level(new_trust_score)
         event = ReputationEvent(
             agent_id=agent_id,
@@ -255,8 +264,8 @@ class ReputationService:
             "reputation_level": new_reputation_level.value,
         }
         reputation.reputation_history.append(history_entry)
-        self.session.commit()
-        self.session.refresh(reputation)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, reputation))
         logger.info("Updated trust score for agent %s: %s -> %s", agent_id, old_trust_score, new_trust_score)
         return reputation
 
@@ -322,8 +331,8 @@ class ReputationService:
             created_at=datetime.now(UTC),
         )
         self.session.add(feedback)
-        self.session.commit()
-        self.session.refresh(feedback)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, feedback))
         await self._update_community_rating(agent_id)
         logger.info("Added community feedback for agent %s from reviewer %s", agent_id, reviewer_id)
         return feedback
@@ -331,9 +340,12 @@ class ReputationService:
     async def _update_community_rating(self, agent_id: str) -> None:
         """Update agent's community rating based on feedback"""
         feedbacks = (
-            self.session.execute(
-                select(CommunityFeedback).where(
-                    and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved")
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(CommunityFeedback).where(
+                        and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved")
+                    ),
                 )
             )
             .scalars()
@@ -351,41 +363,59 @@ class ReputationService:
         if total_weight > 0:
             avg_rating = weighted_sum / total_weight
             reputation = (
-                self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+                (
+                    await run_in_threadpool(
+                        self.session.execute, select(AgentReputation).where(AgentReputation.agent_id == agent_id)
+                    )
+                )
+                .scalars()
+                .first()
             )
             if reputation:
                 reputation.community_rating = avg_rating
                 reputation.updated_at = datetime.now(UTC)
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
 
     async def get_reputation_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive reputation summary for an agent"""
         reputation = (
-            self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentReputation).where(AgentReputation.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if not reputation:
             return {"error": "Reputation profile not found"}
         recent_events = (
-            self.session.execute(
-                select(ReputationEvent)
-                .where(
-                    and_(
-                        ReputationEvent.agent_id == agent_id,
-                        ReputationEvent.occurred_at >= datetime.now(UTC) - timedelta(days=30),
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(ReputationEvent)
+                    .where(
+                        and_(
+                            ReputationEvent.agent_id == agent_id,
+                            ReputationEvent.occurred_at >= datetime.now(UTC) - timedelta(days=30),
+                        )
                     )
+                    .order_by(desc(ReputationEvent.occurred_at))
+                    .limit(10),
                 )
-                .order_by(desc(ReputationEvent.occurred_at))
-                .limit(10)
             )
             .scalars()
             .all()
         )
         recent_feedback = (
-            self.session.execute(
-                select(CommunityFeedback)
-                .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))
-                .order_by(desc(CommunityFeedback.created_at))
-                .limit(5)
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(CommunityFeedback)
+                    .where(and_(CommunityFeedback.agent_id == agent_id, CommunityFeedback.moderation_status == "approved"))
+                    .order_by(desc(CommunityFeedback.created_at))
+                    .limit(5),
+                )
             )
             .scalars()
             .all()
@@ -435,7 +465,7 @@ class ReputationService:
         query = select(AgentReputation).order_by(getattr(AgentReputation, category).desc()).limit(limit)
         if region:
             query = query.where(AgentReputation.geographic_region == region)
-        result = self.session.execute(query)
+        result = await run_in_threadpool(self.session.execute, query)
         reputations = result.scalars().all()
         leaderboard = []
         for rank, reputation in enumerate(reputations, 1):

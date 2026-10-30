@@ -26,6 +26,7 @@ from coordinator_api.contexts.agent_coordination.domain.agent import (
     StepType,
     VerificationLevel,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -46,7 +47,7 @@ class AgentStateManager:
         self, workflow_id: str, client_id: str, verification_level: VerificationLevel = VerificationLevel.BASIC
     ) -> AgentExecution:
         """Create a new agent execution record"""
-        resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
+        resolved_client_id, client_ref = await run_in_threadpool(resolve_client, self.session, client_id, auto_create=True)
         execution = AgentExecution(
             workflow_id=workflow_id,
             client_id=resolved_client_id,
@@ -54,8 +55,8 @@ class AgentStateManager:
             verification_level=verification_level,
         )
         self.session.add(execution)
-        self.session.commit()
-        self.session.refresh(execution)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, execution))
         logger.info("Created agent execution: %s", execution.id)
         return execution
 
@@ -66,9 +67,9 @@ class AgentStateManager:
             .where(AgentExecution.id == execution_id)  # type: ignore[arg-type]
             .values(status=status, updated_at=datetime.now(UTC), **kwargs)
         )
-        self.session.execute(stmt)
-        self.session.commit()
-        execution = self.session.get(AgentExecution, execution_id)
+        (await run_in_threadpool(self.session.execute, stmt))
+        (await run_in_threadpool(self.session.commit))
+        execution = await run_in_threadpool(self.session.get, AgentExecution, execution_id)
         if execution is None:
             raise ValueError(f"Execution {execution_id} not found after update")
         logger.info("Updated execution %s status to %s", execution_id, status)
@@ -76,23 +77,23 @@ class AgentStateManager:
 
     async def get_execution(self, execution_id: str) -> AgentExecution | None:
         """Get execution by ID"""
-        return self.session.get(AgentExecution, execution_id)
+        return await run_in_threadpool(self.session.get, AgentExecution, execution_id)
 
     async def get_workflow(self, workflow_id: str) -> AIAgentWorkflow | None:
         """Get workflow by ID"""
-        return self.session.get(AIAgentWorkflow, workflow_id)
+        return await run_in_threadpool(self.session.get, AIAgentWorkflow, workflow_id)
 
     async def get_workflow_steps(self, workflow_id: str) -> list[AgentStep]:
         """Get all steps for a workflow"""
         stmt = select(AgentStep).where(AgentStep.workflow_id == workflow_id).order_by(AgentStep.step_order)  # type: ignore[arg-type]
-        return self.session.execute(stmt).scalars().all()  # type: ignore[return-value]
+        return (await run_in_threadpool(self.session.execute, stmt)).scalars().all()  # type: ignore[return-value]
 
     async def create_step_execution(self, execution_id: str, step_id: str) -> AgentStepExecution:
         """Create a step execution record"""
         step_execution = AgentStepExecution(execution_id=execution_id, step_id=step_id)
         self.session.add(step_execution)
-        self.session.commit()
-        self.session.refresh(step_execution)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, step_execution))
         return step_execution
 
     async def update_step_execution(self, step_execution_id: str, **kwargs: Any) -> AgentStepExecution:
@@ -102,9 +103,9 @@ class AgentStateManager:
             .where(AgentStepExecution.id == step_execution_id)  # type: ignore[arg-type]
             .values(updated_at=datetime.now(UTC), **kwargs)
         )
-        self.session.execute(stmt)
-        self.session.commit()
-        step_execution = self.session.get(AgentStepExecution, step_execution_id)
+        (await run_in_threadpool(self.session.execute, stmt))
+        (await run_in_threadpool(self.session.commit))
+        step_execution = await run_in_threadpool(self.session.get, AgentStepExecution, step_execution_id)
         if step_execution is None:
             raise ValueError(f"Step execution {step_execution_id} not found after update")
         return step_execution

@@ -15,6 +15,7 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 from aitbc.aitbc_logging import get_logger
 
 from coordinator_api.contexts.agent_coordination.domain.agent import AIAgentWorkflow, VerificationLevel
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -207,8 +208,8 @@ class AgentAuditor:
             signature_valid=self._verify_signature(event_data or {}),
         )
         self.session.add(audit_log)
-        self.session.commit()
-        self.session.refresh(audit_log)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, audit_log))
         if audit_log.requires_investigation:
             await self._handle_high_risk_event(audit_log)
         logger.info("Audit event logged: %s for workflow %s execution %s", event_type.value, workflow_id, execution_id)
@@ -286,7 +287,7 @@ class AgentAuditor:
         audit_log.investigation_notes = investigation_notes
         audit_log.investigation_status = "pending"
         audit_log.investigation_required = True
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         logger.critical("SECURITY ALERT: High-risk event requires investigation - Event ID: %s", audit_log.id)
         logger.info("Investigation ticket would be created for event: %s", audit_log.id)
         if audit_log.risk_score >= 0.9:
@@ -309,10 +310,13 @@ class AgentTrustManager:
         policy_violation: bool = False,
     ) -> AgentTrustScore:
         """Update trust score based on execution results"""
-        trust_score_row = self.session.scalars(
-            select(AgentTrustScore)
-            .where((AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id))
-            .with_for_update()
+        trust_score_row = (
+            await run_in_threadpool(
+                self.session.scalars,
+                select(AgentTrustScore)
+                .where((AgentTrustScore.entity_type == entity_type) & (AgentTrustScore.entity_id == entity_id))
+                .with_for_update(),
+            )
         ).first()
         if trust_score_row is None:
             trust_score = AgentTrustScore(entity_type=entity_type, entity_id=entity_id)
@@ -350,8 +354,8 @@ class AgentTrustManager:
                 ) / trust_score.total_executions
         trust_score.last_execution = datetime.now(UTC)
         trust_score.updated_at = datetime.now(UTC)
-        self.session.commit()
-        self.session.refresh(trust_score)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, trust_score))
         return trust_score
 
     def _calculate_trust_score(self, trust_score: AgentTrustScore) -> float:
@@ -427,8 +431,8 @@ class AgentSandboxManager:
             log_network_access=sandbox_config["log_network_access"],
         )
         self.session.add(sandbox)
-        self.session.commit()
-        self.session.refresh(sandbox)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, sandbox))
         logger.info("Created sandbox configuration for execution %s", execution_id)
         return sandbox
 
@@ -553,7 +557,11 @@ class AgentSandboxManager:
         serving fabricated zero metrics.
         """
         sandbox = (
-            self.session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}"))
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}")
+                )
+            )
             .scalars()
             .first()
         )
@@ -565,14 +573,19 @@ class AgentSandboxManager:
         """Clean up sandbox environment after execution"""
         try:
             sandbox = (
-                self.session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}"))
+                (
+                    await run_in_threadpool(
+                        self.session.execute,
+                        select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}"),
+                    )
+                )
                 .scalars()
                 .first()
             )
             if sandbox:
                 sandbox.is_active = False
                 sandbox.updated_at = datetime.now(UTC)
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
                 logger.info("Marked sandbox as inactive for execution %s", execution_id)
                 return True
             return False
@@ -596,8 +609,8 @@ class AgentSecurityManager:
         """Create a new security policy"""
         policy = AgentSecurityPolicy(name=name, description=description, security_level=security_level, **policy_rules)
         self.session.add(policy)
-        self.session.commit()
-        self.session.refresh(policy)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, policy))
         await self.auditor.log_event(
             AuditEventType.WORKFLOW_CREATED,
             user_id="system",
@@ -615,7 +628,7 @@ class AgentSecurityManager:
         lookup so callers (e.g. the security router) do not need to import the
         agent_coordination domain model directly.
         """
-        workflow = self.session.get(AIAgentWorkflow, workflow_id)
+        workflow = await run_in_threadpool(self.session.get, AIAgentWorkflow, workflow_id)
         if not workflow:
             raise ValueError(f"Workflow {workflow_id} not found")
         if workflow.owner_id != user_id:

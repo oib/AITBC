@@ -37,6 +37,7 @@ from .....contexts.wallet.services.money import from_atomic_units, parse_decimal
 from ....reputation.services.reputation_engine import CrossChainReputationEngine
 from ...domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
 from .bridge_types import BridgeProtocol, BridgeSecurityLevel
+from starlette.concurrency import run_in_threadpool
 
 # B4: HTLC contract address constant for Python-native contract fallback
 HTLC_CONTRACT_ADDRESS = "0xhtlc_contract_0000000000000000000000000000000000000"
@@ -201,8 +202,8 @@ class BridgeClientAdapter:
                 protocol=protocol.value if protocol else BridgeProtocol.HTLC.value,
             )
             self.session.add(bridge_request)
-            self.session.commit()
-            self.session.refresh(bridge_request)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, bridge_request))
             await self._process_bridge_request(bridge_request.id)  # type: ignore[arg-type]
             logger.info("Created bridge request %s for %s tokens", bridge_request.id, amount_dec)
             return {
@@ -222,7 +223,7 @@ class BridgeClientAdapter:
             }
         except Exception as e:
             logger.error("Error creating bridge request: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_bridge_request_status(self, bridge_request_id: str) -> dict[str, Any]:
@@ -231,7 +232,7 @@ class BridgeClientAdapter:
             raise RuntimeError("BridgeClientAdapter requires a Session to get bridge request status")
         try:
             stmt = select(BridgeRequest).where(BridgeRequest.id == bridge_request_id)
-            bridge_request = self.session.execute(stmt).scalars().first()
+            bridge_request = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not bridge_request:
                 raise ValueError(f"Bridge request {bridge_request_id} not found")
             transactions = []
@@ -295,7 +296,7 @@ class BridgeClientAdapter:
             raise RuntimeError("BridgeClientAdapter requires a Session to cancel bridge requests")
         try:
             stmt = select(BridgeRequest).where(BridgeRequest.id == bridge_request_id)
-            bridge_request = self.session.execute(stmt).scalars().first()
+            bridge_request = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not bridge_request:
                 raise ValueError(f"Bridge request {bridge_request_id} not found")
             if bridge_request.status not in [BridgeRequestStatus.PENDING, BridgeRequestStatus.CONFIRMED]:
@@ -303,7 +304,7 @@ class BridgeClientAdapter:
             bridge_request.status = BridgeRequestStatus.CANCELLED
             bridge_request.cancellation_reason = reason
             bridge_request.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             if bridge_request.lock_tx_hash or bridge_request.unlock_tx_hash:
                 await self._process_refund(bridge_request)
             logger.info("Cancelled bridge request %s: %s", bridge_request_id, reason)
@@ -315,7 +316,7 @@ class BridgeClientAdapter:
             }
         except Exception as e:
             logger.error("Error cancelling bridge request: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_bridge_statistics(self, time_period_hours: int = 24) -> dict[str, Any]:
@@ -325,56 +326,56 @@ class BridgeClientAdapter:
         try:
             cutoff_time = datetime.now(UTC) - timedelta(hours=time_period_hours)
             total_requests = (
-                self.session.execute(
-                    select(func.count(BridgeRequest.id)).where(BridgeRequest.created_at >= cutoff_time)  # type: ignore[arg-type]
-                ).scalar()
-                or 0
-            )
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(func.count(BridgeRequest.id)).where(BridgeRequest.created_at >= cutoff_time),  # type: ignore[arg-type]
+                )
+            ).scalar() or 0
             completed_requests = (
-                self.session.execute(
+                await run_in_threadpool(
+                    self.session.execute,
                     select(func.count(BridgeRequest.id)).where(  # type: ignore[arg-type]
                         BridgeRequest.created_at >= cutoff_time, BridgeRequest.status == BridgeRequestStatus.COMPLETED
-                    )
-                ).scalar()
-                or 0
-            )
+                    ),
+                )
+            ).scalar() or 0
             total_volume = (
-                self.session.execute(
+                await run_in_threadpool(
+                    self.session.execute,
                     select(func.sum(BridgeRequest.amount)).where(
                         BridgeRequest.created_at >= cutoff_time, BridgeRequest.status == BridgeRequestStatus.COMPLETED
-                    )
-                ).scalar()
-                or 0
-            )
+                    ),
+                )
+            ).scalar() or 0
             total_fees = (
-                self.session.execute(
+                await run_in_threadpool(
+                    self.session.execute,
                     select(func.sum(BridgeRequest.bridge_fee)).where(
                         BridgeRequest.created_at >= cutoff_time, BridgeRequest.status == BridgeRequestStatus.COMPLETED
-                    )
-                ).scalar()
-                or 0
-            )
+                    ),
+                )
+            ).scalar() or 0
             success_rate = completed_requests / max(total_requests, 1)
             avg_processing_time = (
-                self.session.execute(
+                await run_in_threadpool(
+                    self.session.execute,
                     select(
                         func.avg(
                             func.extract("epoch", BridgeRequest.completed_at) - func.extract("epoch", BridgeRequest.created_at)  # type: ignore[arg-type]
                         )
-                    ).where(BridgeRequest.created_at >= cutoff_time, BridgeRequest.status == BridgeRequestStatus.COMPLETED)
-                ).scalar()
-                or 0
-            )
+                    ).where(BridgeRequest.created_at >= cutoff_time, BridgeRequest.status == BridgeRequestStatus.COMPLETED),
+                )
+            ).scalar() or 0
             chain_distribution = {}
             for chain_id in self.wallet_adapters.keys():
                 chain_requests = (
-                    self.session.execute(
+                    await run_in_threadpool(
+                        self.session.execute,
                         select(func.count(BridgeRequest.id)).where(  # type: ignore[arg-type]
                             BridgeRequest.created_at >= cutoff_time, BridgeRequest.source_chain_id == chain_id
-                        )
-                    ).scalar()
-                    or 0
-                )
+                        ),
+                    )
+                ).scalar() or 0
                 chain_distribution[str(chain_id)] = chain_requests
             return {
                 "time_period_hours": time_period_hours,
@@ -519,13 +520,13 @@ class BridgeClientAdapter:
             return
         try:
             stmt = select(BridgeRequest).where(BridgeRequest.id == bridge_request_id)
-            bridge_request = self.session.execute(stmt).scalars().first()
+            bridge_request = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not bridge_request:
                 logger.error("Bridge request %s not found", bridge_request_id)
                 return
             bridge_request.status = BridgeRequestStatus.CONFIRMED
             bridge_request.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             if bridge_request.protocol == BridgeProtocol.ATOMIC_SWAP.value:
                 await self._execute_atomic_swap(bridge_request)
             elif bridge_request.protocol == BridgeProtocol.LIQUIDITY_POOL.value:
@@ -542,8 +543,8 @@ class BridgeClientAdapter:
                     .where(BridgeRequest.id == bridge_request_id)  # type: ignore[arg-type]
                     .values(status=BridgeRequestStatus.FAILED, error_message=str(e), updated_at=datetime.now(UTC))
                 )
-                self.session.execute(update_stmt)
-                self.session.commit()
+                (await run_in_threadpool(self.session.execute, update_stmt))
+                (await run_in_threadpool(self.session.commit))
             except Exception:
                 logger.warning("Failed to update bridge request status to failed: %s", bridge_request_id)
 
@@ -563,7 +564,7 @@ class BridgeClientAdapter:
             )
             bridge_request.lock_tx_hash = source_tx["transaction_hash"]
             bridge_request.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             await self._wait_for_confirmations(bridge_request.source_chain_id, source_tx["transaction_hash"])
             target_swap_data = await self._create_atomic_swap_contract(bridge_request, "target")
             target_tx = await target_adapter.execute_transaction(
@@ -576,7 +577,7 @@ class BridgeClientAdapter:
             bridge_request.status = BridgeRequestStatus.COMPLETED
             bridge_request.completed_at = datetime.now(UTC)
             bridge_request.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             logger.info("Completed atomic swap for bridge request %s", bridge_request.id)
         except Exception as e:
             logger.error("Error executing atomic swap: %s", e)
@@ -605,7 +606,7 @@ class BridgeClientAdapter:
             bridge_request.status = BridgeRequestStatus.COMPLETED
             bridge_request.completed_at = datetime.now(UTC)
             bridge_request.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             logger.info("Completed liquidity pool swap for bridge request %s", bridge_request.id)
         except Exception as e:
             logger.error("Error executing liquidity pool swap: %s", e)
@@ -637,7 +638,7 @@ class BridgeClientAdapter:
             secret = generate_secret()
             secret_hash = compute_hashlock(secret)
             bridge_request.secret_hash = secret_hash
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
 
             # Timelocks are computed relative to a base height of 0, i.e. as
             # offsets, because no wallet adapter here exposes a chain head --
@@ -693,7 +694,7 @@ class BridgeClientAdapter:
             )
             bridge_request.lock_tx_hash = source_tx["transaction_hash"]
             bridge_request.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             target_htlc_data = await self._create_htlc_contract(bridge_request, secret_hash, "target")
             target_adapter = self.wallet_adapters[bridge_request.target_chain_id]
             await target_adapter.execute_transaction(
@@ -838,7 +839,7 @@ class BridgeClientAdapter:
         bridge_request.status = BridgeRequestStatus.COMPLETED
         bridge_request.completed_at = datetime.now(UTC)
         bridge_request.updated_at = datetime.now(UTC)
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
 
     async def _estimate_network_fee(self, chain_id: int, amount: Decimal, token_address: str | None) -> Decimal:
         """Estimate network fee for transaction"""

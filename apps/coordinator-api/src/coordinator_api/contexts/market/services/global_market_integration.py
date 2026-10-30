@@ -24,6 +24,7 @@ from ...cross_chain.services.multi_chain_transaction_manager import ChainTransac
 from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from ..domain.global_market import GlobalMarketOffer
 from ..services.global_market import GlobalMarketService, RegionManager
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -136,7 +137,7 @@ class GlobalMarketIntegrationService:
             global_offer = await self.market_service.create_global_offer(offer_request, None)  # type: ignore[arg-type]
             if cross_chain_pricing:
                 global_offer.cross_chain_pricing = cross_chain_pricing
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
             cross_chain_listings = []
             if self.integration_config["auto_cross_chain_listing"]:
                 cross_chain_listings = await self._create_cross_chain_listings(global_offer)
@@ -159,7 +160,7 @@ class GlobalMarketIntegrationService:
             }
         except Exception as e:
             logger.error("Error creating cross-chain market offer: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def execute_cross_chain_transaction(
@@ -179,7 +180,7 @@ class GlobalMarketIntegrationService:
         """Execute a cross-chain market transaction"""
         try:
             stmt = select(GlobalMarketOffer).where(GlobalMarketOffer.id == offer_id)
-            offer = self.session.execute(stmt).scalars().first()
+            offer = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not offer:
                 raise ValueError("Offer not found")
             if offer.available_capacity < quantity:
@@ -219,7 +220,7 @@ class GlobalMarketIntegrationService:
                 bridge_transaction_id = bridge_result["bridge_request_id"]
                 global_transaction.bridge_transaction_id = bridge_transaction_id
                 global_transaction.cross_chain_fee = bridge_result.get("total_fee", 0)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             logger.info("Executed cross-chain transaction %s", global_transaction.id)
             return {
                 "transaction_id": global_transaction.id,
@@ -242,7 +243,7 @@ class GlobalMarketIntegrationService:
             }
         except Exception as e:
             logger.error("Error executing cross-chain transaction: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_integrated_market_offers(
@@ -343,7 +344,7 @@ class GlobalMarketIntegrationService:
         """Optimize pricing for a global market offer"""
         try:
             stmt = select(GlobalMarketOffer).where(GlobalMarketOffer.id == offer_id)
-            offer = self.session.execute(stmt).scalars().first()
+            offer = (await run_in_threadpool(self.session.execute, stmt)).scalars().first()
             if not offer:
                 raise ValueError("Offer not found")
             market_conditions = await self._analyze_market_conditions(offer.service_type, target_regions, target_chains)
@@ -351,7 +352,7 @@ class GlobalMarketIntegrationService:
             offer.price_per_region = optimized_pricing["regional_pricing"]
             offer.cross_chain_pricing = optimized_pricing["cross_chain_pricing"]
             offer.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             logger.info("Optimized pricing for offer %s", offer_id)
             return {
                 "offer_id": offer_id,
@@ -363,7 +364,7 @@ class GlobalMarketIntegrationService:
             }
         except Exception as e:
             logger.error("Error optimizing offer pricing: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def _calculate_cross_chain_pricing(

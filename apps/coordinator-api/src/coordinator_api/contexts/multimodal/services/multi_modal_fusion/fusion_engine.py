@@ -17,6 +17,7 @@ from aitbc.async_tasks import create_task_with_logging
 
 from coordinator_api.contexts.multimodal.domain import FusionModel
 from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, MultiModalTransformer
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -245,15 +246,19 @@ class MultiModalFusionEngine:
             status="training",
         )
         session.add(fusion_model)
-        session.commit()
-        session.refresh(fusion_model)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, fusion_model))
         create_task_with_logging(self.train_fusion_model(session, fusion_id), name="train_fusion_model")
         logger.info("Created fusion model %s with strategy %s", fusion_id, fusion_strategy)
         return fusion_model
 
     async def train_fusion_model(self, session: Session, fusion_id: str) -> dict[str, Any]:
         """Train a fusion model"""
-        fusion_model = session.execute(select(FusionModel).where(FusionModel.fusion_id == fusion_id)).scalars().first()
+        fusion_model = (
+            (await run_in_threadpool(session.execute, select(FusionModel).where(FusionModel.fusion_id == fusion_id)))
+            .scalars()
+            .first()
+        )
         if not fusion_model:
             raise ValueError(f"Fusion model {fusion_id} not found")
         try:
@@ -264,13 +269,13 @@ class MultiModalFusionEngine:
             fusion_model.inference_time = training_results["inference_time"]
             fusion_model.status = "ready"
             fusion_model.trained_at = datetime.now(UTC)
-            session.commit()
+            (await run_in_threadpool(session.commit))
             logger.info("Fusion model %s training completed", fusion_id)
             return training_results
         except Exception as e:
             logger.error("Error training fusion model %s: %s", fusion_id, str(e))
             fusion_model.status = "failed"
-            session.commit()
+            (await run_in_threadpool(session.commit))
             raise
 
     async def simulate_fusion_training(self, fusion_model: FusionModel) -> dict[str, Any]:
@@ -368,7 +373,11 @@ class MultiModalFusionEngine:
 
     async def fuse_modalities(self, session: Session, fusion_id: str, input_data: dict[str, Any]) -> dict[str, Any]:
         """Fuse multiple modalities using trained fusion model"""
-        fusion_model = session.execute(select(FusionModel).where(FusionModel.fusion_id == fusion_id)).scalars().first()
+        fusion_model = (
+            (await run_in_threadpool(session.execute, select(FusionModel).where(FusionModel.fusion_id == fusion_id)))
+            .scalars()
+            .first()
+        )
         if not fusion_model:
             raise ValueError(f"Fusion model {fusion_id} not found")
         if fusion_model.status != "ready":
@@ -379,7 +388,7 @@ class MultiModalFusionEngine:
                 raise ValueError(f"Unknown fusion strategy: {fusion_model.fusion_strategy}")
             fusion_result = await fusion_strategy(input_data, fusion_model)  # type: ignore[operator]
             fusion_model.deployment_count += 1
-            session.commit()
+            (await run_in_threadpool(session.commit))
             logger.info("Fusion completed for model %s", fusion_id)
             return fusion_result  # type: ignore[no-any-return]
         except Exception as e:
