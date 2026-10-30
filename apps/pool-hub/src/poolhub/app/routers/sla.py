@@ -182,7 +182,7 @@ async def get_capacity_snapshots(
 
 
 @router.get("/capacity/forecast")
-async def get_capacity_forecast(
+def get_capacity_forecast(
     billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
     hours_ahead: Annotated[int, Query(ge=1, le=8760)] = 168,
 ) -> dict[str, Any]:
@@ -204,7 +204,7 @@ async def get_capacity_forecast(
 
 
 @router.get("/capacity/recommendations")
-async def get_scaling_recommendations(
+def get_scaling_recommendations(
     billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
 ) -> dict[str, Any]:
     """Get auto-scaling recommendations from coordinator-api"""
@@ -229,9 +229,7 @@ async def get_scaling_recommendations(
 
 
 @router.post("/capacity/alerts/configure")
-async def configure_capacity_alerts(
-    alert_config: dict[str, Any], db: Annotated[AsyncSession, Depends(get_db)]
-) -> dict[str, Any]:
+def configure_capacity_alerts(alert_config: dict[str, Any], db: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, Any]:
     """Configure capacity alerts"""
     try:
         return {"status": "configured", "alert_config": alert_config, "timestamp": datetime.now(UTC).isoformat()}

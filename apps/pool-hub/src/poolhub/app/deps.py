@@ -22,7 +22,7 @@ get_db = get_db_session
 get_redis_client = get_redis
 
 
-async def get_miner_id(miner: Annotated[Miner, Depends(get_miner_from_token)]) -> str:
+def get_miner_id(miner: Annotated[Miner, Depends(get_miner_from_token)]) -> str:
     """Return the authenticated miner's ID.
 
     Previously returned a static configured miner_id, leaving all service config

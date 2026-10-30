@@ -16,6 +16,6 @@ templates = Jinja2Templates(directory=templates_dir)
 
 
 @router.get("/services", response_class=HTMLResponse, include_in_schema=False)
-async def services_ui(request: Request) -> HTMLResponse:
+def services_ui(request: Request) -> HTMLResponse:
     """Serve the service configuration UI"""
     return templates.TemplateResponse(request, "services.html", {"request": request})

@@ -156,7 +156,7 @@ async def apply_parameter_change(
 
 
 @router.get("/list", response_model=list[dict[str, Any]])
-async def list_governance_parameters() -> list[dict[str, Any]]:
+def list_governance_parameters() -> list[dict[str, Any]]:
     """List parameters that can be changed via governance."""
     return [
         {"name": name, "type": typ.__name__, "description": f"Governance-controllable {name}"}
