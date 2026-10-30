@@ -285,7 +285,7 @@ async def add_community_feedback(
 
 @router.get("/trust-score/{agent_id}", response_model=TrustScoreResponse)
 @rate_limit(rate=200, per=60)
-async def get_trust_score_breakdown(
+def get_trust_score_breakdown(
     request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> TrustScoreResponse:
     """Get detailed trust score breakdown for an agent"""
@@ -344,9 +344,7 @@ async def get_reputation_leaderboard(
 
 @router.get("/metrics", response_model=ReputationMetricsResponse)
 @rate_limit(rate=200, per=60)
-async def get_reputation_metrics(
-    request: Request, session: Annotated[Session, Depends(get_session)]
-) -> ReputationMetricsResponse:
+def get_reputation_metrics(request: Request, session: Annotated[Session, Depends(get_session)]) -> ReputationMetricsResponse:
     """Get overall reputation system metrics"""
     try:
         # Use SQL aggregation instead of loading all data into memory
@@ -405,7 +403,7 @@ async def get_reputation_metrics(
 
 @router.get("/feedback/{agent_id}")
 @rate_limit(rate=200, per=60)
-async def get_agent_feedback(
+def get_agent_feedback(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -450,7 +448,7 @@ async def get_agent_feedback(
 
 @router.get("/events/{agent_id}")
 @rate_limit(rate=200, per=60)
-async def get_reputation_events(
+def get_reputation_events(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -493,7 +491,7 @@ async def get_reputation_events(
 
 @router.put("/profile/{agent_id}/specialization")
 @rate_limit(rate=20, per=60)
-async def update_specialization(
+def update_specialization(
     request: Request,
     agent_id: str,
     specialization_tags: list[str],
@@ -526,7 +524,7 @@ async def update_specialization(
 
 @router.put("/profile/{agent_id}/region")
 @rate_limit(rate=20, per=60)
-async def update_region(
+def update_region(
     request: Request, agent_id: str, region: str, session: Annotated[Session, Depends(get_session)], user: AuthDep
 ) -> dict[str, Any]:
     """Update agent geographic region"""
@@ -555,7 +553,7 @@ async def update_region(
 
 @router.get("/{agent_id}/cross-chain")
 @rate_limit(rate=200, per=60)
-async def get_cross_chain_reputation(
+def get_cross_chain_reputation(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -597,7 +595,7 @@ async def get_cross_chain_reputation(
 
 @router.post("/{agent_id}/cross-chain/sync")
 @rate_limit(rate=20, per=60)
-async def sync_cross_chain_reputation(
+def sync_cross_chain_reputation(
     request: Request,
     agent_id: str,
     background_tasks: Any,
@@ -627,7 +625,7 @@ async def sync_cross_chain_reputation(
 
 @router.get("/cross-chain/leaderboard")
 @rate_limit(rate=200, per=60)
-async def get_cross_chain_leaderboard(
+def get_cross_chain_leaderboard(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
@@ -681,7 +679,7 @@ async def get_cross_chain_leaderboard(
 
 @router.post("/cross-chain/events")
 @rate_limit(rate=20, per=60)
-async def submit_cross_chain_event(
+def submit_cross_chain_event(
     request: Request,
     event_data: dict[str, Any],
     background_tasks: Any,
@@ -734,7 +732,7 @@ async def submit_cross_chain_event(
 
 @router.get("/cross-chain/analytics")
 @rate_limit(rate=200, per=60)
-async def get_cross_chain_analytics(
+def get_cross_chain_analytics(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],

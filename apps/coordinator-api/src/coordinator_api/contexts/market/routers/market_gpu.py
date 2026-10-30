@@ -302,7 +302,7 @@ def _build_energy_quote(
 
 
 @router.post("/market/gpu/register")
-async def register_gpu(
+def register_gpu(
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
@@ -348,7 +348,7 @@ async def register_gpu(
 
 
 @router.get("/market/gpu/list")
-async def list_gpus(
+def list_gpus(
     session: Annotated[Session, Depends(get_session)],
     available: bool | None = Query(default=None),
     price_max: Decimal | None = None,
@@ -373,7 +373,7 @@ async def list_gpus(
 
 
 @router.get("/market/gpu/{gpu_id}")
-async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get GPU details."""
     gpu = _get_gpu_or_404(session, gpu_id)
     result = _gpu_to_dict(gpu)
@@ -395,7 +395,7 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
 
 
 @router.post("/market/gpu/quote")
-async def quote_gpu(
+def quote_gpu(
     request: GPUQuoteRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
@@ -756,9 +756,7 @@ async def buy_gpu(
 
 
 @router.post("/market/gpu/sell")
-async def sell_gpu(
-    request: GPUSellRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep
-) -> dict[str, Any]:
+def sell_gpu(request: GPUSellRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
     """List GPU for sale on market with specified price."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
     gpu.price_per_hour = request.listing_price
@@ -841,7 +839,7 @@ async def book_gpu(
 
 
 @router.post("/market/gpu/{gpu_id}/release")
-async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
+def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
     """Release a booked GPU."""
     gpu = _get_gpu_or_404(session, gpu_id)
     if gpu.status != "booked":
@@ -865,7 +863,7 @@ async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_sessi
 
 
 @router.post("/market/gpu/{gpu_id}/confirm")
-async def confirm_gpu_booking(
+def confirm_gpu_booking(
     gpu_id: str,
     request: GPUConfirmRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -981,7 +979,7 @@ async def send_payment(
 
 
 @router.delete("/market/gpu/{gpu_id}")
-async def delete_gpu(
+def delete_gpu(
     gpu_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
@@ -1000,7 +998,7 @@ async def delete_gpu(
 
 
 @router.get("/market/gpu/{gpu_id}/reviews")
-async def get_gpu_reviews(
+def get_gpu_reviews(
     gpu_id: str, session: Annotated[Session, Depends(get_session)], limit: int = Query(default=10, ge=1, le=100)
 ) -> dict[str, Any]:
     """Get GPU reviews."""
@@ -1022,7 +1020,7 @@ async def get_gpu_reviews(
 
 
 @router.post("/market/gpu/{gpu_id}/reviews", status_code=http_status.HTTP_201_CREATED)
-async def add_gpu_review(
+def add_gpu_review(
     gpu_id: str, request: GPUReviewRequest, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Add a review for a GPU."""
@@ -1078,7 +1076,7 @@ async def add_gpu_review(
 
 
 @router.get("/market/orders")
-async def list_orders(
+def list_orders(
     session: Annotated[Session, Depends(get_session)],
     status: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
@@ -1223,7 +1221,7 @@ async def get_pricing(
 
 
 @router.post("/market/gpu/bid")
-async def bid_gpu(request: dict[str, Any], session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def bid_gpu(request: dict[str, Any], session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Place a bid on a GPU"""
     bid_id = str(uuid4())
     return {
@@ -1237,7 +1235,7 @@ async def bid_gpu(request: dict[str, Any], session: Annotated[Session, Depends(g
 
 
 @router.post("/market/native-energy/profile", status_code=http_status.HTTP_201_CREATED)
-async def register_native_energy_profile(
+def register_native_energy_profile(
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
@@ -1293,7 +1291,7 @@ async def register_native_energy_profile(
 
 
 @router.post("/market/native-energy/rate")
-async def publish_native_energy_rate(
+def publish_native_energy_rate(
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
@@ -1354,7 +1352,7 @@ async def publish_native_energy_rate(
 
 
 @router.get("/market/native-energy/profile/{resource_id}")
-async def get_native_energy_profile(resource_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_native_energy_profile(resource_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Read the registered AIT-native energy profile for a resource."""
     try:
         profile = session.get(NativeEnergyProfile, resource_id)
@@ -1377,7 +1375,7 @@ async def get_native_energy_profile(resource_id: str, session: Annotated[Session
 
 
 @router.get("/market/native-energy/rate")
-async def get_native_energy_rate(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_native_energy_rate(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Read the published global AIT/EUR rate for native energy quotes."""
     try:
         rate = session.get(NativeEnergyRate, 1)
@@ -1396,7 +1394,7 @@ async def get_native_energy_rate(session: Annotated[Session, Depends(get_session
 
 
 @router.get("/market/native-energy/floor")
-async def get_native_energy_floor(
+def get_native_energy_floor(
     resource_id: str,
     session: Annotated[Session, Depends(get_session)],
     gpu_count: int = Query(default=1, ge=1),

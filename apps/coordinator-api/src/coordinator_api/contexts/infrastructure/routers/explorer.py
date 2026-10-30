@@ -25,7 +25,7 @@ def _service(session: Annotated[Session, Depends(get_session)]) -> ExplorerServi
 
 @router.get("/blocks", response_model=BlockListResponse, summary="List recent blocks")
 @rate_limit(rate=100, per=60)
-async def list_blocks(
+def list_blocks(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -41,7 +41,7 @@ async def list_blocks(
     summary="List recent transactions",
 )
 @rate_limit(rate=100, per=60)
-async def list_transactions(
+def list_transactions(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -53,7 +53,7 @@ async def list_transactions(
 
 @router.get("/addresses", response_model=AddressListResponse, summary="List address summaries")
 @rate_limit(rate=100, per=60)
-async def list_addresses(
+def list_addresses(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -65,7 +65,7 @@ async def list_addresses(
 
 @router.get("/receipts", response_model=ReceiptListResponse, summary="List job receipts")
 @rate_limit(rate=100, per=60)
-async def list_receipts(
+def list_receipts(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -78,7 +78,7 @@ async def list_receipts(
 
 @router.get("/transactions/{tx_hash}", summary="Get transaction details by hash")
 @rate_limit(rate=100, per=60)
-async def get_transaction(
+def get_transaction(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -90,7 +90,7 @@ async def get_transaction(
 
 @router.get("/blocks/by-hash/{block_hash}", summary="Get block details by hash")
 @rate_limit(rate=100, per=60)
-async def get_block_by_hash(
+def get_block_by_hash(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -102,7 +102,7 @@ async def get_block_by_hash(
 
 @router.get("/transactions/by-hash/{tx_hash}", summary="Get transaction details by hash")
 @rate_limit(rate=100, per=60)
-async def get_transaction_by_hash(
+def get_transaction_by_hash(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],

@@ -16,7 +16,7 @@ router = APIRouter(tags=["Developer Platform"])
 
 @router.post("/stake", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
-async def stake_on_developer(
+def stake_on_developer(
     request: Request,
     staker_address: str,
     developer_address: str,
@@ -36,7 +36,7 @@ async def stake_on_developer(
 
 @router.get("/staking/{address}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def get_staking_info(
+def get_staking_info(
     request: Request,
     address: str,
     session: Annotated[Session, Depends(get_session)],
@@ -54,7 +54,7 @@ async def get_staking_info(
 
 @router.post("/unstake", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
-async def unstake_tokens(
+def unstake_tokens(
     request: Request,
     staking_id: str,
     amount: Decimal,
@@ -73,7 +73,7 @@ async def unstake_tokens(
 
 @router.get("/rewards/{address}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def get_rewards(
+def get_rewards(
     request: Request,
     address: str,
     session: Annotated[Session, Depends(get_session)],
@@ -91,7 +91,7 @@ async def get_rewards(
 
 @router.post("/claim-rewards", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
-async def claim_rewards(
+def claim_rewards(
     request: Request,
     address: str,
     session: Annotated[Session, Depends(get_session)],
@@ -110,7 +110,7 @@ async def claim_rewards(
 
 @router.get("/staking-stats", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def get_staking_statistics(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_staking_statistics(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get comprehensive staking statistics.
 
     ponytail: Disabled until staking is backed by real on-chain data.

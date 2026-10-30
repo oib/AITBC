@@ -168,7 +168,7 @@ async def verify_proof(request: Request, req: VerifyProofRequest) -> Verificatio
 
 @router.get("/info", summary="Get circuit information")
 @rate_limit(rate=100, per=60)
-async def get_circuit_info(request: Request) -> dict[str, Any]:
+def get_circuit_info(request: Request) -> dict[str, Any]:
     """Get information about available ZK circuits and setup parameters"""
     try:
         zk_service = zk_proof_service
@@ -257,7 +257,7 @@ async def verify_job_receipt(
 
 
 @router.get("/health", summary="ZK service health check")
-async def health_check(request: Request) -> dict[str, Any]:
+def health_check(request: Request) -> dict[str, Any]:
     """Check if ZK proof service is operational"""
     try:
         zk_service = zk_proof_service

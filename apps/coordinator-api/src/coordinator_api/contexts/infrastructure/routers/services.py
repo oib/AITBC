@@ -41,7 +41,7 @@ router = APIRouter(tags=["services"])
     summary="Transcribe audio using Whisper",
 )
 @rate_limit(rate=20, per=60)
-async def whisper_transcribe(
+def whisper_transcribe(
     request: Request,
     whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -74,7 +74,7 @@ async def whisper_transcribe(
     summary="Translate audio using Whisper",
 )
 @rate_limit(rate=20, per=60)
-async def whisper_translate(
+def whisper_translate(
     request: Request,
     whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -110,7 +110,7 @@ async def whisper_translate(
     summary="Generate images using Stable Diffusion",
 )
 @rate_limit(rate=20, per=60)
-async def stable_diffusion_generate(
+def stable_diffusion_generate(
     request: Request,
     sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -147,7 +147,7 @@ async def stable_diffusion_generate(
     summary="Image-to-image generation",
 )
 @rate_limit(rate=20, per=60)
-async def stable_diffusion_img2img(
+def stable_diffusion_img2img(
     request: Request,
     sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -181,7 +181,7 @@ async def stable_diffusion_img2img(
     "/services/llm/inference", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED, summary="Run LLM inference"
 )
 @rate_limit(rate=20, per=60)
-async def llm_inference(
+def llm_inference(
     request: Request,
     llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -213,7 +213,7 @@ async def llm_inference(
 
 @router.post("/services/llm/stream", summary="Stream LLM inference")
 @rate_limit(rate=20, per=60)
-async def llm_stream(
+def llm_stream(
     request: Request,
     llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -251,7 +251,7 @@ async def llm_stream(
     summary="Transcode video using FFmpeg",
 )
 @rate_limit(rate=20, per=60)
-async def ffmpeg_transcode(
+def ffmpeg_transcode(
     request: Request,
     ffmpeg_request: FFmpegRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -290,7 +290,7 @@ async def ffmpeg_transcode(
     summary="Render using Blender",
 )
 @rate_limit(rate=20, per=60)
-async def blender_render(
+def blender_render(
     request: Request,
     blender_request: BlenderRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -389,14 +389,14 @@ def _find_service(name: str) -> dict[str, Any] | None:
 # Utility endpoints
 @router.get("/services", summary="List available services")
 @rate_limit(rate=200, per=60)
-async def list_services(request: Request) -> dict[str, Any]:
+def list_services(request: Request) -> dict[str, Any]:
     """List all available service types and their capabilities"""
     return {"services": _service_catalog()}
 
 
 @router.get("/services/{name}", summary="Get a service's status")
 @rate_limit(rate=200, per=60)
-async def get_service(request: Request, name: str) -> dict[str, Any]:
+def get_service(request: Request, name: str) -> dict[str, Any]:
     """Return catalog details + availability for one service type."""
     svc = _find_service(name)
     if svc is None:
@@ -409,7 +409,7 @@ async def get_service(request: Request, name: str) -> dict[str, Any]:
 
 @router.post("/services/{name}/test", summary="Test a service's availability")
 @rate_limit(rate=20, per=60)
-async def test_service(request: Request, name: str, user: ClientDep) -> dict[str, Any]:
+def test_service(request: Request, name: str, user: ClientDep) -> dict[str, Any]:
     """Registry-level availability check for a service type.
 
     Confirms the type is registered in the coordinator catalog and reports
