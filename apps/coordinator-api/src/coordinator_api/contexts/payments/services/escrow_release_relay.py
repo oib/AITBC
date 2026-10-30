@@ -27,6 +27,7 @@ from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
+from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, select
 
 from aitbc.network import AsyncAITBCHTTPClient
@@ -216,12 +217,14 @@ class EscrowReleaseRelayService(EscrowRelayService):
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail="the settlement node did not report the escrow buyer",
                 )
-            self._check_buyer_binding(client_id, buyer)
+            await run_in_threadpool(self._check_buyer_binding, client_id, buyer)
 
         # Dedup: a prior relay row settles the job — return it without a
         # chain call so a replayed request can never double-release.
-        existing: EscrowReleaseRelay | None = (
-            self.session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == job_id)).scalars().first()
+        existing: EscrowReleaseRelay | None = await run_in_threadpool(
+            lambda: (
+                self.session.execute(select(EscrowReleaseRelay).where(EscrowReleaseRelay.job_id == job_id)).scalars().first()
+            )
         )
         if existing is not None:
             return self._stored_result(existing)
@@ -236,7 +239,7 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 tx_hash=escrow.get("release_tx_hash"),
                 contract_id=escrow.get("contract_id"),
             )
-            stored = self._insert_or_existing(row)
+            stored = await run_in_threadpool(self._insert_or_existing, row)
             return self._stored_result(stored if stored is not None else row)
         if state == "refunded" or escrow.get("refunded_at"):
             raise HTTPException(
@@ -253,7 +256,7 @@ class EscrowReleaseRelayService(EscrowRelayService):
         tx_hash = chain_response.get("tx_hash") if isinstance(chain_response, dict) else None
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
         row = EscrowReleaseRelay(client_id=client_id, job_id=job_id, tx_hash=tx_hash, contract_id=contract_id)
-        stored = self._insert_or_existing(row)
+        stored = await run_in_threadpool(self._insert_or_existing, row)
         if stored is not None:
             # Concurrent identical release: the row landed first — the chain
             # call may or may not have sealed; return the stored result.
