@@ -27,6 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_wallet_address(
+    name_arg: Annotated[str | None, Field(description="Positional argument: name_arg")] = None,
     name: Annotated[str | None, Field(description="Wallet name.")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
@@ -57,7 +58,7 @@ def aitbc_wallet_address(
         flags={"use_daemon": "use-daemon"},
         values={"wallet_name": "wallet-name", "wallet_path": "wallet-path", "chain_id": "chain-id"},
     )
-    args = None
+    args = [name_arg] if name_arg is not None else []
     return _aitbc_cli_read_tool(
         role,
         host,
