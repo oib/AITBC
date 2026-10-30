@@ -265,6 +265,29 @@ class InMemoryMempool:
                 self._update_gauge(chain_id)
             return removed
 
+    def remove_superseded(self, chain_id: str, sender: str, nonce: int) -> int:
+        """Drop pending entries whose (sender, nonce) slot a sealed block
+        just consumed.
+
+        A different-hash pending row at a nonce that sealed elsewhere can
+        never seal — yet it keeps the slot occupied, refusing resubmits
+        until TTL expiry (Refs #717). Dropping it the moment the block
+        lands releases the sender's next nonce immediately. Entries at a
+        lower nonce are equally dead (the nonce already moved past them).
+        """
+        removed = 0
+        with self._lock:
+            for entry in list(self._get_chain_transactions(chain_id).values()):
+                if _tx_sender(entry.content) != sender.lower():
+                    continue
+                entry_nonce = _tx_nonce(entry.content)
+                if entry_nonce is not None and entry_nonce <= nonce:
+                    self._drop_entry(chain_id, entry)
+                    removed += 1
+            if removed:
+                self._update_gauge(chain_id)
+        return removed
+
     def size(self, chain_id: str | None = None) -> int:
         from .config import settings
 
@@ -767,6 +790,31 @@ class DatabaseMempool:
             if removed:
                 self._update_gauge(chain_id)
             return removed
+
+    def remove_superseded(self, chain_id: str | None, sender: str, nonce: int, commit: bool = True) -> int:
+        """Drop rows whose (sender, nonce) slot a sealed block consumed —
+        they can never seal and otherwise refuse resubmits until TTL
+        expiry (Refs #717)."""
+        from .config import settings
+
+        if chain_id is None:
+            chain_id = settings.chain_id
+        with self._lock:
+            with Session(self._engine) as session:
+                rows = session.exec(
+                    select(MempoolEntry).where(
+                        MempoolEntry.chain_id == chain_id,
+                        MempoolEntry.sender == sender.lower(),
+                        cast(Any, MempoolEntry.nonce) <= nonce,
+                    )
+                ).all()
+                for row in rows:
+                    session.delete(row)
+                if commit:
+                    session.commit()
+            if rows:
+                self._update_gauge(chain_id)
+            return len(rows)
 
     def batch_remove(self, hashes: list[str], chain_id: str | None = None) -> int:
         """Remove multiple transactions in a single session with a single commit."""
