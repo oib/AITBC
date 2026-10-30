@@ -8,7 +8,7 @@ set -euo pipefail
 serial_check || exit 75
 
 dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
-out=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" liquidity-stake \
+out=$("$AITBC_BIN" --output=json wallet --wallet-path "/var/lib/aitbc/wallets/${WALLET}.json" liquidity-stake \
   --amount "$dec" 2>&1) && rc=0 || rc=$?
 if [ $rc -ne 0 ]; then
   case "$out" in
