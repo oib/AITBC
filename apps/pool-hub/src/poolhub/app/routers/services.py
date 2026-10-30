@@ -150,7 +150,7 @@ async def delete_service_config(
 
 
 @router.get("/templates/{service_type}")
-async def get_service_template(service_type: str) -> dict[str, Any]:
+def get_service_template(service_type: str) -> dict[str, Any]:
     """Get default configuration template for a service"""
     templates = {
         "whisper": {
