@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import HTTPException, Request, status
 from sqlalchemy import asc, func, text
 from sqlmodel import select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.rate_limiting import rate_limit
 
@@ -304,30 +305,37 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                 block_height = int(block_data["height"])
             except (KeyError, TypeError, ValueError) as exc:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block height") from exc
-            with session_scope(chain_id) as session:
-                existing_height_block = session.exec(
-                    select(Block).where(Block.chain_id == chain_id).where(Block.height == block_height)
-                ).first()
-                if existing_height_block is not None:
-                    if existing_height_block.hash == block_hash:
-                        return {
-                            "success": True,
-                            "block_height": existing_height_block.height,
-                            "block_hash": existing_height_block.hash,
-                            "chain_id": chain_id,
-                        }
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Block height {block_height} already exists with different hash",
-                    )
-                existing_block = session.exec(
-                    select(Block).where(Block.chain_id == chain_id).where(Block.hash == block_hash)
-                ).first()
-                if existing_block is not None:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Block hash {block_hash} already exists at height {existing_block.height}",
-                    )
+
+            def _check_existing() -> dict[str, Any] | None:
+                with session_scope(chain_id) as session:
+                    existing_height_block = session.exec(
+                        select(Block).where(Block.chain_id == chain_id).where(Block.height == block_height)
+                    ).first()
+                    if existing_height_block is not None:
+                        if existing_height_block.hash == block_hash:
+                            return {
+                                "success": True,
+                                "block_height": existing_height_block.height,
+                                "block_hash": existing_height_block.hash,
+                                "chain_id": chain_id,
+                            }
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail=f"Block height {block_height} already exists with different hash",
+                        )
+                    existing_block = session.exec(
+                        select(Block).where(Block.chain_id == chain_id).where(Block.hash == block_hash)
+                    ).first()
+                    if existing_block is not None:
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail=f"Block hash {block_hash} already exists at height {existing_block.height}",
+                        )
+                return None
+
+            existing = await run_in_threadpool(_check_existing)
+            if existing is not None:
+                return existing
             # Route through the same validated import path as peer sync
             # (signature, parent linkage, state root, transaction application).
             from ..sync import ChainSync
