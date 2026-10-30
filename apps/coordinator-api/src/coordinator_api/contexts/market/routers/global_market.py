@@ -158,7 +158,7 @@ async def get_global_offers(
 
 
 @router.get("/offers/{offer_id}", response_model=dict[str, Any])
-async def get_global_offer(
+def get_global_offer(
     offer_id: str,
     session: Annotated[Session, Depends(get_session)],
     market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
@@ -325,7 +325,7 @@ async def get_global_transactions(
 
 
 @router.get("/transactions/{transaction_id}", response_model=dict[str, Any])
-async def get_global_transaction(
+def get_global_transaction(
     transaction_id: str,
     session: Annotated[Session, Depends(get_session)],
     market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
@@ -376,7 +376,7 @@ async def get_global_transaction(
 
 # Region Management Endpoints
 @router.get("/regions", response_model=list[dict[str, Any]])
-async def get_regions(
+def get_regions(
     session: Annotated[Session, Depends(get_session)],
     status: str | None = None,
 ) -> list[dict[str, Any]]:
@@ -523,7 +523,7 @@ async def get_market_analytics(
 
 # Configuration Endpoints
 @router.get("/config", response_model=dict[str, Any])
-async def get_global_market_config(
+def get_global_market_config(
     session: Annotated[Session, Depends(get_session)],
     category: str | None = None,
 ) -> dict[str, Any]:
@@ -556,7 +556,7 @@ async def get_global_market_config(
 
 # Health and Status Endpoints
 @router.get("/health", response_model=dict[str, Any])
-async def get_global_market_health(
+def get_global_market_health(
     session: Annotated[Session, Depends(get_session)],
     market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
 ) -> dict[str, Any]:

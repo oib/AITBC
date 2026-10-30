@@ -63,7 +63,7 @@ async def create_deployment_config(
 
 @router.get("/deployments/configs", response_model=list[AgentDeploymentConfig])
 @rate_limit(rate=200, per=60)
-async def list_deployment_configs(
+def list_deployment_configs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
@@ -93,7 +93,7 @@ async def list_deployment_configs(
 
 @router.get("/deployments/configs/{config_id}", response_model=AgentDeploymentConfig)
 @rate_limit(rate=200, per=60)
-async def get_deployment_config(
+def get_deployment_config(
     request: Request,
     config_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -240,7 +240,7 @@ async def rollback_deployment(
 
 @router.get("/deployments/instances", response_model=list[AgentDeploymentInstance])
 @rate_limit(rate=200, per=60)
-async def list_deployment_instances(
+def list_deployment_instances(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
@@ -275,7 +275,7 @@ async def list_deployment_instances(
 
 @router.get("/deployments/instances/{instance_id}", response_model=AgentDeploymentInstance)
 @rate_limit(rate=200, per=60)
-async def get_deployment_instance(
+def get_deployment_instance(
     request: Request,
     instance_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -525,7 +525,7 @@ async def get_production_health(
 
 @router.get("/production/alerts")
 @rate_limit(rate=200, per=60)
-async def get_production_alerts(
+def get_production_alerts(
     request: Request,
     user: AdminDep,
     severity: str | None = None,

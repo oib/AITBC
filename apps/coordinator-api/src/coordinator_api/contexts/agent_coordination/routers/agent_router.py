@@ -32,7 +32,7 @@ router = APIRouter(tags=["AI Agents"])
 
 
 @router.post("/workflows", response_model=AIAgentWorkflow)
-async def create_workflow(
+def create_workflow(
     workflow_data: AgentWorkflowCreate,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
@@ -53,7 +53,7 @@ async def create_workflow(
 
 
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
-async def list_workflows(
+def list_workflows(
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     tags: list[str] | None = None,
@@ -83,7 +83,7 @@ async def list_workflows(
 
 @router.get("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
 @rate_limit(rate=200, per=60)
-async def get_workflow(
+def get_workflow(
     workflow_id: str,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
@@ -108,7 +108,7 @@ async def get_workflow(
 
 @router.put("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
 @rate_limit(rate=100, per=60)
-async def update_workflow(
+def update_workflow(
     workflow_id: str,
     workflow_data: AgentWorkflowUpdate,
     request: Request,
@@ -140,7 +140,7 @@ async def update_workflow(
 
 
 @router.delete("/workflows/{workflow_id}")
-async def delete_workflow(
+def delete_workflow(
     workflow_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
@@ -235,7 +235,7 @@ async def get_execution_status(
 
 
 @router.get("/executions", response_model=list[AgentExecutionStatus])
-async def list_executions(
+def list_executions(
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     workflow_id: str | None = None,
@@ -301,7 +301,7 @@ async def cancel_workflow(
 
 
 @router.get("/workflows/{workflow_id}/executions", response_model=list[AgentExecutionStatus])
-async def list_workflow_executions(
+def list_workflow_executions(
     workflow_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,

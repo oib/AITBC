@@ -4,6 +4,7 @@ import os
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -210,7 +211,7 @@ async def _submit_job_impl(
 @router.get("/jobs/history", summary="Get job history")
 @rate_limit(rate=200, per=60)
 @cached(**get_cache_config("job_list"))
-async def get_job_history(
+def get_job_history(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
@@ -262,7 +263,7 @@ async def get_job_history(
 
 @router.get("/jobs/{job_id}", response_model=JobView, summary="Get job status")
 @rate_limit(rate=200, per=60)
-async def get_job(
+def get_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -278,7 +279,7 @@ async def get_job(
 
 @router.get("/jobs/{job_id}/result", response_model=JobResult, summary="Get job result")
 @rate_limit(rate=200, per=60)
-async def get_job_result(
+def get_job_result(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -298,7 +299,7 @@ async def get_job_result(
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobView, summary="Cancel job")
 @rate_limit(rate=50, per=60)
-async def cancel_job(
+def cancel_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -317,7 +318,7 @@ async def cancel_job(
 
 @router.get("/jobs/{job_id}/receipt", summary="Get latest signed receipt")
 @rate_limit(rate=200, per=60)
-async def get_job_receipt(
+def get_job_receipt(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -335,7 +336,7 @@ async def get_job_receipt(
 
 @router.get("/jobs/{job_id}/receipts", summary="List signed receipts")
 @rate_limit(rate=200, per=60)
-async def list_job_receipts(
+def list_job_receipts(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -349,7 +350,7 @@ async def list_job_receipts(
 @router.get("/jobs", summary="List jobs with filtering")
 @rate_limit(rate=200, per=60)
 @cached(**get_cache_config("job_list"))
-async def list_jobs(
+def list_jobs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
@@ -381,7 +382,7 @@ async def list_jobs(
 
 @router.get("/blocks", summary="Get blockchain blocks")
 @rate_limit(rate=200, per=60)
-async def get_blocks(
+def get_blocks(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
@@ -511,20 +512,20 @@ async def reject_job(
     """
     service = JobService(session)
     try:
-        job = service.get_job(job_id, client_id=user["sub"])
+        job = await run_in_threadpool(service.get_job, job_id, client_id=user["sub"])
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
-    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     if not payment or payment.status != PENDING_ACCEPTANCE:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
         )
-    if not PaymentService(session).dispute_payment(user["sub"], job.id, job.payment_id, req.reason):
+    if not await run_in_threadpool(PaymentService(session).dispute_payment, user["sub"], job.id, job.payment_id, req.reason):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="payment could not be disputed")
     job.payment_status = payment.status
     session.add(job)
-    session.commit()
-    session.refresh(job)
+    await run_in_threadpool(session.commit)
+    await run_in_threadpool(session.refresh, job)
     logger.info("Client %s rejected job %s: %s", user["sub"], job.id, req.reason)
     return service.to_view(job)  # type: ignore[no-any-return]

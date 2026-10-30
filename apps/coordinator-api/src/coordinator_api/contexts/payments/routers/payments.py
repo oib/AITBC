@@ -59,7 +59,7 @@ async def create_payment(
 
 
 @router.get("/payments/{payment_id}", response_model=JobPaymentView, summary="Get payment details")
-async def get_payment(
+def get_payment(
     payment_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
@@ -77,7 +77,7 @@ async def get_payment(
 
 
 @router.get("/jobs/{job_id}/payment", response_model=JobPaymentView, summary="Get payment for a job")
-async def get_job_payment(
+def get_job_payment(
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
@@ -187,7 +187,7 @@ async def refund_payment(
 
 
 @router.get("/payments/{payment_id}/receipt", response_model=PaymentReceipt, summary="Get payment receipt")
-async def get_payment_receipt(
+def get_payment_receipt(
     payment_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
