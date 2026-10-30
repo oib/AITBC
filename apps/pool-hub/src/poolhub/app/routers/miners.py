@@ -103,7 +103,7 @@ async def miner_heartbeat(
 
 
 @router.get("/status")
-async def miner_status(
+def miner_status(
     miner: Annotated[Any, Depends(get_miner_from_token)],
 ) -> dict[str, Any]:
     """Return the authenticated miner's status."""

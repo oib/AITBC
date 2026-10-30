@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator
+from collections.abc import Generator
 
 import redis.asyncio as redis
 
@@ -28,7 +28,7 @@ def get_redis_client() -> redis.Redis:
     return _redis_client
 
 
-async def get_redis() -> AsyncGenerator[redis.Redis]:
+def get_redis() -> Generator[redis.Redis]:
     client = get_redis_client()
     yield client
 
