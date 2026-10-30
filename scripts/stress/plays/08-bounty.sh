@@ -9,7 +9,7 @@ set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
-addr=$(cli wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
+addr=$(python3 -c "import json;print(json.load(open('${OPERATOR_WALLET_PATH:-/var/lib/aitbc/wallets/${WALLET}.json}')).get('address',''))" 2>/dev/null || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
 BOUNTY_ID="${1:-}"
 
