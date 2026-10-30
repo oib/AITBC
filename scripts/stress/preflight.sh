@@ -1,26 +1,28 @@
 #!/usr/bin/env bash
-# preflight.sh — fleet readiness check. rpc checks work from any host via
-# fleet URLs; wallet/systemd checks need ssh (IDE-side) or run locally.
+# preflight.sh — fleet readiness ×5. rpc checks via fleet URLs (any host);
+# balance/ledger/systemd probes run ON-HOST via ssh (IDE-side aliases) or
+# locally when invoked on the target host. Never echoes secrets.
 set -euo pipefail
 cd "$(dirname "$0")"; . ./lib.sh
 HOSTS="${STRESS_HOSTS:-hub hub1 node0 node1 node2}"
 WALLET="${STRESS_WALLET:-default}"
 MIN_BAL="${STRESS_MIN_BAL:-50000}"
 OUT="$STATE_DIR/stress-preflight.json"
+mkdir -p "$STATE_DIR"
 rows=(); rc=0
+PROBE='b=$({ set -a; [ -f /etc/aitbc/aitbc-blockchain-rpc.env ] && . /etc/aitbc/aitbc-blockchain-rpc.env; [ -f /etc/aitbc/blockchain-secrets.env ] && . /etc/aitbc/blockchain-secrets.env; set +a; export AITBC_WALLET_DIR="${AITBC_WALLET_DIR:-/var/lib/aitbc/wallets}"; /usr/local/bin/aitbc --output=json wallet balance "'"$WALLET"'" 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin).get(\"balance\",\"0\"))" 2>/dev/null; } || echo 0); a=$(systemctl is-active aitbc-blockchain-node 2>/dev/null||echo ?); k=$( { set -a; . /etc/aitbc/aitbc-blockchain-rpc.env 2>/dev/null; . /etc/aitbc/blockchain-secrets.env 2>/dev/null; set +a; code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -H "X-API-Key: ${BRIDGE_LEDGER_API_KEY:-none}" https://hub.aitbc.bubuit.net/rpc/bridge/ledger/pending); [ "$code" = 200 ] && echo 200 || echo "$code"; } ); printf "{\"node\":\"%s\",\"balance\":%s,\"ledger\":%s}" "$a" "${b:-0}" "${k:-000}"'
 for h in $HOSTS; do
   url=$(stress_rpc_url "$h")
   ht=$(curl -sf --max-time 10 "$url/rpc/status" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("height",-1))' 2>/dev/null || echo -1)
-  led=$(curl -sf --max-time 10 -o /dev/null -w '%{http_code}' -H "X-API-Key: ${BRIDGE_LEDGER_API_KEY:-x}" "https://hub.aitbc.bubuit.net/rpc/bridge/ledger/pending" 2>/dev/null || echo 000)
-  if [ "$(hostname -s)" = "$h" ] || ssh -o ConnectTimeout=5 -o BatchMode=yes "$h" true 2>/dev/null; then
-    row=$(stress_ssh "$h" 'a=$(systemctl is-active aitbc-blockchain-node 2>/dev/null||echo ?); b=$(/usr/local/bin/aitbc --output=json wallet balance "'"$WALLET"'" 2>/dev/null|python3 -c "import json,sys;print(json.load(sys.stdin).get(\"balance\",\"0\"))" 2>/dev/null||echo 0); printf "{\"node\":\"%s\",\"balance\":%s}" "$a" "$b"' 2>/dev/null || echo '{"node":"unreachable","balance":0}')
-  else row='{"node":"no-ssh","balance":-1}'; fi
+  if [ "$(hostname -s)" = "$h" ]; then row=$(bash -c "$PROBE" 2>/dev/null || echo '{"node":"probe-fail","balance":0,"ledger":"000"}')
+  else row=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" "$PROBE" 2>/dev/null || echo '{"node":"no-ssh","balance":-1,"ledger":"no-ssh"}'); fi
   chk=$(printf '%s' "$row" | python3 -c 'import json,sys
-d=json.loads(sys.stdin.read()); ok=d["node"]=="active" and float(d["balance"])>'"$MIN_BAL"'-1
+d=json.loads(sys.stdin.read())
+ok=(d["node"]=="active" and float(d["balance"])>='"$MIN_BAL"' and str(d["ledger"])=="200")
 print("ok" if ok else "FAIL")' 2>/dev/null || echo FAIL)
-  [ "$ht" -gt 0 ] || chk=FAIL; [ "$led" != "000" ] || chk=FAIL
+  [ "$ht" -gt 0 ] || chk=FAIL
   [ "$chk" = ok ] || rc=1
-  rows+=("{\"host\":\"$h\",\"check\":\"$chk\",\"height\":$ht,\"ledger_http\":$led,\"local\":$row}")
+  rows+=("{\"host\":\"$h\",\"check\":\"$chk\",\"height\":$ht,\"local\":$row}")
 done
 printf '{"ts":"%s","checks":[%s]}\n' "$(now)" "$(IFS=,; echo "${rows[*]}")" | tee "$OUT"
 [ $rc -eq 0 ] && echo "PREFLIGHT OK" || echo "PREFLIGHT FAIL"
