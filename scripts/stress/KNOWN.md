@@ -24,6 +24,15 @@ only if it does not match an entry below. Update this file as issues land.
 - island `AttestationArrival*` share on bc-2-island-1 has 2 validators —
   different baseline than bc-2
 
+## Operator funding rule (2026-10-30) — NOT a finding
+- Default wallets are fine for plays (each host's `default`); new exercise
+  wallets may be funded FROM TREASURY — coin-grant `0xCE6C…` on bc-2, island
+  genesis on island chains (dev-fleet funding, no escalation needed)
+- Top-ups trigger at the ~50k floor and are logged as TRANSFER plays:
+  `aitbc transactions send --from <treasury-wallet> --to <addr> --amount <AIT>`
+- `insufficient balance` failures = top-up signal, NOT a defect — dedupe
+  them out before filing
+
 ## Recently observed anomalies under watch
 - `gossip_mesh_peer_publish_dropped_total` — inflight-cap drops are NOT
   covered by the delivery critical (#705 caveat); a finding here is real
