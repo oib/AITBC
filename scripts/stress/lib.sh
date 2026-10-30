@@ -67,8 +67,8 @@ stress_rpc_url() {  # stress_rpc_url <host> → rpc base URL
 }
 stress_ssh() {  # stress_ssh <host> <cmd...> — local when we're on it
   local h="$1"; shift
-  if [ "$(hostname -s)" = "$h" ] || [ "$(hostname)" = "$h" ]; then "$@";
-  else ssh "$h" "$@"; fi
+  if [ "$(hostname -s)" = "$h" ] || [ "$(hostname)" = "$h" ]; then bash -c "$*";
+  else ssh "$h" "$*"; fi
 }
 
 # ---------------------------------------------------------------- rpc/cli
