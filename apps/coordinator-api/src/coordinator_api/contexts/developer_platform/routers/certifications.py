@@ -1,6 +1,5 @@
 """Certification management endpoints for the Developer Platform."""
 
-import asyncio
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -29,7 +28,7 @@ async def grant_certification(
     """Grant a certification to a developer."""
 
     try:
-        certification = await run_in_threadpool(asyncio.run, dev_service.grant_certification(request))
+        certification = await run_in_threadpool(dev_service.grant_certification, request)
 
         return {
             "success": True,
@@ -99,7 +98,7 @@ async def get_developer_certifications(
     """Get certifications for a developer."""
 
     try:
-        profile = await run_in_threadpool(asyncio.run, dev_service.get_developer_profile(wallet_address))
+        profile = await run_in_threadpool(dev_service.get_developer_profile, wallet_address)
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
 

@@ -5,7 +5,6 @@ REST API for agent DAO voting, proposals, and governance analytics
 
 from __future__ import annotations
 
-import asyncio
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
@@ -67,7 +66,7 @@ async def init_governance_profile(
     service = GovernanceService(session)
     try:
         profile = await run_in_threadpool(
-            asyncio.run, service.get_or_create_profile(profile_request.user_id, profile_request.initial_voting_power)
+            service.get_or_create_profile, profile_request.user_id, profile_request.initial_voting_power
         )
         return profile  # type: ignore[no-any-return]
     except Exception as e:
@@ -85,7 +84,7 @@ async def delegate_voting_power(
     """Delegate your voting power to another DAO member"""
     service = GovernanceService(session)
     try:
-        profile = await run_in_threadpool(asyncio.run, service.delegate_votes(profile_id, delegation_request.delegatee_id))
+        profile = await run_in_threadpool(service.delegate_votes, profile_id, delegation_request.delegatee_id)
         return profile  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -106,9 +105,7 @@ async def create_proposal(
     """Submit a new governance proposal to the DAO"""
     service = GovernanceService(session)
     try:
-        proposal = await run_in_threadpool(
-            asyncio.run, service.create_governance_proposal(proposer_id, proposal_request.model_dump())
-        )
+        proposal = await run_in_threadpool(service.create_governance_proposal, proposer_id, proposal_request.model_dump())
         return proposal  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -131,10 +128,11 @@ async def cast_vote(
     service = GovernanceService(session)
     try:
         vote = await run_in_threadpool(
-            asyncio.run,
-            service.cast_governance_vote(
-                proposal_id=proposal_id, voter_id=voter_id, vote_type=vote_request.vote_type, reason=vote_request.reason
-            ),
+            service.cast_governance_vote,
+            proposal_id=proposal_id,
+            voter_id=voter_id,
+            vote_type=vote_request.vote_type,
+            reason=vote_request.reason,
         )
         return vote  # type: ignore[no-any-return]
     except ValueError as e:
@@ -151,7 +149,7 @@ async def process_proposal(request: Request, proposal_id: str, session: Annotate
     """Manually trigger the lifecycle check of a proposal (e.g., tally votes when time ends)"""
     service = GovernanceService(session)
     try:
-        proposal = await run_in_threadpool(asyncio.run, service.process_proposal_lifecycle(proposal_id))
+        proposal = await run_in_threadpool(service.process_proposal_lifecycle, proposal_id)
         return proposal  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -172,7 +170,7 @@ async def execute_proposal(
     """Execute the payload of a succeeded proposal"""
     service = GovernanceService(session)
     try:
-        proposal = await run_in_threadpool(asyncio.run, service.execute_governance_proposal(proposal_id, executor_id))
+        proposal = await run_in_threadpool(service.execute_governance_proposal, proposal_id, executor_id)
         return proposal  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -192,7 +190,7 @@ async def generate_transparency_report(
     """Generate a governance analytics and transparency report"""
     service = GovernanceService(session)
     try:
-        report = await run_in_threadpool(asyncio.run, service.generate_transparency_report(period))
+        report = await run_in_threadpool(service.generate_transparency_report, period)
         return report  # type: ignore[no-any-return]
     except Exception as e:
         logger.exception("Unhandled exception")

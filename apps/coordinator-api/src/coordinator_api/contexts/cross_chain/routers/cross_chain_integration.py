@@ -142,11 +142,9 @@ async def create_enhanced_wallet(
     wallet_type = WalletType.EOA
     metadata = {"owner_address": owner_address, "chain_id": str(chain_id)}
     wallet = await run_in_threadpool(
-        asyncio.run,
-        _wallet_service(session).create_wallet(
-            WalletCreate(agent_id=user["sub"], wallet_type=wallet_type, metadata=metadata),
-            settings.wallet_encryption_password,
-        ),
+        _wallet_service(session).create_wallet,
+        WalletCreate(agent_id=user["sub"], wallet_type=wallet_type, metadata=metadata),
+        settings.wallet_encryption_password,
     )
     return WalletResponse.model_validate(wallet).model_dump()
 
@@ -211,8 +209,9 @@ async def execute_wallet_transaction(
         ):
             raise HTTPException(status_code=400, detail="Invalid addresses provided")
         keys = await run_in_threadpool(
-            asyncio.run,
-            _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password),
+            _wallet_service(session).get_wallet_with_private_key,
+            wallet.id,
+            settings.wallet_encryption_password,
         )
         transaction_data = await run_in_threadpool(
             asyncio.run,
@@ -288,8 +287,9 @@ async def sign_message(
         rpc_url = await run_in_threadpool(_resolve_rpc_url, session, chain_id)
         adapter = _create_adapter(chain_id, rpc_url)
         keys = await run_in_threadpool(
-            asyncio.run,
-            _wallet_service(session).get_wallet_with_private_key(wallet.id, settings.wallet_encryption_password),
+            _wallet_service(session).get_wallet_with_private_key,
+            wallet.id,
+            settings.wallet_encryption_password,
         )
         signature_data = await run_in_threadpool(asyncio.run, adapter.secure_sign_message(message, keys["private_key"]))
         return {"signature": signature_data, "message": message, "chain_id": chain_id}

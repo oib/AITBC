@@ -44,7 +44,7 @@ class SecureWalletService:
         self.session = session
         self.contract_service = contract_service
 
-    async def create_wallet(self, request: WalletCreate, encryption_password: str) -> AgentWallet:
+    def create_wallet(self, request: WalletCreate, encryption_password: str) -> AgentWallet:
         """
         Create a new wallet with proper security
 
@@ -63,8 +63,7 @@ class SecureWalletService:
             raise ValueError(f"Password too weak: {', '.join(password_validation['issues'])}")
         existing = (
             (
-                await run_in_threadpool(
-                    self.session.execute,
+                self.session.execute(
                     select(AgentWallet).where(
                         AgentWallet.agent_id == request.agent_id,  # type: ignore[arg-type]
                         AgentWallet.wallet_type == request.wallet_type,  # type: ignore[arg-type]
@@ -92,13 +91,13 @@ class SecureWalletService:
                 created_at=datetime.now(UTC),
             )
             self.session.add(wallet)
-            (await run_in_threadpool(self.session.commit))
-            (await run_in_threadpool(self.session.refresh, wallet))
+            self.session.commit()
+            self.session.refresh(wallet)
             logger.info("Created secure wallet %s for agent %s", wallet.address, request.agent_id)
             return wallet
         except Exception as e:
             logger.error("Failed to create secure wallet: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            self.session.rollback()
             raise
 
     async def get_wallet_by_agent(self, agent_id: str) -> list[AgentWallet]:
@@ -114,7 +113,7 @@ class SecureWalletService:
             .all()
         )
 
-    async def get_wallet_with_private_key(self, wallet_id: int, encryption_password: str) -> dict[str, Any]:
+    def get_wallet_with_private_key(self, wallet_id: int, encryption_password: str) -> dict[str, Any]:
         """
         Get wallet with decrypted private key (for signing operations)
 
@@ -128,7 +127,7 @@ class SecureWalletService:
         Raises:
             ValueError: If decryption fails or wallet not found
         """
-        wallet = await run_in_threadpool(self.session.get, AgentWallet, wallet_id)
+        wallet = self.session.get(AgentWallet, wallet_id)
         if not wallet:
             raise ValueError("Wallet not found")
         if not wallet.is_active:
@@ -200,7 +199,7 @@ class SecureWalletService:
         if not wallet:
             raise ValueError("Wallet not found")
         try:
-            current_keys = await self.get_wallet_with_private_key(wallet_id, old_password)
+            current_keys = self.get_wallet_with_private_key(wallet_id, old_password)
             password_validation = _validate_password_strength(new_password)
             if not password_validation["is_acceptable"]:
                 raise ValueError(f"New password too weak: {', '.join(password_validation['issues'])}")
@@ -272,7 +271,7 @@ class SecureWalletService:
         Returns:
             Created transaction record
         """
-        await self.get_wallet_with_private_key(wallet_id, encryption_password)
+        self.get_wallet_with_private_key(wallet_id, encryption_password)
         transaction = WalletTransaction(
             wallet_id=wallet_id,
             to_address=request.to_address,
@@ -286,7 +285,7 @@ class SecureWalletService:
         (await run_in_threadpool(self.session.commit))
         (await run_in_threadpool(self.session.refresh, transaction))
         try:
-            wallet_keys = await self.get_wallet_with_private_key(wallet_id, encryption_password)
+            wallet_keys = self.get_wallet_with_private_key(wallet_id, encryption_password)
             private_key = wallet_keys["private_key"]
             signed_tx = await self.contract_service.sign_transaction(
                 private_key=private_key,
