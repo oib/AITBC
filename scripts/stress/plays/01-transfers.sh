@@ -10,7 +10,7 @@ serial_check || exit 75
 addr=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
 spend_guard "$AMOUNT" || true
-dec=$(python3 -c "print('{:.18f}'.rstrip('0').rstrip('.') or '0'.format and format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
+dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
 out=$(cli transactions send --from "$WALLET" --to "$addr" --amount "$dec" 2>&1) || fail send "transactions send failed: $out"
 tx=$(printf '%s' "$out" | python3 -c 'import json,sys,re
 try:
