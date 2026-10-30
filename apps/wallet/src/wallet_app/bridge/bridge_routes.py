@@ -85,7 +85,7 @@ async def get_price() -> dict[str, Any]:
 
 
 @router.get("/deposits")
-async def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """
     List ETH deposits.
 
@@ -104,7 +104,7 @@ async def list_deposits(status: str | None = None, limit: int = 50, offset: int 
 
 
 @router.get("/deposits/{deposit_id}")
-async def get_deposit(deposit_id: str) -> dict[str, Any]:
+def get_deposit(deposit_id: str) -> dict[str, Any]:
     """
     Get a specific deposit by ID.
     """
@@ -119,7 +119,7 @@ async def get_deposit(deposit_id: str) -> dict[str, Any]:
 
 
 @router.post("/deposits/{deposit_id}/verify")
-async def verify_deposit(
+def verify_deposit(
     deposit_id: str,
     _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> dict[str, Any]:
@@ -145,7 +145,7 @@ async def verify_deposit(
 
 
 @router.post("/deposits/{deposit_id}/complete")
-async def complete_deposit(
+def complete_deposit(
     deposit_id: str,
     _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> dict[str, Any]:
@@ -260,7 +260,7 @@ def _public_rpc_url() -> str:
 
 
 @router.get("/status")
-async def get_bridge_status() -> dict[str, Any]:
+def get_bridge_status() -> dict[str, Any]:
     """
     Get bridge service status.
     """
@@ -276,7 +276,7 @@ async def get_bridge_status() -> dict[str, Any]:
 
 
 @bridge_router.get("/status")
-async def get_bridge_v1_status() -> dict[str, Any]:
+def get_bridge_v1_status() -> dict[str, Any]:
     """Get bridge service status."""
     import os
 
@@ -314,7 +314,7 @@ def _kick_bridge_poll() -> None:
 
 
 @bridge_router.post("/poll-request")
-async def bridge_request_poll(request: Request) -> dict[str, Any]:
+def bridge_request_poll(request: Request) -> dict[str, Any]:
     """Public kick: ask the bridge monitor to poll ETH now.
 
     Lets the website's "Check Status" button drive the deposit poller on
@@ -354,7 +354,7 @@ async def trigger_bridge_poll(
 
 
 @bridge_router.post("/polling")
-async def set_bridge_polling(
+def set_bridge_polling(
     body: dict[str, Any],
     _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> dict[str, Any]:
@@ -456,7 +456,7 @@ async def bridge_deposit(body: dict[str, Any]) -> dict[str, Any]:
 
 
 @bridge_router.get("/deposits")
-async def bridge_list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+def bridge_list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List bridge deposits."""
     limit = max(0, min(limit, 500))
     if status == "pending":
@@ -473,7 +473,7 @@ async def bridge_list_deposits(status: str | None = None, limit: int = 50, offse
 
 
 @bridge_router.get("/deposit/{tx_hash}")
-async def bridge_get_deposit(tx_hash: str) -> dict[str, Any]:
+def bridge_get_deposit(tx_hash: str) -> dict[str, Any]:
     """Get a single bridge deposit by ETH transaction hash."""
     deposit = get_deposit_by_tx_hash(tx_hash)
     if not deposit:
@@ -483,7 +483,7 @@ async def bridge_get_deposit(tx_hash: str) -> dict[str, Any]:
 
 @bridge_router.get("/deposit/by-recipient/{address}")
 @rate_limit(rate=50, per=60)
-async def bridge_deposits_by_recipient(request: Request, address: str, limit: int = 10) -> dict[str, Any]:
+def bridge_deposits_by_recipient(request: Request, address: str, limit: int = 10) -> dict[str, Any]:
     """Get recent bridge deposits for a single AIT recipient address.
 
     Non-enumerable: the caller must already know the recipient, matching the
@@ -754,7 +754,7 @@ async def bridge_get_withdraw(ait_tx_hash: str) -> dict[str, Any]:
 
 
 @bridge_router.get("/withdrawals")
-async def bridge_list_withdrawals(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+def bridge_list_withdrawals(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List AIT->ETH withdrawals."""
     limit = max(0, min(limit, 500))
     withdrawals = get_all_withdrawals(limit=limit, offset=offset)
@@ -952,7 +952,7 @@ async def bridge_sell_quote(
 
 
 @bridge_router.get("/sell/status/{identifier}")
-async def bridge_sell_status(identifier: str) -> dict[str, Any]:
+def bridge_sell_status(identifier: str) -> dict[str, Any]:
     """Sell status by quote id, lock id, or lock transaction hash."""
     quote = get_sell_quote(identifier)
     if quote:
@@ -974,7 +974,7 @@ async def bridge_sell_status(identifier: str) -> dict[str, Any]:
 
 
 @bridge_router.get("/sell/list")
-async def bridge_sell_list(limit: int = 50, offset: int = 0) -> dict[str, Any]:
+def bridge_sell_list(limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List sell quotes and locks."""
     limit = max(0, min(limit, 500))
     quotes = get_all_sell_quotes(limit=limit, offset=offset)
@@ -996,7 +996,7 @@ def _normalize_settlement(row: dict[str, Any]) -> dict[str, Any]:
 
 
 @bridge_router.get("/settlements")
-async def bridge_settlements(
+def bridge_settlements(
     status: str | None = None,
     kind: str | None = None,
     limit: int = 50,
@@ -1105,7 +1105,7 @@ async def bridge_float(
 
 
 @bridge_router.get("/sell/config-status")
-async def bridge_sell_config_status(
+def bridge_sell_config_status(
     _admin: Annotated[None, Depends(require_admin_api_key)] = None,
 ) -> dict[str, Any]:
     """Sell-lane enablement + non-secret config (CLI-5).
