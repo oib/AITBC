@@ -80,7 +80,7 @@ class SimpleAITradingEngine:
         self.models_loaded = True
         logger.info("SimpleAITradingEngine initialized")
 
-    async def analyze_market(self, symbol: str) -> dict[str, Any]:
+    def analyze_market(self, symbol: str) -> dict[str, Any]:
         """Simple market analysis"""
         # Generate realistic-looking analysis
         current_price = np.random.uniform(0.001, 0.01)
@@ -110,7 +110,7 @@ class SimpleAITradingEngine:
 
     async def make_trading_decision(self, symbol: str) -> dict[str, Any]:
         """Make AI trading decision"""
-        analysis = await self.analyze_market(symbol)
+        analysis = self.analyze_market(symbol)
 
         # Simple decision logic
         price_pred = analysis["ai_predictions"]["price_prediction"]["predicted_change"]
@@ -152,7 +152,7 @@ async def analyze_market(
 ) -> dict[str, Any]:
     """Simulated market analysis. Values are randomly generated, not real."""
     try:
-        analysis = await ai_engine.analyze_market(request.symbol)
+        analysis = ai_engine.analyze_market(request.symbol)
         logger.info("Simulated market analysis returned", extra={"symbol": request.symbol})
         return {
             "status": "success",
@@ -201,7 +201,7 @@ async def predict_market(
 ) -> dict[str, Any]:
     """Simulated market prediction. Values are randomly generated, not real."""
     try:
-        analysis = await ai_engine.analyze_market(symbol)
+        analysis = ai_engine.analyze_market(symbol)
 
         return {
             "status": "success",
@@ -238,7 +238,7 @@ async def get_ai_dashboard(
         }
 
         for symbol in symbols:
-            analysis = await ai_engine.analyze_market(symbol)
+            analysis = ai_engine.analyze_market(symbol)
             dashboard_data["symbol_analysis"][symbol] = {
                 "price": analysis["current_price"],
                 "change": analysis["price_change_24h"],
