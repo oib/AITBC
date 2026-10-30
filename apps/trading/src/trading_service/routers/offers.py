@@ -43,7 +43,7 @@ async def sync_offers(
 
 
 @router.get("/v1/trading/offers/sync-status")
-async def get_offer_sync_status(
+def get_offer_sync_status(
     svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
 ):
     """Get offer sync status per chain."""
@@ -52,7 +52,7 @@ async def get_offer_sync_status(
 
 
 @router.get("/v1/trading/offers/cache")
-async def get_cached_offers(
+def get_cached_offers(
     svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
     chain_id: str | None = None,
     service_type: str | None = None,
