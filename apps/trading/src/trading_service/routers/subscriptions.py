@@ -251,7 +251,7 @@ async def offer_subscription_websocket(websocket: WebSocket):
 
 
 @router.get("/v1/trading/offers/subscription-status")
-async def get_subscription_status():
+def get_subscription_status():
     """Get per-chain subscription health status.
 
     Returns: chain_id, status (subscribed/reconnecting/polling_fallback),
@@ -262,7 +262,7 @@ async def get_subscription_status():
 
 
 @router.get("/v1/trading/offers/search")
-async def search_offers(
+def search_offers(
     q: str = "",
     chain_id: str | None = None,
     service_type: str | None = None,

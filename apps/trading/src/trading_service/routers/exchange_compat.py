@@ -142,7 +142,7 @@ async def confirm_exchange_payment(
 
 
 @router.get("/v1/exchange/rates", dependencies=[Depends(require_trading_api_key)])
-async def get_exchange_rates() -> dict[str, Any]:
+def get_exchange_rates() -> dict[str, Any]:
     """Get current exchange rates (migrated from Coordinator API)."""
     return {
         "eth_to_aitbc": ETHEREUM_CONFIG["exchange_rate"],
@@ -181,13 +181,13 @@ async def get_market_stats(session: Annotated[AsyncSession, Depends(get_session_
 
 
 @router.get("/v1/exchange/wallet/balance", dependencies=[Depends(require_trading_api_key)])
-async def get_exchange_wallet_balance() -> dict[str, Any]:
+def get_exchange_wallet_balance() -> dict[str, Any]:
     """Get Ethereum wallet balance (migrated from Coordinator API)."""
     return {"balance": 0.0, "unconfirmed_balance": 0.0, "address": ETHEREUM_CONFIG["main_address"]}
 
 
 @router.get("/v1/exchange/wallet/info", dependencies=[Depends(require_trading_api_key)])
-async def get_exchange_wallet_info() -> dict[str, Any]:
+def get_exchange_wallet_info() -> dict[str, Any]:
     """Get comprehensive wallet information (migrated from Coordinator API)."""
     return {"address": ETHEREUM_CONFIG["main_address"], "network": "testnet", "balance": 0.0, "transactions": []}
 
