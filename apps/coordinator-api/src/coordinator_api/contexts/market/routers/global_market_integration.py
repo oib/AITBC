@@ -312,7 +312,7 @@ async def get_market_integration_analytics(
 
 
 @router.get("/status", response_model=dict[str, Any])
-async def get_integration_status(
+def get_integration_status(
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketIntegrationService, Depends(get_integration_service)],
 ) -> dict[str, Any]:
@@ -347,7 +347,7 @@ async def get_integration_status(
 
 
 @router.get("/config", response_model=dict[str, Any])
-async def get_integration_config(
+def get_integration_config(
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketIntegrationService, Depends(get_integration_service)],
 ) -> dict[str, Any]:
@@ -409,7 +409,7 @@ async def get_integration_config(
 
 
 @router.post("/config/update", response_model=dict[str, Any])
-async def update_integration_config(
+def update_integration_config(
     config_updates: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     integration_service: Annotated[GlobalMarketIntegrationService, Depends(get_integration_service)],

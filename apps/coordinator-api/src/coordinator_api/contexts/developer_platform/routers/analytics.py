@@ -103,7 +103,7 @@ async def get_platform_overview(
 
 @router.get("/health", response_model=dict[str, Any])
 @rate_limit(rate=1000, per=60)
-async def get_platform_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+def get_platform_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get developer platform health status."""
 
     try:

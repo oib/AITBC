@@ -29,7 +29,7 @@ def _get_service(session: Annotated[Session, Depends(get_session)]) -> MarketSer
 
 @router.get("/market/offers", response_model=list[MarketOfferView], summary="List market offers")
 @limiter.limit("100/minute")
-async def list_market_offers(
+def list_market_offers(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -52,7 +52,7 @@ async def list_market_offers(
 @router.get("/market/stats", response_model=MarketStatsView, summary="Get market summary statistics")
 @limiter.limit(lambda: settings.rate_limit_market_stats)
 @cached(**get_cache_config("market_stats"))
-async def get_market_stats(request: Request, *, session: Annotated[Session, Depends(get_session)]) -> MarketStatsView:
+def get_market_stats(request: Request, *, session: Annotated[Session, Depends(get_session)]) -> MarketStatsView:
     market_requests_total.labels(endpoint="/market/stats", method="GET").inc()
     service = _get_service(session)
     try:
@@ -63,7 +63,7 @@ async def get_market_stats(request: Request, *, session: Annotated[Session, Depe
 
 
 @router.get("/market/plugins", summary="List market plugins")
-async def list_market_plugins(
+def list_market_plugins(
     request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
@@ -119,7 +119,7 @@ class _CapacityUpdate(BaseModel):
     summary="Publish updated provider capacity",
 )
 @limiter.limit("100/minute")
-async def update_provider_capacity(
+def update_provider_capacity(
     request: Request,
     provider_id: str,
     body: _CapacityUpdate,

@@ -386,7 +386,7 @@ async def get_all_agent_wallets(
 
 
 @router.post("/identities/{agent_id}/wallets/{chain_id}/export", response_model=dict[str, Any])
-async def export_agent_wallet(
+def export_agent_wallet(
     agent_id: str, chain_id: int, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
 ) -> dict[str, Any]:
     """Export agent wallet data for backup or migration"""
@@ -426,7 +426,7 @@ async def export_agent_wallet(
 
 
 @router.delete("/identities/{agent_id}/wallets/{chain_id}", response_model=dict[str, Any])
-async def delete_agent_wallet(
+def delete_agent_wallet(
     agent_id: str, chain_id: int, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
 ) -> dict[str, Any]:
     """Delete an agent wallet"""
@@ -463,7 +463,7 @@ async def delete_agent_wallet(
 
 
 @router.post("/identities/{agent_id}/wallets/{chain_id}/sign", response_model=dict[str, Any])
-async def sign_message(
+def sign_message(
     agent_id: str,
     chain_id: int,
     request: dict[str, Any],
@@ -519,7 +519,7 @@ async def get_registry_statistics(manager: Annotated[AgentIdentityManager, Depen
 
 
 @router.get("/chains/supported", response_model=list[dict[str, Any]])
-async def get_supported_chains(
+def get_supported_chains(
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
 ) -> list[dict[str, Any]]:
     """Get list of supported blockchains"""

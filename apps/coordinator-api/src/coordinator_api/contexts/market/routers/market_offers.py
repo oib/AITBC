@@ -18,7 +18,7 @@ router = APIRouter(tags=["market-offers"])
 
 
 @router.post("/market/sync-offers", summary="Create offers from registered miners")
-async def sync_offers(
+def sync_offers(
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
@@ -51,7 +51,7 @@ async def sync_offers(
 
 
 @router.get("/market/miner-offers", summary="List all miner offers", response_model=list[MarketOfferView])
-async def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -> list[MarketOfferView]:
+def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -> list[MarketOfferView]:
     """List all offers created from miners"""
     offers = session.execute(select(MarketOffer)).scalars().all()
     filtered_offers = [offer for offer in offers if offer.provider.startswith("miner_")]
@@ -80,7 +80,7 @@ async def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -
 
 
 @router.get("/offers", summary="List all market offers (Fixed)")
-async def list_all_offers(session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
+def list_all_offers(session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
     """List all market offers - Fixed version to avoid AttributeError"""
     try:
         from sqlmodel import select

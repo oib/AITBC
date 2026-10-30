@@ -49,7 +49,7 @@ async def grant_certification(
 
 @router.get("/certifications/types", response_model=list[dict[str, Any]])
 @rate_limit(rate=500, per=60)
-async def get_certification_types(request: Request) -> list[dict[str, Any]]:
+def get_certification_types(request: Request) -> list[dict[str, Any]]:
     """Get available certification types."""
 
     try:
@@ -128,7 +128,7 @@ async def get_developer_certifications(
 
 @router.get("/certifications/verify/{certification_id}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def verify_certification(
+def verify_certification(
     request: Request, certification_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Verify a certification by ID."""

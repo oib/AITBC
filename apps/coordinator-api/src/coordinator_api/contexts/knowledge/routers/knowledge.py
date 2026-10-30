@@ -56,7 +56,7 @@ class KnowledgeNodeResponse(BaseModel):
 
 @router.post("/graphs", response_model=KnowledgeGraphResponse)
 @rate_limit(rate=20, per=60)
-async def create_knowledge_graph(
+def create_knowledge_graph(
     request: Request, graph_request: KnowledgeGraphCreateRequest, session: Annotated[Session, Depends(get_session)]
 ) -> KnowledgeGraphResponse:
     """Create a new knowledge graph"""
@@ -81,9 +81,7 @@ async def create_knowledge_graph(
 
 @router.get("/graphs", response_model=list[KnowledgeGraphResponse])
 @rate_limit(rate=200, per=60)
-async def list_knowledge_graphs(
-    request: Request, session: Annotated[Session, Depends(get_session)]
-) -> list[KnowledgeGraphResponse]:
+def list_knowledge_graphs(request: Request, session: Annotated[Session, Depends(get_session)]) -> list[KnowledgeGraphResponse]:
     """List all available knowledge graphs"""
     try:
         return []
@@ -96,7 +94,7 @@ async def list_knowledge_graphs(
 
 @router.get("/graphs/{graph_id}", response_model=KnowledgeGraphResponse)
 @rate_limit(rate=200, per=60)
-async def get_knowledge_graph(
+def get_knowledge_graph(
     request: Request, graph_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> KnowledgeGraphResponse:
     """Get details of a specific knowledge graph"""
@@ -120,7 +118,7 @@ async def get_knowledge_graph(
 
 @router.post("/graphs/{graph_id}/nodes", response_model=KnowledgeNodeResponse)
 @rate_limit(rate=20, per=60)
-async def contribute_knowledge(
+def contribute_knowledge(
     request: Request, graph_id: str, node_request: KnowledgeNodeRequest, session: Annotated[Session, Depends(get_session)]
 ) -> KnowledgeNodeResponse:
     """Contribute knowledge to a graph"""
@@ -143,7 +141,7 @@ async def contribute_knowledge(
 
 @router.get("/graphs/{graph_id}/query", response_model=list[KnowledgeNodeResponse])
 @rate_limit(rate=200, per=60)
-async def query_knowledge_graph(
+def query_knowledge_graph(
     request: Request,
     graph_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -162,9 +160,7 @@ async def query_knowledge_graph(
 
 @router.post("/graphs/{graph_id}/join")
 @rate_limit(rate=20, per=60)
-async def join_knowledge_graph(
-    request: Request, graph_id: str, session: Annotated[Session, Depends(get_session)]
-) -> dict[str, str]:
+def join_knowledge_graph(request: Request, graph_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, str]:
     """Join an existing knowledge graph"""
     try:
         return {"status": "success", "message": f"Joined graph {graph_id}"}

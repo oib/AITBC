@@ -155,7 +155,7 @@ async def get_treasury_balance(
 
 @router.post("/treasury/allocate", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
-async def allocate_treasury_funds(
+def allocate_treasury_funds(
     request: Request,
     council_id: str,
     amount: Decimal,
@@ -200,7 +200,7 @@ async def get_treasury_transactions(
 # Staking & Rewards Endpoints
 @router.post("/staking/pools", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
-async def create_staking_pool(
+def create_staking_pool(
     request: Request,
     pool_name: str,
     developer_address: str,
@@ -264,7 +264,7 @@ async def calculate_staking_rewards(
 
 @router.post("/staking/distribute-rewards/{pool_id}", response_model=dict[str, Any])
 @rate_limit(rate=20, per=60)
-async def distribute_staking_rewards(
+def distribute_staking_rewards(
     request: Request,
     pool_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -419,7 +419,7 @@ async def get_governance_profile(
 # Multi-Jurisdictional Compliance
 @router.get("/jurisdictions", response_model=list[dict[str, Any]])
 @rate_limit(rate=500, per=60)
-async def get_supported_jurisdictions(request: Request) -> list[dict[str, Any]]:
+def get_supported_jurisdictions(request: Request) -> list[dict[str, Any]]:
     """Get list of supported jurisdictions and their requirements"""
 
     try:
@@ -475,7 +475,7 @@ async def get_supported_jurisdictions(request: Request) -> list[dict[str, Any]]:
 
 @router.get("/compliance/check/{user_address}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def check_compliance_status(
+def check_compliance_status(
     request: Request,
     user_address: str,
     jurisdiction: str,

@@ -63,7 +63,7 @@ async def create_security_policy(
 
 
 @router.get("/scan", response_model=dict[str, Any])
-async def scan_security(
+def scan_security(
     target: str = Query(default=None, description="Target to scan (agent, workflow, or resource)"),
     scan_type: str = Query(default="quick", description="Scan type: quick, full, or custom"),
 ) -> dict[str, Any]:
@@ -85,7 +85,7 @@ async def scan_security(
 
 
 @router.get("/policies", response_model=list[AgentSecurityPolicy])
-async def list_security_policies() -> list[AgentSecurityPolicy]:
+def list_security_policies() -> list[AgentSecurityPolicy]:
     """List security policies with filtering"""
     try:
         return []
@@ -98,7 +98,7 @@ async def list_security_policies() -> list[AgentSecurityPolicy]:
 
 @router.get("/policies/{policy_id}", response_model=AgentSecurityPolicy)
 @rate_limit(rate=200, per=60)
-async def get_security_policy(
+def get_security_policy(
     request: Request,
     policy_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -220,7 +220,7 @@ async def validate_workflow_security(
 
 @router.get("/audit-logs", response_model=list[AgentAuditLog])
 @rate_limit(rate=200, per=60)
-async def list_audit_logs(
+def list_audit_logs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
@@ -269,7 +269,7 @@ async def list_audit_logs(
 
 @router.get("/audit-logs/{audit_id}", response_model=AgentAuditLog)
 @rate_limit(rate=200, per=60)
-async def get_audit_log(
+def get_audit_log(
     request: Request,
     audit_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -292,7 +292,7 @@ async def get_audit_log(
 
 @router.get("/trust-scores")
 @rate_limit(rate=200, per=60)
-async def list_trust_scores(
+def list_trust_scores(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
@@ -329,7 +329,7 @@ async def list_trust_scores(
 
 @router.get("/trust-scores/{entity_type}/{entity_id}", response_model=AgentTrustScore)
 @rate_limit(rate=200, per=60)
-async def get_trust_score(
+def get_trust_score(
     request: Request,
     entity_type: str,
     entity_id: str,
@@ -538,7 +538,7 @@ async def monitor_execution_security(
 
 @router.get("/security-dashboard")
 @rate_limit(rate=200, per=60)
-async def get_security_dashboard(
+def get_security_dashboard(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
@@ -598,7 +598,7 @@ async def get_security_dashboard(
 
 @router.get("/security-stats")
 @rate_limit(rate=200, per=60)
-async def get_security_statistics(
+def get_security_statistics(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,

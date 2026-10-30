@@ -81,7 +81,7 @@ def _bond_response(bond: ProviderBond) -> BondResponse:
 
 
 @router.post("/providers/{provider_id}/bonds", summary="Create or update a provider bond")
-async def create_bond(
+def create_bond(
     request: Request,
     provider_id: str,
     body: BondCreate,
@@ -112,7 +112,7 @@ async def create_bond(
 
 
 @router.get("/providers/{provider_id}/eligibility", summary="Check provider bond eligibility")
-async def get_eligibility(
+def get_eligibility(
     request: Request,
     provider_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -141,7 +141,7 @@ async def get_eligibility(
 
 
 @router.get("/bonds/{bond_id}", summary="Get a bond record by ID")
-async def get_bond_by_id(
+def get_bond_by_id(
     request: Request,
     bond_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -155,7 +155,7 @@ async def get_bond_by_id(
 
 
 @router.post("/providers/{provider_id}/bonds/lock", summary="Lock a provider bond")
-async def lock_bond(
+def lock_bond(
     request: Request,
     provider_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -167,7 +167,7 @@ async def lock_bond(
 
 
 @router.post("/providers/{provider_id}/bonds/release", summary="Release a locked provider bond")
-async def release_bond(
+def release_bond(
     request: Request,
     provider_id: str,
     session: Annotated[Session, Depends(get_session)],
@@ -179,7 +179,7 @@ async def release_bond(
 
 
 @router.post("/providers/{provider_id}/bonds/slash", summary="Slash a provider bond")
-async def slash_bond(
+def slash_bond(
     request: Request,
     provider_id: str,
     body: BondAction,
