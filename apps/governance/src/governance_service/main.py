@@ -62,7 +62,7 @@ class HealthResponse(BaseModel):
 
 
 @app.get("/health")
-async def health() -> HealthResponse:
+def health() -> HealthResponse:
     """Health check endpoint"""
     return HealthResponse(**create_simple_health_response("governance-service"))
 
@@ -85,13 +85,13 @@ async def ready() -> dict[str, str]:
 
 
 @app.get("/live")
-async def live() -> dict[str, str]:
+def live() -> dict[str, str]:
     """Liveness check - verifies service is not stuck"""
     return {"status": "alive", "service": "governance-service"}
 
 
 @app.get("/v1/governance/status")
-async def governance_status() -> dict[str, Any]:
+def governance_status() -> dict[str, Any]:
     """Get governance status"""
     from .config import settings
 
@@ -231,7 +231,7 @@ async def execute_proposal(
 
 
 @app.get("/v1/governance/params")
-async def get_governance_params():
+def get_governance_params():
     """Get governance parameters (migrated from Coordinator API)"""
     params = {
         "voting_period": 604800,
@@ -641,7 +641,7 @@ async def execute_cross_chain(
 
 
 @app.get("/metrics")
-async def metrics():
+def metrics():
     """Prometheus metrics endpoint"""
     from fastapi.responses import PlainTextResponse
     from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
