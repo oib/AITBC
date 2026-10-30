@@ -44,7 +44,7 @@ app.mount("/metrics", metrics_app)
 
 
 @app.get("/health")
-async def health_check() -> dict[str, object]:
+def health_check() -> dict[str, object]:
     """Health check endpoint."""
     return create_simple_health_response(
         "blockchain-event-bridge",
@@ -53,6 +53,6 @@ async def health_check() -> dict[str, object]:
 
 
 @app.get("/")
-async def root() -> dict[str, object]:
+def root() -> dict[str, object]:
     """Root endpoint."""
     return {"service": settings.app_name, "version": "0.1.0", "status": "running"}

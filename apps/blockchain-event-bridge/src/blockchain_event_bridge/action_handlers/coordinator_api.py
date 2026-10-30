@@ -21,7 +21,7 @@ class CoordinatorAPIHandler:
         self._client: AsyncAITBCHTTPClient | None = None
         self._headers = headers
 
-    async def _get_client(self) -> AsyncAITBCHTTPClient:
+    def _get_client(self) -> AsyncAITBCHTTPClient:
         """Get or create HTTP client."""
         if self._client is None:
             self._client = AsyncAITBCHTTPClient(base_url=self.base_url, headers=self._headers, timeout=30)
@@ -54,7 +54,7 @@ class CoordinatorAPIHandler:
     async def _trigger_ai_job_processing(self, tx_data: dict[str, Any]) -> None:
         """Trigger AI job processing via coordinator API."""
         try:
-            client = await self._get_client()
+            client = self._get_client()
             payload = tx_data.get("payload", {})
             job_id = payload.get("job_id")
             if job_id:
@@ -68,7 +68,7 @@ class CoordinatorAPIHandler:
     async def _trigger_agent_message_processing(self, tx_data: dict[str, Any]) -> None:
         """Trigger agent message processing via coordinator API."""
         try:
-            client = await self._get_client()
+            client = self._get_client()
             payload = tx_data.get("payload", {})
             recipient = tx_data.get("to")
             if recipient:
@@ -82,7 +82,7 @@ class CoordinatorAPIHandler:
     async def _trigger_market_update(self, tx_data: dict[str, Any]) -> None:
         """Trigger market state update via coordinator API."""
         try:
-            client = await self._get_client()
+            client = self._get_client()
             payload = tx_data.get("payload", {})
             listing_id = payload.get("listing_id")
             if listing_id:

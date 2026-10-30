@@ -31,7 +31,7 @@ class MarketHandler:
         logger.info("Processing block %s for market updates", block_data.get("height"))
         market_txs = self._filter_market_transactions(transactions)
         if market_txs:
-            await self._sync_market_state(market_txs)
+            self._sync_market_state(market_txs)
 
     def _filter_market_transactions(self, transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter transactions that affect market state."""
@@ -46,7 +46,7 @@ class MarketHandler:
                     market_txs.append(tx)
         return market_txs
 
-    async def _sync_market_state(self, transactions: list[dict[str, Any]]) -> None:
+    def _sync_market_state(self, transactions: list[dict[str, Any]]) -> None:
         """Synchronize market state with blockchain.
 
         coordinator-api has no transaction-ingest endpoint (the old
@@ -61,11 +61,11 @@ class MarketHandler:
         event_type = event_log.get("topics", [""])[0] if event_log.get("topics") else "Unknown"
         logger.info("Handling market contract event: %s", event_type)
         if "ServiceListed" in event_type:
-            await self._handle_service_listed(event_log)
+            self._handle_service_listed(event_log)
         elif "ServicePurchased" in event_type:
-            await self._handle_service_purchased(event_log)
+            self._handle_service_purchased(event_log)
 
-    async def _handle_service_listed(self, event_log: dict[str, Any]) -> None:
+    def _handle_service_listed(self, event_log: dict[str, Any]) -> None:
         """Handle ServiceListed event."""
         try:
             data = event_log.get("data", "{}")
@@ -74,7 +74,7 @@ class MarketHandler:
         except Exception as e:
             logger.error("Error handling ServiceListed event: %s", e, exc_info=True)
 
-    async def _handle_service_purchased(self, event_log: dict[str, Any]) -> None:
+    def _handle_service_purchased(self, event_log: dict[str, Any]) -> None:
         """Handle ServicePurchased event."""
         try:
             data = event_log.get("data", "{}")
