@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 
 @router.post("/login")
 @rate_limit(rate=50, per=60)
-async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
+def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
     """User login with username and password"""
     try:
         username = login_data.get("username")
@@ -93,7 +93,7 @@ async def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
 
 @router.post("/refresh")
 @rate_limit(rate=100, per=60)
-async def refresh_token(request: Request, refresh_data: dict[str, str]) -> dict[str, Any]:
+def refresh_token(request: Request, refresh_data: dict[str, str]) -> dict[str, Any]:
     """Refresh access token using refresh token"""
     try:
         refresh_token = refresh_data.get("refresh_token")
@@ -114,7 +114,7 @@ async def refresh_token(request: Request, refresh_data: dict[str, str]) -> dict[
 
 @router.post("/validate")
 @rate_limit(rate=200, per=60)
-async def validate_token(request: Request, validate_data: dict[str, str]) -> dict[str, Any]:
+def validate_token(request: Request, validate_data: dict[str, str]) -> dict[str, Any]:
     """Validate JWT token"""
     try:
         token = validate_data.get("token")
@@ -135,7 +135,7 @@ async def validate_token(request: Request, validate_data: dict[str, str]) -> dic
 
 @router.post("/api-key/generate")
 @rate_limit(rate=50, per=60)
-async def generate_api_key(
+def generate_api_key(
     request: Request,
     user_id: str,
     permissions: list[str] | None,
@@ -158,7 +158,7 @@ async def generate_api_key(
 
 @router.post("/api-key/validate")
 @rate_limit(rate=200, per=60)
-async def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
+def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
     """Validate API key"""
     try:
         result = api_key_manager.validate_api_key(api_key)
@@ -176,7 +176,7 @@ async def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
 
 @router.delete("/api-key/{api_key}")
 @rate_limit(rate=50, per=60)
-async def revoke_api_key(
+def revoke_api_key(
     request: Request, api_key: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Revoke API key"""

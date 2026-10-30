@@ -99,7 +99,7 @@ class NonceStore:
         redis = _shared_redis()
         if redis is not None:
             try:
-                await redis.set(key, nonce, ex=ttl)
+                redis.set(key, nonce, ex=ttl)
                 return nonce
             except Exception as e:
                 logger.warning("Redis nonce issue failed, using memory fallback: %s", e)
@@ -131,7 +131,7 @@ class NonceStore:
         redis = _shared_redis()
         if redis is not None:
             try:
-                was_set = await redis.set(key, "1", ex=expiry, nx=True)
+                was_set = redis.set(key, "1", ex=expiry, nx=True)
                 return bool(was_set)
             except Exception as e:
                 logger.warning("Redis nonce dedup failed, using memory fallback: %s", e)

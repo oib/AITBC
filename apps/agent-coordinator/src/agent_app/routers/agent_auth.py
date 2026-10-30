@@ -85,7 +85,7 @@ async def agent_login(request: Request, req: AgentLoginRequest) -> dict[str, Any
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        agent = await state.agent_registry.get_agent_by_id(req.agent_id)
+        agent = state.agent_registry.get_agent_by_id(req.agent_id)
         if agent is None:
             raise HTTPException(status_code=401, detail="agent_not_registered")
         bound_identity = agent.identity_address
@@ -135,7 +135,7 @@ async def agent_login(request: Request, req: AgentLoginRequest) -> dict[str, Any
 
 @router.get("/session")
 @rate_limit(rate=200, per=60)
-async def agent_session(request: Request, principal: Annotated[AgentPrincipal, Depends(require_agent)]) -> dict[str, Any]:
+def agent_session(request: Request, principal: Annotated[AgentPrincipal, Depends(require_agent)]) -> dict[str, Any]:
     """Return the authenticated principal — a probe for the Phase B1 credentials."""
     return {
         "status": "success",

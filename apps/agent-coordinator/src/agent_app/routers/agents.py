@@ -112,7 +112,7 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
 
-        existing = await state.agent_registry.get_agent_by_id(request.agent_id)
+        existing = state.agent_registry.get_agent_by_id(request.agent_id)
         bound_address = existing.identity_address if existing else None
         identity_address: str | None = None
         registered_proof: str | None = None
@@ -214,7 +214,7 @@ async def get_agent(request: Request, agent_id: str) -> dict[str, Any]:
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        agent = await state.agent_registry.get_agent_by_id(agent_id)
+        agent = state.agent_registry.get_agent_by_id(agent_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
         return {"status": "success", "agent": agent.to_dict(), "timestamp": datetime.now(UTC).isoformat()}
@@ -329,7 +329,7 @@ async def _rotation_guards(agent_id: str, request: IdentityRotationRequest) -> t
     """
     if not state.agent_registry:
         raise HTTPException(status_code=503, detail="Agent registry not available")
-    agent = await state.agent_registry.get_agent_by_id(agent_id)
+    agent = state.agent_registry.get_agent_by_id(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     old_address = agent.identity_address

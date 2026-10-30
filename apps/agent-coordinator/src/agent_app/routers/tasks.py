@@ -166,7 +166,7 @@ async def submit_task(
 
 @router.get("/tasks/status")
 @rate_limit(rate=200, per=60)
-async def get_task_status(request: Request) -> dict[str, Any]:
+def get_task_status(request: Request) -> dict[str, Any]:
     """Get task distribution statistics"""
     try:
         if not state.task_distributor:
@@ -182,7 +182,7 @@ async def get_task_status(request: Request) -> dict[str, Any]:
 
 @router.get("/tasks/queues")
 @rate_limit(rate=200, per=60)
-async def get_queue_sizes(request: Request) -> dict[str, Any]:
+def get_queue_sizes(request: Request) -> dict[str, Any]:
     """Get task queue sizes"""
     try:
         if not state.task_distributor:
@@ -216,7 +216,7 @@ async def clear_queue(request: Request, priority: str, principal: OptionalAgent)
             priority_enum = TaskPriority(priority)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}") from None
-        cleared_count = await state.task_distributor.clear_queue(priority_enum)
+        cleared_count = state.task_distributor.clear_queue(priority_enum)
         return {
             "status": "success",
             "message": f"Cleared {cleared_count} tasks from {priority} queue",
@@ -235,7 +235,7 @@ async def clear_queue(request: Request, priority: str, principal: OptionalAgent)
 
 @router.get("/tasks/queues/stats")
 @rate_limit(rate=200, per=60)
-async def get_queue_stats(request: Request) -> dict[str, Any]:
+def get_queue_stats(request: Request) -> dict[str, Any]:
     """Get detailed queue statistics"""
     try:
         if not state.task_distributor:
@@ -264,7 +264,7 @@ async def get_queue_stats(request: Request) -> dict[str, Any]:
 
 @router.get("/tasks/escrow/{escrow_id}")
 @rate_limit(rate=200, per=60)
-async def get_escrow_status(request: Request, escrow_id: str) -> dict[str, Any]:
+def get_escrow_status(request: Request, escrow_id: str) -> dict[str, Any]:
     """Get payment escrow status by escrow ID."""
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
@@ -563,7 +563,7 @@ async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
 
 @router.get("/tasks/{task_id}/escrow")
 @rate_limit(rate=200, per=60)
-async def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
+def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
     """Get the payment escrow for a task (v0.25)."""
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
@@ -600,7 +600,7 @@ async def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
 
 @router.get("/tasks/escrow-config")
 @rate_limit(rate=200, per=60)
-async def get_escrow_config(request: Request) -> dict[str, Any]:
+def get_escrow_config(request: Request) -> dict[str, Any]:
     """Escrow settlement parameters for buyers (v0.25).
 
     Returns the node wallet the coordinator settles escrows through, so a
@@ -622,7 +622,7 @@ async def get_escrow_config(request: Request) -> dict[str, Any]:
 
 @router.post("/tasks/escrow/expire-stale")
 @rate_limit(rate=10, per=60)
-async def expire_stale_escrows(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def expire_stale_escrows(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Expire and refund all stale escrows that have passed their timeout (v0.6.5).
 
     Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403

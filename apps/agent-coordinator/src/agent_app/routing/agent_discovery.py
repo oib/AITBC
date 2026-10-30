@@ -320,26 +320,26 @@ class AgentRegistry:
             logger.error("Error discovering agents: %s", e)
             return []
 
-    async def get_agent_by_id(self, agent_id: str) -> AgentInfo | None:
+    def get_agent_by_id(self, agent_id: str) -> AgentInfo | None:
         """Get agent information by ID"""
         return self.agents.get(agent_id)
 
-    async def get_agents_by_service(self, service: str) -> list[AgentInfo]:
+    def get_agents_by_service(self, service: str) -> list[AgentInfo]:
         """Get agents that provide a specific service"""
         agent_ids = self.service_index.get(service, set())
         return [self.agents[agent_id] for agent_id in agent_ids if agent_id in self.agents]
 
-    async def get_agents_by_capability(self, capability: str) -> list[AgentInfo]:
+    def get_agents_by_capability(self, capability: str) -> list[AgentInfo]:
         """Get agents that have a specific capability"""
         agent_ids = self.capability_index.get(capability, set())
         return [self.agents[agent_id] for agent_id in agent_ids if agent_id in self.agents]
 
-    async def get_agents_by_type(self, agent_type: AgentType) -> list[AgentInfo]:
+    def get_agents_by_type(self, agent_type: AgentType) -> list[AgentInfo]:
         """Get agents of a specific type"""
         agent_ids = self.type_index.get(agent_type, set())
         return [self.agents[agent_id] for agent_id in agent_ids if agent_id in self.agents]
 
-    async def get_registry_stats(self) -> dict[str, Any]:
+    def get_registry_stats(self) -> dict[str, Any]:
         """Get registry statistics"""
         total_agents = len(self.agents)
         status_counts: dict[str, int] = {}
@@ -416,7 +416,7 @@ class AgentRegistry:
         if not self.redis_client:
             return
         key = f"agent:{agent_info.agent_id}"
-        await self.redis_client.set(key, json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
+        self.redis_client.set(key, json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
 
     async def _remove_agent_from_redis(self, agent_id: str) -> None:
         """Remove agent from Redis"""
@@ -526,7 +526,7 @@ class AgentDiscoveryService:
             available_agents = await self.registry.discover_agents({"status": "active", "limit": 50})
             response_data = {
                 "discovery_agents": [agent.to_dict() for agent in available_agents],
-                "registry_stats": await self.registry.get_registry_stats(),
+                "registry_stats": self.registry.get_registry_stats(),
             }
             response = AgentMessage(
                 sender_id="discovery_service",
@@ -560,10 +560,10 @@ class AgentDiscoveryService:
             logger.error("Error finding best agent: %s", e)
             return None
 
-    async def get_service_endpoints(self, service: str) -> dict[str, list[str]]:
+    def get_service_endpoints(self, service: str) -> dict[str, list[str]]:
         """Get all endpoints for a specific service"""
         try:
-            agents = await self.registry.get_agents_by_service(service)
+            agents = self.registry.get_agents_by_service(service)
             endpoints: dict[str, list[str]] = {}
             for agent in agents:
                 for service_name, endpoint in agent.endpoints.items():
