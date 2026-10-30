@@ -159,7 +159,7 @@ class HealthResponse(BaseModel):
 
 
 @app.get("/health")
-async def health() -> HealthResponse:
+def health() -> HealthResponse:
     """Health check endpoint"""
     return HealthResponse(**create_simple_health_response("gpu-service"))
 
@@ -184,19 +184,19 @@ async def ready() -> dict[str, str]:
 
 
 @app.get("/live")
-async def live() -> dict[str, str]:
+def live() -> dict[str, str]:
     """Liveness check - verifies service is not stuck"""
     return {"status": "alive", "service": "gpu-service"}
 
 
 @app.get("/v1/gpu/status")
-async def gpu_status() -> dict[str, str]:
+def gpu_status() -> dict[str, str]:
     """Get GPU status"""
     return {"status": "operational", "service": "gpu-service", "message": "GPU service is running"}
 
 
 @app.get("/v1/gpu/discover")
-async def gpu_discover() -> dict[str, Any]:
+def gpu_discover() -> dict[str, Any]:
     """Auto-discover GPU specifications using nvidia-smi"""
     return discover_gpu_specs()
 
@@ -214,7 +214,7 @@ require_gpu_api_key = APIKeyAuthenticator(
 )
 
 
-async def get_edge_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> EdgeGPUService:
+def get_edge_service(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> EdgeGPUService:
     """Get edge GPU service instance"""
     return EdgeGPUService(session)
 
@@ -362,7 +362,7 @@ async def optimize_inference(
     gpu_id: str, request: OptimizeInferenceRequest, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]
 ):
     """Optimize ML inference request for edge GPU"""
-    return await svc.optimize_inference_for_edge(gpu_id, request.model_name, request.request_data)
+    return svc.optimize_inference_for_edge(gpu_id, request.model_name, request.request_data)
 
 
 @app.post("/v1/gpu/queue")
@@ -732,35 +732,31 @@ _JOB_DISPATCH_NOT_IMPLEMENTED = (
 
 
 @app.post("/v1/miners/poll")
-async def poll_jobs(poll_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
+def poll_jobs(poll_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Poll for next job. Not implemented -- see _JOB_DISPATCH_NOT_IMPLEMENTED."""
     raise HTTPException(status_code=501, detail=_JOB_DISPATCH_NOT_IMPLEMENTED)
 
 
 @app.post("/v1/miners/{job_id}/result")
-async def submit_job_result(
-    job_id: str, result_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
-):
+def submit_job_result(job_id: str, result_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Submit job result. Not implemented -- see _JOB_DISPATCH_NOT_IMPLEMENTED."""
     raise HTTPException(status_code=501, detail=_JOB_DISPATCH_NOT_IMPLEMENTED)
 
 
 @app.post("/v1/miners/{job_id}/fail")
-async def submit_job_failure(
-    job_id: str, fail_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
-):
+def submit_job_failure(job_id: str, fail_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Submit job failure. Not implemented -- see _JOB_DISPATCH_NOT_IMPLEMENTED."""
     raise HTTPException(status_code=501, detail=_JOB_DISPATCH_NOT_IMPLEMENTED)
 
 
 @app.post("/v1/miners/{miner_id}/earnings")
-async def get_miner_earnings(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+def get_miner_earnings(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get miner earnings"""
     return {"miner_id": miner_id, "total_earnings": 0.0, "pending_earnings": 0.0, "currency": "AITBC"}
 
 
 @app.put("/v1/miners/{miner_id}/capabilities")
-async def update_miner_capabilities(
+def update_miner_capabilities(
     miner_id: str,
     capabilities_data: dict[str, Any],
     session: Annotated[AsyncSession, Depends(get_session_dep)],
