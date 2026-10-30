@@ -87,7 +87,7 @@ class TestStakingService:
         auto_compound = False
 
         # Create stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=amount,
@@ -116,7 +116,7 @@ class TestStakingService:
         assert time_diff < 60  # Within 1 minute
 
         # Verify agent metrics updated
-        updated_metrics = await staking_service.get_agent_metrics(agent_metrics.agent_wallet)
+        updated_metrics = staking_service.get_agent_metrics(agent_metrics.agent_wallet)
         assert updated_metrics.total_staked == amount
         assert updated_metrics.staker_count == 1
 
@@ -126,7 +126,7 @@ class TestStakingService:
         unsupported_agent = "0x0000000000000000000000000000000000000000"
 
         with pytest.raises(ValueError, match="Agent not supported"):
-            await staking_service.create_stake(
+            staking_service.create_stake(
                 staker_address=staker_address,
                 agent_wallet=unsupported_agent,
                 amount=1000.0,
@@ -139,7 +139,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         with pytest.raises(ValueError, match="Stake amount must be at least 100 AITBC"):
-            await staking_service.create_stake(
+            staking_service.create_stake(
                 staker_address=staker_address,
                 agent_wallet=agent_metrics.agent_wallet,
                 amount=50.0,  # Below minimum
@@ -151,7 +151,7 @@ class TestStakingService:
         """Test retrieving a stake by ID"""
         # First create a stake
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-        created_stake = await staking_service.create_stake(
+        created_stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -160,7 +160,7 @@ class TestStakingService:
         )
 
         # Retrieve the stake
-        retrieved_stake = await staking_service.get_stake(created_stake.stake_id)
+        retrieved_stake = staking_service.get_stake(created_stake.stake_id)
 
         # Verify stake retrieved
         assert retrieved_stake is not None
@@ -170,16 +170,16 @@ class TestStakingService:
 
     async def test_get_stake_not_found(self, staking_service):
         """Test retrieving non-existent stake"""
-        assert await staking_service.get_stake("nonexistent_stake_id") is None
+        assert staking_service.get_stake("nonexistent_stake_id") is None
 
     async def test_calculate_apy(self, staking_service, agent_metrics):
         """Test APY calculation for different tiers and lock periods"""
         # Bronze tier, 30 days: 5% * 1.0 * 1.1 = 5.5%
-        apy_bronze_30 = await staking_service.calculate_apy(agent_metrics.agent_wallet, 30)
+        apy_bronze_30 = staking_service.calculate_apy(agent_metrics.agent_wallet, 30)
         assert apy_bronze_30 > 5.0
 
         # Gold tier, 90 days: 5% * 1.5 * 1.25 = 9.375%
-        apy_gold_90 = await staking_service.calculate_apy(agent_metrics.agent_wallet, 90)
+        apy_gold_90 = staking_service.calculate_apy(agent_metrics.agent_wallet, 90)
         assert apy_gold_90 > 9.0
 
         # Diamond tier, 365 days: 5% * 3.0 * 2.0 = 30% (capped at 20%)
@@ -187,12 +187,12 @@ class TestStakingService:
         agent_metrics.current_tier = PerformanceTier.DIAMOND
         staking_service.session.commit()
 
-        apy_diamond_365 = await staking_service.calculate_apy(agent_metrics.agent_wallet, 365)
+        apy_diamond_365 = staking_service.calculate_apy(agent_metrics.agent_wallet, 365)
         assert apy_diamond_365 == 20.0  # Capped at maximum
 
     async def test_get_agent_metrics(self, staking_service, agent_metrics):
         """Test retrieving agent metrics"""
-        metrics = await staking_service.get_agent_metrics(agent_metrics.agent_wallet)
+        metrics = staking_service.get_agent_metrics(agent_metrics.agent_wallet)
 
         assert metrics is not None
         assert metrics.agent_wallet == agent_metrics.agent_wallet
@@ -204,7 +204,7 @@ class TestStakingService:
         """Test retrieving staking pool after stake creation"""
         # Create a stake first which will create the pool
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-        await staking_service.create_stake(
+        staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -212,7 +212,7 @@ class TestStakingService:
             auto_compound=False,
         )
 
-        pool = await staking_service.get_staking_pool(agent_metrics.agent_wallet)
+        pool = staking_service.get_staking_pool(agent_metrics.agent_wallet)
 
         assert pool is not None
         assert pool.agent_wallet == agent_metrics.agent_wallet
@@ -224,7 +224,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create a stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -234,14 +234,14 @@ class TestStakingService:
 
         # Try to unbond immediately (lock period not ended)
         with pytest.raises(ValueError, match="Lock period has not ended"):
-            await staking_service.unbond_stake(stake.stake_id)
+            staking_service.unbond_stake(stake.stake_id)
 
     async def test_unbond_stake_after_lock_period(self, staking_service, agent_metrics):
         """Test unbonding stake after lock period ends"""
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create a stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -254,7 +254,7 @@ class TestStakingService:
         staking_service.session.commit()
 
         # Unbond the stake
-        unbonded_stake = await staking_service.unbond_stake(stake.stake_id)
+        unbonded_stake = staking_service.unbond_stake(stake.stake_id)
 
         assert unbonded_stake.status == StakeStatus.UNBONDING
         assert unbonded_stake.unbonding_time is not None
@@ -264,7 +264,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create a stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -275,10 +275,10 @@ class TestStakingService:
         # Unbond the stake
         stake.end_time = datetime.now(UTC) - timedelta(days=1)
         staking_service.session.commit()
-        await staking_service.unbond_stake(stake.stake_id)
+        staking_service.unbond_stake(stake.stake_id)
 
         # Complete unbonding within 30 days (should have 10% penalty)
-        result = await staking_service.complete_unbonding(stake.stake_id)
+        result = staking_service.complete_unbonding(stake.stake_id)
 
         assert result is not None
         assert "total_amount" in result
@@ -291,7 +291,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create a stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -302,15 +302,15 @@ class TestStakingService:
         # Unbond the stake
         stake.end_time = datetime.now(UTC) - timedelta(days=1)
         staking_service.session.commit()
-        await staking_service.unbond_stake(stake.stake_id)
+        staking_service.unbond_stake(stake.stake_id)
 
         # Set unbonding time to 35 days ago (past 30-day penalty period)
-        stake = await staking_service.get_stake(stake.stake_id)
+        stake = staking_service.get_stake(stake.stake_id)
         stake.unbonding_time = datetime.now(UTC) - timedelta(days=35)
         staking_service.session.commit()
 
         # Complete unbonding (no penalty)
-        result = await staking_service.complete_unbonding(stake.stake_id)
+        result = staking_service.complete_unbonding(stake.stake_id)
 
         assert result is not None
         assert "total_amount" in result
@@ -321,7 +321,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create a stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -330,7 +330,7 @@ class TestStakingService:
         )
 
         # Calculate rewards
-        rewards = await staking_service.calculate_rewards(stake.stake_id)
+        rewards = staking_service.calculate_rewards(stake.stake_id)
 
         assert rewards >= 0.0
 
@@ -339,7 +339,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create a stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -350,10 +350,10 @@ class TestStakingService:
         # Unbond the stake
         stake.end_time = datetime.now(UTC) - timedelta(days=1)
         staking_service.session.commit()
-        await staking_service.unbond_stake(stake.stake_id)
+        staking_service.unbond_stake(stake.stake_id)
 
         # Calculate rewards (should return accumulated rewards only)
-        rewards = await staking_service.calculate_rewards(stake.stake_id)
+        rewards = staking_service.calculate_rewards(stake.stake_id)
 
         assert rewards == stake.accumulated_rewards
 
@@ -362,7 +362,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create stake with exactly minimum amount (100)
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=100.0,  # Minimum amount
@@ -378,7 +378,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create stake with large amount
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=100000.0,
@@ -393,7 +393,7 @@ class TestStakingService:
         """Test creating stake with auto-compound enabled"""
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -408,7 +408,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create first stake
-        stake1 = await staking_service.create_stake(
+        stake1 = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -417,7 +417,7 @@ class TestStakingService:
         )
 
         # Create second stake
-        stake2 = await staking_service.create_stake(
+        stake2 = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=2000.0,
@@ -431,7 +431,7 @@ class TestStakingService:
         assert stake2.amount == 2000.0
 
         # Verify agent metrics updated with total
-        updated_metrics = await staking_service.get_agent_metrics(agent_metrics.agent_wallet)
+        updated_metrics = staking_service.get_agent_metrics(agent_metrics.agent_wallet)
         assert updated_metrics.total_staked == 3000.0
         assert updated_metrics.staker_count == 1  # Same staker
 
@@ -440,7 +440,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create multiple stakes
-        await staking_service.create_stake(
+        staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -448,7 +448,7 @@ class TestStakingService:
             auto_compound=False,
         )
 
-        await staking_service.create_stake(
+        staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=2000.0,
@@ -457,7 +457,7 @@ class TestStakingService:
         )
 
         # Get user stakes
-        stakes = await staking_service.get_user_stakes(staker_address)
+        stakes = staking_service.get_user_stakes(staker_address)
 
         assert len(stakes) == 2
         assert all(stake.staker_address == staker_address for stake in stakes)
@@ -467,7 +467,7 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Create a stake
-        stake = await staking_service.create_stake(
+        stake = staking_service.create_stake(
             staker_address=staker_address,
             agent_wallet=agent_metrics.agent_wallet,
             amount=1000.0,
@@ -480,7 +480,7 @@ class TestStakingService:
         staking_service.session.commit()
 
         # Claim rewards
-        result = await staking_service.claim_rewards([stake.stake_id])
+        result = staking_service.claim_rewards([stake.stake_id])
 
         assert result is not None
         assert result["total_rewards"] == 50.0
@@ -489,7 +489,7 @@ class TestStakingService:
     async def test_update_agent_performance(self, staking_service, agent_metrics):
         """Test updating agent performance metrics"""
         # Update performance
-        updated_metrics = await staking_service.update_agent_performance(
+        updated_metrics = staking_service.update_agent_performance(
             agent_wallet=agent_metrics.agent_wallet, accuracy=98.0, successful=True
         )
 
@@ -505,12 +505,12 @@ class TestStakingService:
         staker_address = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 
         # Get initial total staked
-        initial_metrics = await staking_service.get_agent_metrics(agent_metrics.agent_wallet)
+        initial_metrics = staking_service.get_agent_metrics(agent_metrics.agent_wallet)
         initial_staked = initial_metrics.total_staked
 
         # Try to create stake with invalid amount (should fail and rollback)
         try:
-            await staking_service.create_stake(
+            staking_service.create_stake(
                 staker_address=staker_address,
                 agent_wallet=agent_metrics.agent_wallet,
                 amount=50.0,  # Invalid (below minimum)
@@ -522,5 +522,5 @@ class TestStakingService:
             pass
 
         # Verify database state unchanged (rollback worked)
-        final_metrics = await staking_service.get_agent_metrics(agent_metrics.agent_wallet)
+        final_metrics = staking_service.get_agent_metrics(agent_metrics.agent_wallet)
         assert final_metrics.total_staked == initial_staked
