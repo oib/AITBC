@@ -16,8 +16,13 @@ feed() { while :; do "$AITBC_BIN" --output=json transactions send --from "$WALLE
 feed & FEED=$!; sleep 10
 pre=$(stress_height "$TARGET" 2>/dev/null || echo 0)
 
-# The kill — same ssh alias convention as deploys (IDE-run).
-ssh "$TARGET" 'systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc' || fail restart "restart cmd failed"
+# The kill — local when TARGET is the host we're on (self-ssh isn't
+# provisioned); otherwise the IDE-side ssh alias convention.
+if [ "$(hostname -s)" = "$TARGET" ] || [ "$(hostname)" = "$TARGET" ]; then
+  systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc || fail restart "local restart failed"
+else
+  ssh "$TARGET" 'systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc' || fail restart "restart cmd failed"
+fi
 sleep 20
 
 # Catch-up assertion: head must advance past pre+N within ~2 blocks' time.
