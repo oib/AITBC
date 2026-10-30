@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -43,7 +44,7 @@ async def create_deployment_config(
 ) -> AgentDeploymentConfig:
     """Create deployment configuration for agent workflow"""
     try:
-        workflow = session.get(AIAgentWorkflow, workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"]:
@@ -128,10 +129,10 @@ async def deploy_workflow(
 ) -> dict[str, Any]:
     """Deploy agent workflow to target environment"""
     try:
-        config = session.get(AgentDeploymentConfig, config_id)
+        config = await run_in_threadpool(session.get, AgentDeploymentConfig, config_id)
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
-        workflow = session.get(AIAgentWorkflow, config.workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, config.workflow_id)
         if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
@@ -159,10 +160,10 @@ async def get_deployment_health(
 ) -> dict[str, Any]:
     """Get health status of deployment"""
     try:
-        config = session.get(AgentDeploymentConfig, config_id)
+        config = await run_in_threadpool(session.get, AgentDeploymentConfig, config_id)
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
-        workflow = session.get(AIAgentWorkflow, config.workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, config.workflow_id)
         if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
@@ -188,10 +189,10 @@ async def scale_deployment(
 ) -> dict[str, Any]:
     """Scale deployment to target number of instances"""
     try:
-        config = session.get(AgentDeploymentConfig, config_id)
+        config = await run_in_threadpool(session.get, AgentDeploymentConfig, config_id)
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
-        workflow = session.get(AIAgentWorkflow, config.workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, config.workflow_id)
         if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
@@ -219,10 +220,10 @@ async def rollback_deployment(
 ) -> dict[str, Any]:
     """Rollback deployment to previous version"""
     try:
-        config = session.get(AgentDeploymentConfig, config_id)
+        config = await run_in_threadpool(session.get, AgentDeploymentConfig, config_id)
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
-        workflow = session.get(AIAgentWorkflow, config.workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, config.workflow_id)
         if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         deployment_manager = AgentDeploymentManager(session)
@@ -324,10 +325,10 @@ async def integrate_with_zk_system(
             "(AGENT_INTEGRATION_ZK_MOCK unset). This is a development feature.",
         )
     try:
-        execution = session.get(AgentExecution, execution_id)
+        execution = await run_in_threadpool(session.get, AgentExecution, execution_id)
         if not execution:
             raise HTTPException(status_code=404, detail="Execution not found")
-        workflow = session.get(AIAgentWorkflow, execution.workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, execution.workflow_id)
         if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         integration_manager = AgentIntegrationManager(session)
@@ -356,10 +357,10 @@ async def get_deployment_metrics(
 ) -> dict[str, Any]:
     """Get metrics for deployment over time range"""
     try:
-        config = session.get(AgentDeploymentConfig, deployment_id)
+        config = await run_in_threadpool(session.get, AgentDeploymentConfig, deployment_id)
         if not config:
             raise HTTPException(status_code=404, detail="Deployment config not found")
-        workflow = session.get(AIAgentWorkflow, config.workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, config.workflow_id)
         if not workflow or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         monitoring_manager = AgentMonitoringManager(session)
@@ -388,7 +389,7 @@ async def deploy_to_production(
 ) -> dict[str, Any]:
     """Deploy agent workflow to production with full integration"""
     try:
-        workflow = session.get(AIAgentWorkflow, workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"]:
@@ -418,7 +419,12 @@ async def get_production_dashboard(
     """Get comprehensive production dashboard data"""
     try:
         user_configs = (
-            session.execute(select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]))
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]),
+                )
+            )
             .scalars()
             .all()
         )
@@ -430,7 +436,12 @@ async def get_production_dashboard(
         }
         for config in user_configs:
             instances = (
-                session.execute(select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == config.id))
+                (
+                    await run_in_threadpool(
+                        session.execute,
+                        select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == config.id),
+                    )
+                )
                 .scalars()
                 .all()
             )
@@ -470,7 +481,12 @@ async def get_production_health(
     """Get overall production health status"""
     try:
         user_configs = (
-            session.execute(select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]))
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]),
+                )
+            )
             .scalars()
             .all()
         )
