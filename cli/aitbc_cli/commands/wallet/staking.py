@@ -599,13 +599,23 @@ def liquidity_stake(
         ctx=ctx,
     )
     wallet_data = _load_wallet(Path(wallet_path), wallet_name, password=resolved_password)
-    balance = _wallet_amount(wallet_data.get("balance", 0))
+    # The wallet file's ``balance`` field is a stale cache written at
+    # creation/last save — a funded wallet reads Available:0 forever
+    # (Refs #711). Sufficiency checks must hit the chain.
+    hex_address = canonical_address(wallet_data["address"])
+    balance = None
+    try:
+        account = AITBCHTTPClient(base_url=_get_rpc_url(ctx), timeout=10).get(f"/rpc/account/{hex_address}")
+        if account.get("balance") is not None:
+            balance = units_to_ait(int(account["balance"]))
+    except Exception:
+        pass
+    if balance is None:
+        balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount + fee:
         error(f"Insufficient balance. Available: {balance}, Required: {amount + fee}")
         ctx.exit(1)
         return
-
-    hex_address = canonical_address(wallet_data["address"])
     amount_seconds = int(ait_to_units(amount))
     fee_seconds = int(ait_to_units(fee))
 
