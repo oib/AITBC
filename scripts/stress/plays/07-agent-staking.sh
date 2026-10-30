@@ -42,7 +42,7 @@ case "$LEG" in
   lock)
     spend_guard "$AMOUNT" || true
     resp=$(call /rpc/agent-staking/stake \
-      "{\"stake_id\":\"$STAKE_ID\",\"user_address\":\"$addr\",\"agent_wallet\":\"$addr\",\"amount\":$STAKE_AMT,\"chain_id\":\"$CHAIN\",\"lock_days\":${STRESS_LOCK_DAYS:-1}}" 2>&1) \
+      "{\"stake_id\":\"$STAKE_ID\",\"user_address\":\"$addr\",\"agent_wallet\":\"$addr\",\"amount\":$STAKE_AMT,\"chain_id\":\"$CHAIN\",\"lock_period\":${STRESS_LOCK_DAYS:-1}}" 2>&1) \
       || fail lock "agent-stake lock refused: $resp"
     tx=$(printf '%s' "$resp" | python3 -c 'import re,sys
 m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
