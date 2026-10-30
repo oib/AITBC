@@ -1,6 +1,5 @@
 """Tests for cross-chain wallet trust-boundary hardening (B3)."""
 
-import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -143,7 +142,7 @@ def test_durable_wallet_recovery(client, cross_chain_db, admin_token, monkeypatc
 
     with Session(cross_chain_db) as session:
         service = SecureWalletService(session, None)
-        keys = asyncio.run(service.get_wallet_with_private_key(wallet_id, settings.wallet_encryption_password))
+        keys = service.get_wallet_with_private_key(wallet_id, settings.wallet_encryption_password)
         assert keys["address"].lower() == create_resp.json()["address"].lower()
         assert len(keys["private_key"]) == 64
 

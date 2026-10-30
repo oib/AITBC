@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Annotated
 
@@ -34,7 +33,7 @@ async def register_developer(
 ) -> Developer:
     """Register a developer for the DAO grant program."""
     try:
-        return await run_in_threadpool(asyncio.run, service.register(body))
+        return await run_in_threadpool(service.register, body)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -54,7 +53,7 @@ async def list_developers(
 ) -> list[Developer]:
     """List registered developers."""
     try:
-        return await run_in_threadpool(asyncio.run, service.list(limit=limit, offset=offset, active_only=active_only))
+        return await run_in_threadpool(service.list, limit=limit, offset=offset, active_only=active_only)
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -70,7 +69,7 @@ async def get_developer(
 ) -> Developer:
     """Get a developer by wallet address."""
     try:
-        developer = await run_in_threadpool(asyncio.run, service.get_by_wallet(wallet_address))
+        developer = await run_in_threadpool(service.get_by_wallet, wallet_address)
         if not developer:
             raise HTTPException(status_code=404, detail="Developer not found")
         return developer
@@ -92,7 +91,7 @@ async def update_developer(
 ) -> Developer:
     """Update a developer profile."""
     try:
-        return await run_in_threadpool(asyncio.run, service.update(wallet_address, body))
+        return await run_in_threadpool(service.update, wallet_address, body)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
