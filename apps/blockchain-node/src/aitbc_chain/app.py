@@ -218,31 +218,37 @@ class RequestLoggingMiddleware:
         duration = time.perf_counter() - start
         metrics_registry.observe("rpc_request_duration_seconds", duration)
         metrics_registry.increment("rpc_requests_total")
-        if status_code >= 500:
-            metrics_registry.increment("rpc_server_errors_total")
-            _app_logger.error(
-                "Server error: %s %s from %s (UA: %s) → %d (%.1fms)",
-                method,
-                path_with_qs,
-                client_host,
-                user_agent,
-                status_code,
-                duration * 1000,
-            )
-        elif status_code >= 400:
-            # The counter stays exact for every client error — alerts read
-            # it — only the log level differs for an expected account miss.
-            metrics_registry.increment("rpc_client_errors_total")
-            log = _app_logger.info if _expected_get_404(method, status_code, path) else _app_logger.warning
-            log(
-                "Client error: %s %s from %s (UA: %s) → %d (%.1fms)",
-                method,
-                path_with_qs,
-                client_host,
-                user_agent,
-                status_code,
-                duration * 1000,
-            )
+        _log_request_outcome(method, path, path_with_qs, client_host, user_agent, status_code, duration)
+
+
+def _log_request_outcome(
+    method: str, path: str, path_with_qs: str, client_host: str, user_agent: str, status_code: int, duration: float
+) -> None:
+    if status_code >= 500:
+        metrics_registry.increment("rpc_server_errors_total")
+        _app_logger.error(
+            "Server error: %s %s from %s (UA: %s) → %d (%.1fms)",
+            method,
+            path_with_qs,
+            client_host,
+            user_agent,
+            status_code,
+            duration * 1000,
+        )
+    elif status_code >= 400:
+        # The counter stays exact for every client error — alerts read
+        # it — only the log level differs for an expected account miss.
+        metrics_registry.increment("rpc_client_errors_total")
+        log = _app_logger.info if _expected_get_404(method, status_code, path) else _app_logger.warning
+        log(
+            "Client error: %s %s from %s (UA: %s) → %d (%.1fms)",
+            method,
+            path_with_qs,
+            client_host,
+            user_agent,
+            status_code,
+            duration * 1000,
+        )
 
 
 async def _sweep_mempool_forever() -> None:
