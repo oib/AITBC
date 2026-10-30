@@ -8,6 +8,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -179,7 +180,7 @@ async def execute_workflow(
             status_code=501, detail="Orchestration simulation is disabled; workflow execution is not production-ready"
         )
     try:
-        workflow = session.get(AIAgentWorkflow, workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"] and (not workflow.is_public):
@@ -221,7 +222,7 @@ async def get_execution_status(
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
         status = await orchestrator.get_execution_status(execution_id)
-        workflow = session.get(AIAgentWorkflow, status.workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, status.workflow_id)
         if workflow is None or workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         return status
@@ -275,7 +276,7 @@ async def cancel_workflow(
 ) -> dict[str, Any]:
     """Cancel a workflow execution"""
     try:
-        workflow = session.get(AIAgentWorkflow, workflow_id)
+        workflow = await run_in_threadpool(session.get, AIAgentWorkflow, workflow_id)
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.owner_id != user["sub"]:
