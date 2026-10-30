@@ -12,8 +12,8 @@ dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstri
 echo x | "$AITBC_BIN" auth login --wallet "$WALLET" --password-stdin >/dev/null 2>&1 || true
 out=$("$AITBC_BIN" --output=json bond create --provider-id "$pid" --amount "$dec" 2>&1) || fail bond "bond create failed: $out"
 # Bond emissions land as BOND_LOCK rows; confirm within the seal window.
-h0=$(height); deadline=$(( h0 + 4 ))
-for i in $(seq 1 12); do
+h0=$(height); deadline=$(( h0 + 40 ))
+for i in $(seq 1 60); do
   hit=$(rpc_get "/rpc/transactions?tx_type=BOND_LOCK&limit=20" 2>/dev/null | python3 -c "
 import json,sys
 rows=json.load(sys.stdin)

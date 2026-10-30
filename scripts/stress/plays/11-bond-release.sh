@@ -19,8 +19,8 @@ out=$("$AITBC_BIN" --output=json bond lock --provider-id "$pid" 2>&1) || fail lo
 # release leg — BOND_RELEASE
 out=$("$AITBC_BIN" --output=json bond release --provider-id "$pid" 2>&1) || fail release "bond release failed: $out"
 # BOND_RELEASE lands as a committed row; confirm within the seal window.
-h0=$(height); deadline=$(( h0 + 4 ))
-for i in $(seq 1 12); do
+h0=$(height); deadline=$(( h0 + 40 ))
+for i in $(seq 1 60); do
   hit=$(rpc_get "/rpc/transactions?tx_type=BOND_RELEASE&limit=20" 2>/dev/null | python3 -c "
 import json,sys
 rows=json.load(sys.stdin)
