@@ -236,7 +236,7 @@ app.add_middleware(ErrorHandlerMiddleware)
 if SLOWAPI_AVAILABLE:
 
     @app.exception_handler(RateLimitExceeded)
-    async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, content={"error": "Rate limit exceeded", "detail": str(exc)}
         )
@@ -295,19 +295,19 @@ def record_failure(service_name: str) -> None:
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
+def health() -> dict[str, str]:
     """Health check endpoint"""
     return create_simple_health_response("api-gateway")
 
 
 @app.get("/services")
-async def list_services() -> dict[str, dict[str, object]]:
+def list_services() -> dict[str, dict[str, object]]:
     """List registered services"""
     return {service_name: {"prefix": config["prefix"], "url": config["base_url"]} for service_name, config in SERVICES.items()}
 
 
 @app.get("/v2")
-async def api_v2_index() -> dict[str, object]:
+def api_v2_index() -> dict[str, object]:
     """The service-qualified API surface.
 
     Reached publicly as /api/v2 (nginx mounts the gateway at /api/). Each
