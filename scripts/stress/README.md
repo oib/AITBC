@@ -32,6 +32,13 @@ nonce-sensitive windows. `serial_acquire` mkdir-locks
 the shared hub-side lock so all coders see it). Parallel plays call
 `serial_check` and back off with exit 75 when a serial play is in flight.
 
+## Wallet funding (operator rule)
+Each host's `default` is the play wallet; `STRESS_WALLET_<host>` overrides.
+New exercise wallets may be funded from treasury (coin-grant `0xCE6C…` /
+island genesis) — dev-fleet funding, no escalation. Top-up at ~50k balance
+floor, logged as a TRANSFER play. `insufficient balance` → top-up, not a
+finding.
+
 ## Filing findings
 `watch.sh` surfaces candidates; coders judge. File real defects as
 `STRESS-<class>-N` in milestone `stress-1`, link on #706, add the class
