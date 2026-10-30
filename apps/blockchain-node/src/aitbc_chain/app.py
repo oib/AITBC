@@ -15,7 +15,7 @@ from aitbc.middleware import LegacyPathRewriteMiddleware, setup_cors
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import Message, Receive, Scope, Send
 
 from .chain_id import ChainIdNotConfigured, resolve_chain_id
 from .database import ChainDbMissingError, ForeignChainDbError
@@ -84,26 +84,36 @@ def _sanitize_url(url: str) -> str:
     return url
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Rate limit requests by client IP."""
+class RateLimitMiddleware:
+    """Rate limit requests by client IP.
+
+    Pure ASGI rather than ``BaseHTTPMiddleware``: the base class spawns an
+    anyio task and copies contextvars on every request.
+    """
 
     def __init__(self, app: Any, max_requests: int = 1000, window_seconds: int = 60) -> None:
-        super().__init__(app)
+        self.app = app
         self._max_requests = max_requests
         self._window = window_seconds
         self._requests: dict[str, list[float]] = defaultdict(list)
 
-    async def dispatch(self, request: Request, call_next: Any) -> Any:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
         self._requests[client_ip] = [t for t in self._requests[client_ip] if now - t < self._window]
         if len(self._requests[client_ip]) >= self._max_requests:
             metrics_registry.increment("rpc_rate_limited_total")
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=429, content={"detail": "Rate limit exceeded"}, headers={"Retry-After": str(self._window)}
             )
+            await response(scope, receive, send)
+            return
         self._requests[client_ip].append(now)
-        return await call_next(request)
+        await self.app(scope, receive, send)
 
 
 # A GET 404 on the account routes is the ordinary "no account row" answer —
@@ -122,10 +132,24 @@ def _expected_get_404(method: str, status_code: int, path: str) -> bool:
     return bool(_ACCOUNT_MISS_PATH.fullmatch(path) or _TX_MISS_PATH.fullmatch(path))
 
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log all requests with timing and error details."""
+class RequestLoggingMiddleware:
+    """Log all requests with timing and error details.
 
-    async def dispatch(self, request: Request, call_next: Any) -> Any:
+    Pure ASGI rather than ``BaseHTTPMiddleware``: the base class spawns an
+    anyio task and copies contextvars on every request. Status codes are read
+    off the ``http.response.start`` message via a send wrapper; a downstream
+    exception that escapes before the response starts still gets the same
+    503 answer ``call_next`` used to produce.
+    """
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
         start = time.perf_counter()
         method = request.method
         path = request.url.path
@@ -155,38 +179,21 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 client_host,
                 user_agent,
             )
-            return JSONResponse(status_code=400, content={"detail": f"Unsupported chain_id: {chain_id_param}"})
+            response = JSONResponse(status_code=400, content={"detail": f"Unsupported chain_id: {chain_id_param}"})
+            await response(scope, receive, send)
+            return
+        status_code = 500
+        response_started = False
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status_code, response_started
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+                response_started = True
+            await send(message)
+
         try:
-            response = await call_next(request)
-            duration = time.perf_counter() - start
-            metrics_registry.observe("rpc_request_duration_seconds", duration)
-            metrics_registry.increment("rpc_requests_total")
-            if response.status_code >= 500:
-                metrics_registry.increment("rpc_server_errors_total")
-                _app_logger.error(
-                    "Server error: %s %s from %s (UA: %s) → %d (%.1fms)",
-                    method,
-                    path_with_qs,
-                    client_host,
-                    user_agent,
-                    response.status_code,
-                    duration * 1000,
-                )
-            elif response.status_code >= 400:
-                # The counter stays exact for every client error — alerts read
-                # it — only the log level differs for an expected account miss.
-                metrics_registry.increment("rpc_client_errors_total")
-                log = _app_logger.info if _expected_get_404(method, response.status_code, path) else _app_logger.warning
-                log(
-                    "Client error: %s %s from %s (UA: %s) → %d (%.1fms)",
-                    method,
-                    path_with_qs,
-                    client_host,
-                    user_agent,
-                    response.status_code,
-                    duration * 1000,
-                )
-            return response
+            await self.app(scope, receive, send_wrapper)
         except HTTPException:
             raise
         except Exception as exc:
@@ -203,7 +210,39 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "duration_ms": round(duration * 1000, 2),
                 },
             )
-            return JSONResponse(status_code=503, content={"detail": "Internal server error"})
+            if response_started:
+                raise
+            response = JSONResponse(status_code=503, content={"detail": "Internal server error"})
+            await response(scope, receive, send)
+            return
+        duration = time.perf_counter() - start
+        metrics_registry.observe("rpc_request_duration_seconds", duration)
+        metrics_registry.increment("rpc_requests_total")
+        if status_code >= 500:
+            metrics_registry.increment("rpc_server_errors_total")
+            _app_logger.error(
+                "Server error: %s %s from %s (UA: %s) → %d (%.1fms)",
+                method,
+                path_with_qs,
+                client_host,
+                user_agent,
+                status_code,
+                duration * 1000,
+            )
+        elif status_code >= 400:
+            # The counter stays exact for every client error — alerts read
+            # it — only the log level differs for an expected account miss.
+            metrics_registry.increment("rpc_client_errors_total")
+            log = _app_logger.info if _expected_get_404(method, status_code, path) else _app_logger.warning
+            log(
+                "Client error: %s %s from %s (UA: %s) → %d (%.1fms)",
+                method,
+                path_with_qs,
+                client_host,
+                user_agent,
+                status_code,
+                duration * 1000,
+            )
 
 
 async def _sweep_mempool_forever() -> None:
