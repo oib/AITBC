@@ -120,7 +120,7 @@ def test_request_address_passes_non_addresses_through_lowercased() -> None:
 async def test_vote_route_stores_canonical_voter_address(rpc_db) -> None:
     with Session(rpc_db) as session:
         _proposal(session)
-    result = await rpc_staking.cast_governance_vote(
+    result = rpc_staking.cast_governance_vote(
         Mock(), {"chain_id": CHAIN, "proposal_id": "p1", "voter_address": VOTER.lower(), "vote_type": "for"}
     )
     assert result["success"] is True
@@ -138,7 +138,7 @@ async def test_vote_route_counts_stakes_of_either_spelling(rpc_db) -> None:
         session.add(Stake(chain_id=CHAIN, address=VOTER, amount=500, locked_until=datetime.now(UTC), status="active"))
         session.add(Stake(chain_id=CHAIN, address=VOTER.lower(), amount=300, locked_until=datetime.now(UTC), status="active"))
         session.commit()
-    result = await rpc_staking.cast_governance_vote(
+    result = rpc_staking.cast_governance_vote(
         Mock(), {"chain_id": CHAIN, "proposal_id": "p1", "voter_address": VOTER.lower(), "vote_type": "for"}
     )
     assert result["voting_power"] == 800
@@ -154,7 +154,7 @@ async def test_lowercase_legacy_row_blocks_canonical_revote(rpc_db) -> None:
         session.add(GovernanceVote(chain_id=CHAIN, proposal_id="p1", voter_address=VOTER.lower(), vote_type="against"))
         session.commit()
     with pytest.raises(HTTPException) as exc:
-        await rpc_staking.cast_governance_vote(
+        rpc_staking.cast_governance_vote(
             Mock(), {"chain_id": CHAIN, "proposal_id": "p1", "voter_address": VOTER, "vote_type": "for"}
         )
     assert exc.value.status_code == 400
@@ -202,5 +202,5 @@ async def test_vote_route_rejects_missing_or_unknown_vote_type(rpc_db) -> None:
         if bad is not None:
             body["vote_type"] = bad
         with pytest.raises(HTTPException) as exc:
-            await rpc_staking.cast_governance_vote(Mock(), body)
+            rpc_staking.cast_governance_vote(Mock(), body)
         assert exc.value.status_code == 400

@@ -146,9 +146,9 @@ async def _listing_ids(chain_db, rows) -> dict[str, set[str]]:
             yield session
 
     with patch.object(market_mod, "_chain_db_path", lambda: path):
-        listings = await market_mod.market_listings()
+        listings = market_mod.market_listings()
     with patch.object(tx_mod, "session_scope", session_scope), patch.object(tx_mod, "get_chain_id", lambda _c=None: CHAIN):
-        matched = await tx_mod.match_market(MagicMock(), chain_id=CHAIN)
+        matched = tx_mod.match_market(MagicMock(), chain_id=CHAIN)
     return {
         "listings": {listing["listing_id"] for listing in listings["listings"] if listing["listing_id"].startswith("tx_")},
         "match": {m["listing_id"] for m in matched["matches"]},
@@ -204,5 +204,5 @@ async def test_listing_reader_ignores_a_row_with_unparseable_payload(chain_db):
     conn.commit()
     conn.close()
     with patch.object(market_mod, "_chain_db_path", lambda: path):
-        listings = await market_mod.market_listings()
+        listings = market_mod.market_listings()
     assert [x for x in listings["listings"] if x["listing_id"].startswith("tx_")] == []

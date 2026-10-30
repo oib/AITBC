@@ -35,7 +35,7 @@ def _enforce_key_node_binding(api_key: str, node_id: str) -> None:
 
 @router.post("/join", summary="Self-serve island join: issue a node-bound peer key")
 @rate_limit(rate=5, per=3600, error_message="Join rate limit exceeded — try again later")
-async def join_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+def join_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Issue a peer key bound to the caller's node_id.
 
     The key is returned once and only its hash is stored; it authorizes

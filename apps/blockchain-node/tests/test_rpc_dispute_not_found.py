@@ -10,6 +10,7 @@ answered 500. The shared ``_raise_for_failed_dispute_call`` helper now maps
 from __future__ import annotations
 
 import asyncio
+import inspect
 
 import pytest
 from fastapi import HTTPException
@@ -18,7 +19,7 @@ import aitbc_chain.rpc.disputes as disputes
 
 
 def _run(coro):
-    return asyncio.run(coro)
+    return asyncio.run(coro) if inspect.iscoroutine(coro) else coro
 
 
 @pytest.fixture

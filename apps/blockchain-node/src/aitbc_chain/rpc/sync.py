@@ -95,7 +95,7 @@ def _dedupe_import_blocks(blocks: list[dict[str, Any]], chain_id: str) -> list[d
 
 
 @rate_limit(rate=200, per=60)
-async def export_chain(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def export_chain(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Export full chain state as JSON for manual synchronization"""
     chain_id = get_chain_id(chain_id)
     try:
@@ -481,7 +481,7 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
 
 
 @rate_limit(rate=200, per=60)
-async def get_sync_config(request: Request) -> dict[str, Any]:
+def get_sync_config(request: Request) -> dict[str, Any]:
     """Get sync optimization configuration (v0.6.2)"""
     return {
         "sync_parallel_enabled": settings.sync_parallel_enabled,

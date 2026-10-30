@@ -311,7 +311,7 @@ def _queue_peer_fanout(chain_id: str, tx_data: dict[str, Any]) -> None:
 
 
 @rate_limit(rate=50, per=60)
-async def submit_transaction(request: Request, tx_data: TransactionRequest) -> dict[str, Any]:
+def submit_transaction(request: Request, tx_data: TransactionRequest) -> dict[str, Any]:
     """Submit a new transaction to the mempool"""
     from ..mempool import get_mempool
 
@@ -359,7 +359,7 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
 
 
 @rate_limit(rate=200, per=60)
-async def get_mempool(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+def get_mempool(request: Request, chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """Get pending transactions from mempool"""
     from ..mempool import get_mempool
 
@@ -406,7 +406,7 @@ def _has_active_bond(session, chain_id: str, provider: str, min_amount: int) -> 
 
 
 @rate_limit(rate=50, per=60)
-async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
+def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
     """Submit a market transaction"""
     from ..mempool import get_mempool
 
@@ -486,7 +486,7 @@ async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -
 
 
 @rate_limit(rate=10, per=60)
-async def match_market(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def match_market(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Return active market listings that could be matched against bids."""
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
@@ -533,7 +533,7 @@ async def match_market(request: Request, chain_id: str | None = None) -> dict[st
 
 
 @rate_limit(rate=200, per=60)
-async def query_transactions(
+def query_transactions(
     request: Request,
     transaction_type: str | None = None,
     island_id: str | None = None,
@@ -676,7 +676,7 @@ async def query_transactions(
 
 
 @rate_limit(rate=200, per=60)
-async def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """Look up one transaction by hash (V23-66).
 
     The chain could describe its transactions in bulk but could not answer "do you have
@@ -714,7 +714,7 @@ async def get_transaction(request: Request, tx_hash: str, chain_id: str | None =
 
 
 @rate_limit(rate=200, per=60)
-async def get_sealed_governance_proposal(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_sealed_governance_proposal(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Look up the sealed GOVERNANCE_PROPOSE transaction for ``proposal_id``
     (GAP-PROPOSAL-SHOW-1).
 

@@ -7,7 +7,6 @@ table on (chain_id, height) and return both fields alongside block_height.
 
 from __future__ import annotations
 
-import asyncio
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
@@ -67,7 +66,7 @@ def test_block_fields_joined_for_sealed_tx(patched_db):
     patched_db.add(_tx("test-chain", "0xtx100", 100))
     patched_db.commit()
 
-    result = asyncio.run(query_transactions(None, chain_id="test-chain"))
+    result = query_transactions(None, chain_id="test-chain")
     assert len(result) == 1
     tx = result[0]
     assert tx["block_height"] == 100
@@ -79,7 +78,7 @@ def test_unsealed_tx_has_null_block_fields(patched_db):
     patched_db.add(_tx("test-chain", "0xtxmempool", None))
     patched_db.commit()
 
-    result = asyncio.run(query_transactions(None, chain_id="test-chain"))
+    result = query_transactions(None, chain_id="test-chain")
     assert len(result) == 1
     tx = result[0]
     assert tx["block_height"] is None
@@ -93,7 +92,7 @@ def test_missing_block_row_yields_null_fields(patched_db):
     patched_db.add(_tx("test-chain", "0xtxorphan", 999))
     patched_db.commit()
 
-    result = asyncio.run(query_transactions(None, chain_id="test-chain"))
+    result = query_transactions(None, chain_id="test-chain")
     assert len(result) == 1
     assert result[0]["block_height"] == 999
     assert result[0]["block_hash"] is None
@@ -105,11 +104,11 @@ def test_before_id_pages_backwards(patched_db):
         patched_db.add(_tx("test-chain", f"0xtx{i}", 10 + i))
     patched_db.commit()
 
-    first = asyncio.run(query_transactions(None, chain_id="test-chain", limit=2))
+    first = query_transactions(None, chain_id="test-chain", limit=2)
     assert [t["transaction_id"] for t in first] == [5, 4]
 
-    older = asyncio.run(query_transactions(None, chain_id="test-chain", before_id=4))
+    older = query_transactions(None, chain_id="test-chain", before_id=4)
     assert [t["transaction_id"] for t in older] == [3, 2, 1]
 
-    empty = asyncio.run(query_transactions(None, chain_id="test-chain", before_id=1))
+    empty = query_transactions(None, chain_id="test-chain", before_id=1)
     assert empty == []

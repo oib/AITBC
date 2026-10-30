@@ -475,7 +475,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _app_logger.warning("Blockchain node shutdown did not complete within 18s; systemd will kill the process")
 
 
-async def _foreign_chain_db_error(request: Request, exc: Exception) -> JSONResponse:
+def _foreign_chain_db_error(request: Request, exc: Exception) -> JSONResponse:
     # Fixed detail — the exception text names internal lists/env vars.
     _app_logger.error("foreign chain db open refused for request %s: %s", request.url.path, exc)
     return JSONResponse(status_code=403, content={"detail": "chain not served by this node"})
@@ -486,11 +486,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
 
     @app.exception_handler(ChainIdNotConfigured)
-    async def _chain_id_not_configured(request: Request, exc: ChainIdNotConfigured) -> JSONResponse:
+    def _chain_id_not_configured(request: Request, exc: ChainIdNotConfigured) -> JSONResponse:
         return JSONResponse(status_code=503, content={"detail": str(exc)})
 
     @app.exception_handler(ChainDbMissingError)
-    async def _chain_db_missing(request: Request, exc: ChainDbMissingError) -> JSONResponse:
+    def _chain_db_missing(request: Request, exc: ChainDbMissingError) -> JSONResponse:
         _app_logger.error("chain db missing for request %s: %s", request.url.path, exc)
         return JSONResponse(status_code=503, content={"detail": "chain db missing"})
 
@@ -539,7 +539,7 @@ def create_app() -> FastAPI:
         return PlainTextResponse(content=content, media_type=CONTENT_TYPE_LATEST)
 
     @metrics_router.get("/health", tags=["health"], summary="Health check")
-    async def health() -> dict[str, Any]:
+    def health() -> dict[str, Any]:
         return {
             "status": "ok",
             "supported_chains": [c.strip() for c in settings.supported_chains.split(",") if c.strip()],

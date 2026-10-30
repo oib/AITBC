@@ -53,7 +53,7 @@ def _signed_stake_id_matches(payload: dict[str, Any], stake_id: str) -> None:
 
 
 @rate_limit(rate=20, per=60)
-async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     if not validate_chain_id(chain_id):
@@ -131,7 +131,7 @@ async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str
 
 
 @rate_limit(rate=20, per=60)
-async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:
@@ -187,7 +187,7 @@ async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, An
 
 
 @rate_limit(rate=20, per=60)
-async def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     _signed_stake_id_matches(payload, stake_id)
@@ -238,7 +238,7 @@ async def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, An
 
 
 @rate_limit(rate=20, per=60)
-async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:
@@ -340,16 +340,16 @@ def _write_memo(kind: str, body: dict[str, Any]) -> dict[str, Any]:
 
 
 @rate_limit(rate=20, per=60)
-async def record_performance(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+def record_performance(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     return _write_memo("performance", body)
 
 
 @rate_limit(rate=20, per=60)
-async def record_distribute(request: Request, agent_wallet: str, body: dict[str, Any]) -> dict[str, Any]:
+def record_distribute(request: Request, agent_wallet: str, body: dict[str, Any]) -> dict[str, Any]:
     body = {**body, "agent_wallet": body.get("agent_wallet") or agent_wallet}
     return _write_memo("distribute", body)
 
 
 @rate_limit(rate=20, per=60)
-async def record_claim(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+def record_claim(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     return _write_memo("claim", body)
