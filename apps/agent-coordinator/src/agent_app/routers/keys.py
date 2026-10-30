@@ -43,7 +43,7 @@ class KeyResponse(BaseModel):
 
 @router.get("/{agent_id}", response_model=KeyResponse)
 @rate_limit(rate=200, per=60)
-async def get_public_key(request: Request, agent_id: str) -> KeyResponse | JSONResponse:
+def get_public_key(request: Request, agent_id: str) -> KeyResponse | JSONResponse:
     """Get the registered public key for an agent."""
     import base64
     from datetime import UTC, datetime
@@ -70,7 +70,7 @@ async def get_public_key(request: Request, agent_id: str) -> KeyResponse | JSONR
 
 @router.post("/register")
 @rate_limit(rate=50, per=60)
-async def register_public_key(request: Request, req: RegisterKeyRequest, principal: OptionalAgent) -> dict[str, Any]:
+def register_public_key(request: Request, req: RegisterKeyRequest, principal: OptionalAgent) -> dict[str, Any]:
     """Register a public key for an agent.
 
     Phase C agent-scoped: ``enforce`` requires a principal bound to

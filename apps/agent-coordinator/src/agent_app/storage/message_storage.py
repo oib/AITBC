@@ -75,7 +75,7 @@ class MessageStorage:
             logger.info("Message storage disconnected from Redis")
         if self.sqlite_conn:
             try:
-                await self.sqlite_conn.close()
+                self.sqlite_conn.close()
                 logger.info("Message storage SQLite connection closed")
             except Exception as e:
                 logger.error("Error closing SQLite fallback: %s", e)

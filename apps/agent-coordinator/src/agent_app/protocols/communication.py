@@ -112,7 +112,7 @@ class CommunicationProtocol:
         self.message_handlers: dict[MessageType, list[Callable[[AgentMessage], Any]]] = {}
         self.active_connections: dict[str, Any] = {}
 
-    async def register_handler(self, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
+    def register_handler(self, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
         """Register a message handler for a specific message type"""
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
@@ -194,7 +194,7 @@ class HierarchicalProtocol(CommunicationProtocol):
         self.sub_agents: list[str] = []
         self.master_agent: str | None = None
 
-    async def add_sub_agent(self, agent_id: str) -> None:
+    def add_sub_agent(self, agent_id: str) -> None:
         """Add a sub-agent to this master agent"""
         if self.is_master:
             self.sub_agents.append(agent_id)
@@ -232,12 +232,12 @@ class PeerToPeerProtocol(CommunicationProtocol):
         super().__init__(agent_id)
         self.peers: dict[str, dict[str, Any]] = {}
 
-    async def add_peer(self, peer_id: str, connection_info: dict[str, Any]) -> None:
+    def add_peer(self, peer_id: str, connection_info: dict[str, Any]) -> None:
         """Add a peer to the peer network"""
         self.peers[peer_id] = connection_info
         logger.info("Added peer %s to agent %s", peer_id, self.agent_id)
 
-    async def remove_peer(self, peer_id: str) -> None:
+    def remove_peer(self, peer_id: str) -> None:
         """Remove a peer from the peer network"""
         if peer_id in self.peers:
             del self.peers[peer_id]
@@ -268,13 +268,13 @@ class BroadcastProtocol(CommunicationProtocol):
         self.broadcast_channel = broadcast_channel
         self.subscribers: list[str] = []
 
-    async def subscribe(self, agent_id: str) -> None:
+    def subscribe(self, agent_id: str) -> None:
         """Subscribe to broadcast channel"""
         if agent_id not in self.subscribers:
             self.subscribers.append(agent_id)
             logger.info("Agent %s subscribed to %s", agent_id, self.broadcast_channel)
 
-    async def unsubscribe(self, agent_id: str) -> None:
+    def unsubscribe(self, agent_id: str) -> None:
         """Unsubscribe from broadcast channel"""
         if agent_id in self.subscribers:
             self.subscribers.remove(agent_id)
@@ -314,13 +314,11 @@ class CommunicationManager:
             return await protocol.send_message(message)
         return False
 
-    async def register_handler(
-        self, protocol_name: str, message_type: MessageType, handler: Callable[[AgentMessage], Any]
-    ) -> None:
+    def register_handler(self, protocol_name: str, message_type: MessageType, handler: Callable[[AgentMessage], Any]) -> None:
         """Register message handler for specific protocol"""
         protocol = self.get_protocol(protocol_name)
         if protocol:
-            await protocol.register_handler(message_type, handler)
+            protocol.register_handler(message_type, handler)
         else:
             logger.error("Protocol %s not found", protocol_name)
 

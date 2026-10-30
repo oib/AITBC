@@ -34,7 +34,7 @@ async def register_consensus_node(request: Request, node_data: dict[str, Any], p
     """
     authorize_admin_scope(principal, "consensus_node_register")
     try:
-        result = await distributed_consensus.register_node(node_data)
+        result = distributed_consensus.register_node(node_data)
         return result
     except Exception as e:
         logger.error("Error registering consensus node: %s", e)
@@ -49,7 +49,7 @@ async def create_consensus_proposal(
     """Create a new consensus proposal (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "consensus_proposal_create")
     try:
-        result = await distributed_consensus.create_proposal(proposal_data)
+        result = distributed_consensus.create_proposal(proposal_data)
         return result
     except Exception as e:
         logger.error("Error creating consensus proposal: %s", e)
@@ -65,7 +65,7 @@ async def cast_consensus_vote(
     coordinator consensus is an operator tool, not agent voting)."""
     authorize_admin_scope(principal, "consensus_vote")
     try:
-        result = await distributed_consensus.cast_vote(proposal_id, node_id, vote)
+        result = distributed_consensus.cast_vote(proposal_id, node_id, vote)
         return result
     except Exception as e:
         logger.error("Error casting consensus vote: %s", e)
@@ -78,7 +78,7 @@ async def get_proposal_status(request: Request, proposal_id: str, principal: Opt
     """Get proposal status (Phase C: any resolved principal)."""
     authorize_any_principal(principal, "consensus_proposal_status")
     try:
-        result = await distributed_consensus.get_proposal_status(proposal_id)
+        result = distributed_consensus.get_proposal_status(proposal_id)
         return result
     except Exception as e:
         logger.error("Error getting proposal status: %s", e)
@@ -95,7 +95,7 @@ async def set_consensus_algorithm(
     """Set the consensus algorithm (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "consensus_algorithm_set")
     try:
-        result = await distributed_consensus.set_consensus_algorithm(algorithm)
+        result = distributed_consensus.set_consensus_algorithm(algorithm)
         return result
     except Exception as e:
         logger.error("Error setting consensus algorithm: %s", e)
@@ -109,7 +109,7 @@ async def get_consensus_statistics(request: Request, principal: OptionalAgent) -
     internal consensus state to anonymous callers otherwise)."""
     authorize_any_principal(principal, "consensus_statistics")
     try:
-        result = await distributed_consensus.get_consensus_statistics()
+        result = distributed_consensus.get_consensus_statistics()
         return result
     except Exception as e:
         logger.error("Error getting consensus statistics: %s", e)
@@ -122,7 +122,7 @@ async def update_node_status(request: Request, node_id: str, is_active: bool, pr
     """Update node status (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "consensus_node_status")
     try:
-        result = await distributed_consensus.update_node_status(node_id, is_active)
+        result = distributed_consensus.update_node_status(node_id, is_active)
         return result
     except Exception as e:
         logger.error("Error updating node status: %s", e)
@@ -135,9 +135,9 @@ async def get_advanced_features_status(request: Request, principal: OptionalAgen
     """Get status of all advanced features"""
     authorize_any_principal(principal, "advanced_features_status")
     try:
-        learning_stats = await learning_system.get_learning_statistics()
-        ai_stats = await ai_integration.get_ai_statistics()
-        consensus_stats = await distributed_consensus.get_consensus_statistics()
+        learning_stats = learning_system.get_learning_statistics()
+        ai_stats = ai_integration.get_ai_statistics()
+        consensus_stats = distributed_consensus.get_consensus_statistics()
         return {
             "status": "success",
             "timestamp": datetime.now(UTC).isoformat(),

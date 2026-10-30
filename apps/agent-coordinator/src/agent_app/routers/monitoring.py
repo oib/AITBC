@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("/metrics")
 @rate_limit(rate=1000, per=60)
-async def get_prometheus_metrics(request: Request) -> Response:
+def get_prometheus_metrics(request: Request) -> Response:
     """Get metrics in Prometheus format"""
     try:
         metrics = metrics_registry.get_all_metrics()
@@ -51,7 +51,7 @@ async def get_prometheus_metrics(request: Request) -> Response:
 
 @router.get("/metrics/summary")
 @rate_limit(rate=500, per=60)
-async def get_metrics_summary(request: Request) -> dict[str, Any]:
+def get_metrics_summary(request: Request) -> dict[str, Any]:
     """Get metrics summary for dashboard"""
     try:
         summary = performance_monitor.get_performance_summary()
@@ -80,7 +80,7 @@ async def get_metrics_summary(request: Request) -> dict[str, Any]:
 
 @router.get("/metrics/health")
 @rate_limit(rate=500, per=60)
-async def get_health_metrics(request: Request) -> dict[str, Any]:
+def get_health_metrics(request: Request) -> dict[str, Any]:
     """Get health metrics for monitoring"""
     try:
         import psutil
@@ -109,9 +109,7 @@ async def get_health_metrics(request: Request) -> dict[str, Any]:
 
 @router.get("/system/status")
 @rate_limit(rate=200, per=60)
-async def get_system_status(
-    request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
-) -> dict[str, Any]:
+def get_system_status(request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]) -> dict[str, Any]:
     """Get system status (protected endpoint)"""
     try:
         system_metrics = {

@@ -333,7 +333,7 @@ class WorkflowOrchestrator:
                     await self._save_workflow_execution(execution)
                     for attempt in range(step.max_retries + 1):
                         try:
-                            await self._execute_step(step, execution.input_parameters)
+                            self._execute_step(step, execution.input_parameters)
                             step.status = StepStatus.COMPLETED
                             step.completed_at = datetime.now(UTC)
                             step.error = None
@@ -370,7 +370,7 @@ class WorkflowOrchestrator:
 
     _NOOP_ACTIONS = ("noop", "sleep", "")
 
-    async def _execute_step(self, step: WorkflowStep, input_parameters: dict[str, Any]) -> None:
+    def _execute_step(self, step: WorkflowStep, input_parameters: dict[str, Any]) -> None:
         """Execute a single workflow step.
 
         ponytail: Only explicit no-op actions are allowed. Any real action without an
@@ -391,7 +391,7 @@ class WorkflowOrchestrator:
         if not self.redis_client:
             return
         key = f"workflow:{workflow.workflow_id}"
-        await self.redis_client.set(key, json.dumps(workflow.to_dict()), ex=86400)
+        self.redis_client.set(key, json.dumps(workflow.to_dict()), ex=86400)
 
     async def _load_workflow_definition(self, workflow_id: str) -> WorkflowDefinition | None:
         """Load workflow definition from Redis"""
@@ -408,7 +408,7 @@ class WorkflowOrchestrator:
         if not self.redis_client:
             return
         key = f"execution:{execution.workflow_id}:{execution.execution_id}"
-        await self.redis_client.set(key, json.dumps(execution.to_dict()), ex=86400)
+        self.redis_client.set(key, json.dumps(execution.to_dict()), ex=86400)
 
     async def _load_workflow_execution(self, execution_id: str) -> WorkflowExecution | None:
         """Load workflow execution from Redis"""
