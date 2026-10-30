@@ -89,7 +89,7 @@ def _require_funded(session: Session, chain_id: str, bounty: BountyContract) -> 
 
 
 @rate_limit(rate=20, per=60)
-async def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     if not validate_chain_id(chain_id):
@@ -152,7 +152,7 @@ async def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any
 
 
 @rate_limit(rate=20, per=60)
-async def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     _signed_bounty_id_matches(payload, bounty_id)
@@ -194,7 +194,7 @@ async def submit_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
 
 
 @rate_limit(rate=20, per=60)
-async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:
@@ -257,7 +257,7 @@ async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
 
 
 @rate_limit(rate=20, per=60)
-async def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     _signed_bounty_id_matches(payload, bounty_id)
@@ -289,7 +289,7 @@ async def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any])
 
 
 @rate_limit(rate=20, per=60)
-async def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
+def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
     chain_id = get_chain_id(payload.get("chain_id"))
     try:

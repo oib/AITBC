@@ -24,7 +24,7 @@ _logger = get_logger(__name__)
 
 
 @rate_limit(rate=200, per=60)
-async def get_account(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_account(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
     if not validate_chain_id(chain_id):
@@ -41,13 +41,13 @@ async def get_account(request: Request, address: str, chain_id: str | None = Non
 
 
 @rate_limit(rate=200, per=60)
-async def get_account_alias(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_account_alias(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get account information (alias endpoint)"""
-    return cast(dict[str, Any], await get_account(request, address, chain_id))
+    return cast(dict[str, Any], get_account(request, address, chain_id))
 
 
 @rate_limit(rate=200, per=60)
-async def get_account_details(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_account_details(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """
     Get account details including balance and nonce.
 
@@ -78,7 +78,7 @@ async def get_account_details(request: Request, address: str, chain_id: str | No
 
 
 @rate_limit(rate=100, per=60)
-async def create_account(request: Request, account_data: dict[str, Any]) -> dict[str, Any]:
+def create_account(request: Request, account_data: dict[str, Any]) -> dict[str, Any]:
     """
     Report the on-chain state of an account address, validating its form.
 
@@ -134,7 +134,7 @@ async def create_account(request: Request, account_data: dict[str, Any]) -> dict
 
 
 @rate_limit(rate=100, per=60)
-async def get_balance_breakdown(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_balance_breakdown(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """
     Get detailed balance breakdown including:
     - Available balance
@@ -162,7 +162,7 @@ async def get_balance_breakdown(request: Request, address: str, chain_id: str | 
 
 
 @rate_limit(rate=20, per=60)
-async def reconcile_balance(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def reconcile_balance(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """
     Reconcile account balance against all recorded operations.
 
@@ -188,7 +188,7 @@ async def reconcile_balance(request: Request, address: str, chain_id: str | None
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_state_snapshot(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def get_state_snapshot(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Return all accounts for a chain — used by followers to sync state.
 
     Returns the full account set (address, balance, nonce) so followers
@@ -248,7 +248,7 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
 
 
 @rate_limit(rate=10, per=60)
-async def list_accounts(request: Request, chain_id: str | None = None, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+def list_accounts(request: Request, chain_id: str | None = None, limit: int = 100, offset: int = 0) -> dict[str, Any]:
     """List accounts on the blockchain."""
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
@@ -266,7 +266,7 @@ UNITS_PER_AIT = 36_000_000
 
 
 @rate_limit(rate=60, per=60)
-async def get_supply(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def get_supply(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Circulating and total AIT supply aggregated over the committed `account` table.
 
     Fee burns net by omission — the apply path debits `value + fee` and credits
@@ -303,7 +303,7 @@ async def get_supply(request: Request, chain_id: str | None = None) -> dict[str,
     }
 
 
-async def get_state_delta(request: Request, from_height: int, to_height: int, chain_id: str | None = None) -> dict[str, Any]:
+def get_state_delta(request: Request, from_height: int, to_height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Return state delta (changed accounts) between two block heights.
 
     Used by followers for delta sync — only changed accounts are transferred

@@ -186,7 +186,7 @@ def verify_rpc_peer_key(api_key: str | None = Security(_api_key_header)) -> str:
 router = APIRouter(tags=["escrow"], dependencies=[Depends(verify_rpc_api_key)])
 
 
-async def _resolve_chain_account(address: str) -> str | None:
+def _resolve_chain_account(address: str) -> str | None:
     """Return the canonical 0x form of ``address`` if it is valid.
 
     v0.25.5: do not require the account to exist.  The block state transition
@@ -308,7 +308,7 @@ def _require_settlement_signing(job_id: str, op: str) -> None:
     raise HTTPException(status_code=503, detail=detail)
 
 
-async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | None = None) -> str | None:
+def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | None = None) -> str | None:
     """Stake a portion of released escrow for the provider without requiring a signature.
 
     This is a protocol-level reinvestment triggered from the escrow release path.
@@ -710,7 +710,7 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
         # Never fall back to the node wallet: a missing or unresolvable provider
         # means the release has no valid payee, and paying the node wallet would
         # be a custody bug.
-        recipient = await _resolve_chain_account(provider)
+        recipient = _resolve_chain_account(provider)
         if not recipient:
             _logger.error("ESCROW_RELEASE TX skipped: could not resolve recipient (provider=%s)", provider)
             return None
@@ -811,7 +811,7 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
 
         # Re-resolve after creation; use canonical 0x form for the state layer.
         # Never fall back to the node wallet; a missing buyer account is a bug.
-        recipient = await _resolve_chain_account(buyer)
+        recipient = _resolve_chain_account(buyer)
         if not recipient:
             _logger.error("ESCROW_REFUND TX skipped: buyer account does not exist (buyer=%s)", buyer)
             return None
@@ -1109,7 +1109,7 @@ async def _submit_receipt_claim_tx(receipt: dict[str, Any] | None, job_id: str, 
             _logger.warning("RECEIPT_CLAIM skipped for job_id=%s: settlement key/address not configured", job_id)
             return None
 
-        recipient = await _resolve_chain_account(provider) or settlement_address
+        recipient = _resolve_chain_account(provider) or settlement_address
         nonce = await _settlement_next_nonce(settlement_address)
         record_payload = {k: v for k, v in receipt.items() if k not in ("signature", "attestations")}
         tx = {
@@ -1993,7 +1993,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                     if reinvest_amount_ait > 0:
                         reinvest_amount_units = ait_to_units(reinvest_amount_ait)
                         if reinvest_amount_units > 0:
-                            reinvest_stake_id = await _auto_stake(reinvest_address, reinvest_amount_units, _chain_id(), job_id)
+                            reinvest_stake_id = _auto_stake(reinvest_address, reinvest_amount_units, _chain_id(), job_id)
                             reinvest_amount = reinvest_amount_ait
                         _logger.info(
                             "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",

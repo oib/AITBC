@@ -204,7 +204,7 @@ def _assert_v4_maturity(session: Session, chain_id: str, lock_txs: list[Any]) ->
 
 
 @rate_limit(rate=20, per=60)
-async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str, Any]:
+def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str, Any]:
     """
     Stake tokens for consensus participation.
 
@@ -274,7 +274,7 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
 
 
 @rate_limit(rate=10, per=60)
-async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict[str, Any]:
+def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict[str, Any]:
     """
     Unstake tokens after lock period expires.
 
@@ -327,7 +327,7 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
 
 
 @rate_limit(rate=100, per=60)
-async def get_staking_info(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_staking_info(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get staking information for an address"""
     chain_id = get_chain_id(chain_id)
     address = _request_address(address)
@@ -358,7 +358,7 @@ async def get_staking_info(request: Request, address: str, chain_id: str | None 
 
 
 @rate_limit(rate=20, per=60)
-async def register_agent_identity(request: Request, identity_data: dict[str, Any]) -> dict[str, Any]:
+def register_agent_identity(request: Request, identity_data: dict[str, Any]) -> dict[str, Any]:
     """
     Register an agent identity on the blockchain.
 
@@ -405,7 +405,7 @@ async def register_agent_identity(request: Request, identity_data: dict[str, Any
 
 
 @rate_limit(rate=50, per=60)
-async def get_agent_identity(request: Request, agent_id: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_agent_identity(request: Request, agent_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get agent identity from blockchain"""
     chain_id = get_chain_id(chain_id)
     with session_scope() as session:
@@ -431,7 +431,7 @@ async def get_agent_identity(request: Request, agent_id: str, chain_id: str | No
 
 
 @rate_limit(rate=50, per=60)
-async def verify_agent_identity(request: Request, verification_data: dict[str, Any]) -> dict[str, Any]:
+def verify_agent_identity(request: Request, verification_data: dict[str, Any]) -> dict[str, Any]:
     """
     Verify an agent identity on the blockchain.
 
@@ -468,7 +468,7 @@ async def verify_agent_identity(request: Request, verification_data: dict[str, A
 
 
 @rate_limit(rate=20, per=60)
-async def create_governance_proposal(request: Request, proposal_data: dict[str, Any]) -> dict[str, Any]:
+def create_governance_proposal(request: Request, proposal_data: dict[str, Any]) -> dict[str, Any]:
     """
     Create a governance proposal on the blockchain.
 
@@ -531,7 +531,7 @@ async def create_governance_proposal(request: Request, proposal_data: dict[str, 
 
 
 @rate_limit(rate=50, per=60)
-async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> dict[str, Any]:
+def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> dict[str, Any]:
     """
     Cast a vote on a governance proposal.
 
@@ -626,7 +626,7 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
 
 
 @rate_limit(rate=10, per=60)
-async def execute_governance_proposal(
+def execute_governance_proposal(
     request: Request, proposal_id: str, executor_address: str = "", chain_id: str | None = None
 ) -> dict[str, Any]:
     """Execute a passed governance proposal on the blockchain.
@@ -714,7 +714,7 @@ async def execute_governance_proposal(
 
 
 @rate_limit(rate=50, per=60)
-async def get_governance_proposal(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_governance_proposal(request: Request, proposal_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Get governance proposal from blockchain"""
     chain_id = get_chain_id(chain_id)
     with session_scope() as session:

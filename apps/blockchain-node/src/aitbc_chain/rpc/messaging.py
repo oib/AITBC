@@ -13,6 +13,9 @@ pointing here.
 """
 
 import functools
+import inspect
+
+from starlette.concurrency import run_in_threadpool
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -65,7 +68,12 @@ def _observed(route: str):
         @functools.wraps(fn)
         async def wrapper(*args, **kwargs):
             try:
-                result = await fn(*args, **kwargs)
+                if inspect.iscoroutinefunction(fn):
+                    result = await fn(*args, **kwargs)
+                else:
+                    result = await run_in_threadpool(fn, *args, **kwargs)
+                    if inspect.isawaitable(result):
+                        result = await result
             except HTTPException as e:
                 if e.status_code >= 500:
                     note_read_error(route)
@@ -85,7 +93,7 @@ def _observed(route: str):
 
 @rate_limit(rate=200, per=60)
 @_observed("state")
-async def messaging_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def messaging_state(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Forum totals derived from the chain, plus the index height."""
     resolved = get_chain_id(chain_id)
     with session_scope(resolved) as session:
@@ -115,7 +123,7 @@ async def messaging_stats(request: Request, chain_id: str | None = None) -> dict
 
 @rate_limit(rate=200, per=60)
 @_observed("topics")
-async def messaging_topics(
+def messaging_topics(
     request: Request,
     limit: int = 50,
     offset: int = 0,
@@ -131,7 +139,7 @@ async def messaging_topics(
 
 @rate_limit(rate=200, per=60)
 @_observed("messages")
-async def messaging_messages(
+def messaging_messages(
     request: Request,
     topic: str | None = None,
     author: str | None = None,
@@ -171,7 +179,7 @@ async def messaging_messages(
 
 @rate_limit(rate=200, per=60)
 @_observed("votes")
-async def messaging_votes(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+def messaging_votes(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """Standing votes for one message (exact SQL aggregate, MSG-2)."""
     resolved = get_chain_id(chain_id)
     with session_scope(resolved) as session:
@@ -180,7 +188,7 @@ async def messaging_votes(request: Request, tx_hash: str, chain_id: str | None =
 
 @rate_limit(rate=200, per=60)
 @_observed("moderation")
-async def messaging_moderation(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
+def messaging_moderation(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
     """Derived moderator set, locks and recent actions for a topic (MSG-2)."""
     canonical = normalize_topic(slug)
     if canonical is None:
@@ -195,7 +203,7 @@ async def messaging_moderation(request: Request, slug: str, chain_id: str | None
 
 @rate_limit(rate=200, per=60)
 @_observed("reputation")
-async def messaging_reputation(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def messaging_reputation(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """Integer reputation derived from sealed votes (display-only, MSG-2)."""
     resolved = get_chain_id(chain_id)
     with session_scope(resolved) as session:
@@ -204,7 +212,7 @@ async def messaging_reputation(request: Request, address: str, chain_id: str | N
 
 @rate_limit(rate=200, per=60)
 @_observed("get")
-async def messaging_get(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+def messaging_get(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """One message by its transaction hash; 404 when it is not a forum message."""
     resolved = get_chain_id(chain_id)
     with session_scope(resolved) as session:
@@ -218,7 +226,7 @@ async def messaging_get(request: Request, tx_hash: str, chain_id: str | None = N
 
 @rate_limit(rate=200, per=60)
 @_observed("search")
-async def messaging_search(
+def messaging_search(
     request: Request,
     query: str | None = None,
     q: str | None = None,
@@ -250,7 +258,7 @@ async def messaging_search(
 
 @rate_limit(rate=200, per=60)
 @_observed("dm_inbox")
-async def messaging_dm_inbox(
+def messaging_dm_inbox(
     request: Request,
     address: str,
     limit: int = 50,
@@ -267,7 +275,7 @@ async def messaging_dm_inbox(
 
 @rate_limit(rate=200, per=60)
 @_observed("dm_key")
-async def messaging_dm_key(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+def messaging_dm_key(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
     """The latest published DM encryption key for an address (MSG-8)."""
     resolved = get_chain_id(chain_id)
     with session_scope(resolved) as session:
@@ -284,19 +292,19 @@ async def messaging_dm_key(request: Request, address: str, chain_id: str | None 
 # get_messaging_contract_state) call these paths; they keep working.
 
 
-async def forum_topics(request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"):
+def forum_topics(request: Request, limit: int = 50, offset: int = 0, sort_by: str = "last_activity"):
     if sort_by != "last_activity":
         raise HTTPException(status_code=400, detail="only sort_by=last_activity is supported")
-    return await messaging_topics(request, limit=limit, offset=offset)
+    return messaging_topics(request, limit=limit, offset=offset)
 
 
-async def forum_topic_messages(request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"):
+def forum_topic_messages(request: Request, topic_id: str, limit: int = 50, offset: int = 0, sort_by: str = "timestamp"):
     # topic_id is the slug itself — implicit topics have no separate id space.
-    return await messaging_messages(request, topic=topic_id, limit=limit, offset=offset)
+    return messaging_messages(request, topic=topic_id, limit=limit, offset=offset)
 
 
-async def forum_search(request: Request, query: str, limit: int = 50):
-    return await messaging_search(request, query=query, limit=limit)
+def forum_search(request: Request, query: str, limit: int = 50):
+    return messaging_search(request, query=query, limit=limit)
 
 
 def _not_implemented(feature: str) -> HTTPException:

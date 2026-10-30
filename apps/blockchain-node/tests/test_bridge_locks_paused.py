@@ -12,7 +12,6 @@ nothing but the bridge itself can produce a valid BRIDGE_LOCK envelope
 
 from __future__ import annotations
 
-import asyncio
 
 import pytest
 from fastapi import HTTPException
@@ -70,7 +69,7 @@ class TestLockEndpointsPaused:
         from aitbc_chain.rpc.bridge import bridge_lock
 
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(
+            (
                 bridge_lock(
                     None,  # type: ignore[arg-type]
                     {
