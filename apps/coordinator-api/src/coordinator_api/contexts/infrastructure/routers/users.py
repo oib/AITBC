@@ -16,6 +16,7 @@ from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.auth import create_access_token, verify_access_token
 from aitbc.rate_limiting import rate_limit
@@ -207,11 +208,15 @@ async def register_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid wallet signature")
 
     # Check for existing user or wallet
-    existing_user = session.execute(select(User).where(User.email == user_data.email)).scalars().first()
+    existing_user = await run_in_threadpool(
+        lambda: session.execute(select(User).where(User.email == user_data.email)).scalars().first()
+    )
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
-    existing_wallet = session.execute(select(Wallet).where(Wallet.address == wallet_address.lower())).scalars().first()
+    existing_wallet = await run_in_threadpool(
+        lambda: session.execute(select(Wallet).where(Wallet.address == wallet_address.lower())).scalars().first()
+    )
     if existing_wallet:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Wallet already registered")
 
@@ -223,12 +228,12 @@ async def register_user(
         last_login=datetime.now(UTC),
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await run_in_threadpool(session.commit)
+    await run_in_threadpool(session.refresh, user)
 
     wallet = Wallet(user_id=user.id, address=wallet_address.lower(), balance=Decimal("0.0"), created_at=datetime.now(UTC))
     session.add(wallet)
-    session.commit()
+    await run_in_threadpool(session.commit)
 
     role = _user_role_for_wallet(wallet_address)
     token = await _create_session(user.id, role)
@@ -259,13 +264,15 @@ async def login_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid wallet signature")
 
     # Find existing wallet; auto-register if this wallet has never logged in
-    wallet = session.execute(select(Wallet).where(Wallet.address == wallet_address.lower())).scalars().first()
+    wallet = await run_in_threadpool(
+        lambda: session.execute(select(Wallet).where(Wallet.address == wallet_address.lower())).scalars().first()
+    )
     if wallet:
-        user = session.get(User, wallet.user_id)
+        user = await run_in_threadpool(session.get, User, wallet.user_id)
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found for wallet")
         user.last_login = datetime.now(UTC)
-        session.commit()
+        await run_in_threadpool(session.commit)
     else:
         user = User(
             id=str(uuid.uuid4()),
@@ -275,12 +282,12 @@ async def login_user(
             last_login=datetime.now(UTC),
         )
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        await run_in_threadpool(session.commit)
+        await run_in_threadpool(session.refresh, user)
 
         wallet = Wallet(user_id=user.id, address=wallet_address.lower(), balance=Decimal("0.0"), created_at=datetime.now(UTC))
         session.add(wallet)
-        session.commit()
+        await run_in_threadpool(session.commit)
 
     role = _user_role_for_wallet(wallet_address)
     token = await _create_session(user.id, role)
@@ -306,7 +313,7 @@ async def get_current_user(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    user = session.get(User, user_id)
+    user = await run_in_threadpool(session.get, User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
@@ -330,7 +337,9 @@ async def get_user_balance(
     current_user = await _get_current_user_payload(request)
     _require_owner_or_admin(user_id, current_user)
 
-    wallet = session.execute(select(Wallet).where(Wallet.user_id == user_id)).scalars().first()
+    wallet = await run_in_threadpool(
+        lambda: session.execute(select(Wallet).where(Wallet.user_id == user_id)).scalars().first()
+    )
     if not wallet:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wallet not found")
 
@@ -365,14 +374,16 @@ async def get_user_transactions(
     current_user = await _get_current_user_payload(request)
     _require_owner_or_admin(user_id, current_user)
 
-    user = session.execute(select(User).where(User.id == user_id)).scalars().first()
+    user = await run_in_threadpool(lambda: session.execute(select(User).where(User.id == user_id)).scalars().first())
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    txs = (
-        session.execute(select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc()))  # type: ignore[attr-defined]
-        .scalars()
-        .all()
+    txs = await run_in_threadpool(
+        lambda: (
+            session.execute(select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.created_at.desc()))  # type: ignore[attr-defined]
+            .scalars()
+            .all()
+        )
     )
 
     transactions = [

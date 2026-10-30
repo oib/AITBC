@@ -2339,7 +2339,7 @@
             }
           },
           "404": {
-            "description": "GPU {gpu_id} not found / Prepared job {request.job_id} not found",
+            "description": "Prepared job {request.job_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2503,16 +2503,6 @@
           },
           "400": {
             "description": "Booking duration must be greater than 0 hours / Booking duration cannot exceed 8760 hours (1 year) / Booking end time must be in the future",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "GPU {gpu_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2751,16 +2741,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "GPU {gpu_id} not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
