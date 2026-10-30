@@ -177,7 +177,7 @@ async def _sender_bound_identity(sender: str, recovered: str) -> str | None:
     agent = None
     if state.agent_registry:
         try:
-            agent = await state.agent_registry.get_agent_by_id(sender)
+            agent = state.agent_registry.get_agent_by_id(sender)
         except Exception as e:
             logger.warning("Registry lookup for sender %s failed: %s", sender, e)
     if agent is None or not agent.identity_address:
@@ -525,7 +525,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest, principal:
         try:
             connection_manager = get_connection_manager()
             if req.agent_id in connection_manager.active_connections:
-                await connection_manager.subscribe(req.agent_id, req.topic)
+                connection_manager.subscribe(req.agent_id, req.topic)
         except Exception as e:
             logger.warning("Could not activate online subscription for %s: %s", req.agent_id, e)
 
@@ -563,7 +563,7 @@ async def unsubscribe_from_topic(request: Request, req: SubscribeRequest, princi
         try:
             connection_manager = get_connection_manager()
             if req.agent_id in connection_manager.active_connections:
-                await connection_manager.unsubscribe(req.agent_id, req.topic)
+                connection_manager.unsubscribe(req.agent_id, req.topic)
         except Exception as e:
             logger.warning("Could not deactivate online subscription for %s: %s", req.agent_id, e)
 
@@ -746,7 +746,7 @@ async def mark_message_read(request: Request, message_id: str, principal: Option
 
 @router.get("/load-balancer/stats")
 @rate_limit(rate=200, per=60)
-async def get_load_balancer_stats(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def get_load_balancer_stats(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Get load balancer statistics.
 
     Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
@@ -777,7 +777,7 @@ async def get_registry_stats(request: Request, principal: OptionalAgent) -> dict
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        stats = await state.agent_registry.get_registry_stats()
+        stats = state.agent_registry.get_registry_stats()
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error("Error getting registry stats: %s", e)
@@ -793,7 +793,7 @@ async def get_agents_by_service(request: Request, service: str) -> dict[str, Any
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        agents = await state.agent_registry.get_agents_by_service(service)
+        agents = state.agent_registry.get_agents_by_service(service)
         return {
             "status": "success",
             "service": service,
@@ -815,7 +815,7 @@ async def get_agents_by_capability(request: Request, capability: str) -> dict[st
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        agents = await state.agent_registry.get_agents_by_capability(capability)
+        agents = state.agent_registry.get_agents_by_capability(capability)
         return {
             "status": "success",
             "capability": capability,
@@ -832,7 +832,7 @@ async def get_agents_by_capability(request: Request, capability: str) -> dict[st
 
 @router.put("/load-balancer/strategy")
 @rate_limit(rate=50, per=60)
-async def set_load_balancing_strategy(
+def set_load_balancing_strategy(
     request: Request, principal: OptionalAgent, strategy: str = Query(..., description="Load balancing strategy")
 ) -> dict[str, Any]:
     """Set load balancing strategy.

@@ -126,7 +126,7 @@ async def websocket_presence_stream(
 
 
 @router.get("/ws/status")
-async def websocket_status(principal: Annotated[AgentPrincipal, Depends(require_agent)]) -> dict[str, Any]:
+def websocket_status(principal: Annotated[AgentPrincipal, Depends(require_agent)]) -> dict[str, Any]:
     """Get WebSocket listener status.
 
     v2.0 B1: requires any valid principal — agent JWT, signed ``X-Agent-*``

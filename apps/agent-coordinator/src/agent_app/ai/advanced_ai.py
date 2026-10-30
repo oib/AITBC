@@ -59,7 +59,7 @@ class AdvancedAIIntegration:
         self.predictions_history: list[dict[str, Any]] = []
         self.model_performance: dict[str, list[float]] = defaultdict(list)
 
-    async def create_neural_network(self, config: dict[str, Any]) -> dict[str, Any]:
+    def create_neural_network(self, config: dict[str, Any]) -> dict[str, Any]:
         """Create a new neural network"""
         try:
             network_id = config.get("network_id", str(uuid.uuid4()))
@@ -110,9 +110,7 @@ class AdvancedAIIntegration:
         """Derivative of ReLU function"""
         return (x > 0).astype(float)
 
-    async def train_neural_network(
-        self, network_id: str, training_data: list[dict[str, Any]], epochs: int = 100
-    ) -> dict[str, Any]:
+    def train_neural_network(self, network_id: str, training_data: list[dict[str, Any]], epochs: int = 100) -> dict[str, Any]:
         """Train a neural network"""
         try:
             if network_id not in self.neural_networks:
@@ -160,7 +158,7 @@ class AdvancedAIIntegration:
             logger.error("Error training neural network: %s", e)
             return {"status": "error", "message": str(e)}
 
-    async def predict_with_neural_network(self, network_id: str, features: list[float]) -> dict[str, Any]:
+    def predict_with_neural_network(self, network_id: str, features: list[float]) -> dict[str, Any]:
         """Make predictions using a trained neural network"""
         try:
             if network_id not in self.neural_networks:
@@ -189,7 +187,7 @@ class AdvancedAIIntegration:
             logger.error("Error making prediction: %s", e)
             return {"status": "error", "message": str(e)}
 
-    async def create_ml_model(self, config: dict[str, Any]) -> dict[str, Any]:
+    def create_ml_model(self, config: dict[str, Any]) -> dict[str, Any]:
         """Create a new machine learning model"""
         try:
             model_id = config.get("model_id", str(uuid.uuid4()))
@@ -219,16 +217,16 @@ class AdvancedAIIntegration:
             logger.error("Error creating ML model: %s", e)
             return {"status": "error", "message": str(e)}
 
-    async def train_ml_model(self, model_id: str, training_data: list[dict[str, Any]]) -> dict[str, Any]:
+    def train_ml_model(self, model_id: str, training_data: list[dict[str, Any]]) -> dict[str, Any]:
         """Train a machine learning model"""
         try:
             if model_id not in self.models:
                 return {"status": "error", "message": "Model not found"}
             model = self.models[model_id]
             if model.model_type == "linear_regression":
-                accuracy = await self._train_linear_regression(model, training_data)
+                accuracy = self._train_linear_regression(model, training_data)
             elif model.model_type == "logistic_regression":
-                accuracy = await self._train_logistic_regression(model, training_data)
+                accuracy = self._train_logistic_regression(model, training_data)
             else:
                 return {"status": "error", "message": f"Unsupported model type: {model.model_type}"}
             model.accuracy = accuracy
@@ -246,7 +244,7 @@ class AdvancedAIIntegration:
             logger.error("Error training ML model: %s", e)
             return {"status": "error", "message": str(e)}
 
-    async def _train_linear_regression(self, model: MLModel, training_data: list[dict[str, Any]]) -> float:
+    def _train_linear_regression(self, model: MLModel, training_data: list[dict[str, Any]]) -> float:
         """Train a linear regression model"""
         try:
             X = np.array([[data[feature] for feature in model.features] for data in training_data])
@@ -266,7 +264,7 @@ class AdvancedAIIntegration:
             logger.error("Error training linear regression: %s", e)
             return 0.0
 
-    async def _train_logistic_regression(self, model: MLModel, training_data: list[dict[str, Any]]) -> float:
+    def _train_logistic_regression(self, model: MLModel, training_data: list[dict[str, Any]]) -> float:
         """Train a logistic regression model"""
         try:
             X = np.array([[data[feature] for feature in model.features] for data in training_data])
@@ -288,7 +286,7 @@ class AdvancedAIIntegration:
             logger.error("Error training logistic regression: %s", e)
             return 0.0
 
-    async def predict_with_ml_model(self, model_id: str, features: list[float]) -> dict[str, Any]:
+    def predict_with_ml_model(self, model_id: str, features: list[float]) -> dict[str, Any]:
         """Make predictions using a trained ML model"""
         try:
             if model_id not in self.models:
@@ -323,7 +321,7 @@ class AdvancedAIIntegration:
             logger.error("Error making ML prediction: %s", e)
             return {"status": "error", "message": str(e)}
 
-    async def get_ai_statistics(self) -> dict[str, Any]:
+    def get_ai_statistics(self) -> dict[str, Any]:
         """Get comprehensive AI/ML statistics"""
         try:
             total_models = len(self.models)

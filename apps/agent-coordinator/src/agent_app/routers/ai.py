@@ -31,7 +31,7 @@ async def record_learning_experience(
     admin/operator-only — writes shared training state)."""
     authorize_admin_scope(principal, "ai_learning_experience")
     try:
-        result = await learning_system.record_experience(experience_data)
+        result = learning_system.record_experience(experience_data)
         return result
     except Exception as e:
         logger.error("Error recording learning experience: %s", e)
@@ -46,7 +46,7 @@ async def get_learning_statistics(request: Request, principal: OptionalAgent) ->
     """Get learning system statistics (Phase C: any resolved principal)."""
     authorize_any_principal(principal, "ai_learning_statistics")
     try:
-        result = await learning_system.get_learning_statistics()
+        result = learning_system.get_learning_statistics()
         return result
     except Exception as e:
         logger.error("Error getting learning statistics: %s", e)
@@ -64,7 +64,7 @@ async def predict_performance(
     principal)."""
     authorize_any_principal(principal, "ai_learning_predict")
     try:
-        result = await learning_system.predict_performance(context, action)
+        result = learning_system.predict_performance(context, action)
         return result
     except Exception as e:
         logger.error("Error predicting performance: %s", e)
@@ -81,7 +81,7 @@ async def recommend_action(
     """Get AI-recommended action (Phase C: any resolved principal)."""
     authorize_any_principal(principal, "ai_learning_recommend")
     try:
-        result = await learning_system.recommend_action(context, available_actions)
+        result = learning_system.recommend_action(context, available_actions)
         return result
     except Exception as e:
         logger.error("Error recommending action: %s", e)
@@ -96,7 +96,7 @@ async def create_neural_network(request: Request, config: dict[str, Any], princi
     """Create a new neural network (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "ai_nn_create")
     try:
-        result = await ai_integration.create_neural_network(config)
+        result = ai_integration.create_neural_network(config)
         return result
     except Exception as e:
         logger.error("Error creating neural network: %s", e)
@@ -118,7 +118,7 @@ async def train_neural_network(
     compute-heavy)."""
     authorize_admin_scope(principal, "ai_nn_train")
     try:
-        result = await ai_integration.train_neural_network(network_id, training_data, epochs)
+        result = ai_integration.train_neural_network(network_id, training_data, epochs)
         return result
     except Exception as e:
         logger.error("Error training neural network: %s", e)
@@ -136,7 +136,7 @@ async def predict_with_neural_network(
     principal — read-only inference an agent may legitimately call)."""
     authorize_any_principal(principal, "ai_nn_predict")
     try:
-        result = await ai_integration.predict_with_neural_network(network_id, features)
+        result = ai_integration.predict_with_neural_network(network_id, features)
         return result
     except Exception as e:
         logger.error("Error predicting with neural network: %s", e)
@@ -151,7 +151,7 @@ async def create_ml_model(request: Request, config: dict[str, Any], principal: O
     """Create a new ML model (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "ai_ml_create")
     try:
-        result = await ai_integration.create_ml_model(config)
+        result = ai_integration.create_ml_model(config)
         return result
     except Exception as e:
         logger.error("Error creating ML model: %s", e)
@@ -168,7 +168,7 @@ async def train_ml_model(
     """Train an ML model (Phase C admin/operator-only — compute-heavy)."""
     authorize_admin_scope(principal, "ai_ml_train")
     try:
-        result = await ai_integration.train_ml_model(model_id, training_data)
+        result = ai_integration.train_ml_model(model_id, training_data)
         return result
     except Exception as e:
         logger.error("Error training ML model: %s", e)
@@ -185,7 +185,7 @@ async def predict_with_ml_model(
     """Make prediction with ML model (Phase C: any resolved principal)."""
     authorize_any_principal(principal, "ai_ml_predict")
     try:
-        result = await ai_integration.predict_with_ml_model(model_id, features)
+        result = ai_integration.predict_with_ml_model(model_id, features)
         return result
     except Exception as e:
         logger.error("Error predicting with ML model: %s", e)
@@ -201,7 +201,7 @@ async def get_ai_statistics(request: Request, principal: OptionalAgent) -> dict[
     principal)."""
     authorize_any_principal(principal, "ai_statistics")
     try:
-        result = await ai_integration.get_ai_statistics()
+        result = ai_integration.get_ai_statistics()
         return result
     except Exception as e:
         logger.error("Error getting AI statistics: %s", e)
