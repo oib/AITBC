@@ -3,6 +3,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session
 
 from aitbc_shared import JobPayment
@@ -43,7 +44,7 @@ async def create_payment(
     service = PaymentService(session)
     try:
         payment = await service.create_payment(client_id, payment_data.job_id, payment_data)
-        result = service.to_view(payment)
+        result = await run_in_threadpool(service.to_view, payment)
         # Record exactly what response_model=JobPaymentView would emit so a
         # replay is byte-identical (Decimal fields, defaulted optionals).
         await complete_operation(
@@ -116,7 +117,7 @@ async def release_payment(
     service = PaymentService(session)
     try:
         # Verify the payment belongs to the client's job
-        payment = service.get_payment(client_id, payment_id)
+        payment = await run_in_threadpool(service.get_payment, client_id, payment_id)
         if not payment:
             await record_rejection(key, attempt, status.HTTP_404_NOT_FOUND, {"detail": "Payment not found"})
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
@@ -160,10 +161,10 @@ async def refund_payment(
     try:
         is_admin = user.get("role") == "admin"
         if is_admin:
-            payment = session.get(JobPayment, payment_id)
+            payment = await run_in_threadpool(session.get, JobPayment, payment_id)
         else:
             # Verify the payment belongs to the client's job
-            payment = service.get_payment(client_id, payment_id)
+            payment = await run_in_threadpool(service.get_payment, client_id, payment_id)
         if not payment:
             await record_rejection(key, attempt, status.HTTP_404_NOT_FOUND, {"detail": "Payment not found"})
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
