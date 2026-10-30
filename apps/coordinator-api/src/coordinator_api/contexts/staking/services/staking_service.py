@@ -14,7 +14,6 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import ait_to_units
 
 from ..domain.staking import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
-from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -53,7 +52,7 @@ class StakingService:
         staking_pool.last_distribution_time = self._ensure_utc_datetime(staking_pool.last_distribution_time)  # type: ignore[assignment]
         return staking_pool
 
-    async def create_stake(
+    def create_stake(
         self,
         staker_address: str,
         agent_wallet: str,
@@ -65,13 +64,13 @@ class StakingService:
         """Create a new stake on an agent wallet"""
         try:
             amount = self._as_decimal(amount)
-            agent_metrics = await self.get_agent_metrics(agent_wallet)
+            agent_metrics = self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 raise ValueError("Agent not supported for staking")
             min_units = ait_to_units(Decimal("100"))  # 100 AIT in compute-units
             if ait_to_units(amount) < min_units:
                 raise ValueError("Stake amount must be at least 100 AITBC")
-            current_apy = await self.calculate_apy(agent_wallet, lock_period)
+            current_apy = self.calculate_apy(agent_wallet, lock_period)
             end_time = datetime.now(UTC) + timedelta(days=lock_period)
             stake = AgentStake(
                 stake_id=stake_id or None,
@@ -86,24 +85,24 @@ class StakingService:
             )
             self.session.add(stake)
             agent_metrics.total_staked += amount
-            existing_stakes = await self.get_user_stakes(staker_address, agent_wallet=agent_wallet)
+            existing_stakes = self.get_user_stakes(staker_address, agent_wallet=agent_wallet)
             if not existing_stakes:
                 agent_metrics.staker_count += 1
-            await self._update_staking_pool(agent_wallet, staker_address, amount, True)
-            (await run_in_threadpool(self.session.commit))
-            (await run_in_threadpool(self.session.refresh, stake))
+            self._update_staking_pool(agent_wallet, staker_address, amount, True)
+            (self.session.commit())
+            (self.session.refresh(stake))
             logger.info("Created stake %s: %s on %s", stake.stake_id, amount, agent_wallet)
             return self._normalize_stake_datetimes(stake)
         except Exception as e:
             logger.error("Failed to create stake: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            (self.session.rollback())
             raise
 
-    async def get_stake(self, stake_id: str) -> AgentStake | None:
+    def get_stake(self, stake_id: str) -> AgentStake | None:
         """Get stake by ID"""
         try:
             stmt = select(AgentStake).where(AgentStake.stake_id == stake_id)  # type: ignore[arg-type]
-            result = (await run_in_threadpool(self.session.execute, stmt)).scalar_one_or_none()
+            result = (self.session.execute(stmt)).scalar_one_or_none()
             if not result:
                 return None
             return self._normalize_stake_datetimes(result)
@@ -111,7 +110,7 @@ class StakingService:
             logger.error("Failed to get stake %s: %s", stake_id, e)
             raise
 
-    async def get_user_stakes(
+    def get_user_stakes(
         self,
         user_address: str,
         status: StakeStatus | None = None,
@@ -141,62 +140,62 @@ class StakingService:
             query = query.order_by(AgentStake.start_time.desc())  # type: ignore[attr-defined]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
-            result = (await run_in_threadpool(self.session.execute, query)).scalars().all()
+            result = (self.session.execute(query)).scalars().all()
             return [self._normalize_stake_datetimes(stake) for stake in result]
         except Exception as e:
             logger.error("Failed to get user stakes: %s", e)
             raise
 
-    async def add_to_stake(self, stake_id: str, additional_amount: Decimal) -> AgentStake:
+    def add_to_stake(self, stake_id: str, additional_amount: Decimal) -> AgentStake:
         """Add more tokens to an existing stake"""
         try:
             additional_amount = self._as_decimal(additional_amount)
-            stake = await self.get_stake(stake_id)
+            stake = self.get_stake(stake_id)
             if not stake:
                 raise ValueError("Stake not found")
             if stake.status != StakeStatus.ACTIVE:
                 raise ValueError("Stake is not active")
             stake.amount += additional_amount
-            stake.current_apy = await self.calculate_apy(stake.agent_wallet, stake.lock_period)
-            agent_metrics = await self.get_agent_metrics(stake.agent_wallet)
+            stake.current_apy = self.calculate_apy(stake.agent_wallet, stake.lock_period)
+            agent_metrics = self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
                 agent_metrics.total_staked += additional_amount
-            await self._update_staking_pool(stake.agent_wallet, stake.staker_address, additional_amount, True)
-            (await run_in_threadpool(self.session.commit))
-            (await run_in_threadpool(self.session.refresh, stake))
+            self._update_staking_pool(stake.agent_wallet, stake.staker_address, additional_amount, True)
+            (self.session.commit())
+            (self.session.refresh(stake))
             logger.info("Added %s to stake %s", additional_amount, stake_id)
             return stake
         except Exception as e:
             logger.error("Failed to add to stake: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            (self.session.rollback())
             raise
 
-    async def unbond_stake(self, stake_id: str) -> AgentStake:
+    def unbond_stake(self, stake_id: str) -> AgentStake:
         """Initiate unbonding for a stake"""
         try:
-            stake = await self.get_stake(stake_id)
+            stake = self.get_stake(stake_id)
             if not stake:
                 raise ValueError("Stake not found")
             if stake.status != StakeStatus.ACTIVE:
                 raise ValueError("Stake is not active")
             if datetime.now(UTC) < stake.end_time:
                 raise ValueError("Lock period has not ended")
-            await self._calculate_rewards(stake_id)
+            self._calculate_rewards(stake_id)
             stake.status = StakeStatus.UNBONDING
             stake.unbonding_time = datetime.now(UTC)
-            (await run_in_threadpool(self.session.commit))
-            (await run_in_threadpool(self.session.refresh, stake))
+            (self.session.commit())
+            (self.session.refresh(stake))
             logger.info("Initiated unbonding for stake %s", stake_id)
             return stake
         except Exception as e:
             logger.error("Failed to unbond stake: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            (self.session.rollback())
             raise
 
-    async def complete_unbonding(self, stake_id: str) -> dict[str, Decimal]:
+    def complete_unbonding(self, stake_id: str) -> dict[str, Decimal]:
         """Complete unbonding and return stake + rewards"""
         try:
-            stake = await self.get_stake(stake_id)
+            stake = self.get_stake(stake_id)
             if not stake:
                 raise ValueError("Stake not found")
             if stake.status != StakeStatus.UNBONDING:
@@ -207,28 +206,28 @@ class StakingService:
                 penalty = total_amount * Decimal("0.1")
                 total_amount -= penalty
             stake.status = StakeStatus.COMPLETED
-            agent_metrics = await self.get_agent_metrics(stake.agent_wallet)
+            agent_metrics = self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
                 agent_metrics.total_staked -= stake.amount
-                remaining_stakes = await self.get_user_stakes(
+                remaining_stakes = self.get_user_stakes(
                     stake.staker_address, agent_wallet=stake.agent_wallet, status=StakeStatus.ACTIVE
                 )
                 if not remaining_stakes:
                     agent_metrics.staker_count -= 1
-            await self._update_staking_pool(stake.agent_wallet, stake.staker_address, stake.amount, False)
-            (await run_in_threadpool(self.session.commit))
+            self._update_staking_pool(stake.agent_wallet, stake.staker_address, stake.amount, False)
+            (self.session.commit())
             result = {"total_amount": total_amount, "total_rewards": stake.accumulated_rewards, "penalty": penalty}
             logger.info("Completed unbonding for stake %s", stake_id)
             return result
         except Exception as e:
             logger.error("Failed to complete unbonding: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            (self.session.rollback())
             raise
 
-    async def calculate_rewards(self, stake_id: str) -> Decimal:
+    def calculate_rewards(self, stake_id: str) -> Decimal:
         """Calculate current rewards for a stake"""
         try:
-            stake = await self.get_stake(stake_id)
+            stake = self.get_stake(stake_id)
             if not stake:
                 raise ValueError("Stake not found")
             if stake.status != StakeStatus.ACTIVE:
@@ -241,31 +240,31 @@ class StakingService:
             logger.error("Failed to calculate rewards: %s", e)
             raise
 
-    async def get_agent_metrics(self, agent_wallet: str) -> AgentMetrics | None:
+    def get_agent_metrics(self, agent_wallet: str) -> AgentMetrics | None:
         """Get agent performance metrics"""
         try:
             stmt = select(AgentMetrics).where(AgentMetrics.agent_wallet == agent_wallet)  # type: ignore[arg-type]
-            result = (await run_in_threadpool(self.session.execute, stmt)).scalar_one_or_none()
+            result = (self.session.execute(stmt)).scalar_one_or_none()
             return self._normalize_agent_metrics_datetimes(result) if result else None
         except Exception as e:
             logger.error("Failed to get agent metrics: %s", e)
             raise
 
-    async def get_staking_pool(self, agent_wallet: str) -> StakingPool | None:
+    def get_staking_pool(self, agent_wallet: str) -> StakingPool | None:
         """Get staking pool for an agent"""
         try:
             stmt = select(StakingPool).where(StakingPool.agent_wallet == agent_wallet)  # type: ignore[arg-type]
-            result = (await run_in_threadpool(self.session.execute, stmt)).scalar_one_or_none()
+            result = (self.session.execute(stmt)).scalar_one_or_none()
             return self._normalize_staking_pool_datetimes(result) if result else None
         except Exception as e:
             logger.error("Failed to get staking pool: %s", e)
             raise
 
-    async def calculate_apy(self, agent_wallet: str, lock_period: int) -> Decimal:
+    def calculate_apy(self, agent_wallet: str, lock_period: int) -> Decimal:
         """Calculate APY for staking on an agent"""
         try:
             base_apy = Decimal("5.0")
-            agent_metrics = await self.get_agent_metrics(agent_wallet)
+            agent_metrics = self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 return base_apy
             tier_multipliers = {
@@ -284,7 +283,7 @@ class StakingService:
             logger.error("Failed to calculate APY: %s", e)
             return Decimal("5.0")
 
-    async def update_agent_performance(
+    def update_agent_performance(
         self,
         agent_wallet: str,
         accuracy: Decimal,
@@ -298,7 +297,7 @@ class StakingService:
             accuracy = self._as_decimal(accuracy)
             response_time = self._as_decimal(response_time) if response_time is not None else None
             energy_efficiency = self._as_decimal(energy_efficiency) if energy_efficiency is not None else None
-            agent_metrics = await self.get_agent_metrics(agent_wallet)
+            agent_metrics = self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 agent_metrics = AgentMetrics(
                     agent_wallet=agent_wallet, current_tier=PerformanceTier.BRONZE, tier_score=Decimal("60.0")
@@ -317,29 +316,29 @@ class StakingService:
                     agent_metrics.average_response_time = (agent_metrics.average_response_time + response_time) / 2
             if energy_efficiency:
                 agent_metrics.energy_efficiency_score = energy_efficiency
-            new_tier = await self._calculate_agent_tier(agent_metrics)
+            new_tier = self._calculate_agent_tier(agent_metrics)
             old_tier = agent_metrics.current_tier
             if new_tier != old_tier:
                 agent_metrics.current_tier = new_tier
-                agent_metrics.tier_score = await self._get_tier_score(new_tier)
-                await self._update_stake_apy_for_agent(agent_wallet, new_tier)
+                agent_metrics.tier_score = self._get_tier_score(new_tier)
+                self._update_stake_apy_for_agent(agent_wallet, new_tier)
             agent_metrics.last_update_time = datetime.now(UTC)
-            (await run_in_threadpool(self.session.commit))
-            (await run_in_threadpool(self.session.refresh, agent_metrics))
+            (self.session.commit())
+            (self.session.refresh(agent_metrics))
             logger.info("Updated performance for agent %s", agent_wallet)
             return agent_metrics
         except Exception as e:
             logger.error("Failed to update agent performance: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            (self.session.rollback())
             raise
 
-    async def distribute_earnings(
+    def distribute_earnings(
         self, agent_wallet: str, total_earnings: Decimal, distribution_data: dict[str, Any]
     ) -> dict[str, Any]:
         """Distribute agent earnings to stakers"""
         try:
             total_earnings = self._as_decimal(total_earnings)
-            pool = await self.get_staking_pool(agent_wallet)
+            pool = self.get_staking_pool(agent_wallet)
             if not pool or pool.total_staked == 0:
                 raise ValueError("No stakers in pool")
             platform_fee = total_earnings * Decimal("0.01")
@@ -349,7 +348,7 @@ class StakingService:
             stmt = select(AgentStake).where(
                 and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
             )
-            stakes = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
+            stakes = (self.session.execute(stmt)).scalars().all()
             for stake in stakes:
                 staker_share = distributable_amount * stake.amount / pool.total_staked
                 if staker_share > 0:
@@ -358,19 +357,19 @@ class StakingService:
                     staker_count += 1
             pool.total_rewards += total_distributed
             pool.last_distribution_time = datetime.now(UTC)
-            agent_metrics = await self.get_agent_metrics(agent_wallet)
+            agent_metrics = self.get_agent_metrics(agent_wallet)
             if agent_metrics:
                 agent_metrics.total_rewards_distributed += total_distributed
-            (await run_in_threadpool(self.session.commit))
+            (self.session.commit())
             result = {"total_distributed": total_distributed, "staker_count": staker_count, "platform_fee": platform_fee}
             logger.info("Distributed %s earnings to %s stakers", total_distributed, staker_count)
             return result
         except Exception as e:
             logger.error("Failed to distribute earnings: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            (self.session.rollback())
             raise
 
-    async def get_supported_agents(
+    def get_supported_agents(
         self, page: int = 1, limit: int = 50, tier: PerformanceTier | None = None
     ) -> list[dict[str, Any]]:
         """Get list of supported agents for staking"""
@@ -381,7 +380,7 @@ class StakingService:
             query = query.order_by(AgentMetrics.total_staked.desc())  # type: ignore[attr-defined]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
-            result = (await run_in_threadpool(self.session.execute, query)).scalars().all()
+            result = (self.session.execute(query)).scalars().all()
             agents = []
             for metrics in result:
                 agents.append(
@@ -392,7 +391,7 @@ class StakingService:
                         "current_tier": metrics.current_tier,
                         "average_accuracy": metrics.average_accuracy,
                         "success_rate": metrics.success_rate,
-                        "current_apy": await self.calculate_apy(metrics.agent_wallet, 30),
+                        "current_apy": self.calculate_apy(metrics.agent_wallet, 30),
                     }
                 )
             return agents
@@ -400,7 +399,7 @@ class StakingService:
             logger.error("Failed to get supported agents: %s", e)
             raise
 
-    async def get_staking_stats(self, period: str = "daily") -> dict[str, Any]:
+    def get_staking_stats(self, period: str = "daily") -> dict[str, Any]:
         """Get staking system statistics"""
         try:
             if period == "hourly":
@@ -414,28 +413,28 @@ class StakingService:
             else:
                 start_date = datetime.now(UTC) - timedelta(days=1)
             total_staked_stmt = select(func.sum(AgentStake.amount)).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
-            total_staked = (await run_in_threadpool(self.session.execute, total_staked_stmt)).scalar() or 0.0
+            total_staked = (self.session.execute(total_staked_stmt)).scalar() or 0.0
             active_stakes_stmt = select(func.count(AgentStake.stake_id)).where(  # type: ignore[arg-type]
                 and_(AgentStake.start_time >= start_date, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
             )
-            active_stakes = (await run_in_threadpool(self.session.execute, active_stakes_stmt)).scalar() or 0
+            active_stakes = (self.session.execute(active_stakes_stmt)).scalar() or 0
             unique_stakers_stmt = select(func.count(func.distinct(AgentStake.staker_address))).where(
                 AgentStake.start_time >= start_date  # type: ignore[arg-type]
             )
-            unique_stakers = (await run_in_threadpool(self.session.execute, unique_stakers_stmt)).scalar() or 0
+            unique_stakers = (self.session.execute(unique_stakers_stmt)).scalar() or 0
             avg_apy_stmt = select(func.avg(AgentStake.current_apy)).where(AgentStake.start_time >= start_date)  # type: ignore[arg-type]
-            avg_apy = (await run_in_threadpool(self.session.execute, avg_apy_stmt)).scalar() or 0.0
+            avg_apy = (self.session.execute(avg_apy_stmt)).scalar() or 0.0
             total_rewards_stmt = select(func.sum(AgentMetrics.total_rewards_distributed)).where(
                 AgentMetrics.last_update_time >= start_date  # type: ignore[arg-type]
             )
-            total_rewards = (await run_in_threadpool(self.session.execute, total_rewards_stmt)).scalar() or 0.0
+            total_rewards = (self.session.execute(total_rewards_stmt)).scalar() or 0.0
             tier_stmt = (
                 select(AgentStake.agent_tier, func.count(AgentStake.stake_id).label("count"))  # type: ignore[arg-type, call-overload]
                 .where(AgentStake.start_time >= start_date)
                 .group_by(AgentStake.agent_tier)
             )
             tier_result = (
-                await run_in_threadpool(self.session.execute, tier_stmt)
+                self.session.execute(tier_stmt)
             ).all()  # multi-column select, .all() returns Row objects with both columns
             tier_distribution = {row.agent_tier.value: row.count for row in tier_result}
             return {
@@ -450,9 +449,7 @@ class StakingService:
             logger.error("Failed to get staking stats: %s", e)
             raise
 
-    async def get_leaderboard(
-        self, period: str = "weekly", metric: str = "total_staked", limit: int = 50
-    ) -> list[dict[str, Any]]:
+    def get_leaderboard(self, period: str = "weekly", metric: str = "total_staked", limit: int = 50) -> list[dict[str, Any]]:
         """Get staking leaderboard"""
         try:
             if period == "daily":
@@ -494,9 +491,7 @@ class StakingService:
                     .order_by(func.avg(AgentStake.current_apy).desc())
                     .limit(limit)
                 )
-            result = (
-                await run_in_threadpool(self.session.execute, stmt)
-            ).all()  # multi-column select, .all() returns Row objects
+            result = (self.session.execute(stmt)).all()  # multi-column select, .all() returns Row objects
             leaderboard: list[dict[str, Any]] = []
             for row in result:
                 leaderboard.append({"agent_wallet": row.agent_wallet, "rank": len(leaderboard) + 1, **row._asdict()})
@@ -505,7 +500,7 @@ class StakingService:
             logger.error("Failed to get leaderboard: %s", e)
             raise
 
-    async def get_user_rewards(self, user_address: str, period: str = "monthly") -> dict[str, Any]:
+    def get_user_rewards(self, user_address: str, period: str = "monthly") -> dict[str, Any]:
         """Get user's staking rewards"""
         try:
             if period == "daily":
@@ -519,7 +514,7 @@ class StakingService:
             stmt = select(AgentStake).where(
                 and_(AgentStake.staker_address == user_address, AgentStake.start_time >= start_date)  # type: ignore[arg-type]
             )
-            stakes = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
+            stakes = (self.session.execute(stmt)).scalars().all()
             total_rewards = Decimal("0.0")
             total_staked = Decimal("0.0")
             active_stakes = 0
@@ -540,28 +535,28 @@ class StakingService:
             logger.error("Failed to get user rewards: %s", e)
             raise
 
-    async def claim_rewards(self, stake_ids: list[str]) -> dict[str, Any]:
+    def claim_rewards(self, stake_ids: list[str]) -> dict[str, Any]:
         """Claim accumulated rewards for multiple stakes"""
         try:
             total_rewards = Decimal("0.0")
             for stake_id in stake_ids:
-                stake = await self.get_stake(stake_id)
+                stake = self.get_stake(stake_id)
                 if not stake:
                     continue
                 total_rewards += stake.accumulated_rewards
                 stake.accumulated_rewards = Decimal("0.0")
                 stake.last_reward_time = datetime.now(UTC)
-            (await run_in_threadpool(self.session.commit))
+            (self.session.commit())
             return {"total_rewards": total_rewards, "claimed_stakes": len(stake_ids)}
         except Exception as e:
             logger.error("Failed to claim rewards: %s", e)
-            (await run_in_threadpool(self.session.rollback))
+            (self.session.rollback())
             raise
 
-    async def get_risk_assessment(self, agent_wallet: str) -> dict[str, Any]:
+    def get_risk_assessment(self, agent_wallet: str) -> dict[str, Any]:
         """Get risk assessment for staking on an agent"""
         try:
-            agent_metrics = await self.get_agent_metrics(agent_wallet)
+            agent_metrics = self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 raise ValueError("Agent not found")
             risk_factors = {
@@ -588,17 +583,17 @@ class StakingService:
             logger.error("Failed to get risk assessment: %s", e)
             raise
 
-    async def _update_staking_pool(self, agent_wallet: str, staker_address: str, amount: Decimal, is_stake: bool) -> None:
+    def _update_staking_pool(self, agent_wallet: str, staker_address: str, amount: Decimal, is_stake: bool) -> None:
         """Update staking pool"""
         try:
-            pool = await self.get_staking_pool(agent_wallet)
+            pool = self.get_staking_pool(agent_wallet)
             if not pool:
                 pool = StakingPool(agent_wallet=agent_wallet)
                 self.session.add(pool)
-                (await run_in_threadpool(self.session.commit))
-                (await run_in_threadpool(self.session.refresh, pool))
+                (self.session.commit())
+                (self.session.refresh(pool))
             else:
-                (await run_in_threadpool(self.session.refresh, pool))
+                (self.session.refresh(pool))
             if is_stake:
                 if staker_address not in pool.active_stakers:
                     pool.active_stakers.append(staker_address)
@@ -608,17 +603,17 @@ class StakingService:
                 if staker_address in pool.active_stakers:
                     pool.active_stakers.remove(staker_address)
             if pool.total_staked > 0:
-                pool.pool_apy = await self.calculate_apy(agent_wallet, 30)
-            (await run_in_threadpool(self.session.commit))
-            (await run_in_threadpool(self.session.refresh, pool))
+                pool.pool_apy = self.calculate_apy(agent_wallet, 30)
+            (self.session.commit())
+            (self.session.refresh(pool))
         except Exception as e:
             logger.error("Failed to update staking pool: %s", e)
             raise
 
-    async def _calculate_rewards(self, stake_id: str) -> None:
+    def _calculate_rewards(self, stake_id: str) -> None:
         """Calculate and update rewards for a stake"""
         try:
-            stake = await self.get_stake(stake_id)
+            stake = self.get_stake(stake_id)
             if not stake or stake.status != StakeStatus.ACTIVE:
                 return
             time_elapsed = datetime.now(UTC) - stake.last_reward_time
@@ -633,7 +628,7 @@ class StakingService:
             logger.error("Failed to calculate rewards: %s", e)
             raise
 
-    async def _calculate_agent_tier(self, agent_metrics: AgentMetrics) -> PerformanceTier:
+    def _calculate_agent_tier(self, agent_metrics: AgentMetrics) -> PerformanceTier:
         """Calculate agent performance tier"""
         success_rate = agent_metrics.success_rate
         accuracy = agent_metrics.average_accuracy
@@ -649,7 +644,7 @@ class StakingService:
         else:
             return PerformanceTier.BRONZE
 
-    async def _get_tier_score(self, tier: PerformanceTier) -> Decimal:
+    def _get_tier_score(self, tier: PerformanceTier) -> Decimal:
         """Get score for a tier"""
         tier_scores = {
             PerformanceTier.DIAMOND: Decimal("95.0"),
@@ -660,15 +655,15 @@ class StakingService:
         }
         return tier_scores.get(tier, Decimal("60.0"))
 
-    async def _update_stake_apy_for_agent(self, agent_wallet: str, new_tier: PerformanceTier) -> None:
+    def _update_stake_apy_for_agent(self, agent_wallet: str, new_tier: PerformanceTier) -> None:
         """Update APY for all active stakes on an agent"""
         try:
             stmt = select(AgentStake).where(
                 and_(AgentStake.agent_wallet == agent_wallet, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
             )
-            stakes = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
+            stakes = (self.session.execute(stmt)).scalars().all()
             for stake in stakes:
-                stake.current_apy = await self.calculate_apy(agent_wallet, stake.lock_period)
+                stake.current_apy = self.calculate_apy(agent_wallet, stake.lock_period)
                 stake.agent_tier = new_tier
         except Exception as e:
             logger.error("Failed to update stake APY: %s", e)
