@@ -116,7 +116,7 @@ def test_fresh_upgrade_head_matches_declared_models(tmp_path: Path):
     db_path = _run_alembic(tmp_path, "upgrade", "head")
 
     # Inspect the resulting schema
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     inspector = inspect(engine)
     db_tables: dict[str, set[str]] = {}
     for table_name in inspector.get_table_names():
@@ -151,7 +151,7 @@ def test_alembic_head_is_not_initial_migration(tmp_path: Path):
     """The alembic version table should not be stuck at initial_migration."""
     db_path = _run_alembic(tmp_path, "upgrade", "head")
 
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     with engine.connect() as conn:
         result = conn.execute(text("SELECT version_num FROM alembic_version"))
         version = result.scalar()
@@ -188,7 +188,7 @@ def _semantic_schema(db_path: Path) -> dict[str, dict]:
       side — a rename artifact kept by a table-rebuild migration; the model
       targets ``agent_reputation``. Allowlisted explicitly.
     """
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     con = engine.raw_connection().connection
     out: dict[str, dict] = {}
     tables = sorted(
