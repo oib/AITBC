@@ -353,11 +353,74 @@ class JobService:
         constraints = Constraints(**raw)
         return AssignedJob(job_id=job.id, payload=job.payload, constraints=constraints)
 
+    # Cap the queued-job scan per dispatch call. FIFO order means the oldest
+    # jobs are always considered first; the cap only bounds how far a single
+    # poll looks ahead when the queue is long.
+    _QUEUE_SCAN_LIMIT = 500
+
+    def _reputation_map(self, miners: list[Miner]) -> dict[str, float]:
+        """Batch-load reputation scores for a miner set in one query.
+
+        Mirrors _get_miner_reputation's precedence (reported metadata >
+        AgentReputation profile > completion ratio) but resolves the profile
+        step for all miners with a single IN-select instead of one query per
+        candidate per job.
+        """
+        reported: dict[str, float] = {}
+        need_profile: list[Miner] = []
+        for m in miners:
+            score: float | None = None
+            for source in (m.extra_metadata or {}, m.capabilities or {}):
+                raw = source.get("reputation_score")
+                if raw is not None:
+                    try:
+                        score = float(raw)
+                    except (TypeError, ValueError):
+                        pass
+                    break
+            if score is not None:
+                reported[m.id] = score
+            else:
+                need_profile.append(m)
+
+        profiles: dict[str, AgentReputation] = {}
+        if need_profile:
+            try:
+                rows = (
+                    self.session.execute(
+                        select(AgentReputation).where(AgentReputation.agent_id.in_([m.id for m in need_profile]))  # type: ignore[attr-defined]
+                    )
+                    .scalars()
+                    .all()
+                )
+                profiles = {r.agent_id: r for r in rows}
+            except Exception:
+                logger.debug("Could not batch-load reputation profiles", exc_info=True)
+
+        out: dict[str, float] = dict(reported)
+        for m in need_profile:
+            rep = profiles.get(m.id)
+            if rep is not None and rep.trust_score is not None:
+                out[m.id] = max(0.0, min(1.0, rep.trust_score / 1000.0))
+                continue
+            total = (m.jobs_completed or 0) + (m.jobs_failed or 0)
+            out[m.id] = 0.5 if total == 0 else m.jobs_completed / total
+        return out
+
     def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
             now = datetime.now(UTC)
-            statement = select(Job).where(Job.state == "QUEUED").order_by(Job.requested_at.asc())  # type: ignore[attr-defined]
+            statement = (
+                select(Job)
+                .where(Job.state == "QUEUED")
+                .order_by(Job.requested_at.asc())  # type: ignore[attr-defined]
+                .limit(self._QUEUE_SCAN_LIMIT)
+            )
             jobs = list(self.session.scalars(statement).all())
+            if len(jobs) >= self._QUEUE_SCAN_LIMIT:
+                logger.warning(
+                    "Queued-job scan hit the %d-row cap; deeper jobs deferred to later polls", self._QUEUE_SCAN_LIMIT
+                )
 
             # D1: batch-load payments once for the dispatch gate; the gate no longer
             # trusts the denormalised Job.payment_status copy.
@@ -379,11 +442,16 @@ class JobService:
                 for m in self.session.scalars(select(Miner).where(Miner.status == "ONLINE")).all()
                 if (hb := _to_utc(m.last_heartbeat)) is not None and hb >= cutoff
             ]
-            current_reputation = self._get_miner_reputation(miner)
+
+            # One IN-select resolves every candidate's reputation profile; the
+            # per-miner, per-job re-querying was the dominant per-poll cost.
+            reputations = self._reputation_map(online_miners + [miner] if miner not in online_miners else online_miners)
+            current_reputation = reputations.get(miner.id, self._get_miner_reputation(miner))
+            expired: list[Job] = []
 
             for job in jobs:
                 try:
-                    job = self._ensure_not_expired(job)
+                    job = self._ensure_not_expired(job, expired)
                     if job.state != "QUEUED":
                         continue
                     if job.expires_at:
@@ -401,7 +469,7 @@ class JobService:
                         continue
                     if not self._satisfies_constraints(job, miner, payment):
                         continue
-                    if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation):
+                    if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation, reputations):
                         # A better-suited, higher-reputation miner is online and
                         # has capacity. Leave this job for them to pick up.
                         continue
@@ -415,19 +483,33 @@ class JobService:
                     logger.warning("Error checking job %s: %s", job.id, e)
                     self.session.rollback()
                     continue
+            if expired:
+                # Batch the deferred expiry commits into one write.
+                try:
+                    self.session.commit()
+                    for j in expired:
+                        self.session.refresh(j)
+                except Exception as e:
+                    logger.warning("Error committing expired jobs: %s", e)
+                    self.session.rollback()
             return None
         except Exception as e:
             logger.error("Error acquiring next job: %s", e)
             raise
 
-    def _ensure_not_expired(self, job: Job) -> Job:
+    def _ensure_not_expired(self, job: Job, batch: list[Job] | None = None) -> Job:
         expires_at = _to_utc(job.expires_at)
         if job.state in {"QUEUED", "RUNNING"} and expires_at and (expires_at <= datetime.now(UTC)):
             job.state = "EXPIRED"
             job.error = "job expired"
             self.session.add(job)
-            self.session.commit()
-            self.session.refresh(job)
+            if batch is not None:
+                # Defer the commit: the dispatch loop adds expired jobs to the
+                # batch and commits once after the loop instead of once per row.
+                batch.append(job)
+            else:
+                self.session.commit()
+                self.session.refresh(job)
         return job
 
     def _satisfies_constraints(self, job: Job, miner: Miner, payment: JobPayment | None = None) -> bool:
@@ -549,6 +631,7 @@ class JobService:
         online_miners: list[Miner],
         current_miner: Miner,
         current_reputation: float,
+        reputations: dict[str, float] | None = None,
     ) -> bool:
         """Check whether a higher-reputation, capable miner is available for a job."""
         constraints = Constraints(**job.constraints) if job.constraints else Constraints()
@@ -561,10 +644,13 @@ class JobService:
                 continue
             if not self._satisfies_constraints(job, other):
                 continue
+            other_rep = reputations.get(other.id) if reputations is not None else None
+            if other_rep is None:
+                other_rep = self._get_miner_reputation(other)
             if constraints.min_reputation is not None:
-                if self._get_miner_reputation(other) < constraints.min_reputation:
+                if other_rep < constraints.min_reputation:
                     continue
-            if self._get_miner_reputation(other) > current_reputation:
+            if other_rep > current_reputation:
                 return True
         return False
 
