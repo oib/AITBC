@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+from anyio import to_thread
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 from aitbc.middleware import LegacyPathRewriteMiddleware, setup_cors
 from fastapi.middleware.gzip import GZipMiddleware
@@ -297,6 +298,11 @@ def _start_mempool_sweeper() -> asyncio.Task[None] | None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Sync handlers run on the anyio threadpool since the async->def
+    # conversion (#724) — the default 40-token limiter queues requests at
+    # ~40-way concurrency, reintroducing the serialization the conversion
+    # removed. Size it for the rpc burst profile.
+    to_thread.current_default_thread_limiter().total_tokens = 200
     # Resolve the chain id before any database file is opened: an unconfigured
     # node must refuse to start rather than fall back to a hard-coded chain.
     # CHAIN_ID (settings.chain_id) is the node's own chain and wins over the
