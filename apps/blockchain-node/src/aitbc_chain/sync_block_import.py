@@ -699,7 +699,20 @@ class BlockImportMixin(SyncBase):
                             nonce=tx_data.get("nonce", 0),
                             status="confirmed",
                         )
-                        session.add(db_tx)
+                        existing_tx = session.exec(
+                            select(ChainTransaction)
+                            .where(ChainTransaction.chain_id == self._chain_id)
+                            .where(ChainTransaction.tx_hash == db_tx.tx_hash)
+                        ).first()
+                        if existing_tx is not None:
+                            # A pending/rejected writeback already owns the row —
+                            # upgrade it to the sealed record rather than collide
+                            # on the unique constraint (Refs #712 follow-up).
+                            existing_tx.block_height = db_tx.block_height
+                            existing_tx.status = db_tx.status
+                            session.add(existing_tx)
+                        else:
+                            session.add(db_tx)
                     # Log failed transactions.
                     for delta in all_deltas:
                         if not delta.success:
@@ -777,7 +790,20 @@ class BlockImportMixin(SyncBase):
                         nonce=tx_data.get("nonce", 0),
                         status="confirmed",
                     )
-                    session.add(db_tx)
+                    existing_tx = session.exec(
+                        select(ChainTransaction)
+                        .where(ChainTransaction.chain_id == self._chain_id)
+                        .where(ChainTransaction.tx_hash == db_tx.tx_hash)
+                    ).first()
+                    if existing_tx is not None:
+                        # A pending/rejected writeback already owns the row —
+                        # upgrade it to the sealed record rather than collide
+                        # on the unique constraint (Refs #712 follow-up).
+                        existing_tx.block_height = db_tx.block_height
+                        existing_tx.status = db_tx.status
+                        session.add(existing_tx)
+                    else:
+                        session.add(db_tx)
 
         # Fill in the state/bridge roots and metadata now that transactions have
         # been applied, then persist the block.  This keeps the schedule check
