@@ -9,6 +9,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -130,15 +131,15 @@ async def update_security_policy(
 ) -> AgentSecurityPolicy:
     """Update a security policy"""
     try:
-        policy = session.get(AgentSecurityPolicy, policy_id)
+        policy = await run_in_threadpool(session.get, AgentSecurityPolicy, policy_id)
         if not policy:
             raise HTTPException(status_code=404, detail="Policy not found")
         for field, value in policy_updates.items():
             if hasattr(policy, field):
                 setattr(policy, field, value)
         policy.updated_at = datetime.now(UTC)
-        session.commit()
-        session.refresh(policy)
+        await run_in_threadpool(session.commit)
+        await run_in_threadpool(session.refresh, policy)
         auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.WORKFLOW_UPDATED,
@@ -168,7 +169,7 @@ async def delete_security_policy(
 ) -> dict[str, str]:
     """Delete a security policy"""
     try:
-        policy = session.get(AgentSecurityPolicy, policy_id)
+        policy = await run_in_threadpool(session.get, AgentSecurityPolicy, policy_id)
         if not policy:
             raise HTTPException(status_code=404, detail="Policy not found")
         auditor = AgentAuditor(session)
@@ -179,8 +180,8 @@ async def delete_security_policy(
             event_data={"policy_id": policy_id, "policy_name": policy.name},
             previous_state={"policy": policy.model_dump()},
         )
-        session.delete(policy)
-        session.commit()
+        await run_in_threadpool(session.delete, policy)
+        await run_in_threadpool(session.commit)
         logger.info("Security policy deleted: %s by %s", policy_id, user["sub"])
         return {"message": "Policy deleted successfully"}
     except HTTPException:
@@ -431,8 +432,8 @@ async def create_sandbox(
         except IntegrityError:
             # Sandbox ids are deterministic (sandbox_{execution_id}) — a re-create
             # collides on the PK. Return the existing row rather than a 500.
-            session.rollback()
-            existing = session.get(AgentSandboxConfig, f"sandbox_{execution_id}")
+            await run_in_threadpool(session.rollback)
+            existing = await run_in_threadpool(session.get, AgentSandboxConfig, f"sandbox_{execution_id}")
             if existing is None:
                 raise
             return existing.model_dump(mode="json")
