@@ -837,14 +837,19 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
 
   aitbc wallet address
 
-  aitbc wallet address --name genesis"""
+  aitbc wallet address --name genesis
+
+  aitbc wallet address genesis"""
 )
+@click.argument("name_arg", required=False)
 @click.option("--name", "name", required=False, help="Wallet name.")
 @click.pass_context
 @wallet_password_options
-def address(ctx, name: str | None, password: str | None, password_file: str | None, password_stdin: bool):
+def address(
+    ctx, name_arg: str | None, name: str | None, password: str | None, password_file: str | None, password_stdin: bool
+):
     """Display the public address of the active or named wallet."""
-    wallet_name = name or ctx.obj["wallet_name"]
+    wallet_name = name or name_arg or ctx.obj["wallet_name"]
     if not wallet_name:
         abort(ctx, "No wallet specified. Use --wallet-name or provide wallet name as argument")
         return
