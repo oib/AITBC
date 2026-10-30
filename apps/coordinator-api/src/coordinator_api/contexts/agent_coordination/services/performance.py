@@ -23,6 +23,7 @@ from coordinator_api.contexts.agent_coordination.domain.agent_performance import
     ResourceAllocation,
     ResourceType,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -73,15 +74,19 @@ class MetaLearningEngine:
             status="training",
         )
         session.add(model)
-        session.commit()
-        session.refresh(model)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, model))
         create_task_with_logging(self.train_meta_model(session, model_id), name="train_meta_model")
         logger.info("Created meta-learning model %s with strategy %s", model_id, meta_strategy.value)
         return model
 
     async def train_meta_model(self, session: Session, model_id: str) -> dict[str, Any]:
         """Train a meta-learning model"""
-        model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).scalars().first()
+        model = (
+            (await run_in_threadpool(session.execute, select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)))
+            .scalars()
+            .first()
+        )
         if not model:
             raise ValueError(f"Meta-learning model {model_id} not found")
         try:
@@ -93,13 +98,13 @@ class MetaLearningEngine:
             model.computational_cost = training_results["computational_cost"]
             model.status = "ready"
             model.trained_at = datetime.now(UTC)
-            session.commit()
+            (await run_in_threadpool(session.commit))
             logger.info("Meta-learning model %s training completed", model_id)
             return training_results
         except Exception as e:
             logger.error("Error training meta-model %s: %s", model_id, str(e))
             model.status = "failed"
-            session.commit()
+            (await run_in_threadpool(session.commit))
             raise
 
     async def simulate_meta_training(self, model: MetaLearningModel) -> dict[str, Any]:
@@ -153,7 +158,11 @@ class MetaLearningEngine:
         self, session: Session, model_id: str, task_data: dict[str, Any], adaptation_steps: int = 10
     ) -> dict[str, Any]:
         """Adapt meta-learning model to new task"""
-        model = session.execute(select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)).scalars().first()
+        model = (
+            (await run_in_threadpool(session.execute, select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)))
+            .scalars()
+            .first()
+        )
         if not model:
             raise ValueError(f"Meta-learning model {model_id} not found")
         if model.status != "ready":
@@ -164,7 +173,7 @@ class MetaLearningEngine:
             model.success_rate = (
                 model.success_rate * (model.deployment_count - 1) + adaptation_results["success"]
             ) / model.deployment_count
-            session.commit()
+            (await run_in_threadpool(session.commit))
             logger.info("Model %s adapted to new task with success rate %s", model_id, adaptation_results["success"])
             return adaptation_results
         except Exception as e:
@@ -283,8 +292,8 @@ class ResourceManager:
             allocated_at=datetime.now(UTC),
         )
         session.add(allocation)
-        session.commit()
-        session.refresh(allocation)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, allocation))
         logger.info("Allocated resources for agent %s with target %s", agent_id, optimization_target.value)
         return allocation
 
@@ -464,8 +473,8 @@ class PerformanceOptimizer:
             status="running",
         )
         session.add(optimization)
-        session.commit()
-        session.refresh(optimization)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, optimization))
         try:
             optimization_results = await self.run_optimization_process(agent_id, target_metric, current_performance)
             optimization.optimized_performance = optimization_results["performance"]
@@ -481,13 +490,13 @@ class PerformanceOptimizer:
             optimization.optimization_applied = True
             optimization.status = "completed"
             optimization.completed_at = datetime.now(UTC)
-            session.commit()
+            (await run_in_threadpool(session.commit))
             logger.info("Performance optimization %s completed for agent %s", optimization_id, agent_id)
             return optimization
         except Exception as e:
             logger.error("Error optimizing performance for agent %s: %s", agent_id, str(e))
             optimization.status = "failed"
-            session.commit()
+            (await run_in_threadpool(session.commit))
             raise
 
     async def run_optimization_process(
@@ -683,8 +692,8 @@ class AgentPerformanceService:
             created_at=datetime.now(UTC),
         )
         self.session.add(profile)
-        self.session.commit()
-        self.session.refresh(profile)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, profile))
         logger.info("Created performance profile %s for agent %s", profile_id, agent_id)
         return profile
 
@@ -693,7 +702,11 @@ class AgentPerformanceService:
     ) -> AgentPerformanceProfile:
         """Update agent performance metrics"""
         profile = (
-            self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id))
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
+                )
+            )
             .scalars()
             .first()
         )
@@ -707,7 +720,7 @@ class AgentPerformanceService:
             profile.improvement_trends = self.calculate_improvement_trends(profile.performance_history)
             profile.updated_at = datetime.now(UTC)
             profile.last_assessed = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
         return profile
 
     def calculate_overall_score(self, metrics: dict[str, float]) -> float:
@@ -742,7 +755,11 @@ class AgentPerformanceService:
     async def get_comprehensive_profile(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive agent performance profile"""
         profile = (
-            self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id))
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
+                )
+            )
             .scalars()
             .first()
         )
@@ -793,24 +810,42 @@ class AgentPerformanceService:
             specializations=specialization_areas,
         )
         session.add(capability)
-        session.commit()
-        session.refresh(capability)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, capability))
         logger.info("Created capability %s for agent %s", capability_id, agent_id)
         return capability
 
     async def list_capabilities(self, agent_id: str) -> list[AgentCapability]:
         """List all capabilities for an agent."""
-        return list(self.session.execute(select(AgentCapability).where(AgentCapability.agent_id == agent_id)).scalars().all())
+        return list(
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentCapability).where(AgentCapability.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     async def get_performance_analytics(self, agent_id: str, period_days: int = 30) -> dict[str, Any]:
         """Get performance analytics for an agent over a time period."""
         profile = (
-            self.session.execute(select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id))
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
+                )
+            )
             .scalars()
             .first()
         )
         capabilities = (
-            self.session.execute(select(AgentCapability).where(AgentCapability.agent_id == agent_id)).scalars().all()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentCapability).where(AgentCapability.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .all()
         )
         return {
             "agent_id": agent_id,

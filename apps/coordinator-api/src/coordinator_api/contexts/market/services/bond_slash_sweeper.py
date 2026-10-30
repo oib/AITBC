@@ -19,6 +19,7 @@ from aitbc.aitbc_logging import get_logger
 from ....storage.db import get_engine
 from ...infrastructure.domain import Job, Miner
 from .bond_slashing import BondSlashingService, SlashingCondition
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -72,12 +73,12 @@ class BondSlashSweeper:
         cutoff = datetime.now(UTC).astimezone(UTC).replace(tzinfo=None) - timedelta(seconds=timeout)
         counts = {"stale": 0, "slashed": 0, "failed": 0, "skipped": 0}
         with self._session_factory() as session:
-            for job in self._find_stale_jobs(session):
+            for job in await run_in_threadpool(self._find_stale_jobs, session):
                 counts["stale"] += 1
                 if not job.constraints or not job.constraints.get("bond_required"):
                     counts["skipped"] += 1
                     continue
-                miner = session.get(Miner, job.assigned_miner_id)
+                miner = await run_in_threadpool(session.get, Miner, job.assigned_miner_id)
                 if not miner or not (miner.last_heartbeat and self._to_naive_utc(miner.last_heartbeat) < cutoff):
                     counts["skipped"] += 1
                     continue

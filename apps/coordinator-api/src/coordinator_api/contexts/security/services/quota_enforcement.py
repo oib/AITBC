@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from coordinator_api.exceptions import QuotaExceededError, TenantError
 from coordinator_api.models.multitenant import Tenant, TenantQuota, UsageRecord
+from starlette.concurrency import run_in_threadpool
 
 
 def get_current_tenant_id() -> str | None:
@@ -87,7 +88,7 @@ class QuotaEnforcementService:
             if current:
                 self.redis.incrbyfloat(cache_key, float(quantity))
                 self.redis.expire(cache_key, self._cache_ttl)
-        self.db.commit()
+        (await run_in_threadpool(self.db.commit))
         self.logger.info("Consumed quota: tenant=%s, resource=%s, quantity=%s", tenant_id, resource_type, quantity)
         return usage_record
 
@@ -106,7 +107,7 @@ class QuotaEnforcementService:
                 total_cost=UsageRecord.total_cost - await self._calculate_cost(resource_type, quantity),
             )
         )
-        result = self.db.execute(stmt)
+        result = await run_in_threadpool(self.db.execute, stmt)
         if result.rowcount > 0:  # type: ignore[attr-defined]
             await self._update_quota_usage(tenant_id, resource_type, -quantity)
             cache_key = f"quota_usage:{tenant_id}:{resource_type}"
@@ -115,7 +116,7 @@ class QuotaEnforcementService:
                 if current:
                     self.redis.incrbyfloat(cache_key, float(-quantity))
                     self.redis.expire(cache_key, self._cache_ttl)
-            self.db.commit()
+            (await run_in_threadpool(self.db.commit))
             self.logger.info("Released quota: tenant=%s, resource=%s, quantity=%s", tenant_id, resource_type, quantity)
 
     async def get_quota_status(self, resource_type: str | None = None, tenant_id: str | None = None) -> dict[str, Any]:
@@ -126,7 +127,7 @@ class QuotaEnforcementService:
         stmt = select(TenantQuota).where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.is_active))  # type: ignore[arg-type]
         if resource_type:
             stmt = stmt.where(TenantQuota.resource_type == resource_type)  # type: ignore[arg-type]
-        quotas = self.db.execute(stmt).scalars().all()
+        quotas = (await run_in_threadpool(self.db.execute, stmt)).scalars().all()
         status: dict[str, Any] = {
             "tenant_id": tenant_id,
             "quotas": {},
@@ -178,7 +179,7 @@ class QuotaEnforcementService:
         stmt = select(TenantQuota).where(
             and_(TenantQuota.tenant_id == tenant_id, TenantQuota.resource_type == resource_type, TenantQuota.is_active)  # type: ignore[arg-type]
         )
-        quota = self.db.execute(stmt).scalar_one_or_none()
+        quota = (await run_in_threadpool(self.db.execute, stmt)).scalar_one_or_none()
         if not quota:
             return
         now = datetime.now(UTC)
@@ -195,7 +196,7 @@ class QuotaEnforcementService:
         quota.period_start = period_start
         quota.period_end = period_end
         quota.used_value = 0  # type: ignore[assignment]
-        self.db.commit()
+        (await run_in_threadpool(self.db.commit))
         cache_key = f"quota_usage:{tenant_id}:{resource_type}"
         if self.redis:
             self.redis.delete(cache_key)
@@ -264,7 +265,7 @@ class QuotaEnforcementService:
                 TenantQuota.period_end >= datetime.now(UTC),  # type: ignore[arg-type,operator]
             )
         )
-        quota = self.db.execute(stmt).scalar_one_or_none()  # type: ignore[assignment]
+        quota = (await run_in_threadpool(self.db.execute, stmt)).scalar_one_or_none()  # type: ignore[assignment]
         if quota and self.redis:
             quota_data = {
                 "id": str(quota.id),
@@ -292,7 +293,7 @@ class QuotaEnforcementService:
                 UsageRecord.usage_start >= func.date_trunc("month", func.current_date()),
             )
         )
-        result = self.db.execute(stmt).scalar()
+        result = (await run_in_threadpool(self.db.execute, stmt)).scalar()
         usage = result if result else Decimal("0")
         if self.redis:
             self.redis.setex(cache_key, self._cache_ttl, str(usage))
@@ -305,12 +306,12 @@ class QuotaEnforcementService:
             .where(and_(TenantQuota.tenant_id == tenant_id, TenantQuota.resource_type == resource_type, TenantQuota.is_active))  # type: ignore[arg-type]
             .values(used_value=TenantQuota.used_value + quantity)
         )
-        self.db.execute(stmt)
+        (await run_in_threadpool(self.db.execute, stmt))
 
     async def _get_tenant(self, tenant_id: str) -> Tenant | None:
         """Get tenant by ID"""
         stmt = select(Tenant).where(Tenant.id == tenant_id)  # type: ignore[arg-type]
-        return self.db.execute(stmt).scalar_one_or_none()
+        return (await run_in_threadpool(self.db.execute, stmt)).scalar_one_or_none()
 
     def _get_unit_for_resource(self, resource_type: str) -> str:
         """Get unit for resource type"""

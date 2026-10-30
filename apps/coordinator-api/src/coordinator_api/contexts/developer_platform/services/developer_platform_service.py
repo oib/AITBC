@@ -34,6 +34,7 @@ from ..schemas.developer_platform import (
     CertificationGrant,
     DeveloperCreate,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -43,8 +44,10 @@ class DeveloperPlatformService:
         self.session = session
 
     async def register_developer(self, request: DeveloperCreate) -> DeveloperProfile:
-        existing = self.session.execute(
-            select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address)
+        existing = (
+            await run_in_threadpool(
+                self.session.execute, select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address)
+            )
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Developer profile already exists for this wallet")
@@ -55,13 +58,13 @@ class DeveloperPlatformService:
             skills=request.skills,
         )
         self.session.add(profile)
-        self.session.commit()
-        self.session.refresh(profile)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, profile))
         logger.info("Registered new developer: %s", profile.wallet_address)
         return profile
 
     async def grant_certification(self, request: CertificationGrant) -> DeveloperCertification:
-        profile = self.session.get(DeveloperProfile, request.developer_id)
+        profile = await run_in_threadpool(self.session.get, DeveloperProfile, request.developer_id)
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
         cert = DeveloperCertification(
@@ -79,8 +82,8 @@ class DeveloperPlatformService:
         }.get(request.level, 0.0)
         profile.reputation_score += reputation_boost
         self.session.add(cert)
-        self.session.commit()
-        self.session.refresh(cert)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, cert))
         logger.info("Granted %s certification to developer %s", request.certification_name, profile.wallet_address)
         return cert
 
@@ -95,18 +98,18 @@ class DeveloperPlatformService:
             deadline=request.deadline,
         )
         self.session.add(bounty)
-        self.session.commit()
-        self.session.refresh(bounty)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, bounty))
         logger.info("Created bounty task: %s", bounty.title)
         return bounty
 
     async def submit_bounty(self, bounty_id: str, request: BountySubmissionCreate) -> BountySubmission:
-        bounty = self.session.get(BountyTask, bounty_id)
+        bounty = await run_in_threadpool(self.session.get, BountyTask, bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
         if bounty.status != BountyStatus.OPEN and bounty.status != BountyStatus.IN_PROGRESS:
             raise HTTPException(status_code=400, detail="Bounty is not open for submissions")
-        developer = self.session.get(DeveloperProfile, request.developer_id)
+        developer = await run_in_threadpool(self.session.get, DeveloperProfile, request.developer_id)
         if not developer:
             raise HTTPException(status_code=404, detail="Developer not found")
         has_skills = any(skill in developer.skills for skill in bounty.required_skills)
@@ -120,20 +123,20 @@ class DeveloperPlatformService:
         )
         bounty.status = BountyStatus.IN_REVIEW
         self.session.add(submission)
-        self.session.commit()
-        self.session.refresh(submission)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, submission))
         logger.info("Submission received for bounty %s from developer %s", bounty_id, request.developer_id)
         return submission
 
     async def approve_submission(self, submission_id: str, reviewer_address: str, review_notes: str) -> BountySubmission:
         """Approve a submission and trigger reward payout"""
-        submission = self.session.get(BountySubmission, submission_id)
+        submission = await run_in_threadpool(self.session.get, BountySubmission, submission_id)
         if not submission:
             raise HTTPException(status_code=404, detail="Submission not found")
         if submission.is_approved:
             raise HTTPException(status_code=400, detail="Submission is already approved")
-        bounty = self.session.get(BountyTask, submission.bounty_id)
-        developer = self.session.get(DeveloperProfile, submission.developer_id)
+        bounty = await run_in_threadpool(self.session.get, BountyTask, submission.bounty_id)
+        developer = await run_in_threadpool(self.session.get, DeveloperProfile, submission.developer_id)
         if not bounty or not developer:
             raise HTTPException(status_code=404, detail="Bounty or developer not found")
         submission.is_approved = True
@@ -147,8 +150,8 @@ class DeveloperPlatformService:
         submission.tx_hash_reward = tx_hash
         developer.total_earned_aitbc += bounty.reward_amount
         developer.reputation_score += 5.0
-        self.session.commit()
-        self.session.refresh(submission)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, submission))
         logger.info(
             "Approved submission %s, paid %s to %s (tx: %s)",
             submission_id,
@@ -160,14 +163,14 @@ class DeveloperPlatformService:
 
     async def reject_submission(self, submission_id: str, reviewer_address: str, review_notes: str) -> BountySubmission:
         """Reject a submission — marks it as rejected and reopens the bounty."""
-        submission = self.session.get(BountySubmission, submission_id)
+        submission = await run_in_threadpool(self.session.get, BountySubmission, submission_id)
         if not submission:
             raise HTTPException(status_code=404, detail="Submission not found")
         if submission.is_approved:
             raise HTTPException(status_code=400, detail="Cannot reject an already-approved submission")
         if submission.reviewed_at is not None:
             raise HTTPException(status_code=400, detail="Submission has already been reviewed")
-        bounty = self.session.get(BountyTask, submission.bounty_id)
+        bounty = await run_in_threadpool(self.session.get, BountyTask, submission.bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
         submission.is_approved = False
@@ -176,8 +179,8 @@ class DeveloperPlatformService:
         submission.reviewed_at = datetime.now(UTC)
         # Reopen the bounty for new submissions
         bounty.status = BountyStatus.OPEN
-        self.session.commit()
-        self.session.refresh(submission)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, submission))
         logger.info("Rejected submission %s by %s", submission_id, reviewer_address)
         return submission
 
@@ -215,7 +218,11 @@ class DeveloperPlatformService:
 
     async def get_developer_profile(self, wallet_address: str) -> DeveloperProfile | None:
         """Get developer profile by wallet address"""
-        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address)).first()  # type: ignore[return-value]
+        return (
+            await run_in_threadpool(
+                self.session.execute, select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address)
+            )
+        ).first()  # type: ignore[return-value]
 
     async def update_developer_profile(self, wallet_address: str, updates: dict) -> DeveloperProfile:
         """Update developer profile"""
@@ -226,20 +233,23 @@ class DeveloperPlatformService:
             if hasattr(profile, key):
                 setattr(profile, key, value)
         profile.updated_at = datetime.now(UTC)
-        self.session.commit()
-        self.session.refresh(profile)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, profile))
         return profile
 
     async def get_leaderboard(self, limit: int = 100, offset: int = 0) -> list[DeveloperProfile]:
         """Get developer leaderboard sorted by reputation score"""
         return cast(
             list[DeveloperProfile],
-            self.session.execute(
-                select(DeveloperProfile)
-                .where(DeveloperProfile.is_active)
-                .order_by(desc(DeveloperProfile.reputation_score))  # type: ignore[arg-type]
-                .offset(offset)
-                .limit(limit)
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(DeveloperProfile)
+                    .where(DeveloperProfile.is_active)
+                    .order_by(desc(DeveloperProfile.reputation_score))  # type: ignore[arg-type]
+                    .offset(offset)
+                    .limit(limit),
+                )
             )
             .scalars()
             .all(),
@@ -250,11 +260,16 @@ class DeveloperPlatformService:
         profile = await self.get_developer_profile(wallet_address)
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
-        completed_bounties = self.session.execute(
-            select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved)
+        completed_bounties = (
+            await run_in_threadpool(
+                self.session.execute,
+                select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved),
+            )
         ).all()
-        certifications = self.session.execute(
-            select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
+        certifications = (
+            await run_in_threadpool(
+                self.session.execute, select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
+            )
         ).all()
         return {
             "wallet_address": profile.wallet_address,
@@ -273,29 +288,37 @@ class DeveloperPlatformService:
         query = select(BountyTask)
         if status:
             query = query.where(BountyTask.status == status)
-        return self.session.execute(query.order_by(desc(BountyTask.created_at)).offset(offset).limit(limit)).all()  # type: ignore[arg-type, return-value]
+        return (  # type: ignore[return-value]
+            await run_in_threadpool(
+                self.session.execute,
+                query.order_by(desc(BountyTask.created_at)).offset(offset).limit(limit),  # type: ignore[arg-type]
+            )
+        ).all()
 
     async def get_bounty_details(self, bounty_id: str) -> BountyTask | None:
         """Get detailed bounty information"""
-        bounty = self.session.get(BountyTask, bounty_id)
+        bounty = await run_in_threadpool(self.session.get, BountyTask, bounty_id)
         if not bounty:
             raise HTTPException(status_code=404, detail="Bounty not found")
         submissions_count = (
-            self.session.execute(
-                select(func.count()).select_from(BountySubmission).where(BountySubmission.bounty_id == bounty_id)
-            ).scalar()
-            or 0
-        )
+            await run_in_threadpool(
+                self.session.execute,
+                select(func.count()).select_from(BountySubmission).where(BountySubmission.bounty_id == bounty_id),
+            )
+        ).scalar() or 0
         return {**bounty.__dict__, "submissions_count": submissions_count}  # type: ignore[return-value]
 
     async def get_my_submissions(self, developer_id: str) -> list[BountySubmission]:
         """Get all submissions by a developer"""
         return cast(
             list[BountySubmission],
-            self.session.execute(
-                select(BountySubmission)
-                .where(BountySubmission.developer_id == developer_id)
-                .order_by(desc(BountySubmission.submitted_at))  # type: ignore[arg-type]
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(BountySubmission)
+                    .where(BountySubmission.developer_id == developer_id)
+                    .order_by(desc(BountySubmission.submitted_at)),  # type: ignore[arg-type]
+                )
             )
             .scalars()
             .all(),
@@ -305,21 +328,23 @@ class DeveloperPlatformService:
         """Create a regional developer hub"""
         hub = RegionalHub(name=name, region_code=region, description=description, lead_wallet_address=manager_address)
         self.session.add(hub)
-        self.session.commit()
-        self.session.refresh(hub)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, hub))
         logger.info("Created regional hub: %s in %s", hub.name, hub.region_code)
         return hub
 
     async def get_regional_hubs(self) -> list[RegionalHub]:
         """Get all regional developer hubs"""
-        return list(self.session.execute(select(RegionalHub)).scalars().all())
+        return list((await run_in_threadpool(self.session.execute, select(RegionalHub))).scalars().all())
 
     async def get_hub_developers(self, hub_id: str) -> list[DeveloperProfile]:
         """Get developers in a regional hub"""
-        hub = self.session.get(RegionalHub, hub_id)
+        hub = await run_in_threadpool(self.session.get, RegionalHub, hub_id)
         if not hub:
             raise HTTPException(status_code=404, detail="Regional hub not found")
-        return self.session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).all()  # type: ignore[return-value]
+        return (
+            await run_in_threadpool(self.session.execute, select(DeveloperProfile).where(DeveloperProfile.is_active))
+        ).all()  # type: ignore[return-value]
 
     async def stake_on_developer(self, staker_address: str, developer_address: str, amount: Decimal) -> dict:
         """Stake tokens on a developer"""
@@ -395,21 +420,29 @@ class DeveloperPlatformService:
 
     async def get_bounty_statistics(self) -> dict:
         """Get comprehensive bounty statistics"""
-        total_bounties = self.session.execute(select(func.count()).select_from(BountyTask)).scalar() or 0
+        total_bounties = (
+            await run_in_threadpool(self.session.execute, select(func.count()).select_from(BountyTask))
+        ).scalar() or 0
         open_bounties = (
-            self.session.execute(
-                select(func.count()).select_from(BountyTask).where(BountyTask.status == BountyStatus.OPEN)
-            ).scalar()
-            or 0
-        )
+            await run_in_threadpool(
+                self.session.execute,
+                select(func.count()).select_from(BountyTask).where(BountyTask.status == BountyStatus.OPEN),
+            )
+        ).scalar() or 0
         completed_bounties = (
-            self.session.execute(
-                select(func.count()).select_from(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)
-            ).scalar()
-            or 0
-        )
+            await run_in_threadpool(
+                self.session.execute,
+                select(func.count()).select_from(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED),
+            )
+        ).scalar() or 0
         total_rewards = (
-            self.session.execute(select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)).scalars().all()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)
+                )
+            )
+            .scalars()
+            .all()
         )
         total_reward_amount = sum(bounty.reward_amount for bounty in total_rewards)
         return {

@@ -9,6 +9,7 @@ from uuid import uuid4
 from sqlmodel import Session, select
 
 from coordinator_api.contexts.agent_coordination.domain.agent_performance import CreativeCapability
+from starlette.concurrency import run_in_threadpool
 
 
 class CreativityEnhancementEngine:
@@ -38,8 +39,8 @@ class CreativityEnhancementEngine:
             status="developing",
         )
         session.add(capability)
-        session.commit()
-        session.refresh(capability)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, capability))
         return capability
 
     async def enhance_creativity(
@@ -47,7 +48,11 @@ class CreativityEnhancementEngine:
     ) -> dict[str, Any]:
         """Enhance a creative capability using the specified algorithm."""
         capability = (
-            session.execute(select(CreativeCapability).where(CreativeCapability.capability_id == capability_id))
+            (
+                await run_in_threadpool(
+                    session.execute, select(CreativeCapability).where(CreativeCapability.capability_id == capability_id)
+                )
+            )
             .scalars()
             .first()
         )
@@ -59,7 +64,7 @@ class CreativityEnhancementEngine:
         capability.coherence_score = min(capability.coherence_score + improvement * 0.9, 1.0)
         capability.style_variety = min(capability.style_variety + int(training_cycles / 100), 10)
         capability.updated_at = datetime.now(UTC)
-        session.commit()
+        (await run_in_threadpool(session.commit))
         return {
             "capability_id": capability_id,
             "algorithm": algorithm,
@@ -80,7 +85,11 @@ class CreativityEnhancementEngine:
     ) -> dict[str, Any]:
         """Evaluate a creative output and update capability metrics."""
         capability = (
-            session.execute(select(CreativeCapability).where(CreativeCapability.capability_id == capability_id))
+            (
+                await run_in_threadpool(
+                    session.execute, select(CreativeCapability).where(CreativeCapability.capability_id == capability_id)
+                )
+            )
             .scalars()
             .first()
         )
@@ -96,7 +105,7 @@ class CreativityEnhancementEngine:
         capability.last_evaluation = datetime.now(UTC)
         capability.output_quality = (capability.output_quality + avg * 5.0) / 2.0
         capability.updated_at = datetime.now(UTC)
-        session.commit()
+        (await run_in_threadpool(session.commit))
         return {
             "capability_id": capability_id,
             "evaluation_scores": scores,

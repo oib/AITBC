@@ -13,6 +13,7 @@ from typing import Any
 import aiohttp
 
 from aitbc.aitbc_logging import get_logger
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -110,7 +111,7 @@ class RealKYCProvider:
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit"""
         if self.session:
-            await self.session.close()
+            await (await run_in_threadpool(self.session.close))
 
     def set_api_key(self, provider: KYCProvider, api_key: str) -> None:
         """Set API key for provider"""
@@ -269,7 +270,7 @@ class RealAMLProvider:
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit"""
         if self.session:
-            await self.session.close()
+            await (await run_in_threadpool(self.session.close))
 
     def set_api_key(self, provider: str, api_key: str) -> None:
         """Set API key for AML provider"""

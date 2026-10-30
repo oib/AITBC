@@ -30,6 +30,7 @@ from ....config import settings
 from ...infrastructure.domain import Job, Miner
 from ...payments.provider_binding import miner_wallet_address
 from ..domain.provider_bond import ProviderBond, ProviderBondStatus, _default_bond_min_amount, set_provider_bond_status
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -180,7 +181,7 @@ class BondSlashingService:
         if not _job_bond_required(job):
             return {"slashed": False, "reason": "job does not require a bond"}
 
-        bond = self._bond_for_job(job)
+        bond = await run_in_threadpool(self._bond_for_job, job)
         if not bond:
             logger.info("No active bond for job %s; nothing to slash", job.id)
             return {"slashed": False, "reason": "no active bond"}
@@ -197,7 +198,7 @@ class BondSlashingService:
             last_slash_str = bond_meta.get("last_downtime_slash_at")
             if last_slash_str:
                 last_slash = datetime.fromisoformat(str(last_slash_str))
-                miner = self.session.get(Miner, job.assigned_miner_id)
+                miner = await run_in_threadpool(self.session.get, Miner, job.assigned_miner_id)
                 last_heartbeat = getattr(miner, "last_heartbeat", None)
                 # A fresh heartbeat after the last slash means this is a new outage.
                 if last_heartbeat and last_heartbeat > last_slash:
@@ -218,7 +219,7 @@ class BondSlashingService:
         if slash_amount <= 0:
             return {"slashed": False, "reason": "computed slash amount is zero"}
 
-        miner = self.session.get(Miner, job.assigned_miner_id)
+        miner = await run_in_threadpool(self.session.get, Miner, job.assigned_miner_id)
         provider = _miner_wallet(miner) if miner else ""
         if not provider:
             return {"slashed": False, "reason": "miner has no wallet"}

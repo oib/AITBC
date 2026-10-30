@@ -25,6 +25,7 @@ from ..domain.rewards import (
     RewardTierConfig,
     RewardType,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -189,7 +190,13 @@ class RewardEngine:
     async def create_reward_profile(self, agent_id: str) -> AgentRewardProfile:
         """Create a new reward profile for an agent"""
         existing = (
-            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if existing:
             return existing  # type: ignore[no-any-return]
@@ -201,8 +208,8 @@ class RewardEngine:
             updated_at=datetime.now(UTC),
         )
         self.session.add(profile)
-        self.session.commit()
-        self.session.refresh(profile)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, profile))
         logger.info("Created reward profile for agent %s", agent_id)
         return profile
 
@@ -216,7 +223,9 @@ class RewardEngine:
     ) -> dict[str, Any]:
         """Calculate and distribute reward for an agent"""
         await self.create_reward_profile(agent_id)
-        reward_calculation = self.calculator.calculate_total_reward(agent_id, base_amount, performance_metrics, self.session)
+        reward_calculation = await run_in_threadpool(
+            self.calculator.calculate_total_reward, agent_id, base_amount, performance_metrics, self.session
+        )
         calculation = RewardCalculation(
             agent_id=agent_id,
             reward_type=reward_type,
@@ -234,8 +243,8 @@ class RewardEngine:
             calculated_at=datetime.now(UTC),
         )
         self.session.add(calculation)
-        self.session.commit()
-        self.session.refresh(calculation)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, calculation))
         distribution = RewardDistribution(
             calculation_id=calculation.id,
             agent_id=agent_id,
@@ -246,8 +255,8 @@ class RewardEngine:
             scheduled_at=datetime.now(UTC),
         )
         self.session.add(distribution)
-        self.session.commit()
-        self.session.refresh(distribution)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, distribution))
         await self.process_reward_distribution(distribution.id)
         await self.update_agent_reward_profile(agent_id, reward_calculation)
         await self.create_reward_event(
@@ -271,7 +280,13 @@ class RewardEngine:
     async def process_reward_distribution(self, distribution_id: str) -> RewardDistribution:
         """Process a reward distribution"""
         distribution = (
-            self.session.execute(select(RewardDistribution).where(RewardDistribution.id == distribution_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(RewardDistribution).where(RewardDistribution.id == distribution_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if not distribution:
             raise ValueError(f"Distribution {distribution_id} not found")
@@ -286,14 +301,14 @@ class RewardEngine:
             distribution.status = RewardStatus.DISTRIBUTED
             distribution.processed_at = datetime.now(UTC)
             distribution.confirmed_at = datetime.now(UTC)
-            self.session.commit()
-            self.session.refresh(distribution)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, distribution))
             logger.info("Processed reward distribution %s for agent %s", distribution_id, distribution.agent_id)
         except Exception as e:
             distribution.status = RewardStatus.CANCELLED
             distribution.error_message = str(e)
             distribution.retry_count += 1
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             logger.error("Failed to process reward distribution %s: %s", distribution_id, str(e))
             raise
         return distribution  # type: ignore[no-any-return]
@@ -301,7 +316,13 @@ class RewardEngine:
     async def update_agent_reward_profile(self, agent_id: str, reward_calculation: dict[str, Any]) -> None:
         """Update agent reward profile after reward distribution"""
         profile = (
-            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if not profile:
             return
@@ -318,17 +339,29 @@ class RewardEngine:
         await self.check_and_update_tier(agent_id)
         profile.updated_at = datetime.now(UTC)
         profile.last_activity = datetime.now(UTC)
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
 
     async def check_and_update_tier(self, agent_id: str) -> None:
         """Check and update agent's reward tier"""
         reputation = (
-            self.session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentReputation).where(AgentReputation.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if not reputation:
             return
         profile = (
-            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if not profile:
             return
@@ -376,41 +409,53 @@ class RewardEngine:
             processed_at=datetime.now(UTC),
         )
         self.session.add(event)
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
 
     async def get_reward_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive reward summary for an agent"""
         profile = (
-            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if not profile:
             return {"error": "Reward profile not found"}
         recent_calculations = (
-            self.session.execute(
-                select(RewardCalculation)
-                .where(
-                    and_(
-                        RewardCalculation.agent_id == agent_id,
-                        RewardCalculation.calculated_at >= datetime.now(UTC) - timedelta(days=30),
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(RewardCalculation)
+                    .where(
+                        and_(
+                            RewardCalculation.agent_id == agent_id,
+                            RewardCalculation.calculated_at >= datetime.now(UTC) - timedelta(days=30),
+                        )
                     )
+                    .order_by(desc(RewardCalculation.calculated_at))  # type: ignore[arg-type]
+                    .limit(10),
                 )
-                .order_by(desc(RewardCalculation.calculated_at))  # type: ignore[arg-type]
-                .limit(10)
             )
             .scalars()
             .all()
         )
         recent_distributions = (
-            self.session.execute(
-                select(RewardDistribution)
-                .where(
-                    and_(
-                        RewardDistribution.agent_id == agent_id,
-                        RewardDistribution.created_at >= datetime.now(UTC) - timedelta(days=30),
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(RewardDistribution)
+                    .where(
+                        and_(
+                            RewardDistribution.agent_id == agent_id,
+                            RewardDistribution.created_at >= datetime.now(UTC) - timedelta(days=30),
+                        )
                     )
+                    .order_by(desc(RewardDistribution.created_at))  # type: ignore[arg-type]
+                    .limit(10),
                 )
-                .order_by(desc(RewardDistribution.created_at))  # type: ignore[arg-type]
-                .limit(10)
             )
             .scalars()
             .all()
@@ -448,16 +493,19 @@ class RewardEngine:
     async def batch_process_pending_rewards(self, limit: int = 100) -> dict[str, Any]:
         """Process pending reward distributions in batch"""
         pending_distributions = (
-            self.session.execute(
-                select(RewardDistribution)
-                .where(
-                    and_(
-                        RewardDistribution.status == RewardStatus.PENDING,
-                        RewardDistribution.scheduled_at <= datetime.now(UTC),  # type: ignore[operator]
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(RewardDistribution)
+                    .where(
+                        and_(
+                            RewardDistribution.status == RewardStatus.PENDING,
+                            RewardDistribution.scheduled_at <= datetime.now(UTC),  # type: ignore[operator]
+                        )
                     )
+                    .order_by(asc(RewardDistribution.priority), asc(RewardDistribution.created_at))  # type: ignore[arg-type]
+                    .limit(limit),
                 )
-                .order_by(asc(RewardDistribution.priority), asc(RewardDistribution.created_at))  # type: ignore[arg-type]
-                .limit(limit)
             )
             .scalars()
             .all()
@@ -482,13 +530,16 @@ class RewardEngine:
         if not end_date:
             end_date = datetime.now(UTC)
         distributions = (
-            self.session.execute(
-                select(RewardDistribution).where(
-                    and_(
-                        RewardDistribution.created_at >= start_date,
-                        RewardDistribution.created_at <= end_date,
-                        RewardDistribution.status == RewardStatus.DISTRIBUTED,
-                    )
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(RewardDistribution).where(
+                        and_(
+                            RewardDistribution.created_at >= start_date,
+                            RewardDistribution.created_at <= end_date,
+                            RewardDistribution.status == RewardStatus.DISTRIBUTED,
+                        )
+                    ),
                 )
             )
             .scalars()
@@ -508,7 +559,12 @@ class RewardEngine:
         average_reward = total_rewards / unique_agents if unique_agents > 0 else 0.0
         agent_ids = list({d.agent_id for d in distributions})
         profiles = (
-            self.session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id.in_(agent_ids)))  # type: ignore[attr-defined]
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(AgentRewardProfile).where(AgentRewardProfile.agent_id.in_(agent_ids)),  # type: ignore[attr-defined]
+                )
+            )
             .scalars()
             .all()
         )

@@ -22,6 +22,7 @@ from ...domain.trading import (
     TradeStatus,
     TradeType,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -552,15 +553,17 @@ class P2PTradingProtocol:
             expires_at=kwargs.get("expires_at", datetime.now(UTC) + timedelta(days=7)),
         )
         self.session.add(trade_request)
-        self.session.commit()
-        self.session.refresh(trade_request)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, trade_request))
         logger.info("Created trade request %s for agent %s", trade_request.request_id, buyer_agent_id)
         return trade_request
 
     async def find_matches(self, request_id: str) -> list[dict[str, Any]]:
         """Find matching sellers for a trade request"""
         trade_request = (
-            self.session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).scalars().first()
+            (await run_in_threadpool(self.session.execute, select(TradeRequest).where(TradeRequest.request_id == request_id)))
+            .scalars()
+            .first()
         )
         if not trade_request:
             raise ValueError(f"Trade request {request_id} not found")
@@ -588,21 +591,29 @@ class P2PTradingProtocol:
             )
             self.session.add(trade_match)
             trade_matches.append(trade_match)
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         trade_request.match_count = len(trade_matches)
         trade_request.best_match_score = matches[0]["match_score"] if matches else 0.0
         trade_request.updated_at = datetime.now(UTC)
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         logger.info("Found %s matches for request %s", len(trade_matches), request_id)
         return [match["seller_agent_id"] for match in matches]
 
     async def initiate_negotiation(self, match_id: str, initiator: str, strategy: str = "balanced") -> TradeNegotiation:
         """Initiate negotiation between buyer and seller"""
-        trade_match = self.session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).scalars().first()
+        trade_match = (
+            (await run_in_threadpool(self.session.execute, select(TradeMatch).where(TradeMatch.match_id == match_id)))
+            .scalars()
+            .first()
+        )
         if not trade_match:
             raise ValueError(f"Trade match {match_id} not found")
         trade_request = (
-            self.session.execute(select(TradeRequest).where(TradeRequest.request_id == trade_match.request_id))
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(TradeRequest).where(TradeRequest.request_id == trade_match.request_id)
+                )
+            )
             .scalars()
             .first()
         )
@@ -621,14 +632,14 @@ class P2PTradingProtocol:
             expires_at=datetime.now(UTC) + timedelta(hours=self.negotiation_system.max_negotiation_hours),
         )
         self.session.add(negotiation)
-        self.session.commit()
-        self.session.refresh(negotiation)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, negotiation))
         trade_match.status = TradeStatus.NEGOTIATING
         trade_match.negotiation_initiated = True
         trade_match.negotiation_initiator = initiator
         trade_match.initial_terms = initial_offer
         trade_match.last_interaction = datetime.now(UTC)
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         logger.info("Initiated negotiation %s for match %s", negotiation.negotiation_id, match_id)
         return negotiation
 
@@ -663,27 +674,46 @@ class P2PTradingProtocol:
 
     async def get_trading_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive trading summary for an agent"""
-        requests = self.session.execute(select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)).scalars().all()
+        requests = (
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
         matches = (
-            self.session.execute(
-                select(TradeMatch).where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(TradeMatch).where(
+                        or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id)
+                    ),
+                )
             )
             .scalars()
             .all()
         )
         negotiations = (
-            self.session.execute(
-                select(TradeNegotiation).where(
-                    or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id)
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(TradeNegotiation).where(
+                        or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id)
+                    ),
                 )
             )
             .scalars()
             .all()
         )
         agreements = (
-            self.session.execute(
-                select(TradeAgreement).where(
-                    or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id)
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(TradeAgreement).where(
+                        or_(TradeAgreement.buyer_agent_id == agent_id, TradeAgreement.seller_agent_id == agent_id)
+                    ),
                 )
             )
             .scalars()
