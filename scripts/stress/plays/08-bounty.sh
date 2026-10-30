@@ -1,36 +1,65 @@
 #!/usr/bin/env bash
 # LANE: parallel
 # MODE: loop
-# Bounty lifecycle: deploy (BOUNTY_LOCK seal) -> expire (BOUNTY_EXPIRE/
-# refund to creator).  `expire` is an operator-side command on the
-# same wallet — the legs run in sequence inside one iteration when
-# --ttl is short.  --bounty-id <id> runs only the expire leg.
+# Bounty lifecycle: deploy (BOUNTY_LOCK) -> expire (BOUNTY_REFUND).
+# The rpc/bounty/* endpoints take operator-signed envelopes —
+# `aitbc bounty deploy`'s CLI signature doesn't satisfy
+# require_operator_signature (403 Invalid operator signature) so the
+# play signs directly.  Pins to STRESS_OPERATOR_WALLET_<host>.
+# Usage: ./08-bounty.sh [<bounty-id> — expire leg only]
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
-addr=$(python3 -c "import json;print(json.load(open('${OPERATOR_WALLET_PATH:-/var/lib/aitbc/wallets/${WALLET}.json}')).get('address',''))" 2>/dev/null || true)
-[ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
+# Operator-signed plays pin to the host wallet named by
+# STRESS_OPERATOR_WALLET_<host> (operator decision: node1 -> agent-econ-operator).
+_opw_var="STRESS_OPERATOR_WALLET_$HOST"
+WALLET="${!_opw_var:-$WALLET}"
+WFILE="${OPERATOR_WALLET_PATH:-${STRESS_WALLET_PATH:-/var/lib/aitbc/wallets/${WALLET}.json}}"
+[ -f "$WFILE" ] || fail resolve "wallet file $WFILE not found"
 BOUNTY_ID="${1:-}"
+
+call() {  # call <path> <payload-json>
+  STRESS_PAYLOAD="$2" STRESS_PATH="$1" STRESS_WFILE="$WFILE" RPC_URL="$RPC_URL" python3 - <<'PYEOF'
+import json, os, urllib.request, urllib.error
+from eth_keys import keys
+from eth_utils import keccak
+w = json.load(open(os.environ["STRESS_WFILE"]))
+priv = keys.PrivateKey(bytes.fromhex(w["private_key"].removeprefix("0x")))
+payload = json.loads(os.environ["STRESS_PAYLOAD"])
+digest = keccak(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())
+payload["signature"] = priv.sign_msg_hash(digest).to_hex()
+req = urllib.request.Request(os.environ["RPC_URL"] + os.environ["STRESS_PATH"],
+    data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+try:
+    print(urllib.request.urlopen(req, timeout=20).read().decode())
+except urllib.error.HTTPError as e:
+    print("HTTP", e.code, e.read().decode()); raise SystemExit(1)
+PYEOF
+}
+addr=$(python3 -c "import json;print(json.load(open('$WFILE')).get('address',''))" 2>/dev/null)
+[ -n "$addr" ] || fail resolve "no address in $WFILE"
 
 if [ -z "$BOUNTY_ID" ]; then
   spend_guard "$AMOUNT" || true
-  BOUNTY_ID="stress-bounty-$(date +%s)"
-  out=$(cli bounty deploy --bounty-id "$BOUNTY_ID" --amount "${STRESS_REWARD:-0.01}" \
-        --user-address "$addr" --wallet-name "$WALLET" 2>&1) \
-      || fail deploy "bounty deploy failed: $out"
-  tx=$(printf '%s' "$out" | python3 -c 'import re,sys
+  BOUNTY_ID="stress-bounty-$(hostname -s)-$(date +%s)"
+  resp=$(call /rpc/bounty/deploy \
+    "{\"bounty_id\":\"$BOUNTY_ID\",\"user_address\":\"$addr\",\"reward_amount\":${STRESS_REWARD:-360000},\"chain_id\":\"$CHAIN\"}" 2>&1) \
+    || fail deploy "bounty deploy refused: $resp"
+  tx=$(printf '%s' "$resp" | python3 -c 'import re,sys
 m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
   [ -n "$tx" ] && wait_seal "$tx" >/dev/null || true
   echo "deployed $BOUNTY_ID — expire leg re-runnable as ./08-bounty.sh $BOUNTY_ID"
   ok "${tx:-}"; exit 0
 fi
 
-out=$(cli bounty expire --bounty-id "$BOUNTY_ID" --wallet-name "$WALLET" 2>&1) || {
-  printf '%s' "$out" | grep -qiE "not.*expired|deadline|active" \
-    && skip_mature "expire refused: $out" || fail expire "bounty expire failed: $out"
+# Expire leg needs the lock fully confirmed — a 409 'not fully confirmed'
+# is a maturity skip, not a failure.
+resp=$(call "/rpc/bounty/$BOUNTY_ID/expire" "{\"user_address\":\"$addr\",\"chain_id\":\"$CHAIN\"}" 2>&1) || {
+  printf '%s' "$resp" | grep -qiE "not fully confirmed|not.*expired|deadline" \
+    && skip_mature "expire not ready: $resp" || fail expire "expire failed: $resp"
 }
-exp_tx=$(printf '%s' "$out" | python3 -c 'import re,sys
+exp_tx=$(printf '%s' "$resp" | python3 -c 'import re,sys
 m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
 [ -n "$exp_tx" ] && wait_seal "$exp_tx" >/dev/null || true
 ok "${exp_tx:-}"
