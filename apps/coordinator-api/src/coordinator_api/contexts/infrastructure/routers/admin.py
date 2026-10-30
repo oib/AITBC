@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import desc
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -303,10 +304,10 @@ async def resolve_dispute(
     """
     service = JobService(session)
     try:
-        job = service.get_job(job_id)
+        job = await run_in_threadpool(service.get_job, job_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="job not found") from None
-    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     if not payment or payment.status != DISPUTED:
         raise HTTPException(
             status_code=409,
@@ -336,10 +337,10 @@ async def resolve_dispute(
     # operator can see the automatic re-execution result alongside their ruling.
     from ...payments.services.payments import PaymentService as _PS
 
-    evidence = _PS(session).get_dispute_evidence(job.id)
+    evidence = await run_in_threadpool(_PS(session).get_dispute_evidence, job.id)
     job.payment_status = payment.status
     session.add(job)
-    session.commit()
+    await run_in_threadpool(session.commit)
     logger.info("Admin %s resolved the dispute on job %s as %s: %s", user["sub"], job.id, req.outcome, req.reason)
     return {
         "job_id": job.id,
@@ -380,18 +381,20 @@ async def auto_adjudicate_disputes(
     payment_service = PaymentService(session)
 
     # Find all disputed payments
-    disputed = session.execute(select(JobPayment).where(JobPayment.status == DISPUTED)).scalars().all()
+    disputed = await run_in_threadpool(
+        lambda: session.execute(select(JobPayment).where(JobPayment.status == DISPUTED)).scalars().all()
+    )
 
     adjudicated = []
     skipped = []
 
     for payment in disputed:
-        job = session.get(Job, payment.job_id) if payment.job_id else None
+        job = await run_in_threadpool(session.get, Job, payment.job_id) if payment.job_id else None
         if not job:
             skipped.append({"payment_id": payment.id, "reason": "job not found"})
             continue
 
-        evidence = payment_service.get_dispute_evidence(job.id)
+        evidence = await run_in_threadpool(payment_service.get_dispute_evidence, job.id)
         if not evidence:
             skipped.append({"payment_id": payment.id, "job_id": job.id, "reason": "no spot-check evidence"})
             continue
@@ -414,7 +417,7 @@ async def auto_adjudicate_disputes(
 
             job.payment_status = payment.status
             session.add(job)
-            session.commit()
+            await run_in_threadpool(session.commit)
 
             adjudicated.append(
                 {
@@ -462,10 +465,10 @@ async def retry_release(
     """
     service = JobService(session)
     try:
-        job = service.get_job(job_id)
+        job = await run_in_threadpool(service.get_job, job_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="job not found") from None
-    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     if not payment or payment.status != SETTLEMENT_FAILED:
         raise HTTPException(
             status_code=409,
@@ -480,7 +483,7 @@ async def retry_release(
     job.payment_status = "escrowed"
     session.add(payment)
     session.add(job)
-    session.commit()
+    await run_in_threadpool(session.commit)
     payment_service = PaymentService(session)
     settled = await payment_service.release_payment(
         job.client_id, job.id, job.payment_id, reason="Operator retry after terminal settlement failure"
