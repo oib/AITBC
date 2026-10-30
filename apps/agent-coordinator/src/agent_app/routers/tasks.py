@@ -200,7 +200,7 @@ def get_queue_sizes(request: Request) -> dict[str, Any]:
 
 @router.post("/tasks/queues/{priority}/clear")
 @rate_limit(rate=50, per=60)
-async def clear_queue(request: Request, priority: str, principal: OptionalAgent) -> dict[str, Any]:
+def clear_queue(request: Request, priority: str, principal: OptionalAgent) -> dict[str, Any]:
     """Clear a priority queue.
 
     Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
