@@ -204,7 +204,14 @@ async def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, An
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
         if record.status == "unbonding":
-            return {"success": True, "idempotent": True, "stake_id": record.stake_id, "status": record.status}
+            return {
+                "success": True,
+                "idempotent": True,
+                "stake_id": record.stake_id,
+                "status": record.status,
+                "funds_released": False,
+                "next": "complete",
+            }
         if record.status != "active":
             raise HTTPException(status_code=400, detail=f"Stake is not active: {record.status}")
         now = datetime.now(UTC)
@@ -218,7 +225,16 @@ async def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, An
         record.updated_at = now
         session.add(record)
         session.commit()
-        return {"success": True, "stake_id": record.stake_id, "status": record.status}
+        # "unbonding" is not "released" — funds stay locked until `complete`
+        # emits the STAKE_RELEASE transfer. The response says so outright so
+        # callers can't read the ok-shape as a finished unbond (Refs #719).
+        return {
+            "success": True,
+            "stake_id": record.stake_id,
+            "status": record.status,
+            "funds_released": False,
+            "next": "complete",
+        }
 
 
 @rate_limit(rate=20, per=60)
