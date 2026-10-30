@@ -1,11 +1,13 @@
 """Platform analytics and health endpoints for the Developer Platform."""
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, func, select
+from starlette.concurrency import run_in_threadpool
 
 from ....storage.db import get_session
 from ..domain.developer_platform import DeveloperCertification, DeveloperProfile, RegionalHub
@@ -27,15 +29,15 @@ async def get_platform_overview(
     try:
         # Get bounty statistics with fallback
         try:
-            bounty_stats = await dev_service.get_bounty_statistics()
+            bounty_stats = await run_in_threadpool(asyncio.run, dev_service.get_bounty_statistics())
         except Exception:
             bounty_stats = {"total": 150, "active": 45, "completed": 95, "total_payout": 250000.0}
 
         # Get developer statistics with fallback
         try:
-            total_developers = len(session.execute(select(DeveloperProfile)).all())
-            active_developers = len(
-                session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).scalars().all()
+            total_developers = await run_in_threadpool(lambda: len(session.execute(select(DeveloperProfile)).all()))
+            active_developers = await run_in_threadpool(
+                lambda: len(session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).scalars().all())
             )
         except Exception:
             total_developers = 1250
@@ -43,13 +45,13 @@ async def get_platform_overview(
 
         # Get certification statistics with fallback
         try:
-            total_certifications = len(session.execute(select(DeveloperCertification)).all())
+            total_certifications = await run_in_threadpool(lambda: len(session.execute(select(DeveloperCertification)).all()))
         except Exception:
             total_certifications = 320
 
         # Get regional hub statistics with fallback
         try:
-            total_hubs = len(session.execute(select(RegionalHub)).all())
+            total_hubs = await run_in_threadpool(lambda: len(session.execute(select(RegionalHub)).all()))
         except Exception:
             total_hubs = 8
 

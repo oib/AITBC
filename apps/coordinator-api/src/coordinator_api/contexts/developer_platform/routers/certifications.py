@@ -1,11 +1,13 @@
 """Certification management endpoints for the Developer Platform."""
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from ....storage.db import get_session
 from ..domain.developer_platform import CertificationLevel, DeveloperCertification
@@ -27,7 +29,7 @@ async def grant_certification(
     """Grant a certification to a developer."""
 
     try:
-        certification = await dev_service.grant_certification(request)
+        certification = await run_in_threadpool(asyncio.run, dev_service.grant_certification(request))
 
         return {
             "success": True,
@@ -97,14 +99,16 @@ async def get_developer_certifications(
     """Get certifications for a developer."""
 
     try:
-        profile = await dev_service.get_developer_profile(wallet_address)
+        profile = await run_in_threadpool(asyncio.run, dev_service.get_developer_profile(wallet_address))
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
 
-        certifications = (
-            session.execute(select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id))
-            .scalars()
-            .all()
+        certifications = await run_in_threadpool(
+            lambda: (
+                session.execute(select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id))
+                .scalars()
+                .all()
+            )
         )
 
         return [
