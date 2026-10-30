@@ -24,9 +24,7 @@ OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
 
 @router.post("/ai/learning/experience")
 @rate_limit(rate=50, per=60)
-async def record_learning_experience(
-    request: Request, experience_data: dict[str, Any], principal: OptionalAgent
-) -> dict[str, Any]:
+def record_learning_experience(request: Request, experience_data: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
     """Record a learning experience for the AI system (Phase C
     admin/operator-only — writes shared training state)."""
     authorize_admin_scope(principal, "ai_learning_experience")
@@ -42,7 +40,7 @@ async def record_learning_experience(
 
 @router.get("/ai/learning/statistics")
 @rate_limit(rate=200, per=60)
-async def get_learning_statistics(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def get_learning_statistics(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Get learning system statistics (Phase C: any resolved principal)."""
     authorize_any_principal(principal, "ai_learning_statistics")
     try:
@@ -57,7 +55,7 @@ async def get_learning_statistics(request: Request, principal: OptionalAgent) ->
 
 @router.post("/ai/learning/predict")
 @rate_limit(rate=100, per=60)
-async def predict_performance(
+def predict_performance(
     request: Request, context: dict[str, Any], principal: OptionalAgent, action: str = Query(...)
 ) -> dict[str, Any]:
     """Predict performance for a given action (Phase C: any resolved
@@ -75,7 +73,7 @@ async def predict_performance(
 
 @router.post("/ai/learning/recommend")
 @rate_limit(rate=100, per=60)
-async def recommend_action(
+def recommend_action(
     request: Request, context: dict[str, Any], available_actions: list[str], principal: OptionalAgent
 ) -> dict[str, Any]:
     """Get AI-recommended action (Phase C: any resolved principal)."""
@@ -92,7 +90,7 @@ async def recommend_action(
 
 @router.post("/ai/neural-network/create")
 @rate_limit(rate=50, per=60)
-async def create_neural_network(request: Request, config: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
+def create_neural_network(request: Request, config: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
     """Create a new neural network (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "ai_nn_create")
     try:
@@ -107,7 +105,7 @@ async def create_neural_network(request: Request, config: dict[str, Any], princi
 
 @router.post("/ai/neural-network/{network_id}/train")
 @rate_limit(rate=50, per=60)
-async def train_neural_network(
+def train_neural_network(
     request: Request,
     network_id: str,
     training_data: list[dict[str, Any]],
@@ -129,7 +127,7 @@ async def train_neural_network(
 
 @router.post("/ai/neural-network/{network_id}/predict")
 @rate_limit(rate=100, per=60)
-async def predict_with_neural_network(
+def predict_with_neural_network(
     request: Request, network_id: str, features: list[float], principal: OptionalAgent
 ) -> dict[str, Any]:
     """Make prediction with neural network (Phase C: any resolved
@@ -147,7 +145,7 @@ async def predict_with_neural_network(
 
 @router.post("/ai/ml-model/create")
 @rate_limit(rate=50, per=60)
-async def create_ml_model(request: Request, config: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
+def create_ml_model(request: Request, config: dict[str, Any], principal: OptionalAgent) -> dict[str, Any]:
     """Create a new ML model (Phase C admin/operator-only)."""
     authorize_admin_scope(principal, "ai_ml_create")
     try:
@@ -162,7 +160,7 @@ async def create_ml_model(request: Request, config: dict[str, Any], principal: O
 
 @router.post("/ai/ml-model/{model_id}/train")
 @rate_limit(rate=50, per=60)
-async def train_ml_model(
+def train_ml_model(
     request: Request, model_id: str, training_data: list[dict[str, Any]], principal: OptionalAgent
 ) -> dict[str, Any]:
     """Train an ML model (Phase C admin/operator-only — compute-heavy)."""
@@ -179,9 +177,7 @@ async def train_ml_model(
 
 @router.post("/ai/ml-model/{model_id}/predict")
 @rate_limit(rate=100, per=60)
-async def predict_with_ml_model(
-    request: Request, model_id: str, features: list[float], principal: OptionalAgent
-) -> dict[str, Any]:
+def predict_with_ml_model(request: Request, model_id: str, features: list[float], principal: OptionalAgent) -> dict[str, Any]:
     """Make prediction with ML model (Phase C: any resolved principal)."""
     authorize_any_principal(principal, "ai_ml_predict")
     try:
@@ -196,7 +192,7 @@ async def predict_with_ml_model(
 
 @router.get("/ai/statistics")
 @rate_limit(rate=200, per=60)
-async def get_ai_statistics(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def get_ai_statistics(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Get comprehensive AI/ML statistics (Phase C: any resolved
     principal)."""
     authorize_any_principal(principal, "ai_statistics")

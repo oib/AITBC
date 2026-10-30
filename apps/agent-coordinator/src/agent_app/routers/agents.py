@@ -209,7 +209,7 @@ async def issue_registration_nonce(request: Request, agent_id: str = Query(..., 
 
 @router.get("/agents/{agent_id}")
 @rate_limit(rate=200, per=60)
-async def get_agent(request: Request, agent_id: str) -> dict[str, Any]:
+def get_agent(request: Request, agent_id: str) -> dict[str, Any]:
     """Get agent information by ID"""
     try:
         if not state.agent_registry:
@@ -318,7 +318,7 @@ def _rotation_proof_ok(agent_id: str, request: IdentityRotationRequest, old_addr
     return verify_rotation_claim(rot_claim, request.rotation_proof, old_address)
 
 
-async def _rotation_guards(agent_id: str, request: IdentityRotationRequest) -> tuple[Any, str, str]:
+def _rotation_guards(agent_id: str, request: IdentityRotationRequest) -> tuple[Any, str, str]:
     """Every rotation precondition, resolved as a route dependency.
 
     Written as ``Depends`` rather than called from the handler so the OpenAPI
