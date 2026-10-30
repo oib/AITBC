@@ -20,6 +20,7 @@ from aitbc.async_tasks import create_task_with_logging
 from coordinator_api.contexts.advanced_rl.domain import ReinforcementLearningConfig
 
 from .agents import PPOAgent, RainbowDQNAgent, SACAgent
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -381,8 +382,8 @@ class AdvancedReinforcementLearningEngine:
             status="training",
         )
         session.add(rl_config)
-        session.commit()
-        session.refresh(rl_config)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, rl_config))
         create_task_with_logging(self.train_rl_agent(session, config_id), name="train_rl_agent")
         logger.info("Created RL agent with algorithm %s", algorithm)
         return rl_config
@@ -390,7 +391,12 @@ class AdvancedReinforcementLearningEngine:
     async def train_rl_agent(self, session: Session, config_id: str) -> dict[str, Any]:
         """Train RL agent"""
         rl_config = (
-            session.execute(select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id))
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id),
+                )
+            )
             .scalars()
             .first()
         )
@@ -410,13 +416,13 @@ class AdvancedReinforcementLearningEngine:
             rl_config.status = "ready"
             rl_config.trained_at = datetime.now(UTC)
             rl_config.training_progress = 1.0
-            session.commit()
+            (await run_in_threadpool(session.commit))
             logger.info("RL agent %s training completed", config_id)
             return training_results  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Error training RL agent %s: %s", config_id, str(e))
             rl_config.status = "failed"
-            session.commit()
+            (await run_in_threadpool(session.commit))
             raise
 
     async def advantage_actor_critic(self, config: ReinforcementLearningConfig, environment_func: Any) -> dict[str, Any]:

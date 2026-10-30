@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlmodel import Session
 
 from ..domain.economic_proposal import EconomicParameterProposal, EconomicProposalStatus
+from starlette.concurrency import run_in_threadpool
 
 
 def _to_decimal(value: Decimal | str | float | int | None) -> Decimal:
@@ -55,13 +56,13 @@ class EconomicProposalService:
             voting_ends=now + timedelta(days=voting_days),
         )
         self.session.add(proposal)
-        self.session.commit()
-        self.session.refresh(proposal)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, proposal))
         return proposal
 
     async def get_proposal(self, proposal_id: str) -> EconomicParameterProposal | None:
         """Get a proposal by ID."""
-        return self.session.get(EconomicParameterProposal, proposal_id)
+        return await run_in_threadpool(self.session.get, EconomicParameterProposal, proposal_id)
 
     async def list_proposals(
         self,
@@ -81,7 +82,7 @@ class EconomicProposalService:
         if status:
             stmt = stmt.where(EconomicParameterProposal.status == status)  # type: ignore[arg-type]
         stmt = stmt.order_by(EconomicParameterProposal.created_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
-        return list(self.session.execute(stmt).scalars().all())
+        return list((await run_in_threadpool(self.session.execute, stmt)).scalars().all())
 
     async def vote(
         self,
@@ -105,8 +106,8 @@ class EconomicProposalService:
             raise ValueError(f"invalid vote: {vote}")
 
         self.session.add(proposal)
-        self.session.commit()
-        self.session.refresh(proposal)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, proposal))
         return proposal
 
     async def execute_proposal(self, proposal_id: str) -> EconomicParameterProposal:
@@ -127,6 +128,6 @@ class EconomicProposalService:
             proposal.executed_at = _utc_now()
 
         self.session.add(proposal)
-        self.session.commit()
-        self.session.refresh(proposal)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, proposal))
         return proposal

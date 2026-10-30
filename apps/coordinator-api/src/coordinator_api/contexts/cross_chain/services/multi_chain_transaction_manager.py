@@ -27,6 +27,7 @@ from ..domain.chain_transaction import (
 )
 from ..domain.chain_transaction import TransactionType as ChainTransactionType
 from ...reputation.services.reputation_engine import CrossChainReputationEngine
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -136,8 +137,8 @@ class ChainTransactionManager:
                 submit_attempts=0,
             )
             self.session.add(transaction)
-            self.session.commit()
-            self.session.refresh(transaction)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, transaction))
             logger.info("Submitted transaction %s for user %s", transaction_id, user_id)
             return {
                 "transaction_id": transaction_id,
@@ -155,7 +156,13 @@ class ChainTransactionManager:
         """Get detailed transaction status"""
         try:
             transaction = (
-                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
+                (
+                    await run_in_threadpool(
+                        self.session.execute, select(ChainTransaction).where(ChainTransaction.id == transaction_id)
+                    )
+                )
+                .scalars()
+                .first()
             )
             if not transaction:
                 raise ValueError(f"Transaction {transaction_id} not found")
@@ -198,7 +205,13 @@ class ChainTransactionManager:
         """Cancel a transaction"""
         try:
             transaction = (
-                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
+                (
+                    await run_in_threadpool(
+                        self.session.execute, select(ChainTransaction).where(ChainTransaction.id == transaction_id)
+                    )
+                )
+                .scalars()
+                .first()
             )
             if not transaction:
                 raise ValueError(f"Transaction {transaction_id} not found")
@@ -209,8 +222,8 @@ class ChainTransactionManager:
             transaction.cancelled_at = datetime.now(UTC)
             transaction.cancellation_reason = reason
             transaction.updated_at = datetime.now(UTC)
-            self.session.commit()
-            self.session.refresh(transaction)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, transaction))
             logger.info("Cancelled transaction %s: %s", transaction_id, reason)
             return {
                 "transaction_id": transaction_id,
@@ -220,7 +233,7 @@ class ChainTransactionManager:
             }
         except Exception as e:
             logger.error("Error cancelling transaction: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_transaction_history(
@@ -254,7 +267,7 @@ class ChainTransactionManager:
                 stmt = stmt.where(ChainTransaction.created_at <= to_date)
             stmt = stmt.order_by(desc(ChainTransaction.created_at))  # type: ignore[arg-type]
             stmt = stmt.offset(offset).limit(limit)
-            transactions = self.session.execute(stmt).scalars().all()
+            transactions = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
             response_transactions = []
             for tx in transactions:
                 response_transactions.append(
@@ -291,7 +304,7 @@ class ChainTransactionManager:
             stmt = select(ChainTransaction).where(ChainTransaction.created_at >= cutoff_time)
             if chain_id:
                 stmt = stmt.where(ChainTransaction.chain_id == chain_id)
-            transactions = self.session.execute(stmt).scalars().all()
+            transactions = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
             total_transactions = len(transactions)
             successful_transactions = len([tx for tx in transactions if tx.status == TransactionStatus.COMPLETED])
             failed_transactions = len([tx for tx in transactions if tx.status == TransactionStatus.FAILED])
@@ -399,7 +412,13 @@ class ChainTransactionManager:
         """Update transaction status from blockchain"""
         try:
             transaction = (
-                self.session.execute(select(ChainTransaction).where(ChainTransaction.id == transaction_id)).scalars().first()
+                (
+                    await run_in_threadpool(
+                        self.session.execute, select(ChainTransaction).where(ChainTransaction.id == transaction_id)
+                    )
+                )
+                .scalars()
+                .first()
             )
             if not transaction or not transaction.transaction_hash:
                 return
@@ -409,7 +428,7 @@ class ChainTransactionManager:
             if tx_status.get("status") == TransactionStatus.COMPLETED.value:
                 transaction.status = TransactionStatus.COMPLETED
                 transaction.updated_at = datetime.now(UTC)
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
         except Exception as e:
             logger.error("Error updating transaction status: %s", e)
 
@@ -458,7 +477,7 @@ class ChainTransactionManager:
             stmt = select(ChainTransaction).where(
                 ChainTransaction.status.in_([TransactionStatus.PROCESSING, TransactionStatus.SUBMITTED])  # type: ignore[attr-defined]
             )
-            transactions = self.session.execute(stmt).scalars().all()
+            transactions = (await run_in_threadpool(self.session.execute, stmt)).scalars().all()
             for tx in transactions:
                 if current_time - tx.updated_at > stuck_threshold:
                     logger.warning("Stuck transaction detected: %s", tx.id)

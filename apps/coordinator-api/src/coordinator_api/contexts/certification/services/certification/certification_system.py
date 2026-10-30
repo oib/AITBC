@@ -19,6 +19,7 @@ from aitbc_shared.models import ReputationDTO
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -116,8 +117,8 @@ class CertificationSystem:
             ],
         )
         session.add(certification)
-        session.commit()
-        session.refresh(certification)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, certification))
         logger.info("Agent %s certified at %s level", agent_id, level.value)
         return (True, certification, [])
 
@@ -161,14 +162,17 @@ class CertificationSystem:
                 "details": {},
             }
         certification = (
-            session.execute(
-                select(AgentCertification).where(
-                    and_(
-                        AgentCertification.agent_id == agent_id,
-                        AgentCertification.certification_level == target_level,
-                        AgentCertification.status == CertificationStatus.ACTIVE,
-                        AgentCertification.expires_at > datetime.now(UTC),  # type: ignore[operator]
-                    )
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(AgentCertification).where(
+                        and_(
+                            AgentCertification.agent_id == agent_id,
+                            AgentCertification.certification_level == target_level,
+                            AgentCertification.status == CertificationStatus.ACTIVE,
+                            AgentCertification.expires_at > datetime.now(UTC),  # type: ignore[operator]
+                        )
+                    ),
                 )
             )
             .scalars()
@@ -340,9 +344,12 @@ class CertificationSystem:
     async def verify_compliance(self, session: Session, agent_id: str) -> dict[str, Any]:
         """Verify agent compliance with regulations"""
         certifications = (
-            session.execute(
-                select(AgentCertification).where(
-                    and_(AgentCertification.agent_id == agent_id, AgentCertification.status == CertificationStatus.ACTIVE)
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(AgentCertification).where(
+                        and_(AgentCertification.agent_id == agent_id, AgentCertification.status == CertificationStatus.ACTIVE)
+                    ),
                 )
             )
             .scalars()
@@ -432,7 +439,11 @@ class CertificationSystem:
     async def renew_certification(self, session: Session, certification_id: str, renewed_by: str) -> tuple[bool, str | None]:
         """Renew an existing certification"""
         certification = (
-            session.execute(select(AgentCertification).where(AgentCertification.certification_id == certification_id))
+            (
+                await run_in_threadpool(
+                    session.execute, select(AgentCertification).where(AgentCertification.certification_id == certification_id)
+                )
+            )
             .scalars()
             .first()
         )
@@ -465,6 +476,6 @@ class CertificationSystem:
                 "details": f"Certification renewed for {level_config['validity_days']} days",
             }
         )
-        session.commit()
+        (await run_in_threadpool(session.commit))
         logger.info("Certification %s renewed for agent %s", certification_id, certification.agent_id)
         return (True, "Certification renewed successfully")

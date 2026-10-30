@@ -18,6 +18,7 @@ from sqlmodel import Session, select
 from .badge_system import BadgeSystem
 from .certification_system import CertificationSystem
 from .partnership_manager import PartnershipManager
+from starlette.concurrency import run_in_threadpool
 
 
 class CertificationAndPartnershipService:
@@ -34,20 +35,42 @@ class CertificationAndPartnershipService:
 
         # Get certifications
         certifications = (
-            self.session.execute(select(AgentCertification).where(AgentCertification.agent_id == agent_id)).scalars().all()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentCertification).where(AgentCertification.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .all()
         )
 
         # Get partnerships
         partnerships = (
-            self.session.execute(select(AgentPartnership).where(AgentPartnership.agent_id == agent_id)).scalars().all()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(AgentPartnership).where(AgentPartnership.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .all()
         )
 
         # Get badges
-        badges = self.session.execute(select(AgentBadge).where(AgentBadge.agent_id == agent_id)).scalars().all()
+        badges = (
+            (await run_in_threadpool(self.session.execute, select(AgentBadge).where(AgentBadge.agent_id == agent_id)))
+            .scalars()
+            .all()
+        )
 
         # Get verification records
         verifications = (
-            self.session.execute(select(VerificationRecord).where(VerificationRecord.agent_id == agent_id)).scalars().all()
+            (
+                await run_in_threadpool(
+                    self.session.execute, select(VerificationRecord).where(VerificationRecord.agent_id == agent_id)
+                )
+            )
+            .scalars()
+            .all()
         )
 
         return {
@@ -95,7 +118,7 @@ class CertificationAndPartnershipService:
                         "badge_type": b.badge_type.value,
                         "awarded_at": b.awarded_at.isoformat(),
                         "is_featured": b.is_featured,
-                        "point_value": self.get_badge_point_value(b.badge_id),
+                        "point_value": (await run_in_threadpool(self.get_badge_point_value, b.badge_id)),
                     }
                     for b in badges
                 ],

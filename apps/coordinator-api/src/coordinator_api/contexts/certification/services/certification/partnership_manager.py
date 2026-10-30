@@ -17,6 +17,7 @@ from ...domain.certification import (
     PartnershipProgram,
     PartnershipType,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -103,8 +104,8 @@ class PartnershipManager:
             launched_at=datetime.now(UTC) if kwargs.get("launch_immediately", False) else None,
         )
         session.add(program)
-        session.commit()
-        session.refresh(program)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, program))
         logger.info("Partnership program %s created: %s", program_id, program_name)
         return program
 
@@ -113,7 +114,13 @@ class PartnershipManager:
     ) -> tuple[bool, AgentPartnership | None, list[str]]:
         """Apply for partnership program"""
         program = (
-            session.execute(select(PartnershipProgram).where(PartnershipProgram.program_id == program_id)).scalars().first()
+            (
+                await run_in_threadpool(
+                    session.execute, select(PartnershipProgram).where(PartnershipProgram.program_id == program_id)
+                )
+            )
+            .scalars()
+            .first()
         )
         if not program:
             return (False, None, ["Partnership program not found"])
@@ -142,10 +149,10 @@ class PartnershipManager:
             partnership_metadata={"application_data": application_data, "eligibility_results": eligibility_results},
         )
         session.add(partnership)
-        session.commit()
-        session.refresh(partnership)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, partnership))
         program.current_participants += 1
-        session.commit()
+        (await run_in_threadpool(session.commit))
         logger.info("Agent %s applied for partnership program %s", agent_id, program_id)
         return (True, partnership, [])
 

@@ -18,6 +18,7 @@ from aitbc.aitbc_logging import get_logger
 from ..domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
 from ..schemas.wallet import TransactionRequest, WalletCreate
 from .wallet_crypto import encrypt_private_key, generate_ethereum_keypair, recover_wallet, verify_keypair_consistency
+from starlette.concurrency import run_in_threadpool
 
 
 WEAK_PASSWORDS = {"password", "123456", "wallet", "default_password", "secret"}
@@ -61,11 +62,14 @@ class SecureWalletService:
         if not password_validation["is_acceptable"]:
             raise ValueError(f"Password too weak: {', '.join(password_validation['issues'])}")
         existing = (
-            self.session.execute(
-                select(AgentWallet).where(
-                    AgentWallet.agent_id == request.agent_id,  # type: ignore[arg-type]
-                    AgentWallet.wallet_type == request.wallet_type,  # type: ignore[arg-type]
-                    AgentWallet.is_active,  # type: ignore[arg-type]
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(AgentWallet).where(
+                        AgentWallet.agent_id == request.agent_id,  # type: ignore[arg-type]
+                        AgentWallet.wallet_type == request.wallet_type,  # type: ignore[arg-type]
+                        AgentWallet.is_active,  # type: ignore[arg-type]
+                    ),
                 )
             )
             .scalars()
@@ -88,20 +92,23 @@ class SecureWalletService:
                 created_at=datetime.now(UTC),
             )
             self.session.add(wallet)
-            self.session.commit()
-            self.session.refresh(wallet)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, wallet))
             logger.info("Created secure wallet %s for agent %s", wallet.address, request.agent_id)
             return wallet
         except Exception as e:
             logger.error("Failed to create secure wallet: %s", e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_wallet_by_agent(self, agent_id: str) -> list[AgentWallet]:
         """Retrieve all active wallets for an agent"""
         return list(
-            self.session.execute(
-                select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active)  # type: ignore[arg-type]
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.is_active),  # type: ignore[arg-type]
+                )
             )
             .scalars()
             .all()
@@ -121,7 +128,7 @@ class SecureWalletService:
         Raises:
             ValueError: If decryption fails or wallet not found
         """
-        wallet = self.session.get(AgentWallet, wallet_id)
+        wallet = await run_in_threadpool(self.session.get, AgentWallet, wallet_id)
         if not wallet:
             raise ValueError("Wallet not found")
         if not wallet.is_active:
@@ -156,7 +163,7 @@ class SecureWalletService:
         Returns:
             Integrity check results
         """
-        wallet = self.session.get(AgentWallet, wallet_id)
+        wallet = await run_in_threadpool(self.session.get, AgentWallet, wallet_id)
         if not wallet:
             return {"exists": False}
         results = {
@@ -189,7 +196,7 @@ class SecureWalletService:
         Returns:
             Updated wallet
         """
-        wallet = self.session.get(AgentWallet, wallet_id)
+        wallet = await run_in_threadpool(self.session.get, AgentWallet, wallet_id)
         if not wallet:
             raise ValueError("Wallet not found")
         try:
@@ -200,29 +207,36 @@ class SecureWalletService:
             new_encrypted_data = encrypt_private_key(current_keys["private_key"], new_password)
             wallet.encrypted_private_key = json.dumps(new_encrypted_data)
             wallet.updated_at = datetime.now(UTC)
-            self.session.commit()
-            self.session.refresh(wallet)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, wallet))
             logger.info("Migrated wallet %s to secure encryption", wallet_id)
             return wallet
         except Exception as e:
             logger.error("Failed to migrate wallet %s: %s", wallet_id, e)
-            self.session.rollback()
+            (await run_in_threadpool(self.session.rollback))
             raise
 
     async def get_balances(self, wallet_id: int) -> list[TokenBalance]:
         """Get all tracked balances for a wallet"""
-        return self.session.execute(select(TokenBalance).where(TokenBalance.wallet_id == wallet_id)).scalars().all()  # type: ignore[arg-type, return-value]
+        return (
+            (await run_in_threadpool(self.session.execute, select(TokenBalance).where(TokenBalance.wallet_id == wallet_id)))  # type: ignore[arg-type, return-value]
+            .scalars()
+            .all()
+        )
 
     async def update_balance(self, wallet_id: int, chain_id: int, token_address: str, balance: Decimal) -> TokenBalance:
         """Update a specific token balance for a wallet"""
         record = (
-            self.session.execute(
-                select(TokenBalance).where(
-                    and_(
-                        TokenBalance.wallet_id == wallet_id,
-                        TokenBalance.chain_id == chain_id,
-                        TokenBalance.token_address == token_address,
-                    )
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(TokenBalance).where(
+                        and_(
+                            TokenBalance.wallet_id == wallet_id,
+                            TokenBalance.chain_id == chain_id,
+                            TokenBalance.token_address == token_address,
+                        )
+                    ),
                 )
             )
             .scalars()
@@ -240,8 +254,8 @@ class SecureWalletService:
                 updated_at=datetime.now(UTC),
             )
             self.session.add(record)
-        self.session.commit()
-        self.session.refresh(record)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, record))
         return record
 
     async def create_transaction(
@@ -269,8 +283,8 @@ class SecureWalletService:
             created_at=datetime.now(UTC),
         )
         self.session.add(transaction)
-        self.session.commit()
-        self.session.refresh(transaction)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, transaction))
         try:
             wallet_keys = await self.get_wallet_with_private_key(wallet_id, encryption_password)
             private_key = wallet_keys["private_key"]
@@ -284,31 +298,31 @@ class SecureWalletService:
             )
             transaction.status = TransactionStatus.SIGNED
             transaction.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             tx_hash = await self.contract_service.submit_transaction(signed_tx)
             transaction.tx_hash = tx_hash
             transaction.status = TransactionStatus.SUBMITTED
             transaction.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             logger.info("Created and submitted transaction %s with hash %s", transaction.id, tx_hash)
         except Exception as e:
             logger.error("Failed to sign/submit transaction %s: %s", transaction.id, e)
             transaction.status = TransactionStatus.FAILED
             transaction.error_message = str(e)
             transaction.updated_at = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             raise
         return transaction
 
     async def deactivate_wallet(self, wallet_id: int, reason: str = "User request") -> bool:
         """Deactivate a wallet"""
-        wallet = self.session.get(AgentWallet, wallet_id)
+        wallet = await run_in_threadpool(self.session.get, AgentWallet, wallet_id)
         if not wallet:
             return False
         wallet.is_active = False
         wallet.updated_at = datetime.now(UTC)
         wallet.deactivation_reason = reason
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         logger.info("Deactivated wallet %s: %s", wallet_id, reason)
         return True
 
@@ -322,7 +336,7 @@ class SecureWalletService:
         Returns:
             Security audit results
         """
-        wallet = self.session.get(AgentWallet, wallet_id)
+        wallet = await run_in_threadpool(self.session.get, AgentWallet, wallet_id)
         if not wallet:
             return {"error": "Wallet not found"}
         audit = {
