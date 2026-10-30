@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -9,6 +10,7 @@ from fastapi import status as http_status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 
@@ -43,13 +45,16 @@ async def create_proposal(
     """Create a new OpenClaw economic parameter proposal."""
     governance_requests_total.labels(endpoint="/economic-proposals", method="POST").inc()
     try:
-        return await service.create_proposal(
-            proposer_id=payload.proposer_id,
-            parameter_name=payload.parameter_name,
-            current_value=payload.current_value,
-            proposed_value=payload.proposed_value,
-            unit=payload.unit,
-            voting_days=payload.voting_days,
+        return await run_in_threadpool(
+            asyncio.run,
+            service.create_proposal(
+                proposer_id=payload.proposer_id,
+                parameter_name=payload.parameter_name,
+                current_value=payload.current_value,
+                proposed_value=payload.proposed_value,
+                unit=payload.unit,
+                voting_days=payload.voting_days,
+            ),
         )
     except Exception as e:
         governance_errors_total.labels(endpoint="/economic-proposals", method="POST", error_type="internal").inc()
@@ -68,7 +73,7 @@ async def get_proposal(
     """Get an economic parameter proposal by ID."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}", method="GET").inc()
     try:
-        proposal = await service.get_proposal(proposal_id)
+        proposal = await run_in_threadpool(asyncio.run, service.get_proposal(proposal_id))
         if proposal is None:
             raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Proposal not found")
         return proposal
@@ -95,12 +100,15 @@ async def list_proposals(
     """List economic parameter proposals with optional filters."""
     governance_requests_total.labels(endpoint="/economic-proposals", method="GET").inc()
     try:
-        return await service.list_proposals(
-            proposer_id=proposer_id,
-            parameter_name=parameter_name,
-            status=status,
-            limit=limit,
-            offset=offset,
+        return await run_in_threadpool(
+            asyncio.run,
+            service.list_proposals(
+                proposer_id=proposer_id,
+                parameter_name=parameter_name,
+                status=status,
+                limit=limit,
+                offset=offset,
+            ),
         )
     except Exception as e:
         governance_errors_total.labels(endpoint="/economic-proposals", method="GET", error_type="internal").inc()
@@ -119,7 +127,7 @@ async def vote_on_proposal(
     """Cast a vote on an economic parameter proposal."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/votes", method="POST").inc()
     try:
-        return await service.vote(proposal_id, payload.vote, payload.voting_power)
+        return await run_in_threadpool(asyncio.run, service.vote(proposal_id, payload.vote, payload.voting_power))
     except ValueError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/votes", method="POST", error_type="invalid_request"
@@ -143,7 +151,7 @@ async def execute_proposal(
     """Execute an economic parameter proposal after voting closes."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/execute", method="POST").inc()
     try:
-        return await service.execute_proposal(proposal_id)
+        return await run_in_threadpool(asyncio.run, service.execute_proposal(proposal_id))
     except ValueError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/execute", method="POST", error_type="invalid_request"
