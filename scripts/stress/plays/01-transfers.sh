@@ -6,7 +6,7 @@ set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
-addr=$(cli wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
+addr=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
 spend_guard "$AMOUNT" || true
 out=$(cli transactions send --from "$WALLET" --to "$addr" --amount "$AMOUNT" 2>&1) || fail send "transactions send failed: $out"

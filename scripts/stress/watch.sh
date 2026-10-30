@@ -5,7 +5,8 @@ cd "$(dirname "$0")"; . ./lib.sh 2>/dev/null || true
 HOSTS="${STRESS_HOSTS:-hub hub1 node0 node1 node2}"
 BASE="${STRESS_STATE_DIR:-/var/lib/aitbc/stress-state}/stress-baseline.json"
 KNOWN="$(dirname "$0")/KNOWN.md"
-OUT="${STRESS_STATE_DIR:-/var/lib/aitbc/stress-state}/stress-findings.jsonl"
+OUT="${STRESS_STATE_DIR:-$STATE_DIR}/stress-findings.jsonl"
+mkdir -p "$(dirname "$OUT")"
 INTERVAL="${WATCH_INTERVAL:-60}"
 MODE="${1:---sweep}"
 
