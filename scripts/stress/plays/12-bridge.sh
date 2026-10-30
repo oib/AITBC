@@ -11,7 +11,14 @@ serial_acquire || exit 75
 # service round-trips it, then mark it refunded — the ledger write path
 # is what the exercise stresses; real lock/release legs ride the same
 # routes when a funded sender is configured.
-led="${BRIDGE_LEDGER_URL:-https://hub.aitbc.bubuit.net}"
+# The ledger service lives on hub — hub itself cannot reach its own
+# public nginx URL (loopback resolves the service directly); other hosts
+# go over the fleet URL.
+led="${BRIDGE_LEDGER_URL:-}"
+if [ -z "$led" ]; then
+  if [ "$(hostname -s)" = "hub" ] || [ "$(hostname)" = "hub" ]; then led="http://127.0.0.1:8202"
+  else led="https://hub.aitbc.bubuit.net"; fi
+fi
 if [ -z "${BRIDGE_LEDGER_API_KEY:-}" ]; then
   BRIDGE_LEDGER_API_KEY=$(grep -h "^BRIDGE_LEDGER_API_KEY=" /etc/aitbc/*.env 2>/dev/null | head -1 | cut -d= -f2-)
 fi
