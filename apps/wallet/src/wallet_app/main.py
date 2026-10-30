@@ -242,7 +242,7 @@ def create_app() -> FastAPI:
     app.include_router(bridge_router)
 
     @app.get("/health")
-    async def health_check() -> dict[str, str]:
+    def health_check() -> dict[str, str]:
         import sys
 
         return {
