@@ -3,6 +3,7 @@ Staking Management API
 REST API for AI agent staking system with reputation-based yield farming
 """
 
+import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
@@ -11,6 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlmodel import select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -32,7 +34,7 @@ async def get_current_user_required(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Require a valid JWT and resolve the user's on-chain address."""
-    wallet = session.execute(select(Wallet).where(Wallet.user_id == user["sub"])).scalars().first()
+    wallet = (await run_in_threadpool(session.execute, select(Wallet).where(Wallet.user_id == user["sub"]))).scalars().first()
     if not wallet:
         raise HTTPException(status_code=401, detail="No wallet linked to user")
     return {"address": wallet.address, "is_oracle": False, "is_admin": user.get("role") == "admin"}
@@ -197,21 +199,27 @@ async def create_stake(
         logger.info(
             "Creating stake: %s AITBC on %s by %s", stake_request.amount, stake_request.agent_wallet, current_user["address"]
         )
-        agent_metrics = await staking_service.get_agent_metrics(stake_request.agent_wallet)
+        agent_metrics = await run_in_threadpool(asyncio.run, staking_service.get_agent_metrics(stake_request.agent_wallet))
         if not agent_metrics:
             raise HTTPException(status_code=404, detail="Agent not supported for staking")
         import secrets
 
         stake_id = f"stake_{secrets.token_hex(8)}"
-        await blockchain_service.create_stake_contract(
-            stake_id,
-            current_user["address"],
-            stake_request.agent_wallet,
-            stake_request.amount,
-            stake_request.lock_period,
+        await run_in_threadpool(
+            asyncio.run,
+            blockchain_service.create_stake_contract(
+                stake_id,
+                current_user["address"],
+                stake_request.agent_wallet,
+                stake_request.amount,
+                stake_request.lock_period,
+            ),
         )
-        stake = await staking_service.create_stake(
-            staker_address=current_user["address"], stake_id=stake_id, **stake_request.model_dump()
+        stake = await run_in_threadpool(
+            asyncio.run,
+            staking_service.create_stake(
+                staker_address=current_user["address"], stake_id=stake_id, **stake_request.model_dump()
+            ),
         )
         return StakeResponse.model_validate(stake)
     except HTTPException:
@@ -232,7 +240,7 @@ async def get_stake(
 ) -> StakeResponse:
     """Get stake details"""
     try:
-        stake = await staking_service.get_stake(stake_id)
+        stake = await run_in_threadpool(asyncio.run, staking_service.get_stake(stake_id))
         if not stake:
             raise HTTPException(status_code=404, detail="Stake not found")
         if stake.staker_address != current_user["address"]:
@@ -256,16 +264,19 @@ async def get_stakes(
 ) -> list[StakeResponse]:
     """Get filtered list of user's stakes"""
     try:
-        stakes = await staking_service.get_user_stakes(
-            user_address=current_user["address"],
-            agent_wallet=filters.agent_wallet,
-            status=filters.status,
-            min_amount=filters.min_amount,
-            max_amount=filters.max_amount,
-            agent_tier=filters.agent_tier,
-            auto_compound=filters.auto_compound,
-            page=filters.page,
-            limit=filters.limit,
+        stakes = await run_in_threadpool(
+            asyncio.run,
+            staking_service.get_user_stakes(
+                user_address=current_user["address"],
+                agent_wallet=filters.agent_wallet,
+                status=filters.status,
+                min_amount=filters.min_amount,
+                max_amount=filters.max_amount,
+                agent_tier=filters.agent_tier,
+                auto_compound=filters.auto_compound,
+                page=filters.page,
+                limit=filters.limit,
+            ),
         )
         return [StakeResponse.model_validate(stake) for stake in stakes]
     except Exception as e:
@@ -287,16 +298,19 @@ async def add_to_stake(
 ) -> StakeResponse:
     """Add more tokens to an existing stake"""
     try:
-        stake = await staking_service.get_stake(stake_id)
+        stake = await run_in_threadpool(asyncio.run, staking_service.get_stake(stake_id))
         if not stake:
             raise HTTPException(status_code=404, detail="Stake not found")
         if stake.staker_address != current_user["address"]:
             raise HTTPException(status_code=403, detail="Not authorized to modify this stake")
         if stake.status != StakeStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Stake is not active")
-        await blockchain_service.add_to_stake(stake_id, current_user["address"], stake_request.additional_amount)
-        updated_stake = await staking_service.add_to_stake(
-            stake_id=stake_id, additional_amount=Decimal(str(stake_request.additional_amount))
+        await run_in_threadpool(
+            asyncio.run, blockchain_service.add_to_stake(stake_id, current_user["address"], stake_request.additional_amount)
+        )
+        updated_stake = await run_in_threadpool(
+            asyncio.run,
+            staking_service.add_to_stake(stake_id=stake_id, additional_amount=Decimal(str(stake_request.additional_amount))),
         )
         return StakeResponse.model_validate(updated_stake)
     except HTTPException:
@@ -319,7 +333,7 @@ async def unbond_stake(
 ) -> dict[str, str]:
     """Initiate unbonding for a stake"""
     try:
-        stake = await staking_service.get_stake(stake_id)
+        stake = await run_in_threadpool(asyncio.run, staking_service.get_stake(stake_id))
         if not stake:
             raise HTTPException(status_code=404, detail="Stake not found")
         if stake.staker_address != current_user["address"]:
@@ -328,8 +342,8 @@ async def unbond_stake(
             raise HTTPException(status_code=400, detail="Stake is not active")
         if datetime.now(UTC) < stake.end_time:
             raise HTTPException(status_code=400, detail="Lock period has not ended")
-        await blockchain_service.unbond_stake(stake_id, current_user["address"])
-        await staking_service.unbond_stake(stake_id)
+        await run_in_threadpool(asyncio.run, blockchain_service.unbond_stake(stake_id, current_user["address"]))
+        await run_in_threadpool(asyncio.run, staking_service.unbond_stake(stake_id))
         return {"message": "Unbonding initiated successfully"}
     except HTTPException:
         raise
@@ -351,15 +365,15 @@ async def complete_unbonding(
 ) -> dict[str, Any]:
     """Complete unbonding and return stake + rewards"""
     try:
-        stake = await staking_service.get_stake(stake_id)
+        stake = await run_in_threadpool(asyncio.run, staking_service.get_stake(stake_id))
         if not stake:
             raise HTTPException(status_code=404, detail="Stake not found")
         if stake.staker_address != current_user["address"]:
             raise HTTPException(status_code=403, detail="Not authorized to complete this stake")
         if stake.status != StakeStatus.UNBONDING:
             raise HTTPException(status_code=400, detail="Stake is not unbonding")
-        await blockchain_service.complete_unbonding(stake_id, current_user["address"])
-        result = await staking_service.complete_unbonding(stake_id)
+        await run_in_threadpool(asyncio.run, blockchain_service.complete_unbonding(stake_id, current_user["address"]))
+        result = await run_in_threadpool(asyncio.run, staking_service.complete_unbonding(stake_id))
         return {
             "message": "Unbonding completed successfully",
             "total_amount": result["total_amount"],
@@ -384,12 +398,12 @@ async def get_stake_rewards(
 ) -> dict[str, Any]:
     """Get current rewards for a stake"""
     try:
-        stake = await staking_service.get_stake(stake_id)
+        stake = await run_in_threadpool(asyncio.run, staking_service.get_stake(stake_id))
         if not stake:
             raise HTTPException(status_code=404, detail="Stake not found")
         if stake.staker_address != current_user["address"]:
             raise HTTPException(status_code=403, detail="Not authorized to view this stake")
-        rewards = await staking_service.calculate_rewards(stake_id)
+        rewards = await run_in_threadpool(asyncio.run, staking_service.calculate_rewards(stake_id))
         return {
             "stake_id": stake_id,
             "accumulated_rewards": stake.accumulated_rewards,
@@ -415,7 +429,7 @@ async def get_agent_metrics(
 ) -> AgentMetricsResponse:
     """Get agent performance metrics"""
     try:
-        metrics = await staking_service.get_agent_metrics(agent_wallet)
+        metrics = await run_in_threadpool(asyncio.run, staking_service.get_agent_metrics(agent_wallet))
         if not metrics:
             raise HTTPException(status_code=404, detail="Agent not found")
         return AgentMetricsResponse.model_validate(metrics)
@@ -436,7 +450,7 @@ async def get_staking_pool(
 ) -> StakingPoolResponse:
     """Get staking pool information for an agent"""
     try:
-        pool = await staking_service.get_staking_pool(agent_wallet)
+        pool = await run_in_threadpool(asyncio.run, staking_service.get_staking_pool(agent_wallet))
         if not pool:
             raise HTTPException(status_code=404, detail="Staking pool not found")
         return StakingPoolResponse.model_validate(pool)
@@ -459,7 +473,7 @@ async def get_agent_apy(
     """Get current APY for staking on an agent"""
     try:
         effective_lock_period = lock_period
-        apy = await staking_service.calculate_apy(agent_wallet, effective_lock_period)
+        apy = await run_in_threadpool(asyncio.run, staking_service.calculate_apy(agent_wallet, effective_lock_period))
         return {
             "agent_wallet": agent_wallet,
             "lock_period": effective_lock_period,
@@ -488,12 +502,18 @@ async def update_agent_performance(
     try:
         if not current_user.get("is_oracle", False):
             raise HTTPException(status_code=403, detail="Not authorized to update performance")
-        await blockchain_service.update_agent_performance(
-            agent_wallet,
-            performance_request.accuracy,
-            performance_request.successful,
+        await run_in_threadpool(
+            asyncio.run,
+            blockchain_service.update_agent_performance(
+                agent_wallet,
+                performance_request.accuracy,
+                performance_request.successful,
+            ),
         )
-        await staking_service.update_agent_performance(agent_wallet=agent_wallet, **performance_request.model_dump())
+        await run_in_threadpool(
+            asyncio.run,
+            staking_service.update_agent_performance(agent_wallet=agent_wallet, **performance_request.model_dump()),
+        )
         return {"message": "Agent performance updated successfully"}
     except HTTPException:
         raise
@@ -518,11 +538,16 @@ async def distribute_agent_earnings(
     try:
         if not current_user.get("is_admin", False):
             raise HTTPException(status_code=403, detail="Not authorized to distribute earnings")
-        await blockchain_service.distribute_earnings(agent_wallet, earnings_request.total_earnings)
-        result = await staking_service.distribute_earnings(
-            agent_wallet=agent_wallet,
-            total_earnings=Decimal(str(earnings_request.total_earnings)),
-            distribution_data=earnings_request.distribution_data,
+        await run_in_threadpool(
+            asyncio.run, blockchain_service.distribute_earnings(agent_wallet, earnings_request.total_earnings)
+        )
+        result = await run_in_threadpool(
+            asyncio.run,
+            staking_service.distribute_earnings(
+                agent_wallet=agent_wallet,
+                total_earnings=Decimal(str(earnings_request.total_earnings)),
+                distribution_data=earnings_request.distribution_data,
+            ),
         )
         return {
             "message": "Earnings distributed successfully",
@@ -551,7 +576,9 @@ async def get_supported_agents(
     try:
         effective_page = page
         effective_limit = limit
-        agents = await staking_service.get_supported_agents(page=effective_page, limit=effective_limit, tier=tier)
+        agents = await run_in_threadpool(
+            asyncio.run, staking_service.get_supported_agents(page=effective_page, limit=effective_limit, tier=tier)
+        )
         return {"agents": agents, "total_count": len(agents), "page": effective_page, "limit": effective_limit}
     except Exception as e:
         logger.error("Failed to get supported agents: %s", e)
@@ -568,7 +595,7 @@ async def get_staking_stats(
 ) -> StakingStatsResponse:
     """Get staking system statistics"""
     try:
-        stats = await staking_service.get_staking_stats(period=period)  # type: ignore[arg-type]
+        stats = await run_in_threadpool(asyncio.run, staking_service.get_staking_stats(period=period))  # type: ignore[arg-type]
         return StakingStatsResponse.model_validate(stats)
     except Exception as e:
         logger.error("Failed to get staking stats: %s", e)
@@ -590,8 +617,9 @@ async def get_staking_leaderboard(
         effective_period = period
         effective_metric = metric
         effective_limit = limit
-        leaderboard = await staking_service.get_leaderboard(
-            period=effective_period, metric=effective_metric, limit=effective_limit
+        leaderboard = await run_in_threadpool(
+            asyncio.run,
+            staking_service.get_leaderboard(period=effective_period, metric=effective_metric, limit=effective_limit),
         )
         if isinstance(leaderboard, list):
             leaderboard = {
@@ -655,12 +683,15 @@ async def get_my_staking_positions(
     try:
         effective_page = page
         effective_limit = limit
-        stakes = await staking_service.get_user_stakes(
-            user_address=current_user["address"],
-            status=status,
-            agent_wallet=agent_wallet,
-            page=effective_page,
-            limit=effective_limit,
+        stakes = await run_in_threadpool(
+            asyncio.run,
+            staking_service.get_user_stakes(
+                user_address=current_user["address"],
+                status=status,
+                agent_wallet=agent_wallet,
+                page=effective_page,
+                limit=effective_limit,
+            ),
         )
         return [StakeResponse.model_validate(stake) for stake in stakes]
     except Exception as e:
@@ -679,7 +710,10 @@ async def get_my_staking_rewards(
 ) -> dict[str, Any]:
     """Get current user's staking rewards"""
     try:
-        rewards = await staking_service.get_user_rewards(user_address=current_user["address"], period=period)  # type: ignore[arg-type]
+        rewards = await run_in_threadpool(
+            asyncio.run,
+            staking_service.get_user_rewards(user_address=current_user["address"], period=period),  # type: ignore[arg-type]
+        )
         return rewards
     except Exception as e:
         logger.error("Failed to get staking rewards: %s", e)
@@ -701,7 +735,7 @@ async def claim_staking_rewards(
     try:
         total_rewards = Decimal("0.0")
         for stake_id in stake_ids:
-            stake = await staking_service.get_stake(stake_id)
+            stake = await run_in_threadpool(asyncio.run, staking_service.get_stake(stake_id))
             if not stake:
                 raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
             if stake.staker_address != current_user["address"]:
@@ -709,8 +743,8 @@ async def claim_staking_rewards(
             total_rewards += stake.accumulated_rewards
         if total_rewards <= 0:
             raise HTTPException(status_code=400, detail="No rewards to claim")
-        await blockchain_service.claim_rewards(stake_ids)
-        result = await staking_service.claim_rewards(stake_ids)
+        await run_in_threadpool(asyncio.run, blockchain_service.claim_rewards(stake_ids))
+        result = await run_in_threadpool(asyncio.run, staking_service.claim_rewards(stake_ids))
         return {
             "message": "Rewards claimed successfully",
             "total_rewards": total_rewards,
@@ -734,7 +768,7 @@ async def get_risk_assessment(
 ) -> dict[str, Any]:
     """Get risk assessment for staking on an agent"""
     try:
-        assessment = await staking_service.get_risk_assessment(agent_wallet)
+        assessment = await run_in_threadpool(asyncio.run, staking_service.get_risk_assessment(agent_wallet))
         return assessment
     except Exception as e:
         logger.error("Failed to get risk assessment: %s", e)

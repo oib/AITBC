@@ -3,6 +3,7 @@ Reputation Management API Endpoints
 REST API for agent reputation, trust scores, and economic profiles
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
@@ -13,6 +14,7 @@ from sqlalchemy import and_, desc, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlmodel import select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.auth import AdminDep, AdminOrClientDep, AuthDep
@@ -150,7 +152,7 @@ async def get_reputation_profile(
     """Get comprehensive reputation profile for an agent"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
-        profile_data = await reputation_service.get_reputation_summary(agent_id)
+        profile_data = await run_in_threadpool(asyncio.run, reputation_service.get_reputation_summary(agent_id))
         if "error" in profile_data:
             raise HTTPException(status_code=404, detail=profile_data["error"])
         return ReputationProfileResponse(**profile_data)
@@ -171,7 +173,7 @@ async def create_reputation_profile(
     _require_self_or_admin(user, agent_id)
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
-        reputation = await reputation_service.create_reputation_profile(agent_id)
+        reputation = await run_in_threadpool(asyncio.run, reputation_service.create_reputation_profile(agent_id))
         return {
             "message": "Reputation profile created successfully",
             "agent_id": reputation.agent_id,
@@ -208,16 +210,19 @@ async def add_community_feedback(
         if not feedback_request.job_id:
             raise HTTPException(status_code=422, detail="feedback requires a job_id anchoring it to completed work")
         try:
-            caller_client_id, _ = resolve_client(session, user["sub"])  # type: ignore[arg-type]
+            caller_client_id, _ = await run_in_threadpool(resolve_client, session, user["sub"])  # type: ignore[arg-type]
         except ValueError:
             raise HTTPException(status_code=403, detail="feedback requires a client account") from None
         completed_link = (
-            session.execute(
-                select(Job).where(
-                    Job.id == feedback_request.job_id,
-                    Job.client_id == caller_client_id,
-                    Job.assigned_miner_id == agent_id,
-                    Job.state == JobState.completed,
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(Job).where(
+                        Job.id == feedback_request.job_id,
+                        Job.client_id == caller_client_id,
+                        Job.assigned_miner_id == agent_id,
+                        Job.state == JobState.completed,
+                    ),
                 )
             )
             .scalars()
@@ -230,10 +235,13 @@ async def add_community_feedback(
             )
     if feedback_request.job_id is not None:
         existing = (
-            session.execute(
-                select(CommunityFeedback).where(
-                    CommunityFeedback.reviewer_id == user["sub"],
-                    CommunityFeedback.job_id == feedback_request.job_id,
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(CommunityFeedback).where(
+                        CommunityFeedback.reviewer_id == user["sub"],
+                        CommunityFeedback.job_id == feedback_request.job_id,
+                    ),
                 )
             )
             .scalars()
@@ -243,13 +251,16 @@ async def add_community_feedback(
             raise HTTPException(status_code=409, detail="you have already reviewed this job")
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
-        feedback = await reputation_service.add_community_feedback(
-            agent_id=agent_id,
-            reviewer_id=user["sub"],
-            job_id=feedback_request.job_id,
-            ratings=feedback_request.ratings,
-            feedback_text=feedback_request.feedback_text,
-            tags=feedback_request.tags,
+        feedback = await run_in_threadpool(
+            asyncio.run,
+            reputation_service.add_community_feedback(
+                agent_id=agent_id,
+                reviewer_id=user["sub"],
+                job_id=feedback_request.job_id,
+                ratings=feedback_request.ratings,
+                feedback_text=feedback_request.feedback_text,
+                tags=feedback_request.tags,
+            ),
         )
         return FeedbackResponse(
             id=feedback.id,
@@ -330,8 +341,9 @@ async def get_reputation_leaderboard(
     """Get reputation leaderboard"""
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
-        leaderboard_data = await reputation_service.get_leaderboard(
-            category=category or "trust_score", limit=limit or 100, region=region
+        leaderboard_data = await run_in_threadpool(
+            asyncio.run,
+            reputation_service.get_leaderboard(category=category or "trust_score", limit=limit or 100, region=region),
         )
         return [LeaderboardEntry(**entry) for entry in leaderboard_data]
     except HTTPException:

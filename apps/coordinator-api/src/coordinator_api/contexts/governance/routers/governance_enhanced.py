@@ -3,6 +3,7 @@ Enhanced Governance API Router
 REST API endpoints for multi-jurisdictional DAO governance, regional councils, treasury management, and staking
 """
 
+import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -10,6 +11,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, func, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.rate_limiting import rate_limit
 
@@ -44,8 +46,9 @@ async def create_regional_council(
     """Create a regional governance council"""
 
     try:
-        council = await governance_service.create_regional_council(
-            region, council_name, jurisdiction, council_members, budget_allocation
+        council = await run_in_threadpool(
+            asyncio.run,
+            governance_service.create_regional_council(region, council_name, jurisdiction, council_members, budget_allocation),
         )
 
         return {
@@ -71,7 +74,7 @@ async def get_regional_councils(
     """Get regional governance councils"""
 
     try:
-        councils = await governance_service.get_regional_councils(region)
+        councils = await run_in_threadpool(asyncio.run, governance_service.get_regional_councils(region))
         return councils
 
     except Exception as e:
@@ -96,8 +99,11 @@ async def create_regional_proposal(
     """Create a proposal for a specific regional council"""
 
     try:
-        proposal = await governance_service.create_regional_proposal(
-            council_id, title, description, proposal_type, amount_requested, proposer_address
+        proposal = await run_in_threadpool(
+            asyncio.run,
+            governance_service.create_regional_proposal(
+                council_id, title, description, proposal_type, amount_requested, proposer_address
+            ),
         )
 
         return {"success": True, "proposal": proposal, "message": f"Regional proposal '{title}' created successfully"}
@@ -122,7 +128,9 @@ async def vote_on_regional_proposal(
     """Vote on a regional proposal"""
 
     try:
-        vote = await governance_service.vote_on_regional_proposal(proposal_id, voter_address, vote_type, voting_power)
+        vote = await run_in_threadpool(
+            asyncio.run, governance_service.vote_on_regional_proposal(proposal_id, voter_address, vote_type, voting_power)
+        )
 
         return {"success": True, "vote": vote, "message": f"Vote cast successfully on proposal {proposal_id}"}
 
@@ -144,7 +152,7 @@ async def get_treasury_balance(
     """Get treasury balance for global or specific region"""
 
     try:
-        balance = await governance_service.get_treasury_balance(region)
+        balance = await run_in_threadpool(asyncio.run, governance_service.get_treasury_balance(region))
         return balance
 
     except Exception as e:
@@ -188,7 +196,9 @@ async def get_treasury_transactions(
     """Get treasury transaction history"""
 
     try:
-        transactions = await governance_service.get_treasury_transactions(limit or 100, offset or 0, region)
+        transactions = await run_in_threadpool(
+            asyncio.run, governance_service.get_treasury_transactions(limit or 100, offset or 0, region)
+        )
         return transactions
 
     except Exception as e:
@@ -230,7 +240,7 @@ async def get_developer_staking_pools(
     """Get staking pools for a specific developer or all pools"""
 
     try:
-        pools = await governance_service.get_developer_staking_pools(developer_address)
+        pools = await run_in_threadpool(asyncio.run, governance_service.get_developer_staking_pools(developer_address))
         return pools
 
     except Exception as e:
@@ -253,7 +263,9 @@ async def calculate_staking_rewards(
     """Calculate staking rewards for a specific position"""
 
     try:
-        rewards = await governance_service.calculate_staking_rewards(pool_id, staker_address, amount, duration_days)
+        rewards = await run_in_threadpool(
+            asyncio.run, governance_service.calculate_staking_rewards(pool_id, staker_address, amount, duration_days)
+        )
         return rewards
 
     except Exception as e:
@@ -292,7 +304,7 @@ async def get_governance_analytics(
     """Get comprehensive governance analytics"""
 
     try:
-        analytics = await governance_service.get_governance_analytics(time_period_days or 30)
+        analytics = await run_in_threadpool(asyncio.run, governance_service.get_governance_analytics(time_period_days or 30))
         return analytics
 
     except Exception as e:
@@ -312,7 +324,7 @@ async def get_regional_governance_health(
     """Get health metrics for a specific region's governance"""
 
     try:
-        health = await governance_service.get_regional_governance_health(region)
+        health = await run_in_threadpool(asyncio.run, governance_service.get_regional_governance_health(region))
         return health
 
     except Exception as e:
@@ -334,7 +346,9 @@ async def create_governance_profile(
     """Create or get a governance profile"""
 
     try:
-        profile = await governance_service.get_or_create_profile(user_id, initial_voting_power or 0.0)
+        profile = await run_in_threadpool(
+            asyncio.run, governance_service.get_or_create_profile(user_id, initial_voting_power or 0.0)
+        )
 
         return {
             "success": True,
@@ -366,7 +380,7 @@ async def delegate_votes(
     """Delegate voting power from one profile to another"""
 
     try:
-        delegator = await governance_service.delegate_votes(delegator_id, delegatee_id)
+        delegator = await run_in_threadpool(asyncio.run, governance_service.delegate_votes(delegator_id, delegatee_id))
 
         return {
             "success": True,
@@ -394,7 +408,7 @@ async def get_governance_profile(
     """Get governance profile by user ID"""
 
     try:
-        profile = await governance_service.get_or_create_profile(user_id)
+        profile = await run_in_threadpool(asyncio.run, governance_service.get_or_create_profile(user_id))
 
         return {
             "profile_id": profile.profile_id,
@@ -523,7 +537,9 @@ async def get_governance_system_health(
     try:
         # Check database connectivity
         try:
-            profile_count = session.execute(select(func.count(GovernanceProfile.profile_id))).scalar()  # type: ignore[arg-type]
+            profile_count = (
+                await run_in_threadpool(session.execute, select(func.count(GovernanceProfile.profile_id)))  # type: ignore[arg-type]
+            ).scalar()
             database_status = "healthy"
         except Exception:
             database_status = "unhealthy"
@@ -542,7 +558,7 @@ async def get_governance_system_health(
 
         # Get basic metrics
         # Last 7 days
-        analytics = await governance_service.get_governance_analytics(7)
+        analytics = await run_in_threadpool(asyncio.run, governance_service.get_governance_analytics(7))
 
         health_data = {
             "status": overall_status,
@@ -576,13 +592,13 @@ async def get_governance_platform_status(
 
     try:
         # Get analytics for overview
-        analytics = await governance_service.get_governance_analytics(30)
+        analytics = await run_in_threadpool(asyncio.run, governance_service.get_governance_analytics(30))
 
         # Get regional councils
-        councils = await governance_service.get_regional_councils()
+        councils = await run_in_threadpool(asyncio.run, governance_service.get_regional_councils())
 
         # Get treasury balance
-        treasury = await governance_service.get_treasury_balance()
+        treasury = await run_in_threadpool(asyncio.run, governance_service.get_treasury_balance())
 
         status_data = {
             "platform": "AITBC Enhanced Governance",

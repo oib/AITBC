@@ -3,6 +3,7 @@ Reward System API Endpoints
 REST API for agent rewards, incentives, and performance-based earnings
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
@@ -11,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -133,7 +135,7 @@ async def get_reward_profile(
     """Get comprehensive reward profile for an agent"""
     reward_engine = RewardEngine(session)
     try:
-        profile_data = await reward_engine.get_reward_summary(agent_id)
+        profile_data = await run_in_threadpool(asyncio.run, reward_engine.get_reward_summary(agent_id))
         if "error" in profile_data:
             raise HTTPException(status_code=404, detail=profile_data["error"])
         return RewardProfileResponse(**profile_data)
@@ -153,7 +155,7 @@ async def create_reward_profile(
     """Create a new reward profile for an agent"""
     reward_engine = RewardEngine(session)
     try:
-        profile = await reward_engine.create_reward_profile(agent_id)
+        profile = await run_in_threadpool(asyncio.run, reward_engine.create_reward_profile(agent_id))
         return {
             "message": "Reward profile created successfully",
             "agent_id": profile.agent_id,
@@ -282,8 +284,9 @@ async def get_reward_analytics(
             start_dt = datetime.fromisoformat(start_date)
         if end_date:
             end_dt = datetime.fromisoformat(end_date)
-        analytics_data = await reward_engine.get_reward_analytics(
-            period_type=period_type or "monthly", start_date=start_dt, end_date=end_dt
+        analytics_data = await run_in_threadpool(
+            asyncio.run,
+            reward_engine.get_reward_analytics(period_type=period_type or "monthly", start_date=start_dt, end_date=end_dt),
         )
         return RewardAnalyticsResponse(**analytics_data)
     except Exception as e:
