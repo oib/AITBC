@@ -105,7 +105,11 @@ serial_acquire() {  # mkdir-based lock on the local state dir (hub copy via ssh)
     ssh hub "echo '{\"coder\":\"${CODER:-?}\",\"play\":\"${0##*/}\",\"ts\":\"$(now)\"}' > /var/lib/aitbc/stress-state/serial.lock/owner"
     return 0
   fi
-  mkdir "$target" 2>/dev/null || { echo "SERIAL_WAIT: serial play in flight"; return 75; }
+  if ! mkdir "$target" 2>/dev/null; then
+    if [ -f "$target/owner" ] && [ $(( $(date +%s) - $(date -r "$target/owner" +%s 2>/dev/null || echo 0) )) -gt 1800 ]; then
+      rmdir "$target" 2>/dev/null; mkdir "$target" 2>/dev/null || { echo "SERIAL_WAIT"; return 75; }
+    else echo "SERIAL_WAIT: serial play in flight ($(cat "$target/owner" 2>/dev/null))"; return 75; fi
+  fi
   echo "{\"coder\":\"${CODER:-?}\",\"play\":\"${0##*/}\",\"ts\":\"$(now)\"}" > "$target/owner"
   return 0
 }
