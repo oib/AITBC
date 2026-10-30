@@ -190,3 +190,55 @@ def test_rejected_tombstone_reapplies_and_upgrades(sync_factory, monkeypatch):
         )
     assert "replay attack" not in (msg or ""), f"tombstone must not dedup-block: {msg}"
     assert "0x" + "cc" * 32 not in st._processed_tx_hashes or ok
+
+
+def test_remove_superseded_releases_dead_nonce_slot():
+    """A different-hash pending row at a nonce that sealed elsewhere must
+    drop immediately — otherwise it refuses resubmits for the whole TTL
+    (Refs #717)."""
+    from aitbc_chain.mempool import InMemoryMempool
+
+    pool = InMemoryMempool()
+    sender = "0x" + "aa" * 20
+    dead = {
+        "from": sender,
+        "to": "0x" + "bb" * 20,
+        "amount": 1,
+        "fee": 1,
+        "nonce": 19,
+        "type": "TRANSFER",
+        "signature": "0x" + "33" * 65,
+        "chain_id": CHAIN,
+    }
+    pool.add(dead, chain_id=CHAIN)
+    # Same sender, nonce 19 sealed under a different hash — pending row dies.
+    dropped = pool.remove_superseded(CHAIN, sender, 19)
+    assert dropped == 1
+    assert pool.size(CHAIN) == 0
+    # A fresh submit on the same slot is admitted (the release that the
+    # phantom occupancy denied).
+    pool.add({**dead, "tx_hash": None, "amount": 2}, chain_id=CHAIN)
+    assert pool.size(CHAIN) == 1
+
+
+def test_remove_superseded_keeps_future_nonces():
+    """Pending rows ahead of the sealed nonce stay — only dead slots drop."""
+    from aitbc_chain.mempool import InMemoryMempool
+
+    pool = InMemoryMempool()
+    sender = "0x" + "aa" * 20
+    pool.add(
+        {
+            "from": sender,
+            "to": "0x" + "bb" * 20,
+            "amount": 1,
+            "fee": 1,
+            "nonce": 20,
+            "type": "TRANSFER",
+            "signature": "0x" + "33" * 65,
+            "chain_id": CHAIN,
+        },
+        chain_id=CHAIN,
+    )
+    assert pool.remove_superseded(CHAIN, sender, 19) == 0
+    assert pool.size(CHAIN) == 1

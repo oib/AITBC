@@ -961,6 +961,20 @@ class BlockImportMixin(SyncBase):
                 tx_hash = tx.get("tx_hash")
                 if tx_hash and mempool.remove(tx_hash, self._chain_id):
                     evicted += 1
+                # A sealed (sender, nonce) kills any different-hash pending
+                # row on that slot — release it now instead of refusing
+                # resubmits for the full TTL (Refs #717).
+                sender = tx.get("from") or tx.get("sender")
+                nonce = tx.get("nonce")
+                if isinstance(sender, str) and sender and isinstance(nonce, int):
+                    superseded = mempool.remove_superseded(self._chain_id, sender, nonce)
+                    if superseded:
+                        logger.info(
+                            "Dropped %d superseded pending tx(s) for (%s, nonce %d)",
+                            superseded,
+                            sender,
+                            nonce,
+                        )
             if evicted:
                 logger.info("Evicted %s included transaction(s) from mempool", evicted)
         except Exception as exc:
