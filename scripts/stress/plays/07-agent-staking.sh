@@ -16,7 +16,7 @@ AGENT_ID="${STRESS_AGENT_ID:-stress-agent-$(hostname -s)}"
 STAKE_AMT="${STRESS_STAKE_AMT:-36000}"
 LEG="${1:-lock}"
 
-addr=$(cli wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
+addr=$(python3 -c "import json;print(json.load(open('${OPERATOR_WALLET_PATH:-/var/lib/aitbc/wallets/${WALLET}.json}')).get('address',''))" 2>/dev/null || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
 
 case "$LEG" in
