@@ -12,7 +12,7 @@ serial_check || exit 75
 spend_guard "$AMOUNT" || true
 dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
 [ "$dec" = "0" ] || [ -z "$dec" ] && dec="0.001"
-out=$(echo x | "$AITBC_BIN" wallet stake --wallet-path "/var/lib/aitbc/wallets/${WALLET}.json" --amount "$dec" --duration 1 --password-stdin 2>&1) || fail stake "wallet stake failed: $out"
+out=$(echo x | "$AITBC_BIN" wallet stake --wallet-path "/var/lib/aitbc/wallets/${WALLET}.json" --amount "$dec" --duration 30 --password-stdin 2>&1) || fail stake "wallet stake failed: $out"
 tx=$(printf '%s' "$out" | python3 -c 'import json,sys,re; s=sys.stdin.read(); m=re.search(r"0x[0-9a-fA-F]{64}", s); print(m.group(0) if m else "")')
 [ -n "$tx" ] || fail stake "no tx_hash in response"
 bh=$(wait_seal "$tx") || exit $?
