@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import OperationalError
+from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, col, func, select
 
 from aitbc.aitbc_logging import get_logger
@@ -514,7 +515,7 @@ async def buy_gpu(
     user: AuthDep,
 ) -> dict[str, Any]:
     """Buy GPU compute from market with blockchain payment and AI job scheduling."""
-    gpu = _get_gpu_or_404(session, request.gpu_id)
+    gpu = await run_in_threadpool(_get_gpu_or_404, session, request.gpu_id)
     if gpu.status != "available":
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {request.gpu_id} is not available for purchase"
@@ -550,7 +551,7 @@ async def buy_gpu(
     total_cost = duration_dec * current_price
     if supplied_quote is not None:
         total_cost = units_to_ait(supplied_quote.principal_units)
-    resolved_client_id, client_ref = resolve_client(session, request.buyer_id, auto_create=True)
+    resolved_client_id, client_ref = await run_in_threadpool(resolve_client, session, request.buyer_id, auto_create=True)
     booking_id = str(uuid4())
     # E1: a supplied quote freezes the resource/model/count/duration.
     quote_resource_id = gpu.resource_id
@@ -581,11 +582,11 @@ async def buy_gpu(
         energy_quote_snapshot=request.energy_quote,
     )
     gpu.status = "booked"
-    session.add(booking)
-    session.add(gpu)
-    session.commit()
-    session.refresh(gpu)
-    session.refresh(booking)
+    await run_in_threadpool(session.add, booking)
+    await run_in_threadpool(session.add, gpu)
+    await run_in_threadpool(session.commit)
+    await run_in_threadpool(session.refresh, gpu)
+    await run_in_threadpool(session.refresh, booking)
     job_id = None
     payment_id = None
     payment_status = None
@@ -602,7 +603,7 @@ async def buy_gpu(
         job_service = JobService(job_session)
         if request.job_id:
             # E1: a prepared quote already created and bound the job.
-            job = job_session.get(Job, request.job_id)
+            job = await run_in_threadpool(job_session.get, Job, request.job_id)
             if not job:
                 raise HTTPException(
                     status_code=http_status.HTTP_404_NOT_FOUND,
@@ -661,7 +662,7 @@ async def buy_gpu(
                 payment_amount=total_cost,
                 payment_currency="AITBC",
             )
-            job = job_service.create_job(client_id=request.buyer_id, req=job_create)
+            job = await run_in_threadpool(job_service.create_job, client_id=request.buyer_id, req=job_create)
             job_id = job.id
         job_session.close()
         logger.info("Using job %s for GPU purchase %s", job_id, booking_id)
@@ -711,8 +712,8 @@ async def buy_gpu(
             payment_id = None
             payment_status = "failed"
         booking.job_id = job.id
-        session.add(booking)
-        session.commit()
+        await run_in_threadpool(session.add, booking)
+        await run_in_threadpool(session.commit)
         logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment_id, booking_id)
     except Exception as e:
         logger.error("Failed to create job/payment for GPU purchase: %s", e)
@@ -721,14 +722,14 @@ async def buy_gpu(
     # never succeeded, so we don't return a fake "purchased" status.
     if payment_status in ("failed", "skipped") or job_id is None:
         if job_id is not None:
-            existing_job = session.get(Job, job_id)
+            existing_job = await run_in_threadpool(session.get, Job, job_id)
             if existing_job and existing_job.state in ("QUEUED", "RUNNING"):
                 existing_job.state = "CANCELED"
                 existing_job.error = "Payment failed"
-                session.add(existing_job)
-        session.delete(booking)
+                await run_in_threadpool(session.add, existing_job)
+        await run_in_threadpool(session.delete, booking)
         gpu.status = "available"
-        session.commit()
+        await run_in_threadpool(session.commit)
         detail = f"Payment failed: {payment_status}"
         escrow_error = getattr(payment, "meta_data", None)
         if isinstance(escrow_error, dict) and escrow_error.get("escrow_error"):
@@ -782,7 +783,7 @@ async def book_gpu(
     user: AuthDep,
 ) -> dict[str, Any]:
     """Book a GPU with dynamic pricing."""
-    gpu = _get_gpu_or_404(session, gpu_id)
+    gpu = await run_in_threadpool(_get_gpu_or_404, session, gpu_id)
     if gpu.status != "available":
         raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {gpu_id} is not available")
     if request.duration_hours <= 0:
@@ -820,9 +821,9 @@ async def book_gpu(
         status="active",
     )
     gpu.status = "booked"
-    session.add(booking)
-    session.commit()
-    session.refresh(booking)
+    await run_in_threadpool(session.add, booking)
+    await run_in_threadpool(session.commit)
+    await run_in_threadpool(session.refresh, booking)
     return {
         "booking_id": booking.id,
         "gpu_id": gpu_id,
@@ -899,7 +900,7 @@ async def submit_ollama_task(
     user: AuthDep,
 ) -> dict[str, Any]:
     """Submit an Ollama inference task to the persistent Redis queue."""
-    _get_gpu_or_404(session, request.gpu_id)
+    await run_in_threadpool(_get_gpu_or_404, session, request.gpu_id)
     queue = await get_queue()
     task_id = await queue.enqueue(
         gpu_id=request.gpu_id,
@@ -963,8 +964,8 @@ async def send_payment(
         "booking_id": request.booking_id,
         "task_id": request.task_id,
     }
-    session.add(payment)
-    session.commit()
+    await run_in_threadpool(session.add, payment)
+    await run_in_threadpool(session.commit)
 
     return {
         "tx_id": payment.id,
@@ -1122,7 +1123,7 @@ async def get_pricing(
     collector: Annotated[MarketDataCollector, Depends(get_market_collector)],
 ) -> dict[str, Any]:
     """Get enhanced pricing information for a model with dynamic pricing."""
-    all_gpus = session.execute(select(GPURegistry)).scalars().all()
+    all_gpus = await run_in_threadpool(lambda: session.execute(select(GPURegistry)).scalars().all())
     compatible = [g for g in all_gpus if model.lower() in g.model.lower()]
     if not compatible:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"No GPUs found for model {model}")
