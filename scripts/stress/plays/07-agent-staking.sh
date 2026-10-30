@@ -11,6 +11,11 @@ set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
+# Operator-signed plays pin to the host wallet named by
+# STRESS_OPERATOR_WALLET_<host> (operator decision: node1 -> agent-econ-operator).
+_opw_var="STRESS_OPERATOR_WALLET_$HOST"
+WALLET="${!_opw_var:-$WALLET}"
+
 STAKE_ID="${STRESS_STAKE_ID:-stress-stake-$(hostname -s)-$(date +%s)}"
 STAKE_AMT="${STRESS_STAKE_AMT:-36000}"
 LEG="${1:-lock}"
