@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import tempfile
 from datetime import datetime
 
 import pytest
@@ -16,7 +17,7 @@ from coordinator_api.contexts.governance.services.grant_service import GrantServ
 @pytest.mark.unit
 def test_grant_developer_lifecycle() -> None:
     """End-to-end check for developer registration, grant voting, and disbursement."""
-    engine = create_engine("sqlite:///:memory:", echo=False, connect_args={"check_same_thread": False})
+    engine = create_engine(f"sqlite:///{tempfile.mkdtemp()}/test.db", echo=False, connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as session:
