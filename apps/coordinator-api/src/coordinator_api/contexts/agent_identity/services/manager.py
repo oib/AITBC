@@ -32,6 +32,7 @@ from ..domain.agent_identity import (
     IdentityStatus,
     VerificationType,
 )
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -74,8 +75,8 @@ class AgentWalletManager:
             is_active=True,
         )
         self.session.add(wallet)
-        self.session.commit()
-        self.session.refresh(wallet)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, wallet))
         logger.info("Created agent wallet %s for agent %s on chain %s", wallet.id, agent_id, chain_id)
         return wallet
 
@@ -84,7 +85,7 @@ class AgentWalletManager:
         stmt = select(AgentWallet).where(
             AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
         )
-        result = self.session.execute(stmt)
+        result = await run_in_threadpool(self.session.execute, stmt)
         wallet: AgentWallet | None = result.scalars().first()
         if wallet is None:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
@@ -92,7 +93,7 @@ class AgentWalletManager:
         balance_data = await adapter.get_balance(wallet.chain_address)
         balance = balance_data["eth_balance"] if "eth_balance" in balance_data else balance_data.get("balance", Decimal("0"))
         wallet.balance = Decimal(str(balance))
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         return wallet.balance
 
     async def execute_wallet_transaction(
@@ -110,7 +111,7 @@ class AgentWalletManager:
             .where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active)
             .with_for_update()
         )
-        result = self.session.execute(stmt)
+        result = await run_in_threadpool(self.session.execute, stmt)
         wallet = result.scalars().first()
         if not wallet:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
@@ -123,7 +124,7 @@ class AgentWalletManager:
         wallet.total_spent += amount
         wallet.last_transaction = datetime.now(UTC)
         wallet.transaction_count += 1
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         logger.info("Executed wallet transaction: %s", tx_result["transaction_hash"])
         return tx_result
 
@@ -134,7 +135,7 @@ class AgentWalletManager:
         stmt = select(AgentWallet).where(
             AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id, AgentWallet.is_active
         )
-        result = self.session.execute(stmt)
+        result = await run_in_threadpool(self.session.execute, stmt)
         wallet = result.scalars().first()
         if not wallet:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
@@ -144,7 +145,7 @@ class AgentWalletManager:
     async def update_agent_wallet(self, agent_id: str, chain_id: int, request: AgentWalletUpdate) -> AgentWallet:
         """Update agent wallet settings."""
         stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id)
-        result = self.session.execute(stmt)
+        result = await run_in_threadpool(self.session.execute, stmt)
         wallet = result.scalars().first()
         if not wallet:
             raise ValueError(f"Wallet not found for agent {agent_id} on chain {chain_id}")
@@ -153,27 +154,27 @@ class AgentWalletManager:
             if hasattr(wallet, field):
                 setattr(wallet, field, value)
         wallet.updated_at = datetime.now(UTC)
-        self.session.commit()
-        self.session.refresh(wallet)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, wallet))
         logger.info("Updated agent wallet: %s", wallet.id)
         return wallet  # type: ignore[no-any-return]
 
     async def get_all_agent_wallets(self, agent_id: str) -> list[AgentWallet]:
         """Get all wallets for an agent across all chains."""
         stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id)
-        result = self.session.execute(stmt)
+        result = await run_in_threadpool(self.session.execute, stmt)
         return list(result.scalars().all())
 
     async def deactivate_wallet(self, agent_id: str, chain_id: int) -> bool:
         """Deactivate an agent wallet."""
         stmt = select(AgentWallet).where(AgentWallet.agent_id == agent_id, AgentWallet.chain_id == chain_id)
-        result = self.session.execute(stmt)
+        result = await run_in_threadpool(self.session.execute, stmt)
         wallet = result.scalars().first()
         if not wallet:
             raise ValueError(f"Wallet not found for agent {agent_id} on chain {chain_id}")
         wallet.is_active = False
         wallet.updated_at = datetime.now(UTC)
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         logger.info("Deactivated agent wallet: %s", wallet.id)
         return True
 
@@ -375,7 +376,7 @@ class AgentIdentityManager:
                 await self.core.update_reputation(agent_id, True, 0)
                 identity.reputation_score = aggregated_score
                 identity.updated_at = datetime.now(UTC)
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
             else:
                 aggregated_score = identity.reputation_score
             return {

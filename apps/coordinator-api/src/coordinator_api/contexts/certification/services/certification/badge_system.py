@@ -14,6 +14,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ....reputation.services.reputation_service import ReputationService
 from ...domain.certification import AchievementBadge, AgentBadge, BadgeType
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -79,8 +80,8 @@ class BadgeSystem:
             available_until=criteria.get("available_until"),
         )
         session.add(badge)
-        session.commit()
-        session.refresh(badge)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, badge))
         logger.info("Badge %s created: %s", badge_id, badge_name)
         return badge
 
@@ -94,7 +95,11 @@ class BadgeSystem:
         context: dict[str, Any] | None = None,
     ) -> tuple[bool, AgentBadge | None, str]:
         """Award a badge to an agent"""
-        badge = session.execute(select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)).scalars().first()
+        badge = (
+            (await run_in_threadpool(session.execute, select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)))
+            .scalars()
+            .first()
+        )
         if not badge:
             return (False, None, "Badge not found")
         if not badge.is_active:
@@ -102,7 +107,12 @@ class BadgeSystem:
         if badge.is_limited and badge.current_awards >= badge.max_awards:
             return (False, None, "Badge has reached maximum awards")
         existing_badge = (
-            session.execute(select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge_id)))
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge_id)),
+                )
+            )
             .scalars()
             .first()
         )
@@ -121,10 +131,10 @@ class BadgeSystem:
             supporting_evidence=eligibility_result.get("evidence", []),
         )
         session.add(agent_badge)
-        session.commit()
-        session.refresh(agent_badge)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, agent_badge))
         badge.current_awards += 1
-        session.commit()
+        (await run_in_threadpool(session.commit))
         logger.info("Badge %s awarded to agent %s", badge_id, agent_id)
         return (True, agent_badge, "Badge awarded successfully")
 
@@ -181,12 +191,15 @@ class BadgeSystem:
         """Check and award automatic badges for an agent"""
         awarded_badges = []
         automatic_badges = (
-            session.execute(
-                select(AchievementBadge).where(
-                    and_(
-                        AchievementBadge.is_active,
-                        AchievementBadge.badge_type.in_([BadgeType.ACHIEVEMENT, BadgeType.MILESTONE]),  # type: ignore[attr-defined]
-                    )
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(AchievementBadge).where(
+                        and_(
+                            AchievementBadge.is_active,
+                            AchievementBadge.badge_type.in_([BadgeType.ACHIEVEMENT, BadgeType.MILESTONE]),  # type: ignore[attr-defined]
+                        )
+                    ),
                 )
             )
             .scalars()
@@ -196,8 +209,13 @@ class BadgeSystem:
             eligibility_result = await self.verify_badge_eligibility(session, agent_id, badge)
             if eligibility_result["eligible"]:
                 existing = (
-                    session.execute(
-                        select(AgentBadge).where(and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge.badge_id))
+                    (
+                        await run_in_threadpool(
+                            session.execute,
+                            select(AgentBadge).where(
+                                and_(AgentBadge.agent_id == agent_id, AgentBadge.badge_id == badge.badge_id)
+                            ),
+                        )
                     )
                     .scalars()
                     .first()

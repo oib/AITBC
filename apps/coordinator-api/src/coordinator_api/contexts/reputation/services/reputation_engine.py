@@ -13,6 +13,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ..domain.cross_chain_reputation import CrossChainReputationAggregation, CrossChainReputationConfig
 from ..domain.reputation import AgentReputation, ReputationEvent, ReputationLevel
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,7 @@ class CrossChainReputationEngine:
             )
             if not hasattr(AgentReputation, "chain_id"):
                 stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputation = self.session.exec(stmt).first()
+            reputation = (await run_in_threadpool(self.session.exec, stmt)).first()
             if reputation:
                 score = await self._update_reputation_from_transaction(reputation, transaction_data)
             else:
@@ -49,7 +50,7 @@ class CrossChainReputationEngine:
                     updated_at=datetime.now(UTC),
                 )
                 self.session.add(new_reputation)
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
             return score
         except Exception as e:
             logger.error("Error calculating reputation for agent %s on chain %s: %s", agent_id, chain_id, e)
@@ -59,7 +60,7 @@ class CrossChainReputationEngine:
         """Aggregate reputation scores across all chains for an agent"""
         try:
             stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputations = self.session.exec(stmt).all()
+            reputations = (await run_in_threadpool(self.session.exec, stmt)).all()
             if not reputations:
                 return {}
             chain_configs = {}
@@ -104,7 +105,7 @@ class CrossChainReputationEngine:
             )
             if not hasattr(AgentReputation, "chain_id"):
                 stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputation = self.session.exec(stmt).first()
+            reputation = (await run_in_threadpool(self.session.exec, stmt)).first()
             if not reputation:
                 config = await self._get_chain_config(chain_id)
                 base_score = config.base_reputation_bonus if config else 0.0
@@ -132,7 +133,7 @@ class CrossChainReputationEngine:
                 occurred_at=datetime.now(UTC),
             )
             self.session.add(event)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             await self.aggregate_cross_chain_reputation(agent_id)
             logger.info("Updated reputation for agent %s from %s event", agent_id, event_type)
             return True
@@ -149,7 +150,7 @@ class CrossChainReputationEngine:
                 .where(ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= cutoff_date)
                 .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
             )
-            events = self.session.exec(stmt).all()
+            events = (await run_in_threadpool(self.session.exec, stmt)).all()
             scores = []
             for event in events:
                 if event.trust_score_after is not None:
@@ -169,7 +170,7 @@ class CrossChainReputationEngine:
                 .order_by(desc(ReputationEvent.occurred_at))  # type: ignore[arg-type]
                 .limit(10)
             )
-            events = self.session.exec(stmt).all()
+            events = (await run_in_threadpool(self.session.exec, stmt)).all()
             if len(events) < 2:
                 return anomalies
             for i in range(len(events) - 1):
@@ -220,7 +221,7 @@ class CrossChainReputationEngine:
         reputation.updated_at = datetime.now(UTC)
         if "transaction_count" in transaction_data:
             reputation.transaction_count = transaction_data["transaction_count"]
-        self.session.commit()
+        (await run_in_threadpool(self.session.commit))
         return new_score
 
     async def _get_chain_config(self, chain_id: int) -> CrossChainReputationConfig | None:
@@ -228,7 +229,7 @@ class CrossChainReputationEngine:
         stmt = select(CrossChainReputationConfig).where(
             CrossChainReputationConfig.chain_id == chain_id, CrossChainReputationConfig.is_active
         )
-        config = self.session.exec(stmt).first()
+        config = (await run_in_threadpool(self.session.exec, stmt)).first()
         if not config:
             config = CrossChainReputationConfig(
                 chain_id=chain_id,
@@ -242,7 +243,7 @@ class CrossChainReputationEngine:
                 anomaly_detection_threshold=0.3,
             )
             self.session.add(config)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
         return config
 
     async def _store_cross_chain_aggregation(
@@ -261,7 +262,7 @@ class CrossChainReputationEngine:
                 score_range = 0.0
                 consistency_score = 1.0
             stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)
-            aggregation = self.session.exec(stmt).first()
+            aggregation = (await run_in_threadpool(self.session.exec, stmt)).first()
             if aggregation:
                 aggregation.aggregated_score = avg_score
                 aggregation.chain_scores = chain_scores
@@ -284,7 +285,7 @@ class CrossChainReputationEngine:
                     last_updated=datetime.now(UTC),
                 )
                 self.session.add(aggregation)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
         except Exception as e:
             logger.error("Error storing cross-chain aggregation for agent %s: %s", agent_id, e)
 
@@ -307,7 +308,7 @@ class CrossChainReputationEngine:
         """Get comprehensive reputation summary for an agent"""
         try:
             stmt = select(AgentReputation).where(AgentReputation.agent_id == agent_id)
-            reputation = self.session.exec(stmt).first()
+            reputation = (await run_in_threadpool(self.session.exec, stmt)).first()
             if not reputation:
                 return {
                     "agent_id": agent_id,
@@ -318,7 +319,7 @@ class CrossChainReputationEngine:
                     "cross_chain": {"aggregated_score": 0.0, "chain_count": 0, "active_chains": [], "consistency_score": 1.0},
                 }
             stmt = select(CrossChainReputationAggregation).where(CrossChainReputationAggregation.agent_id == agent_id)  # type: ignore[assignment]
-            aggregation = self.session.exec(stmt).first()
+            aggregation = (await run_in_threadpool(self.session.exec, stmt)).first()
             trend = await self.get_reputation_trend(agent_id, 30)
             anomalies = await self.detect_reputation_anomalies(agent_id)
             return {
