@@ -253,7 +253,7 @@ async def get_ai_dashboard(
 
 
 @app.get("/api/ai/status")
-async def get_ai_status() -> dict[str, Any]:
+def get_ai_status() -> dict[str, Any]:
     """Get AI service status"""
     logger.debug("AI status requested")
     return {
@@ -266,7 +266,7 @@ async def get_ai_status() -> dict[str, Any]:
 
 
 @app.get("/api/health")
-async def health_check() -> dict[str, Any]:
+def health_check() -> dict[str, Any]:
     """Health check endpoint"""
     return {"status": "ok", "timestamp": datetime.now(UTC)}
 
