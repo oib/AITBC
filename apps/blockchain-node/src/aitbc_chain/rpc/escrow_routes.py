@@ -1713,59 +1713,79 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     # return the stored result without resubmitting.
     escrow_record: Escrow | None = None
     try:
-        with session_scope() as session:
-            record = session.get(Escrow, job_id)
-            escrow_record = record
-            if record is not None:
-                # Heal before the guards read the row: a release whose change leg
-                # was mined last reads back as a refund until it is reconciled,
-                # and would be rejected here as already refunded.
-                backfill_settlement_legs(session, record)
-            if record and record.refunded_at is not None:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Escrow for job_id={job_id} has already been refunded",
-                )
-            if record and record.released_at is not None:
-                # The DB may not have stored the release tx hash (legacy rows), so
-                # look it up on-chain before returning a stale/empty job_tx_hash.
-                existing_release = await _find_existing_release(job_id)
-                if existing_release and not record.release_tx_hash:
-                    record.release_tx_hash = existing_release
-                    session.add(record)
-                    session.commit()
-                release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
-                # v11: re-offer the custody-residue sweep for an already-released
-                # job — the retry surface for residue a pass or earlier attempt
-                # left behind. Deduped on-chain; residue derived from sealed
-                # chain legs, provable only.
+
+        def _read_release_state() -> Escrow | None:
+            with session_scope() as session:
+                record = session.get(Escrow, job_id)
+                if record is not None:
+                    # Heal before the guards read the row: a release whose change leg
+                    # was mined last reads back as a refund until it is reconciled,
+                    # and would be rejected here as already refunded.
+                    backfill_settlement_legs(session, record)
+                    # backfill may commit and expire the row's attrs; refresh
+                    # reloads them so the expunged instance keeps its values for
+                    # the detached reads below.
+                    session.refresh(record)
+                    session.expunge(record)
+                return record
+
+        record = await run_in_threadpool(_read_release_state)
+        escrow_record = record
+        if record and record.refunded_at is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Escrow for job_id={job_id} has already been refunded",
+            )
+        if record and record.released_at is not None:
+            # The DB may not have stored the release tx hash (legacy rows), so
+            # look it up on-chain before returning a stale/empty job_tx_hash.
+            existing_release = await _find_existing_release(job_id)
+            if existing_release and not record.release_tx_hash:
+
+                def _fill_release_hash() -> None:
+                    with session_scope() as session:
+                        row = session.get(Escrow, job_id)
+                        if row is not None:
+                            row.release_tx_hash = existing_release
+                            session.add(row)
+                            session.commit()
+
+                await run_in_threadpool(_fill_release_hash)
+            release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
+            # v11: re-offer the custody-residue sweep for an already-released
+            # job — the retry surface for residue a pass or earlier attempt
+            # left behind. Deduped on-chain; residue derived from sealed
+            # chain legs, provable only. The sweep is itself async and reads the
+            # expunged row's frozen attrs; it gets a fresh session for its
+            # sealed-leg queries.
+            with session_scope() as session:
                 await _retry_sweep_released_escrow(job_id, record, session)
-                # #687: re-offer the RECEIPT_CLAIM for an already-released job —
-                # the retry surface for a claim the earlier release call could
-                # not land. Deduped on-chain; never fails this route.
-                claim_tx_hash = await _submit_receipt_claim_tx(
-                    request.get("receipt"), job_id, getattr(record, "contract_id", None) or "", record.provider
-                )
-                return {
-                    "success": True,
-                    "contract_id": getattr(record, "contract_id", None) or "",
-                    "job_id": job_id,
-                    "message": "Escrow already released",
-                    "receipt_claim_tx_hash": claim_tx_hash,
-                    "released_amount": _settled_leg_ait(record.released_amount, record.released_at, record.amount),
-                    "refunded_amount": _settled_leg_ait(record.refunded_amount, None, record.amount),
-                    "refund_tx_hash": record.refund_tx_hash,
-                    "tx_hash": release_tx_hash,
-                    "released_at": record.released_at.isoformat(),
-                }
-            # ``settlement_failed`` is a demoted dead mark, not a settled row:
-            # it reaches the gate below and re-drives like a locked row (the
-            # v2-era guard still applies to its lock).
-            if record is not None and record.status not in (None, "locked", "settlement_failed"):
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Escrow for job_id={job_id} is not locked (status={record.status})",
-                )
+            # #687: re-offer the RECEIPT_CLAIM for an already-released job —
+            # the retry surface for a claim the earlier release call could
+            # not land. Deduped on-chain; never fails this route.
+            claim_tx_hash = await _submit_receipt_claim_tx(
+                request.get("receipt"), job_id, getattr(record, "contract_id", None) or "", record.provider
+            )
+            return {
+                "success": True,
+                "contract_id": getattr(record, "contract_id", None) or "",
+                "job_id": job_id,
+                "message": "Escrow already released",
+                "receipt_claim_tx_hash": claim_tx_hash,
+                "released_amount": _settled_leg_ait(record.released_amount, record.released_at, record.amount),
+                "refunded_amount": _settled_leg_ait(record.refunded_amount, None, record.amount),
+                "refund_tx_hash": record.refund_tx_hash,
+                "tx_hash": release_tx_hash,
+                "released_at": record.released_at.isoformat(),
+            }
+        # ``settlement_failed`` is a demoted dead mark, not a settled row:
+        # it reaches the gate below and re-drives like a locked row (the
+        # v2-era guard still applies to its lock).
+        if record is not None and record.status not in (None, "locked", "settlement_failed"):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Escrow for job_id={job_id} is not locked (status={record.status})",
+            )
     except HTTPException:
         raise
     except Exception as e:
