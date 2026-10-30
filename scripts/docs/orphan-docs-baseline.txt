@@ -2,3 +2,8 @@
 # Format: repo-relative POSIX path, one per line. Empty by default —
 # add an entry only with a comment explaining why the file must stay
 # unlinked.
+# scripts/stress/ internal ops docs — referenced by shell scripts, not
+# the markdown doc tree (README links them relatively for humans).
+scripts/stress/README.md
+scripts/stress/KNOWN.md
+scripts/stress/MATURITY.md
