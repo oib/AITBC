@@ -63,6 +63,7 @@ from datetime import UTC, datetime
 from typing import NamedTuple
 
 from sqlmodel import select
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.network import SharedHttpClient
 from aitbc.utils import units_to_ait
@@ -608,30 +609,38 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
             return stats
         now = now or datetime.now(UTC)
         global _fee_pass_watermark
-        with session_scope() as session:
-            candidates, sel, _fee_pass_watermark = fee_sweep_candidates(
-                session,
-                now,
-                max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
-                grace_seconds=settings.escrow_fee_sweep_pass_grace_seconds,
-                min_height=settings.escrow_fee_sweep_pass_min_height,
-                after_job_id=_fee_pass_watermark,
-            )
-            if _pass_submit_failures:
-                # F2: drop backoff entries for jobs absent from the eligible
-                # set — without this the map grows by one stale entry per
-                # departed job forever. Eligible jobs inside the scan window
-                # keep their backoff.
-                eligible_ids = set(
-                    _floor_eligible_job_ids(
-                        session,
-                        settings.escrow_fee_sweep_pass_min_height,
-                        "",
-                        _FAILURE_PRUNE_SCAN_LIMIT,
-                    )
+        candidates: list[_FeeSweepCandidate] = []
+        sel: dict[str, int] = {}
+
+        def _load_fee_candidates() -> None:
+            nonlocal candidates, sel
+            global _fee_pass_watermark
+            with session_scope() as session:
+                candidates, sel, _fee_pass_watermark = fee_sweep_candidates(
+                    session,
+                    now,
+                    max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
+                    grace_seconds=settings.escrow_fee_sweep_pass_grace_seconds,
+                    min_height=settings.escrow_fee_sweep_pass_min_height,
+                    after_job_id=_fee_pass_watermark,
                 )
-                for stale in [j for j in _pass_submit_failures if j not in eligible_ids]:
-                    del _pass_submit_failures[stale]
+                if _pass_submit_failures:
+                    # F2: drop backoff entries for jobs absent from the eligible
+                    # set — without this the map grows by one stale entry per
+                    # departed job forever. Eligible jobs inside the scan window
+                    # keep their backoff.
+                    eligible_ids = set(
+                        _floor_eligible_job_ids(
+                            session,
+                            settings.escrow_fee_sweep_pass_min_height,
+                            "",
+                            _FAILURE_PRUNE_SCAN_LIMIT,
+                        )
+                    )
+                    for stale in [j for j in _pass_submit_failures if j not in eligible_ids]:
+                        del _pass_submit_failures[stale]
+
+        await run_in_threadpool(_load_fee_candidates)
         for key in (
             "skipped_floor",
             "no_row",
@@ -923,20 +932,28 @@ async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:
             return stats
         now = now or datetime.now(UTC)
         global _change_pass_watermark
-        with session_scope() as session:
-            candidates, sel, _change_pass_watermark = change_owed_candidates(
-                session,
-                now,
-                max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
-                min_height=settings.escrow_fee_sweep_pass_min_height,
-                after_job_id=_change_pass_watermark,
-            )
-            if _change_pass_failures:
-                # Same prune rule as the fee pass: drop backoff entries for
-                # jobs absent from the eligible (released, unmarked) set.
-                eligible_ids = set(_released_unmarked_job_ids(session, "", _FAILURE_PRUNE_SCAN_LIMIT))
-                for stale in [j for j in _change_pass_failures if j not in eligible_ids]:
-                    del _change_pass_failures[stale]
+        candidates: list[_ChangeCandidate] = []
+        sel: dict[str, int] = {}
+
+        def _load_change_candidates() -> None:
+            nonlocal candidates, sel
+            global _change_pass_watermark
+            with session_scope() as session:
+                candidates, sel, _change_pass_watermark = change_owed_candidates(
+                    session,
+                    now,
+                    max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
+                    min_height=settings.escrow_fee_sweep_pass_min_height,
+                    after_job_id=_change_pass_watermark,
+                )
+                if _change_pass_failures:
+                    # Same prune rule as the fee pass: drop backoff entries for
+                    # jobs absent from the eligible (released, unmarked) set.
+                    eligible_ids = set(_released_unmarked_job_ids(session, "", _FAILURE_PRUNE_SCAN_LIMIT))
+                    for stale in [j for j in _change_pass_failures if j not in eligible_ids]:
+                        del _change_pass_failures[stale]
+
+        await run_in_threadpool(_load_change_candidates)
         for key, n in sel.items():
             stats[key] += n
         if not candidates:
@@ -1039,8 +1056,14 @@ def _count_change_pass(stats: dict[str, int]) -> None:
 
 async def _sweep_once() -> dict[str, int]:
     proposer_pending = await _proposer_pending_hashes()
-    with session_scope() as session:
-        stats = sweep_once(session, datetime.now(UTC), proposer_pending)
+    stats: dict[str, int] = {}
+
+    def _run_mark_sweep() -> None:
+        nonlocal stats
+        with session_scope() as session:
+            stats = sweep_once(session, datetime.now(UTC), proposer_pending)
+
+    await run_in_threadpool(_run_mark_sweep)
     if stats["demoted"] or stats["remarked"]:
         _logger.info(
             "settlement-mark sweep: rows=%d verified=%d demoted=%d re-marked=%d",

@@ -15,6 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
+from starlette.concurrency import run_in_threadpool
 
 from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
@@ -1295,8 +1296,12 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     # paths — this was the one submission path without it.
     existing_lock_hash = await _find_existing_lock(job_id)
     if existing_lock_hash:
-        with session_scope() as session:
-            existing_row = session.get(Escrow, job_id)
+
+        def _read_lock_row() -> Escrow | None:
+            with session_scope() as session:
+                return session.get(Escrow, job_id)
+
+        existing_row = await run_in_threadpool(_read_lock_row)
         if existing_row and (
             _to_canonical(existing_row.buyer) != _to_canonical(buyer)
             or _to_canonical(existing_row.provider) != _to_canonical(provider)
@@ -1346,11 +1351,15 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             job_id,
         )
     try:
-        with session_scope() as session:
-            stale_row = session.get(Escrow, job_id)
-            if stale_row is not None and stale_row.released_at is None and stale_row.refunded_at is None:
-                session.delete(stale_row)
-                session.commit()
+
+        def _drop_stale_row() -> None:
+            with session_scope() as session:
+                stale_row = session.get(Escrow, job_id)
+                if stale_row is not None and stale_row.released_at is None and stale_row.refunded_at is None:
+                    session.delete(stale_row)
+                    session.commit()
+
+        await run_in_threadpool(_drop_stale_row)
     except Exception as e:
         _logger.warning("Failed to drop stale escrow record for job_id=%s: %s", job_id, e)
 
@@ -1575,53 +1584,57 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     # next create (or release/refund) rebuilds it from the on-chain lock via
     # ``_reconstruct_escrow_from_chain`` — the funds are never orphaned.
     try:
-        with session_scope() as session:
-            existing = session.get(Escrow, job_id)
-            if existing:
-                existing.status = "locked"
-                existing.lock_tx_hash = lock_tx_hash
-                existing.buyer = _to_canonical(buyer)
-                existing.provider = _to_canonical(provider)
-                existing.amount = amount_units
-                if energy_kwargs:
-                    existing.protected = True
-                    existing.energy_quote_snapshot = energy_kwargs.get("energy_quote_snapshot")
-                    existing.energy_quote_id = energy_kwargs.get("energy_quote_id")
-                    existing.energy_quote_digest = energy_kwargs.get("energy_quote_digest")
-                    existing.energy_settlement_route = energy_kwargs.get("energy_settlement_route")
-                    existing.energy_settlement_asset = energy_kwargs.get("energy_settlement_asset")
-                    existing.energy_settlement_unit_scale = energy_kwargs.get("energy_settlement_unit_scale")
-                    existing.energy_net_floor_units = energy_kwargs.get("energy_net_floor_units")
-                    existing.energy_provider_credit_units = energy_kwargs.get("energy_provider_credit_units")
-                    existing.energy_fee_basis_points = energy_kwargs.get("energy_fee_basis_points")
-            else:
-                escrow_record = Escrow(
-                    job_id=job_id,
-                    chain_id=_chain_id(),
-                    buyer=_to_canonical(buyer),
-                    provider=_to_canonical(provider),
-                    amount=amount_units,
-                    status="locked",
-                    lock_tx_hash=lock_tx_hash,
-                    **(
-                        {
-                            "protected": True,
-                            "energy_quote_snapshot": energy_kwargs.get("energy_quote_snapshot"),
-                            "energy_quote_id": energy_kwargs.get("energy_quote_id"),
-                            "energy_quote_digest": energy_kwargs.get("energy_quote_digest"),
-                            "energy_settlement_route": energy_kwargs.get("energy_settlement_route"),
-                            "energy_settlement_asset": energy_kwargs.get("energy_settlement_asset"),
-                            "energy_settlement_unit_scale": energy_kwargs.get("energy_settlement_unit_scale"),
-                            "energy_net_floor_units": energy_kwargs.get("energy_net_floor_units"),
-                            "energy_provider_credit_units": energy_kwargs.get("energy_provider_credit_units"),
-                            "energy_fee_basis_points": energy_kwargs.get("energy_fee_basis_points"),
-                        }
-                        if energy_kwargs
-                        else {}
-                    ),
-                )
-                session.add(escrow_record)
-            session.commit()
+
+        def _persist_escrow_row() -> None:
+            with session_scope() as session:
+                existing = session.get(Escrow, job_id)
+                if existing:
+                    existing.status = "locked"
+                    existing.lock_tx_hash = lock_tx_hash
+                    existing.buyer = _to_canonical(buyer)
+                    existing.provider = _to_canonical(provider)
+                    existing.amount = amount_units
+                    if energy_kwargs:
+                        existing.protected = True
+                        existing.energy_quote_snapshot = energy_kwargs.get("energy_quote_snapshot")
+                        existing.energy_quote_id = energy_kwargs.get("energy_quote_id")
+                        existing.energy_quote_digest = energy_kwargs.get("energy_quote_digest")
+                        existing.energy_settlement_route = energy_kwargs.get("energy_settlement_route")
+                        existing.energy_settlement_asset = energy_kwargs.get("energy_settlement_asset")
+                        existing.energy_settlement_unit_scale = energy_kwargs.get("energy_settlement_unit_scale")
+                        existing.energy_net_floor_units = energy_kwargs.get("energy_net_floor_units")
+                        existing.energy_provider_credit_units = energy_kwargs.get("energy_provider_credit_units")
+                        existing.energy_fee_basis_points = energy_kwargs.get("energy_fee_basis_points")
+                else:
+                    escrow_record = Escrow(
+                        job_id=job_id,
+                        chain_id=_chain_id(),
+                        buyer=_to_canonical(buyer),
+                        provider=_to_canonical(provider),
+                        amount=amount_units,
+                        status="locked",
+                        lock_tx_hash=lock_tx_hash,
+                        **(
+                            {
+                                "protected": True,
+                                "energy_quote_snapshot": energy_kwargs.get("energy_quote_snapshot"),
+                                "energy_quote_id": energy_kwargs.get("energy_quote_id"),
+                                "energy_quote_digest": energy_kwargs.get("energy_quote_digest"),
+                                "energy_settlement_route": energy_kwargs.get("energy_settlement_route"),
+                                "energy_settlement_asset": energy_kwargs.get("energy_settlement_asset"),
+                                "energy_settlement_unit_scale": energy_kwargs.get("energy_settlement_unit_scale"),
+                                "energy_net_floor_units": energy_kwargs.get("energy_net_floor_units"),
+                                "energy_provider_credit_units": energy_kwargs.get("energy_provider_credit_units"),
+                                "energy_fee_basis_points": energy_kwargs.get("energy_fee_basis_points"),
+                            }
+                            if energy_kwargs
+                            else {}
+                        ),
+                    )
+                    session.add(escrow_record)
+                session.commit()
+
+        await run_in_threadpool(_persist_escrow_row)
     except Exception as e:
         _logger.error("Failed to persist escrow to DB after lock: %s", e)
         raise HTTPException(status_code=500, detail="Failed to persist escrow") from e
@@ -1944,43 +1957,48 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         # derive it from sealed chain legs, never from this request's legs.
         released_at = datetime.now(UTC)
         try:
-            with session_scope() as session:
-                record = session.get(Escrow, job_id)
-                if record:
-                    # A settlement_failed row carries the dead hash from the mark
-                    # the sweeper demoted; this re-drive's hash must replace it or
-                    # the row would keep pointing at the corpse. Other statuses
-                    # keep fill-if-empty: a settled row's original hash is fact.
-                    was_failed = record.status == "settlement_failed"
-                    # A reconciliation retry re-releases an escrow that already settled,
-                    # and _submit_payment_tx hands back the transaction that settled it.
-                    # Keep the original timestamp: it is when the provider was actually
-                    # paid. Overwriting it would date the payment to the retry instead.
-                    if record.released_at is not None:
-                        released_at = record.released_at
-                    else:
-                        record.released_at = released_at
-                    record.status = "released"
-                    record.released_amount = ait_to_units(released_amount)
-                    # refunded_amount/refund_tx_hash stay untouched: the change
-                    # pass marks them only from a sealed ESCROW_REFUND leg.
-                    if tx_hash:
-                        # A7: record the billed gross this submission consumed,
-                        # keyed by the leg's own hash — the passes prove the
-                        # sealed release by recomputing the route's fee rule
-                        # from it. A dropped leg's entry orphans (its hash never
-                        # seals); a same-hash dedup retry does not re-append.
-                        # getattr: the row-update block must never fail on a
-                        # missing attr — released_at is the load-bearing write.
-                        entries = list(getattr(record, "billed_legs", None) or [])
-                        if not any(e.get("tx_hash") == tx_hash for e in entries if isinstance(e, dict)):
-                            entries.append({"tx_hash": tx_hash, "billed": billed_units})
-                            record.billed_legs = entries
-                    if tx_hash and (not record.release_tx_hash or was_failed):
-                        record.release_tx_hash = tx_hash
-                    if job_tx_hash:
-                        record.job_tx_hash = job_tx_hash
-                    session.commit()
+
+            def _write_released_row() -> None:
+                nonlocal released_at, record
+                with session_scope() as session:
+                    record = session.get(Escrow, job_id)
+                    if record:
+                        # A settlement_failed row carries the dead hash from the mark
+                        # the sweeper demoted; this re-drive's hash must replace it or
+                        # the row would keep pointing at the corpse. Other statuses
+                        # keep fill-if-empty: a settled row's original hash is fact.
+                        was_failed = record.status == "settlement_failed"
+                        # A reconciliation retry re-releases an escrow that already settled,
+                        # and _submit_payment_tx hands back the transaction that settled it.
+                        # Keep the original timestamp: it is when the provider was actually
+                        # paid. Overwriting it would date the payment to the retry instead.
+                        if record.released_at is not None:
+                            released_at = record.released_at
+                        else:
+                            record.released_at = released_at
+                        record.status = "released"
+                        record.released_amount = ait_to_units(released_amount)
+                        # refunded_amount/refund_tx_hash stay untouched: the change
+                        # pass marks them only from a sealed ESCROW_REFUND leg.
+                        if tx_hash:
+                            # A7: record the billed gross this submission consumed,
+                            # keyed by the leg's own hash — the passes prove the
+                            # sealed release by recomputing the route's fee rule
+                            # from it. A dropped leg's entry orphans (its hash never
+                            # seals); a same-hash dedup retry does not re-append.
+                            # getattr: the row-update block must never fail on a
+                            # missing attr — released_at is the load-bearing write.
+                            entries = list(getattr(record, "billed_legs", None) or [])
+                            if not any(e.get("tx_hash") == tx_hash for e in entries if isinstance(e, dict)):
+                                entries.append({"tx_hash": tx_hash, "billed": billed_units})
+                                record.billed_legs = entries
+                        if tx_hash and (not record.release_tx_hash or was_failed):
+                            record.release_tx_hash = tx_hash
+                        if job_tx_hash:
+                            record.job_tx_hash = job_tx_hash
+                        session.commit()
+
+            await run_in_threadpool(_write_released_row)
         except Exception as e:
             _logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
         reinvest_stake_id = None
@@ -2037,16 +2055,22 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     # same job_id has an ESCROW_REFUND transaction on-chain.
     record_refunded = False
     record_released = False
+    record: Escrow | None = None
     locked_units: int | None = None
     try:
-        with session_scope() as session:
-            record = session.get(Escrow, job_id)
-            if record:
-                locked_units = record.amount
-                if record.refunded_at is not None:
-                    record_refunded = True
-                if record.released_at is not None:
-                    record_released = True
+
+        def _read_refund_state() -> None:
+            nonlocal locked_units, record_refunded, record_released, record
+            with session_scope() as session:
+                record = session.get(Escrow, job_id)
+                if record:
+                    locked_units = record.amount
+                    if record.refunded_at is not None:
+                        record_refunded = True
+                    if record.released_at is not None:
+                        record_released = True
+
+        await run_in_threadpool(_read_refund_state)
     except Exception as e:
         _logger.warning("Failed to check escrow refund state: %s", e)
     if record_refunded:
@@ -2154,16 +2178,21 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
             }
         refunded_at = datetime.now(UTC)
         try:
-            with session_scope() as session:
-                record = session.get(Escrow, job_id)
-                if record:
-                    record.status = "refunded"
-                    record.refunded_at = refunded_at
-                    record.refund_tx_hash = tx_hash
-                    # Record what moved, not just that something did; a NULL here
-                    # makes every reader fall back to reporting the whole lock.
-                    record.refunded_amount = ait_to_units(refund_amount)
-                    session.commit()
+
+            def _write_refunded_row() -> None:
+                nonlocal record
+                with session_scope() as session:
+                    record = session.get(Escrow, job_id)
+                    if record:
+                        record.status = "refunded"
+                        record.refunded_at = refunded_at
+                        record.refund_tx_hash = tx_hash
+                        # Record what moved, not just that something did; a NULL here
+                        # makes every reader fall back to reporting the whole lock.
+                        record.refunded_amount = ait_to_units(refund_amount)
+                        session.commit()
+
+            await run_in_threadpool(_write_refunded_row)
         except Exception as e:
             _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
     _logger.info("Escrow refunded: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
@@ -2182,12 +2211,17 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
     mgr = get_escrow_manager()
     db_record: Escrow | None = None
     try:
-        with session_scope() as session:
-            db_record = session.get(Escrow, job_id)
-            if db_record is not None:
-                # A row rebuilt on a node that did not serve the release knows the
-                # escrow settled but not what it moved; take that from the chain.
-                backfill_settlement_legs(session, db_record)
+
+        def _read_escrow_row() -> None:
+            nonlocal db_record
+            with session_scope() as session:
+                db_record = session.get(Escrow, job_id)
+                if db_record is not None:
+                    # A row rebuilt on a node that did not serve the release knows the
+                    # escrow settled but not what it moved; take that from the chain.
+                    backfill_settlement_legs(session, db_record)
+
+        await run_in_threadpool(_read_escrow_row)
     except Exception as e:
         _logger.warning("Failed to query Escrow DB: %s", e)
     derived_state = ""
