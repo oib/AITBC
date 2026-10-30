@@ -24,7 +24,7 @@ _health_checker = create_basic_health_check("agent-coordinator")
 @router.head("/health", include_in_schema=False)
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
-async def health_check(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+def health_check(request: Request, principal: OptionalAgent) -> dict[str, Any]:
     """Health check endpoint.
 
     Anonymous callers get ``{status, service, timestamp}`` only — version,
@@ -46,7 +46,7 @@ async def health_check(request: Request, principal: OptionalAgent) -> dict[str, 
 # Root endpoint
 @router.get("/")
 @rate_limit(rate=1000, per=60)
-async def root(request: Request) -> dict[str, Any]:
+def root(request: Request) -> dict[str, Any]:
     """Root endpoint with service information"""
     return {
         "service": "AITBC Agent Coordinator",

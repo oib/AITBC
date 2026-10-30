@@ -178,7 +178,7 @@ class LoadBalancer:
                 if not eligible_agents:
                     logger.warning("No eligible agents found for task assignment")
                     return None
-                selected_agent = await self._select_agent(eligible_agents, task_data)
+                selected_agent = self._select_agent(eligible_agents, task_data)
                 if not selected_agent:
                     logger.warning("No agent selected for task assignment")
                     return None
@@ -197,7 +197,7 @@ class LoadBalancer:
                 self.failed_assignments += 1
                 return None
 
-    async def complete_task(
+    def complete_task(
         self, task_id: str, success: bool, response_time: float | None = None, error_message: str | None = None
     ) -> None:
         """Mark task as completed"""
@@ -286,7 +286,7 @@ class LoadBalancer:
         metrics = self.agent_metrics.get(agent_id, LoadMetrics())
         return metrics.active_connections + metrics.pending_tasks
 
-    async def _select_agent(self, eligible_agents: list[str], task_data: dict[str, Any]) -> str | None:
+    def _select_agent(self, eligible_agents: list[str], task_data: dict[str, Any]) -> str | None:
         """Select best agent based on current strategy"""
         if not eligible_agents:
             return None
@@ -589,7 +589,7 @@ class TaskDistributor:
     async def _send_task_to_agent(self, agent_id: str, task_message: AgentMessage) -> bool:
         """Send task to agent via HTTP"""
         try:
-            agent_info = await self.load_balancer.registry.get_agent_by_id(agent_id)
+            agent_info = self.load_balancer.registry.get_agent_by_id(agent_id)
             if not agent_info:
                 logger.error("Agent %s not found in registry", agent_id)
                 return False
@@ -628,9 +628,7 @@ class TaskDistributor:
         processing_time = 1.0 + hash(task_info["task_data"].get("task_id", "")) % 5
         await asyncio.sleep(processing_time)
         success = hash(agent_id) % 10 > 1
-        await self.load_balancer.complete_task(
-            task_info["task_data"].get("task_id", str(uuid.uuid4())), success, processing_time
-        )
+        self.load_balancer.complete_task(task_info["task_data"].get("task_id", str(uuid.uuid4())), success, processing_time)
         if success:
             self.distribution_stats["tasks_completed"] += 1
         else:
@@ -648,7 +646,7 @@ class TaskDistributor:
         """Get sizes of all priority queues"""
         return {priority.value: queue.qsize() for priority, queue in self.priority_queues.items()}
 
-    async def clear_queue(self, priority: TaskPriority) -> int:
+    def clear_queue(self, priority: TaskPriority) -> int:
         """Clear all tasks from a priority queue"""
         queue = self.priority_queues[priority]
         cleared_count = 0

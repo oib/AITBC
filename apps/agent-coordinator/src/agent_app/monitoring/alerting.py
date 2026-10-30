@@ -235,7 +235,7 @@ class NotificationManager:
         """Send notification through specified channel"""
         try:
             if channel == NotificationChannel.EMAIL:
-                await self._send_email(alert, message)
+                self._send_email(alert, message)
             elif channel == NotificationChannel.SLACK:
                 await self._send_slack(alert, message)
             elif channel == NotificationChannel.WEBHOOK:
@@ -246,7 +246,7 @@ class NotificationManager:
         except Exception as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
-    async def _send_email(self, alert: Alert, message: str) -> None:
+    def _send_email(self, alert: Alert, message: str) -> None:
         """Send email notification"""
         if not EMAIL_AVAILABLE:
             logger.warning("Email functionality not available")

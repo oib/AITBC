@@ -99,7 +99,7 @@ async def _bound_identity(agent_id: str) -> str | None:
     if registry is None:
         return None
     try:
-        agent = await registry.get_agent_by_id(agent_id)
+        agent = registry.get_agent_by_id(agent_id)
     except Exception as e:
         logger.warning("Registry lookup for %s failed: %s", agent_id, e)
         return None

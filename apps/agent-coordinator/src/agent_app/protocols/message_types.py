@@ -285,12 +285,12 @@ class MessageRouter:
                 return None
             for rule in self.routing_rules:
                 if rule.enabled and rule.matches(message):
-                    route = await self._apply_routing_rule(rule, message)
+                    route = self._apply_routing_rule(rule, message)
                     if route:
                         self.active_routes[message.id] = route
                         self.routing_stats["messages_processed"] += 1
                         return route
-            default_route = await self._default_routing(message)
+            default_route = self._default_routing(message)
             if default_route:
                 self.active_routes[message.id] = default_route
                 self.routing_stats["messages_processed"] += 1
@@ -307,19 +307,19 @@ class MessageRouter:
             routing_time = (datetime.now(UTC) - start_time).total_seconds()
             self.routing_stats["routing_time_total"] += routing_time
 
-    async def _apply_routing_rule(self, rule: RoutingRule, message: AgentMessage) -> str | None:
+    def _apply_routing_rule(self, rule: RoutingRule, message: AgentMessage) -> str | None:
         """Apply a specific routing rule"""
         if rule.action == "forward":
             return rule.target
         elif rule.action == "transform":
-            return await self._transform_message(message, rule)
+            return self._transform_message(message, rule)
         elif rule.action == "filter":
-            return await self._filter_message(message, rule)
+            return self._filter_message(message, rule)
         elif rule.action == "route":
-            return await self._custom_routing(message, rule)
+            return self._custom_routing(message, rule)
         return None
 
-    async def _transform_message(self, message: AgentMessage, rule: RoutingRule) -> str | None:
+    def _transform_message(self, message: AgentMessage, rule: RoutingRule) -> str | None:
         """Transform message based on rule"""
         transformed_message = AgentMessage(
             sender_id=message.sender_id,
@@ -328,21 +328,21 @@ class MessageRouter:
             priority=message.priority,
             payload={**message.payload, **rule.condition.get("transform", {})},
         )
-        return await self._default_routing(transformed_message)
+        return self._default_routing(transformed_message)
 
-    async def _filter_message(self, message: AgentMessage, rule: RoutingRule) -> str | None:
+    def _filter_message(self, message: AgentMessage, rule: RoutingRule) -> str | None:
         """Filter message based on rule"""
         filter_condition = rule.condition.get("filter", {})
         for key, value in filter_condition.items():
             if message.payload.get(key) != value:
                 return None
-        return await self._default_routing(message)
+        return self._default_routing(message)
 
-    async def _custom_routing(self, message: AgentMessage, rule: RoutingRule) -> str | None:
+    def _custom_routing(self, message: AgentMessage, rule: RoutingRule) -> str | None:
         """Custom routing logic"""
         return rule.target
 
-    async def _default_routing(self, message: AgentMessage) -> str | None:
+    def _default_routing(self, message: AgentMessage) -> str | None:
         """Default message routing"""
         if message.receiver_id:
             return message.receiver_id
@@ -356,7 +356,7 @@ class MessageRouter:
         age = (datetime.now(UTC) - message.timestamp).total_seconds()
         return age > message.ttl
 
-    async def get_routing_stats(self) -> dict[str, Any]:
+    def get_routing_stats(self) -> dict[str, Any]:
         """Get routing statistics"""
         total_messages = self.routing_stats["messages_processed"]
         avg_routing_time = self.routing_stats["routing_time_total"] / total_messages if total_messages > 0 else 0
@@ -461,7 +461,7 @@ class MessageQueue:
             logger.error("Queue full, cannot enqueue message %s", message.id)
             return False
 
-    async def dequeue(self) -> AgentMessage | None:
+    def dequeue(self) -> AgentMessage | None:
         """Dequeue message with priority order"""
         for priority in [Priority.CRITICAL, Priority.HIGH, Priority.NORMAL, Priority.LOW]:
             queue = self.queues[priority]
@@ -473,7 +473,7 @@ class MessageQueue:
                 continue
         return None
 
-    async def confirm_delivery(self, message_id: str) -> None:
+    def confirm_delivery(self, message_id: str) -> None:
         """Confirm message delivery"""
         self.delivery_confirmations[message_id] = True
         if message_id in self.message_store:
@@ -532,7 +532,7 @@ class MessageProcessor:
         """Start message processing loop"""
         while True:
             try:
-                message = await self.message_queue.dequeue()
+                message = self.message_queue.dequeue()
                 if message:
                     await self.process_message(message)
                 else:
