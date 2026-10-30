@@ -78,6 +78,9 @@ cli() {  # cli <args...> — aitbc with output json + rpc-url pinned
   "$AITBC_BIN" --output=json "$@" --rpc-url "$RPC_URL"
 }
 height() { rpc_get /rpc/status | python3 -c 'import json,sys; print(json.load(sys.stdin).get("height",0))'; }
+stress_height() {  # stress_height <host> — remote height via fleet URL
+  curl -sf --max-time 15 "$(stress_rpc_url "$1")/rpc/status" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("height",0))' 2>/dev/null
+}
 
 # ---------------------------------------------------------------- seal wait
 wait_seal() {  # wait_seal <tx_hash> [max_blocks] — poll until block_height
@@ -85,7 +88,7 @@ wait_seal() {  # wait_seal <tx_hash> [max_blocks] — poll until block_height
   local deadline=$(( h0 + max )) i
   for i in $(seq 1 $(( max * 30 ))); do
     local bh; bh=$(rpc_get "/rpc/transaction/$tx" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("block_height") or "")' 2>/dev/null || true)
-    [ -n "$bh" ] && { echo "$bh"; return 0; }
+    [ -n "$bh" ] && { jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"sealed\",\"tx\":\"$tx\",\"seal_blocks\":$(( bh - h0 )),\"at_height\":$bh}" 2>/dev/null || true; echo "$bh"; return 0; }
     [ "$(height)" -gt "$deadline" ] && { fail seal "tx $tx not sealed by height $deadline" "$tx"; }
     sleep 10
   done
