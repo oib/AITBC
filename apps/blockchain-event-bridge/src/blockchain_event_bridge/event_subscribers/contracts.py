@@ -53,7 +53,7 @@ class ContractEventSubscriber:
         """Set the bridge instance for event handling."""
         self._bridge = bridge
 
-    async def _get_client(self) -> AsyncAITBCHTTPClient:
+    def _get_client(self) -> AsyncAITBCHTTPClient:
         """Get or create HTTP client."""
         if self._client is None:
             self._client = AsyncAITBCHTTPClient(base_url=self.settings.blockchain_rpc_url, timeout=30)
@@ -111,7 +111,7 @@ class ContractEventSubscriber:
         last finalized height we processed.
         """
         try:
-            client = await self._get_client()
+            client = self._get_client()
             head_data = await client.get("/head")
             current_height = head_data.get("height", 0)
             safe_height = max(0, current_height - _FINALITY_BLOCKS)
@@ -151,7 +151,7 @@ class ContractEventSubscriber:
         updating the checkpoint, keeping the last N blocks uncommitted so a chain
         reorg in the unprocessed window does not leave us with orphan events.
         """
-        client = await self._get_client()
+        client = self._get_client()
         for contract_name, contract_address in self.contract_addresses.items():
             if not contract_address:
                 continue
@@ -227,7 +227,7 @@ class ContractEventSubscriber:
         if self._bridge:
             await self._bridge.handle_bridge_event(log)
 
-    async def stop(self) -> None:
+    def stop(self) -> None:
         """Stop the contract event subscriber."""
         self._running = False
         self._client = None
