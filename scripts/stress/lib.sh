@@ -79,7 +79,7 @@ wait_seal() {  # wait_seal <tx_hash> [max_blocks] — poll until block_height
   local tx="$1" max="${2:-4}" h0; h0=$(height) || fail wait_seal "no height"
   local deadline=$(( h0 + max )) i
   for i in $(seq 1 $(( max * 30 ))); do
-    local bh; bh=$(rpc_get "/rpc/tx/$tx" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("block_height") or "")' 2>/dev/null || true)
+    local bh; bh=$(rpc_get "/rpc/transaction/$tx" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("block_height") or "")' 2>/dev/null || true)
     [ -n "$bh" ] && { echo "$bh"; return 0; }
     [ "$(height)" -gt "$deadline" ] && { fail seal "tx $tx not sealed by height $deadline" "$tx"; }
     sleep 10
