@@ -12,7 +12,7 @@ out=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" liquidity-stake 
   --amount "$dec" 2>&1) && rc=0 || rc=$?
 if [ $rc -ne 0 ]; then
   case "$out" in
-    *pool*|*Pool*|*stake*|*required*|*not found*)
+    *pool*|*Pool*|*stake*|*required*|*"not found"*)
       jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"liquidity gate: ${out:0:160}\"}"
       echo "expected_refusal: $out"; exit 0;;
   esac
