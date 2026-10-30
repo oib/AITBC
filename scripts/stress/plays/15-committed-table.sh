@@ -9,7 +9,9 @@ serial_check || exit 75
 HOSTS="${STRESS_HOSTS:-hub hub1 node0 node1 node2}"
 declare -A aux head
 for h in $HOSTS; do
-  read -r hh aa <<<"$(curl -sf --max-time 10 "$(stress_rpc_url "$h")/rpc/status" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("height",-1), d.get("last_block_hash","?"))' 2>/dev/null || echo "-1 ?")"
+  url="$(stress_rpc_url "$h")"
+  [ "$(hostname -s)" = "$h" ] || [ "$(hostname)" = "$h" ] && url="http://127.0.0.1:8202"
+  read -r hh aa <<<"$(curl -sf --max-time 10 "$url/rpc/status" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("height",-1), d.get("last_block_hash","?"))' 2>/dev/null || echo "-1 ?")"
   head[$h]=$hh; aux[$h]=$aa
 done
 ref="${aux[hub]:-?}"; bad=""
