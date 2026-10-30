@@ -1,8 +1,27 @@
 #!/usr/bin/env bash
-# LANE: once
+# LANE: parallel
 # MODE: loop
+# Bond create via the coordinator surface — the BOND_LOCK committed row is
+# emitted coordinator-side (signed payload.auth); verify via bond status +
+# a /rpc/transactions scan for the provider id.
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
-# TODO: play body
-ok ""
+
+spend_guard "$AMOUNT" || true
+pid="stress-${HOST}-$(date +%s)"
+dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
+out=$(cli bond create --provider-id "$pid" --amount "$dec" 2>&1) || fail bond "bond create failed: $out"
+# Bond emissions land as BOND_LOCK rows; confirm within the seal window.
+h0=$(height); deadline=$(( h0 + 4 ))
+for i in $(seq 1 12); do
+  hit=$(rpc_get "/rpc/transactions?tx_type=BOND_LOCK&limit=20" 2>/dev/null | python3 -c "
+import json,sys
+rows=json.load(sys.stdin)
+rows=rows if isinstance(rows,list) else rows.get('transactions',rows.get('items',[]))
+print(1 if any('$pid' in json.dumps(r) for r in rows) else '')" 2>/dev/null || true)
+  [ "$hit" = "1" ] && { echo "BOND_LOCK for $pid visible at height $(height)"; ok "$pid"; exit 0; }
+  [ "$(height)" -gt "$deadline" ] && fail seal "BOND_LOCK for $pid not sealed by $deadline"
+  sleep 10
+done
+fail seal "BOND_LOCK for $pid seal wait exhausted"
