@@ -79,7 +79,7 @@ async def _submit_gpu_tx(tx: dict[str, Any], tx_type: str) -> str:
 
 
 @router.get("/gpus", summary="List all registered GPUs", tags=["gpu_resources"])
-async def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[str, Any]:
+def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[str, Any]:
     """List all GPUs registered on blockchain."""
     if chain_id is None:
         chain_id = resolve_chain_id()
@@ -127,7 +127,7 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
 
 
 @router.get("/gpu/allocations/{gpu_id}", summary="Query GPU allocations", tags=["gpu_resources"])
-async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU allocations from blockchain."""
     if chain_id is None:
         chain_id = resolve_chain_id()
@@ -216,7 +216,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
 
 
 @router.get("/gpu/info/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"])
-async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU registration from blockchain."""
     # Use env var or provided chain_id
     if chain_id is None:
@@ -336,7 +336,7 @@ class EdgeNodeRegistrationRequest(BaseModel):
     tags=["gpu_resources"],
     dependencies=[Depends(verify_rpc_api_key)],
 )
-async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
+def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Register an edge node on the blockchain (v0.6.6).
 
     EDGE-REG-CONSENSUS-1/#361: refused while ``edge_node_registration``
@@ -428,7 +428,7 @@ async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str
 
 
 @router.get("/edge/info/{node_id}", summary="Query edge node registration", tags=["gpu_resources"])
-async def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, Any]:
+def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query edge node registration from blockchain (v0.6.6)."""
     if chain_id is None:
         chain_id = resolve_chain_id()
@@ -477,7 +477,7 @@ async def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, 
 
 
 @router.get("/edge/nodes", summary="List edge node registrations", tags=["gpu_resources"])
-async def list_edge_nodes(chain_id: str | None = None) -> dict[str, Any]:
+def list_edge_nodes(chain_id: str | None = None) -> dict[str, Any]:
     """List edge node registrations for the chain.
 
     Read-only. Exists so wave-Y row B4 ("edge_node_registration has no stray

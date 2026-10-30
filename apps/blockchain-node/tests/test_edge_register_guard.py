@@ -73,7 +73,7 @@ async def test_register_refused_while_table_committed(monkeypatch):
     _pin_next_version(monkeypatch, 14)
 
     with pytest.raises(HTTPException) as exc:
-        await gpu_routes.register_edge_node(_request(), chain_id=CHAIN)
+        gpu_routes.register_edge_node(_request(), chain_id=CHAIN)
 
     assert exc.value.status_code == 400
     assert "edge_node_registration" in exc.value.detail
@@ -90,7 +90,7 @@ async def test_register_allowed_once_v15_committed_set(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
     _pin_next_version(monkeypatch, 15)
 
-    result = await gpu_routes.register_edge_node(_request(), chain_id=CHAIN)
+    result = gpu_routes.register_edge_node(_request(), chain_id=CHAIN)
 
     assert result["status"] == "registered"
     rows = _rows(engine)
@@ -131,7 +131,7 @@ async def test_list_nodes_returns_count_and_rows(monkeypatch):
     _seed(engine, "edge-1")
     _seed(engine, "edge-2", status="deactivated")
 
-    result = await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+    result = gpu_routes.list_edge_nodes(chain_id=CHAIN)
 
     assert result["chain_id"] == CHAIN
     assert result["count"] == 2
@@ -157,7 +157,7 @@ async def test_list_nodes_empty_table_returns_zero(monkeypatch):
     engine = _engine()
     _bind_session_scope(monkeypatch, engine)
 
-    result = await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+    result = gpu_routes.list_edge_nodes(chain_id=CHAIN)
 
     assert result == {"chain_id": CHAIN, "count": 0, "nodes": []}
 
@@ -168,7 +168,7 @@ async def test_list_nodes_filters_by_chain(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
     _seed(engine, "edge-other", chain_id="other-chain")
 
-    result = await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+    result = gpu_routes.list_edge_nodes(chain_id=CHAIN)
 
     assert result["count"] == 0 and result["nodes"] == []
 
@@ -182,7 +182,7 @@ async def test_list_nodes_writes_nothing(monkeypatch):
     _seed(engine, "edge-1")
     before = _table_snapshot(engine)
 
-    await gpu_routes.list_edge_nodes(chain_id=CHAIN)
-    await gpu_routes.list_edge_nodes(chain_id=CHAIN)
+    gpu_routes.list_edge_nodes(chain_id=CHAIN)
+    gpu_routes.list_edge_nodes(chain_id=CHAIN)
 
     assert _table_snapshot(engine) == before

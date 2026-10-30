@@ -7,7 +7,6 @@ pending) with pagination, and reject invalid status filters.
 
 from __future__ import annotations
 
-import asyncio
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
@@ -55,7 +54,7 @@ def test_lists_all_statuses(patched_db):
     patched_db.add(_transfer("0xccc", "pending", None))
     patched_db.commit()
 
-    result = asyncio.run(list_bridge_transfers(None, "test-chain"))
+    result = list_bridge_transfers(None, "test-chain")
     assert result["total"] == 3
     assert result["count"] == 3
     ids = [t["transfer_id"] for t in result["transfers"]]
@@ -69,13 +68,13 @@ def test_status_filter_and_bad_status(patched_db):
     patched_db.add(_transfer("0xbbb", "locked", datetime(2026, 9, 2, tzinfo=UTC)))
     patched_db.commit()
 
-    result = asyncio.run(list_bridge_transfers(None, "test-chain", status="completed"))
+    result = list_bridge_transfers(None, "test-chain", status="completed")
     assert result["total"] == 1
     assert result["transfers"][0]["status"] == "completed"
     assert result["transfers"][0]["amount"] == 36_000_000
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(list_bridge_transfers(None, "test-chain", status="bogus"))
+        (list_bridge_transfers(None, "test-chain", status="bogus"))
     assert exc.value.status_code == 400
 
 
@@ -84,17 +83,17 @@ def test_limit_and_offset(patched_db):
         patched_db.add(_transfer(f"0x{i:03x}", "locked", datetime(2026, 9, 1, i, tzinfo=UTC)))
     patched_db.commit()
 
-    page1 = asyncio.run(list_bridge_transfers(None, "test-chain", limit=2))
-    page2 = asyncio.run(list_bridge_transfers(None, "test-chain", limit=2, offset=2))
+    page1 = list_bridge_transfers(None, "test-chain", limit=2)
+    page2 = list_bridge_transfers(None, "test-chain", limit=2, offset=2)
     assert page1["total"] == 5 and page1["count"] == 2
     assert page2["count"] == 2
     assert page1["transfers"][0]["transfer_id"] != page2["transfers"][0]["transfer_id"]
 
-    capped = asyncio.run(list_bridge_transfers(None, "test-chain", limit=9999))
+    capped = list_bridge_transfers(None, "test-chain", limit=9999)
     assert capped["limit"] == 200
 
 
 def test_empty_table(patched_db):
-    result = asyncio.run(list_bridge_transfers(None, "test-chain"))
+    result = list_bridge_transfers(None, "test-chain")
     assert result["total"] == 0
     assert result["transfers"] == []

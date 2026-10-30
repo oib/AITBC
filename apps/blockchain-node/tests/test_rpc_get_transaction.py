@@ -12,6 +12,7 @@ for a transaction that *is* present would reissue a payout that was already made
 """
 
 from __future__ import annotations
+import inspect
 
 from datetime import UTC, datetime
 
@@ -71,7 +72,8 @@ def chain(monkeypatch):
 
 
 async def _get(module, tx_hash: str, chain_id: str | None = CHAIN_ID):
-    return await module.get_transaction.__wrapped__(None, tx_hash, chain_id)
+    result = module.get_transaction.__wrapped__(None, tx_hash, chain_id)
+    return await result if inspect.isawaitable(result) else result
 
 
 @pytest.mark.asyncio

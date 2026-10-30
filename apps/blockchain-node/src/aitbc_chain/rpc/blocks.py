@@ -28,7 +28,7 @@ _import_lock = asyncio.Lock()
 
 
 @rate_limit(rate=200, per=60)
-async def get_genesis_allocations(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def get_genesis_allocations(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
@@ -54,7 +54,7 @@ async def get_genesis_allocations(request: Request, chain_id: str | None = None)
 
 
 @rate_limit(rate=200, per=60)
-async def get_head(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def get_head(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get current chain head"""
     chain_id = get_chain_id(chain_id)
     metrics_registry.increment("rpc_get_head_total")
@@ -81,7 +81,7 @@ def _head_height(chain_id: str) -> int | None:
 
 
 @rate_limit(rate=200, per=60)
-async def get_block(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
+def get_block(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get block by height"""
     chain_id = get_chain_id(chain_id)
     metrics_registry.increment("rpc_get_block_total")
@@ -217,7 +217,7 @@ def _served_tx_body(tx: Transaction) -> dict[str, Any]:
 
 
 @rate_limit(rate=200, per=60)
-async def get_blocks_range(
+def get_blocks_range(
     request: Request, start: int = 0, end: int = 10, include_tx: bool = True, chain_id: str | None = None
 ) -> dict[str, Any]:
     """Get blocks in a height range

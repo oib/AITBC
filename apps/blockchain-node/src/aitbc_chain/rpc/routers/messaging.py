@@ -26,8 +26,8 @@ router = APIRouter(prefix="/messaging", tags=["messaging"])
 
 
 @router.get("/state", summary="Forum index state")
-async def state_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
-    return await messaging_state(request, chain_id=chain_id)  # type: ignore[no-any-return]
+def state_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    return messaging_state(request, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/stats", summary="Messaging index operability snapshot (MSG-6)")
@@ -36,12 +36,12 @@ async def stats_route(request: Request, chain_id: str | None = None) -> dict[str
 
 
 @router.get("/topics", summary="List forum topics")
-async def topics_route(request: Request, limit: int = 50, offset: int = 0, chain_id: str | None = None) -> dict[str, Any]:
-    return await messaging_topics(request, limit=limit, offset=offset, chain_id=chain_id)  # type: ignore[no-any-return]
+def topics_route(request: Request, limit: int = 50, offset: int = 0, chain_id: str | None = None) -> dict[str, Any]:
+    return messaging_topics(request, limit=limit, offset=offset, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/messages", summary="List forum messages")
-async def messages_route(
+def messages_route(
     request: Request,
     topic: str | None = None,
     author: str | None = None,
@@ -51,7 +51,7 @@ async def messages_route(
     include_hidden: bool = False,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
-    return await messaging_messages(  # type: ignore[no-any-return]
+    return messaging_messages(  # type: ignore[no-any-return]
         request,
         topic=topic,
         author=author,
@@ -64,34 +64,34 @@ async def messages_route(
 
 
 @router.get("/reputation/{address}", summary="Derived forum reputation (display-only)")
-async def reputation_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
-    return await messaging_reputation(request, address, chain_id=chain_id)  # type: ignore[no-any-return]
+def reputation_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+    return messaging_reputation(request, address, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/topics/{slug}/moderation", summary="Topic moderator set and actions")
-async def topic_moderation_route(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
-    return await messaging_moderation(request, slug, chain_id=chain_id)  # type: ignore[no-any-return]
+def topic_moderation_route(request: Request, slug: str, chain_id: str | None = None) -> dict[str, Any]:
+    return messaging_moderation(request, slug, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/dm-keys/{address}", summary="Latest DM encryption key for an address (MSG-8)")
-async def dm_key_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
-    return await messaging_dm_key(request, address, chain_id=chain_id)  # type: ignore[no-any-return]
+def dm_key_route(request: Request, address: str, chain_id: str | None = None) -> dict[str, Any]:
+    return messaging_dm_key(request, address, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/dm/{address}", summary="DM inbox for an address — ciphertext only (MSG-8)")
-async def dm_inbox_route(
+def dm_inbox_route(
     request: Request,
     address: str,
     limit: int = 50,
     cursor: str | None = None,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
-    return await messaging_dm_inbox(request, address, limit=limit, cursor=cursor, chain_id=chain_id)  # type: ignore[no-any-return]
+    return messaging_dm_inbox(request, address, limit=limit, cursor=cursor, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 # Declared before /messages/{tx_hash} so the literal path wins.
 @router.get("/messages/search", summary="Search message bodies")
-async def search_route(
+def search_route(
     request: Request,
     query: str | None = None,
     q: str | None = None,
@@ -100,16 +100,16 @@ async def search_route(
     cursor: str | None = None,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
-    return await messaging_search(  # type: ignore[no-any-return]
+    return messaging_search(  # type: ignore[no-any-return]
         request, query=query, q=q, limit=limit, offset=offset, cursor=cursor, chain_id=chain_id
     )
 
 
 @router.get("/messages/{tx_hash}/votes", summary="Standing votes for a message")
-async def votes_route(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
-    return await messaging_votes(request, tx_hash, chain_id=chain_id)  # type: ignore[no-any-return]
+def votes_route(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+    return messaging_votes(request, tx_hash, chain_id=chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/messages/{tx_hash}", summary="Get one forum message")
-async def message_route(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
-    return await messaging_get(request, tx_hash, chain_id=chain_id)  # type: ignore[no-any-return]
+def message_route(request: Request, tx_hash: str, chain_id: str | None = None) -> dict[str, Any]:
+    return messaging_get(request, tx_hash, chain_id=chain_id)  # type: ignore[no-any-return]

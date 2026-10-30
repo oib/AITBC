@@ -7,6 +7,7 @@ submitting an EXECUTE had to know sqlite, and had to know which table.
 """
 
 from __future__ import annotations
+import inspect
 
 from datetime import UTC, datetime
 
@@ -70,7 +71,8 @@ def _seed(engine, *txs: Transaction) -> None:
 
 
 async def _show(module, proposal_id: str, chain_id: str | None = CHAIN_ID):
-    return await module.get_sealed_governance_proposal.__wrapped__(None, proposal_id, chain_id)
+    result = module.get_sealed_governance_proposal.__wrapped__(None, proposal_id, chain_id)
+    return await result if inspect.isawaitable(result) else result
 
 
 @pytest.mark.asyncio

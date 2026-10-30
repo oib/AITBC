@@ -55,47 +55,47 @@ except ImportError as e:
 
 @router.post("/deploy/messaging", summary="Deploy messaging contract", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
-async def deploy_messaging_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
+def deploy_messaging_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
     """Deploy the agent messaging contract to the blockchain"""
     if deploy_messaging_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await deploy_messaging_contract(request, deploy_data)  # type: ignore[no-any-return]
+    return deploy_messaging_contract(request, deploy_data)  # type: ignore[no-any-return]
 
 
 @router.get("", summary="List deployed contracts")
 @rate_limit(rate=200, per=60)
-async def list_contracts_route(request: Request) -> dict[str, Any]:
+def list_contracts_route(request: Request) -> dict[str, Any]:
     """List all deployed contracts"""
     if list_contracts is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await list_contracts(request)  # type: ignore[no-any-return]
+    return list_contracts(request)  # type: ignore[no-any-return]
 
 
 @router.post("/deploy", summary="Deploy a smart contract", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
-async def deploy_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
+def deploy_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
     """Deploy a new smart contract to the blockchain"""
     if deploy_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await deploy_contract(request, deploy_data)  # type: ignore[no-any-return]
+    return deploy_contract(request, deploy_data)  # type: ignore[no-any-return]
 
 
 @router.post("/call", summary="Call a contract method")
 @rate_limit(rate=50, per=60)
-async def call_contract_route(request: Request, call_data: dict) -> dict[str, Any]:
+def call_contract_route(request: Request, call_data: dict) -> dict[str, Any]:
     """Call a method on a deployed contract"""
     if call_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await call_contract(request, call_data)  # type: ignore[no-any-return]
+    return call_contract(request, call_data)  # type: ignore[no-any-return]
 
 
 @router.post("/verify", summary="Verify a ZK proof")
 @rate_limit(rate=50, per=60)
-async def verify_contract_route(request: Request, verify_data: dict) -> dict[str, Any]:
+def verify_contract_route(request: Request, verify_data: dict) -> dict[str, Any]:
     """Verify a ZK proof against a contract"""
     if verify_contract is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await verify_contract(request, verify_data)  # type: ignore[no-any-return]
+    return verify_contract(request, verify_data)  # type: ignore[no-any-return]
 
 
 @router.get("/messaging/state", summary="Get messaging contract state")
@@ -119,11 +119,11 @@ async def get_forum_topics_route(
 
 @router.post("/messaging/topics/create", summary="Create forum topic", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
-async def create_forum_topic_route(request: Request, topic_data: dict) -> dict[str, Any]:
+def create_forum_topic_route(request: Request, topic_data: dict) -> dict[str, Any]:
     """Create a new forum topic"""
     if create_forum_topic is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await create_forum_topic(request, topic_data)  # type: ignore[no-any-return]
+    return create_forum_topic(request, topic_data)  # type: ignore[no-any-return]
 
 
 @router.get("/messaging/topics/{topic_id}/messages", summary="Get topic messages")
@@ -138,20 +138,20 @@ async def get_topic_messages_route(
 
 @router.post("/messaging/messages/post", summary="Post message", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
-async def post_message_route(request: Request, message_data: dict) -> dict[str, Any]:
+def post_message_route(request: Request, message_data: dict) -> dict[str, Any]:
     """Post a message to a forum topic"""
     if post_message is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await post_message(request, message_data)  # type: ignore[no-any-return]
+    return post_message(request, message_data)  # type: ignore[no-any-return]
 
 
 @router.post("/messaging/messages/{message_id}/vote", summary="Vote on message", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
-async def vote_message_route(request: Request, message_id: str, vote_data: dict) -> dict[str, Any]:
+def vote_message_route(request: Request, message_id: str, vote_data: dict) -> dict[str, Any]:
     """Vote on a message (upvote/downvote)"""
     if vote_message is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await vote_message(request, message_id, vote_data)  # type: ignore[no-any-return]
+    return vote_message(request, message_id, vote_data)  # type: ignore[no-any-return]
 
 
 @router.get("/messaging/messages/search", summary="Search messages")
@@ -164,19 +164,19 @@ async def search_messages_route(request: Request, query: str, limit: int = 50) -
 
 @router.get("/messaging/agents/{agent_id}/reputation", summary="Get agent reputation")
 @rate_limit(rate=200, per=60)
-async def get_agent_reputation_route(request: Request, agent_id: str) -> dict[str, Any]:
+def get_agent_reputation_route(request: Request, agent_id: str) -> dict[str, Any]:
     """Get agent reputation information"""
     if get_agent_reputation is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await get_agent_reputation(request, agent_id)  # type: ignore[no-any-return]
+    return get_agent_reputation(request, agent_id)  # type: ignore[no-any-return]
 
 
 @router.post(
     "/messaging/messages/{message_id}/moderate", summary="Moderate message", dependencies=[Depends(verify_rpc_api_key)]
 )
 @rate_limit(rate=50, per=60)
-async def moderate_message_route(request: Request, message_id: str, moderation_data: dict) -> dict[str, Any]:
+def moderate_message_route(request: Request, message_id: str, moderation_data: dict) -> dict[str, Any]:
     """Moderate a message (moderator only)"""
     if moderate_message is None:
         raise HTTPException(status_code=503, detail="Contracts module not available")
-    return await moderate_message(request, message_id, moderation_data)  # type: ignore[no-any-return]
+    return moderate_message(request, message_id, moderation_data)  # type: ignore[no-any-return]

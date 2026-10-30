@@ -9,7 +9,6 @@ fallback when it is unset.
 
 from __future__ import annotations
 
-import asyncio
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
@@ -105,79 +104,77 @@ def _seed_record(engine, tid: str, status: str = "pending", source: str = "chain
 
 class TestLedgerRouteContract:
     def test_register_pending_status_read_roundtrip(self, ledger_db):
-        result = asyncio.run(ledger_register_route(None, _register_body()))
+        result = ledger_register_route(None, _register_body())
         assert result["created"] is True
         assert result["transfer"]["status"] == "pending"
 
-        pending = asyncio.run(ledger_pending_route(None, "island-1"))
+        pending = ledger_pending_route(None, "island-1")
         assert pending["count"] == 1
         assert pending["transfers"][0]["transfer_id"] == "0xabc"
 
         # Other target chains see nothing.
-        assert asyncio.run(ledger_pending_route(None, "other-chain"))["count"] == 0
+        assert (ledger_pending_route(None, "other-chain"))["count"] == 0
 
-        confirmed = asyncio.run(
-            ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed", target_tx_hash="0xrel"))
-        )
+        confirmed = ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed", target_tx_hash="0xrel"))
         assert confirmed["transfer"]["status"] == "confirmed"
         assert confirmed["transfer"]["target_tx_hash"] == "0xrel"
 
-        row = asyncio.run(ledger_read_route(None, "0xabc"))
+        row = ledger_read_route(None, "0xabc")
         assert row["transfer"]["status"] == "confirmed"
         assert row["transfer"]["target_tx_hash"] == "0xrel"
 
-        completed = asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="completed")))
+        completed = ledger_status_route(None, "0xabc", LedgerStatusRequest(status="completed"))
         assert completed["transfer"]["status"] == "completed"
 
     def test_register_is_idempotent_and_never_regresses(self, ledger_db):
-        first = asyncio.run(ledger_register_route(None, _register_body()))
+        first = ledger_register_route(None, _register_body())
         assert first["created"] is True
-        asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed")))
+        (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed")))
 
-        again = asyncio.run(ledger_register_route(None, _register_body()))
+        again = ledger_register_route(None, _register_body())
         assert again["created"] is False
         assert again["transfer"]["status"] == "confirmed"
 
     def test_monotonic_guard_rejects_out_of_order(self, ledger_db):
-        asyncio.run(ledger_register_route(None, _register_body()))
-        asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed")))
+        (ledger_register_route(None, _register_body()))
+        (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed")))
 
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="pending")))
+            (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="pending")))
         assert exc.value.status_code == 400
 
-        asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="completed")))
+        (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="completed")))
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed")))
+            (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="confirmed")))
         assert exc.value.status_code == 400
         # A terminal row cannot move sideways into another terminal state.
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="failed")))
+            (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="failed")))
         assert exc.value.status_code == 400
 
     def test_same_status_writeback_is_idempotent(self, ledger_db):
-        asyncio.run(ledger_register_route(None, _register_body()))
-        result = asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="pending")))
+        (ledger_register_route(None, _register_body()))
+        result = ledger_status_route(None, "0xabc", LedgerStatusRequest(status="pending"))
         assert result["transfer"]["status"] == "pending"
 
     def test_terminal_states_reachable(self, ledger_db):
-        asyncio.run(ledger_register_route(None, _register_body()))
-        result = asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="refunded")))
+        (ledger_register_route(None, _register_body()))
+        result = ledger_status_route(None, "0xabc", LedgerStatusRequest(status="refunded"))
         assert result["transfer"]["status"] == "refunded"
 
     def test_status_unknown_transfer_404_and_bad_status_400(self, ledger_db):
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(ledger_status_route(None, "0xmissing", LedgerStatusRequest(status="confirmed")))
+            (ledger_status_route(None, "0xmissing", LedgerStatusRequest(status="confirmed")))
         assert exc.value.status_code == 404
 
-        asyncio.run(ledger_register_route(None, _register_body()))
+        (ledger_register_route(None, _register_body()))
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(ledger_status_route(None, "0xabc", LedgerStatusRequest(status="bogus")))
+            (ledger_status_route(None, "0xabc", LedgerStatusRequest(status="bogus")))
         assert exc.value.status_code == 400
 
     def test_read_unknown_transfer_404(self, ledger_db):
         with pytest.raises(HTTPException) as exc:
-            asyncio.run(ledger_read_route(None, "0xmissing"))
+            (ledger_read_route(None, "0xmissing"))
         assert exc.value.status_code == 404
 
 

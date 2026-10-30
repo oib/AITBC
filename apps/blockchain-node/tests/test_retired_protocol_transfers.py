@@ -132,7 +132,7 @@ async def test_stake_refuses_410_while_unarmed_and_writes_nothing(rpc_db):
     before = _counts(rpc_db)
     body = _signed_stake_body("stake", sign_fields={"amount": 1}, body_fields={"amount": 1, "lock_days": 30})
     with pytest.raises(HTTPException) as exc:
-        await staking.stake_tokens(request=None, stake_data=body)
+        staking.stake_tokens(request=None, stake_data=body)
     assert exc.value.status_code == 410
     assert "not active" in exc.value.detail.lower()
     assert "v17" in exc.value.detail
@@ -146,7 +146,7 @@ async def test_stake_refuses_410_when_pin_set_but_unreached(rpc_db, monkeypatch)
     monkeypatch.setattr(settings, "state_transition_v17_height", 2)
     body = _signed_stake_body("stake", sign_fields={"amount": 1}, body_fields={"amount": 1, "lock_days": 30})
     with pytest.raises(HTTPException) as exc:
-        await staking.stake_tokens(request=None, stake_data=body)
+        staking.stake_tokens(request=None, stake_data=body)
     assert exc.value.status_code == 410
 
 
@@ -154,7 +154,7 @@ async def test_stake_refuses_410_when_pin_set_but_unreached(rpc_db, monkeypatch)
 async def test_unstake_refuses_410_while_unarmed(rpc_db):
     body = _signed_stake_body("unstake", sign_fields={"stake_id": "1"}, body_fields={"stake_id": "1"})
     with pytest.raises(HTTPException) as exc:
-        await staking.unstake_tokens(request=None, unstake_data=body)
+        staking.unstake_tokens(request=None, unstake_data=body)
     assert exc.value.status_code == 410
     assert "not active" in exc.value.detail.lower()
 
@@ -297,16 +297,16 @@ async def test_bounty_verify_payout_requires_signed_bounty_id(rpc_db, monkeypatc
     unarmed gate (410)."""
     monkeypatch.setenv("AGENT_ECONOMICS_OPERATOR_ADDRESS", OP_ADDR)
     with pytest.raises(HTTPException) as exc:
-        await bounty.verify_bounty(Mock(), "b-1", _signed_operator_body({"submission_id": "sub-1", "verified": True}))
+        bounty.verify_bounty(Mock(), "b-1", _signed_operator_body({"submission_id": "sub-1", "verified": True}))
     assert exc.value.status_code == 400
     assert "bounty_id" in exc.value.detail
 
     with pytest.raises(HTTPException) as exc:
-        await bounty.verify_bounty(Mock(), "b-1", _signed_operator_body({"submission_id": "sub-1", "verified": False}))
+        bounty.verify_bounty(Mock(), "b-1", _signed_operator_body({"submission_id": "sub-1", "verified": False}))
     assert exc.value.status_code == 410
 
     with pytest.raises(HTTPException) as exc:
-        await bounty.verify_bounty(
+        bounty.verify_bounty(
             Mock(), "b-1", _signed_operator_body({"bounty_id": "b-1", "submission_id": "sub-1", "verified": True})
         )
     assert exc.value.status_code == 410
@@ -328,10 +328,10 @@ def test_htlc_mutators_raise_retired(rpc_db):
 async def test_auto_stake_skips_without_failing_release(caplog):
     """AUTO_STAKE sits in the escrow release path: it must log-and-skip,
     never raise — a retired failure here would break escrow releases."""
-    result = await escrow_routes._auto_stake("0xabc", 100, CHAIN, job_id="j-1")
+    result = escrow_routes._auto_stake("0xabc", 100, CHAIN, job_id="j-1")
     assert result is None
     # second call must not raise either (retired warning logs once)
-    assert await escrow_routes._auto_stake("0xabc", 100, CHAIN) is None
+    assert escrow_routes._auto_stake("0xabc", 100, CHAIN) is None
 
 
 @pytest.mark.asyncio
@@ -348,5 +348,5 @@ async def test_get_staking_info_still_serves(rpc_db):
             )
         )
         session.commit()
-    result = await staking.get_staking_info(Mock(), "0xabc", CHAIN)
+    result = staking.get_staking_info(Mock(), "0xabc", CHAIN)
     assert "410" not in str(result)  # any normal shape — the point is it ran

@@ -64,7 +64,7 @@ async def stop_chain(request: ChainActionRequest) -> ChainActionResponse:
     return ChainActionResponse(success=False, chain_id=request.chain_id, message=msg)
 
 
-async def list_chains() -> dict[str, Any]:
+def list_chains() -> dict[str, Any]:
     """List all chain instances managed by the MultiChainManager."""
     mgr = get_multi_chain_manager()
     if mgr is None:
