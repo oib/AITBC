@@ -15,7 +15,7 @@ class AgentDaemonHandler:
         self.blockchain_rpc_url = blockchain_rpc_url.rstrip("/")
         self._client: AsyncAITBCHTTPClient | None = None
 
-    async def _get_client(self) -> AsyncAITBCHTTPClient:
+    def _get_client(self) -> AsyncAITBCHTTPClient:
         """Get or create HTTP client."""
         if self._client is None:
             self._client = AsyncAITBCHTTPClient(base_url=self.blockchain_rpc_url, timeout=30)
@@ -34,7 +34,7 @@ class AgentDaemonHandler:
         tx_data.get("to")
         logger.info("Checking transaction %s for agent daemon trigger", tx_hash)
         if self._is_agent_transaction(tx_data):
-            await self._notify_agent_daemon(tx_data)
+            self._notify_agent_daemon(tx_data)
 
     def _is_agent_transaction(self, tx_data: dict[str, Any]) -> bool:
         """Check if transaction is addressed to an agent wallet."""
@@ -44,7 +44,7 @@ class AgentDaemonHandler:
                 return True
         return False
 
-    async def _notify_agent_daemon(self, tx_data: dict[str, Any]) -> None:
+    def _notify_agent_daemon(self, tx_data: dict[str, Any]) -> None:
         """Notify agent daemon about a transaction requiring processing."""
         try:
             tx_hash = tx_data.get("hash", "unknown")
@@ -58,13 +58,13 @@ class AgentDaemonHandler:
         event_type = event_log.get("topics", [""])[0] if event_log.get("topics") else "Unknown"
         logger.info("Handling staking event: %s", event_type)
         if "StakeCreated" in event_type:
-            await self._handle_stake_created(event_log)
+            self._handle_stake_created(event_log)
         elif "RewardsDistributed" in event_type:
-            await self._handle_rewards_distributed(event_log)
+            self._handle_rewards_distributed(event_log)
         elif "AgentTierUpdated" in event_type:
-            await self._handle_agent_tier_updated(event_log)
+            self._handle_agent_tier_updated(event_log)
 
-    async def _handle_stake_created(self, event_log: dict[str, Any]) -> None:
+    def _handle_stake_created(self, event_log: dict[str, Any]) -> None:
         """Handle StakeCreated event."""
         try:
             data = event_log.get("data", "{}")
@@ -73,7 +73,7 @@ class AgentDaemonHandler:
         except Exception as e:
             logger.error("Error handling StakeCreated event: %s", e, exc_info=True)
 
-    async def _handle_rewards_distributed(self, event_log: dict[str, Any]) -> None:
+    def _handle_rewards_distributed(self, event_log: dict[str, Any]) -> None:
         """Handle RewardsDistributed event."""
         try:
             data = event_log.get("data", "{}")
@@ -82,7 +82,7 @@ class AgentDaemonHandler:
         except Exception as e:
             logger.error("Error handling RewardsDistributed event: %s", e, exc_info=True)
 
-    async def _handle_agent_tier_updated(self, event_log: dict[str, Any]) -> None:
+    def _handle_agent_tier_updated(self, event_log: dict[str, Any]) -> None:
         """Handle AgentTierUpdated event."""
         try:
             data = event_log.get("data", "{}")
@@ -96,13 +96,13 @@ class AgentDaemonHandler:
         event_type = event_log.get("topics", [""])[0] if event_log.get("topics") else "Unknown"
         logger.info("Handling performance event: %s", event_type)
         if "PerformanceVerified" in event_type:
-            await self._handle_performance_verified(event_log)
+            self._handle_performance_verified(event_log)
         elif "PenaltyApplied" in event_type:
-            await self._handle_penalty_applied(event_log)
+            self._handle_penalty_applied(event_log)
         elif "RewardIssued" in event_type:
-            await self._handle_reward_issued(event_log)
+            self._handle_reward_issued(event_log)
 
-    async def _handle_performance_verified(self, event_log: dict[str, Any]) -> None:
+    def _handle_performance_verified(self, event_log: dict[str, Any]) -> None:
         """Handle PerformanceVerified event."""
         try:
             data = event_log.get("data", "{}")
@@ -111,7 +111,7 @@ class AgentDaemonHandler:
         except Exception as e:
             logger.error("Error handling PerformanceVerified event: %s", e, exc_info=True)
 
-    async def _handle_penalty_applied(self, event_log: dict[str, Any]) -> None:
+    def _handle_penalty_applied(self, event_log: dict[str, Any]) -> None:
         """Handle PenaltyApplied event."""
         try:
             data = event_log.get("data", "{}")
@@ -120,7 +120,7 @@ class AgentDaemonHandler:
         except Exception as e:
             logger.error("Error handling PenaltyApplied event: %s", e, exc_info=True)
 
-    async def _handle_reward_issued(self, event_log: dict[str, Any]) -> None:
+    def _handle_reward_issued(self, event_log: dict[str, Any]) -> None:
         """Handle RewardIssued event."""
         try:
             data = event_log.get("data", "{}")
@@ -134,11 +134,11 @@ class AgentDaemonHandler:
         event_type = event_log.get("topics", [""])[0] if event_log.get("topics") else "Unknown"
         logger.info("Handling bounty event: %s", event_type)
         if "BountyCreated" in event_type:
-            await self._handle_bounty_created(event_log)
+            self._handle_bounty_created(event_log)
         elif "BountyCompleted" in event_type:
-            await self._handle_bounty_completed(event_log)
+            self._handle_bounty_completed(event_log)
 
-    async def _handle_bounty_created(self, event_log: dict[str, Any]) -> None:
+    def _handle_bounty_created(self, event_log: dict[str, Any]) -> None:
         """Handle BountyCreated event."""
         try:
             data = event_log.get("data", "{}")
@@ -147,7 +147,7 @@ class AgentDaemonHandler:
         except Exception as e:
             logger.error("Error handling BountyCreated event: %s", e, exc_info=True)
 
-    async def _handle_bounty_completed(self, event_log: dict[str, Any]) -> None:
+    def _handle_bounty_completed(self, event_log: dict[str, Any]) -> None:
         """Handle BountyCompleted event."""
         try:
             data = event_log.get("data", "{}")
@@ -161,11 +161,11 @@ class AgentDaemonHandler:
         event_type = event_log.get("topics", [""])[0] if event_log.get("topics") else "Unknown"
         logger.info("Handling bridge event: %s", event_type)
         if "BridgeInitiated" in event_type:
-            await self._handle_bridge_initiated(event_log)
+            self._handle_bridge_initiated(event_log)
         elif "BridgeCompleted" in event_type:
-            await self._handle_bridge_completed(event_log)
+            self._handle_bridge_completed(event_log)
 
-    async def _handle_bridge_initiated(self, event_log: dict[str, Any]) -> None:
+    def _handle_bridge_initiated(self, event_log: dict[str, Any]) -> None:
         """Handle BridgeInitiated event."""
         try:
             data = event_log.get("data", "{}")
@@ -174,7 +174,7 @@ class AgentDaemonHandler:
         except Exception as e:
             logger.error("Error handling BridgeInitiated event: %s", e, exc_info=True)
 
-    async def _handle_bridge_completed(self, event_log: dict[str, Any]) -> None:
+    def _handle_bridge_completed(self, event_log: dict[str, Any]) -> None:
         """Handle BridgeCompleted event."""
         try:
             data = event_log.get("data", "{}")
