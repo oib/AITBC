@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # baseline.sh — snapshot heads/mempool/alerts/journal errs → stress-baseline.json
 set -euo pipefail
+cd "$(dirname "$0")"; . ./lib.sh
 HOSTS="${STRESS_HOSTS:-hub hub1 node0 node1 node2}"
-OUT="${STRESS_STATE_DIR:-/var/lib/aitbc/stress-state}/stress-baseline.json"
+OUT="${STRESS_STATE_DIR:-$STATE_DIR}/stress-baseline.json"
 mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
 rows=()
 for h in $HOSTS; do
