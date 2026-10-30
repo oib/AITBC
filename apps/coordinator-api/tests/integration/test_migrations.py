@@ -68,7 +68,7 @@ def test_alembic_single_head() -> None:
 
 
 def _version_num(db_path: Path) -> str | None:
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     with engine.connect() as conn:
         version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
     engine.dispose()

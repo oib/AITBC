@@ -60,7 +60,7 @@ def test_historical_schema_upgrade_converges(tmp_path: Path):
     db_path = _run_alembic(tmp_path, "upgrade", "head")
     prev = _pre_tenant_revision()
 
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     with engine.begin() as conn:
         for table in _TENANT_TABLES:
             conn.execute(text(f'DROP TABLE IF EXISTS "{table}"'))
@@ -83,7 +83,7 @@ def test_historical_schema_upgrade_converges(tmp_path: Path):
     _run_alembic(tmp_path, "upgrade", "head")
 
     # 3. Converged: every declared table exists with matching columns.
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     inspector = inspect(engine)
     db_tables: dict[str, set[str]] = {}
     for table_name in inspector.get_table_names():
