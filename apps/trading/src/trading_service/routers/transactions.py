@@ -191,13 +191,13 @@ async def _fetch_blocks_from_chain(limit: int | None, chain_id: str | None) -> d
 
 
 @router.get("/v1/blocks/{block_id}")
-async def get_block(block_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+def get_block(block_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get block details."""
     return {"block_id": block_id, "error": "Block not found"}
 
 
 @router.get("/v1/receipts")
-async def get_receipts(
+def get_receipts(
     session: Annotated[AsyncSession, Depends(get_session_dep)],
     limit: int | None = None,
 ):
@@ -206,7 +206,7 @@ async def get_receipts(
 
 
 @router.get("/v1/explorer/receipts")
-async def get_receipts_v1(
+def get_receipts_v1(
     session: Annotated[AsyncSession, Depends(get_session_dep)],
     limit: int | None = None,
     job_id: str | None = None,
@@ -216,13 +216,13 @@ async def get_receipts_v1(
 
 
 @router.get("/v1/transactions/{tx_hash}")
-async def get_transaction(tx_hash: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
+def get_transaction(tx_hash: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
     """Get transaction details by hash."""
     return {"tx_hash": tx_hash, "error": "Transaction not found"}
 
 
 @router.get("/v1/explorer/transactions/{tx_hash}")
-async def get_transaction_explorer(
+def get_transaction_explorer(
     tx_hash: str,
     session: Annotated[AsyncSession, Depends(get_session_dep)],
     chain_id: str | None = None,
