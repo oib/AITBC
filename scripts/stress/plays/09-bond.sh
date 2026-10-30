@@ -11,7 +11,7 @@ serial_check || exit 75
 spend_guard "$AMOUNT" || true
 pid="stress-${HOST}-$(date +%s)"
 dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
-out=$(cli bond create --provider-id "$pid" --amount "$dec" 2>&1) || fail bond "bond create failed: $out"
+out=$("$AITBC_BIN" --output=json bond create --provider-id "$pid" --amount "$dec" 2>&1) || fail bond "bond create failed: $out"
 # Bond emissions land as BOND_LOCK rows; confirm within the seal window.
 h0=$(height); deadline=$(( h0 + 4 ))
 for i in $(seq 1 12); do
