@@ -14,7 +14,7 @@ addr=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" balance 2>/dev/
 # --- PROPOSE
 title="stress-$(date +%s)"
 out=$("$AITBC_BIN" --output=json governance propose --title "$title" --description "stress play $title" \
-      --proposer-id "$WALLET" --proposer-address "$addr" 2>&1) || fail propose "governance propose failed: $out"
+      --proposer-id "$WALLET" --proposer-address "$addr" --wallet "$WALLET" 2>&1) || fail propose "governance propose failed: $out"
 prop=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"(?:proposal[_-]?id[\"'\'':= ]+)([A-Za-z0-9_-]+)", sys.stdin.read(), re.I); print(m.group(1) if m else "")')
 tx=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
 [ -n "$tx" ] && { bh=$(wait_seal "$tx") || exit $?; echo "propose sealed: $tx h$bh"; }
