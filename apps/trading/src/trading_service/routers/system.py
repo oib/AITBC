@@ -23,7 +23,7 @@ class HealthResponse(BaseModel):
 
 
 @router.get("/health")
-async def health() -> HealthResponse:
+def health() -> HealthResponse:
     """Health check endpoint."""
     return HealthResponse(**create_simple_health_response("trading"))
 
@@ -46,18 +46,18 @@ async def ready() -> dict[str, str] | JSONResponse:
 
 
 @router.get("/live")
-async def live() -> dict[str, str]:
+def live() -> dict[str, str]:
     """Liveness check - verifies service is not stuck."""
     return {"status": "alive", "service": "trading"}
 
 
 @router.get("/v1/trading/status")
-async def trading_status() -> dict[str, str]:
+def trading_status() -> dict[str, str]:
     """Get trading status."""
     return {"status": "operational", "service": "trading", "message": "Trading service is running"}
 
 
 @router.get("/metrics", response_class=PlainTextResponse)
-async def metrics() -> PlainTextResponse:
+def metrics() -> PlainTextResponse:
     """Prometheus metrics endpoint."""
     return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
