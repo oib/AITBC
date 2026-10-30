@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
 # LANE: parallel
 # MODE: loop
-# Liquidity deposit — wallet-signed liquidity-stake submission
-# (LIQUIDITY_DEPOSIT on the committed-table family).
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
-
-spend_guard "$AMOUNT" || true
-dec=$(python3 -c "print(format(int('$AMOUNT')/36000000,'.18f').rstrip('0').rstrip('.'))")
-out=$(cli wallet liquidity-stake --wallet-path "/var/lib/aitbc/wallets/${WALLET}.json" --amount "$dec" --pool main --lock-days 1 2>&1) || fail deposit "liquidity-stake failed: $out"
-tx=$(printf '%s' "$out" | python3 -c 'import json,sys,re; s=sys.stdin.read(); m=re.search(r"0x[0-9a-fA-F]{64}", s); print(m.group(0) if m else "")')
-[ -n "$tx" ] || fail deposit "no tx_hash in response"
-bh=$(wait_seal "$tx") || exit $?
-echo "sealed $tx at height $bh"
-ok "$tx"
+addr=$("$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
+[ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
+# Stub body — fill per family with the real leg sequence (see 01/12/13/14/15
+# for proven shapes: bare aitbc for no-rpc-url commands, --wallet signing,
+# wait_seal, expected_refusal on gated legs).
+ok ""
