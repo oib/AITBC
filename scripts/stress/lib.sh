@@ -49,6 +49,20 @@ skip_mature() {  # maturity window not reached — exit 77, not a failure
 }
 ok() { jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"chain\":\"$CHAIN\",\"status\":\"ok\",\"tx_hash\":$( [ "${1:-}" = "" ] && echo null || echo "\"$1\"" )}"; }
 
+# ---------------------------------------------------------------- host map
+# Fleet-reachable addresses: ssh aliases (hub/hub1/node0..2) exist only on
+# the IDE/ops host. On any other host, rpc-level checks must go over the
+# fleet URLs. Override per host with STRESS_RPC_<host> (dots → underscores).
+stress_rpc_url() {  # stress_rpc_url <host> → rpc base URL
+  local h="$1" var="STRESS_RPC_${h//./_}"
+  echo "${!var:-https://${h}.aitbc.bubuit.net}"
+}
+stress_ssh() {  # stress_ssh <host> <cmd...> — local when we're on it
+  local h="$1"; shift
+  if [ "$(hostname -s)" = "$h" ] || [ "$(hostname)" = "$h" ]; then "$@";
+  else ssh "$h" "$@"; fi
+}
+
 # ---------------------------------------------------------------- rpc/cli
 rpc_get() { curl -sf --max-time 15 "$RPC_URL$1"; }
 rpc_post() { curl -sf --max-time 30 -X POST -H 'Content-Type: application/json' -d "$2" "$RPC_URL$1"; }

@@ -37,3 +37,10 @@ the shared hub-side lock so all coders see it). Parallel plays call
 `STRESS-<class>-N` in milestone `stress-1`, link on #706, add the class
 to `KNOWN.md`. Env: `STRESS_HOSTS`, `STRESS_WALLET`, `STRESS_STATE_DIR`,
 `STRESS_SPEND_CAP`, `CODER`.
+
+## Host reachability
+`stress_rpc_url <host>` resolves fleet URLs (`https://<host>.aitbc.bubuit.net`,
+override `STRESS_RPC_<host>`) — rpc-level checks run from any host.
+ssh/journal/systemctl checks run **IDE-side** (`stress_ssh` runs locally when
+the play is on its target host; otherwise it needs the IDE aliases — matches
+the tooling order: journal sweeps and `watch.sh` are IDE-run).
