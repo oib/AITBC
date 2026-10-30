@@ -14,6 +14,7 @@ from aitbc.aitbc_logging import get_logger
 
 from coordinator_api.contexts.advanced_rl.domain import ReinforcementLearningConfig
 from .engine import AdvancedReinforcementLearningEngine
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -54,8 +55,11 @@ class MarketStrategyOptimizer:
 
         # Get trained agent performance
         trained_config = (
-            session.execute(
-                select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == rl_config.config_id)
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == rl_config.config_id),
+                )
             )
             .scalars()
             .first()
@@ -81,7 +85,12 @@ class MarketStrategyOptimizer:
         """Deploy trained strategy"""
 
         rl_config = (
-            session.execute(select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id))
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id),
+                )
+            )
             .scalars()
             .first()
         )
@@ -101,7 +110,7 @@ class MarketStrategyOptimizer:
             rl_config.status = "deployed"
             rl_config.deployed_at = datetime.now(UTC)
 
-            session.commit()
+            (await run_in_threadpool(session.commit))
 
             return {
                 "success": True,
@@ -146,7 +155,12 @@ class MarketStrategyOptimizer:
         """Evaluate deployed strategy performance"""
 
         rl_config = (
-            session.execute(select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id))
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id),
+                )
+            )
             .scalars()
             .first()
         )

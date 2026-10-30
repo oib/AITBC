@@ -22,6 +22,7 @@ from aitbc.aitbc_logging import get_logger
 from coordinator_api.contexts.agent_coordination.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
 from .orchestrator_service import AIAgentOrchestrator
 from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -161,11 +162,15 @@ class AgentIntegrationManager:
     ) -> dict[str, Any]:
         """Integrate agent execution with ZK proof system"""
         try:
-            execution = self.session.scalars(select(AgentExecution).where(AgentExecution.id == execution_id)).first()
+            execution = (
+                await run_in_threadpool(self.session.scalars, select(AgentExecution).where(AgentExecution.id == execution_id))
+            ).first()
             if not execution:
                 raise ValueError(f"Execution not found: {execution_id}")
-            step_executions = self.session.scalars(
-                select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id)
+            step_executions = (
+                await run_in_threadpool(
+                    self.session.scalars, select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id)
+                )
             ).all()
             integration_result: dict[str, Any] = {
                 "execution_id": execution_id,
@@ -303,8 +308,8 @@ class AgentDeploymentManager:
         """Create deployment configuration for agent workflow"""
         config = AgentDeploymentConfig(workflow_id=workflow_id, deployment_name=deployment_name, **deployment_config)
         self.session.add(config)
-        self.session.commit()
-        self.session.refresh(config)
+        (await run_in_threadpool(self.session.commit))
+        (await run_in_threadpool(self.session.refresh, config))
         await self.auditor.log_event(
             AuditEventType.WORKFLOW_CREATED,
             workflow_id=workflow_id,
@@ -317,12 +322,12 @@ class AgentDeploymentManager:
     async def deploy_agent_workflow(self, deployment_config_id: str, target_environment: str = "production") -> dict[str, Any]:
         """Deploy agent workflow to target environment"""
         try:
-            config = self.session.get(AgentDeploymentConfig, deployment_config_id)
+            config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
             config.status = DeploymentStatus.DEPLOYING
             config.deployment_time = datetime.now(UTC)
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             deployment_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "environment": target_environment,
@@ -337,7 +342,7 @@ class AgentDeploymentManager:
                 config.status = DeploymentStatus.FAILED
             else:
                 config.status = DeploymentStatus.DEPLOYED
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             await self.auditor.log_event(
                 AuditEventType.EXECUTION_STARTED,
                 workflow_id=config.workflow_id,
@@ -352,10 +357,10 @@ class AgentDeploymentManager:
             return deployment_result
         except Exception as e:
             logger.error("Deployment failed for %s: %s", deployment_config_id, e)
-            config = self.session.get(AgentDeploymentConfig, deployment_config_id)
+            config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if config:
                 config.status = DeploymentStatus.FAILED
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
             await self.auditor.log_event(
                 AuditEventType.EXECUTION_FAILED,
                 workflow_id=config.workflow_id if config else None,
@@ -379,8 +384,8 @@ class AgentDeploymentManager:
                 port=8000 + instance_number,
             )
             self.session.add(instance)
-            self.session.commit()
-            self.session.refresh(instance)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, instance))
             try:
                 await self._deploy_agent_systemd(instance, config)
                 instance.status = DeploymentStatus.DEPLOYED
@@ -391,7 +396,7 @@ class AgentDeploymentManager:
                 logger.error("Systemd deployment failed for %s: %s", instance_id, deploy_error)
                 instance.status = DeploymentStatus.FAILED
                 instance.health_status = "unhealthy"
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             return {
                 "instance_id": instance_id,
                 "status": "deployed",
@@ -409,11 +414,14 @@ class AgentDeploymentManager:
     async def monitor_deployment_health(self, deployment_config_id: str) -> dict[str, Any]:
         """Monitor health of deployment instances"""
         try:
-            config = self.session.get(AgentDeploymentConfig, deployment_config_id)
+            config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
-            instances = self.session.scalars(
-                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            instances = (
+                await run_in_threadpool(
+                    self.session.scalars,
+                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id),
+                )
             ).all()
             health_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
@@ -538,7 +546,7 @@ class AgentDeploymentManager:
             instance.health_check_history.append(health_check_record)
             if len(instance.health_check_history) > 100:
                 instance.health_check_history = instance.health_check_history[-100:]
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             return {
                 "instance_id": instance.instance_id,
                 "status": health_status,
@@ -550,7 +558,7 @@ class AgentDeploymentManager:
             instance.health_status = "unhealthy"
             instance.last_health_check = datetime.now(UTC)
             instance.consecutive_failures += 1
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             return {
                 "instance_id": instance.instance_id,
                 "status": "unhealthy",
@@ -561,11 +569,14 @@ class AgentDeploymentManager:
     async def scale_deployment(self, deployment_config_id: str, target_instances: int) -> dict[str, Any]:
         """Scale deployment to target number of instances"""
         try:
-            config = self.session.get(AgentDeploymentConfig, deployment_config_id)
+            config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
-            current_instances = self.session.scalars(
-                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            current_instances = (
+                await run_in_threadpool(
+                    self.session.scalars,
+                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id),
+                )
             ).all()
             current_count = len(current_instances)
             scaling_result: dict[str, Any] = {
@@ -613,7 +624,7 @@ class AgentDeploymentManager:
                 raise subprocess.CalledProcessError(proc.returncode, cmd, output=_stdout, stderr=stderr)
 
         try:
-            instance = self.session.get(AgentDeploymentInstance, instance_id)
+            instance = await run_in_threadpool(self.session.get, AgentDeploymentInstance, instance_id)
             if instance:
                 service_name = f"aitbc-agent-{instance.instance_id}"
                 service_file = f"/etc/systemd/system/{service_name}.service"
@@ -629,7 +640,7 @@ class AgentDeploymentManager:
                 except Exception as e:
                     logger.warning("Error removing systemd service: %s", e)
                 instance.status = DeploymentStatus.TERMINATED
-                self.session.commit()
+                (await run_in_threadpool(self.session.commit))
                 logger.info("Removed deployment instance: %s", instance_id)
         except Exception as e:
             logger.error("Failed to remove instance %s: %s", instance_id, e)
@@ -638,7 +649,7 @@ class AgentDeploymentManager:
     async def rollback_deployment(self, deployment_config_id: str) -> dict[str, Any]:
         """Rollback deployment to previous version"""
         try:
-            config = self.session.get(AgentDeploymentConfig, deployment_config_id)
+            config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
             if not config.rollback_enabled:
@@ -649,8 +660,11 @@ class AgentDeploymentManager:
                 "rolled_back_instances": [],
                 "rollback_errors": [],
             }
-            current_instances = self.session.scalars(
-                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            current_instances = (
+                await run_in_threadpool(
+                    self.session.scalars,
+                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id),
+                )
             ).all()
             for instance in current_instances:
                 try:
@@ -676,7 +690,7 @@ class AgentDeploymentManager:
                 config.status = DeploymentStatus.FAILED
             else:
                 config.status = DeploymentStatus.TERMINATED
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             await self.auditor.log_event(
                 AuditEventType.EXECUTION_CANCELLED,
                 workflow_id=config.workflow_id,
@@ -701,11 +715,14 @@ class AgentMonitoringManager:
     async def get_deployment_metrics(self, deployment_config_id: str, time_range: str = "1h") -> dict[str, Any]:
         """Get metrics for deployment over time range"""
         try:
-            config = self.session.get(AgentDeploymentConfig, deployment_config_id)
+            config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
-            instances = self.session.scalars(
-                select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id)
+            instances = (
+                await run_in_threadpool(
+                    self.session.scalars,
+                    select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == deployment_config_id),
+                )
             ).all()
             metrics: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
@@ -832,11 +849,11 @@ class AgentMonitoringManager:
     async def create_alerting_rules(self, deployment_config_id: str, alerting_rules: dict[str, Any]) -> dict[str, Any]:
         """Create alerting rules for deployment monitoring"""
         try:
-            config = self.session.get(AgentDeploymentConfig, deployment_config_id)
+            config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if not config:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
             config.alerting_rules = alerting_rules
-            self.session.commit()
+            (await run_in_threadpool(self.session.commit))
             thresholds = alerting_rules.get(
                 "thresholds",
                 {

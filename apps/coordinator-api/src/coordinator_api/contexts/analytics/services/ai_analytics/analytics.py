@@ -20,6 +20,7 @@ from sqlalchemy import desc
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 
@@ -65,7 +66,7 @@ class DataCollector:
             metrics.append(ratio_metric)
         for metric in metrics:
             session.add(metric)
-        session.commit()
+        (await run_in_threadpool(session.commit))
         logger.info("Collected %s market metrics for %s period", len(metrics), period_type)
         return metrics
 
@@ -314,16 +315,19 @@ class AnalyticsEngine:
         """Generate market insights from collected metrics"""
         insights = []
         metrics = (
-            session.execute(
-                select(MarketMetric)
-                .where(
-                    and_(
-                        MarketMetric.period_type == period_type,
-                        MarketMetric.period_start >= start_time,
-                        MarketMetric.period_end <= end_time,
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(MarketMetric)
+                    .where(
+                        and_(
+                            MarketMetric.period_type == period_type,
+                            MarketMetric.period_start >= start_time,
+                            MarketMetric.period_end <= end_time,
+                        )
                     )
+                    .order_by(desc(MarketMetric.recorded_at)),  # type: ignore[arg-type]
                 )
-                .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
             )
             .scalars()
             .all()
@@ -338,7 +342,7 @@ class AnalyticsEngine:
         insights.extend(risk_insights)
         for insight in insights:
             session.add(insight)
-        session.commit()
+        (await run_in_threadpool(session.commit))
         logger.info("Generated %s market insights for %s period", len(insights), period_type)
         return insights
 
@@ -632,8 +636,8 @@ class DashboardManager:
             dashboard_settings={"theme": "dark", "animations": True, "auto_refresh": True},
         )
         session.add(dashboard)
-        session.commit()
-        session.refresh(dashboard)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, dashboard))
         logger.info("Created default dashboard %s for user %s", dashboard.dashboard_id, owner_id)
         return dashboard
 
@@ -690,8 +694,8 @@ class DashboardManager:
             dashboard_settings={"theme": "executive", "animations": False, "compact_mode": True},
         )
         session.add(dashboard)
-        session.commit()
-        session.refresh(dashboard)
+        (await run_in_threadpool(session.commit))
+        (await run_in_threadpool(session.refresh, dashboard))
         logger.info("Created executive dashboard %s for user %s", dashboard.dashboard_id, owner_id)
         return dashboard
 
@@ -792,36 +796,45 @@ class MarketAnalytics:
         end_time = datetime.now(UTC)
         start_time = end_time - timedelta(days=1)
         metrics = (
-            self.session.execute(
-                select(MarketMetric)
-                .where(
-                    and_(
-                        MarketMetric.period_type == AnalyticsPeriod.DAILY,
-                        MarketMetric.period_start >= start_time,
-                        MarketMetric.period_end <= end_time,
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(MarketMetric)
+                    .where(
+                        and_(
+                            MarketMetric.period_type == AnalyticsPeriod.DAILY,
+                            MarketMetric.period_start >= start_time,
+                            MarketMetric.period_end <= end_time,
+                        )
                     )
+                    .order_by(desc(MarketMetric.recorded_at)),  # type: ignore[arg-type]
                 )
-                .order_by(desc(MarketMetric.recorded_at))  # type: ignore[arg-type]
             )
             .scalars()
             .all()
         )
         recent_insights = (
-            self.session.execute(
-                select(MarketInsight)
-                .where(MarketInsight.created_at >= start_time)
-                .order_by(desc(MarketInsight.created_at))  # type: ignore[arg-type]
-                .limit(10)
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(MarketInsight)
+                    .where(MarketInsight.created_at >= start_time)
+                    .order_by(desc(MarketInsight.created_at))  # type: ignore[arg-type]
+                    .limit(10),
+                )
             )
             .scalars()
             .all()
         )
         active_alerts = (
-            self.session.execute(
-                select(AnalyticsAlert)
-                .where(and_(AnalyticsAlert.status == "active", AnalyticsAlert.created_at >= start_time))
-                .order_by(desc(AnalyticsAlert.created_at))  # type: ignore[arg-type]
-                .limit(5)
+            (
+                await run_in_threadpool(
+                    self.session.execute,
+                    select(AnalyticsAlert)
+                    .where(and_(AnalyticsAlert.status == "active", AnalyticsAlert.created_at >= start_time))
+                    .order_by(desc(AnalyticsAlert.created_at))  # type: ignore[arg-type]
+                    .limit(5),
+                )
             )
             .scalars()
             .all()
