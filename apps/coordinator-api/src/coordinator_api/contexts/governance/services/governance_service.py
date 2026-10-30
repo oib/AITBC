@@ -316,7 +316,7 @@ class GovernanceService:
     # SQLModel-based async methods for the governance.py router
     # ------------------------------------------------------------------
 
-    async def get_or_create_profile(self, user_id: str, initial_voting_power: float = 0.0) -> Any:
+    def get_or_create_profile(self, user_id: str, initial_voting_power: float = 0.0) -> Any:
         """Get or create a GovernanceProfile by user_id."""
         from ..domain.governance import GovernanceProfile, GovernanceRole
         from sqlmodel import select as sm_select
@@ -335,7 +335,7 @@ class GovernanceService:
         self._session_factory.refresh(profile)
         return profile
 
-    async def delegate_votes(self, delegator_id: str, delegatee_id: str) -> Any:
+    def delegate_votes(self, delegator_id: str, delegatee_id: str) -> Any:
         """Delegate voting power from delegator to delegatee."""
         from ..domain.governance import GovernanceProfile
         from sqlmodel import select as sm_select
@@ -360,7 +360,7 @@ class GovernanceService:
         self._session_factory.refresh(delegator)
         return delegator
 
-    async def create_governance_proposal(self, proposer_id: str, proposal_data: dict[str, Any]) -> Any:
+    def create_governance_proposal(self, proposer_id: str, proposal_data: dict[str, Any]) -> Any:
         """Create a SQLModel Proposal from a router request dict."""
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus
         from datetime import datetime as _dt
@@ -386,7 +386,7 @@ class GovernanceService:
         self._session_factory.refresh(proposal)
         return proposal
 
-    async def cast_governance_vote(self, proposal_id: str, voter_id: str, vote_type: Any, reason: str | None = None) -> Any:
+    def cast_governance_vote(self, proposal_id: str, voter_id: str, vote_type: Any, reason: str | None = None) -> Any:
         """Cast a vote using SQLModel domain models."""
         from ..domain.governance import GovernanceProfile, Proposal as DomainProposal, Vote as DomainVote
         from sqlmodel import select as sm_select
@@ -425,7 +425,7 @@ class GovernanceService:
         self._session_factory.refresh(vote)
         return vote
 
-    async def process_proposal_lifecycle(self, proposal_id: str) -> Any:
+    def process_proposal_lifecycle(self, proposal_id: str) -> Any:
         """Check and update proposal status based on voting results."""
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus
         from sqlmodel import select as sm_select
@@ -452,7 +452,7 @@ class GovernanceService:
         self._session_factory.refresh(proposal)
         return proposal
 
-    async def execute_governance_proposal(self, proposal_id: str, executor_id: str) -> Any:
+    def execute_governance_proposal(self, proposal_id: str, executor_id: str) -> Any:
         """Execute a succeeded proposal."""
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus
         from sqlmodel import select as sm_select
@@ -472,7 +472,7 @@ class GovernanceService:
         self._session_factory.refresh(proposal)
         return proposal
 
-    async def generate_transparency_report(self, period: str) -> Any:
+    def generate_transparency_report(self, period: str) -> Any:
         """Generate a transparency report for a given period."""
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus, TransparencyReport, Vote as DomainVote
         from sqlmodel import select as sm_select
@@ -498,7 +498,7 @@ class GovernanceService:
     # Enhanced governance methods (in-memory, return dicts)
     # ------------------------------------------------------------------
 
-    async def create_regional_council(
+    def create_regional_council(
         self,
         region: str,
         council_name: str,
@@ -528,7 +528,7 @@ class GovernanceService:
             "created_at": council.created_at.isoformat(),
         }
 
-    async def get_regional_councils(self, region: str | None = None) -> list[dict[str, Any]]:
+    def get_regional_councils(self, region: str | None = None) -> list[dict[str, Any]]:
         from ..domain.governance import RegionalCouncil
         from sqlmodel import select as sm_select
 
@@ -549,7 +549,7 @@ class GovernanceService:
             for c in rows
         ]
 
-    async def create_regional_proposal(
+    def create_regional_proposal(
         self,
         council_id: str,
         title: str,
@@ -566,7 +566,7 @@ class GovernanceService:
         ).scalar_one_or_none()
         if not council:
             raise ValueError(f"Council {council_id} not found")
-        proposer = await self.get_or_create_profile(proposer_address)
+        proposer = self.get_or_create_profile(proposer_address)
         proposal_id = f"rprop_{uuid4().hex[:8]}"
         now = datetime.now(UTC)
         proposal = DomainProposal(
@@ -596,7 +596,7 @@ class GovernanceService:
             "created_at": proposal.created_at.isoformat(),
         }
 
-    async def vote_on_regional_proposal(
+    def vote_on_regional_proposal(
         self, proposal_id: str, voter_address: str, vote_type: Any, voting_power: float
     ) -> dict[str, Any]:
         from ..domain.governance import Proposal as DomainProposal, Vote as DomainVote, VoteType
@@ -607,7 +607,7 @@ class GovernanceService:
         ).scalar_one_or_none()
         if not proposal:
             raise ValueError(f"Proposal {proposal_id} not found")
-        voter = await self.get_or_create_profile(voter_address)
+        voter = self.get_or_create_profile(voter_address)
         vote = DomainVote(
             proposal_id=proposal_id,
             voter_id=voter.profile_id,
@@ -631,7 +631,7 @@ class GovernanceService:
             "timestamp": vote.created_at.isoformat(),
         }
 
-    async def get_treasury_balance(self, region: str | None = None) -> dict[str, Any]:
+    def get_treasury_balance(self, region: str | None = None) -> dict[str, Any]:
         return {
             "total_balance": 0.0,
             "allocated_funds": 0.0,
@@ -639,7 +639,7 @@ class GovernanceService:
             "region": region or "global",
         }
 
-    async def allocate_treasury_funds(
+    def allocate_treasury_funds(
         self, council_id: str, amount: Decimal, purpose: str, recipient_address: str, approver_address: str
     ) -> dict[str, Any]:
         allocation_id = f"alloc_{uuid4().hex[:8]}"
@@ -654,12 +654,10 @@ class GovernanceService:
             "created_at": datetime.now(UTC).isoformat(),
         }
 
-    async def get_treasury_transactions(
-        self, limit: int = 100, offset: int = 0, region: str | None = None
-    ) -> list[dict[str, Any]]:
+    def get_treasury_transactions(self, limit: int = 100, offset: int = 0, region: str | None = None) -> list[dict[str, Any]]:
         return []
 
-    async def create_staking_pool(
+    def create_staking_pool(
         self, pool_name: str, developer_address: str, base_apy: float, reputation_multiplier: float
     ) -> dict[str, Any]:
         pool_id = f"pool_{uuid4().hex[:8]}"
@@ -673,10 +671,10 @@ class GovernanceService:
             "created_at": datetime.now(UTC).isoformat(),
         }
 
-    async def get_developer_staking_pools(self, developer_address: str | None = None) -> list[dict[str, Any]]:
+    def get_developer_staking_pools(self, developer_address: str | None = None) -> list[dict[str, Any]]:
         return []
 
-    async def calculate_staking_rewards(
+    def calculate_staking_rewards(
         self, pool_id: str, staker_address: str, amount: Decimal, duration_days: int
     ) -> dict[str, Any]:
         estimated_reward = amount * Decimal("0.05") * (Decimal(duration_days) / 365)
@@ -689,7 +687,7 @@ class GovernanceService:
             "apy": 5.0,
         }
 
-    async def distribute_staking_rewards(self, pool_id: str) -> dict[str, Any]:
+    def distribute_staking_rewards(self, pool_id: str) -> dict[str, Any]:
         return {
             "pool_id": pool_id,
             "total_distributed": 0.0,
@@ -697,7 +695,7 @@ class GovernanceService:
             "distributed_at": datetime.now(UTC).isoformat(),
         }
 
-    async def get_governance_analytics(self, time_period_days: int = 30) -> dict[str, Any]:
+    def get_governance_analytics(self, time_period_days: int = 30) -> dict[str, Any]:
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus, RegionalCouncil, Vote as DomainVote
         from sqlmodel import func, select as sm_select
 
@@ -730,7 +728,7 @@ class GovernanceService:
             "staking": {"active_pools": 0, "total_staked": 0.0},
         }
 
-    async def get_regional_governance_health(self, region: str) -> dict[str, Any]:
+    def get_regional_governance_health(self, region: str) -> dict[str, Any]:
         return {
             "region": region,
             "health_score": 100.0,

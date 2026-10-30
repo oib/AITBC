@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlmodel import Session
 
 from ..domain.grant import GrantMilestone, GrantProposal, GrantStatus, MilestoneStatus
-from starlette.concurrency import run_in_threadpool
 
 
 def _to_decimal(value: Decimal | str | float | int | None) -> Decimal:
@@ -42,7 +41,7 @@ class GrantService:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    async def create_grant(
+    def create_grant(
         self,
         developer_id: str,
         title: str,
@@ -62,15 +61,15 @@ class GrantService:
             voting_ends=now + timedelta(days=voting_days),
         )
         self.session.add(grant)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, grant))
+        self.session.commit()
+        self.session.refresh(grant)
         return grant
 
-    async def get_grant(self, grant_id: str) -> GrantProposal | None:
+    def get_grant(self, grant_id: str) -> GrantProposal | None:
         """Get a grant by ID."""
-        return await run_in_threadpool(self.session.get, GrantProposal, grant_id)
+        return self.session.get(GrantProposal, grant_id)
 
-    async def list_grants(
+    def list_grants(
         self,
         developer_id: str | None = None,
         status: str | None = None,
@@ -84,9 +83,9 @@ class GrantService:
         if status:
             stmt = stmt.where(GrantProposal.status == status)  # type: ignore[arg-type]
         stmt = stmt.order_by(GrantProposal.created_at.desc()).limit(limit).offset(offset)  # type: ignore[attr-defined]
-        return list((await run_in_threadpool(self.session.execute, stmt)).scalars().all())
+        return list(self.session.execute(stmt).scalars().all())
 
-    async def create_milestone(
+    def create_milestone(
         self,
         grant_id: str,
         title: str,
@@ -95,7 +94,7 @@ class GrantService:
         due_date: datetime | None = None,
     ) -> GrantMilestone:
         """Add a milestone to a grant."""
-        grant = await self.get_grant(grant_id)
+        grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")
         milestone = GrantMilestone(
@@ -106,22 +105,22 @@ class GrantService:
             due_date=due_date,
         )
         self.session.add(milestone)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, milestone))
+        self.session.commit()
+        self.session.refresh(milestone)
         return milestone
 
-    async def get_milestones(self, grant_id: str) -> list[GrantMilestone]:
+    def get_milestones(self, grant_id: str) -> list[GrantMilestone]:
         """Get all milestones for a grant."""
         stmt = (
             select(GrantMilestone)
             .where(GrantMilestone.grant_id == grant_id)  # type: ignore[arg-type]
             .order_by(GrantMilestone.created_at)  # type: ignore[arg-type]
         )
-        return list((await run_in_threadpool(self.session.execute, stmt)).scalars().all())
+        return list(self.session.execute(stmt).scalars().all())
 
-    async def vote(self, grant_id: str, vote: str, voting_power: float) -> GrantProposal:
+    def vote(self, grant_id: str, vote: str, voting_power: float) -> GrantProposal:
         """Cast a vote on a grant and resolve if voting has ended."""
-        grant = await self.get_grant(grant_id)
+        grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")
         if grant.status not in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE}:
@@ -140,21 +139,21 @@ class GrantService:
             raise ValueError("Invalid vote type")
         self._check_resolution(grant, now)
         self.session.add(grant)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, grant))
+        self.session.commit()
+        self.session.refresh(grant)
         return grant
 
-    async def process_grant(self, grant_id: str) -> GrantProposal:
+    def process_grant(self, grant_id: str) -> GrantProposal:
         """Resolve a grant proposal after voting ends."""
-        grant = await self.get_grant(grant_id)
+        grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")
         if grant.status not in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE}:
             raise ValueError("Grant is not in a processable state")
         self._check_resolution(grant, _utc_now())
         self.session.add(grant)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, grant))
+        self.session.commit()
+        self.session.refresh(grant)
         return grant
 
     def _check_resolution(self, grant: GrantProposal, now: datetime) -> None:
@@ -175,20 +174,20 @@ class GrantService:
         else:
             grant.status = GrantStatus.REJECTED
 
-    async def disburse(
+    def disburse(
         self,
         grant_id: str,
         milestone_id: str | None = None,
         amount: Decimal | str | float | None = None,
     ) -> GrantProposal:
         """Disburse funds for a grant or a specific milestone."""
-        grant = await self.get_grant(grant_id)
+        grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")
         if grant.status not in {GrantStatus.APPROVED, GrantStatus.ACTIVE}:
             raise ValueError("Grant is not approved")
         if milestone_id:
-            milestone = await run_in_threadpool(self.session.get, GrantMilestone, milestone_id)
+            milestone = self.session.get(GrantMilestone, milestone_id)
             if not milestone or milestone.grant_id != grant_id:
                 raise ValueError("Milestone not found")
             if milestone.status == MilestoneStatus.PAID:
@@ -211,6 +210,6 @@ class GrantService:
         grant.executed_at = _utc_now()
         grant.updated_at = _utc_now()
         self.session.add(grant)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, grant))
+        self.session.commit()
+        self.session.refresh(grant)
         return grant
