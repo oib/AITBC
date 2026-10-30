@@ -19,7 +19,10 @@ while [ $# -gt 0 ]; do case "$1" in
 esac; done
 [ -n "$RPC_URL" ] || RPC_URL="http://127.0.0.1:8202"
 AITBC_BIN="${AITBC_BIN:-/usr/local/bin/aitbc}"
-STATE_DIR="${STRESS_STATE_DIR:-/var/lib/aitbc/stress-state}"
+if [ -z "${STRESS_STATE_DIR:-}" ]; then
+  if [ -d /var/lib/aitbc ] && [ -w /var/lib/aitbc ]; then STATE_DIR=/var/lib/aitbc/stress-state
+  else STATE_DIR="$HOME/.aitbc-stress-state"; fi
+else STATE_DIR="$STRESS_STATE_DIR"; fi
 RUN_LOG="${STRESS_RUN_LOG:-$STATE_DIR/stress-runs.jsonl}"
 FINDINGS_LOG="${STRESS_FINDINGS_LOG:-$STATE_DIR/stress-findings.jsonl}"
 SPEND_FILE="$STATE_DIR/spent-${WALLET}.units"
