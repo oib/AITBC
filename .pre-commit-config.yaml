@@ -296,3 +296,10 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+  - repo: local
+    hooks:
+      - id: fake-async-ratchet
+        name: fake-async-route-ratchet
+        entry: python3 scripts/ci/check-fake-async.py
+        language: system
+        files: \.py$
