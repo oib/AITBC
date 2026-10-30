@@ -5,15 +5,13 @@ Tracks:
 - Request latency histograms by method and endpoint
 - Total request counter by method, endpoint, and status
 - Error rate counter (4xx and 5xx responses)
-- In-flight request gauge
 """
 
-from collections.abc import Callable
+import time
 
-from fastapi import Request, Response
+from fastapi import Request
 from prometheus_client import Counter, Histogram
-from starlette.middleware.base import BaseHTTPMiddleware
-from typing import cast
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 # Default registry metrics (not using custom registry to avoid conflicts)
 REQUEST_LATENCY = Histogram(
@@ -36,41 +34,59 @@ ERROR_COUNT = Counter(
 )
 
 
-class PrometheusMetricsMiddleware(BaseHTTPMiddleware):
-    """Middleware to collect Prometheus metrics for all HTTP requests."""
+class PrometheusMetricsMiddleware:
+    """Middleware to collect Prometheus metrics for all HTTP requests.
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        import time
+    Pure ASGI rather than ``BaseHTTPMiddleware``: the base class spawns an
+    anyio task and copies contextvars on every request.
+    """
 
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope)
         start_time = time.perf_counter()
-        response = await call_next(request)
-        duration = time.perf_counter() - start_time
+        status = 500
 
-        method = request.method
-        # Use route path template if available, otherwise use raw path
-        endpoint = request.url.path
-        if hasattr(request.state, "route_path"):
-            endpoint = request.state.route_path
-        status_code = str(response.status_code)
+        async def send_wrapper(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            await send(message)
 
-        REQUEST_COUNT.labels(
-            method=method,
-            endpoint=endpoint,
-            status_code=status_code,
-        ).inc()
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            duration = time.perf_counter() - start_time
 
-        REQUEST_LATENCY.labels(
-            method=method,
-            endpoint=endpoint,
-            status_code=status_code,
-        ).observe(duration)
+            method = request.method
+            # Use route path template if available, otherwise use raw path
+            endpoint = request.url.path
+            if hasattr(request.state, "route_path"):
+                endpoint = request.state.route_path
+            status_code = str(status)
 
-        # Track errors (4xx and 5xx)
-        if response.status_code >= 400:
-            ERROR_COUNT.labels(
+            REQUEST_COUNT.labels(
                 method=method,
                 endpoint=endpoint,
                 status_code=status_code,
             ).inc()
 
-        return cast(Response, response)
+            REQUEST_LATENCY.labels(
+                method=method,
+                endpoint=endpoint,
+                status_code=status_code,
+            ).observe(duration)
+
+            # Track errors (4xx and 5xx)
+            if status >= 400:
+                ERROR_COUNT.labels(
+                    method=method,
+                    endpoint=endpoint,
+                    status_code=status_code,
+                ).inc()
