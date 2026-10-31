@@ -71,6 +71,11 @@ only if it does not match an entry below. Update this file as issues land.
   (`exchange-island` resolves rpc from island credentials). Play 22 calls
   `$AITBC_BIN` directly for this reason; check `--help | grep rpc-url`
   before wiring a new subcommand through `cli()`
+- storm sizing is host-scaled: STORM_N=150 spawned 150 concurrent CLI
+  processes and saturated hub's small VPS (load ~90, sshd down ~15min,
+  chain paused while hub held the proposer slot). Never run N=150 on
+  hub/hub1-class hosts — cap at ~20-40 (A's bounded ladder), and prefer
+  the big nodes for storm legs
 - rpc rate limiter is **per-worker in-memory** (1000 req/60s each) —
   storms from one client IP see nondeterministic 429s by worker fan and
   the effective ceiling is fan-dependent; a `429` row in the run log is
