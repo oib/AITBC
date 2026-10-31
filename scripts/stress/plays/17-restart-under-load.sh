@@ -9,12 +9,19 @@ set -euo pipefail
 serial_check || exit 75
 TARGET="${RESTART_TARGET:-$HOST}"
 MAX_BLOCKS="${RESTART_MAX_BLOCKS:-12}"
-addr=${STORM_TO:-0x00000000000000000000000000000000000000d9}
+addr=${STORM_TO:-0x00000000000000000000000000000000000000D9}
+
+# Height of TARGET: local rpc when self (fleet URL is unreachable on-host).
+target_height() {
+  if [ "$(hostname -s)" = "$TARGET" ] || [ "$(hostname)" = "$TARGET" ]; then
+    height 2>/dev/null || echo 0
+  else stress_height "$TARGET" 2>/dev/null || echo 0; fi
+}
 
 # Steady feed in background.
 feed() { while :; do "$AITBC_BIN" --output=json transactions send --from "$WALLET" --to "$addr" --amount 0.000001 --fee 0.02 >/dev/null 2>&1; sleep 4; done; }
 feed & FEED=$!; sleep 10
-pre=$(stress_height "$TARGET" 2>/dev/null || echo 0)
+pre=$(target_height)
 
 # The kill — local when TARGET is the host we're on (self-ssh isn't
 # provisioned); otherwise the IDE-side ssh alias convention.
@@ -28,7 +35,7 @@ sleep 20
 # Catch-up assertion: head must advance past pre+N within ~2 blocks' time.
 okc=0
 for i in $(seq 1 10); do
-  cur=$(stress_height "$TARGET" 2>/dev/null || echo 0)
+  cur=$(target_height)
   if [ "${cur:-0}" -ge "$(( ${pre:-0} + MAX_BLOCKS ))" ]; then okc=1; break; fi
   sleep 30
 done

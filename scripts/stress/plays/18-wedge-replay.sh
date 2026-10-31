@@ -6,12 +6,12 @@
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
-addr=0x00000000000000000000000000000000000000d9
+addr=0x00000000000000000000000000000000000000D9
 PW_ARGS=(); [ -n "${STRESS_WALLET_PASSWORD_FILE:-}" ] && PW_ARGS=(--password-file "$STRESS_WALLET_PASSWORD_FILE")
 
 # Poison leg: a RECEIPT_CLAIM for a nonexistent lock → rejected writeback.
 out=$("$AITBC_BIN" --output=json transactions send --from "$WALLET" --to "$addr" \
-  --amount 0 --fee 0.000001 --type RECEIPT_CLAIM "${PW_ARGS[@]}" \
+  --amount 0.000001 --fee 0.000001 --type RECEIPT_CLAIM "${PW_ARGS[@]}" \
   --payload "{\"claim\":\"nonexistent-$(date +%s)\"}" ${RPC_URL:+--rpc-url "$RPC_URL"} 2>&1 || true)
 jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"poison\",\"reason\":\"${out:0:160}\"}"
 
