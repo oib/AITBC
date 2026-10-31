@@ -311,11 +311,12 @@ def test_allocation_on_a_deactivated_row_is_accepted_below_v10(registered, st):
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def test_v10_height_is_baked_at_32100(monkeypatch):
+def test_v10_height_is_baked_at_32100(monkeypatch, pin_heights_above):
     """The baked default is consensus: a fresh settings object (no env, no env file) activates v10 at 32100."""
     monkeypatch.delenv("STATE_TRANSITION_V10_HEIGHT", raising=False)
     assert ChainSettings(_env_file=None).state_transition_v10_height == 32_100
     monkeypatch.setattr(settings, "state_transition_v10_height", 32_100)
+    pin_heights_above(10)
     assert get_block_version_for_height(32_099) == 9
     assert get_block_version_for_height(32_100) == 10
 
@@ -326,12 +327,11 @@ def test_v10_env_still_overrides_the_baked_default(monkeypatch):
     assert ChainSettings(_env_file=None).state_transition_v10_height == 40_000
 
 
-def test_v10_activates_at_its_height(monkeypatch):
+def test_v10_activates_at_its_height(monkeypatch, pin_heights_above):
     monkeypatch.setattr(settings, "state_transition_v10_height", 40_000)
-    # Pin v11/v12 off so the v10-era assertions keep their literals regardless
-    # of which later heights are baked into config.py.
-    monkeypatch.setattr(settings, "state_transition_v11_height", None)
-    monkeypatch.setattr(settings, "state_transition_v12_height", None)
+    # Pin every later rung off so the v10-era assertions keep their literals
+    # regardless of which later heights are baked into config.py.
+    pin_heights_above(10)
     assert get_block_version_for_height(39_999) == 9
     assert get_block_version_for_height(40_000) == 10
     assert get_block_version_for_height(40_001) == 10
