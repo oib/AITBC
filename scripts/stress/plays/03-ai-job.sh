@@ -34,7 +34,7 @@ fi
 
 # ESCROW_LOCK leg: poll the newest lock txs for this job's payload.
 lock_tx=""
-for i in $(seq 1 40); do
+for i in $(seq 1 "${STRESS_LOCK_WAIT:-90}"); do
   lock_tx=$(rpc_get "/rpc/transactions?transaction_type=ESCROW_LOCK&limit=5" 2>/dev/null | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 txs=d.get("transactions",d if isinstance(d,list) else [])
