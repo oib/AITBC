@@ -243,9 +243,15 @@ already testable except the write.
 - [ ] allocations file generated from the `classes.json` SOT — treasury
       = operator-supplied 2-of-3 multisig address (decided on #489);
       `check-alloc-file.py --require-classes --treasury-proof` passes
-- [ ] `venv/bin/python scripts/ops/build-genesis.py --scratch
-      --manifest <m> --allocations <a> --parameters <p>
-      --bridge-validators <v> --data-dir <scratch>` → doc + manifest out
+- [ ] `PYTHONPATH=apps/blockchain-node/src venv/bin/python
+      scripts/ops/build-genesis.py --scratch --manifest <m>
+      --allocations <a> --parameters <p> --bridge-validators <v>
+      --data-dir <scratch>` → doc + manifest out (the builder needs the
+      aitbc_chain src on PYTHONPATH — verified on node2, E5 rehearsal)
+- [ ] input shapes — verified by the E5 dry-run refusals: `parameters`
+      values must be str/int/null (**JSON booleans are refused** —
+      write `"true"`, not `true`); `bridge_validators[*].public_key`
+      must be hex bytes (`0x…`), not placeholders
 - [ ] `--live` dry-eval: run once with `--live` on scratch and confirm
       it *reports* unmet conditions (target-exists case) and met
       conditions (clean scratch + operator-line supplied) — then refuses
