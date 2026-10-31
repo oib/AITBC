@@ -2,6 +2,7 @@
 Utility functions for blockchain RPC endpoints.
 """
 
+from sqlalchemy import text
 import json
 import math
 import sqlite3
@@ -403,6 +404,37 @@ def _nonce_db_path() -> Path:
     replay cache wiped along with it would silently reopen the window.
     """
     return DATA_DIR / "data" / "admin_nonces.db"
+
+
+def import_advisory_acquire(chain_id: str):
+    """Hold a cross-worker serializer for block import (Refs #745).
+
+    ``_import_lock`` is per-process; under ``--workers 2`` two workers
+    can import the same block concurrently — the pg session-level
+    advisory lock makes the second importer wait until the first
+    releases, matching the #743 mempool-slot fix shape. Returns the
+    session holding the lock, or None on non-postgresql stores (sqlite
+    serializes writers at the file level)."""
+    from ..database import session_scope
+
+    ctx = session_scope(chain_id)
+    sess = ctx.__enter__()
+    if sess.get_bind().dialect.name != "postgresql":
+        ctx.__exit__(None, None, None)
+        return None
+    key = "".join(c if c.isalnum() else "-" for c in f"block-import|{chain_id}")
+    sess.execute(text(f"SELECT pg_advisory_lock(hashtext('{key}'))"))
+    return ctx, sess, key
+
+
+def import_advisory_release(held) -> None:
+    if not held:
+        return
+    ctx, sess, key = held
+    try:
+        sess.execute(text(f"SELECT pg_advisory_unlock(hashtext('{key}'))"))
+    finally:
+        ctx.__exit__(None, None, None)
 
 
 def _nonce_seen(nonce: str) -> bool:
