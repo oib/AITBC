@@ -22,6 +22,7 @@ MODEL="${STRESS_MODEL:-stress-slush:no-such-model}"
 PAYMENT="${STRESS_PAYMENT:-0.01}"
 LEG="${PLAY_ARGS[0]:-submit}"
 JOB_ID="${PLAY_ARGS[1]:-}"
+STRESS_MINER_ID="${STRESS_MINER_ID:-aitbc-miner-1}"
 
 coord_token() { # stored coordinator JWT (client preferred, admin fallback)
   python3 - <<'PY'
@@ -81,12 +82,26 @@ m=re.search(r"[0-9a-f]{32}", sys.stdin.read()); print(m.group(0) if m else "")')
   fail)
     [ -n "$JOB_ID" ] || fail args "fail leg needs a job id"
     [ -r /etc/aitbc/aitbc-coordinator-api.env ] || fail env "fail leg must run on hub (coordinator env unreadable)"
-    api_key=$(grep -E '^MINER_API_KEYS=' /etc/aitbc/aitbc-coordinator-api.env | head -1 | cut -d= -f2 | cut -d, -f1 | tr -d ' ')
-    [ -n "$api_key" ] || fail env "MINER_API_KEYS empty in coordinator env"
-    miner=$(job_field assigned_miner_id)
-    [ -n "$miner" ] || fail lookup "job $JOB_ID has no assigned_miner_id"
+    # miner JWT minted locally — the api-key path is not provisioned for
+    # this flow; the coordinator's own JWT_SECRET signs a role=miner token
+    # with sub = the assigned miner (same authority require_miner accepts).
+    tok=$( ( set -a; . /etc/aitbc/aitbc-coordinator-api.env; set +a; \
+      MINER_SUB="$STRESS_MINER_ID" /opt/aitbc/venv/bin/python -c \
+        "import os;from aitbc.auth import create_access_token;print(create_access_token({'sub':os.environ['MINER_SUB'],'role':'miner'}))" ) ) \
+      || fail token "miner JWT mint failed: $tok"
+    # wait for assignment — the fail call needs job.assigned_miner_id ==
+    # the token's sub; poll the (admin-authed) job record until the agent
+    # polls it into RUNNING, then induce before it completes.
+    for i in $(seq 1 180); do
+      miner=$(job_field assigned_miner_id)
+      [ -n "$miner" ] && [ "$miner" != "None" ] && break
+      st=$(job_field state)
+      [ "$st" = "COMPLETED" ] && skip_mature "agent completed $JOB_ID before fail leg — re-fire"
+      sleep 1
+    done
+    [ -n "$miner" ] && [ "$miner" != "None" ] || fail lookup "job $JOB_ID never assigned"
     resp=$(curl -sf --max-time 15 -X POST "http://127.0.0.1:8201/v1/miners/$JOB_ID/fail" \
-      -H "X-Api-Key: $api_key" -H "X-Miner-ID: $miner" -H 'Content-Type: application/json' \
+      -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
       -d '{"error_message":"stress-induced bonded failure #742"}' 2>&1) || fail fail "fail POST refused: $resp"
     echo "fail accepted: $resp"
     # verify inline: the slash service submits BOND_SLASH synchronously —
