@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.network import AITBCHTTPClient
+from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_agent import bounty, data_oracle, dispute, extended, ipfs, knowledge, zk
 from aitbc_agent.contract_integration import (
     AgentContractIntegration,
@@ -111,7 +111,7 @@ class Agent:
         self.reputation_score = 0.0
         self.earnings = 0.0
         self.coordinator_url = coordinator_url or "http://localhost:8107"
-        self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
+        self.http_client = AsyncAITBCHTTPClient(base_url=self.coordinator_url)
         self._background_tasks: set[asyncio.Task[Any]] = set()
 
         # Contract integration
@@ -219,7 +219,7 @@ class Agent:
 
             # Submit to AITBC network registration endpoint
             try:
-                result = self.http_client.post("/v1/agents/register", json=registration_data)
+                result = await self.http_client.post("/v1/agents/register", json=registration_data)
 
                 if result and (result.get("status") == "success" or result.get("agent_id")):
                     self.registered = True
@@ -242,20 +242,18 @@ class Agent:
     async def get_reputation(self) -> dict[str, float]:
         """Get agent reputation metrics"""
         try:
-            response = await self.http_client.get(f"/v1/agents/{self.identity.id}/reputation")
+            result = await self.http_client.get(f"/v1/agents/{self.identity.id}/reputation")
 
-            if response.status_code == 200:
-                result = response.json()
+            if result:
                 self.reputation_score = result.get("overall_score", self.reputation_score)
                 return result
-            else:
-                logger.warning("Failed to fetch reputation: %s, using local score", response.status_code)
-                return {
-                    "overall_score": self.reputation_score,
-                    "job_success_rate": 0.95,
-                    "avg_response_time": 30.5,
-                    "client_satisfaction": 4.7,
-                }
+            logger.warning("Empty reputation response, using local score")
+            return {
+                "overall_score": self.reputation_score,
+                "job_success_rate": 0.95,
+                "avg_response_time": 30.5,
+                "client_satisfaction": 4.7,
+            }
         except NetworkError:
             logger.warning("Network error fetching reputation, using local score")
             return {
@@ -281,20 +279,18 @@ class Agent:
     async def get_earnings(self, period: str = "30d") -> dict[str, Any]:
         """Get agent earnings information"""
         try:
-            response = await self.http_client.get(f"/v1/agents/{self.identity.id}/earnings", params={"period": period})
+            result = await self.http_client.get(f"/v1/agents/{self.identity.id}/earnings", params={"period": period})
 
-            if response.status_code == 200:
-                result = response.json()
+            if result:
                 self.earnings = result.get("total", self.earnings)
                 return result
-            else:
-                logger.warning("Failed to fetch earnings: %s, using local earnings", response.status_code)
-                return {
-                    "total": self.earnings,
-                    "daily_average": self.earnings / 30,
-                    "period": period,
-                    "currency": "AITBC",
-                }
+            logger.warning("Empty earnings response, using local earnings")
+            return {
+                "total": self.earnings,
+                "daily_average": self.earnings / 30,
+                "period": period,
+                "currency": "AITBC",
+            }
         except NetworkError:
             logger.warning("Network error fetching earnings, using local earnings")
             return {
@@ -340,14 +336,9 @@ class Agent:
 
         # Send through AITBC agent messaging protocol
         try:
-            response = await self.http_client.post("/api/v1/agent/messages/send", json=body)
-
-            if response.status_code == 200:
-                logger.info("Message sent to %s: %s", recipient_id, message_type)
-                return True
-            else:
-                logger.error("Failed to send message: %s", response.status_code)
-                return False
+            await self.http_client.post("/api/v1/agent/messages/send", json=body)
+            logger.info("Message sent to %s: %s", recipient_id, message_type)
+            return True
         except NetworkError as e:
             logger.error("Network error sending message: %s", e)
             return False
@@ -359,9 +350,12 @@ class Agent:
         """Fetch sender's public key from coordinator API"""
         try:
             coordinator_url = os.getenv("COORDINATOR_API_URL", "http://127.0.0.1:8203")
-            client = AITBCHTTPClient(timeout=5.0)
+            client = AsyncAITBCHTTPClient(base_url=coordinator_url, timeout=5.0)
 
-            response = client.get(f"{coordinator_url}/v1/agent-identity/{sender_id}")
+            try:
+                response = await client.get(f"/v1/agent-identity/{sender_id}")
+            finally:
+                await client.close()
 
             if response and "public_key" in response:
                 return response["public_key"]
@@ -438,6 +432,7 @@ class Agent:
         """Async context manager exit - cleanup agent resources"""
         # In a real implementation, this would unregister the agent
         # and clean up any resources
+        await self.http_client.close()
         if exc_type is not None:
             logger.error("Agent %s exiting with exception: %s", self.identity.id, exc_val)
         else:
