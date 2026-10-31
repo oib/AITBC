@@ -43,6 +43,11 @@ The other `active` proposals in `governance list`
 (76855f71/9cfe1215/532fac8b/3017437a, `voting_ends_block: null`) are not
 part of this batch — tracked separately.
 
+Evidence on #752: commit hash, hub position before the ff, and a seal
+height per prop; set `needs-verify`, do not close the issue. Post-batch
+hygiene: **remove the staged executor key from hub** — it retires at
+genesis under R8, so its residency is timeboxed to this batch.
+
 Note (stress-3 observed semantics): agent-stake unbond is **wall-clock**
 gated (`locked_until`), complete is **block** gated (`lock_height+1440`) —
 two different maturity clocks on the same lifecycle.
