@@ -12,3 +12,26 @@ the RELEASE on a later pass. The script must verify maturity
 
 Per-round rule: each `run.sh --include-once` pass may fire a new lock;
 the release leg targets the OLDEST matured lock, not the one just fired.
+
+## Governance EXECUTE armed timers (verify-first, next round)
+
+Stress-3 sealed these propose+vote legs with execute pending voting-end.
+Each becomes EXECUTE-eligible at `voting_ends_block` — executor key is
+provisioned on **hub** (`governance_executors` param); the leg is a
+`13-governance` execute pass pinned to hub.
+
+| proposal | voting_ends_block | est | armed in |
+|---|---|---|---|
+| prop_0b91289d | 18437 | ~2026-11-06 09:58Z | stress-2 (#720) |
+| prop_bfc73030 | 19525 | ~2026-11-07 06:26Z | stress-3 |
+| prop_b84b545e | 19534 | ~2026-11-07 06:36Z | stress-3 |
+| prop_6bbc21b3 | 19541 | ~2026-11-07 06:44Z | stress-3 |
+
+Verify: after each ends_block, `governance execute --proposal-id <id>` on
+hub with the executor wallet, then check `execution_tx_hash` sealed. An
+armed timer that never lands = finding class 1 (lost timer). Refusals
+before ends_block are legal lifecycle answers, not findings.
+
+Note (stress-3 observed semantics): agent-stake unbond is **wall-clock**
+gated (`locked_until`), complete is **block** gated (`lock_height+1440`) —
+two different maturity clocks on the same lifecycle.
