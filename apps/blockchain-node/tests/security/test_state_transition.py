@@ -79,6 +79,15 @@ class TestStateTransition:
         original_v12 = getattr(config.settings, "state_transition_v12_height", None)
         original_v13 = getattr(config.settings, "state_transition_v13_height", None)
         original_v14 = getattr(config.settings, "state_transition_v14_height", None)
+        originals_later = {
+            k: getattr(config.settings, k, None)
+            for k in (
+                "state_transition_v15_height",
+                "state_transition_v16_height",
+                "state_transition_v17_height",
+                "state_transition_v18_height",
+            )
+        }
         config.settings.state_transition_v8_height = 24800
         # Pin v9+ off so the v8-era assertions keep their literals regardless
         # of which later heights are baked into config.py.
@@ -88,6 +97,8 @@ class TestStateTransition:
         config.settings.state_transition_v12_height = None
         config.settings.state_transition_v13_height = None
         config.settings.state_transition_v14_height = None
+        for k in originals_later:
+            setattr(config.settings, k, None)
         try:
             # Below the v8 threshold the recorded stamp is authoritative, even
             # over a height-derived version (v7 activates at 24650).
@@ -105,6 +116,8 @@ class TestStateTransition:
             config.settings.state_transition_v12_height = original_v12
             config.settings.state_transition_v13_height = original_v13
             config.settings.state_transition_v14_height = original_v14
+            for k, v in originals_later.items():
+                setattr(config.settings, k, v)
 
     def test_get_block_version_threshold_fallback(self):
         """Unversioned blocks fall back to the configured v2 activation height."""
