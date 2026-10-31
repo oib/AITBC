@@ -64,16 +64,14 @@ sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
 for d in glob.glob("/opt/aitbc/packages/py/*/src") + ["/opt/aitbc"]:
     sys.path.insert(0, d)
 from aitbc_chain.state.state_transition import _bond_escrow_ait
+from aitbc_chain.rpc.utils import sign_transaction_data
 w = json.load(open(os.environ["WFILE"]))
-priv = keys.PrivateKey(bytes.fromhex(w["private_key"].removeprefix("0x")))
 sender = w["address"]
 acct = json.load(urllib.request.urlopen(os.environ["RPC"] + "/rpc/account/" + sender, timeout=10))
 tx = {"from": sender, "to": _bond_escrow_ait(), "amount": int(os.environ["LOCK_AMT"]),
       "fee": 360000, "nonce": acct["nonce"], "type": "BOND_LOCK", "chain_id": os.environ["CHAIN"],
       "payload": {"bond_id": os.environ["BOND_ID"], "provider": sender, "lock_days": 1}}
-signable = {k: v for k, v in tx.items() if k != "value"}
-digest = keccak(json.dumps(signable, sort_keys=True, separators=(",", ":")).encode())
-tx["signature"] = priv.sign_msg_hash(digest).to_hex()
+tx["signature"] = sign_transaction_data(tx, w["private_key"])
 req = urllib.request.Request(os.environ["RPC"] + "/rpc/transaction",
     data=json.dumps(tx).encode(), headers={"Content-Type": "application/json"}, method="POST")
 print(urllib.request.urlopen(req, timeout=15).read().decode())
