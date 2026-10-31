@@ -67,9 +67,12 @@ def test_block_scoped_preregistered_defaults_true(monkeypatch) -> None:
     assert ChainSettings(_env_file=None).block_scoped_preregistered_transactions is True
 
 
-def test_block_scoped_preregistered_env_false_still_wins(monkeypatch) -> None:
-    """CFG-1: an explicit env `false` still overrides the new default."""
+def test_block_scoped_preregistered_env_false_refused(monkeypatch) -> None:
+    """CFG-1 → #755 pin: an env `false` no longer overrides — it is refused
+    at construction (non-block-scoped writes bypass apply on committed
+    tables; the path survives only via post-construction patch in tests)."""
     from aitbc_chain.config import ChainSettings
 
     monkeypatch.setenv("BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS", "false")
-    assert ChainSettings(_env_file=None).block_scoped_preregistered_transactions is False
+    with pytest.raises(Exception, match="block_scoped_preregistered_transactions"):
+        ChainSettings(_env_file=None)
