@@ -27,9 +27,9 @@ def _importer(chain_id: str = "test-chain") -> BlockImportMixin:
     return obj
 
 
-def _tx(nonce: int = 1) -> dict:
+def _tx(nonce: int = 1, sender: str = "0xsender") -> dict:
     return {
-        "from": "0xsender",
+        "from": sender,
         "to": "0xrecipient",
         "amount": 5,
         "fee": 0,
@@ -54,7 +54,7 @@ def test_included_tx_is_evicted(fresh_mempool):
 
 
 def test_unrelated_txs_are_kept(fresh_mempool):
-    keep = _tx(nonce=7)
+    keep = _tx(nonce=7, sender="0xother-sender")
     fresh_mempool.add(keep, chain_id="test-chain")
     fresh_mempool.add(_tx(nonce=8), chain_id="test-chain")
 
