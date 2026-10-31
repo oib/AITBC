@@ -57,7 +57,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 1504
+- **Markdown files under docs/**: 1505
 
 | Directory | Files | Description |
 |---|---|---|
@@ -75,7 +75,7 @@ docs/
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
-| [deployment](deployment/) | 29 | Deployment and infrastructure setup |
+| [deployment](deployment/) | 30 | Deployment and infrastructure setup |
 | [design](design/) | 18 | Design documents and decisions |
 | [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
@@ -896,6 +896,7 @@ Inbound markdown links per document (top referrers).
 | [deployment/bc2-reset-runbook.md](deployment/bc2-reset-runbook.md) | [deployment/README.md](deployment/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), [deployment/reset2-runbook.md](deployment/reset2-runbook.md), +1 more |
 | [deployment/bc2-sepolia-redeploy-checklist.md](deployment/bc2-sepolia-redeploy-checklist.md) | [deployment/README.md](deployment/README.md) |
 | [deployment/bc3-drain-checklist.md](deployment/bc3-drain-checklist.md) | [deployment/reset2-runbook.md](deployment/reset2-runbook.md) |
+| [deployment/bc3-env-map.md](deployment/bc3-env-map.md) | — |
 | [deployment/bc3-genesis/README.md](deployment/bc3-genesis/README.md) | [deployment/reset2-runbook.md](deployment/reset2-runbook.md) |
 | [deployment/configuration.md](deployment/configuration.md) | [deployment/DEPENDENCIES.md](deployment/DEPENDENCIES.md), [deployment/README.md](deployment/README.md), [deployment/SERVICE_USERS.md](deployment/SERVICE_USERS.md), +6 more |
 | [deployment/deployment-troubleshooting.md](deployment/deployment-troubleshooting.md) | [deployment/README.md](deployment/README.md), [deployment/health-checks.md](deployment/health-checks.md) |
