@@ -50,6 +50,7 @@ def _record(**overrides):
         "refund_tx_hash": None,
         "job_tx_hash": None,
         "contract_id": "c1",
+        "provider": "0xprovider",
         "energy_settlement_asset": None,
         "energy_settlement_unit_scale": None,
         "energy_fee_basis_points": None,
@@ -71,8 +72,19 @@ class _FakeSession:
     def add(self, obj):
         pass
 
+    def refresh(self, obj):
+        pass
+
     def commit(self):
         self.committed = True
+
+    def __getattr__(self, name):
+        # SQLAlchemy session surface the route may call but the fake does not
+        # model (expunge, expire, close, rollback, ...) — no-op stand-ins.
+        def _noop(*args, **kwargs):
+            pass
+
+        return _noop
 
 
 def _session_scope(record):
@@ -438,7 +450,7 @@ async def test_already_released_row_short_circuits_before_the_gate(monkeypatch):
 
     _env(monkeypatch)
     er = _reload_routes()
-    record = _record(released_at=datetime.now(UTC))
+    record = _record(released_at=datetime.now(UTC), released_amount=72_000_000)
     mgr = _mgr()
     scope, _ = _session_scope(record)
     patches = _patches(er, mgr=mgr, scope=scope, lock_hash=None)
