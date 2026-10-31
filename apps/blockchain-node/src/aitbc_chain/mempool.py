@@ -366,15 +366,42 @@ class InMemoryMempool:
         return removed
 
 
+def _slot_advisory_lock(session: Session, chain_id: str, slot: tuple[str, int]) -> None:
+    """Serialize same-slot admissions across processes (Refs #743).
+
+    The occupancy rule is check-then-insert inside one transaction; under
+    READ COMMITTED two uvicorn workers can both observe an empty slot and
+    both insert, producing duplicate (sender, nonce) pending rows. A
+    transaction-scoped advisory lock keyed on the slot makes the second
+    caller wait until the first commits, after which its SELECT sees the
+    occupant and applies the fee rule normally. PostgreSQL only — sqlite
+    serializes writers at the file level and the in-process ``self._lock``
+    already covers threads.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    key = "".join(c if c.isalnum() else "-" for c in f"{chain_id}|{slot[0]}|{slot[1]}")
+    session.exec(text(f"SELECT pg_advisory_xact_lock(hashtext('{key}'))"))  # type: ignore[call-overload]
+
+
 class DatabaseMempool:
     """PostgreSQL-backed mempool for persistence and cross-service sharing."""
+
+    # Shared per-database admission lock: two pool objects on one database
+    # (e.g. test doubles for separate worker processes) must serialize their
+    # check-then-insert critical sections the same way the database itself
+    # serializes writers. Real cross-process workers are covered by
+    # _slot_advisory_lock on PostgreSQL.
+    _db_locks: dict[str, RLock] = {}
+    _db_locks_guard = Lock()
 
     def __init__(self, db_url: str, max_size: int = 10_000, min_fee: int = 0) -> None:
         self._db_url = db_url
         self._max_size = max_size
         self._min_fee = min_fee
         self._engine = create_engine(db_url, echo=False, pool_pre_ping=True)
-        self._lock = RLock()
+        with DatabaseMempool._db_locks_guard:
+            self._lock = DatabaseMempool._db_locks.setdefault(db_url, RLock())
         self._init_table()
 
     def _init_table(self) -> None:
@@ -492,6 +519,7 @@ class DatabaseMempool:
                 # replacing the first.
                 slot = _tx_slot_key(tx)
                 if slot is not None:
+                    _slot_advisory_lock(session, chain_id, slot)
                     occupant = session.exec(
                         select(MempoolEntry).where(
                             MempoolEntry.chain_id == chain_id,
@@ -590,6 +618,10 @@ class DatabaseMempool:
                     select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
                 ).one()
 
+                for lock_slot in sorted(
+                    {s for s in (_tx_slot_key(t) for t in transactions) if s is not None},
+                ):
+                    _slot_advisory_lock(session, chain_id, lock_slot)
                 for tx, tx_hash in zip(transactions, tx_hashes, strict=True):
                     # O(1) duplicate check using the pre-fetched set
                     if tx_hash in existing_hashes:
