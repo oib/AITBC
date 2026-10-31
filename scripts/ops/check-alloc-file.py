@@ -94,12 +94,29 @@ EXPECTED_TOTAL_UNITS = PARAMS["supply_ait"] * UNITS_PER_AIT
 # is the EIP-55 treasury address, so a proof cannot be replayed for another
 # account. Spendability is the one property a file check cannot otherwise see:
 # any checksummed string parses, only a signature proves a key exists.
-TREASURY_CHALLENGE_TEMPLATE = "AITBC bc-2 genesis treasury spendability proof for {address}"
+TREASURY_CHALLENGE_TEMPLATE = "AITBC {chain_id} genesis treasury spendability proof for {address}"
+# Pre-versioning proofs were signed over the literal bc-2 rendering — the
+# verifier accepts it as a fallback so existing proof files keep working.
+_LEGACY_CHAIN_ID = "bc-2"
+DEFAULT_CHAIN_ID = _LEGACY_CHAIN_ID
 
 
-def treasury_challenge(address: str) -> str:
+def _resolve_chain_id(allocations: Any | None = None) -> str:
+    """Detect the genesis chain for the treasury challenge, in order:
+    ``AITBC_CHAIN_ID``/``CHAIN_ID`` env var, a ``chain_id`` key in the
+    allocations file (when it is an object with metadata, not a bare list),
+    then the legacy default ``bc-2``."""
+    env = os.environ.get("AITBC_CHAIN_ID") or os.environ.get("CHAIN_ID")
+    if env:
+        return env
+    if isinstance(allocations, dict) and allocations.get("chain_id"):
+        return str(allocations["chain_id"])
+    return DEFAULT_CHAIN_ID
+
+
+def treasury_challenge(address: str, chain_id: str | None = None) -> str:
     """The exact message string the treasury key must personal_sign."""
-    return TREASURY_CHALLENGE_TEMPLATE.format(address=address)
+    return TREASURY_CHALLENGE_TEMPLATE.format(chain_id=chain_id or DEFAULT_CHAIN_ID, address=address)
 
 
 # Manifest keys that name one address (str) vs a collection (list or dict).
@@ -426,10 +443,10 @@ def _proof_fields(proof: dict[str, Any], problems: list[str]) -> tuple[str | Non
     return claimed, message, signature
 
 
-def _recover_proof_signer(claimed: str, message: str, signature: str, problems: list[str]) -> str | None:
+def _recover_proof_signer(claimed: str, message: str, signature: str, problems: list[str], chain_id: str) -> str | None:
     """EIP-191 personal_sign recovery over the bound challenge — the signer
     address, or None with a problem recorded."""
-    if message != treasury_challenge(claimed):
+    if message != treasury_challenge(claimed, chain_id) and message != treasury_challenge(claimed, _LEGACY_CHAIN_ID):
         problems.append(f"treasury-proof.message is not the printed challenge for {claimed}")
         return None
     Account, encode_defunct = _proof_modules()
@@ -444,7 +461,9 @@ def _recover_proof_signer(claimed: str, message: str, signature: str, problems: 
     return recovered
 
 
-def _check_treasury_proof(path: str, treasury_addr: str | None, problems: list[str], table: list[list[str]]) -> None:
+def _check_treasury_proof(
+    path: str, treasury_addr: str | None, problems: list[str], table: list[list[str]], chain_id: str
+) -> None:
     """Verify the EIP-191 spendability proof file. Three bindings must all
     hold: ``message`` is the printed challenge for the claimed ``address``,
     ``signature`` recovers to that address, and the address is the treasury."""
@@ -457,7 +476,7 @@ def _check_treasury_proof(path: str, treasury_addr: str | None, problems: list[s
         return
     claimed, message, signature = _proof_fields(proof, problems)
     recovered = (
-        _recover_proof_signer(claimed, message, signature, problems)
+        _recover_proof_signer(claimed, message, signature, problems, chain_id)
         if claimed is not None and message is not None and signature is not None
         else None
     )
@@ -531,6 +550,7 @@ def main(argv: list[str] | None = None) -> int:
             problems.append("classes file must be a JSON object")
             classes_raw = None
 
+    chain_id = _resolve_chain_id(allocs)
     rows = _check_rows(allocs, problems) if allocs is not None else {}
     _check_independent(rows, problems, table)
     classes: dict[str, dict[str, str]] | None = None
@@ -542,7 +562,7 @@ def main(argv: list[str] | None = None) -> int:
 
     treasury_addr = _treasury_address(rows, classes)
     if args.treasury_proof:
-        _check_treasury_proof(args.treasury_proof, treasury_addr, problems, table)
+        _check_treasury_proof(args.treasury_proof, treasury_addr, problems, table, chain_id)
     else:
         table.append(["treasury proof", "--treasury-proof FILE", "not supplied", "WARN"])
 
@@ -550,7 +570,7 @@ def main(argv: list[str] | None = None) -> int:
     for cls, expected, found, verdict in table:
         print(f"  {cls:<{width}}  {verdict:<4}  expected: {expected} | found: {found}")
 
-    print(f"treasury proof challenge: {treasury_challenge(treasury_addr or '<treasury-address>')}")
+    print(f"treasury proof challenge: {treasury_challenge(treasury_addr or '<treasury-address>', chain_id)}")
     if not args.treasury_proof:
         print(
             "*** WARNING: treasury spendability unproven — pass --treasury-proof FILE "
