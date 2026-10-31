@@ -8,9 +8,12 @@ PLAY_ARGS=("$@")  # captured before lib.sh consumes "$@" (positional legs)
 #   submit  — on a customer host: active bond exists for the shop miner,
 #             `ai submit --bond-required`, wait until the job is dispatched
 #             (assigned_miner_id + escrowed payment_id).
+#   chain-lock — on node2: provider-signed BOND_LOCK so the slash has an
+#             on-chain `bond` row to hit (coordinator ProviderBond is local
+#             state only — without this the BOND_SLASH drops at apply).
 #   fail <job_id> — on hub (coordinator-local): POST /miners/{job}/fail with
-#             X-Api-Key (coordinator MINER_API_KEYS env) + X-Miner-ID ->
-#             fail_job -> BAD_RESULT slash -> BOND_SLASH seals on-chain.
+#             X-Api-Key (coordinator MINER_API_KEYS env, :8203) + X-Miner-ID
+#             -> fail_job -> BAD_RESULT slash -> BOND_SLASH seals on-chain.
 #   verify <job_id> — BOND_SLASH sealed + bond amount/status moved.
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
@@ -44,6 +47,44 @@ job_field() { # job_field <field>
 }
 
 case "$LEG" in
+  chain-lock)
+    # provider-signed BOND_LOCK -> bond escrow; the on-chain `bond` row the
+    # slash applies against. Must run on the provider host (node2: its
+    # wallet is the slash target). bond_id defaults to the coordinator
+    # bond id `bond-<miner>` so the slash payload names it.
+    BOND_ID="${STRESS_BOND_ID:-bond-$STRESS_MINER_ID}"
+    LOCK_AMT="${STRESS_BOND_AMOUNT:-36000000}"  # units
+    resp=$(WFILE="${STRESS_PROVIDER_WALLET_PATH:-/var/lib/aitbc/wallets/default.json}" \
+      BOND_ID="$BOND_ID" LOCK_AMT="$LOCK_AMT" CHAIN="$CHAIN" RPC="$rpc_url" python3 - <<'PY'
+import json, os, urllib.request
+from eth_keys import keys
+from eth_utils import keccak
+import sys
+sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
+from aitbc_chain.state.state_transition import _bond_escrow_ait
+w = json.load(open(os.environ["WFILE"]))
+priv = keys.PrivateKey(bytes.fromhex(w["private_key"].removeprefix("0x")))
+sender = w["address"]
+acct = json.load(urllib.request.urlopen(os.environ["RPC"] + "/rpc/account/" + sender, timeout=10))
+tx = {"from": sender, "to": _bond_escrow_ait(), "amount": int(os.environ["LOCK_AMT"]),
+      "fee": 360000, "nonce": acct["nonce"], "type": "BOND_LOCK", "chain_id": os.environ["CHAIN"],
+      "payload": {"bond_id": os.environ["BOND_ID"], "provider": sender, "lock_days": 1}}
+signable = {k: v for k, v in tx.items() if k != "value"}
+digest = keccak(json.dumps(signable, sort_keys=True, separators=(",", ":")).encode())
+tx["signature"] = priv.sign_msg_hash(digest).to_hex()
+req = urllib.request.Request(os.environ["RPC"] + "/rpc/transaction",
+    data=json.dumps(tx).encode(), headers={"Content-Type": "application/json"}, method="POST")
+print(urllib.request.urlopen(req, timeout=15).read().decode())
+PY
+    ) || fail lock "BOND_LOCK submit failed: $resp"
+    txh=$(printf '%s' "$resp" | python3 -c 'import re,sys
+m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
+    [ -n "$txh" ] || fail lock "no tx hash in lock response: $resp"
+    wait_seal "$txh" >/dev/null
+    echo "BOND_LOCK sealed: $txh ($BOND_ID)"
+    ok "$txh"
+    ;;
+
   submit)
     addr=$(wallet_addr || true)
     [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
@@ -85,19 +126,15 @@ m=re.search(r"[0-9a-f]{32}", sys.stdin.read()); print(m.group(0) if m else "")')
     # miner JWT minted locally — the api-key path is not provisioned for
     # this flow; the coordinator's own JWT_SECRET signs a role=miner token
     # with sub = the assigned miner (same authority require_miner accepts).
-    jwts=$(grep -hE "^JWT_SECRET(_KEY)?=" \
-      /etc/aitbc/aitbc-coordinator-api.env /etc/aitbc/aitbc-coordinator-api-override.env \
-      /etc/aitbc/blockchain-secrets.env 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^[\"'\''\'']*//; s/[\"'\''\'']*$//")
-    [ -n "$jwts" ] || fail env "JWT_SECRET not found in coordinator env files"
-    tok=$(JWT_SECRET="$jwts" MINER_SUB="$STRESS_MINER_ID" /opt/aitbc/venv/bin/python -c \
-      'import os;from aitbc.auth import create_access_token;print(create_access_token(os.environ["MINER_SUB"],"miner"))') \
-      || fail token "miner JWT mint failed: $tok"
-    # coordinator listens on 127.0.0.1:8203 — 8201 is the api-gateway, a
-    # different auth scheme ("Missing authentication credentials" there is
-    # the gateway's own refusal, not the coordinator's).
-    # wait for assignment — the fail call needs job.assigned_miner_id ==
-    # the token's sub; poll the (admin-authed) job record until the agent
-    # polls it into RUNNING, then induce before it completes.
+    api_key=$(grep -E "^MINER_API_KEYS=" /etc/aitbc/aitbc-coordinator-api.env | head -1 | sed "s/^MINER_API_KEYS=//" | python3 -c "import json,sys
+raw=sys.stdin.read().strip().strip(chr(39)).strip(chr(34))
+try: keys=json.loads(raw)
+except Exception: keys=[k.strip() for k in raw.split(\",\") if k.strip()]
+print(keys[0] if keys else \"\")")
+    [ -n "$api_key" ] || fail env "MINER_API_KEYS empty in coordinator env"
+    # wait for assignment — fail needs job.assigned_miner_id to exist;
+    # poll the (admin-authed) job record until the agent polls it into
+    # RUNNING, then induce before it completes.
     for i in $(seq 1 180); do
       miner=$(job_field assigned_miner_id)
       [ -n "$miner" ] && [ "$miner" != "None" ] && break
@@ -107,8 +144,8 @@ m=re.search(r"[0-9a-f]{32}", sys.stdin.read()); print(m.group(0) if m else "")')
     done
     [ -n "$miner" ] && [ "$miner" != "None" ] || fail lookup "job $JOB_ID never assigned"
     resp=$(curl -sf --max-time 15 -X POST "http://127.0.0.1:8203/v1/miners/$JOB_ID/fail" \
-      -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
-      -d '{"error_message":"stress-induced bonded failure #742"}' 2>&1) || fail fail "fail POST refused: $resp"
+      -H "X-Api-Key: $api_key" -H "X-Miner-ID: $miner" -H 'Content-Type: application/json' \
+      -d '{"error_code":"EXEC_FAILED","error_message":"stress-induced bonded failure #742"}' 2>&1) || fail fail "fail POST refused: $resp"
     echo "fail accepted: $resp"
     # verify inline: the slash service submits BOND_SLASH synchronously —
     # poll the node rpc for the sealed tx carrying the miner's bond.
