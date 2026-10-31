@@ -164,7 +164,7 @@ def fake_state(registry):
     state.peer_storage.get_all_peer_connections = AsyncMock(return_value={"a": ["b"]})
     state.task_distributor = MagicMock()
     state.task_distributor.submit_task = AsyncMock(return_value=True)
-    state.task_distributor.clear_queue = AsyncMock(return_value=3)
+    state.task_distributor.clear_queue = MagicMock(return_value=3)
     state.task_distributor.get_distribution_stats = MagicMock(return_value={})
     state.task_distributor.get_queue_sizes = MagicMock(return_value={"high": 1})
     state.load_balancer = MagicMock()

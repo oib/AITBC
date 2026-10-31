@@ -99,7 +99,7 @@ class TestMessageSubscribe:
     def test_unsubscribe_removes_and_deactivates(self, client, fake_storage, fake_connection_manager):
         """Unsubscribe removes from Redis and from in-memory topics."""
         fake_connection_manager.active_connections["agent-a"] = MagicMock()
-        asyncio.run(fake_connection_manager.subscribe("agent-a", "jobs"))
+        fake_connection_manager.subscribe("agent-a", "jobs")
         assert "jobs" in fake_connection_manager.agent_topics["agent-a"]
 
         response = client.post(
