@@ -220,21 +220,42 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
             locked_until = locked_until.replace(tzinfo=UTC)
         if now < locked_until:
             raise HTTPException(status_code=400, detail=f"Lock period not expired. Locked until: {locked_until.isoformat()}")
+        amount = record.amount
         record.status = "unbonding"
         record.unbonding_at = now
         record.updated_at = now
         session.add(record)
         session.commit()
-        # "unbonding" is not "released" — funds stay locked until `complete`
-        # emits the STAKE_RELEASE transfer. The response says so outright so
-        # callers can't read the ok-shape as a finished unbond (Refs #719).
-        return {
-            "success": True,
-            "stake_id": record.stake_id,
-            "status": record.status,
-            "funds_released": False,
-            "next": "complete",
-        }
+
+    # STAKE_UNBOND marker (Option A, #719): the agent_stake row is
+    # node-local, so the unbond transition was invisible off the serving
+    # host. Emit a marker protocol transfer — an escrow->escrow
+    # self-transfer of the stake amount (net-zero balance move, the
+    # transfer semantics every version already replays) — so the
+    # transition lands in sealed history on every host and the status read
+    # becomes derivable from tx rows. Idempotent calls above return before
+    # this and cannot double-emit.
+    tx_hash = queue_protocol_transfer(
+        sender=stake_escrow_address(),
+        recipient=stake_escrow_address(),
+        amount=amount,
+        chain_id=chain_id,
+        tx_type="STAKE_UNBOND",
+        payload={"agent_stake_id": str(stake_id)},
+        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
+    )
+    # "unbonding" is not "released" — funds stay locked until `complete`
+    # emits the STAKE_RELEASE transfer. The response says so outright so
+    # callers can't read the ok-shape as a finished unbond (Refs #719).
+    return {
+        "success": True,
+        "stake_id": record.stake_id,
+        "status": "unbonding",
+        "funds_released": False,
+        "next": "complete",
+        "transaction_hash": tx_hash,
+        "message": "Unbond marker submitted to mempool; the transition is consensus-visible once it is included in a block",
+    }
 
 
 @rate_limit(rate=20, per=60)

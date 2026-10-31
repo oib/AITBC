@@ -54,6 +54,7 @@ V17_PAYLOAD_AUTH_TX_TYPES = frozenset(
     {
         "STAKE_LOCK",
         "STAKE_RELEASE",
+        "STAKE_UNBOND",
         "BOUNTY_LOCK",
         "BOUNTY_PAYOUT",
         "BOUNTY_REFUND",
@@ -111,6 +112,7 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         "GPU_MARKET",
         "STAKE_LOCK",
         "STAKE_RELEASE",
+        "STAKE_UNBOND",
         "BOND_LOCK",
         "BOND_RELEASE",
         "BOND_SLASH",
