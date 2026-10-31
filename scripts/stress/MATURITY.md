@@ -16,27 +16,32 @@ the release leg targets the OLDEST matured lock, not the one just fired.
 ## Governance EXECUTE armed timers (verify-first, next round)
 
 Stress-3 sealed these propose+vote legs with execute pending voting-end.
-EXECUTE-eligible = `voting_ends_block + timelock_blocks` — the live
-timelock on bc-2 is **1290** (chain param; repo default 43200 is overridden).
-Executor key is provisioned on **hub** (`governance_executors` param);
-the leg is a `13-governance` execute pass pinned to hub. All four land
-inside one batchable window at h20831+.
+The leg (#752) is **close at each `voting_ends_block`, then ONE serial
+execute batch at h20831+** (~65s cadence between submits):
 
-| proposal | voting_ends_block | EXECUTE-eligible ≥ | ~when | armed in |
+| proposal | close at/after | EXECUTE-eligible ≥ | ~close when | armed in |
 |---|---|---|---|---|
-| prop_71d5bd49 | 18346 | 19636 | ~2026-11-05 23:44 CET | stress-2 (#720) |
-| prop_0b91289d | 18437 | 19727 | ~2026-11-06 01:26 CET | stress-2 (#720) |
-| prop_bfc73030 | 19525 | 20815 | ~2026-11-06 ~21:40 CET | stress-3 |
-| prop_b84b545e | 19534 | 20824 | ~2026-11-06 ~21:50 CET | stress-3 |
-| prop_6bbc21b3 | 19541 | 20831 | ~2026-11-06 ~22:00 CET | stress-3 |
+| prop_71d5bd49 | 18346 | 19636 | ~Nov-05 19:05 CET | stress-2 (#720) |
+| prop_0b91289d | 18437 | 19727 | ~Nov-05 20:46 CET | stress-2 (#720) |
+| prop_bfc73030 | 19525 | 20815 | ~Nov-06 17:25 CET | stress-3 |
+| prop_b84b545e | 19534 | 20824 | ~Nov-06 17:35 CET | stress-3 |
+| prop_6bbc21b3 | 19541 | 20831 | ~Nov-06 17:44 CET | stress-3 |
 
-Verify: at/after each EXECUTE-eligible height, `governance execute
---proposal-id <id>` on hub with the executor wallet, then check
-`execution_tx_hash` sealed. An armed timer that never lands = finding
-class 1 (lost timer). Refusals before the eligible height are legal
-lifecycle answers, not findings. (Heights updated 31 Oct for the verified
-live `timelock_blocks: 1290` — earlier table assumed eligibility at
-voting_ends_block itself.)
+Leg (both legs pinned to hub, serial):
+1. `aitbc governance close --proposal-id <id>` at/after each
+   `voting_ends_block` — tallies the vote, status → succeeded/failed.
+   One close per prop; closable any time after its end height.
+2. At h≥20831: `aitbc governance execute --proposal-id <id>` ×5, one
+   serial submit per block cadence, signed with the `0xD9CC189c…`
+   executor wallet — **operator stages the key on hub before
+   2026-11-05 ~22:00 CET** (verify address only; never print the key).
+3. Check each `execution_tx_hash` sealed; status → executed.
+
+An armed timer that never lands = finding class 1 (lost timer). Refusals
+before the eligible height are legal lifecycle answers, not findings.
+The other `active` proposals in `governance list`
+(76855f71/9cfe1215/532fac8b/3017437a, `voting_ends_block: null`) are not
+part of this batch — tracked separately.
 
 Note (stress-3 observed semantics): agent-stake unbond is **wall-clock**
 gated (`locked_until`), complete is **block** gated (`lock_height+1440`) —
