@@ -130,6 +130,26 @@ class ChainSettings(BaseSettings):
             self.supported_chains = self.chain_id
         return self
 
+    @model_validator(mode="after")
+    def _pin_block_scoped_preregistered_transactions(self) -> ChainSettings:
+        """Refuse ``BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=false`` at startup.
+
+        The non-block-scoped bridge path writes committed tables (``account``,
+        ``transaction``) directly, outside block apply — the pre-v14 behaviour
+        the flag replaced. An env flip on a live node silently re-opens that
+        committed-write escape with no check able to see it, so it is refused
+        here rather than warned. The legacy path survives only as a test
+        mode: tests patch the attribute post-construction (no
+        ``validate_assignment``), never via env.
+        """
+        if not self.block_scoped_preregistered_transactions:
+            raise ValueError(
+                "block_scoped_preregistered_transactions=false is refused: the "
+                "non-block-scoped bridge path mutates committed tables outside "
+                "block apply (test-only via monkeypatched settings)"
+            )
+        return self
+
     # CORS configuration
     cors_origins: list[str] = (
         os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
@@ -358,6 +378,9 @@ class ChainSettings(BaseSettings):
     sync_manager_http_host: str = "0.0.0.0"
     sync_parallel_peers: str = ""  # "url1,url2" or "chain_id:url1,..."
     state_sync_max_gap: int = 10
+    # TEST-ONLY when false — construction refuses env-bound False (see the
+    # validator above); the non-block-scoped path mutates committed tables
+    # outside block apply and exists only for tests patching the attribute.
     block_scoped_preregistered_transactions: bool = (
         True  # apply pre-registered credit (BRIDGE_*) Account changes only at block time
     )
