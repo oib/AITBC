@@ -416,7 +416,7 @@ class AgentRegistry:
         if not self.redis_client:
             return
         key = f"agent:{agent_info.agent_id}"
-        self.redis_client.set(key, json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
+        await self.redis_client.set(key, json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
 
     async def _remove_agent_from_redis(self, agent_id: str) -> None:
         """Remove agent from Redis"""

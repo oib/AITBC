@@ -391,7 +391,7 @@ class WorkflowOrchestrator:
         if not self.redis_client:
             return
         key = f"workflow:{workflow.workflow_id}"
-        self.redis_client.set(key, json.dumps(workflow.to_dict()), ex=86400)
+        await self.redis_client.set(key, json.dumps(workflow.to_dict()), ex=86400)
 
     async def _load_workflow_definition(self, workflow_id: str) -> WorkflowDefinition | None:
         """Load workflow definition from Redis"""
@@ -408,7 +408,7 @@ class WorkflowOrchestrator:
         if not self.redis_client:
             return
         key = f"execution:{execution.workflow_id}:{execution.execution_id}"
-        self.redis_client.set(key, json.dumps(execution.to_dict()), ex=86400)
+        await self.redis_client.set(key, json.dumps(execution.to_dict()), ex=86400)
 
     async def _load_workflow_execution(self, execution_id: str) -> WorkflowExecution | None:
         """Load workflow execution from Redis"""
