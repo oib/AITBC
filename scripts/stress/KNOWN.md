@@ -14,6 +14,21 @@ only if it does not match an entry below. Update this file as issues land.
   `BRIDGE_LEDGER_URL` fleet-wide, `BRIDGE_LEDGER_API_KEY` dedicated env
 
 
+## STRESS-2 series — dedupe against these
+- STRESS-ENV-GAP-1 (#721) hub1 python3 missing eth_keys — fixed via
+  PYTHONPATH dispatch; operator-signed plays pin node1 anyway
+- STRESS-DOS-1 (#722, open) hub1 intake saturation kills sshd banner —
+  hub1 stays SMALL LOAD; bounded re-test is A's gated leg only
+- STRESS-UNBOND-SILENT-1 (#719, open) agent-stake records are per-host
+  local DBs — response contract fixed (36d9263ee: `funds_released:false,
+  next:"complete"`); canonical-status desync open — pin lifecycle to one
+  rpc host; cross-host status reads are the probe
+- STRESS-WATCHER-1 (#741) stress-2 maturity watcher fired ~22h early on
+  node1 and swallowed refusals — armed unbond/complete legs silently lost;
+  verify-first item for stress-3
+- Armed timer lost = finding class 1: a queued maturity/execute leg that
+  never lands gets filed, not quietly re-run
+
 ## STRESS-1 series (closed — do not refile)
 - STRESS-SYNC-1 (#712) mempool-view NULL-height tx row poisons block commit —
   UNIQUE(tx_hash) rollback mislabeled `concurrent duplicate`; cleared by

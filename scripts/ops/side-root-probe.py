@@ -128,12 +128,15 @@ def committed_tables_for_version(block_version: int) -> tuple[str, ...]:
     """The committed set for a block version — mirror of
     state/side_root_shadow.committed_tables_for_version. v15
     (EDGE-REG-CONSENSUS-1) drops edge_node_registration, which is
-    service-local (no apply writer or reader); the v14 set stays frozen for
-    replay of already-sealed eras."""
+    service-local (no apply writer or reader); v18
+    (deterministic committed apply) additionally drops ``stake``, whose only
+    writers are node-local ``/v1/staking/*`` handlers. The v14/v15 sets stay
+    frozen for replay of already-sealed eras."""
     restricted = (
         RESTRICTED_TABLES if block_version < 15 else tuple(t for t in RESTRICTED_TABLES if t != "edge_node_registration")
     )
-    return (*restricted, *CANONICALIZED_TABLES)
+    canonicalized = CANONICALIZED_TABLES if block_version < 18 else tuple(t for t in CANONICALIZED_TABLES if t != "stake")
+    return (*restricted, *canonicalized)
 
 
 # Canonical rule 1: every column whose name ends in ``_at`` is a locally
