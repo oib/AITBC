@@ -43,6 +43,59 @@ def _get_stake(session: Session, chain_id: str, stake_id: str) -> AgentStakeReco
     ).first()
 
 
+def _canonical_status(session: Session, chain_id: str, stake_id: str) -> tuple[str | None, str]:
+    """Status derived from sealed history first, the local row second (#719).
+
+    Sealed protocol transfers outrank the node-local ``agent_stake`` row —
+    a stale row cannot mask a sealed STAKE_UNBOND/STAKE_RELEASE marker,
+    and a host with no row at all answers from sealed txs instead of
+    404-blind. Precedence: RELEASE > UNBOND > local row > LOCK.
+    """
+    if confirmed_lock_txs(session, chain_id, "STAKE_RELEASE", "agent_stake_id", stake_id):
+        return "completed", "chain"
+    if confirmed_lock_txs(session, chain_id, "STAKE_UNBOND", "agent_stake_id", stake_id):
+        return "unbonding", "chain"
+    record = _get_stake(session, chain_id, stake_id)
+    if record is not None:
+        return record.status, "local"
+    if confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", stake_id):
+        return "active", "chain"
+    return None, "none"
+
+
+def _no_local_record(session: Session, chain_id: str, stake_id: str, action: str) -> dict[str, Any]:
+    """Missing-record answer for unbond/complete (#719): answer from sealed
+    history instead of 404-blind. Idempotent when the sealed status already
+    matches or passes the requested transition; 409 when the transition can
+    only run on the host that served the lock."""
+    status, source = _canonical_status(session, chain_id, stake_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
+    idempotent_for = {"unbond": {"unbonding", "completed"}, "complete": {"completed"}}[action]
+    if status in idempotent_for:
+        return {"success": True, "idempotent": True, "stake_id": stake_id, "status": status, "source": source}
+    raise HTTPException(
+        status_code=409,
+        detail=(
+            f"Stake {stake_id} is {status} on sealed history but has no local record on this "
+            f"host — {action} on the host that served its lock"
+        ),
+    )
+
+
+@rate_limit(rate=20, per=60)
+def get_agent_stake_status(request: Request, stake_id: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Canonical status: sealed STAKE_UNBOND/STAKE_RELEASE markers first,
+    node-local record otherwise — a host with no row answers from sealed
+    history rather than 404-blind (#719)."""
+    cid = get_chain_id(chain_id)
+    with session_scope() as session:
+        status, source = _canonical_status(session, cid, stake_id)
+        if status is None:
+            raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
+        return {"stake_id": stake_id, "status": status, "source": source}
+
+
 def _signed_stake_id_matches(payload: dict[str, Any], stake_id: str) -> None:
     """The auth embedded in the emitted tx is the signed body; if it names a
     different stake than the path, the release would fail the v17 binding at
@@ -200,7 +253,9 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
             raise_for_unarmed("Agent staking (unbond)")
         record = _get_stake(session, chain_id, stake_id)
         if not record:
-            raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
+            # Not 404-blind (#719): sealed history may know this stake even
+            # though the local record lives on another host.
+            return _no_local_record(session, chain_id, stake_id, "unbond")
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
         if record.status == "unbonding":
@@ -276,7 +331,7 @@ def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) 
             raise_for_unarmed("Agent staking (complete)")
         record = _get_stake(session, chain_id, stake_id)
         if not record:
-            raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
+            return _no_local_record(session, chain_id, stake_id, "complete")
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
         if record.status == "completed":
