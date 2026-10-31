@@ -58,6 +58,7 @@ AUTHORITY_OPEN_TX_TYPES = frozenset(
         "GPU_MARKET",
         "STAKE_LOCK",
         "STAKE_RELEASE",
+        "STAKE_UNBOND",
         "BOND_LOCK",
         "BOND_RELEASE",
         "BOND_SLASH",
