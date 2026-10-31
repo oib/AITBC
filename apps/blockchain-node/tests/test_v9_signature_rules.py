@@ -1385,11 +1385,12 @@ class TestV17Policy:
         assert v9_signature_verdict({"type": "STAKE_LOCK", "signature": "0x1"}, "STAKE_LOCK", 17) is None
 
     def test_v17_allowlist_contents(self):
-        """Exactly the five protocol-transfer types — no more. They must not
+        """Exactly the six protocol-transfer types — no more. They must not
         intersect the bridge exemption (different authority model)."""
         assert V17_PAYLOAD_AUTH_TX_TYPES == {
             "STAKE_LOCK",
             "STAKE_RELEASE",
+            "STAKE_UNBOND",
             "BOUNTY_LOCK",
             "BOUNTY_PAYOUT",
             "BOUNTY_REFUND",
