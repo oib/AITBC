@@ -117,3 +117,28 @@
 - `48dcfbf90` — `test(wallet): pin log-once for the escrow fee-float deficit warning` (WALLET-FLOAT-LOCK-1; the 100 AIT fee-float send no longer spams thousands of identical warnings; Refs #404).
 - `a4af823db` — `docs(deployment): correct shop-side pool-hub claims — hub-side only` (Refs #403).
 - `939c8bf81` — `fix(mcp-server): nosec B108 on SCRATCH_ROOT + format-dedup helper` (push hooks); `6e3827db0` — `test(mcp-server): drop dry_run from crosschain bridge-status test` (MCP-MISC-1).
+
+### Dependabot alert bump (DEPS-GH-ALERTS-1)
+
+- Root `pyproject.toml` pins: aiohttp 3.14.4, msgpack 1.2.3, filelock 4.2.1
+  (major; the repo uses only `FileLock`/`Timeout`, the 4.0 break is in
+  `SoftReadWriteLock`), pillow 13.0.0 (`ml` extra; no repo imports,
+  torchvision 0.28 has no upper bound), opentelemetry-sdk and
+  opentelemetry-exporter-otlp 1.45.2 (`observability` extra; lifts
+  opentelemetry-api to 1.45.2).
+- Root `poetry.lock` also moves certifi 2026.10.23, brotli 1.2.1,
+  virtualenv 21.15.2, setuptools 84.2.1 and their dependencies (distlib,
+  packaging, yarl, the otel sub-packages). `requirements.txt` and
+  `requirements-dev.txt` regenerated with `scripts/ci/export-requirements.sh`;
+  `cli/requirements.txt` certifi and packaging aligned.
+- App and SDK locks: certifi 2026.10.23 (monitoring-service, api-gateway,
+  aitbc-sdk, aitbc-agent-sdk), black 26.10.1 (monitoring-service, ai-engine
+  examples; floors raised). Relocking also clears older lock drift:
+  api-gateway gains slowapi and limits (declared, never locked);
+  monitoring-service drops orphan entries (sqlmodel, sqlalchemy, greenlet,
+  psutil, pydantic-settings) that its pyproject no longer declares.
+- `contracts/`: overrides undici ^6.29.1 and serialize-javascript ^7.1.3
+  (locked 6.29.1 and 7.1.4); no hardhat or mocha major.
+- Not fixed: minimatch (fixed only in 11.0.1; eslint 8, glob 7/10, mocha and
+  filelist pin ^3, ^5 or ^9). Alerts on apps/ai-service, plugin-service and
+  hermes-service poetry.lock name manifests that are not on main.
