@@ -98,7 +98,9 @@ bc-2 authority set does not carry. `0xFa80864c…` (lost) and `0xD9CC189c…`
 `escrow_fee_recipient` gets a freshly custodied key (bc-2's is a burn
 address today). This absorbs the parked #413 batch rotation into the
 genesis authority set. Treasury = the 2-of-3 client-side multisig minted
-under #489 — the minted address is the genesis allocation value.
+under #489 — the minted address is the genesis allocation value; the SOT
+schema + gate checks for it live in
+[`bc3-genesis/README.md`](./bc3-genesis/README.md).
 
 ## 3. Rehearsal machinery — what exists and what it proves
 
