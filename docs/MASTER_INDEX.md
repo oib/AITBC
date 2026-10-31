@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-10-29
+**Last Updated**: 2026-10-31
 
 ---
 
@@ -57,7 +57,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 34
-- **Markdown files under docs/**: 1501
+- **Markdown files under docs/**: 1502
 
 | Directory | Files | Description |
 |---|---|---|
@@ -75,7 +75,7 @@ docs/
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
-| [deployment](deployment/) | 26 | Deployment and infrastructure setup |
+| [deployment](deployment/) | 27 | Deployment and infrastructure setup |
 | [design](design/) | 18 | Design documents and decisions |
 | [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
@@ -893,7 +893,7 @@ Inbound markdown links per document (top referrers).
 | [deployment/bc2-host-inventory.md](deployment/bc2-host-inventory.md) | [deployment/README.md](deployment/README.md) |
 | [deployment/bc2-post-cut-owed.md](deployment/bc2-post-cut-owed.md) | [deployment/README.md](deployment/README.md) |
 | [deployment/bc2-post-ponr-failures.md](deployment/bc2-post-ponr-failures.md) | [deployment/README.md](deployment/README.md) |
-| [deployment/bc2-reset-runbook.md](deployment/bc2-reset-runbook.md) | [deployment/README.md](deployment/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), [ops/chain-reset-runbook.md](ops/chain-reset-runbook.md) |
+| [deployment/bc2-reset-runbook.md](deployment/bc2-reset-runbook.md) | [deployment/README.md](deployment/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), [deployment/reset2-runbook.md](deployment/reset2-runbook.md), +1 more |
 | [deployment/bc2-sepolia-redeploy-checklist.md](deployment/bc2-sepolia-redeploy-checklist.md) | [deployment/README.md](deployment/README.md) |
 | [deployment/configuration.md](deployment/configuration.md) | [deployment/DEPENDENCIES.md](deployment/DEPENDENCIES.md), [deployment/README.md](deployment/README.md), [deployment/SERVICE_USERS.md](deployment/SERVICE_USERS.md), +6 more |
 | [deployment/deployment-troubleshooting.md](deployment/deployment-troubleshooting.md) | [deployment/README.md](deployment/README.md), [deployment/health-checks.md](deployment/health-checks.md) |
@@ -902,6 +902,7 @@ Inbound markdown links per document (top referrers).
 | [deployment/health-checks.md](deployment/health-checks.md) | [deployment/README.md](deployment/README.md), [deployment/STAGING.md](deployment/STAGING.md), [deployment/deployment-troubleshooting.md](deployment/deployment-troubleshooting.md), +1 more |
 | [deployment/local-setup.md](deployment/local-setup.md) | [deployment/configuration.md](deployment/configuration.md) |
 | [deployment/multi-server.md](deployment/multi-server.md) | [deployment/README.md](deployment/README.md) |
+| [deployment/reset2-runbook.md](deployment/reset2-runbook.md) | — |
 | [deployment/script-environment.md](deployment/script-environment.md) | [deployment/README.md](deployment/README.md), [deployment/configuration.md](deployment/configuration.md) |
 | [deployment/single-server.md](deployment/single-server.md) | [deployment/DEPENDENCIES.md](deployment/DEPENDENCIES.md), [deployment/README.md](deployment/README.md), [deployment/STAGING.md](deployment/STAGING.md), +1 more |
 | [deployment/sla-monitoring.md](deployment/sla-monitoring.md) | [README.md](README.md) |
@@ -1121,7 +1122,7 @@ Inbound markdown links per document (top referrers).
 | [ops/bridge-funding-source-migration.md](ops/bridge-funding-source-migration.md) | [decisions/README.md](decisions/README.md) |
 | [ops/bridge-outbound-ledger-migration-runbook.md](ops/bridge-outbound-ledger-migration-runbook.md) | [ops/node-sepolia-wallets.md](ops/node-sepolia-wallets.md) |
 | [ops/bridge-release-exercise.md](ops/bridge-release-exercise.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [decisions/v1-v9-live-exercise-waivers.md](decisions/v1-v9-live-exercise-waivers.md), +4 more |
-| [ops/chain-reset-runbook.md](ops/chain-reset-runbook.md) | [README.md](README.md), [design/v14-aux-root-nondeterminism.md](design/v14-aux-root-nondeterminism.md) |
+| [ops/chain-reset-runbook.md](ops/chain-reset-runbook.md) | [README.md](README.md), [deployment/reset2-runbook.md](deployment/reset2-runbook.md), [design/v14-aux-root-nondeterminism.md](design/v14-aux-root-nondeterminism.md) |
 | [ops/companion-island-deploy.md](ops/companion-island-deploy.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), +1 more |
 | [ops/counter-to-journal-recipe.md](ops/counter-to-journal-recipe.md) | [README.md](README.md) |
 | [ops/escrow-relays.md](ops/escrow-relays.md) | [api/market-api.md](api/market-api.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/44_stuck_tee_refund.md](scenarios/44_stuck_tee_refund.md) |
