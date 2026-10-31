@@ -303,3 +303,10 @@ repos:
         entry: python3 scripts/ci/check-fake-async.py
         language: system
         files: \.py$
+  - repo: local
+    hooks:
+      - id: unawaited-async-ratchet
+        name: unawaited-async-call-ratchet
+        entry: python3 scripts/ci/check-unawaited-async.py
+        language: system
+        files: \.py$
