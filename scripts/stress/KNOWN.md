@@ -67,6 +67,10 @@ only if it does not match an entry below. Update this file as issues land.
 - `baseline.sh` `mempool: -1` = parse fallback: `/rpc/mempool` response is
   not the `transactions[]` shape the probe expects; check the actual
   endpoint shape before treating it as a finding
+- harness `cli()` appends `--rpc-url` — flag-less subcommands break
+  (`exchange-island` resolves rpc from island credentials). Play 22 calls
+  `$AITBC_BIN` directly for this reason; check `--help | grep rpc-url`
+  before wiring a new subcommand through `cli()`
 
 ## Operator funding rule (2026-10-30) — NOT a finding
 - Default wallets are fine for plays (each host's `default`); new exercise
