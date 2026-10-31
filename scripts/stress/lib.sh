@@ -127,7 +127,7 @@ serial_acquire() {  # mkdir-based lock on the local state dir (hub copy via ssh)
 }
 serial_release() {
   if [ "${STRESS_SERIAL_REMOTE:-}" = "hub" ]; then
-    ssh hub 'rmdir /var/lib/aitbc/stress-state/serial.lock 2>/dev/null' || true
+    ssh hub 'rm -f /var/lib/aitbc/stress-state/serial.lock/owner; rmdir /var/lib/aitbc/stress-state/serial.lock 2>/dev/null' || true
   else rm -f "$LOCK_DIR/owner" 2>/dev/null; rmdir "$LOCK_DIR" 2>/dev/null || rm -rf "$LOCK_DIR"; fi
 }
 serial_check() {  # parallel scripts: nonzero if a serial play is in flight
