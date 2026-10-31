@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -99,26 +99,26 @@ def fake_state():
 def client(monkeypatch, fake_state):
     monkeypatch.setenv("COORDINATOR_API_KEY", OPERATOR_KEY)
     consensus_stub = MagicMock()
-    consensus_stub.register_node = AsyncMock(return_value={"ok": True})
-    consensus_stub.create_proposal = AsyncMock(return_value={"ok": True})
-    consensus_stub.cast_vote = AsyncMock(return_value={"ok": True})
-    consensus_stub.get_proposal_status = AsyncMock(return_value={"status": "open"})
-    consensus_stub.set_consensus_algorithm = AsyncMock(return_value={"ok": True})
-    consensus_stub.get_consensus_statistics = AsyncMock(return_value={"total_proposals": 0})
-    consensus_stub.update_node_status = AsyncMock(return_value={"ok": True})
+    consensus_stub.register_node = MagicMock(return_value={"ok": True})
+    consensus_stub.create_proposal = MagicMock(return_value={"ok": True})
+    consensus_stub.cast_vote = MagicMock(return_value={"ok": True})
+    consensus_stub.get_proposal_status = MagicMock(return_value={"status": "open"})
+    consensus_stub.set_consensus_algorithm = MagicMock(return_value={"ok": True})
+    consensus_stub.get_consensus_statistics = MagicMock(return_value={"total_proposals": 0})
+    consensus_stub.update_node_status = MagicMock(return_value={"ok": True})
     ai_stub = MagicMock()
-    ai_stub.create_neural_network = AsyncMock(return_value={"id": "net-1"})
-    ai_stub.train_neural_network = AsyncMock(return_value={"ok": True})
-    ai_stub.predict_with_neural_network = AsyncMock(return_value={"prediction": [0.5]})
-    ai_stub.create_ml_model = AsyncMock(return_value={"id": "m1"})
-    ai_stub.train_ml_model = AsyncMock(return_value={"ok": True})
-    ai_stub.predict_with_ml_model = AsyncMock(return_value={"prediction": [0.5]})
-    ai_stub.get_ai_statistics = AsyncMock(return_value={"models": 0})
+    ai_stub.create_neural_network = MagicMock(return_value={"id": "net-1"})
+    ai_stub.train_neural_network = MagicMock(return_value={"ok": True})
+    ai_stub.predict_with_neural_network = MagicMock(return_value={"prediction": [0.5]})
+    ai_stub.create_ml_model = MagicMock(return_value={"id": "m1"})
+    ai_stub.train_ml_model = MagicMock(return_value={"ok": True})
+    ai_stub.predict_with_ml_model = MagicMock(return_value={"prediction": [0.5]})
+    ai_stub.get_ai_statistics = MagicMock(return_value={"models": 0})
     learning_stub = MagicMock()
-    learning_stub.record_experience = AsyncMock(return_value={"ok": True})
-    learning_stub.get_learning_statistics = AsyncMock(return_value={"experiences": 0})
-    learning_stub.predict_performance = AsyncMock(return_value={"score": 0.5})
-    learning_stub.recommend_action = AsyncMock(return_value={"action": "a"})
+    learning_stub.record_experience = MagicMock(return_value={"ok": True})
+    learning_stub.get_learning_statistics = MagicMock(return_value={"experiences": 0})
+    learning_stub.predict_performance = MagicMock(return_value={"score": 0.5})
+    learning_stub.recommend_action = MagicMock(return_value={"action": "a"})
     for mod in (consensus_router,):
         monkeypatch.setattr(mod, "distributed_consensus", consensus_stub)
         monkeypatch.setattr(mod, "ai_integration", ai_stub)

@@ -93,13 +93,13 @@ class TestHierarchicalProtocol:
 
     def test_add_sub_agent(self, master_protocol):
         """Test adding sub-agent"""
-        asyncio.run(master_protocol.add_sub_agent("sub-agent-001"))
+        master_protocol.add_sub_agent("sub-agent-001")
         assert "sub-agent-001" in master_protocol.sub_agents
 
     def test_send_to_sub_agents(self, master_protocol):
         """Test sending to sub-agents"""
-        asyncio.run(master_protocol.add_sub_agent("sub-agent-001"))
-        asyncio.run(master_protocol.add_sub_agent("sub-agent-002"))
+        master_protocol.add_sub_agent("sub-agent-001")
+        master_protocol.add_sub_agent("sub-agent-002")
 
         message = MessageTemplates.create_heartbeat("master-agent")
 
@@ -137,19 +137,19 @@ class TestPeerToPeerProtocol:
 
     def test_add_peer(self, p2p_protocol):
         """Test adding peer"""
-        asyncio.run(p2p_protocol.add_peer("agent-002", {"endpoint": "http://localhost:8002"}))
+        p2p_protocol.add_peer("agent-002", {"endpoint": "http://localhost:8002"})
         assert "agent-002" in p2p_protocol.peers
         assert p2p_protocol.peers["agent-002"]["endpoint"] == "http://localhost:8002"
 
     def test_remove_peer(self, p2p_protocol):
         """Test removing peer"""
-        asyncio.run(p2p_protocol.add_peer("agent-002", {"endpoint": "http://localhost:8002"}))
-        asyncio.run(p2p_protocol.remove_peer("agent-002"))
+        p2p_protocol.add_peer("agent-002", {"endpoint": "http://localhost:8002"})
+        p2p_protocol.remove_peer("agent-002")
         assert "agent-002" not in p2p_protocol.peers
 
     def test_send_to_peer(self, p2p_protocol):
         """Test sending to peer"""
-        asyncio.run(p2p_protocol.add_peer("agent-002", {"endpoint": "http://localhost:8002"}))
+        p2p_protocol.add_peer("agent-002", {"endpoint": "http://localhost:8002"})
 
         message = MessageTemplates.create_task_assignment("agent-001", "agent-002", {"task": "test"})
 
@@ -172,16 +172,16 @@ class TestBroadcastProtocol:
 
     def test_subscribe_unsubscribe(self, broadcast_protocol):
         """Test subscribe and unsubscribe"""
-        asyncio.run(broadcast_protocol.subscribe("agent-002"))
+        broadcast_protocol.subscribe("agent-002")
         assert "agent-002" in broadcast_protocol.subscribers
 
-        asyncio.run(broadcast_protocol.unsubscribe("agent-002"))
+        broadcast_protocol.unsubscribe("agent-002")
         assert "agent-002" not in broadcast_protocol.subscribers
 
     def test_broadcast(self, broadcast_protocol):
         """Test broadcasting"""
-        asyncio.run(broadcast_protocol.subscribe("agent-002"))
-        asyncio.run(broadcast_protocol.subscribe("agent-003"))
+        broadcast_protocol.subscribe("agent-002")
+        broadcast_protocol.subscribe("agent-003")
 
         message = MessageTemplates.create_discovery("agent-001")
 
@@ -242,7 +242,7 @@ class TestCommunicationManager:
         comm_manager.add_protocol("test", protocol)
 
         handler = AsyncMock()
-        await comm_manager.register_handler("test", MessageType.HEARTBEAT, handler)
+        comm_manager.register_handler("test", MessageType.HEARTBEAT, handler)
 
         protocol.register_handler.assert_called_once_with(MessageType.HEARTBEAT, handler)
 
@@ -324,7 +324,7 @@ class TestCommunicationIntegration:
             assert message.sender_id == "agent-002"
             assert message.message_type == MessageType.HEARTBEAT
 
-        await comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, handle_heartbeat)
+        comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, handle_heartbeat)
 
         # Send heartbeat
         heartbeat = MessageTemplates.create_heartbeat("agent-001")
