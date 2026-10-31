@@ -20,7 +20,7 @@ from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Block, ChainParameter, ChainParameterHistory, Transaction
-from .utils import get_chain_id, require_admin_signature
+from .utils import get_chain_id, import_advisory_acquire, import_advisory_release, require_admin_signature
 
 _logger = get_logger(__name__)
 _last_import_time = 0
@@ -375,8 +375,10 @@ def _import_chain_data(import_data: dict[str, Any]) -> dict[str, Any]:
 async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[str, Any]:
     """Import chain state from JSON for manual synchronization (admin only)"""
     async with _import_lock:
+        _import_advisory = None
         try:
             require_admin_signature(import_data, import_data.get("admin_address"), import_data.get("admin_signature"))
+            _import_advisory = import_advisory_acquire(get_chain_id(None))
             return _import_chain_data(import_data)
         except HTTPException:
             raise
@@ -385,6 +387,8 @@ async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[st
             _logger.exception("Unhandled exception")
 
             raise HTTPException(status_code=500, detail="Internal server error") from e
+        finally:
+            import_advisory_release(_import_advisory)
 
 
 def _address_is_forbidden(ip: Any) -> bool:

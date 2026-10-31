@@ -9,6 +9,10 @@ components see the same cache state without passing an instance around.
 from aitbc.caching import BlockHeaderCache
 
 # Singleton instance shared across the node process.
+# Multi-worker note (Refs #745): each uvicorn worker owns its copy —
+# caches may diverge for a TTL/size window after a block lands. Accepted:
+# read-path staleness only, invalidated on import in the same worker;
+# never used for admission or seal correctness.
 block_header_cache = BlockHeaderCache(max_size=1000)
 
 
