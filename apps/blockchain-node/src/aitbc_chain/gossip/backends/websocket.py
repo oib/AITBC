@@ -50,6 +50,10 @@ class WebsocketGossipBackend(GossipBackend):
         self._lock = asyncio.Lock()
         self._running = False
         self._echo_ttl = suppress_echo_ttl
+        # Per-worker echo dedupe (Refs #745): the same message CAN be
+        # delivered once per worker — downstream tx-hash dedupe in the
+        # mempool is the authority, so this map only trims the common
+        # same-worker echo case.
         self._sent_message_ids: dict[str, float] = {}
         self._sent_lock = asyncio.Lock()
         self._reconnecting: set[str] = set()

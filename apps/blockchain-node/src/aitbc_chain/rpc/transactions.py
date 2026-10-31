@@ -302,12 +302,20 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
                 pass
 
 
+def _fanout_done(task: "asyncio.Task[None]") -> None:
+    try:
+        task.result()
+    except Exception as e:  # noqa: BLE001 — observability only
+        _logger.warning("tx fan-out task raised: %s", e)
+
+
 def _queue_peer_fanout(chain_id: str, tx_data: dict[str, Any]) -> None:
     """Fire-and-forget peer relay; never blocks or fails the submit path."""
     try:
-        asyncio.get_running_loop().create_task(_fanout_transaction_to_peers(chain_id, tx_data))
-    except RuntimeError:
-        pass  # no running loop (e.g. synchronous test contexts)
+        task = asyncio.get_running_loop().create_task(_fanout_transaction_to_peers(chain_id, tx_data))
+        task.add_done_callback(_fanout_done)
+    except RuntimeError as e:
+        _logger.warning("tx fan-out not scheduled for chain %s (no running loop): %s", chain_id, e)
 
 
 @rate_limit(rate=50, per=60)
