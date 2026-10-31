@@ -17,7 +17,9 @@ from sqlmodel import Session
 from aitbc_chain.base_models import AgentStakeRecord, _to_ait_address
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Transaction
-from aitbc_chain.rpc.agent_staking import _canonical_status
+from fastapi import HTTPException
+
+from aitbc_chain.rpc.agent_staking import _canonical_guard, _canonical_status
 
 CHAIN = "bc-2"
 STAKER = _to_ait_address("0x" + "1" * 40)
@@ -119,3 +121,56 @@ def test_unsealed_txs_dont_count(engine):
         )
         session.commit()
         assert _canonical_status(session, CHAIN, SID) == ("active", "local")
+
+
+# ------------------------------------------------------------------
+# #748 — existing-row path: a stale local row must not emit doomed markers
+# ------------------------------------------------------------------
+
+
+def test_guard_stale_active_sealed_unbond_idempotent_for_unbond(engine):
+    """local active + sealed STAKE_UNBOND -> unbond answers idempotent."""
+    with Session(engine) as session:
+        _row(session, "active")
+        _sealed(session, "STAKE_UNBOND")
+        out = _canonical_guard(session, CHAIN, SID, "unbond")
+        assert out == {"success": True, "idempotent": True, "stake_id": SID, "status": "unbonding", "source": "chain"}
+
+
+def test_guard_stale_active_sealed_unbond_refuses_complete(engine):
+    """local active + sealed STAKE_UNBOND -> complete refuses (row is stale)."""
+    with Session(engine) as session:
+        _row(session, "active")
+        _sealed(session, "STAKE_UNBOND")
+        with pytest.raises(HTTPException) as exc:
+            _canonical_guard(session, CHAIN, SID, "complete")
+        assert exc.value.status_code == 409
+
+
+def test_guard_stale_unbonding_sealed_release_idempotent_complete(engine):
+    """local unbonding + sealed STAKE_RELEASE -> complete answers completed,
+    no second RELEASE is emitted."""
+    with Session(engine) as session:
+        _row(session, "unbonding")
+        _sealed(session, "STAKE_RELEASE")
+        out = _canonical_guard(session, CHAIN, SID, "complete")
+        assert out["status"] == "completed" and out["idempotent"] is True
+
+
+def test_guard_stale_active_sealed_release_refuses_unbond_and_add(engine):
+    """local active + sealed STAKE_RELEASE -> unbond and add both refuse."""
+    with Session(engine) as session:
+        _row(session, "active")
+        _sealed(session, "STAKE_RELEASE")
+        for action in ("unbond", "add"):
+            with pytest.raises(HTTPException) as exc:
+                _canonical_guard(session, CHAIN, SID, action)
+            assert exc.value.status_code == 409
+
+
+def test_guard_local_source_passes_through(engine):
+    """No sealed markers -> guard stays out of the way (local rules run)."""
+    with Session(engine) as session:
+        _row(session, "active")
+        for action in ("unbond", "complete", "add"):
+            assert _canonical_guard(session, CHAIN, SID, action) is None
