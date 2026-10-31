@@ -55,12 +55,14 @@ case "$LEG" in
     BOND_ID="${STRESS_BOND_ID:-bond-$STRESS_MINER_ID}"
     LOCK_AMT="${STRESS_BOND_AMOUNT:-36000000}"  # units
     resp=$(WFILE="${STRESS_PROVIDER_WALLET_PATH:-/var/lib/aitbc/wallets/default.json}" \
-      BOND_ID="$BOND_ID" LOCK_AMT="$LOCK_AMT" CHAIN="$CHAIN" RPC="$RPC_URL" python3 - <<'PY'
+      BOND_ID="$BOND_ID" LOCK_AMT="$LOCK_AMT" CHAIN="$CHAIN" RPC="$RPC_URL" /opt/aitbc/venv/bin/python - <<'PY'
 import json, os, urllib.request
 from eth_keys import keys
 from eth_utils import keccak
-import sys
+import sys, glob
 sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
+for d in glob.glob("/opt/aitbc/packages/py/*/src") + ["/opt/aitbc"]:
+    sys.path.insert(0, d)
 from aitbc_chain.state.state_transition import _bond_escrow_ait
 w = json.load(open(os.environ["WFILE"]))
 priv = keys.PrivateKey(bytes.fromhex(w["private_key"].removeprefix("0x")))
