@@ -85,10 +85,16 @@ m=re.search(r"[0-9a-f]{32}", sys.stdin.read()); print(m.group(0) if m else "")')
     # miner JWT minted locally — the api-key path is not provisioned for
     # this flow; the coordinator's own JWT_SECRET signs a role=miner token
     # with sub = the assigned miner (same authority require_miner accepts).
-    tok=$( ( set -a; . /etc/aitbc/aitbc-coordinator-api.env; set +a; \
-      MINER_SUB="$STRESS_MINER_ID" /opt/aitbc/venv/bin/python -c \
-        'import os;from aitbc.auth import create_access_token;print(create_access_token({"sub":os.environ["MINER_SUB"],"role":"miner"}))' ) ) \
+    jwts=$(grep -hE "^JWT_SECRET(_KEY)?=" \
+      /etc/aitbc/aitbc-coordinator-api.env /etc/aitbc/aitbc-coordinator-api-override.env \
+      /etc/aitbc/blockchain-secrets.env 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^[\"'\''\'']*//; s/[\"'\''\'']*$//")
+    [ -n "$jwts" ] || fail env "JWT_SECRET not found in coordinator env files"
+    tok=$(JWT_SECRET="$jwts" MINER_SUB="$STRESS_MINER_ID" /opt/aitbc/venv/bin/python -c \
+      'import os;from aitbc.auth import create_access_token;print(create_access_token(os.environ["MINER_SUB"],"miner"))') \
       || fail token "miner JWT mint failed: $tok"
+    # coordinator listens on 127.0.0.1:8203 — 8201 is the api-gateway, a
+    # different auth scheme ("Missing authentication credentials" there is
+    # the gateway's own refusal, not the coordinator's).
     # wait for assignment — the fail call needs job.assigned_miner_id ==
     # the token's sub; poll the (admin-authed) job record until the agent
     # polls it into RUNNING, then induce before it completes.
@@ -100,7 +106,7 @@ m=re.search(r"[0-9a-f]{32}", sys.stdin.read()); print(m.group(0) if m else "")')
       sleep 1
     done
     [ -n "$miner" ] && [ "$miner" != "None" ] || fail lookup "job $JOB_ID never assigned"
-    resp=$(curl -sf --max-time 15 -X POST "http://127.0.0.1:8201/v1/miners/$JOB_ID/fail" \
+    resp=$(curl -sf --max-time 15 -X POST "http://127.0.0.1:8203/v1/miners/$JOB_ID/fail" \
       -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
       -d '{"error_message":"stress-induced bonded failure #742"}' 2>&1) || fail fail "fail POST refused: $resp"
     echo "fail accepted: $resp"
