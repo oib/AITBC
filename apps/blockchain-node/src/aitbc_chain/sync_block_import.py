@@ -903,21 +903,40 @@ class BlockImportMixin(SyncBase):
             ]
             recorded_aux = block_data.get("aux_state_root")
             if not recorded_aux or computed_aux != str(recorded_aux):
-                metrics_registry.increment("sync_aux_root_rejected_total")
-                session.rollback()
-                self._track_rejection(self._chain_id)
-                logger.error(
-                    "[SYNC] Aux state root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
-                    block_data["height"],
-                    recorded_aux,
-                    computed_aux,
-                )
-                return self._make_import_result(
-                    accepted=False,
-                    height=block_data["height"],
-                    block_hash=block_hash,
-                    reason=f"Aux state root mismatch: expected {recorded_aux}, computed {computed_aux}",
-                )
+                if not side_root_shadow.aux_check_verifiable(block_version):
+                    # The era set includes tables whose only writers were
+                    # node-local RPC/aux paths (stake, edge_node_registration):
+                    # the sealed digest mixed the sealer's own local rows and
+                    # cannot be reproduced here — a mismatch cannot distinguish
+                    # real divergence from legitimate local rows, so the check
+                    # runs compare-only for these eras rather than stalling
+                    # replay of history no node can re-verify.
+                    metrics_registry.increment("sync_aux_root_unverifiable_total")
+                    logger.warning(
+                        "[SYNC] Aux state root mismatch at height %s on an "
+                        "unverifiable era (v%s): expected %s, computed %s - "
+                        "compare-only, block not rejected",
+                        block_data["height"],
+                        block_version,
+                        recorded_aux,
+                        computed_aux,
+                    )
+                else:
+                    metrics_registry.increment("sync_aux_root_rejected_total")
+                    session.rollback()
+                    self._track_rejection(self._chain_id)
+                    logger.error(
+                        "[SYNC] Aux state root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
+                        block_data["height"],
+                        recorded_aux,
+                        computed_aux,
+                    )
+                    return self._make_import_result(
+                        accepted=False,
+                        height=block_data["height"],
+                        block_hash=block_hash,
+                        reason=f"Aux state root mismatch: expected {recorded_aux}, computed {computed_aux}",
+                    )
         if journal is not None:
             journal.persist(session)
         session.commit()
