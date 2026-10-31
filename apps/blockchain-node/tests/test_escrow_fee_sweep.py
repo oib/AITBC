@@ -176,6 +176,8 @@ def test_v11_height_is_baked_at_35400(monkeypatch):
     monkeypatch.delenv("STATE_TRANSITION_V11_HEIGHT", raising=False)
     assert ChainSettings(_env_file=None).state_transition_v11_height == 35_400
     monkeypatch.setattr(settings, "state_transition_v11_height", 35_400)
+    for n in range(12, 19):
+        monkeypatch.setattr(settings, f"state_transition_v{n}_height", None)
     assert get_block_version_for_height(35_399) == 10
     assert get_block_version_for_height(35_400) == 11
 
@@ -208,6 +210,8 @@ def test_v12_version_boundary_with_baked_default(monkeypatch):
     37500 — the exact activation boundary sealed on the fleet."""
     monkeypatch.delenv("STATE_TRANSITION_V12_HEIGHT", raising=False)
     monkeypatch.setattr(settings, "state_transition_v12_height", 37_500)
+    for n in range(13, 19):
+        monkeypatch.setattr(settings, f"state_transition_v{n}_height", None)
     assert get_block_version_for_height(37_499) == 11
     assert get_block_version_for_height(37_500) == 12
 
@@ -645,6 +649,8 @@ def test_v11_block_resolves_by_local_env_not_stamp(monkeypatch):
     monkeypatch.setattr(settings, "state_transition_v9_height", 31_000)
     monkeypatch.setattr(settings, "state_transition_v10_height", 33_000)
     monkeypatch.setattr(settings, "state_transition_v11_height", 35_400)
+    for n in range(12, 19):
+        monkeypatch.setattr(settings, f"state_transition_v{n}_height", None)
     block = {"block_metadata": {"state_transition_version": 11}}
     assert get_block_version(block, 35_400) == 11
     # Same stamped block on a node without the env pin -> v10 rule set.
