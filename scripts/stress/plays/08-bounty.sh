@@ -12,6 +12,7 @@
 #        ./08-bounty.sh submit <bounty-id>       submission leg
 #        ./08-bounty.sh verify <bounty-id> [sid] verify->BOUNTY_PAYOUT leg
 set -euo pipefail
+PLAY_ARGS=("$@")  # captured before lib.sh consumes "$@" (positional legs)
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
@@ -21,9 +22,9 @@ _opw_var="STRESS_OPERATOR_WALLET_$HOST"
 WALLET="${!_opw_var:-$WALLET}"
 WFILE="${OPERATOR_WALLET_PATH:-${STRESS_WALLET_PATH:-/var/lib/aitbc/wallets/${WALLET}.json}}"
 [ -f "$WFILE" ] || fail resolve "wallet file $WFILE not found"
-LEG="expire"; BOUNTY_ID="${1:-}"; SUBMISSION_ID=""
-case "${1:-}" in
-  submit|verify) LEG="$1"; BOUNTY_ID="${2:-}"; SUBMISSION_ID="${3:-}";;
+LEG="expire"; BOUNTY_ID="${PLAY_ARGS[0]:-}"; SUBMISSION_ID=""
+case "${PLAY_ARGS[0]:-}" in
+  submit|verify) LEG="${PLAY_ARGS[0]}"; BOUNTY_ID="${PLAY_ARGS[1]:-}"; SUBMISSION_ID="${PLAY_ARGS[2]:-}";;
 esac
 
 call() {  # call <path> <payload-json>
