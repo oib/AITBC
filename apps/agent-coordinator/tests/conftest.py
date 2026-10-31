@@ -36,6 +36,12 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key")
 # raises on hosts whose env files flag production (`NODE_ENV=production` in
 # /etc/aitbc/blockchain.env) without a JWT_SECRET in the process env.
 os.environ.setdefault("JWT_SECRET", "test-secret-for-agent-coordinator-tests" * 2)
+# api_key manager FileLocks <storage>.lock at import; /var/lib/aitbc is
+# root-only on hosts where the suite runs without the aitbc user.
+import tempfile
+
+os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(tempfile.mkdtemp(prefix="test-apikeys-"), "api_keys.json"))
+os.environ.setdefault("AGENT_DB_PATH", os.path.join(tempfile.mkdtemp(prefix="test-agentdb-"), "agent.db"))
 
 pytest.importorskip("fastapi", reason="agent-coordinator app dependencies not installed")
 
