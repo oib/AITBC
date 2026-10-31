@@ -39,6 +39,7 @@ from aitbc_chain.rpc.utils import sign_transaction_data
 from aitbc_chain.state.state_root_utils import compute_state_root_full
 from aitbc_chain.state.state_transition import StateTransition
 from sqlmodel import Session, create_engine
+from sqlalchemy.pool import StaticPool
 import pytest
 
 CHAIN = "escrow-phantom-fixture"
@@ -57,7 +58,7 @@ PAYEE = derive_ethereum_address("0x" + "44" * 32)  # never seeded
 
 
 def _engine():
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     chain_metadata.create_all(engine)
     return engine
 
