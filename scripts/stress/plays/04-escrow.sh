@@ -43,7 +43,7 @@ fi
 # lock_height + OFFSET.
 if [ -n "$OFFSET" ]; then
   lock_h=""
-  for i in $(seq 1 40); do
+  for i in $(seq 1 "${STRESS_LOCK_WAIT:-90}"); do
     row=$(rpc_get "/rpc/transactions?transaction_type=ESCROW_LOCK&limit=5" 2>/dev/null | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 txs=d.get("transactions",d if isinstance(d,list) else [])
