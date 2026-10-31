@@ -330,3 +330,45 @@ def test_params_self_consistent():
     assert caf.EXPECTED_TOTAL_UNITS == p["supply_ait"] * p["units_per_ait"]
     assert caf.TREASURY_UNITS == p["treasury_ait"] * p["units_per_ait"]
     assert caf.SERVICE_UNITS == p["service_ait_each"] * p["units_per_ait"]
+
+
+def test_chain_id_resolution_order(monkeypatch):
+    """#592: env beats file metadata; file metadata beats the bc-2 default."""
+    monkeypatch.delenv("AITBC_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    assert caf._resolve_chain_id(None) == "bc-2"
+    assert caf._resolve_chain_id([{"address": "0x0", "balance": 1}]) == "bc-2"
+    assert caf._resolve_chain_id({"chain_id": "bc-3", "allocations": []}) == "bc-3"
+    monkeypatch.setenv("AITBC_CHAIN_ID", "bc-3")
+    assert caf._resolve_chain_id({"chain_id": "bc-9"}) == "bc-3"
+    monkeypatch.delenv("AITBC_CHAIN_ID")
+    monkeypatch.setenv("CHAIN_ID", "bc-4")
+    assert caf._resolve_chain_id(None) == "bc-4"
+
+
+def test_treasury_challenge_renders_chain(monkeypatch):
+    monkeypatch.delenv("AITBC_CHAIN_ID", raising=False)
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    addr = _addr("treasury-chain")
+    assert caf.treasury_challenge(addr) == f"AITBC bc-2 genesis treasury spendability proof for {addr}"
+    assert caf.treasury_challenge(addr, "bc-3") == f"AITBC bc-3 genesis treasury spendability proof for {addr}"
+
+
+def test_proof_verify_accepts_legacy_bc2(monkeypatch):
+    """A proof signed over the pre-versioning literal bc-2 string still
+    verifies even when the detected chain differs."""
+    Account, encode_defunct = caf._proof_modules()
+    _addr("treasury-legacy")
+    key = "0x" + "ab" * 32
+    claimed = canonical_address(Account.from_key(key).address)
+    legacy_msg = caf.treasury_challenge(claimed, "bc-2")
+    signed = Account.sign_message(encode_defunct(text=legacy_msg), key)
+    problems: list[str] = []
+    rec = caf._recover_proof_signer(claimed, legacy_msg, signed.signature.hex(), problems, "bc-3")
+    assert rec == claimed and not problems
+    detected_msg = caf.treasury_challenge(claimed, "bc-3")
+    signed2 = Account.sign_message(encode_defunct(text=detected_msg), key)
+    rec2 = caf._recover_proof_signer(claimed, detected_msg, signed2.signature.hex(), problems, "bc-3")
+    assert rec2 == claimed and not problems
+    bad = caf._recover_proof_signer(claimed, "wrong challenge", signed.signature.hex(), problems, "bc-3")
+    assert bad is None and problems
