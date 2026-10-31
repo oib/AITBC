@@ -7,7 +7,7 @@ set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
-addr=$(cli wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
+addr=$(wallet_addr || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
 spend_guard "$AMOUNT" || true
 
