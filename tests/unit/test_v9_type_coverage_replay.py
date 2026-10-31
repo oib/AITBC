@@ -757,6 +757,18 @@ _PROTOCOL_EMISSIONS: dict[str, tuple[Callable[[], dict], tuple[Callable[[Session
         ),
         (_seed_stake_lock, _seed_stake_escrow_funded),
     ),
+    # rpc/agent_staking.py — STAKE_UNBOND marker (Option A, #719):
+    # escrow->escrow self-transfer recording the unbond transition
+    "agent_staking.STAKE_UNBOND": (
+        lambda: _protocol_shape(
+            _stake_escrow(),
+            _stake_escrow(),
+            "STAKE_UNBOND",
+            {"agent_stake_id": "v9r-9"},
+            _operator_auth({"user_address": BUYER, "chain_id": CHAIN, "stake_id": "v9r-9"}),
+        ),
+        (_seed_stake_escrow_funded,),
+    ),
     # rpc/escrow_routes.py — AUTO_STAKE reinvestment, no auth at all
     "escrow_routes.AUTO_STAKE_LOCK": (
         lambda: _protocol_shape(
@@ -875,6 +887,7 @@ _REVIVED_AT_V17 = {
     "staking.STAKE_RELEASE",
     "agent_staking.STAKE_LOCK",
     "agent_staking.STAKE_RELEASE",
+    "agent_staking.STAKE_UNBOND",
     "bounty.BOUNTY_LOCK",
     "bounty.BOUNTY_PAYOUT",
     "bounty.BOUNTY_REFUND",
