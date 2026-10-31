@@ -34,15 +34,20 @@ class Settings(ServiceSettings):
     blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)
     default_chain_id: str = Field(default="ait-hub")
 
-    # Governance voting parameters (block-based, ~2s block time)
-    voting_period_blocks: int = Field(default=7200)  # ~4 hours at 2s block time
+    # Governance voting parameters (block-based; wall-clock depends on the
+    # fleet's real cadence — ~67s/block on bc-2, so read the estimates below
+    # as defaults-only. Live bc-2 overrides: voting via env, timelock via
+    # chain parameter = 1290 (~21.5h at fleet cadence).
+    voting_period_blocks: int = Field(default=7200)  # ~4h at a hypothetical 2s cadence; ~5 days at bc-2's ~67s/block
     quorum_percent: float = Field(default=30.0)
     approval_percent: float = Field(default=50.0)
-    timelock_blocks: int = Field(default=43200)  # ~24 hours at 2s block time
+    timelock_blocks: int = Field(
+        default=43200
+    )  # ~24h at a hypothetical 2s cadence; ~30 days at ~67s — live bc-2 override is 1290 (~21.5h)
     snapshot_delay_blocks: int = Field(default=100)  # blocks before voting starts
 
     # v0.7.4: Emergency proposal parameters
-    emergency_timelock_blocks: int = Field(default=7200)  # ~4h at 2s block time (vs 24h normal)
+    emergency_timelock_blocks: int = Field(default=7200)  # ~4h at a hypothetical 2s cadence; ~5 days at ~67s
     emergency_quorum_percent: float = Field(default=80.0)  # 80% quorum for emergency
     emergency_voting_period_blocks: int = Field(default=3600)  # ~2h voting (vs 4h normal)
     emergency_approval_percent: float = Field(default=66.67)  # 2/3 supermajority
