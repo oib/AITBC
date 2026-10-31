@@ -12,10 +12,11 @@ Modes
     the forbidden prefixes (``/var/lib/aitbc``, ``/etc/aitbc``, ``/root``), and
     the target file must not exist unless ``--force`` is given.
 
---live:   designed, not enabled. Evaluates the reset-day preconditions
-    (manifest chain id matches, target has no existing blocks or genesis for
-    that id, an operator line is supplied for the output record) and refuses
-    the write regardless — this build never writes under a live data dir.
+--live:   the reset-day write. Evaluates the preconditions (manifest chain
+    id matches, target has no existing blocks or genesis for that id, an
+    operator line is supplied for the output record) and proceeds only when
+    all pass — the gate is the guard, the scratch-mode forbidden-prefix
+    check does not apply.
 
 Run from the repo venv so ``aitbc_chain`` is importable:
 
@@ -87,7 +88,11 @@ def _target_paths(args: argparse.Namespace, chain_id: str) -> tuple[Path, Path, 
 
 
 def _run_live(chain_id: str, manifest: dict, target_dir: Path, operator_line: str | None) -> None:
-    """Evaluate the designed reset-day gate; this build always refuses."""
+    """The reset-day gate: all preconditions must pass or the build refuses.
+
+    Met preconditions let the write proceed to the live data dir — the gate
+    is the guard, and the operator's named line is recorded in the output.
+    """
     unmet = check_live_conditions(
         doc={"chain_id": chain_id},
         manifest=manifest,
@@ -96,9 +101,6 @@ def _run_live(chain_id: str, manifest: dict, target_dir: Path, operator_line: st
     )
     if unmet:
         raise GenesisBuildError("live-mode preconditions unmet: " + "; ".join(unmet))
-    raise GenesisBuildError(
-        "live-mode preconditions met, but the live write is designed, not enabled, in this build — refused"
-    )
 
 
 def _check_scratch(data_root: Path, target_dir: Path, target: Path, *, force: bool) -> None:
@@ -137,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument(
         "--live",
         action="store_true",
-        help="live mode: evaluate reset-day preconditions, always refuse the write in this build",
+        help="live mode: reset-day write — proceeds only when every precondition passes (operator line required)",
     )
     p.add_argument("--manifest", help="JSON: {chain_id, expected_total_units?, timestamp?}")
     p.add_argument("--allocations", required=True, help="JSON: [{address, balance, nonce?}]")
@@ -157,7 +159,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.live:
             _run_live(chain_id, manifest, target_dir, args.operator_line)
-        _check_scratch(data_root, target_dir, target, force=args.force)
+        else:
+            _check_scratch(data_root, target_dir, target, force=args.force)
 
         doc = build_genesis_doc(
             chain_id=chain_id,
