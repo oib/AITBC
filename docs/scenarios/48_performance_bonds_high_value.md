@@ -1,5 +1,7 @@
 # Scenario 48: Performance bonds for high-value jobs
 
+> **Post-v18 coverage note (31 Oct):** the bond record types this scenario exercises are sealed on bc-2 — `BOND_LOCK` @9816 (+9822), `BOND_RELEASE` @9820, `BOND_SLASH` @9825 and again @12856 (bonded-job failure path, stress-3). Coverage folded per #665.
+
 > **v0.14.4+ behavior.** Only `linear-1` is registered in `MODEL_CIRCUITS`;
 > any other model (e.g. `llama3.2:3b`) yields `zk_status: unsupported_model`
 > → `computation_correct=False` → escrow blocked/refunded. The `verified`/
