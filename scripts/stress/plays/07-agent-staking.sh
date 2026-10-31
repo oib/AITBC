@@ -61,7 +61,10 @@ m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else 
       printf '%s' "$resp" | grep -qiE "not.*expired|locked until" \
         && skip_mature "unbond refused: $resp" || fail unbond "unbond failed: $resp"
     }
-    ok ""
+    ub_tx=$(printf '%s' "$resp" | python3 -c 'import re,sys
+m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
+    [ -n "$ub_tx" ] && wait_seal "$ub_tx" >/dev/null || true
+    ok "${ub_tx:-}"
     ;;
   complete)
     resp=$(call "/rpc/agent-staking/stake/${STRESS_STAKE_ID:-$STAKE_ID}/complete" "{\"stake_id\":\"${STRESS_STAKE_ID:-$STAKE_ID}\",\"chain_id\":\"$CHAIN\",\"user_address\":\"$addr\"}" 2>&1) || {
