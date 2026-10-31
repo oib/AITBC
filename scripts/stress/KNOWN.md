@@ -71,6 +71,14 @@ only if it does not match an entry below. Update this file as issues land.
   (`exchange-island` resolves rpc from island credentials). Play 22 calls
   `$AITBC_BIN` directly for this reason; check `--help | grep rpc-url`
   before wiring a new subcommand through `cli()`
+- rpc rate limiter is **per-worker in-memory** (1000 req/60s each) —
+  storms from one client IP see nondeterministic 429s by worker fan and
+  the effective ceiling is fan-dependent; a `429` row in the run log is
+  the limiter, not a defect (stress-3 storm pass 1 hit this)
+- lock-window artifacts: `03`/`04` `no ESCROW_LOCK sealed carrying job`
+  fails are usually poll-window misses — lock-seal latency ran ~10-25
+  blocks under load; verify the lock on-chain (`payload.job_id`) before
+  treating as a finding
 
 ## Operator funding rule (2026-10-30) — NOT a finding
 - Default wallets are fine for plays (each host's `default`); new exercise
