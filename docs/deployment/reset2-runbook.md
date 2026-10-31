@@ -116,8 +116,9 @@ Phases preserve the bc-2 names; `[reset-2]` marks the deltas.
 **B. Freeze** — stop accepting writes on bc-2, in order:
 1. Announce the window (public notice — operator names it).
 2. Freeze intake: customer traffic pause + bridge locks paused
-   (`BRIDGE_LOCKS_PAUSED` — bc-2 pattern; decide whether it carries
-   through genesis or launches armed per R-item).
+   (`BRIDGE_LOCKS_PAUSED` — decided: bc-3 launches **paused** at
+   genesis, recorded on #410; unpause is a separate gated step
+   post-cut).
 3. Final drain check vs the §E6 table.
 4. Record the freeze ledger entry (operator line verbatim + height).
 
@@ -192,10 +193,11 @@ The steps that cannot be fully scripted until #410's R1–R7 resolve:
 - **chain id + genesis values** (chain id `bc-3` assumed throughout;
   allocations/validators/parameter set pin the genesis build)
 - **treasury + authority set** — feeds §2 custody table
-- **bridge pause carry-through** — `BRIDGE_LOCKS_PAUSED` at genesis vs
-  armed-after (operator decides; bc-2 precedent was paused→redeploy)
-- **bc-2 fate** — keep running as parallel testnet vs decommission
-  post-cut (affects the E6 drain table's "migrate vs archive" split)
+- ~~bridge pause carry-through~~ — **decided** (#410): paused at
+  genesis; unpause is a separate gated step post-cut
+- ~~bc-2 fate~~ — **decided** (#410): bc-2 **decommissions** after the
+  cut — the E6 drain table therefore splits as "migrate vs archive
+  then decommission", not a parallel-chain plan
 - **window date** — blank until operator names it
 
 Nothing else in this draft is contingent — the mechanics, order,
