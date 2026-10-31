@@ -63,6 +63,27 @@ def _canonical_status(session: Session, chain_id: str, stake_id: str) -> tuple[s
     return None, "none"
 
 
+def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str) -> dict[str, Any] | None:
+    """#748: a stale local row must not mutate under a newer sealed status.
+
+    Called on the existing-row path: when sealed markers say the stake
+    already transitioned, answer idempotent (the request effectively
+    landed) or refuse 409 — never let a stale row emit a doomed marker.
+    Returns None to proceed when the local row agrees with history.
+    """
+    status, source = _canonical_status(session, chain_id, stake_id)
+    if source != "chain":
+        return None
+    if status == {"unbond": "unbonding", "complete": "completed"}.get(action):
+        return {"success": True, "idempotent": True, "stake_id": stake_id, "status": status, "source": source}
+    if status in {"unbonding", "completed"}:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Stake {stake_id} is {status} on sealed history — cannot {action} a stale local record",
+        )
+    return None
+
+
 def _no_local_record(session: Session, chain_id: str, stake_id: str, action: str) -> dict[str, Any]:
     """Missing-record answer for unbond/complete (#719): answer from sealed
     history instead of 404-blind. Idempotent when the sealed status already
@@ -205,6 +226,9 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
             raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
+        guarded = _canonical_guard(session, chain_id, stake_id, "add")
+        if guarded is not None:
+            return guarded
         if record.status != "active":
             raise HTTPException(status_code=400, detail=f"Stake is not active: {record.status}")
         account = _account(session, chain_id, user)
@@ -258,6 +282,9 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
             return _no_local_record(session, chain_id, stake_id, "unbond")
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
+        guarded = _canonical_guard(session, chain_id, stake_id, "unbond")
+        if guarded is not None:
+            return guarded
         if record.status == "unbonding":
             return {
                 "success": True,
@@ -334,6 +361,9 @@ def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) 
             return _no_local_record(session, chain_id, stake_id, "complete")
         if record.staker_address != user:
             raise HTTPException(status_code=403, detail="user_address does not match the locked account")
+        guarded = _canonical_guard(session, chain_id, stake_id, "complete")
+        if guarded is not None:
+            return guarded
         if record.status == "completed":
             return {"success": True, "idempotent": True, "stake_id": record.stake_id, "status": record.status}
         if record.status != "unbonding":
