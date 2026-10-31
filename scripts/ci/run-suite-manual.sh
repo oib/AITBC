@@ -187,6 +187,7 @@ run_check() {  # name, env, command...
 run_check lint-strict      "" ./venv/bin/python -m ruff check .
 run_check c901-ratchet     "" bash scripts/ci/check-c901-ratchet.sh
 run_check except-ratchet   "" bash scripts/ci/check-except-ratchet.sh
+run_check unawaited-async  "" python3 scripts/ci/check-unawaited-async.py --all
 run_check no-float-money   "" ./venv/bin/python scripts/lint/no_float_money.py
 run_check typecheck        "" bash scripts/ci/mypy-precommit.sh
 run_check version-check    "" ./venv/bin/python scripts/ci/check-version-consistency.py

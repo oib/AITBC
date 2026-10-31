@@ -702,7 +702,7 @@ class BlockchainNode:
         logger.info("Shutting down blockchain node, cancelling background tasks...")
         if self._sync_http_server is not None:
             try:
-                self._sync_http_server.stop()
+                await self._sync_http_server.stop()
             except Exception as e:
                 logger.error("Error stopping sync manager HTTP server: %s", e)
         if self._sync_http_task is not None:

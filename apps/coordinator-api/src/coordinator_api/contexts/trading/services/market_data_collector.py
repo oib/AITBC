@@ -14,7 +14,7 @@ from typing import Any
 
 import websockets
 from websockets.asyncio.server import Server as WebSocketServer
-from websockets.server import ServerProtocol as WebSocketServerProtocol
+from websockets.asyncio.server import ServerConnection as WebSocketServerProtocol
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -550,7 +550,7 @@ class MarketDataCollector:
         disconnected = []
         for connection_id, websocket in self.websocket_connections.items():
             try:
-                websocket.send_text(message_str.encode())
+                await websocket.send(message_str)
             except websockets.exceptions.ConnectionClosed:
                 disconnected.append(connection_id)
             except Exception as e:

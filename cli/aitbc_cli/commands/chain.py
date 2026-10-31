@@ -388,6 +388,8 @@ def info(ctx, chain_id, detailed, metrics, use_local, node_urls):
 def create(ctx, config_file, node, dry_run):
     """Create a new chain from a JSON configuration file."""
     try:
+        import asyncio
+
         import yaml
 
         from ..models.chain import ChainConfig
@@ -416,7 +418,7 @@ def create(ctx, config_file, node, dry_run):
             return
 
         # Create chain
-        chain_id = chain_manager.create_chain(chain_config, node)
+        chain_id = asyncio.run(chain_manager.create_chain(chain_config, node))
 
         success("Chain created successfully!")
         result = {
@@ -536,10 +538,12 @@ def add(ctx, chain_id, node_id):
 def remove(ctx, chain_id, node_id, migrate):
     """Remove a chain from a specific node, optionally migrating first."""
     try:
+        import asyncio
+
         config = load_multichain_config()
         chain_manager = ChainManager(config)
 
-        is_success = chain_manager.remove_chain_from_node(chain_id, node_id, migrate)
+        is_success = asyncio.run(chain_manager.remove_chain_from_node(chain_id, node_id, migrate))
 
         if is_success:
             success(f"Chain {chain_id} removed from node {node_id} successfully!")
