@@ -80,7 +80,7 @@ before the freeze step runs.
 | E3 | committed-table membership audit closed (#649) — no committed-fingerprint table whose only writer is node-local RPC | design review vs `COMMITTED_TABLES` | pending |
 | E4 | env enumeration: every new var inside the fleet checker's enumerated set; no operator-pair split violated (signing/verifying env separation by design, template §9.4) | `fleet-config-check` list | pending |
 | E5 | rehearsal N complete on scratch (genesis build → produce → replay → rejoin) — the stress-3 wave already proved the runtime paths that bc-2 rehearsal couldn't | scratch harness log | pending |
-| E6 | drain/waive table for bc-2 consumers (who must migrate vs who is archived) | `bc2-drain-checklist.md` shape | pending |
+| E6 | drain/waive table for bc-2 consumers (who must migrate vs who is archived) | [`bc3-drain-checklist.md`](./bc3-drain-checklist.md) — enumerated 31 Oct | **landed** — class A/B/C rows with migrate-vs-archive buckets; maturity-gated rows flagged for the operator's waive-vs-wait word |
 
 ## 2. Authority custody gate (carried, load-bearing)
 
