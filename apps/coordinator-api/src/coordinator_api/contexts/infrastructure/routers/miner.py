@@ -225,7 +225,7 @@ async def _attach_zk_proof(
     return receipt
 
 
-async def _attach_tee_attestation(
+def _attach_tee_attestation(
     receipt: dict[str, Any] | None,
     job: Any,
     req: Any,
@@ -476,7 +476,7 @@ async def submit_result(
         duration_ms = int(duration_ms)
     receipt = await run_in_threadpool(receipt_service.create_receipt, job, user["sub"], req.result, metrics)
     receipt = await _attach_zk_proof(receipt, job, req.result, payment_amount=payment_amount)
-    receipt = await _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
+    receipt = _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
     receipt = _apply_tee_computation_attestation(receipt, job, req.result, payment_amount=payment_amount)
     if receipt:
         receipt = await run_in_threadpool(receipt_service.sign_receipt, receipt)
