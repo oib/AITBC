@@ -8,6 +8,7 @@
 #     --canonical --block-version 18 over each probe host's chain.db
 #     (read-only sqlite). STRESS_PROBE_HOSTS overrides the probe set.
 # An aux_state_root or committed-table mismatch is priority-one.
+# Leg 2 needs the fleet ssh aliases — run this play IDE-side.
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
