@@ -60,6 +60,9 @@ only if it does not match an entry below. Update this file as issues land.
 - `HTLC_*`, unsigned `AUTO_STAKE` — dead shapes, replay-suite only
 - island `AttestationArrival*` share on bc-2-island-1 has 2 validators —
   different baseline than bc-2
+- the live service verifier may predate the checkout's signable convention —
+  sign via node-native client paths in plays (sign_transaction_data etc.),
+  not hand-rolled envelopes (Refs #742)
 
 ## Probe artifacts (stress-3) — harness quirks, NOT findings
 - `baseline.sh` `journal_err_1h: 1` on a silent host = `wc -l` counting
