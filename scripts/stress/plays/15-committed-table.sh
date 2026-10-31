@@ -53,7 +53,11 @@ for h in $PROBE_HOSTS; do
 import json,sys
 d=json.loads(sys.stdin.read())
 cs=d.get("committed_set",{})
-print(";".join(sorted(f"{t}={e.get(\"rows\",\"?\")}:{e.get(\"digest\",e.get(\"status\",\"?\"))}" for t,e in cs.items())))
+parts=[]
+for t in sorted(cs):
+    e=cs[t]
+    parts.append(t+"="+str(e.get("rows","?"))+":"+str(e.get("digest",e.get("status","?"))))
+print(";".join(parts))
 ' 2>/dev/null)
   [ -n "$line" ] || fail probe "no committed_set from $h"
   if [ -z "$refhost" ]; then refhost=$h; refline="$line";
