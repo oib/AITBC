@@ -87,7 +87,7 @@ m=re.search(r"[0-9a-f]{32}", sys.stdin.read()); print(m.group(0) if m else "")')
     # with sub = the assigned miner (same authority require_miner accepts).
     tok=$( ( set -a; . /etc/aitbc/aitbc-coordinator-api.env; set +a; \
       MINER_SUB="$STRESS_MINER_ID" /opt/aitbc/venv/bin/python -c \
-        "import os;from aitbc.auth import create_access_token;print(create_access_token({'sub':os.environ['MINER_SUB'],'role':'miner'}))" ) ) \
+        'import os;from aitbc.auth import create_access_token;print(create_access_token({"sub":os.environ["MINER_SUB"],"role":"miner"}))' ) ) \
       || fail token "miner JWT mint failed: $tok"
     # wait for assignment — the fail call needs job.assigned_miner_id ==
     # the token's sub; poll the (admin-authed) job record until the agent
