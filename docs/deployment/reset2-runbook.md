@@ -75,7 +75,7 @@ before the freeze step runs.
 
 | # | gap | evidence home | state |
 |---|---|---|---|
-| E1 | R1–R7 decisions final (chain id, genesis values, validator set, treasury, timing) | #410 operator card | open |
+| E1 | R1–R7 decisions final (chain id, genesis values, validator set, treasury, timing) | #410 operator card | **decided 31 Oct** — `bc-3` (+`bc-3-island-1`); genesis = bc-2 params verbatim + **v18 armed at genesis**; R8: rotate ALL authority keys at genesis (absorbs #413), treasury = 2-of-3 multisig minted per #489; window post-Nov-07, concrete date at reset-day planning |
 | E2 | authority custody: every genesis-baked authority backed by recorded key or signed possession proof | template §2 table; `scripts/ops/key-audit.py --find-address` | **load-bearing — must not repeat bc-2's lost `governance_executors`** |
 | E3 | committed-table membership audit closed (#649) — no committed-fingerprint table whose only writer is node-local RPC | design review vs `COMMITTED_TABLES` | pending |
 | E4 | env enumeration: every new var inside the fleet checker's enumerated set; no operator-pair split violated (signing/verifying env separation by design, template §9.4) | `fleet-config-check` list | pending |
@@ -91,6 +91,14 @@ verified *before* the genesis build consumes the values. bc-2's
 `governance_executors` keys exist nowhere — the reset-2 build must not
 repeat that. `key-audit.py --find-address <addr>` walks every env /
 keystore / wallet file without printing the key.
+
+**R8 ruling (31 Oct, #410):** all authority keys rotate at genesis — the
+bc-2 authority set does not carry. `0xFa80864c…` (lost) and `0xD9CC189c…`
+(functional but off-fleet custody) are dropped outright;
+`escrow_fee_recipient` gets a freshly custodied key (bc-2's is a burn
+address today). This absorbs the parked #413 batch rotation into the
+genesis authority set. Treasury = the 2-of-3 client-side multisig minted
+under #489 — the minted address is the genesis allocation value.
 
 ## 3. Rehearsal machinery — what exists and what it proves
 
@@ -186,19 +194,23 @@ Carried from bc-2 §E and template §5:
 | artifact deletions | per-item word |
 | all reads | ungated |
 
-## 9. Open items — blocked on #410 R-decisions
+## 9. R-decisions — **all landed** (#410 closed 31 Oct)
 
-The steps that cannot be fully scripted until #410's R1–R7 resolve:
-
-- **chain id + genesis values** (chain id `bc-3` assumed throughout;
-  allocations/validators/parameter set pin the genesis build)
-- **treasury + authority set** — feeds §2 custody table
+- **chain id**: `bc-3` (island `bc-3-island-1`)
+- **genesis values**: bc-2 params verbatim (validator set identical
+  genesis↔live; only `governance_sweep_marker` drifted) **+ v18 armed
+  at genesis** — skips the v9–v16 unsigned-type dead zone entirely
+- **treasury + authority set** (R8): rotate ALL authority keys at
+  genesis — fresh audited set per §2; treasury = 2-of-3 client-side
+  multisig minted under #489; `escrow_fee_recipient` gets a real
+  custodied key; `0xFa80…`/`0xD9CC…` do not carry
 - ~~bridge pause carry-through~~ — **decided** (#410): paused at
   genesis; unpause is a separate gated step post-cut
 - ~~bc-2 fate~~ — **decided** (#410): bc-2 **decommissions** after the
   cut — the E6 drain table therefore splits as "migrate vs archive
   then decommission", not a parallel-chain plan
-- **window date** — blank until operator names it
+- **window**: post-Nov-07 (clears the four armed EXECUTE windows and
+  the Nov-01 node1 completes); concrete date at reset-day planning
 
 Nothing else in this draft is contingent — the mechanics, order,
 watcher discipline, and verification shape are all proven or
