@@ -8,6 +8,7 @@
 # (agent-econ-operator on node1).
 # Usage: ./07-agent-staking.sh [lock|unbond|complete]
 set -euo pipefail
+PLAY_ARGS=("$@")  # captured before lib.sh consumes "$@" (positional legs)
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
@@ -18,7 +19,7 @@ WALLET="${!_opw_var:-$WALLET}"
 
 STAKE_ID="${STRESS_STAKE_ID:-stress-stake-$(hostname -s)-$(date +%s)}"
 STAKE_AMT="${STRESS_STAKE_AMT:-36000}"
-LEG="${1:-lock}"
+LEG="${PLAY_ARGS[0]:-lock}"
 WFILE="${OPERATOR_WALLET_PATH:-${STRESS_WALLET_PATH:-/var/lib/aitbc/wallets/${WALLET}.json}}"
 [ -f "$WFILE" ] || fail resolve "wallet file $WFILE not found"
 

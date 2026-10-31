@@ -7,10 +7,11 @@
 #   stake-id resolves from /rpc/liquidity/stakes/<wallet-addr>
 #   (liq_<tx_prefix> convention); "auto" picks the first usable position.
 set -euo pipefail
+PLAY_ARGS=("$@")  # captured before lib.sh consumes "$@" (positional legs)
 . "$(dirname "$0")/../lib.sh"
 serial_check || exit 75
 
-LEG="${1:-deposit}"; WANT_SID="${2:-}"
+LEG="${PLAY_ARGS[0]:-deposit}"; WANT_SID="${PLAY_ARGS[1]:-}"
 WFILE="${STRESS_WALLET_PATH:-/var/lib/aitbc/wallets/${WALLET}.json}"
 [ -f "$WFILE" ] || fail resolve "wallet file $WFILE not found"
 addr=$(python3 -c "import json;print(json.load(open('$WFILE')).get('address',''))" 2>/dev/null)
