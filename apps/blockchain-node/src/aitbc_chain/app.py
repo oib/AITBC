@@ -90,6 +90,13 @@ class RateLimitMiddleware:
 
     Pure ASGI rather than ``BaseHTTPMiddleware``: the base class spawns an
     anyio task and copies contextvars on every request.
+
+    **Per-worker semantics (Refs #745):** the counter lives in process
+    memory, so under ``--workers N`` each worker enforces
+    ``max_requests`` independently — the fleet-effective ceiling is
+    N × ``max_requests`` and a client can hit 429 on one retry and 200
+    on the next depending on which worker serves it. Size
+    ``max_requests`` for the per-worker share, not the total.
     """
 
     def __init__(self, app: Any, max_requests: int = 1000, window_seconds: int = 60) -> None:

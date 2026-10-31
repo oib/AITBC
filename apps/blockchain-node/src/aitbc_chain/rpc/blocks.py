@@ -21,7 +21,7 @@ from ..database import init_db, session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Block, Transaction
-from .utils import get_chain_id, validate_chain_id
+from .utils import import_advisory_acquire, import_advisory_release, get_chain_id, validate_chain_id
 
 _logger = get_logger(__name__)
 _last_import_time = 0.0
@@ -284,6 +284,7 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
     """Import a block into the blockchain"""
     global _last_import_time
     async with _import_lock:
+        _import_advisory = None
         try:
             current_time = time.time()
             time_since_last = current_time - _last_import_time
@@ -297,6 +298,7 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Unsupported chain_id: {chain_id}",
                 )
+            _import_advisory = import_advisory_acquire(chain_id)
             init_db(chain_id)
             block_hash = block_data["hash"]
             if not isinstance(block_hash, str) or not re.fullmatch("0x[0-9a-fA-F]{64}", block_hash):
@@ -369,3 +371,5 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
             _logger.exception("Unhandled exception")
 
             raise HTTPException(status_code=500, detail="Internal server error") from e
+        finally:
+            import_advisory_release(_import_advisory)
