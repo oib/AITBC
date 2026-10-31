@@ -1,10 +1,10 @@
 # Agent Staking Lifecycle — stake → add → unbond → complete
 
 **Level**: Advanced (operator lane)
-**Status**: ✅ **Exercised on bc-2 (28 Oct)** — agent `STAKE_LOCK` @8912 `0x4a18e3f3`, `payload.auth`-signed, 3 attestations, roots verified
+**Status**: ✅ **Full lifecycle sealed on bc-2** — agent `STAKE_LOCK` @8912 `0x4a18e3f3` (×25 through 12347), `STAKE_RELEASE` @10356 (×9 through 12691; unbond→complete incl. the stress-3 maturity legs). `payload.auth`-signed, roots verified
 **Prerequisites**: v17 armed (`STATE_TRANSITION_V17_HEIGHT` set, head past the pin)
 **Estimated Time**: 20 minutes + lock maturity
-**Last Updated**: 2026-10-28
+**Last Updated**: 2026-10-31
 **Version**: 1.1
 
 ## Navigation Path

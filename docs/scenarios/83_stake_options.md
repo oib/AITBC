@@ -3,8 +3,10 @@
 **Level**: Advanced
 **Prerequisites**: Scenario 14 Staking Basics
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-10-26
+**Last Updated**: 2026-10-31
 **Version**: 1.0
+
+> **Post-v18 coverage note (31 Oct):** the liquidity types this scenario gates on are no longer refusal-only — `LIQUIDITY_DEPOSIT` sealed @9799 (×10 through 12536), `LIQUIDITY_WITHDRAW` @9813 (×5), `LIQUIDITY_CLAIM` @9802 (×5). The wallet-gate refusals below remain the coverage for the unarmed path. Folded per #665.
 
 ## Navigation Path
 
