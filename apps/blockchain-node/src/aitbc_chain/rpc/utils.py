@@ -417,8 +417,14 @@ def import_advisory_acquire(chain_id: str):
     serializes writers at the file level)."""
     from ..database import session_scope
 
-    ctx = session_scope(chain_id)
-    sess = ctx.__enter__()
+    try:
+        ctx = session_scope(chain_id)
+        sess = ctx.__enter__()
+    except Exception:
+        # Best-effort lock: a missing/unreadable chain db falls back to
+        # the same unguarded path sqlite uses — the import itself will
+        # surface the real error downstream.
+        return None
     if sess.get_bind().dialect.name != "postgresql":
         ctx.__exit__(None, None, None)
         return None
