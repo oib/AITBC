@@ -213,7 +213,7 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
     for tx_type in ("STAKE_LOCK", "STAKE_RELEASE"):
         params = {"transaction_type": tx_type, "chain_id": chain_id, "limit": limit}
         try:
-            rows: Any = client.get("/rpc/transactions", params={k: v for k, v in params.items() if v is not None})
+            rows: Any = client.get_json("/rpc/transactions", params={k: v for k, v in params.items() if v is not None})
         except Exception as e:
             abort(ctx, f"/rpc/transactions lookup failed: {e}", from_exception=e)
         txs: list[dict[str, Any]] = rows if isinstance(rows, list) else []
