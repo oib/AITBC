@@ -18,13 +18,27 @@ serial_check || exit 75
 
 COORD="${STRESS_COORD_URL:-https://hub.aitbc.bubuit.net/c}"
 PROVIDER_ADDR="${STRESS_PROVIDER_ADDR:-0x4A5b3bf95aa06072c568cfcb7392b4e86608b5d2}"
-MODEL="${STRESS_MODEL:-llama3.2:3b}"
+MODEL="${STRESS_MODEL:-stress-slush:no-such-model}"
 PAYMENT="${STRESS_PAYMENT:-0.01}"
 LEG="${PLAY_ARGS[0]:-submit}"
 JOB_ID="${PLAY_ARGS[1]:-}"
 
+coord_token() { # stored coordinator JWT (client preferred, admin fallback)
+  python3 - <<'PY'
+import json
+try:
+    d = json.load(open("/root/.aitbc/credentials.json"))
+    print(d.get("default_client") or d.get("default_admin") or "")
+except Exception:
+    print("")
+PY
+}
+COORD_JWT=""
+
 job_field() { # job_field <field>
-  curl -sf --max-time 15 "$COORD/v1/jobs/$JOB_ID" 2>/dev/null \
+  [ -z "$COORD_JWT" ] && COORD_JWT=$(coord_token)
+  curl -sf --max-time 15 -H "Authorization: Bearer $COORD_JWT" \
+    "$COORD/v1/jobs/$JOB_ID" 2>/dev/null \
     | python3 -c "import json,sys;print(json.load(sys.stdin).get('$1',''))" 2>/dev/null || true
 }
 
@@ -58,6 +72,7 @@ m=re.search(r"[0-9a-f]{32}", sys.stdin.read()); print(m.group(0) if m else "")')
       st=$(job_field state)
       [ -n "$miner" ] && [ -n "$pay" ] && { echo "dispatched $JOB_ID miner=$miner payment=$pay state=$st"; ok "$JOB_ID"; exit 0; }
       [ "$st" = "COMPLETED" ] && skip_mature "agent completed $JOB_ID before fail leg — re-fire"
+      [ "$st" = "FAILED" ] && { echo "agent failed $JOB_ID organically (bad model) — run verify"; ok "$JOB_ID"; exit 0; }
       sleep 10
     done
     fail dispatch "job $JOB_ID stayed undispatched (state=${st:-?})"
