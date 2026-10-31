@@ -42,6 +42,7 @@ import tempfile
 
 os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(tempfile.mkdtemp(prefix="test-apikeys-"), "api_keys.json"))
 os.environ.setdefault("AGENT_DB_PATH", os.path.join(tempfile.mkdtemp(prefix="test-agentdb-"), "agent.db"))
+os.environ.setdefault("AITBC_DATA_DIR", tempfile.mkdtemp(prefix="test-datadir-"))
 
 pytest.importorskip("fastapi", reason="agent-coordinator app dependencies not installed")
 
