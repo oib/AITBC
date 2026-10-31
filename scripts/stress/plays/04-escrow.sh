@@ -19,7 +19,7 @@ OFFSET="${STRESS_REFUND_OFFSET:-}"
 JOB_ID=""
 while [ $# -gt 0 ]; do case "$1" in --job-id) JOB_ID="$2"; shift 2;; *) shift;; esac; done
 
-addr=$(cli wallet --wallet-name "$WALLET" balance 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null || true)
+addr=$(wallet_addr || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
 
 if [ -z "$JOB_ID" ]; then

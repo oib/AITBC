@@ -78,6 +78,10 @@ cli() {  # cli <args...> — aitbc with output json + rpc-url pinned
   "$AITBC_BIN" --output=json "$@" --rpc-url "$RPC_URL"
 }
 height() { rpc_get /rpc/status | python3 -c 'import json,sys; print(json.load(sys.stdin).get("height",0))'; }
+wallet_addr() {  # wallet_addr — address of $WALLET; `wallet balance` has no --rpc-url so bypass cli()
+  "$AITBC_BIN" --output=json wallet --wallet-name "$WALLET" balance 2>/dev/null \
+    | python3 -c 'import json,sys;print(json.load(sys.stdin).get("address",""))' 2>/dev/null
+}
 stress_height() {  # stress_height <host> — remote height via fleet URL
   curl -sf --max-time 15 "$(stress_rpc_url "$1")/rpc/status" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("height",0))' 2>/dev/null
 }
