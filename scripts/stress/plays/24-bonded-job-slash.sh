@@ -70,7 +70,8 @@ sender = w["address"]
 acct = json.load(urllib.request.urlopen(os.environ["RPC"] + "/rpc/account/" + sender, timeout=10))
 tx = {"from": sender, "to": _bond_escrow_ait(), "amount": int(os.environ["LOCK_AMT"]),
       "fee": 360000, "nonce": acct["nonce"], "type": "BOND_LOCK", "chain_id": os.environ["CHAIN"],
-      "payload": {"bond_id": os.environ["BOND_ID"], "provider": sender, "lock_days": 1}}
+      "payload": {"bond_id": os.environ["BOND_ID"], "provider": sender, "lock_days": 1,
+                  "to": _bond_escrow_ait(), "amount": int(os.environ["LOCK_AMT"])}}
 tx["signature"] = sign_transaction_data(tx, w["private_key"])
 req = urllib.request.Request(os.environ["RPC"] + "/rpc/transaction",
     data=json.dumps(tx).encode(), headers={"Content-Type": "application/json"}, method="POST")
