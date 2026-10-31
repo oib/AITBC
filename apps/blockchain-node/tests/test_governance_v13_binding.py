@@ -170,7 +170,8 @@ def _param_value(session: Session, chain_id: str, parameter: str = "some_param")
 # --- The gate itself: inert by default, functional when armed ----------------
 
 
-def test_v13_height_defaults_to_shared_activation():
+def test_v13_height_defaults_to_shared_activation(pin_heights_above):
+    pin_heights_above(14)
     """Armed at the shared ACT-1 height by the operator's 12 Oct decision."""
     assert settings.state_transition_v13_height == SHARED_ACTIVATION_HEIGHT
     # Below H the derived version is still 12; at H the v14 rung shadows v13
@@ -179,11 +180,12 @@ def test_v13_height_defaults_to_shared_activation():
     assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT) == 14
 
 
-def test_v13_ladder_works_when_armed_before_v14(monkeypatch):
+def test_v13_ladder_works_when_armed_before_v14(monkeypatch, pin_heights_above):
     """The version rung itself is functional — height-derived like v8+. A
     split override (v13 armed below v14) still stamps 13 in the gap."""
     monkeypatch.setattr(settings, "state_transition_v13_height", SHARED_ACTIVATION_HEIGHT - 100)
     monkeypatch.setattr(settings, "state_transition_v14_height", SHARED_ACTIVATION_HEIGHT)
+    pin_heights_above(14)
     assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT - 100) == 13
     assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT - 1) == 13
     assert get_block_version_for_height(SHARED_ACTIVATION_HEIGHT - 101) == 12
