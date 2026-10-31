@@ -109,6 +109,27 @@ def committed_tables_for_version(block_version: int | None) -> tuple[str, ...]:
     return COMMITTED_TABLES
 
 
+# Tables that were committed while node-local writers still existed:
+# ``edge_node_registration`` until v15 (the node's own POST
+# /rpc/edge/register rows) and ``stake`` until v18 (queue-time staking RPC
+# and aux sync). A sealed block whose era set includes either committed
+# the *sealer's* local rows into its aux_state_root — a verifier can only
+# reproduce that digest while holding identical rows, so the import-time
+# check cannot verify those eras and must run compare-only rather than
+# reject on legitimate local content.
+COMMITTED_VOLATILE_TABLES: frozenset[str] = frozenset({"stake", "edge_node_registration"})
+
+
+def aux_check_verifiable(block_version: int | None) -> bool:
+    """True when every committed table at ``block_version`` is apply-authored.
+
+    Only then can an importer deterministically recompute the sealed
+    aux_state_root from replayed state; a volatile member makes the sealed
+    digest unverifiable on any node that does not hold the sealer's local
+    rows."""
+    return COMMITTED_VOLATILE_TABLES.isdisjoint(committed_tables_for_version(block_version))
+
+
 # Tables whose committed digest only exists under the canonicalization rules
 # below (RPC writers stamp local handles/timestamps into the same tables).
 CANONICALIZED_TABLES: tuple[str, ...] = (
