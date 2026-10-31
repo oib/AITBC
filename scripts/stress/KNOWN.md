@@ -61,6 +61,13 @@ only if it does not match an entry below. Update this file as issues land.
 - island `AttestationArrival*` share on bc-2-island-1 has 2 validators —
   different baseline than bc-2
 
+## Probe artifacts (stress-3) — harness quirks, NOT findings
+- `baseline.sh` `journal_err_1h: 1` on a silent host = `wc -l` counting
+  journalctl's `-- No entries --` line, not a real error
+- `baseline.sh` `mempool: -1` = parse fallback: `/rpc/mempool` response is
+  not the `transactions[]` shape the probe expects; check the actual
+  endpoint shape before treating it as a finding
+
 ## Operator funding rule (2026-10-30) — NOT a finding
 - Default wallets are fine for plays (each host's `default`); new exercise
   wallets may be funded FROM TREASURY — coin-grant `0xCE6C…` on bc-2, island
