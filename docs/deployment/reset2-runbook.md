@@ -224,3 +224,87 @@ documented.
 - [ ] §4 deploy order + rejoin runbook acked per host
 - [ ] §9 R-decisions landed and mirrored into the genesis doc
 - [ ] window + notice named by the operator
+
+## Appendix A — scratch rehearsal checklist (Refs #514)
+
+What a full dry-run must cover, mapped to what the builder checks today.
+`build-genesis.py`'s live gate (`check_live_conditions`) evaluates: manifest
+supplied + `chain_id` match, target dir holds no existing chain state, and
+an operator line is recorded — the write itself always refuses in the
+current build (the #514 reset-day work). Every gate condition is therefore
+already testable except the write.
+
+### A.1 Genesis build (scratch path)
+
+- [ ] manifest JSON `{chain_id}` prepared; `chain_id` is the R-decided
+      name (placeholder `bc-3` until #410 lands it)
+- [ ] allocations file generated from the `classes.json` SOT — treasury
+      = operator-supplied 2-of-3 multisig address (decided on #489);
+      `check-alloc-file.py --require-classes --treasury-proof` passes
+- [ ] `venv/bin/python scripts/ops/build-genesis.py --scratch
+      --manifest <m> --allocations <a> --parameters <p>
+      --bridge-validators <v> --data-dir <scratch>` → doc + manifest out
+- [ ] `--live` dry-eval: run once with `--live` on scratch and confirm
+      it *reports* unmet conditions (target-exists case) and met
+      conditions (clean scratch + operator-line supplied) — then refuses
+      the write either way (the designed path; proves the gate logic
+      without the live write)
+- [ ] resulting `genesis.json` sha256 recorded in the rehearsal ledger
+
+### A.2 Validator set config
+
+- [ ] `VALIDATOR_SET`/`VALIDATOR_KEYS` material for the four validators
+      staged (same set unless R-item changes it); proposer ids match the
+      custody check — every validator key present in a known store
+      (`key-audit.py` zero-miss)
+- [ ] `TRUSTED_PROPOSERS` genesis value = genesis + four validators
+      (carried from the decided set)
+- [ ] authority custody table §2 complete — executor keys exist this
+      time (the bc-2 lost-key finding must not repeat)
+
+### A.3 Env templates (per host class)
+
+- [ ] `blockchain.env` template per host: `BLOCKCHAIN_CHAIN_ID=<new>`,
+      `STATE_TRANSITION_*_HEIGHT` pins per the genesis-armed ladder
+- [ ] `ESCROW_FEE_RECIPIENT` = treasury SOT value (must match the
+      genesis `escrow_fee_recipient` chain param — the consensus check)
+- [ ] gossip envs: `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=256`
+      (decided value) uniform on all five
+- [ ] bridge paused at genesis: `BRIDGE_LOCKS_PAUSED=true` staged in
+      the launch env (decided on #410; unpause is a post-cut gated step)
+- [ ] `enable_block_production` per host class (validators on, node0
+      off) + `MEMPOOL_BACKEND=database` + pg DSN staged
+- [ ] proposer pins (`PROPOSER_ID` per validator host) — node2 keeps its
+      own identity, no normalization
+
+### A.4 Version ladder armed at genesis
+
+- [ ] all gate heights `1` on the new chain (GATES.md rule: new chain
+      arms every shipped transition at genesis — v1..v18 all active from
+      height 1; anything else is a consensus bug, not a choice)
+
+### A.5 Produce → replay → rejoin dry-run
+
+- [ ] first sealed block on the scratch chain — proposer up, block 1
+      sealed (the PoNR for rehearsal)
+- [ ] follower replay: a second scratch node replays the produced
+      blocks, equal state root (the aux-root nondeterminism check —
+      v14/v15 lessons)
+- [ ] rejoin: restart a rehearsed validator host mid-sequence per
+      `AGENTS/validator-operations.md` (attestation lock, fork healing)
+- [ ] admission/seal smoke: one send admitted + sealed per host class
+- [ ] storm check `STORM_N` (cap 20–40 on hub/hub1-size hosts): 1
+      pending row per contested nonce (#743 invariant)
+
+### A.6 Gaps — what the dry-run still can't cover
+
+- [ ] the `--live` write path itself (designed, always refused — the
+      #514 work; rehearsal proves the gate evaluation, not the write)
+- [ ] real-data-dir cutover semantics (target-dir-absent condition is
+      trivially true on scratch)
+- [ ] multi-host real-peer gossip under the actual fleet latency —
+      scratch is loopback
+- [ ] bridge redeploy flow (separate checklist; bc-3 launches paused)
+
+Ledger: record each row's output hash + timestamps; append-only, same
+format as the bc-2 rehearsal ledger.
