@@ -404,3 +404,52 @@ class TestAdmission:
         """Gossip admission callers may pass mempool=None — pending cost is 0."""
         patch_session(balance=1000, nonce=0)
         transactions_mod._validate_transaction_admission(_admission_tx(nonce=0), None)
+
+
+class TestCrossWorkerSlotAdmission:
+    """#743 regression: two mempool instances on one database = two uvicorn
+    workers. Slot occupancy must be decided by the store, not by anything
+    per-process — a same-slot bid is only admitted as a strictly better bid
+    no matter which "worker" serves it."""
+
+    def test_second_worker_sees_occupant(self, tmp_path):
+        db = f"sqlite:///{tmp_path / 'mp.db'}"
+        worker_a = DatabaseMempool(db, min_fee=0)
+        worker_b = DatabaseMempool(db, min_fee=0)
+        worker_a.add(_signed_tx(nonce=0, fee=5), chain_id=CHAIN)
+        with pytest.raises(ValueError, match="nonce slot"):
+            worker_b.add(_signed_tx(nonce=0, fee=5, amount=11), chain_id=CHAIN)
+        assert worker_b.size(CHAIN) == 1
+
+    def test_concurrent_same_slot_storm_single_winner(self, tmp_path):
+        """Same-sender storm fanned across workers: at most one pending row
+        survives per slot, and it is the highest-fee bid (Refs #743 — the
+        storm admitted 5-28 duplicates per slot pre-fix)."""
+        import threading
+
+        db = f"sqlite:///{tmp_path / 'mp.db'}"
+        workers = [DatabaseMempool(db, min_fee=0), DatabaseMempool(db, min_fee=0)]
+        admitted: list[str] = []
+        rejected: list[Exception] = []
+        lock = threading.Lock()
+
+        def send(i: int) -> None:
+            tx = _signed_tx(nonce=0, fee=10 + i, amount=100 + i)
+            try:
+                h = workers[i % 2].add(tx, chain_id=CHAIN)
+                with lock:
+                    admitted.append(h)
+            except ValueError as e:
+                with lock:
+                    rejected.append(e)
+
+        threads = [threading.Thread(target=send, args=(i,)) for i in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        pending = workers[0].list_transactions(CHAIN)
+        assert len(admitted) + len(rejected) == 20
+        assert len(pending) == 1
+        assert pending[0].fee == 10 + 19
