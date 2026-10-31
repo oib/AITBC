@@ -105,7 +105,7 @@ async def _consume_nonce(wallet_address: str, nonce: str) -> bool:
     return True
 
 
-async def _create_session(user_id: str, role: str) -> str:
+def _create_session(user_id: str, role: str) -> str:
     """Create a JWT access token for a user with a secure random session identifier."""
     return create_access_token(user_id, role, extra_claims={"session_id": secrets.token_urlsafe(16)})
 
@@ -236,7 +236,7 @@ async def register_user(
     await run_in_threadpool(session.commit)
 
     role = _user_role_for_wallet(wallet_address)
-    token = await _create_session(user.id, role)
+    token = _create_session(user.id, role)
 
     return {
         "user_id": user.id,
@@ -290,7 +290,7 @@ async def login_user(
         await run_in_threadpool(session.commit)
 
     role = _user_role_for_wallet(wallet_address)
-    token = await _create_session(user.id, role)
+    token = _create_session(user.id, role)
 
     return {
         "user_id": user.id,
