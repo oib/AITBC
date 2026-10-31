@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from sqlmodel import Session, create_engine
+from sqlalchemy.pool import StaticPool
 
 from aitbc_chain.base_models import Escrow, Transaction
 from aitbc_chain.metadata import chain_metadata
@@ -50,7 +51,7 @@ def _billed_legs(job_id: str, billed: int = BILLED, tx_hash: str | None = None) 
 
 @pytest.fixture
 def session():
-    engine = create_engine("sqlite://")
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     chain_metadata.create_all(engine)
     with Session(engine) as open_session:
         yield open_session

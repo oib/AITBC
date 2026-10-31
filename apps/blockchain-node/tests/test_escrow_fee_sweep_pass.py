@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from sqlmodel import Session, create_engine
+from sqlalchemy.pool import StaticPool
 
 from aitbc_chain.base_models import Escrow, Transaction
 from aitbc_chain.metadata import chain_metadata
@@ -41,7 +42,7 @@ OWED_CUSTODY = JOB2_LOCK - JOB1_RELEASE  # 18450 = fee 450 + owed change 18000
 
 @pytest.fixture
 def session():
-    engine = create_engine("sqlite://")
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     chain_metadata.create_all(engine)
     with Session(engine) as open_session:
         yield open_session

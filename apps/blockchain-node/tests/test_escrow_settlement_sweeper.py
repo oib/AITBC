@@ -27,6 +27,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 from sqlmodel import Session, create_engine
+from sqlalchemy.pool import StaticPool
 
 from aitbc_chain.base_models import Escrow, Transaction
 from aitbc_chain.metadata import chain_metadata
@@ -45,7 +46,7 @@ FRESH_MARK = NOW - timedelta(seconds=300)  # still inside the settlement window
 
 @pytest.fixture
 def session():
-    engine = create_engine("sqlite://")
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     chain_metadata.create_all(engine)
     with Session(engine) as open_session:
         yield open_session
@@ -491,6 +492,20 @@ class _FakeSession:
 
     def get(self, model, key):
         return self.record
+
+    def refresh(self, obj):
+        # The release path refreshes the row after reading it — in-memory
+        # namespace fixture has nothing to reload.
+        pass
+
+    def __getattr__(self, name):
+        # Route/session API drift shield: methods the fake does not model
+        # (expunge, execute, flush...) degrade to a no-op MagicMock rather
+        # than AttributeError — the route treats AttributeError as a failed
+        # row read, which silently re-routes protected-escrow releases.
+        from unittest.mock import MagicMock
+
+        return MagicMock()
 
     def add(self, obj):
         pass

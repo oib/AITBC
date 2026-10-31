@@ -63,17 +63,12 @@ def mock_request():
 
 
 @pytest.fixture
-def v8_active(monkeypatch):
+def v8_active(monkeypatch, pin_heights_above):
     """v8 advisory semantics active from height 1 (v7 off; v9–v14 pinned off so a
     baked later height never outranks v8)."""
     monkeypatch.setattr(settings, "state_transition_v8_height", 1)
     monkeypatch.setattr(settings, "state_transition_v7_height", 0)
-    monkeypatch.setattr(settings, "state_transition_v9_height", None)
-    monkeypatch.setattr(settings, "state_transition_v10_height", None)
-    monkeypatch.setattr(settings, "state_transition_v11_height", None)
-    monkeypatch.setattr(settings, "state_transition_v12_height", None)
-    monkeypatch.setattr(settings, "state_transition_v13_height", None)
-    monkeypatch.setattr(settings, "state_transition_v14_height", None)
+    pin_heights_above(8)
     return settings
 
 

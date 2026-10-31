@@ -55,6 +55,26 @@ _TEST_CHAIN_IDS = {
 }
 
 
+@pytest.fixture
+def pin_heights_above(monkeypatch):
+    """Pin every ``state_transition_vN_height`` above ``version`` to ``None``.
+
+    The version ladder keeps growing (v17 at 8900, v18 at 9600 are baked);
+    tests asserting a lower rung would otherwise see the newest version
+    instead of the rung under test. One helper ends the per-file pin-list
+    drift (Refs #739).
+    """
+    import re
+
+    def _pin(version: int) -> None:
+        for name in dir(settings):
+            m = re.fullmatch(r"state_transition_v(\d+)_height", name)
+            if m and int(m.group(1)) > version:
+                monkeypatch.setattr(settings, name, None)
+
+    return _pin
+
+
 @pytest.fixture(autouse=True)
 def _allow_test_chain_ids(monkeypatch) -> None:
     """Add the test chain IDs to supported_chains for the duration of each test."""
