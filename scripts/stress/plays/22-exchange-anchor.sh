@@ -14,7 +14,9 @@ if [ ! -f /var/lib/aitbc/island_credentials.json ]; then
   echo "no island credentials — exchange anchor skipped"; ok ""; exit 0
 fi
 
-out=$(cli exchange-island buy --ait-amount "${STRESS_EX_AMOUNT:-0.000001}" \
+# exchange-island resolves rpc from island credentials — no --rpc-url flag;
+# bypass cli() which appends one.
+out=$("$AITBC_BIN" --output=json exchange-island buy --ait-amount "${STRESS_EX_AMOUNT:-0.000001}" \
   --quote-currency ETH --max-price "${STRESS_EX_PRICE:-0.00000001}" \
   --wallet "$WALLET" 2>&1) || fail buy "exchange-island buy failed: $out"
 tx=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
@@ -24,7 +26,7 @@ order_id=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"exchang
 bh=$(wait_seal "$tx") || exit $?
 echo "exchange buy sealed: $tx h$bh ($order_id)"
 
-out=$(cli exchange-island cancel --order-id "$order_id" --wallet "$WALLET" 2>&1) \
+out=$("$AITBC_BIN" --output=json exchange-island cancel --order-id "$order_id" --wallet "$WALLET" 2>&1) \
   || fail cancel "exchange-island cancel failed: $out"
 tx=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else "")')
 [ -n "$tx" ] || fail cancel "no tx_hash in cancel output"
