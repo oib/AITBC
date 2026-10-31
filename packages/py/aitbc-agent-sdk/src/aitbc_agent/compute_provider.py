@@ -323,16 +323,14 @@ class ComputeProvider(Agent):
                 "quality_guarantee": offer.quality_guarantee,
             }
 
-            response = await self.http_client.post("/v1/market/offers", json=offer_data)
+            result = await self.http_client.post("/v1/market/offers", json=offer_data)
 
-            if response.status_code == 201:
-                result = response.json()
-                offer_id = result.get("offer_id")
+            offer_id = result.get("offer_id") if result else None
+            if offer_id:
                 logger.info("Offer submitted successfully: %s", offer_id)
                 return offer_id
-            else:
-                logger.error("Failed to submit offer: %s", response.status_code)
-                raise NetworkError(f"Market submission failed: {response.status_code}")
+            logger.error("Failed to submit offer: %s", result)
+            raise NetworkError(f"Market submission failed: {result}")
         except NetworkError:
             raise
         except Exception as e:
@@ -353,13 +351,8 @@ class ComputeProvider(Agent):
                 "quality_guarantee": offer.quality_guarantee,
             }
 
-            response = await self.http_client.put(f"/v1/market/offers/{offer.provider_id}", json=offer_data)
-
-            if response.status_code == 200:
-                logger.info("Offer updated successfully: %s", offer.provider_id)
-            else:
-                logger.error("Failed to update offer: %s", response.status_code)
-                raise NetworkError(f"Market update failed: {response.status_code}")
+            await self.http_client.put(f"/v1/market/offers/{offer.provider_id}", json=offer_data)
+            logger.info("Offer updated successfully: %s", offer.provider_id)
         except NetworkError:
             raise
         except Exception as e:
