@@ -75,5 +75,5 @@ baseline. Their precheck re-read is a **sameness check**: a count that
 **Operator note on waived Class-A items:** the maturity-gated rows (A11
 stakes locked until 2026-11-29; A12 liquidity positions) cannot be drained
 before their windows — the waive-vs-wait decision is the operator's word
-at freeze-planning, default **waive-as-archive** since every owner is an
+at freeze-planning — **decided 31 Oct (operator, recorded on #514): waive-as-archive** since every owner is an
 exercise/operator wallet, not a customer.
