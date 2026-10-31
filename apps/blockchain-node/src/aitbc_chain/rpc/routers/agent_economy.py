@@ -14,6 +14,7 @@ from ..agent_staking import (
     add_to_agent_stake,
     complete_agent_stake,
     create_agent_stake,
+    get_agent_stake_status,
     record_claim,
     record_distribute,
     record_performance,
@@ -42,6 +43,13 @@ def add_to_agent_stake_route(request: Request, stake_id: str, body: dict[str, An
 @rate_limit(rate=20, per=60)
 def unbond_agent_stake_route(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
     return unbond_agent_stake(request, stake_id, body)  # type: ignore[no-any-return]
+
+
+@router.get("/stake/{stake_id}/status", summary="Canonical agent stake status")
+@rate_limit(rate=20, per=60)
+def agent_stake_status_route(request: Request, stake_id: str, chain_id: str | None = None) -> dict[str, Any]:
+    """Sealed-history-first status read (#719)."""
+    return get_agent_stake_status(request, stake_id, chain_id)  # type: ignore[no-any-return]
 
 
 @router.post("/stake/{stake_id}/complete", summary="Complete agent stake")

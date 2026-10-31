@@ -789,6 +789,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/agent-staking/stake/{stake_id}/status",
+          "upstream": "/rpc/agent-staking/stake/{stake_id}/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/agent-staking/stake/{stake_id}/unbond",
           "upstream": "/rpc/agent-staking/stake/{stake_id}/unbond",
           "methods": [
@@ -2090,6 +2097,13 @@
           "upstream": "/v1/agent-staking/stake/{stake_id}/complete",
           "methods": [
             "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/stake/{stake_id}/status",
+          "upstream": "/v1/agent-staking/stake/{stake_id}/status",
+          "methods": [
+            "GET"
           ]
         },
         {
