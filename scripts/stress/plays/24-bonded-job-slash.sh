@@ -55,7 +55,7 @@ case "$LEG" in
     BOND_ID="${STRESS_BOND_ID:-bond-$STRESS_MINER_ID}"
     LOCK_AMT="${STRESS_BOND_AMOUNT:-36000000}"  # units
     resp=$(WFILE="${STRESS_PROVIDER_WALLET_PATH:-/var/lib/aitbc/wallets/default.json}" \
-      BOND_ID="$BOND_ID" LOCK_AMT="$LOCK_AMT" CHAIN="$CHAIN" RPC="$rpc_url" python3 - <<'PY'
+      BOND_ID="$BOND_ID" LOCK_AMT="$LOCK_AMT" CHAIN="$CHAIN" RPC="$RPC_URL" python3 - <<'PY'
 import json, os, urllib.request
 from eth_keys import keys
 from eth_utils import keccak
