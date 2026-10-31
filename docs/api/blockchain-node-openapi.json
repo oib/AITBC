@@ -8141,6 +8141,68 @@
         }
       }
     },
+    "/rpc/agent-staking/stake/{stake_id}/status": {
+      "get": {
+        "tags": [
+          "rpc",
+          "agent-economy"
+        ],
+        "summary": "Canonical agent stake status",
+        "description": "Sealed-history-first status read (#719).",
+        "operationId": "agent_stake_status_route_rpc_agent_staking_stake__stake_id__status_get",
+        "parameters": [
+          {
+            "name": "stake_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Stake Id"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Agent Stake Status Route Rpc Agent Staking Stake  Stake Id  Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/agent-staking/stake/{stake_id}/complete": {
       "post": {
         "tags": [
@@ -19799,6 +19861,68 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Unbond Agent Stake Route V1 Agent Staking Stake  Stake Id  Unbond Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent-staking/stake/{stake_id}/status": {
+      "get": {
+        "tags": [
+          "v1",
+          "agent-economy"
+        ],
+        "summary": "Canonical agent stake status",
+        "description": "Sealed-history-first status read (#719).",
+        "operationId": "agent_stake_status_route_v1_agent_staking_stake__stake_id__status_get",
+        "parameters": [
+          {
+            "name": "stake_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Stake Id"
+            }
+          },
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Agent Stake Status Route V1 Agent Staking Stake  Stake Id  Status Get"
                 }
               }
             }
