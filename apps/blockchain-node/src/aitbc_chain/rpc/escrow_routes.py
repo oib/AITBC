@@ -1199,7 +1199,10 @@ async def _submit_receipt_claim_tx(receipt: dict[str, Any] | None, job_id: str, 
             return None
 
         recipient = _resolve_chain_account(provider) or settlement_address
-        nonce = await _settlement_next_nonce(settlement_address)
+        nonce = await _settlement_signing_nonce(settlement_address)
+        if nonce is None:
+            _logger.warning("RECEIPT_CLAIM skipped for job_id=%s: account nonce probe failed", job_id)
+            return None
         record_payload = {k: v for k, v in receipt.items() if k not in ("signature", "attestations")}
         tx = {
             "from": settlement_address,
