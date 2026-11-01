@@ -3,8 +3,11 @@
 # MODE: loop
 # Governance lifecycle: PROPOSE → VOTE → EXECUTE (wallet-signed on-chain
 # txs). Executes are coordinator-api routed — RUN ON HUB (or wherever a
-# coordinator endpoint is reachable); the executor path is gated by the
-# governance_executors chain parameter (provisioned key lives on hub).
+# coordinator endpoint is reachable); EXECUTE requires the signer to be
+# in the governance_executors chain parameter — the play wallet is not a
+# member, so the execute leg refuses by design (expected_refusal). The
+# armed bc-2 batch signs with wallet gov-executor-d9cc on hub
+# (0xD9CC189c…, staged for the batch, removed after it).
 # Encrypted wallets: export AITBC_WALLET_PASSWORD (read on-host from
 # /etc/aitbc env — never echoed). Execute refusals = expected_refusal.
 set -euo pipefail
@@ -43,7 +46,7 @@ tx=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"0x[0-9a-fA-F]
 if [ $rc -eq 0 ] && [ -n "$tx" ]; then
   bh=$(wait_seal "$tx") || exit $?; echo "execute sealed: $tx h$bh"
 elif [ $rc -ne 0 ]; then
-  jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"execute refused pre-quorum\",\"proposal\":\"$prop\"}"
-  echo "execute refused pre-quorum (expected): proposal $prop"
+  jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"execute refused (pre-quorum or not an executor)\",\"proposal\":\"$prop\"}"
+  echo "execute refused (pre-quorum or not an executor; expected): proposal $prop"
 fi
 ok "${tx:-}"
