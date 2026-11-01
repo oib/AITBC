@@ -1434,7 +1434,7 @@ class BridgeTransferMixin(BridgeBase):
 
         return True
 
-    def _finalize_confirmed_transfers(self, chain_id: str) -> int:
+    def _finalize_confirmed_transfers(self, chain_id: str, deadline: float | None = None) -> int:
         """Move 'confirmed' transfers to 'completed' once the release tx is in a block.
 
         A transfer is only considered finalised when the BRIDGE_RELEASE
@@ -1450,6 +1450,13 @@ class BridgeTransferMixin(BridgeBase):
                 )
             ).all()
             for record in records:
+                if deadline is not None and time.monotonic() >= deadline:
+                    logger.info(
+                        "Bridge finalize for %s hit the pass deadline after %s finalized; deferring the rest",
+                        chain_id,
+                        finalized,
+                    )
+                    break
                 tx = session.exec(
                     select(Transaction).where(
                         Transaction.chain_id == chain_id,
@@ -1558,7 +1565,7 @@ class BridgeTransferMixin(BridgeBase):
             )
             return False
 
-    def _sync_local_chain_headers(self, chain_id: str) -> int:
+    def _sync_local_chain_headers(self, chain_id: str, deadline: float | None = None) -> int:
         """Store bridge block headers for locally known blocks of ``chain_id``.
 
         GAP-47: the bridge proof path needs stored ``BridgeBlockHeader`` rows
@@ -1612,26 +1619,51 @@ class BridgeTransferMixin(BridgeBase):
                 .order_by(Block.height.asc())  # type: ignore[attr-defined]
                 .limit(batch)
             ).all()
+        return self._store_new_block_headers(chain_id, new_blocks, deadline)
+
+    def _store_new_block_headers(self, chain_id: str, new_blocks: Any, deadline: float | None = None) -> int:
+        """Store selected blocks as bridge headers in commit_batch-sized transactions."""
         stored = 0
+        commit_batch = max(1, int(getattr(settings, "bridge_header_commit_batch", 50)))
+        pending: list[dict] = []
         for block in new_blocks:
-            try:
-                self.store_block_header(  # type: ignore[attr-defined]
-                    {
-                        "chain_id": block.chain_id,
-                        "height": block.height,
-                        "hash": block.hash,
-                        "parent_hash": block.parent_hash,
-                        "proposer": block.proposer,
-                        "state_root": block.state_root or "",
-                        "bridge_state_root": block.bridge_state_root or "",
-                        "signature": block.signature or "",
-                    }
+            if deadline is not None and time.monotonic() >= deadline:
+                logger.info(
+                    "Bridge header sync for %s hit the pass deadline after %s stored; committing and deferring the rest",
+                    chain_id,
+                    stored,
                 )
-                stored += 1
-            except Exception:
-                logger.exception("Failed to store bridge header for %s height=%s", chain_id, block.height)
                 break
+            pending.append(
+                {
+                    "chain_id": block.chain_id,
+                    "height": block.height,
+                    "hash": block.hash,
+                    "parent_hash": block.parent_hash,
+                    "proposer": block.proposer,
+                    "state_root": block.state_root or "",
+                    "bridge_state_root": block.bridge_state_root or "",
+                    "signature": block.signature or "",
+                }
+            )
+            if len(pending) >= commit_batch:
+                if not self._flush_header_batch(chain_id, pending, block.height):
+                    pending.clear()
+                    break
+                stored += len(pending)
+                pending.clear()
+        if pending and self._flush_header_batch(chain_id, pending, None):
+            stored += len(pending)
         return stored
+
+    def _flush_header_batch(self, chain_id: str, pending: list[dict], at_height: int | None) -> bool:
+        """One commit for a pending header batch; False means the caller should stop."""
+        try:
+            self._store_header_batch(chain_id, pending)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Failed to store bridge header batch for %s at height=%s", chain_id, at_height)
+            return False
+        return True
 
     def _ledger_register(self, record: CrossChainTransfer) -> None:
         """Best-effort write-through registration with the shared ledger (#696).
@@ -1728,7 +1760,7 @@ class BridgeTransferMixin(BridgeBase):
                 worklist.append(self._build_transfer_from_record(record))
         return worklist
 
-    def _relay_pending_transfers(self, chain_id: str) -> int:
+    def _relay_pending_transfers(self, chain_id: str, deadline: float | None = None) -> int:
         """Confirm pending source-chain transfers whose lock has finality.
 
         GAP-47 relayer: for each transfer locked on ``chain_id``, once the
@@ -1752,6 +1784,13 @@ class BridgeTransferMixin(BridgeBase):
         own_chain = str(getattr(settings, "chain_id", "") or "")
         pending = self._pending_worklist(chain_id, own_chain)
         for transfer in pending:
+            if deadline is not None and time.monotonic() >= deadline:
+                logger.info(
+                    "Bridge relayer for %s hit the pass deadline after %s relayed; deferring the rest",
+                    chain_id,
+                    relayed,
+                )
+                break
             if not self._chain_db_ready(transfer.target_chain):
                 # The release must be written to the target chain's store;
                 # when this node does not host it, the transfer keeps its
@@ -1791,6 +1830,26 @@ class BridgeTransferMixin(BridgeBase):
                 logger.exception("Bridge relayer: confirm failed for %s", transfer.transfer_id[:16])
         return relayed
 
+    def _report_abandoned_pass(self, abandoned: dict[str, int], chain_id: str, pass_timeout: float) -> None:
+        """Count consecutive watchdog abandonments per chain; CRITICAL on repeats —
+        an abandoned to_thread worker cannot be cancelled, so back-to-back
+        abandonments mean the pass is wedged or too big to finish."""
+        streak = abandoned.get(chain_id, 0) + 1
+        abandoned[chain_id] = streak
+        if streak >= 2:
+            logger.critical(
+                "Bridge finalizer pass for chain %s abandoned %d consecutive times (>%ss each); worker threads cannot be cancelled — investigate the pass work or the writer it waits on",
+                chain_id,
+                streak,
+                pass_timeout,
+            )
+        else:
+            logger.error(
+                "Bridge finalizer pass for chain %s exceeded %ss; worker thread abandoned, other chains continue",
+                chain_id,
+                pass_timeout,
+            )
+
     async def start_finalizer(self) -> None:
         """Background loop that finalises bridge releases once they are block-sealed.
 
@@ -1824,6 +1883,10 @@ class BridgeTransferMixin(BridgeBase):
         if inflight is None:
             self._finalizer_inflight: set[str] = set()
             inflight = self._finalizer_inflight
+        abandoned = getattr(self, "_finalizer_abandoned", None)
+        if abandoned is None:
+            self._finalizer_abandoned: dict[str, int] = {}
+            abandoned = self._finalizer_abandoned
         while True:
             try:
                 for chain_id in self._known_chains():
@@ -1835,13 +1898,16 @@ class BridgeTransferMixin(BridgeBase):
                         continue
                     inflight.add(chain_id)
 
-                    def _run(cid: str = chain_id) -> None:
+                    deadline = time.monotonic() + pass_timeout
+
+                    def _run(cid: str = chain_id, pass_deadline: float = deadline) -> None:
                         # The mark is cleared inside the worker so it is
                         # released when the pass actually returns — not when
                         # wait_for gave up on it — which keeps two passes for
                         # the same chain from ever running concurrently.
                         try:
-                            self._finalizer_pass(cid, relayer_enabled)
+                            self._finalizer_pass(cid, relayer_enabled, pass_deadline)
+                            abandoned[cid] = 0
                         finally:
                             inflight.discard(cid)
 
@@ -1861,40 +1927,52 @@ class BridgeTransferMixin(BridgeBase):
                     try:
                         await asyncio.wait_for(asyncio.to_thread(_run), timeout=pass_timeout)
                     except TimeoutError:
-                        logger.error(
-                            "Bridge finalizer pass for chain %s exceeded %ss; worker thread abandoned, other chains continue",
-                            chain_id,
-                            pass_timeout,
-                        )
+                        self._report_abandoned_pass(abandoned, chain_id, pass_timeout)
                     except Exception:
                         logger.exception("Bridge finalizer pass failed for chain %s", chain_id)
             except Exception:
                 logger.exception("Bridge release finalizer loop failed")
             await asyncio.sleep(interval)
 
-    def _finalizer_pass(self, chain_id: str, relayer_enabled: bool) -> None:
-        """Run one finalizer pass for a single chain: header sync, relay, finalize."""
+    def _finalizer_pass(self, chain_id: str, relayer_enabled: bool, deadline: float | None = None) -> None:
+        """Run one finalizer pass for a single chain: header sync, relay, finalize.
+
+        ``deadline`` is a time.monotonic() budget the caller derives from
+        ``bridge_finalizer_pass_timeout``: each phase checkpoints it between
+        items so a pass commits what it has and returns instead of being
+        abandoned mid-transaction by the to_thread watchdog.
+        """
         if not self._chain_db_ready(chain_id):
             return
+
         try:
-            stored = self._sync_local_chain_headers(chain_id)
+            stored = self._sync_local_chain_headers(chain_id, deadline)
             if stored:
                 logger.debug("Stored %s bridge headers for chain %s", stored, chain_id)
         except Exception:
             logger.exception("Bridge header sync failed for chain %s", chain_id)
-        if relayer_enabled:
+        self._finalizer_relay_and_finalize(chain_id, relayer_enabled, deadline)
+
+    def _finalizer_relay_and_finalize(self, chain_id: str, relayer_enabled: bool, deadline: float | None) -> None:
+        """Relay + finalize phases of a pass, gated on the shared deadline."""
+
+        def _expired() -> bool:
+            return deadline is not None and time.monotonic() >= deadline
+
+        if relayer_enabled and not _expired():
             try:
-                relayed = self._relay_pending_transfers(chain_id)
+                relayed = self._relay_pending_transfers(chain_id, deadline)
                 if relayed:
                     logger.info("Relayed %s bridge transfers on chain %s", relayed, chain_id)
             except Exception:
                 logger.exception("Bridge relayer failed for chain %s", chain_id)
-        try:
-            count = self._finalize_confirmed_transfers(chain_id)
-            if count:
-                logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
-        except Exception:
-            logger.exception("Bridge finalizer failed for chain %s", chain_id)
+        if not _expired():
+            try:
+                count = self._finalize_confirmed_transfers(chain_id, deadline)
+                if count:
+                    logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
+            except Exception:
+                logger.exception("Bridge finalizer failed for chain %s", chain_id)
 
     def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict[str, Any] | None = None) -> BridgeTransfer:
         """Build BridgeTransfer from database record."""
