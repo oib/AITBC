@@ -433,6 +433,7 @@ def test_cli_live_mode_refusals(tmp_path, capsys) -> None:
     rc = main(["--live", "--manifest", str(manifest), "--allocations", str(allocs), "--data-dir", str(data_dir)])
     assert rc == 2
     assert "operator line" in capsys.readouterr().err
+    assert not data_dir.exists()
 
     # Manifest chain id is the single source of the target id; a manifest for
     # a different chain id builds a different doc — the live gate compares the
@@ -456,12 +457,57 @@ def test_cli_live_mode_refusals(tmp_path, capsys) -> None:
     )
     assert rc == 2
     assert "already holds" in capsys.readouterr().err
+    assert not (data_dir / "data" / CHAIN_ID / "genesis.json").exists()
+    assert not (data_dir / "data" / CHAIN_ID / "genesis.manifest.json").exists()
 
 
-def test_cli_live_mode_always_refuses_the_write(tmp_path, capsys) -> None:
-    """All preconditions met → still refuses: the live write is designed, not enabled."""
+@pytest.mark.parametrize("force", [False, True])
+def test_cli_live_mode_writes_once_and_refuses_rerun(tmp_path, capsys, force) -> None:
     manifest, allocs, _ = _write_inputs(tmp_path)
-    data_dir = tmp_path / "scratch-data"
+    data_dir = tmp_path / "live-test-data"
+    main = _script_main(CLI)
+    argv = [
+        "--live",
+        "--manifest",
+        str(manifest),
+        "--allocations",
+        str(allocs),
+        "--data-dir",
+        str(data_dir),
+        "--operator-line",
+        "test-operator",
+    ]
+    assert main(argv) == 0
+    target_dir = data_dir / "data" / CHAIN_ID
+    genesis = target_dir / "genesis.json"
+    provenance = target_dir / "genesis.manifest.json"
+    genesis_bytes = genesis.read_bytes()
+    provenance_bytes = provenance.read_bytes()
+    doc = json.loads(genesis_bytes)
+    manifest_out = json.loads(provenance_bytes)
+    assert doc["chain_id"] == CHAIN_ID
+    assert doc["genesis_hash"].startswith("0x")
+    assert manifest_out["chain_id"] == CHAIN_ID
+    assert manifest_out["operator_line"] == "test-operator"
+    assert manifest_out["genesis_file"] == str(genesis)
+    output = capsys.readouterr()
+    assert output.err == ""
+    assert f"genesis_hash={doc['genesis_hash']}" in output.out
+    assert "operator_line=test-operator" in output.out
+
+    assert main(argv + (["--force"] if force else [])) == 2
+    output = capsys.readouterr()
+    assert "already holds" in output.err
+    assert output.out == ""
+    assert genesis.read_bytes() == genesis_bytes
+    assert provenance.read_bytes() == provenance_bytes
+
+
+def test_cli_live_mode_refuses_manifest_chain_id_mismatch(tmp_path, capsys) -> None:
+    # main normalizes the target id; the live gate must still require exact
+    # agreement with the manifest, rather than silently accepting a different id.
+    manifest, allocs, _ = _write_inputs(tmp_path, chain_id=f" {CHAIN_ID} ")
+    data_dir = tmp_path / "live-test-data"
     rc = _script_main(CLI)(
         [
             "--live",
@@ -472,11 +518,14 @@ def test_cli_live_mode_always_refuses_the_write(tmp_path, capsys) -> None:
             "--data-dir",
             str(data_dir),
             "--operator-line",
-            "op",
+            "test-operator",
         ]
     )
     assert rc == 2
-    assert "not enabled" in capsys.readouterr().err
+    output = capsys.readouterr()
+    assert "manifest chain_id does not match" in output.err
+    assert output.out == ""
+    assert not data_dir.exists()
 
 
 def test_check_live_conditions_reports_each_unmet() -> None:
