@@ -133,13 +133,95 @@ class GovernanceService:
         if proposer_id:
             stmt = stmt.where(Proposal.proposer_id == proposer_id)
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        proposals = list(result.scalars().all())
+        for proposal in proposals:
+            await self._reconcile_executed_onchain(proposal)
+        return proposals
 
     async def get_proposal(self, proposal_id: str) -> Proposal | None:
         """Get a specific proposal"""
         stmt = select(Proposal).where(Proposal.proposal_id == proposal_id)
         result = await self.session.execute(stmt)
-        return result.scalars().first()
+        proposal = result.scalars().first()
+        if proposal is not None:
+            await self._reconcile_executed_onchain(proposal)
+        return proposal
+
+    async def _reconcile_executed_onchain(self, proposal: Proposal) -> Proposal:
+        """Write-back reconcile against the chain's transaction table.
+
+        A GOVERNANCE_EXECUTE submitted straight to the blockchain RPC seals
+        without this service ever seeing it (prop_76855f71, 28 Oct), and the
+        service row then reports ``active`` forever. Ask the node's
+        sealed-proposal view whether an EXECUTE exists; when it does, stamp
+        the row exactly as a service-path execution would, and log a
+        ``reconcile`` step so the audit trail distinguishes it from a
+        service-path execute.
+
+        Skipped (no probe) when the row is already EXECUTED or still inside
+        its voting window. Failure-soft: an unreachable RPC or a missing
+        record returns the row unchanged — a list/get must never fail on a
+        reconcile probe.
+        """
+        if proposal.status == ProposalStatus.EXECUTED:
+            return proposal
+        voting_ends = proposal.voting_ends
+        if voting_ends is not None:
+            if voting_ends.tzinfo is None:
+                voting_ends = voting_ends.replace(tzinfo=UTC)
+            if datetime.now(UTC) < voting_ends:
+                return proposal
+        try:
+            sealed = await self._blockchain.get_sealed_governance_proposal(proposal.proposal_id, proposal.chain_id)
+        except Exception as e:
+            logger.warning("chain execute reconcile probe failed for %s: %s", proposal.proposal_id, e)
+            return proposal
+        if not sealed or not sealed.get("executed"):
+            return proposal
+        return await self._stamp_executed_from_chain(proposal, sealed)
+
+    async def _stamp_executed_from_chain(self, proposal: Proposal, sealed: dict[str, Any]) -> Proposal:
+        """Apply the chain's sealed-EXECUTE verdict to the row and log it."""
+        proposal.status = ProposalStatus.EXECUTED
+        proposal.execution_tx_hash = sealed.get("execute_tx_hash")
+        height = sealed.get("execute_block_height")
+        if height is not None:
+            proposal.proposal_metadata = {
+                **(proposal.proposal_metadata or {}),
+                "execution_block_height": height,
+            }
+            sealed_at = await self._sealing_block_time(proposal, int(height))
+            if sealed_at is not None:
+                proposal.executed_at = sealed_at
+        self.session.add(
+            ProposalExecutionLog(
+                proposal_id=proposal.proposal_id,
+                execution_step="reconcile",
+                status="completed",
+                result={
+                    "execute_tx_hash": proposal.execution_tx_hash,
+                    "execute_block_height": height,
+                    "source": "chain transaction table (sealed-proposal)",
+                },
+            )
+        )
+        await self.session.commit()
+        await self.session.refresh(proposal)
+        return proposal
+
+    async def _sealing_block_time(self, proposal: Proposal, height: int) -> datetime | None:
+        """Timestamp of the block that sealed the EXECUTE, or None if unreadable —
+        the status write stays honest without it rather than inventing a time."""
+        try:
+            block = await self._blockchain.get_block(height, proposal.chain_id)
+            sealed_at = _parse_datetime((block or {}).get("timestamp"))
+        except Exception as e:
+            logger.warning("chain execute reconcile could not read block %s for %s: %s", height, proposal.proposal_id, e)
+            return None
+        if sealed_at is not None and sealed_at.tzinfo is None:
+            # The chain stores naive UTC timestamps.
+            sealed_at = sealed_at.replace(tzinfo=UTC)
+        return sealed_at
 
     async def create_proposal(self, proposal_data: dict[str, Any]) -> Proposal:
         """Create a new proposal.
