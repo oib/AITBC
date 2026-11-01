@@ -543,3 +543,139 @@ def test_valid_slash_authority_canonicalises(db_session, monkeypatch):
     monkeypatch.setenv("BOND_BURN_ADDRESS", "0x3333333333333333333333333333333333333333")
     service = BondSlashingService(db_session)
     assert service.slash_authority == "0x2222222222222222222222222222222222222222"
+
+
+# ---------------------------------------------------------------------------
+# #779: the nonce counter is per process — two workers must not collide
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_two_workers_sign_distinct_nonces_via_mempool(db_session, slash_env, monkeypatch):
+    """Worker 1's slash is visible in the mempool when worker 2 (fresh process
+    counter) signs its own — the second takes the next free nonce instead of
+    reusing the pending one."""
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    signer = os.environ["BOND_SLASH_AUTHORITY_ADDRESS"]
+    miner = _miner(db_session)
+    job1 = _bonded_job(db_session)
+    job1.assigned_miner_id = miner.id
+    db_session.add(job1)
+    job2 = _bonded_job(db_session)
+    job2.assigned_miner_id = miner.id
+    db_session.add(job2)
+    db_session.commit()  # noqa: unawaited-async — sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    submitted: list[int] = []
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"nonce": 5}
+        if "/mempool" in url:
+            return {"transactions": [{"from": signer, "nonce": n} for n in submitted]}
+        return {}
+
+    def _post(url, json=None, **_kw):
+        submitted.append(json["nonce"])
+        return {"transaction_hash": f"0xslash{json['nonce']}"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        client.post.side_effect = _post
+
+        monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+        r1 = await BondSlashingService(db_session).slash(job1, SlashingCondition.BAD_RESULT, "bad")
+        monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)  # worker 2's fresh process counter
+        r2 = await BondSlashingService(db_session).slash(job2, SlashingCondition.BAD_RESULT, "bad")
+
+    assert r1["slashed"] and r2["slashed"]
+    assert submitted == [5, 6]
+
+
+@pytest.mark.asyncio
+async def test_nonce_refusal_resubmits_once_then_succeeds(db_session, slash_env, monkeypatch):
+    """A 'nonce slot occupied' refusal drops the cached counter, re-reads
+    chain+mempool, re-signs and resubmits exactly once (#779)."""
+    from aitbc.exceptions import NetworkError
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    signer = os.environ["BOND_SLASH_AUTHORITY_ADDRESS"]
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # noqa: unawaited-async — sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    occupier_in_mempool: list[bool] = []
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"nonce": 5}
+        if "/mempool" in url:
+            pending = [{"from": signer, "nonce": 5}] if occupier_in_mempool else []
+            return {"transactions": pending}
+        return {}
+
+    posts: list[int] = []
+
+    def _post(url, json=None, **_kw):
+        posts.append(json["nonce"])
+        if len(posts) == 1:
+            occupier_in_mempool.append(True)
+            raise NetworkError(f"POST request failed: 400 nonce slot ({signer}, 5) already occupied by 0xabc")
+        return {"transaction_hash": "0xretry"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is True
+    assert result["tx_hash"] == "0xretry"
+    assert posts == [5, 6]
+
+
+@pytest.mark.asyncio
+async def test_nonce_refusal_twice_returns_unslashed(db_session, slash_env, monkeypatch):
+    """A second nonce refusal gives up and reports the slash unslashed —
+    exactly one resubmit, never a silent drop (#779)."""
+    from aitbc.exceptions import NetworkError
+    from coordinator_api.contexts.market.services import bond_slashing as bond_slashing_module
+
+    monkeypatch.setattr(bond_slashing_module, "_slash_nonce", None)
+    signer = os.environ["BOND_SLASH_AUTHORITY_ADDRESS"]
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()  # noqa: unawaited-async — sqlmodel Session is sync
+    _provider_bond(db_session, miner.id, amount="10")
+
+    def _get(url):
+        if "/rpc/account/" in url:
+            return {"nonce": 5}
+        if "/mempool" in url:
+            return {"transactions": []}
+        return {}
+
+    posts: list[int] = []
+
+    def _post(url, json=None, **_kw):
+        posts.append(json["nonce"])
+        raise NetworkError(f"POST request failed: 400 nonce slot ({signer}, {json['nonce']}) already occupied by 0xabc")
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.side_effect = _get
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is False
+    assert result["reason"] == "nonce refused twice"
+    assert client.post.call_count == 2
