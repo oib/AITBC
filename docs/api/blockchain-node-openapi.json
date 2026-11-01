@@ -23573,7 +23573,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised / Escrow RPC is not configured for authentication",
+            "description": "EscrowManager not initialised / account nonce probe failed; retry shortly / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
