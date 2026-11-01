@@ -18,6 +18,7 @@ equal the real pool size at rest after concurrent add/remove/drain/evict.
 from __future__ import annotations
 
 import asyncio
+import sys
 import threading
 import time
 
@@ -50,13 +51,15 @@ class TestGaugeConsistencyUnderConcurrency:
     missed or double-counted refresh would leave a permanent discrepancy.
     """
 
-    def _hammer(self, pool, chain: str) -> None:
+    def _hammer(self, pool, chain: str, join_timeout: float = 60) -> None:
         stop = threading.Event()
         errors: list[BaseException] = []
 
         def adder(sender: str, prefix: int, nonce_offset: int) -> None:
             try:
                 for i in range(200):
+                    if stop.is_set():
+                        break
                     pool.add(
                         {"from": sender, "to": "0xb", "fee": i, "nonce": nonce_offset + i, "signature": "s"},
                         chain_id=chain,
@@ -69,6 +72,8 @@ class TestGaugeConsistencyUnderConcurrency:
             try:
                 while not stop.is_set():
                     for i in range(200):
+                        if stop.is_set():
+                            break
                         pool.remove(f"0x00{i:06x}", chain_id=chain)
             except BaseException as e:  # noqa: BLE001 -- record, assert later
                 errors.append(e)
@@ -91,22 +96,76 @@ class TestGaugeConsistencyUnderConcurrency:
         # mempool's per-(sender, nonce) slot rule -- a collision there is
         # mempool policy noise, not a gauge-consistency signal.
         workers = [
-            threading.Thread(target=adder, args=("0xaaaa", 0x00, 0)),
-            threading.Thread(target=adder, args=("0xbbbb", 0x10, 1000)),
-            threading.Thread(target=remover),
-            threading.Thread(target=drainer),
-            threading.Thread(target=evictor),
+            threading.Thread(target=adder, args=("0xaaaa", 0x00, 0), daemon=True),
+            threading.Thread(target=adder, args=("0xbbbb", 0x10, 1000), daemon=True),
+            threading.Thread(target=remover, daemon=True),
+            threading.Thread(target=drainer, daemon=True),
+            threading.Thread(target=evictor, daemon=True),
         ]
-        for w in workers[:2]:
-            w.start()
-        for w in workers[2:]:
-            w.start()
-        for w in workers[:2]:
-            w.join(timeout=60)
-        stop.set()
-        for w in workers[2:]:
-            w.join(timeout=60)
+        try:
+            for w in workers:
+                w.start()
+            for w in workers[:2]:
+                w.join(timeout=join_timeout)
+            assert not any(w.is_alive() for w in workers[:2]), "adders did not finish"
+        finally:
+            stop.set()
+            for w in workers:
+                if w.ident is not None:
+                    w.join(timeout=join_timeout)
+        assert not any(w.is_alive() for w in workers), "workers did not stop"
         assert not errors, f"worker errors: {errors!r}"
+
+    @pytest.mark.parametrize("failure_mode", ["join", "timeout", "start"])
+    def test_workers_stop_on_early_exit(self, failure_mode):
+        class HammerInterrupted(BaseException):
+            pass
+
+        stop = threading.Event()
+        workers = []
+
+        class ProbeThread(threading.Thread):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.join_attempted = False
+                workers.append(self)
+
+            def start(self):
+                if failure_mode == "start" and self is workers[1]:
+                    raise HammerInterrupted("interrupted start")
+                return super().start()
+
+            def join(self, timeout=None):
+                if self is workers[0] and not self.join_attempted:
+                    self.join_attempted = True
+                    if failure_mode == "join":
+                        raise HammerInterrupted("interrupted join")
+                    if failure_mode == "timeout":
+                        return None
+                return super().join(timeout)
+
+        pool = SimpleNamespace(
+            add=lambda *args, **kwargs: stop.wait(),
+            remove=lambda *args, **kwargs: stop.wait(0.001),
+            drain=lambda *args, **kwargs: stop.wait(0.001),
+            evict_expired=lambda *args, **kwargs: stop.wait(0.001),
+        )
+        expected = AssertionError if failure_mode == "timeout" else HammerInterrupted
+        match = "adders did not finish" if failure_mode == "timeout" else "interrupted"
+        try:
+            with patch.object(sys.modules[__name__], "threading", SimpleNamespace(Event=lambda: stop, Thread=ProbeThread)):
+                with pytest.raises(expected, match=match):
+                    self._hammer(pool, "gauge-interrupted", join_timeout=0.2)
+            assert stop.is_set()
+            assert len(workers) == 5
+            assert all(w.daemon for w in workers)
+            assert not any(w.is_alive() for w in workers)
+        finally:
+            # The regression must clean up even when run against the broken mutation.
+            stop.set()
+            for w in workers:
+                if w.ident is not None:
+                    threading.Thread.join(w, timeout=1)
 
     def test_inmemory_gauge_matches_pool_at_rest(self, tmp_path):
         chain = "gauge-conc-mem"
