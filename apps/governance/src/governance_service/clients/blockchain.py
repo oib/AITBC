@@ -149,3 +149,32 @@ class BlockchainClient(BaseBlockchainClient):
         if signed_tx["amount"] != 0:
             raise ValueError("governance transactions must carry amount=0")
         return await self.submit_transaction(signed_tx)
+
+    async def get_sealed_governance_proposal(self, proposal_id: str, chain_id: str | None = None) -> dict[str, Any] | None:
+        """Canonical transaction-table lookup for a proposal id.
+
+        Calls ``GET /rpc/governance/sealed-proposal/{proposal_id}`` — the node's
+        answer includes ``executed``/``execute_tx_hash``/``execute_block_height``
+        when a GOVERNANCE_EXECUTE already sealed. Returns None on 404.
+        """
+        params: dict[str, Any] = {}
+        if chain_id:
+            params["chain_id"] = chain_id
+        client = self._ensure_client()
+        resp = await client.get(f"{self._rpc_url}/rpc/governance/sealed-proposal/{proposal_id}", params=params)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()  # type: ignore[no-any-return]
+
+    async def get_block(self, height: int, chain_id: str | None = None) -> dict[str, Any] | None:
+        """GET /rpc/block/{height}; None on 404. Used for the sealing-block timestamp."""
+        params: dict[str, Any] = {}
+        if chain_id:
+            params["chain_id"] = chain_id
+        client = self._ensure_client()
+        resp = await client.get(f"{self._rpc_url}/rpc/block/{height}", params=params)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()  # type: ignore[no-any-return]
