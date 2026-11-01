@@ -238,7 +238,7 @@ class TestCommunicationManager:
     async def test_register_handler(self, comm_manager):
         """Test registering handler"""
         protocol = Mock(spec=CommunicationProtocol)
-        protocol.register_handler = AsyncMock()
+        protocol.register_handler = Mock()
         comm_manager.add_protocol("test", protocol)
 
         handler = AsyncMock()
