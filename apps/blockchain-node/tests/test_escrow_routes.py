@@ -114,7 +114,7 @@ async def test_submit_payment_tx_signs_with_settlement_key(release_key, monkeypa
     with (
         patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
         patch.object(escrow_routes, "_resolve_chain_account", new_callable=MagicMock) as mock_resolve,
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock) as mock_nonce,
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock) as mock_nonce,
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
         mock_resolve.return_value = provider
@@ -157,7 +157,7 @@ async def test_retried_release_builds_an_identical_transaction(release_key, monk
     with (
         patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
         patch.object(escrow_routes, "_resolve_chain_account", new_callable=MagicMock) as mock_resolve,
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock) as mock_nonce,
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock) as mock_nonce,
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
         mock_resolve.return_value = provider
@@ -394,7 +394,7 @@ async def test_fee_sweep_submits_residue_to_configured_recipient(release_key, mo
 
     with (
         patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=7),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=7),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
         tx_hash = await escrow_routes._submit_fee_sweep_tx("job-123", "contract-123", 20_000)
@@ -438,14 +438,14 @@ async def test_fee_sweep_failure_never_raises(release_key, monkeypatch):
 
     with (
         patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=7),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=7),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=rejected),
     ):
         assert await escrow_routes._submit_fee_sweep_tx("job-1", "contract-1", 5_000) is None
 
     with (
         patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=7),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=7),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, side_effect=RuntimeError("down")),
     ):
         assert await escrow_routes._submit_fee_sweep_tx("job-1", "contract-1", 5_000) is None
@@ -535,7 +535,7 @@ async def test_retry_path_sweeps_only_the_proven_residue(release_key, monkeypatc
         patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
         patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=5_000),
         patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=9),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=9),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
         assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) == "0xsweep"
@@ -603,6 +603,7 @@ async def test_retry_unpoisoned_by_unsealed_row_refund(release_key, monkeypatch)
         patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
         patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
         patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=9),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
         assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) == "0xsweep"
@@ -627,7 +628,7 @@ async def test_submit_refund_tx_re_raises_on_submission_failure(release_key, mon
             new_callable=MagicMock,
             return_value="0x3333333333333333333333333333333333333333",
         ),
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=5),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=5),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, side_effect=RuntimeError("RPC down")),
     ):
         with pytest.raises(RuntimeError, match="RPC down"):
@@ -1070,7 +1071,7 @@ async def test_retry_sweeps_zero_change_row_from_chain_legs(release_key, monkeyp
         patch("aitbc_chain.contracts.escrow.settlement_legs_from_chain", return_value=legs),
         patch.object(escrow_routes, "_escrow_custody_balance", new_callable=AsyncMock, return_value=80_000),
         patch.object(escrow_routes, "_find_existing_fee_sweep", new_callable=AsyncMock, return_value=None),
-        patch.object(escrow_routes, "_get_account_nonce", new_callable=AsyncMock, return_value=9),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=9),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post,
     ):
         assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) == "0xsweep"
@@ -1186,3 +1187,253 @@ async def test_retry_refuses_leg_with_null_height(release_key, monkeypatch):
     ):
         assert await escrow_routes._retry_sweep_released_escrow("job-1", record, None) is None
     mock_post.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# #781: settlement signing nonce — sealed+mempool lookahead, one retry on a
+# nonce refusal, never sign at nonce 0 on a missed probe.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_two_concurrent_signers_get_distinct_nonces(release_key, monkeypatch):
+    """done_when: two signers racing the sealed nonce must not take the same slot.
+    Signer A sees pending@5 -> 6; signer B sees pending@5,@6 -> 7."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    def mempool_resp(nonces):
+        r = MagicMock()
+        r.status_code = 200
+        r.json.return_value = {"transactions": [{"from": RELEASE_KEY_ADDRESS, "nonce": n} for n in nonces]}
+        return r
+
+    ok = MagicMock()
+    ok.status_code = 200
+    ok.json.return_value = {"transaction_hash": "0xok"}
+
+    with (
+        patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
+        patch.object(
+            escrow_routes,
+            "_resolve_chain_account",
+            new_callable=MagicMock,
+            return_value="0x3333333333333333333333333333333333333333",
+        ),
+        patch.object(escrow_routes, "_get_account_nonce_strict", new_callable=AsyncMock, return_value=5),
+        patch.object(
+            escrow_routes.SharedHttpClient,
+            "get",
+            new_callable=AsyncMock,
+            side_effect=[mempool_resp([5]), mempool_resp([5, 6])],
+        ),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=ok) as mock_post,
+    ):
+        for _ in range(2):
+            assert (
+                await escrow_routes._submit_payment_tx(
+                    buyer="0x4444444444444444444444444444444444444444",
+                    provider="0x3333333333333333333333333333333333333333",
+                    amount=Decimal("1.0"),
+                    job_id="job-123",
+                    contract_id="contract-123",
+                )
+                == "0xok"
+            )
+
+    nonces = [c.kwargs["json"]["nonce"] for c in mock_post.call_args_list]
+    assert nonces == [6, 7]
+
+
+@pytest.mark.asyncio
+async def test_nonce_refusal_resubmits_once_with_a_fresh_nonce(release_key, monkeypatch):
+    """A 'nonce slot' refusal re-reads the nonce, re-signs and resubmits once."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    refused = MagicMock()
+    refused.status_code = 400
+    refused.text = "Failed to submit market transaction: nonce slot (0x1563..., 6) already occupied"
+    ok = MagicMock()
+    ok.status_code = 200
+    ok.json.return_value = {"transaction_hash": "0xre2"}
+
+    with (
+        patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
+        patch.object(
+            escrow_routes,
+            "_resolve_chain_account",
+            new_callable=MagicMock,
+            return_value="0x3333333333333333333333333333333333333333",
+        ),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, side_effect=[6, 7]),
+    ):
+        sent = []
+
+        async def record_post(url, json=None, **kw):
+            sent.append(dict(json or {}))
+            return refused if len(sent) == 1 else ok
+
+        with patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, side_effect=record_post):
+            tx_hash = await escrow_routes._submit_payment_tx(
+                buyer="0x4444444444444444444444444444444444444444",
+                provider="0x3333333333333333333333333333333333333333",
+                amount=Decimal("1.0"),
+                job_id="job-123",
+                contract_id="contract-123",
+            )
+
+    assert tx_hash == "0xre2"
+    assert len(sent) == 2
+    first, second = sent
+    assert first["nonce"] == 6 and second["nonce"] == 7
+    assert first["signature"] != second["signature"]  # nonce is inside the signature
+
+
+@pytest.mark.asyncio
+async def test_nonce_refusal_twice_gives_up(release_key, monkeypatch):
+    """A second nonce refusal reports unsettled — exactly two posts, no more."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    refused = MagicMock()
+    refused.status_code = 400
+    refused.text = "nonce slot already occupied"
+
+    with (
+        patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
+        patch.object(
+            escrow_routes,
+            "_resolve_chain_account",
+            new_callable=MagicMock,
+            return_value="0x3333333333333333333333333333333333333333",
+        ),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, side_effect=[6, 7]),
+        patch.object(
+            escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, side_effect=[refused, refused]
+        ) as mock_post,
+    ):
+        assert (
+            await escrow_routes._submit_payment_tx(
+                buyer="0x4444444444444444444444444444444444444444",
+                provider="0x3333333333333333333333333333333333333333",
+                amount=Decimal("1.0"),
+                job_id="job-123",
+                contract_id="contract-123",
+            )
+            is None
+        )
+
+    assert mock_post.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_probe_failure_never_signs_at_nonce_zero(release_key, monkeypatch):
+    """A missed sealed-nonce read must not degrade to signing at nonce 0 —
+    that is a guaranteed refusal for a used settlement key (#781)."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    with (
+        patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
+        patch.object(
+            escrow_routes,
+            "_resolve_chain_account",
+            new_callable=MagicMock,
+            return_value="0x3333333333333333333333333333333333333333",
+        ),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        assert (
+            await escrow_routes._submit_payment_tx(
+                buyer="0x4444444444444444444444444444444444444444",
+                provider="0x3333333333333333333333333333333333333333",
+                amount=Decimal("1.0"),
+                job_id="job-123",
+                contract_id="contract-123",
+            )
+            is None
+        )
+
+    mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_settlement_signing_nonce_lookahead_and_degrade(monkeypatch):
+    """The helper itself: sealed + mempool lookahead, degrade to sealed on a
+    mempool miss, None when the sealed read fails."""
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+    sender = "0x1563915e194D8CfBA1943570603F7606A3115508"
+
+    def mempool_resp(nonces):
+        r = MagicMock()
+        r.status_code = 200
+        r.json.return_value = {"transactions": [{"from": sender, "nonce": n} for n in nonces]}
+        return r
+
+    with (
+        patch.object(escrow_routes, "_get_account_nonce_strict", new_callable=AsyncMock, return_value=5),
+        patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=mempool_resp([5, 6])),
+    ):
+        assert await escrow_routes._settlement_signing_nonce(sender) == 7
+
+    with (
+        patch.object(escrow_routes, "_get_account_nonce_strict", new_callable=AsyncMock, return_value=5),
+        patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, side_effect=RuntimeError("down")),
+    ):
+        assert await escrow_routes._settlement_signing_nonce(sender) == 5
+
+    with patch.object(escrow_routes, "_get_account_nonce_strict", new_callable=AsyncMock, return_value=None):
+        assert await escrow_routes._settlement_signing_nonce(sender) is None
+
+
+@pytest.mark.asyncio
+async def test_refund_and_sweep_share_the_signing_nonce_path(release_key, monkeypatch):
+    """All three submitters use the same recipe: refund resubmits once on a
+    nonce refusal; the fee sweep does the same (and never raises)."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    monkeypatch.setenv("NODE_WALLET_ADDRESS", "0x9999999999999999999999999999999999999999")
+    escrow_routes = _reload_routes()
+
+    refused = MagicMock()
+    refused.status_code = 400
+    refused.text = "Invalid nonce"
+    ok = MagicMock()
+    ok.status_code = 200
+    ok.json.return_value = {"transaction_hash": "0xre9"}
+
+    with (
+        patch.object(escrow_routes, "_find_existing_refund", new_callable=AsyncMock, return_value=None),
+        patch.object(
+            escrow_routes,
+            "_resolve_chain_account",
+            new_callable=MagicMock,
+            return_value="0x3333333333333333333333333333333333333333",
+        ),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, side_effect=[6, 7]),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, side_effect=[refused, ok]) as mock_post,
+    ):
+        assert (
+            await escrow_routes._submit_refund_tx(
+                buyer="0x3333333333333333333333333333333333333333",
+                provider="0x2222222222222222222222222222222222222222",
+                amount=Decimal("1.0"),
+                job_id="job-123",
+                contract_id="contract-123",
+            )
+            == "0xre9"
+        )
+    assert mock_post.await_count == 2

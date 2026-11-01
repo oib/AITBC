@@ -716,13 +716,11 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
             _logger.error("ESCROW_RELEASE TX skipped: could not resolve recipient (provider=%s)", provider)
             return None
 
-        nonce = await _get_account_nonce(sender)
         tx = {
             "from": sender,
             "to": recipient,
             "amount": amount_int,
             "fee": max(36, amount_int // 100),
-            "nonce": nonce,
             "type": "ESCROW_RELEASE",
             "chain_id": _chain_id(),
             "payload": {
@@ -741,26 +739,35 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
         # so both would be admitted and the provider paid twice. Settlement time is
         # recoverable from the including block; the local escrow row keeps released_at.
         # Sign with the configured non-genesis settlement key (or genesis as fallback).
-        signing_hash = _compute_tx_signing_hash(tx)
-        tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
-
-        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
+        # #781: nonce is assigned per attempt at sealed+mempool lookahead
+        # (_settlement_signing_nonce): two concurrent signers can no longer take
+        # the same sealed nonce, and on a "nonce slot"/"Invalid nonce" refusal
+        # the tx is re-signed (the nonce is inside the signature) and resubmitted
+        # exactly once before the release reports unsettled.
+        resp, _nonce = await _submit_market_signed(
+            tx, sender=sender, settlement_key=settlement_key, job_id=job_id, label="ESCROW_RELEASE"
+        )
+        if resp is None:
+            return None
         if resp.status_code in (200, 201):
             result = resp.json()
             raw_tx_hash = result.get("transaction_hash")
             actual_tx_hash: str | None = str(raw_tx_hash) if raw_tx_hash else None
             _logger.info(
-                "ESCROW_RELEASE TX submitted: hash=%s amount=%s from=%s to=%s", actual_tx_hash, amount_int, sender, recipient
+                "ESCROW_RELEASE TX submitted: hash=%s amount=%s from=%s to=%s",
+                actual_tx_hash,
+                amount_int,
+                sender,
+                recipient,
             )
             return actual_tx_hash
-        else:
-            _logger.error(
-                "ESCROW_RELEASE TX rejected %s for job_id=%s (provider %s was NOT paid on-chain): %s",
-                resp.status_code,
-                job_id,
-                provider,
-                resp.text[:200],
-            )
+        _logger.error(
+            "ESCROW_RELEASE TX rejected %s for job_id=%s (provider %s was NOT paid on-chain): %s",
+            resp.status_code,
+            job_id,
+            provider,
+            resp.text[:200],
+        )
     except Exception as e:
         _logger.error(
             "ESCROW_RELEASE TX submission failed for job_id=%s (provider %s was NOT paid on-chain): %s",
@@ -817,13 +824,11 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
             _logger.error("ESCROW_REFUND TX skipped: buyer account does not exist (buyer=%s)", buyer)
             return None
 
-        nonce = await _get_account_nonce(sender)
         tx = {
             "from": sender,
             "to": recipient,
             "amount": amount_int,
             "fee": max(36, amount_int // 100),
-            "nonce": nonce,
             "type": "ESCROW_REFUND",
             "chain_id": _chain_id(),
             "payload": {
@@ -835,10 +840,12 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
             },
         }
         # Identical retry must hash identically; no wall-clock timestamp in the payload.
-        signing_hash = _compute_tx_signing_hash(tx)
-        tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
-
-        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
+        # #781: sealed+mempool nonce per attempt, one re-sign+resubmit on a nonce refusal.
+        resp, _nonce = await _submit_market_signed(
+            tx, sender=sender, settlement_key=settlement_key, job_id=job_id, label="ESCROW_REFUND"
+        )
+        if resp is None:
+            return None
         if resp.status_code in (200, 201):
             result = resp.json()
             raw_tx_hash = result.get("transaction_hash")
@@ -967,13 +974,11 @@ async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int
             escrow_fee_sweep_total.labels(result="skipped").inc()
             return None
 
-        nonce = await _get_account_nonce(settlement_address)
         tx = {
             "from": settlement_address,
             "to": recipient,
             "amount": residue_units,
             "fee": _fee_for(residue_units),
-            "nonce": nonce,
             "type": "ESCROW_FEE_SWEEP",
             "chain_id": _chain_id(),
             "payload": {
@@ -984,10 +989,17 @@ async def _submit_fee_sweep_tx(job_id: str, contract_id: str, residue_units: int
         }
         # Same rule as release/refund: no wall-clock in the payload, an
         # identical retry at the same nonce must hash identically.
-        signing_hash = _compute_tx_signing_hash(tx)
-        tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
-
-        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
+        # #781: sealed+mempool nonce per attempt, one re-sign+resubmit on a nonce refusal.
+        resp, _nonce = await _submit_market_signed(
+            tx,
+            sender=settlement_address,
+            settlement_key=settlement_key,
+            job_id=job_id,
+            label="ESCROW_FEE_SWEEP",
+        )
+        if resp is None:
+            escrow_fee_sweep_total.labels(result="error").inc()
+            return None
         if resp.status_code in (200, 201):
             result = resp.json()
             raw_tx_hash = result.get("transaction_hash")
@@ -1044,12 +1056,11 @@ async def _find_existing_receipt_claim(job_id: str) -> str | None:
     return None
 
 
-async def _settlement_next_nonce(sender: str) -> int:
-    """Next free nonce for the settlement sender: the sealed account nonce plus
-    any txs the sender already holds in the proposer mempool. The release a
-    claim follows occupies the sealed-nonce slot, so an in-request claim must
-    queue behind it — the mempool lookahead admits the +1."""
-    sealed = await _get_account_nonce(sender)
+async def _mempool_nonce_floor(sender: str, sealed: int) -> int:
+    """max(sealed, the sender's highest pending mempool nonce + 1).
+
+    A probe miss (non-200, unreachable, malformed answer) degrades to ``sealed``;
+    the submit retry covers the admitted-but-unlisted window."""
     try:
         r = await SharedHttpClient.get(
             f"{_HUB_RPC_URL}/mempool?chain_id={_chain_id()}&limit={_FUNDING_LOCK_MEMPOOL_LIMIT}", timeout=5.0
@@ -1067,8 +1078,85 @@ async def _settlement_next_nonce(sender: str) -> int:
         if pending_nonces:
             return int(max(sealed, max(pending_nonces) + 1))
     except Exception as e:  # noqa: BLE001 - probe containment: a mempool miss degrades to the sealed nonce
-        _logger.warning("RECEIPT_CLAIM: mempool nonce probe failed for %s: %s", sender, e)
+        _logger.warning("mempool nonce probe failed for %s: %s", sender, e)
     return sealed
+
+
+async def _settlement_next_nonce(sender: str) -> int:
+    """Next free nonce for the settlement sender: the sealed account nonce plus
+    any txs the sender already holds in the proposer mempool. The release a
+    claim follows occupies the sealed-nonce slot, so an in-request claim must
+    queue behind it — the mempool lookahead admits the +1."""
+    return await _mempool_nonce_floor(sender, await _get_account_nonce(sender))
+
+
+async def _get_account_nonce_strict(address: str) -> int | None:
+    """Sealed nonce, or None when the read fails — unlike _get_account_nonce,
+    which silently degrades to 0. Fine for reads, wrong for signing: a missed
+    probe at nonce 0 is a guaranteed refusal for a used settlement key."""
+    try:
+        r = await SharedHttpClient.get(f"{_HUB_RPC_URL}/accounts/{address}")
+        if r.status_code == 200:
+            return int(r.json().get("nonce", 0))
+    except Exception:
+        pass
+    return None
+
+
+async def _settlement_signing_nonce(sender: str) -> int | None:
+    """Nonce for settlement signing: sealed account nonce plus the mempool
+    lookahead, or None when the sealed read failed so a submitter never signs
+    at nonce 0 on a missed probe (#781)."""
+    sealed = await _get_account_nonce_strict(sender)
+    if sealed is None:
+        return None
+    return await _mempool_nonce_floor(sender, sealed)
+
+
+def _is_nonce_refusal(resp: Any) -> bool:
+    """The node refused the tx on its nonce — 'nonce slot (addr, n) already
+    occupied' or 'Invalid nonce' in the response detail. Same refusal class as
+    the coordinator's #779 _is_nonce_refusal, matched on the HTTP body here."""
+    s = resp.text.lower()
+    return "nonce slot" in s or "invalid nonce" in s
+
+
+async def _submit_market_signed(
+    tx: dict[str, Any],
+    *,
+    sender: str,
+    settlement_key: str,
+    job_id: str,
+    label: str,
+) -> tuple[Any | None, int | None]:
+    """Assign _settlement_signing_nonce, sign and POST /transactions/market.
+
+    On a "nonce slot"/"Invalid nonce" refusal the nonce is re-read, the tx is
+    re-signed (the nonce is inside the signature) and resubmitted exactly once
+    (#781). Returns (response, nonce-used) — the caller decides what a
+    rejection means; response is None on transport error which the caller's
+    existing except path reports."""
+    resp = None
+    for attempt in (0, 1):
+        nonce = await _settlement_signing_nonce(sender)
+        if nonce is None:
+            _logger.error("%s TX skipped for job_id=%s: account nonce probe failed", label, job_id)
+            return None, None
+        tx["nonce"] = nonce
+        tx["signature"] = sign_transaction_hash(_compute_tx_signing_hash(tx), settlement_key)
+        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
+        if resp.status_code in (200, 201):
+            return resp, nonce
+        if attempt == 0 and _is_nonce_refusal(resp):
+            _logger.warning(
+                "%s nonce %s refused for job_id=%s; re-reading chain+mempool and retrying once",
+                label,
+                nonce,
+                job_id,
+            )
+            continue
+        return resp, nonce
+    return resp, nonce
 
 
 async def _submit_receipt_claim_tx(receipt: dict[str, Any] | None, job_id: str, contract_id: str, provider: str) -> str | None:
@@ -1388,7 +1476,9 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     elif lock_signature:
         nonce = body.get("lock_nonce")
         if nonce is None:
-            nonce = await _get_account_nonce(_to_canonical(buyer))
+            nonce = await _settlement_signing_nonce(_to_canonical(buyer))
+            if nonce is None:
+                raise HTTPException(status_code=503, detail="account nonce probe failed; retry shortly")
         try:
             nonce = int(nonce)
         except Exception:
