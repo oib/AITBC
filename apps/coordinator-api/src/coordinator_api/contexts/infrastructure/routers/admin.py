@@ -619,8 +619,15 @@ def collect_sweeper_report() -> dict[str, Any]:
     """Build the sweeper report. Split out from the route so it can be tested
     without standing up the app, and so the route stays a thin wrapper."""
     from ....core.lifecycle import get_task_manager
+    from ....core.sweeper_leader import ROLE_LEADER, ROLE_STANDBY, get_leader_lock
 
     statuses = get_task_manager().get_task_status()
+    leader = get_leader_lock()
+    standby = leader.role == ROLE_STANDBY
+    leader_pid = leader.leader_pid() if leader.role in (ROLE_LEADER, ROLE_STANDBY) else None
+    standby_status = (
+        f"standby (sweeper leader pid {leader_pid})" if leader_pid else "standby (another worker holds the sweeper lock)"
+    )
 
     sweepers: list[dict[str, Any]] = []
     for name, is_enabled, factory, purpose in _sweeper_specs():
@@ -633,13 +640,18 @@ def collect_sweeper_report() -> dict[str, Any]:
         # never started; one that is present but not "running" has finished,
         # which for a forever-loop means it crashed out.
         status = statuses.get(name, "not started") if enabled else "disabled"
+        # A standby worker starts no sweepers: another worker on this host
+        # holds the leader lock and runs them (#769), so absence is expected.
+        on_standby = standby and enabled and name not in statuses
+        if on_standby:
+            status = standby_status
         sweepers.append(
             {
                 "name": name,
                 "purpose": purpose,
                 "enabled": enabled,
                 "status": status,
-                "healthy": (not enabled) or status == "running",
+                "healthy": (not enabled) or on_standby or status == "running",
                 "config": _sweeper_config(factory) | _extra_config(name),
             }
         )
@@ -649,6 +661,12 @@ def collect_sweeper_report() -> dict[str, Any]:
 
     return {
         "process": "coordinator-api",
+        # One worker per host runs the sweepers (#769). sweeper_role is
+        # leader, standby, unguarded (lock unusable), disabled (flag off) or
+        # pending (startup has not decided yet).
+        "leader": leader.runs_sweepers,
+        "sweeper_role": leader.role,
+        "leader_pid": leader_pid,
         "sweepers": sweepers,
         "degraded": sorted(entry["name"] for entry in sweepers if not entry["healthy"]),
         # Other managed background tasks, so this endpoint never hides one.
@@ -682,6 +700,10 @@ def list_sweepers(request: Request, user: AdminDep) -> dict[str, Any]:
     `error: ...`, `cancelled`, `completed`) on an *enabled* sweeper means it
     should be running and is not - a run_forever coroutine that has finished
     has crashed out of its loop.
+
+    Only one worker per host runs the sweepers (`leader`, `sweeper_role`).
+    A request served by a standby worker shows each enabled sweeper as
+    `standby (sweeper leader pid N)`, which is healthy: the leader runs it.
 
     `config` is each sweeper's effective settings, read off a fresh instance,
     so it reflects the environment this process was started with rather than
