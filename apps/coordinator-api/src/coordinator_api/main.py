@@ -150,6 +150,48 @@ async def _maybe_start_sweeper(
         logger.info(off_msg)
 
 
+async def _sweeper_standby(task_manager, leader, retry_seconds: float) -> None:
+    """Retry the sweeper leader lock and start the sweepers once it is ours."""
+    import asyncio
+    import os
+
+    while not leader.try_lead():
+        await asyncio.sleep(retry_seconds)
+    logger.info("Sweeper leader lock %s taken over by pid %s; starting sweepers", leader.path, os.getpid())
+    await _start_sweepers(task_manager)
+
+
+async def _start_sweepers_when_leader(task_manager) -> None:
+    """Start the sweepers in one worker per host (#769).
+
+    Every uvicorn worker runs the lifespan; only the one holding the
+    host-wide leader lock starts the sweepers. The others run one standby
+    task that retries the lock, so a dead leader's sweepers come back in
+    another worker. See core/sweeper_leader.py.
+    """
+    import os
+
+    from .core.sweeper_leader import ROLE_DISABLED, get_leader_lock, standby_retry_seconds
+
+    leader = get_leader_lock()
+    if leader.try_lead():
+        if leader.role == ROLE_DISABLED:
+            logger.info("Sweeper leader lock off (COORDINATOR_SWEEPER_LEADER_ENABLED=false); this worker runs the sweepers")
+        else:
+            logger.info("Sweeper leader: pid %s holds %s (%s); starting sweepers", os.getpid(), leader.path, leader.role)
+        await _start_sweepers(task_manager)
+        return
+    retry = standby_retry_seconds()
+    logger.info(
+        "Sweeper standby: pid %s, leader pid %s holds %s; retrying every %ss",
+        os.getpid(),
+        leader.leader_pid(),
+        leader.path,
+        retry,
+    )
+    await task_manager.start_task("sweeper_standby", _sweeper_standby, task_manager, leader, retry)
+
+
 async def _start_sweepers(task_manager) -> None:
     """Register the coordinator's periodic sweepers/reconcilers.
 
@@ -423,7 +465,7 @@ async def _startup(app: FastAPI, task_manager) -> None:
 
     _log_startup_summary()
     _log_receipt_signing_status()
-    await _start_sweepers(task_manager)
+    await _start_sweepers_when_leader(task_manager)
 
     logger.info("🚀 Coordinator API is ready to serve requests")
 
