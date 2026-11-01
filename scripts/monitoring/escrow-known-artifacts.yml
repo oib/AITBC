@@ -50,6 +50,20 @@
       "reason": "Sep-10 edge-test lock, block 1598, 36,000 units, buyer 0x08aB8011 (operator test wallet) -> pool 0x02B8F2C6. Sibling edge-test-001 released 7 blocks after its lock; this run's release was never sent. No custody account, escrow row, or service row.",
       "declared_by": "operator",
       "declared_at": "2026-10-04"
+    },
+    {
+      "job_id": "aca9dfc3137249df9556a9a0988da1d0",
+      "kind": "test-artifact",
+      "reason": "Tx-only test lock sealed at h12892 (tx 0xe921a7fb…), 0.01 AIT, buyer 0xBdDF2791 — dev/test mode, no real customers (operator ruling 2026-11-01). No release/refund leg; left open deliberately.",
+      "declared_by": "operator",
+      "declared_at": "2026-11-01"
+    },
+    {
+      "job_id": "455415f5856f4e9e82daba06feb6ea03",
+      "kind": "test-artifact",
+      "reason": "Tx-only test lock sealed at h12896 (tx 0xaa420c93…), 0.01 AIT, buyer 0xBdDF2791 — dev/test mode, no real customers (operator ruling 2026-11-01). Its hub escrow row sits settlement_failed carrying dead release hash 0x58ed4a12… (never sealed); remedy prep on #766.",
+      "declared_by": "operator",
+      "declared_at": "2026-11-01"
     }
   ]
 }
