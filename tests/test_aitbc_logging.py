@@ -470,14 +470,48 @@ class TestTracebacksReachTheFile:
                 exc_info=sys.exc_info(),
             )
 
+        exc_info = record.exc_info
+        record.exc_text = "synthetic cached traceback"
+
         out = JournalFormatter().format(record)
 
         # The journal line itself stays compact: one line, no traceback.
-        assert out == "[ERROR] [t] failed"
+        assert out == "[ERROR] [t] failed: ValueError: boom"
         assert "Traceback" not in out
         # ...but the record must survive intact for the next handler.
+        assert record.exc_info is exc_info
+        assert record.exc_text == "synthetic cached traceback"
         assert record.exc_info is not None
         assert record.exc_info[0] is ValueError
+
+    @pytest.mark.parametrize(
+        ("message", "suffix"),
+        [
+            ("first line\nsecond line", ": ValueError: first line"),
+            (
+                "request https://alice:FAKESECRET@rpc.example.invalid:443/private?key=FAKE#fragment",
+                ": ValueError: request https://rpc.example.invalid:443",
+            ),
+            ("", ": ValueError"),
+            ("\nsecond line", ": ValueError"),
+            ("x" * 250, ": ValueError: " + "x" * 200),
+        ],
+    )
+    def test_journal_exception_summary_is_one_redacted_line(self, message, suffix):
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(JournalFormatter())
+        logger = logging.Logger("journal-exception-test", level=logging.INFO)
+        logger.addHandler(handler)
+        try:
+            try:
+                raise ValueError(message)
+            except ValueError:
+                logger.exception("operation failed")
+            assert stream.getvalue() == f"[ERROR] [journal-exception-test] operation failed{suffix}\n"
+        finally:
+            logger.removeHandler(handler)
+            handler.close()
 
     def test_exception_survives_the_console_handler_and_reaches_the_json_file(self, tmp_path, monkeypatch):
         """The regression guard proper: both handlers, in the order configure_logging uses."""
@@ -487,7 +521,8 @@ class TestTracebacksReachTheFile:
         logger.propagate = False
         logger.setLevel(logging.INFO)
 
-        console = logging.StreamHandler(StringIO())
+        console_stream = StringIO()
+        console = logging.StreamHandler(console_stream)
         console.setFormatter(JournalFormatter())
         logger.addHandler(console)  # first, as configure_logging does
 
@@ -497,19 +532,26 @@ class TestTracebacksReachTheFile:
         logger.addHandler(file_handler)
 
         try:
-            raise ValueError("synthetic readiness failure")
-        except ValueError:
-            logger.exception("Readiness check failed")
+            try:
+                raise ValueError("synthetic readiness failure")
+            except ValueError:
+                logger.exception("Readiness check failed")
 
-        file_handler.flush()
-        entry = json.loads(log_file.read_text().strip().splitlines()[-1])
+            file_handler.flush()
+            entry = json.loads(log_file.read_text().strip().splitlines()[-1])
 
-        assert entry["message"] == "Readiness check failed"
-        assert "exception" in entry, "traceback was lost before the file handler ran"
-        assert "ValueError: synthetic readiness failure" in entry["exception"]
-        assert "Traceback (most recent call last)" in entry["exception"]
-
-        logger.handlers.clear()
+            assert (
+                console_stream.getvalue()
+                == "[ERROR] [test_traceback_to_file] Readiness check failed: ValueError: synthetic readiness failure\n"
+            )
+            assert entry["message"] == "Readiness check failed"
+            assert "exception" in entry, "traceback was lost before the file handler ran"
+            assert "ValueError: synthetic readiness failure" in entry["exception"]
+            assert "Traceback (most recent call last)" in entry["exception"]
+        finally:
+            logger.handlers.clear()
+            file_handler.close()
+            console.close()
 
 
 class TestLogFilePathResolution:
