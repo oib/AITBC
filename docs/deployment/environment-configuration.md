@@ -356,6 +356,7 @@ coverage is enforced by `tests/test_env_doc_coverage.py`.
 | Variable | Effect |
 |---|---|
 | `AITBC_CHAIN_ENV_FILE` | Explicit env-file path loaded before other resolution. |
+| `AITBC_DB_ALLOW_FOREIGN_CHAINS` | One-off-tools escape hatch for the foreign-chain-db guard (FOREIGN-CHAIN-DB-1, #673): `1`/`true`/`yes`/`on` lets a process open an existing `data/<chain_id>/chain.db` whose chain id it does not declare (`supported_chains` / `bridge_supported_chains` / `chain_id`, or materialized here) — `database.py::_foreign_open_allowed`. Never set on a service; for ad-hoc ops tools opening a foreign store only. |
 | `AITBC_SYNC_IMPORT_URL` / `AITBC_SYNC_SOURCE` | Default RPC endpoints for `aitbc_chain.sync_cli` import/source sync. |
 | `STRICT_IMPORTS` | `true` makes the node refuse to start on optional-import failures instead of warning. |
 | `TRUST_X_WALLET_ADDRESS` | Dev-only header trust for RPC auth — never enable on a live node. |
@@ -475,7 +476,9 @@ from a published example.
 |---|---|
 | `AITBC_DB_KEY` | Chain-DB encryption key — set a real value in production; default is a placeholder. |
 | `BLOCKCHAIN_RPC_API_KEY` / `BLOCKCHAIN_RPC_API_KEY_PEERS` | RPC API keys (client access / peer auth). |
+| `BRIDGE_LEDGER_API_KEY` | Dedicated `X-API-Key` credential for the bridge-ledger service (`BRIDGE_LEDGER_URL`) — the ledger may be a different host whose expected rpc key differs from the local one; falls back to `BLOCKCHAIN_RPC_API_KEY` when unset (`cross_chain/bridge_ledger.py`). Secret — never print a value. |
 | `ESCROW_RELEASE_PRIVATE_KEY` / `BRIDGE_RELEASE_PRIVATE_KEY` | Signing keys for escrow/bridge release authority. |
+| `BRIDGE_RELEASE_KEYS_JSON` | Per-target-chain release signing keys as a JSON map, `{"<target_chain_id>": "<hex key>"}` — a named target's key wins over `BRIDGE_RELEASE_PRIVATE_KEY`, so a node serving several bridge directions signs each credit with the authority the target chain expects (Refs #692, `state/bridge_credit.py`). Secret — shape shown only, never a value. |
 | `GENESIS_WALLET_ADDRESS` / `GENESIS_WALLET_PRIVATE_KEY` | Treasury (genesis) wallet identity + key. |
 | `KEYSTORE_PASSWORD` | Keystore decryption password. |
 | `NODE_WALLET_ADDRESS` | Node's own wallet identity. |
@@ -587,9 +590,10 @@ under the old, lenient rules so sealed history stays valid.
 > 24800, 32100, 35400, 37500, and the shadow-mode v9 behavior) are the old
 > chain's history. On the `bc-2` chain every `STATE_TRANSITION_V<N>_HEIGHT`
 > through v16 is set to 1 — all rules apply from the first block after
-> genesis. `STATE_TRANSITION_V17_HEIGHT` is the exception: pinned at `8900`
-> on all five hosts in the 28 Oct activation wave
-> (`docs/ops/v17-activation-runbook.md`).
+> genesis. `STATE_TRANSITION_V17_HEIGHT` and `STATE_TRANSITION_V18_HEIGHT`
+> are the exceptions: pinned at `8900` and `9600` on all five hosts in the
+> 28 Oct activation wave (`docs/ops/v17-activation-runbook.md`,
+> `docs/ops/v18-activation-runbook.md`).
 
 | Height knob | What activates |
 |---|---|
@@ -609,6 +613,7 @@ under the old, lenient rules so sealed history stays valid.
 | `STATE_TRANSITION_V15_HEIGHT` | EDGE-REG-CONSENSUS-1: `edge_node_registration` leaves the committed side-table set (12 tables instead of 13 at/after the height). **Default unset (unarmed)** — the activation pin is set on every host together with the validator restart wave; a mid-rollout mixed set would reject blocks as `aux_state_root` mismatches. `fleet-config-check.sh` flags drift. |
 | `STATE_TRANSITION_V16_HEIGHT` | GPU-ADMISSION-1 (#384): a `GPU_ALLOCATE` must name `allocation_id` and an existing `gpu_id` — validate_transaction refuses at/after the height, mempool admission refuses at the door; below it apply keeps minting `alloc_<uuid4>`. **Default unset (unarmed)** — the activation pin is set on every host together with the validator restart wave. `fleet-config-check.sh` flags drift. |
 | `STATE_TRANSITION_V17_HEIGHT` | BNT-1 revival: unsigned protocol transfers carrying a verified `payload.auth` seal again for `STAKE_LOCK`, `STAKE_RELEASE`, `BOUNTY_LOCK`, `BOUNTY_PAYOUT`, `BOUNTY_REFUND` (HTLC and AUTO_STAKE stay dead — they emit no auth). The auth must pass signature verification plus transaction-field binding at apply, in both the sequential and pure paths, and at remote attestation. **Default unset (unarmed)** — the pin is set on every host together with the validator restart wave; a mixed fleet rejects the revived types on unarmed nodes. On bc-2 the pin was `8900` on all five hosts (28 Oct activation wave); it must stay identical on every validator — each node resolves its own transition heights at apply time, so a mismatch is a replay/fork vector. `fleet-config-check.sh` flags drift. **Code-pinned since `13f72546f`:** the default in `config.py` is now the literal `8900` (`None` still means unarmed) and the bc-2 env pins were removed fleet-wide — the env var is now override-only (islands and new chains still pin; `bc-2-island-1` carries `=1`). |
+| `STATE_TRANSITION_V18_HEIGHT` | v18 deterministic committed-apply (remediates `docs/design/v14-aux-root-nondeterminism.md`): at/after the height the apply output is a pure function of (transaction, prior state, block header) — `stake` leaves the committed side-table set (`COMMITTED_TABLES_V18`), liquidity stake ids derive `liq_<tx_hash[:16]>` instead of `secrets.token_hex`, and every `datetime.now(UTC)` on the apply path (locked_until, accrual elapsed, bond verdict) is replaced by the sealed header timestamp. On bc-2 the pin is `9600` on all five hosts (28 Oct activation wave, `docs/ops/v18-activation-runbook.md`); it must stay identical on every validator — each node resolves its own transition heights at apply time, so a mismatch is a replay/fork vector. **Code-pinned since `ec56c320d`:** the default in `config.py` is the literal `9600` (`None` still means unarmed) and the env var is override-only — a pin, where set, must carry the same literal (islands and new chains pin their own). `fleet-config-check.sh` flags drift. |
 
 **Effective-heights rule**: heights v4/v5/v7/v8 are consensus and hardcoded in
 `aitbc_chain/config.py` — env files cannot move them (an env-drifted fleet
