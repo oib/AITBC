@@ -103,7 +103,59 @@ class BridgeFinalityMixin(BridgeBase):
                 self._update_finality(chain_id, header, session)
                 return header
 
-    def _increment_confirmations(self, chain_id: str, new_height: int, session: Any) -> None:
+    def _store_header_batch(self, chain_id: str, headers: list[dict[str, Any]]) -> int:
+        """Store a batch of local-chain headers with ONE commit (BRIDGE-FINALIZER-LOCK-1).
+
+        ``store_block_header`` commits per header, and on a slow disk each
+        commit fsync holds the sqlite write lock for ~1 s -- a restart backfill
+        of hundreds of headers then starves block appends (the node0 stall,
+        #768). This stores up to ``bridge_header_commit_batch`` headers per
+        commit while keeping identical semantics: per-header confirmation
+        increments and finality flagging still run once per new header, just
+        inside the batch transaction instead of committing each time.
+        """
+        if not headers:
+            return 0
+        stored = 0
+        with self._session_for(chain_id) as session:
+            for header_data in headers:
+                height = int(header_data["height"])
+                existing = session.exec(
+                    select(BridgeBlockHeader).where(
+                        BridgeBlockHeader.chain_id == chain_id,
+                        BridgeBlockHeader.height == height,
+                    )
+                ).first()
+                if existing:
+                    continue
+                session.add(
+                    BridgeBlockHeader(
+                        chain_id=chain_id,
+                        height=height,
+                        hash=header_data["hash"],
+                        parent_hash=header_data.get("parent_hash", "0x" + "00" * 32),
+                        proposer=header_data["proposer"],
+                        state_root=header_data.get("state_root", ""),
+                        bridge_state_root=header_data.get("bridge_state_root", ""),
+                        signature=header_data.get("signature", ""),
+                        confirmation_count=0,
+                        finality_confirmed=False,
+                    )
+                )
+                stored += 1
+                self._increment_confirmations(chain_id, height, session, commit=False)
+            session.flush()
+            for row in session.exec(
+                select(BridgeBlockHeader).where(
+                    BridgeBlockHeader.chain_id == chain_id,
+                    BridgeBlockHeader.height.in_([int(h["height"]) for h in headers]),  # type: ignore[attr-defined]
+                )
+            ).all():
+                self._update_finality(chain_id, row, session, commit=False)
+            session.commit()
+        return stored
+
+    def _increment_confirmations(self, chain_id: str, new_height: int, session: Any, commit: bool = True) -> None:
         """Increment confirmation counts for earlier blocks on a chain, up to a cap (B5).
 
         When a new block at height H is stored, every existing block at
@@ -166,7 +218,7 @@ class BridgeFinalityMixin(BridgeBase):
             .values(finality_confirmed=True),
             execution_options={"synchronize_session": False},
         )
-        if bumped.rowcount or flagged.rowcount:
+        if commit and (bumped.rowcount or flagged.rowcount):
             session.commit()
 
     def _update_finality(self, chain_id: str, header: BridgeBlockHeader, session: Any, commit: bool = True) -> None:
