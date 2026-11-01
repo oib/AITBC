@@ -38,13 +38,15 @@ class JournalFormatter(logging.Formatter):
         [INFO] [app.main] Starting Coordinator API
         [ERROR] [app.core.lifecycle] Database connection failed
 
-    Tracebacks are not included to avoid multi-line journal spam.
+    When the record carries an exception, the line gets the exception type and
+    the first line of its message, redacted and capped at 200 characters. No
+    traceback is written to the journal, to avoid multi-line spam.
     Use StructuredFormatter (file output) for full traceback capture.
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        # Do NOT clear record.exc_info/exc_text here. This method returns an
-        # f-string and never calls super().format(), so the traceback is already
+        # Do NOT clear record.exc_info/exc_text here. This method builds the
+        # message directly and never calls super().format(), so the traceback is already
         # absent from *this* handler's output -- but a LogRecord is shared by every
         # handler on the logger, and configure_logging() registers the console
         # handler first. Clearing it here therefore blanked the traceback for the
@@ -52,7 +54,14 @@ class JournalFormatter(logging.Formatter):
         # message with no "exception" key anywhere. That defeated the split this
         # module's docstring describes: compact in the journal, full capture in
         # the file.
-        return f"[{record.levelname}] [{record.name}] {record.getMessage()}"
+        msg = f"[{record.levelname}] [{record.name}] {record.getMessage()}"
+        if record.exc_info and record.exc_info[1] is not None:
+            exc = record.exc_info[1]
+            first = redact_text((str(exc).splitlines() or [""])[0])[:200]
+            msg += f": {type(exc).__name__}"
+            if first:
+                msg += f": {first}"
+        return msg
 
 
 # Backward-compat alias: v0.5.11 renamed BlockchainTextFormatter → JournalFormatter.
