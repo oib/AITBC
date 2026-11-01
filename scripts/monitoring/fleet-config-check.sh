@@ -267,7 +267,7 @@ echo "=== effective transition heights (process env shadows code default) ==="
 # process actually holds, then fall back to that host's own checkout
 # default: env-if-present else code IS the effective value, and it catches
 # all three sources at once. Convention (v0.25.8 changelog): v2=0/v3=5470
-# are env-set on all five nodes by design; so is the v17 activation pin —
+# are env-set on all five nodes by design; so are the v17 and v18 activation pins —
 # v4..v16 are code-pinned literals, so env presence there is a violation,
 # V9's most of all because the pin lands in config.py and a stray env
 # value would shadow it silently.
@@ -288,13 +288,13 @@ for h in $HOSTS; do
         NOTRUNNING)     printf "  %-14s node not running — skipped\n" "$h"; continue ;;
     esac
     line=""
-    for v in 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17; do
+    for v in 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do
         e=$(echo "$res" | sed -n "s/^E:V${v}=//p" | tail -1)
         c=$(echo "$res" | sed -n "s/^C:V${v}=//p" | tail -1)
         if [ -n "$e" ]; then
             line="$line V$v=$e(env)"
             case "$v" in
-                2|3|17) : ;;  # documented env pins
+                2|3|17|18) : ;;  # documented env pins
                 *) height_bad=1
                    printf "  %-14s FLAG: STATE_TRANSITION_V${v}_HEIGHT=%s in process env — v4+ heights are code-pinned; env shadows the pin\n" "$h" "$e" ;;
             esac
