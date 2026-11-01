@@ -178,7 +178,7 @@ apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforc
 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py:412
 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py:743
 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py:156
-apps/coordinator-api/src/coordinator_api/main.py:746
+apps/coordinator-api/src/coordinator_api/main.py:788
 apps/coordinator-api/src/coordinator_api/routers/media.py:72
 apps/coordinator-api/src/coordinator_api/settlement/hooks.py:115
 apps/coordinator-api/src/coordinator_api/settlement/hooks.py:65
