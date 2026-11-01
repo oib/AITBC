@@ -40,8 +40,20 @@ logger = get_logger(__name__)
 # second slash would never be included).  This is per-coordinator-process state;
 # on restart the chain account nonce is the safe baseline and any pending slash
 # in the mempool will be observed by the next call's account lookup.
+# #779: the counter is per process but hub runs two coordinator workers that
+# sign from the same slash authority — the chain stays the only shared source
+# of truth, so _get_nonce also reads the signer's pending mempool entries and
+# _submit_slash_tx retries once on a nonce refusal.
 _slash_nonce: int | None = None
 _slash_nonce_lock = asyncio.Lock()
+_MEMPOOL_PROBE_LIMIT = 100
+
+
+def _is_nonce_refusal(exc: Exception) -> bool:
+    """The rpc refused the tx on its nonce — 'nonce slot (addr, n) already
+    occupied' or 'Invalid nonce', both embedded in the NetworkError detail."""
+    s = str(exc).lower()
+    return "nonce slot" in s or "invalid nonce" in s
 
 
 class SlashingCondition(StrEnum):
@@ -228,15 +240,15 @@ class BondSlashingService:
 
         tx = self._build_slash_tx(bond_id, provider, slash_amount)
         try:
-            tx["nonce"] = await self._get_nonce(self.slash_authority)
-            signed = self._sign_tx(tx)
-            result = await self._submit_tx(tx, signed)
+            result = await self._submit_slash_tx(tx, job.id)
         except NetworkError as e:
             logger.error("Network error submitting BOND_SLASH for job %s: %s", job.id, e)
             return {"slashed": False, "reason": "network error", "error": str(e)}
         except Exception as e:
             logger.error("Failed to submit BOND_SLASH for job %s: %s", job.id, e)
             return {"slashed": False, "reason": "transaction error", "error": str(e)}
+        if result is None:
+            return {"slashed": False, "reason": "nonce refused twice"}
 
         tx_hash = result.get("transaction_hash") or result.get("tx_hash") or "unknown"
         new_amount = bond.amount - Decimal(slash_amount)
@@ -316,12 +328,64 @@ class BondSlashingService:
         except Exception as e:
             logger.warning("Failed to fetch nonce for %s: %s", address, e)
 
+        pending = self._pending_mempool_nonce(address)
+        if pending is not None:
+            chain_nonce = max(chain_nonce, pending)
+
         async with _slash_nonce_lock:
             if _slash_nonce is None or chain_nonce > _slash_nonce:
                 _slash_nonce = chain_nonce
             else:
                 _slash_nonce += 1
             return _slash_nonce
+
+    def _pending_mempool_nonce(self, sender: str) -> int | None:
+        """Highest pending-mempool nonce + 1 for the signer; None when the
+        mempool holds none or the probe fails (caller degrades to the sealed
+        nonce, and the submit retry covers the admitted-but-unlisted window)."""
+        try:
+            client = AITBCHTTPClient(timeout=5.0)
+            r = client.get(f"{self.blockchain_rpc_url}/mempool?chain_id={self.chain_id}&limit={_MEMPOOL_PROBE_LIMIT}")
+        except Exception as e:
+            logger.warning("Mempool nonce probe failed for %s: %s", sender, e)
+            return None
+        pending = [
+            tx["nonce"]
+            for tx in r.get("transactions") or []
+            if isinstance(tx, dict)
+            and str(tx.get("from") or tx.get("sender") or "").lower() == sender.lower()
+            and isinstance(tx.get("nonce"), int)
+            and not isinstance(tx.get("nonce"), bool)
+        ]
+        return max(pending) + 1 if pending else None
+
+    async def _submit_slash_tx(self, tx: dict[str, Any], job_id: str) -> dict[str, Any] | None:
+        """Assign the nonce, sign and submit. On a nonce refusal — the other
+        uvicorn worker took the same slot — drop the cached counter, re-read
+        chain+mempool, re-sign (the nonce is inside the signature) and resubmit
+        exactly once; a second refusal is logged and reported unslashed."""
+        global _slash_nonce
+        result: dict[str, Any] | None = None
+        for attempt in (0, 1):
+            tx["nonce"] = await self._get_nonce(self.slash_authority)
+            signed = self._sign_tx(tx)
+            try:
+                result = await self._submit_tx(tx, signed)
+                break
+            except NetworkError as e:
+                if not _is_nonce_refusal(e):
+                    raise
+                if attempt == 1:
+                    logger.error("BOND_SLASH for job %s refused on nonce twice; slash not submitted", job_id)
+                    return None
+                logger.warning(
+                    "BOND_SLASH nonce %s refused for job %s; re-reading chain+mempool and retrying once",
+                    tx["nonce"],
+                    job_id,
+                )
+                async with _slash_nonce_lock:
+                    _slash_nonce = None
+        return result
 
     def _sign_tx(self, tx: dict[str, Any]) -> str:
         from aitbc.crypto.crypto import sign_transaction_hash
