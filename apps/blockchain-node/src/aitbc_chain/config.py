@@ -575,6 +575,9 @@ class ChainSettings(BaseSettings):
     bridge_batch_size: int = 10  # Max transfers per batch operation
     bridge_monitor_interval: int = 60  # Seconds between bridge health checks
     bridge_header_sync_batch: int = 500  # Max block headers mirrored into the bridge table per finalizer pass
+    bridge_header_commit_batch: int = (
+        50  # Headers stored per sqlite commit in the finalizer backfill (one commit per N, not per header)
+    )
     # Opt-in to installing this chain's validator set under a FOREIGN
     # bridge-supported chain id on an empty table. Off by default: the
     # local set only stands in for a chain that genuinely shares

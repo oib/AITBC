@@ -128,3 +128,59 @@ def test_a_nonpositive_batch_still_makes_progress(bridge, bad: int) -> None:
     """A misconfigured batch must not wedge the mirror at zero headers a pass."""
     with patch.object(settings, "bridge_header_sync_batch", bad):
         assert bridge._sync_local_chain_headers(CHAIN_ID) == 1
+
+
+class TestBackfillCommitBatching:
+    """BRIDGE-FINALIZER-LOCK-1: the backfill commits once per
+    ``bridge_header_commit_batch`` headers, not once per header — per-header
+    commits held the sqlite write lock ~1 s apiece and starved appends (#768)."""
+
+    def test_headers_commit_per_batch_not_per_header(self, bridge, monkeypatch):
+        monkeypatch.setattr(settings, "bridge_header_sync_batch", 500)
+        monkeypatch.setattr(settings, "bridge_header_commit_batch", 10)
+        commits = []
+
+        with bridge._session_for(CHAIN_ID):  # type: ignore[attr-defined]
+            pass
+
+        original_commit = Session.commit
+        try:
+
+            def counted(self):
+                commits.append(1)
+                return original_commit(self)
+
+            monkeypatch.setattr(Session, "commit", counted)
+            stored = bridge._sync_local_chain_headers(CHAIN_ID)  # type: ignore[attr-defined]
+        finally:
+            monkeypatch.setattr(Session, "commit", original_commit)
+
+        assert stored == HEAD_HEIGHT
+        # 119 new headers / batch 10 = 12 batch commits (+1 margin for the
+        # seeded session) — vs ~119+ commits under the per-header path.
+        assert len(commits) <= 15
+
+    def test_deadline_stops_mid_backfill_and_next_pass_converges(self, bridge, monkeypatch):
+        import time
+
+        monkeypatch.setattr(settings, "bridge_header_sync_batch", 500)
+        monkeypatch.setattr(settings, "bridge_header_commit_batch", 50)
+        calls = 0
+
+        def expiring_then_normal():
+            nonlocal calls
+            calls += 1
+            # First call (deadline check) is already past; later calls fine.
+            return time.monotonic() - 1 if calls == 1 else time.monotonic()
+
+        with Session(
+            bridge._session_for(CHAIN_ID).__wrapped__()
+            if hasattr(bridge._session_for(CHAIN_ID), "__wrapped__")
+            else bridge._session_for(CHAIN_ID)
+        ):
+            pass
+
+        stored = bridge._sync_local_chain_headers(CHAIN_ID, deadline=time.monotonic() - 1)  # type: ignore[attr-defined]
+        assert stored == 0
+        stored = bridge._sync_local_chain_headers(CHAIN_ID)  # type: ignore[attr-defined]
+        assert stored == HEAD_HEIGHT
