@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine, select
 
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
-from aitbc_chain.base_models import Account, Bond
+from aitbc_chain.base_models import Account, Block, Bond
 from aitbc_chain.database import chain_metadata
 from aitbc_chain.state.state_transition import StateTransition, _BOND_BURN_ADDRESS, _BOND_ESCROW_ADDRESS, _to_ait_address
 
@@ -325,3 +325,145 @@ def test_bond_slash_without_authority_skips_effect(session, monkeypatch):
         0,
     )
     assert reason is not None and "no slash authority" in reason
+
+
+# ---------------------------------------------------------------------------
+# v19 (BOND-LOCK-TOPUP-SLASHED-1, #782): top-up on a non-active bond refused
+# ---------------------------------------------------------------------------
+
+
+def _seed_non_active_bond(session, chain_id, provider_addr, status: str, amount: int = 5000):
+    """Existing bond row in a terminal status, plus the two accounts a top-up needs."""
+    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=_BOND_ESCROW_ADDRESS, balance=0, nonce=0))
+    session.add(
+        Bond(
+            chain_id=chain_id,
+            bond_id="bond_1",
+            provider=_to_ait_address(provider_addr),
+            amount=amount,
+            locked_until=datetime.now(UTC) + timedelta(days=30),
+            status=status,
+            created_tx_hash="tx_seed",
+        )
+    )
+    session.commit()
+
+
+def _bond_topup_tx(private_key: str, chain_id: str, provider_addr: str, amount: int = 100) -> dict:
+    return _make_tx(
+        private_key,
+        {
+            "amount": amount,
+            "value": amount,
+            "fee": DEFAULT_TX_FEE_UNITS,
+            "nonce": 0,
+            "type": "BOND_LOCK",
+            "chain_id": chain_id,
+            "payload": {"bond_id": "bond_1", "provider": provider_addr, "lock_days": 7},
+        },
+    )
+
+
+@pytest.mark.parametrize("status", ["slashed", "released"])
+def test_bond_lock_topup_on_non_active_bond_refused_at_v19(session, status):
+    """At/after v19 a top-up on a terminal bond refuses — topping up a slashed
+    or released bond used to raise ``amount`` while the row kept its terminal
+    status, stranding the added funds forever (#782)."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    st = StateTransition()
+    chain_id = "ait-test"
+    private_key = "0x" + "11" * 32
+    provider_addr = derive_ethereum_address(private_key)
+    _seed_non_active_bond(session, chain_id, provider_addr, status)
+
+    tx_data = _bond_topup_tx(private_key, chain_id, provider_addr)
+    success, msg = st.apply_transaction(session, chain_id, tx_data, "tx_topup", block_version=19)
+    assert not success
+    assert "not active" in msg
+
+    bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
+    assert bond.amount == 5000
+    assert bond.status == status
+    provider = session.get(Account, (chain_id, provider_addr))
+    assert provider.balance == 1_000_000  # refused outright: no fee, no nonce
+
+
+def test_bond_lock_topup_on_slashed_bond_still_applies_below_v19(session):
+    """Below v19 the old lenient path stays for replay of sealed history."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    st = StateTransition()
+    chain_id = "ait-test"
+    private_key = "0x" + "11" * 32
+    provider_addr = derive_ethereum_address(private_key)
+    _seed_non_active_bond(session, chain_id, provider_addr, "slashed")
+
+    tx_data = _bond_topup_tx(private_key, chain_id, provider_addr)
+    success, msg = st.apply_transaction(session, chain_id, tx_data, "tx_topup", block_version=18)
+    assert success, msg
+    bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
+    assert bond.amount == 5100  # the stranded-funds behavior the v19 gate ends
+
+
+def test_bond_lock_topup_on_active_bond_still_applies_at_v19(session):
+    """The gate only refuses non-active rows: a normal top-up still works."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    st = StateTransition()
+    chain_id = "ait-test"
+    private_key = "0x" + "11" * 32
+    provider_addr = derive_ethereum_address(private_key)
+    _seed_non_active_bond(session, chain_id, provider_addr, "active")
+
+    tx_data = _bond_topup_tx(private_key, chain_id, provider_addr)
+    success, msg = st.apply_transaction(session, chain_id, tx_data, "tx_topup", block_version=19)
+    assert success, msg
+    bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
+    assert bond.amount == 5100
+    assert bond.status == "active"
+
+
+def test_bond_lock_new_bond_at_v19_unaffected(session):
+    """No existing row — the refusal only fires on a non-active top-up."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    st = StateTransition()
+    chain_id = "ait-test"
+    private_key = "0x" + "11" * 32
+    provider_addr = derive_ethereum_address(private_key)
+    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=_BOND_ESCROW_ADDRESS, balance=0, nonce=0))
+    session.commit()
+
+    tx_data = _bond_topup_tx(private_key, chain_id, provider_addr)
+    success, msg = st.apply_transaction(session, chain_id, tx_data, "tx_lock", block_version=19)
+    assert success, msg
+    bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
+    assert bond is not None and bond.status == "active"
+
+
+def test_bond_lock_topup_admission_refused_at_v19(session, monkeypatch):
+    """The mempool door mirrors the block-time refusal (#782)."""
+    import contextlib
+
+    from aitbc.crypto.crypto import derive_ethereum_address
+    from aitbc_chain.rpc import transactions as rpc_tx
+    from aitbc_chain.config import settings
+
+    chain_id = "ait-test"
+    private_key = "0x" + "11" * 32
+    provider_addr = derive_ethereum_address(private_key)
+    _seed_non_active_bond(session, chain_id, provider_addr, "slashed")
+    session.add(Block(chain_id=chain_id, height=9700, hash="h9700", parent_hash="h9699", proposer="p1"))
+    session.commit()
+
+    monkeypatch.setattr(settings, "chain_id", chain_id)
+    monkeypatch.setattr(settings, "state_transition_v19_height", 9701)
+    monkeypatch.setattr(rpc_tx, "session_scope", lambda *a, **k: contextlib.nullcontext(session))
+
+    tx_data = _bond_topup_tx(private_key, chain_id, provider_addr)
+    tx_data["from"] = provider_addr
+    with pytest.raises(ValueError, match="not active"):
+        rpc_tx._validate_transaction_admission(tx_data, mempool=None)
