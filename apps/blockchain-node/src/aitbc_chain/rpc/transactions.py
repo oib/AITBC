@@ -241,6 +241,24 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 if allocate_error:
                     raise ValueError(allocate_error)
 
+        if tx_type == "BOND_LOCK":
+            # v19 (see state_transition.validate_transaction's bond-lock
+            # branch): a top-up on a bond row that is not status=active strands
+            # the added funds — refuse it at the door too. Below the activation
+            # height admission stays exactly as it was.
+            from ..state.state_transition import get_block_version_for_height
+
+            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+            next_height = (head or 0) + 1
+            if get_block_version_for_height(next_height) >= 19:
+                bond_id = (tx_data.get("payload") or {}).get("bond_id")
+                if bond_id:
+                    existing_bond = session.exec(
+                        select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)
+                    ).first()
+                    if existing_bond is not None and existing_bond.status != "active":
+                        raise ValueError(f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active")
+
         # MSG-1: a payload claiming the forum namespace must be a valid
         # envelope — refuse it at the door so the signer hears why before
         # paying the fee. Opaque MESSAGE payloads (bridge internals, other

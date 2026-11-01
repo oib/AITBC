@@ -969,6 +969,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v19_threshold = getattr(settings, "state_transition_v19_height", None)
+    if v19_threshold and height >= v19_threshold:
+        return 19
     v18_threshold = getattr(settings, "state_transition_v18_height", None)
     if v18_threshold and height >= v18_threshold:
         return 18
@@ -1836,6 +1839,20 @@ class StateTransition:
             retired_error = retired_gpu_error(tx_type, tx_data.get("payload"), settings.gpu_retired_id_set())
             if retired_error:
                 return (False, retired_error)
+        if tx_type == "BOND_LOCK" and block_version >= 19:
+            # v19 (BOND-LOCK-TOPUP-SLASHED-1, #782): a top-up on a bond row that
+            # is not status=active used to raise ``amount`` while the row kept
+            # its terminal status — the added funds could never be released or
+            # slashed again (both lookups require ``active``). Refuse at
+            # validate and admission; below v19 replay keeps the old behavior.
+            bond_id = (tx_data.get("payload") or {}).get("bond_id")
+            if bond_id:
+                existing_bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
+                if existing_bond is not None and existing_bond.status != "active":
+                    return (
+                        False,
+                        f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active",
+                    )
         return (True, "Transaction validated successfully")
 
     def apply_transaction(
