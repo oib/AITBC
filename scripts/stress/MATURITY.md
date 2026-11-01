@@ -19,22 +19,26 @@ Stress-3 sealed these propose+vote legs with execute pending voting-end.
 The leg (#752) is **close at each `voting_ends_block`, then ONE serial
 execute batch at h20831+** (~65s cadence between submits):
 
-| proposal | close at/after | EXECUTE-eligible ≥ | ~close when | armed in |
-|---|---|---|---|---|
-| prop_71d5bd49 | 18346 | 19636 | ~Nov-05 19:05 CET | stress-2 (#720) |
-| prop_0b91289d | 18437 | 19727 | ~Nov-05 20:46 CET | stress-2 (#720) |
-| prop_bfc73030 | 19525 | 20815 | ~Nov-06 17:25 CET | stress-3 |
-| prop_b84b545e | 19534 | 20824 | ~Nov-06 17:35 CET | stress-3 |
-| prop_6bbc21b3 | 19541 | 20831 | ~Nov-06 17:44 CET | stress-3 |
+| proposal | close at/after | EXECUTE-eligible ≥ | ~close (est. — the height counts) | ~execute (est. — the height counts) | armed in |
+|---|---|---|---|---|---|
+| prop_71d5bd49 | 18346 | 19636 | ~Wed 4 Nov 23:36 CET | ~Thu 5 Nov 23:36 CET | stress-2 (#720) |
+| prop_0b91289d | 18437 | 19727 | ~Thu 5 Nov 01:18 CET | ~Fri 6 Nov 01:18 CET | stress-2 (#720) |
+| prop_bfc73030 | 19525 | 20815 | ~Thu 5 Nov 21:33 CET | ~Fri 6 Nov 21:33 CET | stress-3 |
+| prop_b84b545e | 19534 | 20824 | ~Thu 5 Nov 21:43 CET | ~Fri 6 Nov 21:43 CET | stress-3 |
+| prop_6bbc21b3 | 19541 | 20831 | ~Thu 5 Nov 21:50 CET | ~Fri 6 Nov 21:51 CET | stress-3 |
+
+Times at the measured 67.0 s/block (height 13045 at 31 Oct 20:57:02
+CET) — estimates only; the block height counts, not the clock.
 
 Leg (both legs pinned to hub, serial):
 1. `aitbc governance close --proposal-id <id>` at/after each
    `voting_ends_block` — tallies the vote, status → succeeded/failed.
    One close per prop; closable any time after its end height.
-2. At h≥20831: `aitbc governance execute --proposal-id <id>` ×5, one
-   serial submit per block cadence, signed with the `0xD9CC189c…`
-   executor wallet — **operator stages the key on hub before
-   2026-11-05 ~22:00 CET** (verify address only; never print the key).
+2. At h≥20831: `aitbc governance execute --proposal-id <id>
+   --executor-address 0xD9CC189c… --wallet gov-executor-d9cc` ×5, one
+   serial submit per block cadence — the `0xD9CC189c…` executor key is
+   **staged on hub as wallet `gov-executor-d9cc` since 31 Oct 20:35
+   (#752)** (verify address only; never print the key).
 3. Check each `execution_tx_hash` sealed; status → executed.
 
 An armed timer that never lands = finding class 1 (lost timer). Refusals
@@ -45,8 +49,9 @@ part of this batch — tracked separately.
 
 Evidence on #752: commit hash, hub position before the ff, and a seal
 height per prop; set `needs-verify`, do not close the issue. Post-batch
-hygiene: **remove the staged executor key from hub** — it retires at
-genesis under R8, so its residency is timeboxed to this batch.
+hygiene: **remove the staged `gov-executor-d9cc` wallet files from hub**
+— the key retires at genesis under R8, so its residency is timeboxed to
+this batch.
 
 Note (stress-3 observed semantics): agent-stake unbond is **wall-clock**
 gated (`locked_until`), complete is **block** gated (`lock_height+1440`) —
