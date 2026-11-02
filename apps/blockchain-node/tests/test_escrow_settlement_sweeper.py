@@ -559,12 +559,9 @@ def _session_scope(record):
 def _mgr(er, contract=None):
     mgr = MagicMock()
     mgr.escrow_contracts = {"c1": contract} if contract else {}
-    mgr.snapshot_release_state = MagicMock(return_value={})
-    mgr.snapshot_refund_state = MagicMock(return_value={})
     mgr.release_payment = AsyncMock(return_value=(True, "released"))
     mgr.refund_contract = AsyncMock(return_value=(True, "refunded"))
-    mgr.restore_after_failed_settlement = MagicMock()
-    mgr.restore_after_failed_refund = MagicMock()
+    mgr.evict_contract = MagicMock()
     return mgr
 
 

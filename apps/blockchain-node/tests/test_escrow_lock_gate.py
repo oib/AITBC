@@ -104,12 +104,9 @@ def _session_scope(record):
 def _mgr(contract=None):
     mgr = MagicMock()
     mgr.escrow_contracts = {"c1": contract} if contract else {}
-    mgr.snapshot_release_state = MagicMock(return_value={})
-    mgr.snapshot_refund_state = MagicMock(return_value={})
     mgr.release_payment = AsyncMock(return_value=(True, "released"))
     mgr.refund_contract = AsyncMock(return_value=(True, "refunded"))
-    mgr.restore_after_failed_settlement = MagicMock()
-    mgr.restore_after_failed_refund = MagicMock()
+    mgr.evict_contract = MagicMock()
     return mgr
 
 
@@ -204,6 +201,7 @@ async def test_release_after_lock_seals_proceeds_unchanged(monkeypatch):
     submit_pay.assert_awaited_once()
     assert record.released_at is not None
     assert record.status == "released"
+    mgr.evict_contract.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -263,6 +261,7 @@ async def test_refund_after_lock_seals_proceeds_unchanged(monkeypatch):
     submit_refund.assert_awaited_once()
     assert record.refunded_at is not None
     assert record.status == "refunded"
+    mgr.evict_contract.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -659,3 +658,92 @@ async def test_refund_settles_and_writes_inside_the_lock(monkeypatch):
     assert events[-1] == "exit"
     assert events.index("refund_contract") < events.index("submit") < events.index("write")
     assert record.refunded_at is not None
+
+
+@pytest.mark.asyncio
+async def test_release_that_does_not_settle_evicts_the_cache_and_marks_nothing(monkeypatch):
+    """The settlement tx never landed: the row stays locked and this worker forgets the release."""
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr()
+    scope, _ = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7] as submit_pay,
+        patches[8],
+    ):
+        submit_pay.return_value = None
+        result = await er.release_escrow("job-1", {})
+    assert result["success"] is False
+    mgr.evict_contract.assert_called_once_with("c1")
+    assert record.released_at is None
+    assert record.status == "locked"
+
+
+@pytest.mark.asyncio
+async def test_refund_that_does_not_settle_evicts_the_cache_and_marks_nothing(monkeypatch):
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr(contract=_funded_contract(er))
+    scope, _ = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7],
+        patches[8] as submit_refund,
+    ):
+        submit_refund.return_value = None
+        result = await er.refund_escrow("job-1", {"reason": "test"})
+    assert result["success"] is False
+    mgr.evict_contract.assert_called_once_with("c1")
+    assert record.refunded_at is None
+    assert record.status == "locked"
+
+
+@pytest.mark.asyncio
+async def test_release_below_the_energy_floor_evicts_the_cache_and_settles_nothing(monkeypatch):
+    """422 after release_payment already ran in memory: the cache must not keep it."""
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record(
+        protected=True,
+        energy_settlement_asset="AITBC",
+        energy_provider_credit_units=1,
+        energy_net_floor_units=72_000_000,
+    )
+    mgr = _mgr()
+    scope, _ = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7] as submit_pay,
+        patches[8],
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await er.release_escrow("job-1", {})
+    assert excinfo.value.status_code == 422
+    assert "energy floor" in excinfo.value.detail
+    mgr.evict_contract.assert_called_once_with("c1")
+    submit_pay.assert_not_awaited()
+    assert record.released_at is None
