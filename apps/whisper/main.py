@@ -13,11 +13,12 @@ import time
 from contextlib import asynccontextmanager
 
 import uvicorn  # noqa: E402
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile  # noqa: E402
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.shop_gate import require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="whisper", to_file=True)
 logger = get_logger(__name__)
@@ -176,7 +177,7 @@ def _audio_seconds(path: str) -> float | None:
         return None
 
 
-@app.post("/transcribe")
+@app.post("/transcribe", dependencies=[Depends(require_job_access)])
 async def transcribe(
     file: Annotated[UploadFile, File(...)],
     language: str | None = Form(default=None),

@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.shop_gate import require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="hermes-agent", to_file=True)
 logger = get_logger(__name__)
@@ -223,7 +224,7 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
     return command
 
 
-@app.post("/run")
+@app.post("/run", dependencies=[Depends(require_job_access)])
 async def run_hermes(request: HermesRunRequest, _cred: None = Depends(_require_run_credential)):
     """Run a one-shot Hermes prompt and return the result plus timing."""
     await _run_semaphore.acquire()
