@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.exc import OperationalError
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, col, func, select
@@ -119,6 +119,15 @@ class GPUBuyRequest(BaseModel):
     buyer_lock_signature: str | None = None
     buyer_lock_nonce: int | None = None
     buyer_lock_fee: int | None = None
+
+    @model_validator(mode="after")
+    def _lock_signature_needs_nonce(self):
+        # ESCROW-LOCK-NONCE-1 (#807): a signature is over a concrete nonce; without it the
+        # coordinator would guess the account nonce and the buyer's signature never verifies.
+        if self.buyer_lock_signature and self.buyer_lock_nonce is None:
+            raise ValueError("buyer_lock_nonce is required when buyer_lock_signature is given")
+        return self
+
     # EVM settlement data. When the buyer funds the rental directly on-chain,
     # the CLI forwards the confirmed transaction hash and agreement/escrow id
     # so the coordinator can verify and record the protected rental.
@@ -664,7 +673,7 @@ async def buy_gpu(
             )
             job = await run_in_threadpool(job_service.create_job, client_id=request.buyer_id, req=job_create)
             job_id = job.id
-        job_session.close()
+        job_session.close()  # noqa: unawaited-async — SQLModelSession.close() is synchronous
         logger.info("Using job %s for GPU purchase %s", job_id, booking_id)
         try:
             payment_session = SQLModelSession(bind=session.bind)
@@ -705,7 +714,7 @@ async def buy_gpu(
             )
             payment_id = payment.id
             payment_status = payment.status
-            payment_session.close()
+            payment_session.close()  # noqa: unawaited-async — SQLModelSession.close() is synchronous
             logger.info("Created payment %s for job %s", payment.id, job.id)
         except Exception as e:
             logger.error("Failed to create payment for job %s: %s", job.id, e)
