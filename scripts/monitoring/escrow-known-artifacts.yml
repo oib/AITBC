@@ -64,6 +64,13 @@
       "reason": "Tx-only test lock sealed at h12896 (tx 0xaa420c93…), 0.01 AIT, buyer 0xBdDF2791 — dev/test mode, no real customers (operator ruling 2026-11-01). Its hub escrow row sits settlement_failed carrying dead release hash 0x58ed4a12… (never sealed); remedy prep on #766.",
       "declared_by": "operator",
       "declared_at": "2026-11-01"
+    },
+    {
+      "job_id": "61598e4eb34c47ea875332f1323b858d",
+      "kind": "test-artifact",
+      "reason": "Hub chain.db escrow row status=locked carrying unsealed lock_tx_hash 0xdd14af1ff11d4bd6d34b95543ac82929c82f9525b9c41740d23718a8de1aa8f9, 360,000 units, buyer 0x08aB8011 (operator test wallet) -> provider 0xdeaDDeAD… — leftover of #765; no transaction carries that hash or job_id, so no funds were ever locked on-chain. Bookkeeping-only per operator ruling 2026-11-02 (card 3A); the coordinator payment row is repaired by the #765 deploy.",
+      "declared_by": "operator",
+      "declared_at": "2026-11-02"
     }
   ]
 }
