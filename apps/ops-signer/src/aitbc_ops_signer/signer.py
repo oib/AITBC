@@ -16,6 +16,8 @@ import os
 import stat
 import subprocess
 from dataclasses import dataclass
+
+from aitbc.exceptions import AmbiguousRequestError
 from pathlib import Path
 from typing import Any
 
@@ -184,5 +186,8 @@ class Signer:
         result = http.post("/rpc/transaction", json=tx)
         tx_hash = result.get("transaction_hash")
         if not tx_hash:
-            raise ValueError("submission returned no transaction_hash")
+            # The node answered 2xx but gave no hash: the request arrived,
+            # its outcome is unknown — treat it like a lost response, never
+            # a clean refusal.
+            raise AmbiguousRequestError("submission returned no transaction_hash")
         return str(tx_hash)
