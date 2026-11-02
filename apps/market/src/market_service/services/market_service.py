@@ -2,10 +2,13 @@
 Market service for managing market operations
 """
 
+import asyncio
 import hashlib
 import hmac
+import ipaddress
 import os
 import re
+import socket
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -191,6 +194,48 @@ _GPU_LISTING_DEFAULT_STATUS = "active"
 # without ever hiding a late-arriving seal.
 _ANCHOR_NEGATIVE_TTL_SECONDS = 120.0
 
+# Hard cap on the shared anchor-negative map. Expired entries are dropped on
+# every resolve pass; the cap bounds the burst between two passes, when many
+# distinct signable registrations are probed inside one TTL window (#819).
+_ANCHOR_NEGATIVES_MAX = 4096
+
+# Health probes go to provider-registered URLs, so any wallet that can list a
+# service could aim the market host at its own loopback, the LAN or the cloud
+# metadata address (#819). Only hosts that resolve entirely to public addresses
+# are probed. Same-host services listed with an http://localhost:<port> health
+# URL need an explicit opt-in: comma-separated host:port pairs in this env var.
+_HEALTH_ALLOWED_TARGETS_ENV = "MARKET_HEALTH_ALLOWED_TARGETS"
+_HEALTH_REFUSED = {"healthy": False, "reason": "health_url target is not a public address"}
+
+
+async def _check_health_url(url: str) -> None:
+    """Raise ValueError unless *url* is http(s) and its host resolves only to
+    public addresses (loopback, private, link-local, metadata and multicast are
+    all refused), or is listed in ``MARKET_HEALTH_ALLOWED_TARGETS``.
+
+    The check runs before the request and the client does not follow
+    redirects, so a redirect cannot reach a non-public target either."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"scheme not allowed: {parsed.scheme or '(none)'}")
+    host = parsed.hostname or ""
+    if not host:
+        raise ValueError("no host")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    allowed = {t.strip().lower() for t in os.environ.get(_HEALTH_ALLOWED_TARGETS_ENV, "").split(",") if t.strip()}
+    if f"{host.lower()}:{port}" in allowed:
+        return
+    try:
+        infos = await asyncio.get_running_loop().getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except OSError as e:
+        raise ValueError(f"host does not resolve: {host}") from e
+    if not infos:
+        raise ValueError(f"host does not resolve: {host}")
+    for info in infos:
+        addr = ipaddress.ip_address(info[4][0])
+        if not addr.is_global:
+            raise ValueError(f"{host} resolves to a non-public address: {addr}")
+
 
 def _sanitize_endpoint(url: str | None) -> str | None:
     """Strip loopback/unspecified host addresses from serialized offer dicts.
@@ -292,6 +337,23 @@ class MarketService:
     # cached for one provider identity can't suppress re-resolution when the
     # offer's binding changes (e.g. registered_by appears after an upgrade).
     _anchor_negatives: dict[tuple[str, str], float] = {}
+
+    @classmethod
+    def _evict_anchor_negatives(cls, now: float) -> None:
+        """Drop every entry whose deadline has passed (#819: they were only
+        filtered at read time, so the shared map only ever grew)."""
+        for stale in [key for key, deadline in cls._anchor_negatives.items() if deadline <= now]:
+            del cls._anchor_negatives[stale]
+
+    @classmethod
+    def _remember_anchor_negative(cls, key: tuple[str, str], deadline: float) -> None:
+        """Record a negative and hold the map at ``_ANCHOR_NEGATIVES_MAX``,
+        dropping the entries closest to expiry first."""
+        cls._anchor_negatives[key] = deadline
+        excess = len(cls._anchor_negatives) - _ANCHOR_NEGATIVES_MAX
+        if excess > 0:
+            for oldest in sorted(cls._anchor_negatives, key=cls._anchor_negatives.__getitem__)[:excess]:
+                del cls._anchor_negatives[oldest]
 
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -799,6 +861,7 @@ class MarketService:
                 else:
                     live[dbkey] = (offer, is_gpu, raw, binding)
             now = time.monotonic()
+            self._evict_anchor_negatives(now)
             live = {k: v for k, v in live.items() if self._anchor_negatives.get((k, v[3]), 0.0) <= now}
             if not live:
                 return
@@ -827,7 +890,7 @@ class MarketService:
                     None,
                 )
                 if anchor_tx is None:
-                    self._anchor_negatives[(dbkey, binding)] = now + _ANCHOR_NEGATIVE_TTL_SECONDS
+                    self._remember_anchor_negative((dbkey, binding), now + _ANCHOR_NEGATIVE_TTL_SECONDS)
                     continue
                 ts_str, ts_dt = self._anchor_timestamp(anchor_tx)
                 offer["confirmed"] = True
@@ -2076,6 +2139,14 @@ class MarketService:
             health_url = service.health_url or ""
             if not health_url:
                 return {"healthy": False, "reason": "no health_url configured"}
+
+            try:
+                await _check_health_url(health_url)
+            except ValueError as e:
+                # The detail stays in the log: a resolved address in the reply
+                # would turn this route into an internal-DNS oracle.
+                logger.warning("Refused health_url of %s: %s", plugin_id, e)
+                return dict(_HEALTH_REFUSED)
 
             if service.service_type == "ipfs" and "api/v0/version" in health_url:
                 try:
