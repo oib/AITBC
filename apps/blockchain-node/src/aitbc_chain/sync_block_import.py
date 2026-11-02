@@ -972,7 +972,7 @@ class BlockImportMixin(SyncBase):
         turn into a block-import failure.
         """
         try:
-            from .mempool import get_mempool
+            from .mempool import get_mempool, _tx_slot_key
 
             mempool = get_mempool()
             evicted = 0
@@ -982,10 +982,13 @@ class BlockImportMixin(SyncBase):
                     evicted += 1
                 # A sealed (sender, nonce) kills any different-hash pending
                 # row on that slot — release it now instead of refusing
-                # resubmits for the full TTL (Refs #717).
+                # resubmits for the full TTL (Refs #717). Only a sealed tx
+                # that itself held a slot can consume one: unsigned
+                # protocol-internal txs carry a placeholder nonce and must
+                # not trigger the sweep (#796).
                 sender = tx.get("from") or tx.get("sender")
                 nonce = tx.get("nonce")
-                if isinstance(sender, str) and sender and isinstance(nonce, int):
+                if isinstance(sender, str) and sender and isinstance(nonce, int) and _tx_slot_key(tx) is not None:
                     superseded = mempool.remove_superseded(self._chain_id, sender, nonce)
                     if superseded:
                         logger.info(
