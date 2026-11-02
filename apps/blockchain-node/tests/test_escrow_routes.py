@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from aitbc_chain.rpc.utils import sign_transaction_data
+
 
 def _reload_routes():
     """Reload escrow_routes so module-level env variables are re-read."""
@@ -41,6 +43,7 @@ def test_settlement_key_falls_back_to_genesis(monkeypatch):
 
 # The address the deterministic ``release_key`` fixture actually controls.
 RELEASE_KEY_ADDRESS = "0x1563915e194D8CfBA1943570603F7606A3115508"
+NODE_WALLET = "0xADC923a0928B8415E666206D3703a870C1d578CE"
 FOREIGN_ADDRESS = "0xAAbbCCDdeEFf00112233445566778899aABBcCDd"
 GENESIS_KEY = "0x1111111111111111111111111111111111111111111111111111111111111111"
 
@@ -1365,6 +1368,49 @@ async def test_probe_failure_never_signs_at_nonce_zero(release_key, monkeypatch)
         )
 
     mock_post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_buyer_lock_signature_without_lock_nonce_refused(release_key, monkeypatch):
+    """#783: a lock_signature without lock_nonce is refused with a clear 400.
+
+    The nonce is inside the signed envelope; guessing it (sealed, or
+    sealed+mempool as #781 briefly did) silently rewrites what the buyer
+    signed and fails signature verification downstream. The CLI and
+    agent-coordinator always send the nonce; a caller that omits it gets a
+    clear refusal instead of a corrupted envelope.
+    """
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    monkeypatch.setenv("NODE_WALLET_ADDRESS", NODE_WALLET)
+    escrow_routes = _reload_routes()
+
+    buyer = "0xe8b0db006F34bf5b5d2B22553C017431E8e86e4F"
+    provider = "0xD4d85501E6cD447972Db19370307F1E3B1510016"
+    buyer_key = "0x3333333333333333333333333333333333333333333333333333333333333333"
+    sealed_nonce = 5
+
+    signed_at_sealed, _ = escrow_routes._build_lock_tx("job-123", buyer, provider, Decimal("1.0"), sealed_nonce)
+    body = {
+        "job_id": "job-123",
+        "buyer": buyer,
+        "provider": provider,
+        "amount": "1.0",
+        "lock_signature": sign_transaction_data(signed_at_sealed, buyer_key),
+    }
+
+    with (
+        patch.object(escrow_routes, "get_escrow_manager", return_value=MagicMock()),
+        patch.object(escrow_routes, "_find_existing_lock", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes, "_submit_lock_tx", new_callable=AsyncMock) as mock_submit,
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        await escrow_routes.create_escrow(body)
+
+    assert exc_info.value.status_code == 400
+    assert "lock_nonce is required" in exc_info.value.detail
+    mock_submit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
