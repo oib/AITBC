@@ -59,19 +59,56 @@ def compress(data: bytes | str, algorithm: str = "gzip") -> bytes:
         raise ValueError(f"Unknown compression algorithm: {algorithm}")
 
 
-def decompress(data: bytes, algorithm: str = "gzip") -> bytes:
+class PayloadTooLargeError(ValueError):
+    """Decompressed output exceeded the caller's byte cap (decompression bomb)."""
+
+
+def _bounded_zlib(data: bytes, wbits: int, max_bytes: int) -> bytes:
+    obj = zlib.decompressobj(wbits)
+    out = obj.decompress(data, max_bytes + 1)
+    if len(out) > max_bytes or obj.unconsumed_tail:
+        raise PayloadTooLargeError(f"decompressed payload exceeds {max_bytes} bytes")
+    return out
+
+
+def _bounded_zstd(data: bytes, max_bytes: int) -> bytes:
+    if not _ZSTD_AVAILABLE:
+        raise ValueError("zstd requested but 'zstandard' package is not installed")
+    try:
+        return zstd.ZstdDecompressor().decompress(data, max_output_size=max_bytes)
+    except zstd.ZstdError as e:
+        raise PayloadTooLargeError(f"decompressed payload exceeds {max_bytes} bytes") from e
+
+
+def _bounded_decompress(data: bytes, algorithm: str, max_bytes: int) -> bytes:
+    if algorithm == "gzip":
+        return _bounded_zlib(data, 31, max_bytes)
+    if algorithm == "zlib":
+        return _bounded_zlib(data, 15, max_bytes)
+    if algorithm == "zstd":
+        return _bounded_zstd(data, max_bytes)
+    raise ValueError(f"Unknown compression algorithm: {algorithm}")
+
+
+def decompress(data: bytes, algorithm: str = "gzip", max_bytes: int | None = None) -> bytes:
     """Decompress bytes.
 
     Args:
         data: Compressed bytes.
         algorithm: Must match the algorithm used to compress.
+        max_bytes: Optional cap on the decompressed size; the decompressor
+                   stops at ``max_bytes + 1`` output bytes — the expansion is
+                   never materialised in full.
 
     Returns:
         Decompressed bytes.
 
     Raises:
         ValueError: If algorithm is unknown or zstd requested but not installed.
+        PayloadTooLargeError: If the decompressed output exceeds ``max_bytes``.
     """
+    if max_bytes is not None:
+        return _bounded_decompress(data, algorithm, max_bytes)
     if algorithm == "gzip":
         return gzip.decompress(data)
     elif algorithm == "zlib":
@@ -98,17 +135,21 @@ def compress_json(obj: Any, algorithm: str = "gzip") -> bytes:
     return compress(raw, algorithm=algorithm)
 
 
-def decompress_json(data: bytes, algorithm: str = "gzip") -> Any:
+def decompress_json(data: bytes, algorithm: str = "gzip", max_bytes: int | None = None) -> Any:
     """Decompress bytes and parse as JSON.
 
     Args:
         data: Compressed JSON bytes.
         algorithm: Must match the algorithm used to compress.
+        max_bytes: Optional cap on the decompressed size.
 
     Returns:
         The deserialized Python object.
+
+    Raises:
+        PayloadTooLargeError: If the decompressed output exceeds ``max_bytes``.
     """
-    raw = decompress(data, algorithm=algorithm)
+    raw = decompress(data, algorithm=algorithm, max_bytes=max_bytes)
     return json.loads(raw.decode("utf-8"))
 
 

@@ -4,7 +4,14 @@ Provides HTTP client and Web3 utilities
 """
 
 from .client import AITBCHTTPClient, AsyncAITBCHTTPClient
-from .compression import compress, compress_json, compression_ratio, decompress, decompress_json
+from .compression import (
+    PayloadTooLargeError,
+    compress,
+    compress_json,
+    compression_ratio,
+    decompress,
+    decompress_json,
+)
 from .http_pool import SharedHttpClient
 from .island_registry import IslandRegistry, IslandRegistryEntry
 from .port_allocator import PortAllocationError, PortAllocator
@@ -29,4 +36,5 @@ __all__ = [
     "create_web3_client",
     "decompress",
     "decompress_json",
+    "PayloadTooLargeError",
 ]
