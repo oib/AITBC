@@ -30,6 +30,22 @@ from . import get_chain_id, get_market_wallet, get_next_nonce
 from .escrow import _escrow_create, _post_escrow_release
 
 
+def _shop_access_headers(job_id: str) -> dict[str, str]:
+    """Headers for the paid-shop access gate (#803, ruling 6A + strict binding).
+
+    The per-job token (access_key + access_secret) is issued at payment
+    confirm; the buyer CLI carries it as X-Access-Key/X-Access-Secret bound
+    to the job via X-Job-Id. Creds come from AITBC_JOB_ACCESS_KEY /
+    AITBC_JOB_ACCESS_SECRET — when unset the headers are omitted and a
+    gated shop answers 401, which is the intended refusal.
+    """
+    key = os.environ.get("AITBC_JOB_ACCESS_KEY", "")
+    secret = os.environ.get("AITBC_JOB_ACCESS_SECRET", "")
+    if not key or not secret:
+        return {}
+    return {"X-Access-Key": key, "X-Access-Secret": secret, "X-Job-Id": job_id}
+
+
 def _compute_plugin_id(service_type: str, model: str) -> str:
     """Derive the plugin_id used by the market service."""
     return f"{service_type}-{model.replace(':', '-')}"
@@ -272,7 +288,7 @@ def _run_ollama(
     req = urllib.request.Request(
         f"{ollama_base}/api/generate",
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **_shop_access_headers(job_id)},
         method="POST",
     )
     info("Running inference...")
@@ -425,7 +441,10 @@ def _run_whisper(
     req = _urllib.Request(
         whisper_transcribe_url,
         data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary.decode()}"},
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary.decode()}",
+            **_shop_access_headers(job_id),
+        },
     )
     # endpoint scheme validated
     with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
@@ -597,7 +616,10 @@ def _run_ffmpeg(
     req = _urllib.Request(
         ffmpeg_process_url,
         data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary.decode()}"},
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary.decode()}",
+            **_shop_access_headers(job_id),
+        },
     )
     # endpoint scheme validated
     with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310
@@ -734,6 +756,7 @@ def _run_hermes(
     resp_data = http_client.post(
         "/run",
         json={"prompt": prompt, "max_time": max_time},
+        headers=_shop_access_headers(job_id),
     )
     elapsed = (datetime.now() - t_start).total_seconds()
 
