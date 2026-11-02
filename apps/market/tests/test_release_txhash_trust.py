@@ -1,15 +1,12 @@
-"""Phase-0 pin for MARKET-RELEASE-TXHASH-TRUST-1 (#814).
+"""Pin for MARKET-RELEASE-TXHASH-TRUST-1 (#814), post-fix contract.
 
-release_market_job_payment trusts a caller-supplied ``tx_hash`` verbatim:
-when ``release_data["tx_hash"]`` is set the escrow-release RPC is skipped
-entirely and the job is marked RELEASED with no on-chain check (contrast
-complete_bid, which verifies sender/recipient/value). It also settles
-``job.id`` while guarding ``escrow_contract_id`` — if they diverge the
-settle targets the wrong object.
+release_market_job_payment must not trust a caller-supplied ``tx_hash``
+verbatim: the hash is evidence to be verified on-chain (like complete_bid),
+not authority. The settle call targets ``job.escrow_contract_id`` — the
+field the guard checks — not ``job.id``.
 
-Desired: a caller-supplied tx_hash is never authoritative — the release
-verifies on-chain like complete_bid, or refuses. FAILS on current main:
-the job lands RELEASED with the forged hash and zero RPC calls.
+Green on the fix; FAILS on pre-fix main (the job lands RELEASED with a
+forged hash and no RPC call at all).
 """
 
 import sys
@@ -33,7 +30,7 @@ async def session() -> AsyncIterator[AsyncSession]:
         yield s
 
 
-async def _job(session: AsyncSession, jid: str) -> MarketJob:
+async def _job(session: AsyncSession, jid: str) -> str:
     pay = MarketJobPayment(job_id=jid, amount=10, status="escrowed")
     job = MarketJob(
         id=jid,
@@ -44,21 +41,33 @@ async def _job(session: AsyncSession, jid: str) -> MarketJob:
     )
     session.add_all([pay, job])
     await session.flush()
-    return job
+    return jid
 
 
-class TestCallerSuppliedTxHashIsNotAuthoritative:
+class TestCallerTxHashIsVerified:
     @pytest.mark.asyncio
-    async def test_forged_tx_hash_marks_released_without_rpc(self, session):
-        job = await _job(session, "job-release-1")
-        job_id = job.id
+    async def test_unconfirmed_tx_hash_is_refused(self, session):
+        job_id = await _job(session, "job-release-1")
         svc = MarketService(session)
         svc._rpc_client.release_escrow = AsyncMock()
-        result = await svc.release_market_job_payment(job_id, release_data={"tx_hash": "0xdeadbeef"})
-        # desired: the release must not stand on a caller-supplied hash —
-        # either it verifies on-chain or it refuses. On main it returns
-        # RELEASED with the forged hash and no RPC call at all.
+        svc._rpc_client.get_transaction = AsyncMock(return_value={"status": "pending"})
+        with pytest.raises(ValueError, match="(?i)confirmed"):
+            await svc.release_market_job_payment(job_id, release_data={"tx_hash": "0xdeadbeef"})
         svc._rpc_client.release_escrow.assert_not_called()
-        assert result.get("state") != "RELEASED" or result.get("tx_hash") != "0xdeadbeef", (
-            "caller-supplied tx_hash marked the job RELEASED with no verification"
-        )
+        svc._rpc_client.get_transaction.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_missing_tx_hash_is_refused(self, session):
+        job_id = await _job(session, "job-release-2")
+        svc = MarketService(session)
+        svc._rpc_client.get_transaction = AsyncMock(return_value=None)
+        with pytest.raises(ValueError):
+            await svc.release_market_job_payment(job_id, release_data={"tx_hash": "0xdeadbeef"})
+
+    @pytest.mark.asyncio
+    async def test_escrow_release_targets_contract_id(self, session):
+        job_id = await _job(session, "job-release-3")
+        svc = MarketService(session)
+        svc._rpc_client.release_escrow = AsyncMock(return_value={"success": True, "tx_hash": "0xok"})
+        await svc.release_market_job_payment(job_id)
+        svc._rpc_client.release_escrow.assert_called_once_with("esc-1")
