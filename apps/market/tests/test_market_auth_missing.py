@@ -24,6 +24,12 @@ from market_service.main import app
 
 @pytest.fixture(scope="module")
 def client():
+    # Arm the authenticator the way production runs it (MARKET_API_KEY set);
+    # without a key configured the dependency refuses 501 rather than 401.
+    from market_service.main import require_market_api_key
+
+    require_market_api_key.auth_enabled = True
+    require_market_api_key.expected_key = "test-market-key"
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
