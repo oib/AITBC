@@ -9,7 +9,8 @@ from threading import Lock, RLock
 from typing import Any, cast
 from collections.abc import Iterable
 
-from sqlalchemy import Boolean, Column, Float, Index, Integer, MetaData, Text, delete, func
+from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, MetaData, Text, delete, func
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlmodel import Field, Session, create_engine, select, text
 
 from .metadata import ChainBase
@@ -32,9 +33,11 @@ class MempoolEntry(ChainBase, table=True):
     chain_id: str = Field(primary_key=True)
     tx_hash: str = Field(primary_key=True)
     content: str = Field(sa_column=Column(Text, nullable=False))
-    fee: int = Field(default=0, sa_column=Column(Integer, nullable=False))
+    fee: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
     size_bytes: int = Field(default=0, sa_column=Column(Integer, nullable=False))
-    received_at: float = Field(sa_column=Column(Float, nullable=False))
+    # DOUBLE PRECISION on Postgres — 32-bit REAL rounds epoch timestamps to a
+    # 128 s granularity, which is the eviction tie-break input (#797).
+    received_at: float = Field(sa_column=Column(Float().with_variant(DOUBLE_PRECISION(), "postgresql"), nullable=False))
     sender: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     nonce: int | None = Field(default=None, sa_column=Column(Integer, nullable=True))
     # Whether the entry holds a signed (sender, nonce) slot — i.e.
@@ -435,9 +438,9 @@ class DatabaseMempool:
                         chain_id TEXT NOT NULL,
                         tx_hash TEXT NOT NULL,
                         content TEXT NOT NULL,
-                        fee INTEGER DEFAULT 0,
+                        fee BIGINT DEFAULT 0,
                         size_bytes INTEGER DEFAULT 0,
-                        received_at REAL NOT NULL,
+                        received_at DOUBLE PRECISION NOT NULL,
                         sender TEXT,
                         nonce INTEGER,
                         signed BOOLEAN,
