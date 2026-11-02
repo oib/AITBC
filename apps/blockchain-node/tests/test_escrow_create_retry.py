@@ -135,6 +135,7 @@ async def test_retry_clears_residue_left_by_a_failed_create(patched, engine, mon
         amount=Decimal("1.0"),
     )
     assert ok
+    stale_contract = mgr.escrow_contracts[stale_cid]
     with Session(engine) as session:
         for addr in (BUYER, PROVIDER):
             session.add(Account(chain_id=CHAIN_ID, address=canonical_address(addr), balance=0, nonce=0))
@@ -157,7 +158,10 @@ async def test_retry_clears_residue_left_by_a_failed_create(patched, engine, mon
     assert result["lock_tx_hash"] == "0xlockhash"
     contracts = [c for c in mgr.escrow_contracts.values() if c.job_id == JOB_ID]
     assert len(contracts) == 1
-    assert contracts[0].contract_id != stale_cid
+    # The id is deterministic since #780 (a), so the retry answers with the same contract_id;
+    # what proves the residue was dropped is that the contract is a new object, not the stale one.
+    assert contracts[0].contract_id == stale_cid
+    assert contracts[0] is not stale_contract
     assert contracts[0].state is EscrowState.FUNDED
     with Session(engine) as session:
         row = session.get(Escrow, JOB_ID)
