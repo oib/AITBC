@@ -1,6 +1,5 @@
 """Tests for rolling back an escrow release whose settlement never landed."""
 
-import asyncio
 from decimal import Decimal
 
 import pytest
@@ -31,12 +30,6 @@ def _make_contract(mgr: EscrowManager, contract_id: str = "c-1") -> EscrowContra
     mgr.escrow_contracts[contract_id] = contract
     mgr.active_contracts.add(contract_id)
     return contract
-
-
-def test_release_lock_is_stable_per_contract():
-    mgr = EscrowManager()
-    assert mgr.release_lock("c-1") is mgr.release_lock("c-1")
-    assert mgr.release_lock("c-1") is not mgr.release_lock("c-2")
 
 
 def test_snapshot_returns_none_for_unknown_contract():
@@ -80,18 +73,3 @@ async def test_release_is_retryable_after_rollback():
     assert ok, message
     assert contract.state is EscrowState.RELEASED
     assert contract.released_amount == Decimal("0.975")
-
-
-@pytest.mark.asyncio
-async def test_concurrent_releases_are_serialised_by_the_lock():
-    """The per-contract lock must exclude a second releaser while one holds it."""
-    mgr = EscrowManager()
-    _make_contract(mgr)
-    lock = mgr.release_lock("c-1")
-
-    async with lock:
-        second = asyncio.create_task(asyncio.wait_for(mgr.release_lock("c-1").acquire(), timeout=0.05))
-        with pytest.raises(asyncio.TimeoutError):
-            await second
-    # Released again once the holder exits.
-    await asyncio.wait_for(mgr.release_lock("c-1").acquire(), timeout=0.5)

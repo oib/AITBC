@@ -9,6 +9,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 import hmac
 import json
 import os
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -16,6 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 from starlette.concurrency import run_in_threadpool
+from sqlmodel import Session
 
 from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
@@ -33,6 +35,7 @@ from eth_utils import keccak
 from ..chain_id import resolve_chain_id
 from ..config import settings
 from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager, serialise_milestones
+from ..contracts.escrow_txn import EscrowBusy, EscrowMutation, escrow_mutation
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import escrow_fee_sweep_total, escrow_settlement_refused_total
@@ -1344,6 +1347,20 @@ async def _retry_sweep_released_escrow(job_id: str, record: Escrow, session) -> 
     return await _submit_fee_sweep_tx(job_id, job_id, expected)
 
 
+def _escrow_busy(job_id: str) -> HTTPException:
+    """The reply when another worker is mid-release/refund on this escrow (#780).
+
+    425 with Retry-After, like the not-yet-sealed lock: every existing caller already
+    treats it as "try again shortly" without spending a release attempt.
+    """
+    _logger.warning("Escrow %s is busy: another worker holds its release/refund lock", job_id)
+    return HTTPException(
+        status_code=425,
+        detail=f"Escrow for job_id={job_id} is being released or refunded by another request; retry shortly",
+        headers={"Retry-After": "5"},
+    )
+
+
 @router.post("/escrow/create", summary="Create escrow for a job")
 async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     """Create a new escrow contract after the buyer has signed an ESCROW_LOCK transaction.
@@ -1788,8 +1805,6 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             detail="Settlement key/address is not configured correctly; escrow was not released",
         )
 
-    job_tx_hash = request.get("job_tx_hash")
-
     # Metered services lock an upper bound and bill what the job actually used, so
     # honour the requested amount instead of always paying out the whole lock. The
     # unbilled remainder is reported as owed change and paid by the settlement
@@ -1821,27 +1836,109 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         if ait_to_units(requested_amount) == 0:
             raise HTTPException(status_code=400, detail="amount is below one billable compute-unit")
 
+    try:
+        async with escrow_mutation(job_id, session_scope) as txn:
+            plan = await _release_read_locked(mgr, job_id, request)
+            if isinstance(plan, dict):
+                return plan
+            # The lock must be sealed before the release can apply — checked before any
+            # contract state is touched, like the settlement-key preamble above.
+            await _ensure_lock_sealed(job_id)
+            # And it must not be a v2-era lock: re-driving one pays out of the authority
+            # with no apply-time dedup. Demoted settlement_failed rows reach this too,
+            # so the guard is what keeps a sweeper demote + coordinator retry from
+            # replaying the v2 dead-set without an operator go.
+            await _refuse_v2_lock(job_id)
+            return await _release_settle_locked(mgr, job_id, request, requested_amount, plan, txn)
+    except EscrowBusy:
+        raise _escrow_busy(job_id) from None
+
+
+def _read_release_row(job_id: str) -> Escrow | None:
+    """The escrow row, healed from the chain and detached for the guards' reads."""
+    with session_scope() as session:
+        record = session.get(Escrow, job_id)
+        if record is not None:
+            # Heal before the guards read the row: a release whose change leg
+            # was mined last reads back as a refund until it is reconciled,
+            # and would be rejected here as already refunded.
+            backfill_settlement_legs(session, record)
+            # backfill may commit and expire the row's attrs; refresh
+            # reloads them so the expunged instance keeps its values for
+            # the detached reads below.
+            session.refresh(record)
+            session.expunge(record)
+        return record
+
+
+async def _already_released_result(
+    job_id: str, request: dict[str, Any], record: Escrow, released_at: datetime
+) -> dict[str, Any]:
+    """The stored result for a release that already happened, re-offering the follow-ups
+    a retry exists for (custody-residue sweep, RECEIPT_CLAIM)."""
+    # The DB may not have stored the release tx hash (legacy rows), so
+    # look it up on-chain before returning a stale/empty job_tx_hash.
+    existing_release = await _find_existing_release(job_id)
+    if existing_release and not record.release_tx_hash:
+
+        def _fill_release_hash() -> None:
+            with session_scope() as session:
+                row = session.get(Escrow, job_id)
+                if row is not None:
+                    row.release_tx_hash = existing_release
+                    session.add(row)
+                    session.commit()
+
+        await run_in_threadpool(_fill_release_hash)
+    release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
+    # v11: re-offer the custody-residue sweep for an already-released
+    # job — the retry surface for residue a pass or earlier attempt
+    # left behind. Deduped on-chain; residue derived from sealed
+    # chain legs, provable only. The sweep is itself async and reads the
+    # expunged row's frozen attrs; it gets a fresh session for its
+    # sealed-leg queries.
+    with session_scope() as session:
+        await _retry_sweep_released_escrow(job_id, record, session)
+    # #687: re-offer the RECEIPT_CLAIM for an already-released job —
+    # the retry surface for a claim the earlier release call could
+    # not land. Deduped on-chain; never fails this route.
+    claim_tx_hash = await _submit_receipt_claim_tx(
+        request.get("receipt"), job_id, getattr(record, "contract_id", None) or "", record.provider
+    )
+    return {
+        "success": True,
+        "contract_id": getattr(record, "contract_id", None) or "",
+        "job_id": job_id,
+        "message": "Escrow already released",
+        "receipt_claim_tx_hash": claim_tx_hash,
+        "released_amount": _settled_leg_ait(record.released_amount, record.released_at, record.amount),
+        "refunded_amount": _settled_leg_ait(record.refunded_amount, None, record.amount),
+        "refund_tx_hash": record.refund_tx_hash,
+        "tx_hash": release_tx_hash,
+        "released_at": released_at.isoformat(),
+    }
+
+
+@dataclass(frozen=True)
+class _ReleasePlan:
+    """What the locked read found: the row (None if there is none) and the contract to settle."""
+
+    escrow_record: Escrow | None
+    contract_id: str
+
+
+async def _release_read_locked(mgr: Any, job_id: str, request: dict[str, Any]) -> dict[str, Any] | _ReleasePlan:
+    """Read the row under the escrow's cross-worker lock (#780): the stored result for a
+    release that already happened, else what the settle step needs.
+
+    The sealed-lock and v2-era gates sit between this and the settle step, in the
+    route, so they stay on the route's own error list in the published OpenAPI spec.
+    """
     # Reconciliation/duplicate release handling: if the row is already released,
     # return the stored result without resubmitting.
     escrow_record: Escrow | None = None
     try:
-
-        def _read_release_state() -> Escrow | None:
-            with session_scope() as session:
-                record = session.get(Escrow, job_id)
-                if record is not None:
-                    # Heal before the guards read the row: a release whose change leg
-                    # was mined last reads back as a refund until it is reconciled,
-                    # and would be rejected here as already refunded.
-                    backfill_settlement_legs(session, record)
-                    # backfill may commit and expire the row's attrs; refresh
-                    # reloads them so the expunged instance keeps its values for
-                    # the detached reads below.
-                    session.refresh(record)
-                    session.expunge(record)
-                return record
-
-        record = await run_in_threadpool(_read_release_state)
+        record = await run_in_threadpool(_read_release_row, job_id)
         escrow_record = record
         if record and record.refunded_at is not None:
             raise HTTPException(
@@ -1849,47 +1946,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
                 detail=f"Escrow for job_id={job_id} has already been refunded",
             )
         if record and record.released_at is not None:
-            # The DB may not have stored the release tx hash (legacy rows), so
-            # look it up on-chain before returning a stale/empty job_tx_hash.
-            existing_release = await _find_existing_release(job_id)
-            if existing_release and not record.release_tx_hash:
-
-                def _fill_release_hash() -> None:
-                    with session_scope() as session:
-                        row = session.get(Escrow, job_id)
-                        if row is not None:
-                            row.release_tx_hash = existing_release
-                            session.add(row)
-                            session.commit()
-
-                await run_in_threadpool(_fill_release_hash)
-            release_tx_hash = record.release_tx_hash or existing_release or record.job_tx_hash or ""
-            # v11: re-offer the custody-residue sweep for an already-released
-            # job — the retry surface for residue a pass or earlier attempt
-            # left behind. Deduped on-chain; residue derived from sealed
-            # chain legs, provable only. The sweep is itself async and reads the
-            # expunged row's frozen attrs; it gets a fresh session for its
-            # sealed-leg queries.
-            with session_scope() as session:
-                await _retry_sweep_released_escrow(job_id, record, session)
-            # #687: re-offer the RECEIPT_CLAIM for an already-released job —
-            # the retry surface for a claim the earlier release call could
-            # not land. Deduped on-chain; never fails this route.
-            claim_tx_hash = await _submit_receipt_claim_tx(
-                request.get("receipt"), job_id, getattr(record, "contract_id", None) or "", record.provider
-            )
-            return {
-                "success": True,
-                "contract_id": getattr(record, "contract_id", None) or "",
-                "job_id": job_id,
-                "message": "Escrow already released",
-                "receipt_claim_tx_hash": claim_tx_hash,
-                "released_amount": _settled_leg_ait(record.released_amount, record.released_at, record.amount),
-                "refunded_amount": _settled_leg_ait(record.refunded_amount, None, record.amount),
-                "refund_tx_hash": record.refund_tx_hash,
-                "tx_hash": release_tx_hash,
-                "released_at": record.released_at.isoformat(),
-            }
+            return await _already_released_result(job_id, request, record, record.released_at)
         # ``settlement_failed`` is a demoted dead mark, not a settled row:
         # it reaches the gate below and re-drives like a locked row (the
         # v2-era guard still applies to its lock).
@@ -1906,14 +1963,21 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     contract_id = await _find_contract_id(mgr, job_id)
     if contract_id is None:
         raise HTTPException(status_code=404, detail=f"No escrow contract found for job_id={job_id}")
-    # The lock must be sealed before the release can apply — checked before any
-    # contract state is touched, like the settlement-key preamble above.
-    await _ensure_lock_sealed(job_id)
-    # And it must not be a v2-era lock: re-driving one pays out of the authority
-    # with no apply-time dedup. Demoted settlement_failed rows reach this too,
-    # so the guard is what keeps a sweeper demote + coordinator retry from
-    # replaying the v2 dead-set without an operator go.
-    await _refuse_v2_lock(job_id)
+    return _ReleasePlan(escrow_record, contract_id)
+
+
+async def _release_settle_locked(
+    mgr: Any,
+    job_id: str,
+    request: dict[str, Any],
+    requested_amount: Decimal | None,
+    plan: _ReleasePlan,
+    txn: EscrowMutation,
+) -> dict[str, Any]:
+    """Settle the release on-chain and record it, still holding the escrow's lock (#780)."""
+    job_tx_hash = request.get("job_tx_hash")
+    escrow_record = plan.escrow_record
+    contract_id = plan.contract_id
     contract = mgr.escrow_contracts.get(contract_id)
     if contract:
         for ms in contract.milestones:
@@ -1922,8 +1986,6 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         from ..contracts.escrow import EscrowState
 
         contract.state = EscrowState.JOB_COMPLETED
-    # Hold the per-contract lock across release and settlement so the rollback
-    # snapshot cannot interleave with a concurrent release of this contract.
     # E1: fixed-duration protected rentals do not accept arbitrary metered overrides
     # and must release the full frozen gross amount.
     if escrow_record and escrow_record.protected:
@@ -1959,218 +2021,218 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
             detail="escrow row unavailable for a protected contract; refusing to release without the frozen quote terms",
         )
 
-    async with mgr.release_lock(contract_id):
-        release_snapshot = mgr.snapshot_release_state(contract_id)
-        ok, message = await mgr.release_payment(contract_id, requested_amount)
-        if not ok:
-            raise HTTPException(status_code=400, detail=message)
-        released_amount = contract.released_amount if contract else Decimal(0)
+    release_snapshot = mgr.snapshot_release_state(contract_id)
+    ok, message = await mgr.release_payment(contract_id, requested_amount)
+    if not ok:
+        raise HTTPException(status_code=400, detail=message)
+    released_amount = contract.released_amount if contract else Decimal(0)
 
-        # E1: ensure the provider receives at least the frozen credit, never below
-        # the energy floor. Bump the settled amount up to the exact signed target.
-        if escrow_record and escrow_record.protected and escrow_record.energy_provider_credit_units is not None:
-            target_ait = units_to_ait(escrow_record.energy_provider_credit_units)
-            if released_amount < target_ait:
-                released_amount = target_ait
-                if contract:
-                    contract.released_amount = target_ait
-            if escrow_record.energy_net_floor_units is not None:
-                floor_ait = units_to_ait(escrow_record.energy_net_floor_units)
-                if released_amount < floor_ait:
-                    mgr.restore_after_failed_settlement(contract_id, release_snapshot)
-                    raise HTTPException(
-                        status_code=422,
-                        detail="Protected escrow release would underpay the energy floor",
-                    )
-        buyer_addr = contract.client_address if contract else ""
-        provider_addr = contract.agent_address if contract else ""
-        # What the buyer locked but the job did not consume. release_payment clamps an
-        # over-estimate to the lock, so this is never negative.
-        # sum()'s no-start-value overload types as "T | Literal[0]" (its empty-iterable
-        # fallback is int 0), which mypy then propagates as "Decimal | int" through
-        # billed_gross/unbilled_amount into the refund call below. Passing an explicit
-        # Decimal start pins the type and makes an empty milestones list (which
-        # create_contract never actually produces) return Decimal(0) instead of int 0.
-        locked_total = sum((Decimal(str(ms["amount"])) for ms in contract.milestones), Decimal(0)) if contract else Decimal(0)
-        billed_gross = locked_total if requested_amount is None else min(requested_amount, locked_total)
-        unbilled_amount = locked_total - billed_gross
-        # A7d: the sealed leg value is derived on whole compute-units by the
-        # same integer formula the settlement passes recompute with — the
-        # Decimal AIT path can cross an exact .5 rounding boundary and would
-        # leave the row permanently unproven.
-        from ..contracts.escrow import DEFAULT_FEE_BPS, expected_release_units
+    # E1: ensure the provider receives at least the frozen credit, never below
+    # the energy floor. Bump the settled amount up to the exact signed target.
+    if escrow_record and escrow_record.protected and escrow_record.energy_provider_credit_units is not None:
+        target_ait = units_to_ait(escrow_record.energy_provider_credit_units)
+        if released_amount < target_ait:
+            released_amount = target_ait
+            if contract:
+                contract.released_amount = target_ait
+        if escrow_record.energy_net_floor_units is not None:
+            floor_ait = units_to_ait(escrow_record.energy_net_floor_units)
+            if released_amount < floor_ait:
+                mgr.restore_after_failed_settlement(contract_id, release_snapshot)
+                raise HTTPException(
+                    status_code=422,
+                    detail="Protected escrow release would underpay the energy floor",
+                )
+    buyer_addr = contract.client_address if contract else ""
+    provider_addr = contract.agent_address if contract else ""
+    # What the buyer locked but the job did not consume. release_payment clamps an
+    # over-estimate to the lock, so this is never negative.
+    # sum()'s no-start-value overload types as "T | Literal[0]" (its empty-iterable
+    # fallback is int 0), which mypy then propagates as "Decimal | int" through
+    # billed_gross/unbilled_amount into the refund call below. Passing an explicit
+    # Decimal start pins the type and makes an empty milestones list (which
+    # create_contract never actually produces) return Decimal(0) instead of int 0.
+    locked_total = sum((Decimal(str(ms["amount"])) for ms in contract.milestones), Decimal(0)) if contract else Decimal(0)
+    billed_gross = locked_total if requested_amount is None else min(requested_amount, locked_total)
+    unbilled_amount = locked_total - billed_gross
+    # A7d: the sealed leg value is derived on whole compute-units by the
+    # same integer formula the settlement passes recompute with — the
+    # Decimal AIT path can cross an exact .5 rounding boundary and would
+    # leave the row permanently unproven.
+    from ..contracts.escrow import DEFAULT_FEE_BPS, expected_release_units
 
-        billed_units = ait_to_units(billed_gross)
-        # A7e: mirror the contract side — it only honors the row's quoted
-        # fee rate when the row is protected (escrow.py create/load paths
-        # all gate on record.protected). An unprotected row carrying
-        # energy_fee_basis_points must bill the default rate.
-        record_protected = bool(escrow_record.protected) if escrow_record else False
-        fee_bps = (
-            escrow_record.energy_fee_basis_points
-            if record_protected and escrow_record is not None and escrow_record.energy_fee_basis_points is not None
-            else DEFAULT_FEE_BPS
+    billed_units = ait_to_units(billed_gross)
+    # A7e: mirror the contract side — it only honors the row's quoted
+    # fee rate when the row is protected (escrow.py create/load paths
+    # all gate on record.protected). An unprotected row carrying
+    # energy_fee_basis_points must bill the default rate.
+    record_protected = bool(escrow_record.protected) if escrow_record else False
+    fee_bps = (
+        escrow_record.energy_fee_basis_points
+        if record_protected and escrow_record is not None and escrow_record.energy_fee_basis_points is not None
+        else DEFAULT_FEE_BPS
+    )
+    release_units = expected_release_units(
+        billed_units,
+        fee_bps=fee_bps,
+        protected=record_protected,
+        credit_units=escrow_record.energy_provider_credit_units if escrow_record else None,
+    )
+    if ait_to_units(released_amount) != release_units:
+        # Pathological divergence (e.g. an earlier milestone payout left
+        # contract.released_amount above billable−fee): sign the
+        # provable billed-derived value, not the contract's residue.
+        _logger.warning(
+            "Escrow release leg for job_id=%s: contract released_amount %s units != recomputed %s — signing the recomputed value",
+            job_id,
+            ait_to_units(released_amount),
+            release_units,
         )
-        release_units = expected_release_units(
-            billed_units,
-            fee_bps=fee_bps,
-            protected=record_protected,
-            credit_units=escrow_record.energy_provider_credit_units if escrow_record else None,
+    released_amount = units_to_ait(release_units)
+    # Reinvestment must be paid to the escrow's recorded provider; the caller must
+    # not be able to name an arbitrary stake address (CHOKE-POINT).
+    reinvest_address = provider_addr
+    auto_reinvest_pct = request.get("auto_reinvest_pct")
+
+    # Settle on-chain first; only a confirmed transaction counts as a release.
+    tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
+    if not tx_hash:
+        mgr.restore_after_failed_settlement(contract_id, release_snapshot)
+        _logger.error(
+            "Escrow release NOT settled on-chain: contract_id=%s job_id=%s provider=%s amount=%s. "
+            "The release was rolled back so it can be retried.",
+            contract_id,
+            job_id,
+            provider_addr,
+            released_amount,
         )
-        if ait_to_units(released_amount) != release_units:
-            # Pathological divergence (e.g. an earlier milestone payout left
-            # contract.released_amount above billable−fee): sign the
-            # provable billed-derived value, not the contract's residue.
-            _logger.warning(
-                "Escrow release leg for job_id=%s: contract released_amount %s units != recomputed %s — signing the recomputed value",
-                job_id,
-                ait_to_units(released_amount),
-                release_units,
-            )
-        released_amount = units_to_ait(release_units)
-        # Reinvestment must be paid to the escrow's recorded provider; the caller must
-        # not be able to name an arbitrary stake address (CHOKE-POINT).
-        reinvest_address = provider_addr
-        auto_reinvest_pct = request.get("auto_reinvest_pct")
-
-        # Settle on-chain first; only a confirmed transaction counts as a release.
-        tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
-        if not tx_hash:
-            mgr.restore_after_failed_settlement(contract_id, release_snapshot)
-            _logger.error(
-                "Escrow release NOT settled on-chain: contract_id=%s job_id=%s provider=%s amount=%s. "
-                "The release was rolled back so it can be retried.",
-                contract_id,
-                job_id,
-                provider_addr,
-                released_amount,
-            )
-            return {
-                "success": False,
-                "contract_id": contract_id,
-                "job_id": job_id,
-                "message": "Escrow release could not be settled on-chain; the provider was not paid",
-                "released_amount": str(released_amount),
-                "refunded_amount": "0",
-                "refund_tx_hash": None,
-                "tx_hash": None,
-                "settlement_status": "unsettled",
-                "released_at": None,
-                "reinvest_amount": "0",
-                "reinvest_stake_id": None,
-            }
-
-        # #687: seal the job's signed receipt on-chain with a RECEIPT_CLAIM. The
-        # claim carries the issuance record, so every node materialises the same
-        # row at apply; it queues behind the release's mempool nonce slot and is
-        # best-effort — a claim failure never rolls the release back.
-        claim_tx_hash = await _submit_receipt_claim_tx(request.get("receipt"), job_id, contract_id, provider_addr)
-
-        # Owed change (F1b/A6): the change leg is never submitted in-request.
-        # Signed now it would carry the release's own sealed nonce and collide
-        # on the (sender, N) mempool slot; waited-for it would out-live the
-        # caller's timeout on this block interval and invite a second
-        # submission on retry. The settlement sweeper's change pass pays owed
-        # change from sealed legs on a later tick — custody holds it, provably,
-        # until then. The response reports it explicitly; nothing is marked.
-        if unbilled_amount > 0:
-            _logger.info(
-                "Escrow change deferred to the change pass: job_id=%s buyer=%s owed=%s",
-                job_id,
-                buyer_addr,
-                unbilled_amount,
-            )
-
-        # No settle-time sweep attempt: every settlement leg is signed at the
-        # sealed authority nonce, so an in-request sweep can only lose the
-        # mempool (sender, nonce) slot to the release/refund that precedes it
-        # (F1). The residue is swept by the periodic pass in the settlement
-        # sweeper and by the retry surface on the next release call — both
-        # derive it from sealed chain legs, never from this request's legs.
-        released_at = datetime.now(UTC)
-        try:
-
-            def _write_released_row() -> None:
-                nonlocal released_at, record
-                with session_scope() as session:
-                    record = session.get(Escrow, job_id)
-                    if record:
-                        # A settlement_failed row carries the dead hash from the mark
-                        # the sweeper demoted; this re-drive's hash must replace it or
-                        # the row would keep pointing at the corpse. Other statuses
-                        # keep fill-if-empty: a settled row's original hash is fact.
-                        was_failed = record.status == "settlement_failed"
-                        # A reconciliation retry re-releases an escrow that already settled,
-                        # and _submit_payment_tx hands back the transaction that settled it.
-                        # Keep the original timestamp: it is when the provider was actually
-                        # paid. Overwriting it would date the payment to the retry instead.
-                        if record.released_at is not None:
-                            released_at = record.released_at
-                        else:
-                            record.released_at = released_at
-                        record.status = "released"
-                        record.released_amount = ait_to_units(released_amount)
-                        # refunded_amount/refund_tx_hash stay untouched: the change
-                        # pass marks them only from a sealed ESCROW_REFUND leg.
-                        if tx_hash:
-                            # A7: record the billed gross this submission consumed,
-                            # keyed by the leg's own hash — the passes prove the
-                            # sealed release by recomputing the route's fee rule
-                            # from it. A dropped leg's entry orphans (its hash never
-                            # seals); a same-hash dedup retry does not re-append.
-                            # getattr: the row-update block must never fail on a
-                            # missing attr — released_at is the load-bearing write.
-                            entries = list(getattr(record, "billed_legs", None) or [])
-                            if not any(e.get("tx_hash") == tx_hash for e in entries if isinstance(e, dict)):
-                                entries.append({"tx_hash": tx_hash, "billed": billed_units})
-                                record.billed_legs = entries
-                        if tx_hash and (not record.release_tx_hash or was_failed):
-                            record.release_tx_hash = tx_hash
-                        if job_tx_hash:
-                            record.job_tx_hash = job_tx_hash
-                        session.commit()
-
-            await run_in_threadpool(_write_released_row)
-        except Exception as e:
-            _logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
-        reinvest_stake_id = None
-        reinvest_amount = Decimal(0)
-        if auto_reinvest_pct and reinvest_address and released_amount > 0:
-            try:
-                pct = Decimal(str(auto_reinvest_pct))
-                if 0 < pct <= 100:
-                    reinvest_amount_ait = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
-                    if reinvest_amount_ait > 0:
-                        reinvest_amount_units = ait_to_units(reinvest_amount_ait)
-                        if reinvest_amount_units > 0:
-                            reinvest_stake_id = _auto_stake(reinvest_address, reinvest_amount_units, _chain_id(), job_id)
-                            reinvest_amount = reinvest_amount_ait
-                        _logger.info(
-                            "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
-                            job_id,
-                            reinvest_stake_id,
-                            reinvest_amount,
-                            pct,
-                        )
-            except Exception as e:
-                _logger.warning("Failed to auto-reinvest for job %s: %s", job_id, e)
-        _logger.info("Escrow released: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
         return {
-            "success": True,
+            "success": False,
             "contract_id": contract_id,
             "job_id": job_id,
-            "message": message,
+            "message": "Escrow release could not be settled on-chain; the provider was not paid",
             "released_amount": str(released_amount),
             "refunded_amount": "0",
             "refund_tx_hash": None,
-            "change_owed_amount": str(unbilled_amount) if unbilled_amount > 0 else "0",
-            "tx_hash": tx_hash,
-            "receipt_claim_tx_hash": claim_tx_hash,
-            "settlement_status": "settled" if tx_hash else "unsettled",
-            "released_at": released_at.isoformat(),
-            "reinvest_amount": str(reinvest_amount),
-            "reinvest_stake_id": reinvest_stake_id,
+            "tx_hash": None,
+            "settlement_status": "unsettled",
+            "released_at": None,
+            "reinvest_amount": "0",
+            "reinvest_stake_id": None,
         }
+
+    # #687: seal the job's signed receipt on-chain with a RECEIPT_CLAIM. The
+    # claim carries the issuance record, so every node materialises the same
+    # row at apply; it queues behind the release's mempool nonce slot and is
+    # best-effort — a claim failure never rolls the release back.
+    claim_tx_hash = await _submit_receipt_claim_tx(request.get("receipt"), job_id, contract_id, provider_addr)
+
+    # Owed change (F1b/A6): the change leg is never submitted in-request.
+    # Signed now it would carry the release's own sealed nonce and collide
+    # on the (sender, N) mempool slot; waited-for it would out-live the
+    # caller's timeout on this block interval and invite a second
+    # submission on retry. The settlement sweeper's change pass pays owed
+    # change from sealed legs on a later tick — custody holds it, provably,
+    # until then. The response reports it explicitly; nothing is marked.
+    if unbilled_amount > 0:
+        _logger.info(
+            "Escrow change deferred to the change pass: job_id=%s buyer=%s owed=%s",
+            job_id,
+            buyer_addr,
+            unbilled_amount,
+        )
+
+    # No settle-time sweep attempt: every settlement leg is signed at the
+    # sealed authority nonce, so an in-request sweep can only lose the
+    # mempool (sender, nonce) slot to the release/refund that precedes it
+    # (F1). The residue is swept by the periodic pass in the settlement
+    # sweeper and by the retry surface on the next release call — both
+    # derive it from sealed chain legs, never from this request's legs.
+    released_at = datetime.now(UTC)
+    try:
+
+        def _write_released_row(session: Session) -> None:
+            nonlocal released_at
+            record = session.get(Escrow, job_id)
+            if record:
+                # A settlement_failed row carries the dead hash from the mark
+                # the sweeper demoted; this re-drive's hash must replace it or
+                # the row would keep pointing at the corpse. Other statuses
+                # keep fill-if-empty: a settled row's original hash is fact.
+                was_failed = record.status == "settlement_failed"
+                # A reconciliation retry re-releases an escrow that already settled,
+                # and _submit_payment_tx hands back the transaction that settled it.
+                # Keep the original timestamp: it is when the provider was actually
+                # paid. Overwriting it would date the payment to the retry instead.
+                if record.released_at is not None:
+                    released_at = record.released_at
+                else:
+                    record.released_at = released_at
+                record.status = "released"
+                record.state = EscrowState.RELEASED.value
+                if record.contract_id is None:
+                    record.contract_id = contract_id
+                record.released_amount = ait_to_units(released_amount)
+                # refunded_amount/refund_tx_hash stay untouched: the change
+                # pass marks them only from a sealed ESCROW_REFUND leg.
+                if tx_hash:
+                    # A7: record the billed gross this submission consumed,
+                    # keyed by the leg's own hash — the passes prove the
+                    # sealed release by recomputing the route's fee rule
+                    # from it. A dropped leg's entry orphans (its hash never
+                    # seals); a same-hash dedup retry does not re-append.
+                    # getattr: the row-update block must never fail on a
+                    # missing attr — released_at is the load-bearing write.
+                    entries = list(getattr(record, "billed_legs", None) or [])
+                    if not any(e.get("tx_hash") == tx_hash for e in entries if isinstance(e, dict)):
+                        entries.append({"tx_hash": tx_hash, "billed": billed_units})
+                        record.billed_legs = entries
+                if tx_hash and (not record.release_tx_hash or was_failed):
+                    record.release_tx_hash = tx_hash
+                if job_tx_hash:
+                    record.job_tx_hash = job_tx_hash
+
+        await txn.write(_write_released_row)
+    except Exception as e:
+        _logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
+    reinvest_stake_id = None
+    reinvest_amount = Decimal(0)
+    if auto_reinvest_pct and reinvest_address and released_amount > 0:
+        try:
+            pct = Decimal(str(auto_reinvest_pct))
+            if 0 < pct <= 100:
+                reinvest_amount_ait = (released_amount * pct / 100).quantize(Decimal("0.00000001"))
+                if reinvest_amount_ait > 0:
+                    reinvest_amount_units = ait_to_units(reinvest_amount_ait)
+                    if reinvest_amount_units > 0:
+                        reinvest_stake_id = _auto_stake(reinvest_address, reinvest_amount_units, _chain_id(), job_id)
+                        reinvest_amount = reinvest_amount_ait
+                    _logger.info(
+                        "Escrow reinvestment: job_id=%s stake_id=%s amount=%s pct=%s",
+                        job_id,
+                        reinvest_stake_id,
+                        reinvest_amount,
+                        pct,
+                    )
+        except Exception as e:
+            _logger.warning("Failed to auto-reinvest for job %s: %s", job_id, e)
+    _logger.info("Escrow released: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
+    return {
+        "success": True,
+        "contract_id": contract_id,
+        "job_id": job_id,
+        "message": message,
+        "released_amount": str(released_amount),
+        "refunded_amount": "0",
+        "refund_tx_hash": None,
+        "change_owed_amount": str(unbilled_amount) if unbilled_amount > 0 else "0",
+        "tx_hash": tx_hash,
+        "receipt_claim_tx_hash": claim_tx_hash,
+        "settlement_status": "settled" if tx_hash else "unsettled",
+        "released_at": released_at.isoformat(),
+        "reinvest_amount": str(reinvest_amount),
+        "reinvest_stake_id": reinvest_stake_id,
+    }
 
 
 @router.post("/escrow/{job_id}/refund", summary="Refund escrow to buyer")
@@ -2183,29 +2245,64 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
     # cannot serve it, so it refuses before touching any state — the same gate
     # create and release already carry.
     _require_settlement_signing(job_id, "ESCROW_REFUND")
+    try:
+        async with escrow_mutation(job_id, session_scope) as txn:
+            plan = await _refund_read_locked(mgr, job_id, body)
+            if isinstance(plan, dict):
+                return plan
+            # The lock must be sealed before the refund can apply — same race as release.
+            await _ensure_lock_sealed(job_id)
+            # Same v2-era refusal as the release path: no route re-drive on a lock that
+            # predates per-escrow custody — operator repair only.
+            await _refuse_v2_lock(job_id)
+            return await _refund_settle_locked(mgr, job_id, plan, txn)
+    except EscrowBusy:
+        raise _escrow_busy(job_id) from None
+
+
+@dataclass(frozen=True)
+class _RefundRow:
+    """The escrow row as the refund's guards read it."""
+
+    record: Escrow | None
+    locked_units: int | None
+    refunded: bool
+    released: bool
+
+
+def _read_refund_row(job_id: str) -> _RefundRow:
+    with session_scope() as session:
+        record = session.get(Escrow, job_id)
+        if not record:
+            return _RefundRow(None, None, False, False)
+        return _RefundRow(record, record.amount, record.refunded_at is not None, record.released_at is not None)
+
+
+@dataclass(frozen=True)
+class _RefundPlan:
+    """What the locked read found: the contract to refund, why, and the chain-locked ceiling."""
+
+    contract_id: str
+    reason: str
+    locked_units: int | None
+
+
+async def _refund_read_locked(mgr: Any, job_id: str, body: dict[str, Any] | None) -> dict[str, Any] | _RefundPlan:
+    """Read the row under the escrow's cross-worker lock (#780): the stored result for a
+    refund that already happened, else what the settle step needs.
+
+    The sealed-lock and v2-era gates sit between this and the settle step, in the
+    route, so they stay on the route's own error list in the published OpenAPI spec.
+    """
     # Reconciliation/duplicate refund handling: a refund is only final when the
     # same job_id has an ESCROW_REFUND transaction on-chain.
-    record_refunded = False
-    record_released = False
-    record: Escrow | None = None
-    locked_units: int | None = None
+    row = _RefundRow(None, None, False, False)
     try:
-
-        def _read_refund_state() -> None:
-            nonlocal locked_units, record_refunded, record_released, record
-            with session_scope() as session:
-                record = session.get(Escrow, job_id)
-                if record:
-                    locked_units = record.amount
-                    if record.refunded_at is not None:
-                        record_refunded = True
-                    if record.released_at is not None:
-                        record_released = True
-
-        await run_in_threadpool(_read_refund_state)
+        row = await run_in_threadpool(_read_refund_row, job_id)
     except Exception as e:
         _logger.warning("Failed to check escrow refund state: %s", e)
-    if record_refunded:
+    record, locked_units = row.record, row.locked_units
+    if row.refunded:
         existing_refund = await _find_existing_refund(job_id)
         refund_tx_hash = existing_refund or (record.refund_tx_hash if record else None)
         if refund_tx_hash:
@@ -2216,7 +2313,7 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
                 "message": "Escrow already refunded",
                 "refund_tx_hash": refund_tx_hash,
             }
-    if record_released:
+    if row.released:
         raise HTTPException(
             status_code=400,
             detail=f"Escrow for job_id={job_id} has already been released",
@@ -2254,79 +2351,81 @@ async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict
         else:
             raise HTTPException(status_code=400, detail=f"Escrow already in final state: {contract.state.value}")
     reason = (body or {}).get("reason", "buyer_requested")
-    # The lock must be sealed before the refund can apply — same race as release.
-    await _ensure_lock_sealed(job_id)
-    # Same v2-era refusal as the release path: no route re-drive on a lock that
-    # predates per-escrow custody — operator repair only.
-    await _refuse_v2_lock(job_id)
+    return _RefundPlan(contract_id, reason, locked_units)
+
+
+async def _refund_settle_locked(mgr: Any, job_id: str, plan: _RefundPlan, txn: EscrowMutation) -> dict[str, Any]:
+    """Settle the refund on-chain and record it, still holding the escrow's lock (#780)."""
+    contract_id = plan.contract_id
+    reason = plan.reason
+    locked_units = plan.locked_units
     # B: a refund is only final once the on-chain ESCROW_REFUND transaction lands.
     # Apply the in-memory state, then settle on-chain, then roll back if settlement fails.
-    async with mgr.release_lock(contract_id):
-        refund_snapshot = mgr.snapshot_refund_state(contract_id)
-        success, message = await mgr.refund_contract(contract_id, reason)
-        if not success:
-            raise HTTPException(status_code=400, detail=message)
-        contract = mgr.escrow_contracts.get(contract_id)
-        refund_amount = contract.refunded_amount if contract else Decimal(0)
-        if locked_units is not None:
-            # The lock is the ceiling: this pays out of the node wallet, and the
-            # in-memory contract is a reconstruction of an on-chain fact rather
-            # than the fact itself. It has been wrong before -- by exactly the
-            # platform fee -- and a refund that overpays is money the operator
-            # cannot get back, so cap it at what the chain says was locked.
-            locked_ait = units_to_ait(locked_units)
-            if refund_amount > locked_ait:
-                _logger.error(
-                    "Refund for job_id=%s clamped from %s to the locked %s AIT (contract_id=%s)",
-                    job_id,
-                    refund_amount,
-                    locked_ait,
-                    contract_id,
-                )
-                refund_amount = locked_ait
-        tx_hash = await _submit_refund_tx(
-            _to_canonical(contract.client_address) if contract else "",
-            _to_canonical(contract.agent_address) if contract else "",
-            refund_amount,
-            job_id,
-            contract_id,
-        )
-        if not tx_hash:
-            mgr.restore_after_failed_refund(contract_id, refund_snapshot)
+    refund_snapshot = mgr.snapshot_refund_state(contract_id)
+    success, message = await mgr.refund_contract(contract_id, reason)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    contract = mgr.escrow_contracts.get(contract_id)
+    refund_amount = contract.refunded_amount if contract else Decimal(0)
+    if locked_units is not None:
+        # The lock is the ceiling: this pays out of the node wallet, and the
+        # in-memory contract is a reconstruction of an on-chain fact rather
+        # than the fact itself. It has been wrong before -- by exactly the
+        # platform fee -- and a refund that overpays is money the operator
+        # cannot get back, so cap it at what the chain says was locked.
+        locked_ait = units_to_ait(locked_units)
+        if refund_amount > locked_ait:
             _logger.error(
-                "Escrow refund NOT settled on-chain: contract_id=%s job_id=%s buyer=%s amount=%s. "
-                "The refund was rolled back so it can be retried.",
-                contract_id,
+                "Refund for job_id=%s clamped from %s to the locked %s AIT (contract_id=%s)",
                 job_id,
-                contract.client_address if contract else None,
                 refund_amount,
+                locked_ait,
+                contract_id,
             )
-            return {
-                "success": False,
-                "contract_id": contract_id,
-                "job_id": job_id,
-                "message": "Escrow refund could not be settled on-chain; the buyer was not refunded",
-                "refund_tx_hash": None,
-            }
-        refunded_at = datetime.now(UTC)
-        try:
+            refund_amount = locked_ait
+    tx_hash = await _submit_refund_tx(
+        _to_canonical(contract.client_address) if contract else "",
+        _to_canonical(contract.agent_address) if contract else "",
+        refund_amount,
+        job_id,
+        contract_id,
+    )
+    if not tx_hash:
+        mgr.restore_after_failed_refund(contract_id, refund_snapshot)
+        _logger.error(
+            "Escrow refund NOT settled on-chain: contract_id=%s job_id=%s buyer=%s amount=%s. "
+            "The refund was rolled back so it can be retried.",
+            contract_id,
+            job_id,
+            contract.client_address if contract else None,
+            refund_amount,
+        )
+        return {
+            "success": False,
+            "contract_id": contract_id,
+            "job_id": job_id,
+            "message": "Escrow refund could not be settled on-chain; the buyer was not refunded",
+            "refund_tx_hash": None,
+        }
+    refunded_at = datetime.now(UTC)
+    try:
 
-            def _write_refunded_row() -> None:
-                nonlocal record
-                with session_scope() as session:
-                    record = session.get(Escrow, job_id)
-                    if record:
-                        record.status = "refunded"
-                        record.refunded_at = refunded_at
-                        record.refund_tx_hash = tx_hash
-                        # Record what moved, not just that something did; a NULL here
-                        # makes every reader fall back to reporting the whole lock.
-                        record.refunded_amount = ait_to_units(refund_amount)
-                        session.commit()
+        def _write_refunded_row(session: Session) -> None:
+            record = session.get(Escrow, job_id)
+            if record:
+                record.status = "refunded"
+                record.state = EscrowState.REFUNDED.value
+                if record.contract_id is None:
+                    record.contract_id = contract_id
+                record.refunded_at = refunded_at
+                record.refund_tx_hash = tx_hash
+                # Record what moved, not just that something did; a NULL here
+                # makes every reader fall back to reporting the whole lock.
+                record.refunded_amount = ait_to_units(refund_amount)
 
-            await run_in_threadpool(_write_refunded_row)
-        except Exception as e:
-            _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
+        await txn.write(_write_refunded_row)
+    except Exception as e:
+        _logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
     _logger.info("Escrow refunded: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
     return {
         "success": True,
