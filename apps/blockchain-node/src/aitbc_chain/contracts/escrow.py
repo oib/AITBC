@@ -38,6 +38,17 @@ def log_info_old(message: str) -> None:
     logger.info("[EscrowManager] %s", message)
 
 
+def contract_id_for(buyer: str, provider: str, job_id: str) -> str:
+    """Deterministic contract id for one (buyer, provider, job_id).
+
+    The single id derivation: the same job must answer with the same
+    contract_id from every RPC worker and every code path (#780). Any
+    time-based or random input would fork the id per caller, which is how
+    two --workers processes returned different ids for one job.
+    """
+    return "escrow_" + hashlib.sha256(f"{buyer}:{provider}:{job_id}".encode()).hexdigest()[:16]
+
+
 class EscrowState(Enum):
     CREATED = "created"
     FUNDED = "funded"
@@ -475,10 +486,7 @@ class EscrowManager:
                     )
                 ).all()
                 for record in records:
-                    contract_id = (
-                        "escrow_"
-                        + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
-                    )
+                    contract_id = contract_id_for(record.buyer, record.provider, record.job_id)
                     if contract_id in self.escrow_contracts:
                         continue
                     amount = units_to_ait(record.amount)
@@ -622,9 +630,7 @@ class EscrowManager:
                     record = await self._reconstruct_escrow_from_chain(session, job_id)
                 if not record:
                     return None
-                contract_id = (
-                    "escrow_" + hashlib.sha256(f"{record.buyer}:{record.provider}:{record.job_id}".encode()).hexdigest()[:16]
-                )
+                contract_id = contract_id_for(record.buyer, record.provider, record.job_id)
                 amount = units_to_ait(record.amount)
                 state = EscrowState.FUNDED
                 if record.released_at:
@@ -711,11 +717,8 @@ class EscrowManager:
         return validated_milestones
 
     def _generate_contract_id(self, client_address: str, agent_address: str, job_id: str) -> str:
-        """Generate unique contract ID"""
-        import hashlib
-
-        content = f"{client_address}:{agent_address}:{job_id}:{time.time()}"
-        return hashlib.sha256(content.encode()).hexdigest()[:16]
+        """Deterministic contract id — see contract_id_for (#780)."""
+        return contract_id_for(client_address, agent_address, job_id)
 
     async def fund_contract(self, contract_id: str, payment_tx_hash: str, verified_lock: dict[str, Any]) -> tuple[bool, str]:
         """Fund escrow contract against a caller-verified ESCROW_LOCK.
