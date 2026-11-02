@@ -122,3 +122,56 @@ class TestRateLimitingEnvironment:
         monkeypatch.setenv("ENVIRONMENT", "development")
 
         assert _is_rate_limiting_enabled() is False
+
+
+class TestRateLimiterKeyRetention:
+    """RATELIMIT-KEY-RETENTION-1 (#793): keys that never come back must not
+    live in the table forever, and the table has a hard cap."""
+
+    def test_stale_keys_are_swept_without_being_queried_again(self, monkeypatch):
+        from aitbc.security.rate_limiter import RateLimiter
+
+        limiter = RateLimiter(rate=100, per=1)
+        base = 10_000_000_000.0
+        clock = {"now": base}
+        monkeypatch.setattr("aitbc.security.rate_limiter.time.time", lambda: clock["now"])
+
+        for i in range(50):
+            limiter.is_allowed(f"ip-{i}")
+        assert len(limiter._requests) == 50
+
+        # Past the window, one unrelated call triggers the amortised sweep.
+        clock["now"] = base + 2.0
+        limiter.is_allowed("fresh-ip")
+
+        assert set(limiter._requests) == {"fresh-ip"}
+
+    def test_tracked_key_cap_evicts_stalest(self, monkeypatch):
+        import aitbc.security.rate_limiter as rl_mod
+        from aitbc.security.rate_limiter import RateLimiter
+
+        monkeypatch.setattr(rl_mod, "_MAX_TRACKED_KEYS", 5)
+        limiter = RateLimiter(rate=100, per=60)
+        base = 10_000_000_000.0
+        clock = {"now": base}
+        monkeypatch.setattr("aitbc.security.rate_limiter.time.time", lambda: clock["now"])
+
+        for i in range(5):
+            clock["now"] = base + i * 0.001
+            limiter.is_allowed(f"ip-{i}")
+        clock["now"] = base + 1.0
+        limiter.is_allowed("ip-new")
+
+        assert len(limiter._requests) <= 5
+        assert "ip-new" in limiter._requests
+        assert "ip-0" not in limiter._requests  # stalest evicted first
+
+    def test_is_allowed_and_get_remaining_unchanged(self):
+        from aitbc.security.rate_limiter import RateLimiter
+
+        limiter = RateLimiter(rate=2, per=60)
+        assert limiter.is_allowed("k") is True
+        assert limiter.is_allowed("k") is True
+        assert limiter.is_allowed("k") is False
+        assert limiter.get_remaining("k") == 0
+        assert limiter.get_remaining("other") == 2
