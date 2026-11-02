@@ -3,8 +3,8 @@ from __future__ import annotations
 import atexit
 import os
 import shutil
-import socket
 import tempfile
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -25,6 +25,7 @@ os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 # ``settings`` directly in their conftest.
 os.environ.setdefault("AITBC_CHAIN_ENV_FILE", "")
 
+from aitbc.testing.endpoint_probe import url_reachable
 from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Block, Receipt, Transaction  # noqa: F401 - ensure models imported for metadata
@@ -117,64 +118,27 @@ def _check_redis() -> bool:
     if _REDIS_AVAILABLE is not None:
         return _REDIS_AVAILABLE
     url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-    # Parse host/port from redis://host:port/db or rediss://... or unix://...
-    try:
-        if "://" not in url:
-            _REDIS_AVAILABLE = False
-            return False
-        scheme, rest = url.split("://", 1)
-        if scheme == "unix":
-            path = rest.split("?", 0)[0]
-            _REDIS_AVAILABLE = os.path.exists(path)
-            return _REDIS_AVAILABLE
-        # redis:// or rediss:// — extract host:port
-        host_part = rest.split("/", 0)[0].split("?", 0)[0]
-        if "@" in host_part:
-            host_part = host_part.split("@", 1)[1]
-        host, _, port_str = host_part.partition(":")
-        port = int(port_str) if port_str else 6379
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(1.0)
-        try:
-            s.connect((host or "localhost", port))
-            _REDIS_AVAILABLE = True
-        except OSError:
-            _REDIS_AVAILABLE = False
-        finally:
-            s.close()
-    except Exception:
-        _REDIS_AVAILABLE = False
+    # redis://host:port/db, rediss://... or unix:///path/to.sock?db=0
+    if url.startswith("unix://"):
+        _REDIS_AVAILABLE = os.path.exists(urlsplit(url).path)
+    else:
+        _REDIS_AVAILABLE = url_reachable(url, 6379)
     return _REDIS_AVAILABLE
 
 
 def _check_postgres() -> bool:
-    """Fast TCP probe to the Postgres host/port from DATABASE_URL / MEMPOOL_DB_URL."""
+    """Fast TCP probe to the Postgres host/port from MEMPOOL_DB_URL / DATABASE_URL.
+
+    Only an explicitly set URL counts. There is deliberately no ``localhost:5432``
+    fallback: requires_postgres tests create and drop tables, and a host that runs a
+    Postgres of its own (node2 does) would have them pointed at it just by being up.
+    Point one of the variables at a scratch database to run them.
+    """
     global _POSTGRES_AVAILABLE
     if _POSTGRES_AVAILABLE is not None:
         return _POSTGRES_AVAILABLE
-    # Try the most likely env vars; default to localhost:5432
-    url = os.environ.get("DATABASE_URL") or os.environ.get("MEMPOOL_DB_URL") or "postgresql://localhost:5432/aitbc"
-    try:
-        if "://" not in url:
-            _POSTGRES_AVAILABLE = False
-            return False
-        _scheme, rest = url.split("://", 1)
-        host_part = rest.split("/", 0)[0].split("?", 0)[0]
-        if "@" in host_part:
-            host_part = host_part.split("@", 1)[1]
-        host, _, port_str = host_part.partition(":")
-        port = int(port_str) if port_str else 5432
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(1.0)
-        try:
-            s.connect((host or "localhost", port))
-            _POSTGRES_AVAILABLE = True
-        except OSError:
-            _POSTGRES_AVAILABLE = False
-        finally:
-            s.close()
-    except Exception:
-        _POSTGRES_AVAILABLE = False
+    url = os.environ.get("MEMPOOL_DB_URL") or os.environ.get("DATABASE_URL")
+    _POSTGRES_AVAILABLE = bool(url) and url_reachable(url, 5432)
     return _POSTGRES_AVAILABLE
 
 
