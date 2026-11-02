@@ -24,6 +24,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant MAX_FEE = 500; // Maximum 5% fee
     uint256 public constant MIN_CONFIRMATIONS = 3;
     uint256 public constant BRIDGE_TIMEOUT = 24 hours;
+    uint256 public constant COMPLETION_TIMEOUT = 24 hours;
     uint256 public constant MAX_BRIDGE_AMOUNT = 1000000 * 1e18; // Max 1M tokens per bridge
 
     // Enums
@@ -65,7 +66,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         string name;
         bool isActive;
         address bridgeContract;
-        uint256 minConfirmations;
         uint256 avgBlockTime;
     }
 
@@ -79,6 +79,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
 
     // State variables
     uint256 public requestCounter;
+    // Owner-set quorum over the live validator set, clamped at confirm time
+    // to [1, activeValidators.length] so a dead-validator drop can never
+    // freeze the bridge (B's design note (b), #795).
+    uint256 public requiredConfirmations;
     uint256 public totalBridgedAmount;
     uint256 public totalFeesCollected;
     address public feeRecipient;
@@ -147,9 +151,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
 
     constructor(address _feeRecipient) {
         feeRecipient = _feeRecipient;
+        requiredConfirmations = MIN_CONFIRMATIONS;
 
         // Initialize with Ethereum mainnet
-        _addChain(1, ChainType.ETHEREUM, "Ethereum", true, address(0), 12, 12);
+        _addChain(1, ChainType.ETHEREUM, "Ethereum", true, address(0), 12);
     }
 
     /**
@@ -262,8 +267,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         validators[msg.sender].totalValidations++;
 
         // Check if we have enough confirmations
-        uint256 requiredConfirmations = _getRequiredConfirmations(request.sourceChainId);
-        if (request.confirmations >= requiredConfirmations) {
+        if (request.confirmations >= _requiredConfirmations()) {
             request.status = BridgeStatus.CONFIRMED;
             request.confirmedAt = block.timestamp;
         }
@@ -321,12 +325,21 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
     {
         BridgeRequest storage request = bridgeRequests[requestId];
 
-        require(request.status == BridgeStatus.PENDING, "Request not pending");
+        // PENDING cancels once the initiation timeout passes; CONFIRMED
+        // expires on the source chain once the completion timeout passes —
+        // the only exit for a confirmed-but-never-completed request (#795).
+        // Caller is the request's sender or the owner. The refund is the
+        // principal only (ruling 2C): the fee paid for the attempt.
+        if (request.status == BridgeStatus.PENDING) {
+            require(block.timestamp > request.createdAt + BRIDGE_TIMEOUT, "Bridge not expired");
+        } else {
+            require(request.status == BridgeStatus.CONFIRMED, "Request not pending or confirmed");
+            require(block.timestamp > request.confirmedAt + COMPLETION_TIMEOUT, "Confirmed request not expired");
+        }
         require(
             msg.sender == request.sender || msg.sender == owner(),
             "Not authorized to cancel"
         );
-        require(block.timestamp > request.createdAt + BRIDGE_TIMEOUT, "Bridge not expired");
 
         // Refund tokens to sender. Only request.amount is still held: the fee was
         // already forwarded to feeRecipient in initiateBridge, so refunding
@@ -447,7 +460,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
      * @param chainType The chain type
      * @param name The chain name
      * @param bridgeContract The bridge contract address on that chain
-     * @param minConfirmations Minimum confirmations required
      * @param avgBlockTime Average block time in seconds
      */
     function addSupportedChain(
@@ -455,7 +467,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         ChainType chainType,
         string memory name,
         address bridgeContract,
-        uint256 minConfirmations,
         uint256 avgBlockTime
     ) external onlyOwner {
         require(chainId > 0, "Invalid chain ID");
@@ -467,7 +478,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
             name: name,
             isActive: true,
             bridgeContract: bridgeContract,
-            minConfirmations: minConfirmations,
             avgBlockTime: avgBlockTime
         });
 
@@ -534,6 +544,16 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         feeRecipient = newFeeRecipient;
     }
 
+    /**
+     * @dev Sets the confirmation quorum (#795). Bound to the live validator
+     * set: q must fit inside [1, activeValidators.length] at set time, and
+     * confirmBridge clamps again so later removals cannot freeze the bridge.
+     */
+    function setRequiredConfirmations(uint256 q) external onlyOwner {
+        require(q >= 1 && q <= activeValidators.length, "Quorum outside live validator set");
+        requiredConfirmations = q;
+    }
+
     function pause() external onlyOwner {
         _pause();
     }
@@ -555,9 +575,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         return ethSignedMessageHash.recover(signature) == signer;
     }
 
-    function _getRequiredConfirmations(uint256 chainId) internal view returns (uint256) {
-        ChainConfig storage chain = supportedChains[chainId];
-        return chain.minConfirmations > 0 ? chain.minConfirmations : MIN_CONFIRMATIONS;
+    function _requiredConfirmations() internal view returns (uint256) {
+        uint256 q = requiredConfirmations > 0 ? requiredConfirmations : MIN_CONFIRMATIONS;
+        uint256 live = activeValidators.length > 0 ? activeValidators.length : 1;
+        return q < live ? q : live;
     }
 
     function _addChain(
@@ -566,7 +587,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         string memory name,
         bool isActive,
         address bridgeContract,
-        uint256 minConfirmations,
         uint256 avgBlockTime
     ) internal {
         supportedChains[chainId] = ChainConfig({
@@ -575,7 +595,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
             name: name,
             isActive: isActive,
             bridgeContract: bridgeContract,
-            minConfirmations: minConfirmations,
             avgBlockTime: avgBlockTime
         });
 
