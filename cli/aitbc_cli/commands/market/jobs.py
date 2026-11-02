@@ -631,7 +631,7 @@ def _run_ffmpeg(
     result_hash = resp_data.get("result_hash", "")
 
     info(f"Done in {elapsed:.1f}s — {actual_hours:.4f} hours processing — actual cost: {actual_cost:.8f} AIT")
-    info(f"Output file: {resp_data.get('output_path')}")
+    info(f"Output CID: {resp_data.get('output_cid') or resp_data.get('output_path')}")
 
     # Post software_job TX as proof of work
     job_tx_hash = None
@@ -685,7 +685,7 @@ def _run_ffmpeg(
             "job_id": job_id,
             "offer_id": offer_id,
             "input_file": input_file,
-            "output_path": resp_data.get("output_path"),
+            "output_cid": resp_data.get("output_cid") or resp_data.get("output_path"),
             "processing_hours": round(actual_hours, 4),
             "actual_cost_ait": str(round(actual_cost, 6)),
             "elapsed_seconds": round(elapsed, 2),

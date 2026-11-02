@@ -28,6 +28,11 @@ logger = get_logger(__name__)
 _device = os.getenv("FFMPEG_GPU_DEVICE", "0")
 _hw_accel = os.getenv("FFMPEG_HW_ACCEL", "cuda")
 
+# Island IPFS daemon — the delivered output is uploaded here so the buyer can
+# fetch it, then the local file is deleted (#799). Same env name the miner's
+# task executor uses.
+_ISLAND_IPFS_API = os.getenv("ISLAND_IPFS_API", "http://127.0.0.1:5002")
+
 # Request limit. Per-request cost tracks upload size -- the transcode child and
 # the output read-back for hashing both scale with it -- so this bounds what a
 # single caller can make the service allocate. It is deliberately coupled to the
@@ -121,6 +126,23 @@ def _safe_suffix(filename: str | None) -> str:
     if not ext or len(ext) > 10 or not ext[1:].isalnum():
         return ".mp4"
     return ext.lower()
+
+
+def _ipfs_add_file(path: str, filename: str) -> str:
+    """Upload a local file to the island IPFS daemon; returns the CID.
+
+    Streams from disk — outputs can be as large as the 512 MB upload cap, so
+    they must not be buffered whole (#799)."""
+    import requests
+
+    with open(path, "rb") as f:
+        resp = requests.post(
+            f"{_ISLAND_IPFS_API}/api/v0/add",
+            files={"file": (filename, f)},
+            timeout=600,
+        )
+    resp.raise_for_status()
+    return str(resp.json().get("Hash"))
 
 
 async def _spool_upload(file: UploadFile, suffix: str) -> str:
@@ -326,10 +348,19 @@ async def process_video(
         # Get file size
         file_size = os.path.getsize(output_path)
 
+        # Deliver via the island IPFS like the other exec handlers (#799,
+        # ruling 1A): the caller gets the CID and the local file is deleted in
+        # the finally below instead of leaking in the unit's tmpfs.
+        try:
+            output_cid = await asyncio.to_thread(_ipfs_add_file, output_path, f"output.{output_format}")
+        except Exception as e:
+            logger.error("IPFS upload of ffmpeg output failed: %s", e)
+            raise HTTPException(status_code=502, detail="output upload to IPFS failed") from e
+
         return JSONResponse(
             {
                 "status": "completed",
-                "output_path": output_path,
+                "output_cid": output_cid,
                 "file_size_bytes": file_size,
                 "processing_time_seconds": elapsed,
                 "processing_time_hours": round(elapsed / 3600, 4),
@@ -343,11 +374,11 @@ async def process_video(
         )
 
     finally:
-        # Cleanup input file
-        if os.path.exists(input_path):
-            os.unlink(input_path)
-        # Note: output file is kept for the caller to retrieve
-        # Caller should delete it after use
+        # Cleanup input and output files — the output is delivered through
+        # IPFS, keeping it local was the #799 tmpfs leak.
+        for _p in (input_path, output_path):
+            if os.path.exists(_p):
+                os.unlink(_p)
 
 
 if __name__ == "__main__":
