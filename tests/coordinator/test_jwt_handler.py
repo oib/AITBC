@@ -267,6 +267,69 @@ class TestJWTAuth:
         assert exc_info.value.status_code == 403
 
 
+class TestJWTTypeSeparation:
+    """AUTH-JWT-TYPE-CONFUSION-1 (#790): a refresh token must not authenticate
+    where an access token is required, an access token must not refresh, and
+    a token with no ``type`` claim is refused (fail closed — this code has
+    always written the claim, so its absence means a foreign/forged token)."""
+
+    SECRET = "test_secret_key_for_testing_that_is_at_least_32_characters"
+
+    def _refresh_token(self, handler: JWTHandler) -> str:
+        return handler.generate_refresh_token({"user_id": "user1", "role": "admin"})["refresh_token"]
+
+    def test_refresh_token_refused_by_dict_validate(self):
+        """The dict-style access path (get_current_user, websocket, agent_auth)."""
+        handler = JWTHandler(secret_key=self.SECRET)
+        validation = handler.validate_token(self._refresh_token(handler))
+        assert validation["valid"] is False
+
+    def test_refresh_token_refused_by_exception_decode(self):
+        """The exception-style access path (verify_access_token, AuthMiddleware)."""
+        handler = JWTHandler(secret_key=self.SECRET)
+        auth = JWTAuth(secret=self.SECRET)
+        with pytest.raises(HTTPException) as exc_info:
+            auth.decode_token(self._refresh_token(handler))
+        assert exc_info.value.status_code == 401
+
+    def test_access_token_refused_by_refresh(self):
+        handler = JWTHandler(secret_key=self.SECRET)
+        access = handler.generate_token({"user_id": "user1", "role": "admin"})["token"]
+        result = handler.refresh_access_token(access)
+        assert result["status"] == "error"
+
+    def test_refresh_token_still_refreshes(self):
+        handler = JWTHandler(secret_key=self.SECRET)
+        result = handler.refresh_access_token(self._refresh_token(handler))
+        assert result["status"] == "success"
+        assert result["token"]
+
+    def test_no_type_claim_refused_by_both_styles(self):
+        token = jwt.encode({"sub": "user1", "role": "admin"}, self.SECRET, algorithm="HS256")
+        handler = JWTHandler(secret_key=self.SECRET)
+        assert handler.validate_token(token)["valid"] is False
+        auth = JWTAuth(secret=self.SECRET)
+        with pytest.raises(HTTPException) as exc_info:
+            auth.decode_token(token)
+        assert exc_info.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_refuses_refresh(self, monkeypatch):
+        """The audit's reproduced path: a refresh token for admin_001 came
+        back as role=admin before the fix."""
+        from fastapi.security import HTTPAuthorizationCredentials
+
+        from aitbc.auth import middleware
+        from aitbc.auth.jwt import get_jwt_handler
+
+        handler = get_jwt_handler()
+        refresh = self._refresh_token(handler)
+        creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=refresh)
+        with pytest.raises(HTTPException) as exc_info:
+            await middleware.get_current_user(creds)
+        assert exc_info.value.status_code == 401
+
+
 class TestAPIKeyManager:
     """Test APIKeyManager class"""
 
