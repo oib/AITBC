@@ -145,6 +145,39 @@ def test_marked_leg_dead_is_demoted_with_hash_kept(session):
     assert row.release_tx_hash == "0xdead"  # kept: the detector still flags the leg
 
 
+def test_demoted_row_goes_back_to_funded_in_the_state_column(session):
+    _row(session, status="released", state="released", released_at=OLD_MARK, release_tx_hash="0xdead")
+    ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert row.status == "settlement_failed"
+    assert row.state == "funded"
+
+
+def test_remarked_row_is_released_again_in_the_state_column(session):
+    _tx(session, "ESCROW_RELEASE", "0xlate-seal")
+    _row(session, status="settlement_failed", state="funded", released_at=None, release_tx_hash="0xlate-seal")
+    ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert row.status == "released"
+    assert row.state == "released"
+
+
+def test_verified_row_keeps_its_state_column_untouched(session):
+    """A healthy row is not rewritten, so a NULL state (not yet backfilled) stays NULL here."""
+    _tx(session, "ESCROW_RELEASE", "0xsealed-release")
+    _row(
+        session,
+        status="released",
+        state=None,
+        released_at=OLD_MARK,
+        release_tx_hash="0xsealed-release",
+        released_amount=100,
+    )
+    ess.sweep_once(session, NOW, set())
+    row = _refresh(session, session.get(Escrow, JOB))
+    assert row.state is None
+
+
 def test_mixed_row_demotes_only_the_dead_leg(session):
     _tx(session, "ESCROW_RELEASE", "0xsealed-release")
     _row(

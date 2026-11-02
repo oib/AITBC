@@ -39,7 +39,7 @@ apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:123
 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:548
 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:636
 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:97
-apps/blockchain-node/src/aitbc_chain/contracts/escrow.py:697
+apps/blockchain-node/src/aitbc_chain/contracts/escrow.py:698
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:347
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:348
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:437

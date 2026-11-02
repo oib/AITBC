@@ -69,7 +69,7 @@ from aitbc.network import SharedHttpClient
 from aitbc.utils import units_to_ait
 
 from ..config import settings
-from ..contracts.escrow import DEFAULT_FEE_BPS, get_escrow_manager, recompute_release_proofs
+from ..contracts.escrow import DEFAULT_FEE_BPS, get_escrow_manager, recompute_release_proofs, row_state_for
 from ..mempool import compute_tx_hash
 from ..database import session_scope
 from ..logger import get_logger
@@ -266,6 +266,9 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
             row.status = "refunded"
         elif row.status in _SETTLED_STATUSES:
             row.status = "settlement_failed"
+        # The lifecycle column follows the legs, not the status: a demoted row still
+        # holds its funds (FUNDED) and a re-marked one is settled again.
+        row.state = row_state_for(row.released_at, row.refunded_at)
         session.add(row)
         session.commit()
     return stats
