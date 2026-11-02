@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 import hmac
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.auth import api_key_manager, get_jwt_handler, get_current_user, Permission, Role, permission_manager
@@ -158,8 +158,12 @@ def generate_api_key(
 
 @router.post("/api-key/validate")
 @rate_limit(rate=200, per=60)
-def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
-    """Validate API key"""
+def validate_api_key(request: Request, api_key: Annotated[str, Body(embed=True)]) -> dict[str, Any]:
+    """Validate API key.
+
+    The key travels in the JSON body (``{"api_key": "..."}``), never in the
+    URL — a query parameter lands in nginx access logs in plaintext.
+    """
     try:
         result = api_key_manager.validate_api_key(api_key)
         if not result["valid"]:
@@ -174,12 +178,19 @@ def validate_api_key(request: Request, api_key: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.delete("/api-key/{api_key}")
+@router.delete("/api-key")
 @rate_limit(rate=50, per=60)
 def revoke_api_key(
-    request: Request, api_key: str, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
+    request: Request,
+    x_api_key: Annotated[str, Header()],
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
 ) -> dict[str, Any]:
-    """Revoke API key"""
+    """Revoke API key.
+
+    The key travels in the ``X-API-Key`` header, never in the URL — a path
+    segment lands in nginx access logs in plaintext.
+    """
+    api_key = x_api_key
     try:
         if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
