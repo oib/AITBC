@@ -79,8 +79,10 @@ class _FakeSession:
 
     def get_bind(self):
         # escrow_mutation asks which dialect this is; not Postgres, so it takes the
-        # in-process lock and the row write goes through a session of its own.
-        return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
+        # in-process lock and the row write goes through a session of its own. No
+        # database file either, so there is no cross-worker file lock to take.
+        engine = SimpleNamespace(url=SimpleNamespace(database=None))
+        return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"), engine=engine)
 
     def __getattr__(self, name):
         # SQLAlchemy session surface the route may call but the fake does not
