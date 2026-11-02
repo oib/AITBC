@@ -320,6 +320,10 @@ class Escrow(ChainBase, table=True):
             ["account.chain_id", "account.address"],
             name="fk_escrow_provider_account",
         ),
+        # contract_id is derived from (buyer, provider, job_id) and job_id is the primary
+        # key, so uniqueness here is a guard on the derivation rather than a second key.
+        # NULLs stay legal: a row from before #780 has none until its backfill ran.
+        Index("uq_escrow_contract_id", "contract_id", unique=True),
     )
 
     job_id: str = Field(primary_key=True)
@@ -362,6 +366,21 @@ class Escrow(ChainBase, table=True):
     energy_net_floor_units: int | None = None
     energy_provider_credit_units: int | None = None
     energy_fee_basis_points: int | None = None
+    # #780 (b): the row is the contract. Until now the escrow's lifecycle lived in each RPC
+    # worker's EscrowManager and this table held only the money facts, so two workers kept
+    # two copies of the contract (and generated two contract_ids). These columns move the
+    # rest into chain.db, where every worker reads the same answer. All are NULL on a row
+    # written before the migration (see the escrow_contract_state revision) until its
+    # backfill ran; readers derive the value from the older columns instead of trusting NULL.
+    contract_id: str | None = None  # contracts.escrow.contract_id_for(buyer, provider, job_id)
+    state: str | None = None  # contracts.escrow.EscrowState value
+    expires_at: datetime | None = None
+    fee_bps: int | None = None  # platform fee in basis points (avoids Decimal in the row)
+    milestones: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON))
+    current_milestone: int = Field(default=0)
+    dispute_reason: str | None = None
+    dispute_evidence: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON))
+    resolution: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
 
 class CrossChainTransfer(ChainBase, table=True):
