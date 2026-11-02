@@ -202,13 +202,25 @@ class JWTAuth:
             HTTPException: If token is invalid.
         """
         try:
-            return jwt.decode(token, self.secret, algorithms=[self.algorithm])
+            payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
         except jwt.PyJWTError as e:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             ) from e
+        # Fail closed on the `type` claim: this class only issues access
+        # tokens, and a 7-day refresh token must not authenticate where an
+        # access token is required (AUTH-JWT-TYPE-CONFUSION-1). A token with
+        # no type claim is refused — JWTAuth/JWTHandler have always written
+        # one, so its absence means a foreign/forged token.
+        if payload.get("type") != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return payload
 
     def verify_token(self, token: str, required_role: str | None = None) -> dict[str, Any]:
         """Verify token and optionally check role.
@@ -335,11 +347,19 @@ class JWTHandler:
             logger.error("Error generating refresh token: %s", e)
             return {"status": "error", "message": "Token generation failed"}
 
-    def validate_token(self, token: str) -> dict[str, Any]:
-        """Validate JWT token and return payload."""
+    def validate_token(self, token: str, expected_type: str | None = "access") -> dict[str, Any]:
+        """Validate JWT token and return payload.
+
+        Fail closed on the ``type`` claim: every caller except the refresh
+        path wants an access token, so the default is ``"access"`` and a
+        token with no type claim is refused (JWTAuth/JWTHandler have always
+        written one — its absence means a foreign or forged token).
+        ``refresh_access_token`` passes ``expected_type="refresh"``;
+        ``None`` disables the check for a caller that genuinely wants any
+        type.
+        """
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": True})
-            return {"status": "success", "valid": True, "payload": payload}
         except jwt.ExpiredSignatureError:
             return {"status": "error", "valid": False, "message": "Token has expired"}
         except jwt.InvalidTokenError:
@@ -347,11 +367,14 @@ class JWTHandler:
         except Exception as e:
             logger.error("Error validating token: %s", e)
             return {"status": "error", "valid": False, "message": "Token validation failed"}
+        if expected_type is not None and payload.get("type") != expected_type:
+            return {"status": "error", "valid": False, "message": "Invalid token type"}
+        return {"status": "success", "valid": True, "payload": payload}
 
     def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
         """Generate new access token from refresh token."""
         try:
-            validation = self.validate_token(refresh_token)
+            validation = self.validate_token(refresh_token, expected_type="refresh")
             if not validation["valid"] or validation["payload"].get("type") != "refresh":
                 return {"status": "error", "message": "Invalid or expired refresh token"}
             payload = validation["payload"]
