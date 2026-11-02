@@ -4,6 +4,7 @@ Market service for managing market operations
 
 import hashlib
 import hmac
+import os
 import re
 import time
 from datetime import UTC, datetime
@@ -27,6 +28,37 @@ from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, Offer
 from ..domain.offer_status import spellings_of, to_offer_status
 
 logger = get_logger(__name__)
+
+
+def max_page_size() -> int:
+    """Server-side ceiling for list endpoints (MARKET_MAX_PAGE_SIZE, default 500).
+
+    Read per call so tests and env reloads take effect without a restart.
+    """
+    try:
+        return max(1, int(os.getenv("MARKET_MAX_PAGE_SIZE", "500")))
+    except ValueError:
+        return 500
+
+
+def _pin_sample_limit() -> int:
+    """Max pin/ls lines the offer health check counts (HEALTH_PIN_SAMPLE_LIMIT)."""
+    try:
+        return max(1, int(os.getenv("HEALTH_PIN_SAMPLE_LIMIT", "10000")))
+    except ValueError:
+        return 10000
+
+
+async def _count_pin_lines(pin_resp: Any) -> int:
+    """Count non-empty pin/ls lines as a bounded stream — never reads the body whole."""
+    count = 0
+    async for line in pin_resp.aiter_lines():
+        if line.strip():
+            count += 1
+            if count >= _pin_sample_limit():
+                break
+    return count
+
 
 _SECRET_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -298,6 +330,7 @@ class MarketService:
                 stmt = stmt.where(MarketOffer.gpu_model == gpu_model)
             if chain_id:
                 stmt = stmt.where(MarketOffer.chain_id == chain_id)
+            stmt = stmt.limit(max_page_size())
             logger.info("Executing database query for offers")
             result = list((await self.session.execute(stmt)).all())
             logger.info("Retrieved %s offers", len(result))
@@ -556,6 +589,7 @@ class MarketService:
                 query = query.where(SoftwareService.service_type == service_type)  # type: ignore[arg-type]
             if status:
                 query = query.where(SoftwareService.status == status)  # type: ignore[arg-type]
+            query = query.limit(max_page_size())
             result = await self.session.execute(query)
             local_services = result.scalars().all()
 
@@ -1701,23 +1735,24 @@ class MarketService:
                 stmt = stmt.where(col(MarketJob.state) == state)
             if offer_id:
                 stmt = stmt.where(col(MarketJob.offer_id) == offer_id)
-            stmt = stmt.order_by(col(MarketJob.created_at).desc()).limit(limit)
+            stmt = stmt.order_by(col(MarketJob.created_at).desc()).limit(min(limit, max_page_size()))
 
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())
 
-            out = []
-            for job in jobs:
-                payment = None
-                if job.payment_id:
-                    payment = await self.session.get(MarketJobPayment, job.payment_id)
-                out.append(
-                    {
-                        **self._job_to_dict(job),
-                        "payment": self._payment_to_dict(payment) if payment else None,
-                    }
-                )
-            return out
+            payment_ids = [job.payment_id for job in jobs if job.payment_id]
+            payments: dict[str, MarketJobPayment] = {}
+            if payment_ids:
+                pres = await self.session.execute(select(MarketJobPayment).where(col(MarketJobPayment.id).in_(payment_ids)))
+                payments = {p.id: p for p in pres.scalars().all()}
+
+            return [
+                {
+                    **self._job_to_dict(job),
+                    "payment": self._payment_to_dict(payments[job.payment_id]) if job.payment_id in payments else None,
+                }
+                for job in jobs
+            ]
         except Exception as e:
             logger.error("Error in list_market_jobs: %s: %s", type(e).__name__, e)
             raise
@@ -1994,8 +2029,7 @@ class MarketService:
                         async with httpx.AsyncClient(timeout=10.0) as client:
                             pin_resp = await client.post(pin_url, params={"stream": "true"}, timeout=10.0)
                             if pin_resp.status_code == 200:
-                                pins = [line for line in pin_resp.text.splitlines() if line.strip()]
-                                pinned_count = len(pins)
+                                pinned_count = await _count_pin_lines(pin_resp)
                     except Exception:
                         pass
 

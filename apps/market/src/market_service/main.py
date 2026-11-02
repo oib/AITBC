@@ -44,7 +44,7 @@ from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 
 from .config import settings  # noqa: E402
 from .domain.offer_status import try_to_offer_status  # noqa: E402
-from .services.market_service import MarketService, _secret_matches, public_job_view  # noqa: E402
+from .services.market_service import MarketService, _secret_matches, max_page_size, public_job_view  # noqa: E402
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
 
@@ -961,6 +961,7 @@ async def list_market_jobs(
     """
     try:
         logger.info("GET /v1/market/jobs called")
+        limit = min(limit, max_page_size())
         signer, error_response = _signed_jobs_request(
             route="/v1/market/jobs",
             signer_address=signer_address,
@@ -1491,7 +1492,7 @@ async def get_transactions(
     try:
         transactions = []
         if action == "offer" or not action:
-            result = await session.execute(select(MarketOffer))
+            result = await session.execute(select(MarketOffer).limit(max_page_size()))
             offers = result.scalars().all()
             transactions.extend(
                 [
