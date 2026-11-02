@@ -430,6 +430,8 @@ class MarketService:
             OfferFSM(current).transition(OfferStatus.RESERVED)
 
             bid = await self._create_bid(offer_id, booking_data, offer)
+            await self.session.refresh(offer)  # _create_bid's commit expired it (#820)
+            provider = offer.provider
             offer.status = "booked"
             self.session.add(offer)
             await self.session.commit()
@@ -438,7 +440,7 @@ class MarketService:
             return {
                 "bid_id": bid.id,
                 "offer_id": offer_id,
-                "provider": offer.provider,
+                "provider": provider,
                 "status": "pending",
                 "message": "Bid created successfully",
                 "escrow_contract_id": None,
@@ -1096,6 +1098,8 @@ class MarketService:
             )
             self.session.add(bid)
             await self.session.commit()
+            # commit() expires ORM attrs; refresh before touching bid.id (#820)
+            await self.session.refresh(bid)
             logger.info("Created bid %s for offer %s", bid.id, offer_id)
             return bid
         except Exception as e:
@@ -1297,6 +1301,7 @@ class MarketService:
             offer = await self.get_offer(bid.offer_id)
             if not offer:
                 raise ValueError(f"Offer not found: {bid.offer_id}")
+            offer_id = offer.id  # read pre-commit; later commits expire it (#820)
 
             if bid.status == "completed":
                 return {
@@ -1337,10 +1342,10 @@ class MarketService:
             self.session.add(offer)
             await self.session.commit()
 
-            logger.info("Bid %s completed; offer %s delisted", bid_id, offer.id)
+            logger.info("Bid %s completed; offer %s delisted", bid_id, offer_id)
             return {
                 "bid_id": bid_id,
-                "offer_id": offer.id,
+                "offer_id": offer_id,
                 "tx_hash": tx_hash,
                 "status": "completed",
                 "message": "Bid completed successfully",
