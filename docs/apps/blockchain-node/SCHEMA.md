@@ -191,7 +191,10 @@ Alembic is the production migration path. Migrations live in
 with `alembic.ini` at `apps/blockchain-node/`. Existing revisions cover the
 `(chain_id, address)` composite account key (`50fb6691025c`), block
 relationships (`80bc0020bde2`), the transaction payload job-id index
-(`b7f3c1a90d24`), and the chain-scoped escrow FKs (`c9a4f1e2b73d`), among
+(`b7f3c1a90d24`), the chain-scoped escrow FKs (`c9a4f1e2b73d`), and the escrow
+contract-state columns (`d4e8b2f61a39`: `contract_id`, `state`, `expires_at`,
+`fee_bps`, `milestones`, `current_milestone`, `dispute_*`, `resolution`, with a
+backfill of existing rows; #780), among
 others.
 
 ```bash
