@@ -33787,6 +33787,18 @@
           },
           "constraints": {
             "$ref": "#/components/schemas/Constraints-Output"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "The job's deadline as Unix epoch seconds; a miner stops holding a long-running job once it passes."
           }
         },
         "type": "object",

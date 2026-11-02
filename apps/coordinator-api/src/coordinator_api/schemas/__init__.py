@@ -441,6 +441,10 @@ class AssignedJob(BaseModel):
     job_id: str
     payload: dict[str, Any]
     constraints: Constraints
+    expires_at: float | None = Field(
+        default=None,
+        description="The job's deadline as Unix epoch seconds; a miner stops holding a long-running job once it passes.",
+    )
 
 
 class JobResultSubmit(BaseModel):
