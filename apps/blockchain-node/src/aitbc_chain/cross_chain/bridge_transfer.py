@@ -1669,7 +1669,15 @@ class BridgeTransferMixin(BridgeBase):
         try:
             self._store_header_batch(chain_id, pending)  # type: ignore[attr-defined]
         except Exception:
-            logger.exception("Failed to store bridge header batch for %s at height=%s", chain_id, at_height)
+            # at_height is None for the trailing partial flush, so name the batch itself.
+            logger.exception(
+                "Failed to store bridge header batch for %s at height=%s (batch %s..%s, %d headers)",
+                chain_id,
+                at_height,
+                pending[0]["height"],
+                pending[-1]["height"],
+                len(pending),
+            )
             return False
         return True
 
