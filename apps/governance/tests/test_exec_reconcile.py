@@ -11,14 +11,17 @@ cannot answer.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
+
 
 from governance_service.domain.governance import Proposal, ProposalExecutionLog, ProposalStatus
-from governance_service.services.governance_service import GovernanceService
+from governance_service.services.governance_service import GovernanceService, _RECONCILE_PROBE_CONCURRENCY
 
 
 class _Session:
@@ -119,3 +122,109 @@ async def test_already_executed_is_a_noop():
     svc = GovernanceService(session=_Session(), blockchain_client=client)  # type: ignore[arg-type]
     assert await svc._reconcile_executed_onchain(proposal) is proposal
     client.get_sealed_governance_proposal.assert_not_called()
+
+
+class _ListSession:
+    """Stub session for the list path: the proposals SELECT returns a fixed
+    set; every other statement (the conditional stamp UPDATE) reports the
+    configured rowcount."""
+
+    def __init__(self, proposals, rowcount=1):
+        self.added = []
+        self.statements = []
+        self._proposals = proposals
+        self.rowcount = rowcount
+        self.commits = 0
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def commit(self):
+        self.commits += 1
+
+    async def refresh(self, obj):
+        pass
+
+    async def execute(self, stmt):
+        self.statements.append(str(stmt))
+        return SimpleNamespace(
+            scalars=lambda: SimpleNamespace(all=lambda: self._proposals, first=lambda: None),
+            rowcount=self.rowcount,
+        )
+
+
+class TestListReconcile:
+    """GOV-LIST-RECONCILE-COST-1: the list path probes bounded-concurrent,
+    caches a 'not executed' answer briefly, and stamps conditionally so a
+    racing second writer adds no second reconcile log row."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_neg_cache(self):
+        GovernanceService._reconcile_neg_cache.clear()
+        yield
+        GovernanceService._reconcile_neg_cache.clear()
+
+    async def test_probes_are_bounded_concurrent(self):
+        proposals = [_proposal() for _ in range(10)]
+        for i, p in enumerate(proposals):
+            p.proposal_id = f"prop_{i}"
+        in_flight = max_in_flight = calls = 0
+
+        async def probe(pid, chain):
+            nonlocal in_flight, max_in_flight, calls
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            calls += 1
+            await asyncio.sleep(0.02)
+            in_flight -= 1
+            return None
+
+        client = SimpleNamespace(get_sealed_governance_proposal=probe)
+        svc = GovernanceService(session=_ListSession(proposals), blockchain_client=client)  # type: ignore[arg-type]
+        await svc.list_proposals()
+
+        assert calls == len(proposals)
+        assert 1 < max_in_flight <= _RECONCILE_PROBE_CONCURRENCY
+
+    async def test_negative_cache_skips_the_second_probe(self):
+        proposals = [_proposal() for _ in range(5)]
+        for i, p in enumerate(proposals):
+            p.proposal_id = f"prop_{i}"
+        calls = 0
+
+        async def probe(pid, chain):
+            nonlocal calls
+            calls += 1
+            return None
+
+        client = SimpleNamespace(get_sealed_governance_proposal=probe)
+        svc = GovernanceService(session=_ListSession(proposals), blockchain_client=client)  # type: ignore[arg-type]
+        await svc.list_proposals()
+        await svc.list_proposals()
+
+        assert calls == len(proposals)
+
+    async def test_a_lost_stamp_race_adds_no_second_log_row(self):
+        """The conditional UPDATE reporting 0 rows changed means the other
+        writer already stamped: refresh, no ProposalExecutionLog."""
+        session = _ListSession([], rowcount=0)
+        proposal = _proposal()
+        client = _client(sealed={"executed": True, "execute_tx_hash": "0x1", "execute_block_height": 1})
+        svc = GovernanceService(session=session, blockchain_client=client)  # type: ignore[arg-type]
+
+        await svc._stamp_executed_from_chain(proposal, {"executed": True, "execute_tx_hash": "0x1", "execute_block_height": 1})
+
+        assert [o for o in session.added if isinstance(o, ProposalExecutionLog)] == []
+        assert session.commits == 0
+
+    async def test_the_stamp_is_a_conditional_update(self):
+        """Losing the race must be detectable: the UPDATE carries
+        `status != executed` so the second writer changes zero rows."""
+        session = _ListSession([])
+        proposal = _proposal()
+        client = _client(sealed={"executed": True, "execute_tx_hash": "0x1", "execute_block_height": 1})
+        svc = GovernanceService(session=session, blockchain_client=client)  # type: ignore[arg-type]
+
+        await svc._stamp_executed_from_chain(proposal, {"executed": True, "execute_tx_hash": "0x1", "execute_block_height": 1})
+
+        assert any("status !=" in stmt for stmt in session.statements), session.statements
