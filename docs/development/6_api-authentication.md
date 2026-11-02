@@ -41,6 +41,11 @@ per SDK constructor, or through the CLI's client-side env var:
 export AITBC_API_KEY="your_api_key_here"   # picked up by `aitbc` commands
 ```
 
+Until per-miner credentials exist, a shared `MINER_API_KEYS` key is the
+trust boundary: every holder may act as any miner it names, and the
+per-miner route checks (path id vs `X-Miner-ID`) only stop mistakes
+between holders, not a malicious one.
+
 ### SDK Configuration
 
 ```python

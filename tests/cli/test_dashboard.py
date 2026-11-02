@@ -136,6 +136,29 @@ class TestDashboardShop:
     @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
     @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
     @patch("aitbc_cli.commands.dashboard._auth_headers")
+    def test_shop_dashboard_sends_x_miner_id_matching_path(
+        self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj
+    ):
+        """The coordinator client must send X-Miner-ID equal to the --miner-id in the
+        path, or the cross-miner guard (#804) 403s the jobs/earnings reads."""
+        mock_auth.return_value = {"X-Api-Key": "miner-shared-key"}
+        mock_client = mock_client_class.return_value
+        mock_client.get.return_value = {}
+        mock_client.get_json.return_value = {}
+        mock_client.post.return_value = {}
+
+        from aitbc_cli.commands.dashboard import shop
+
+        result = runner.invoke(shop, ["--miner-id", "shop-1"], obj=dashboard_ctx_obj)
+
+        assert result.exit_code == 0, result.output
+        # The first AITBCHTTPClient built is the coordinator client (line ~:391).
+        coord_call = mock_client_class.call_args_list[0]
+        assert coord_call.kwargs["headers"]["X-Miner-ID"] == "shop-1"
+
+    @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
+    @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.dashboard._auth_headers")
     def test_shop_dashboard_post_405_falls_back_to_get(
         self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj
     ):
