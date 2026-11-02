@@ -319,7 +319,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.unit }} logged errors on {{ $labels.node }}"
+          summary: "{{ $labels.unit }} logged errors on {{ $labels.instance }}"
           description: "{{ $labels.unit }} produced {{ $value }} err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u {{ $labels.unit }} -p err."
 
       # AITBCJournalScanStale: aitbc-journal-errors.timer runs every 5 min and
