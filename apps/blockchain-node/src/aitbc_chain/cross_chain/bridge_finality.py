@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy import update
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlmodel import col, select
 
 from aitbc.bridge import BridgeBlockHeader as SDKHeader, validate_block_header
@@ -103,6 +105,35 @@ class BridgeFinalityMixin(BridgeBase):
                 self._update_finality(chain_id, header, session)
                 return header
 
+    @staticmethod
+    def _insert_header_once(session: Any, row: BridgeBlockHeader) -> bool:
+        """INSERT ``row`` unless its (chain_id, height) is already stored (#828).
+
+        The existence check in ``_store_header_batch`` and the INSERT are two
+        statements, so a second process mirroring the same newest header (another
+        ``--workers`` process, or the island unit, whose ``SUPPORTED_CHAINS`` lists
+        the same chain) can store it in between; the commit then died on
+        ``uix_bridge_block_chain_height`` and rolled back the whole batch. The
+        conflict is now answered in the statement itself: True when this call
+        inserted the row, False when someone else already had, so the caller
+        counts and confirms only what it stored.
+        """
+        dialect = session.get_bind().dialect.name
+        insert: Any
+        if dialect == "sqlite":
+            insert = sqlite_insert
+        elif dialect == "postgresql":
+            insert = postgresql_insert
+        else:
+            session.add(row)
+            return True
+        result = session.execute(
+            insert(BridgeBlockHeader)
+            .values(**row.model_dump(exclude={"id"}))
+            .on_conflict_do_nothing(index_elements=["chain_id", "height"])
+        )
+        return bool(result.rowcount == 1)
+
     def _store_header_batch(self, chain_id: str, headers: list[dict[str, Any]]) -> int:
         """Store a batch of local-chain headers with ONE commit (BRIDGE-FINALIZER-LOCK-1).
 
@@ -128,20 +159,20 @@ class BridgeFinalityMixin(BridgeBase):
                 ).first()
                 if existing:
                     continue
-                session.add(
-                    BridgeBlockHeader(
-                        chain_id=chain_id,
-                        height=height,
-                        hash=header_data["hash"],
-                        parent_hash=header_data.get("parent_hash", "0x" + "00" * 32),
-                        proposer=header_data["proposer"],
-                        state_root=header_data.get("state_root", ""),
-                        bridge_state_root=header_data.get("bridge_state_root", ""),
-                        signature=header_data.get("signature", ""),
-                        confirmation_count=0,
-                        finality_confirmed=False,
-                    )
+                row = BridgeBlockHeader(
+                    chain_id=chain_id,
+                    height=height,
+                    hash=header_data["hash"],
+                    parent_hash=header_data.get("parent_hash", "0x" + "00" * 32),
+                    proposer=header_data["proposer"],
+                    state_root=header_data.get("state_root", ""),
+                    bridge_state_root=header_data.get("bridge_state_root", ""),
+                    signature=header_data.get("signature", ""),
+                    confirmation_count=0,
+                    finality_confirmed=False,
                 )
+                if not self._insert_header_once(session, row):
+                    continue
                 stored += 1
                 self._increment_confirmations(chain_id, height, session, commit=False)
             session.flush()
