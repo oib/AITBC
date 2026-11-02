@@ -298,6 +298,21 @@ class TestBackfillSettlementLegs:
         assert record.released_amount == PAID
         assert record.refunded_amount == CHANGE
 
+    def test_repair_moves_the_state_column_with_the_legs(self, session):
+        _lock(session)
+        _release(session)
+        _refund(session, at=T0 + timedelta(seconds=3))
+        record = _replica_row(
+            session,
+            status="refunded",
+            state="refunded",
+            released_at=None,
+            refunded_at=T0 + timedelta(seconds=3),
+        )
+
+        assert backfill_settlement_legs(session, record) is True
+        assert record.state == "released"
+
     def test_settlement_missing_from_this_nodes_chain_is_not_invented(self, session):
         _lock(session)
         record = _replica_row(session)

@@ -414,6 +414,7 @@ def backfill_settlement_legs(session: Any, record: Escrow) -> bool:
         record.status = "released"
         record.released_at = legs["released_at"]
         record.refunded_at = None
+        record.state = row_state_for(record.released_at, record.refunded_at)
     session.add(record)
     session.commit()
     logger.info(
