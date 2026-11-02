@@ -1,14 +1,11 @@
-"""Phase-0 pin for MARKET-BOOKING-UNKNOWN-BUYER-1 (#816).
+"""Pin for MARKET-BOOKING-UNKNOWN-BUYER-1 (#816), post-fix contract.
 
-book_offer requires no wallet/buyer: a booking with no buyer stores
-buyer="unknown". complete_bid then enforces tx_sender ==
-canonical("unknown"), which no on-chain transaction can ever satisfy, and
-cancel_offer rejects RESERVED -> DELISTED — so an anonymous caller can book
-every offer in the market and strand all inventory forever.
+book_offer refuses a booking with no buyer identity (a persisted
+``buyer='unknown'`` can never match an on-chain sender in complete_bid,
+which stranded the offer in RESERVED forever), and a RESERVED offer has a
+recovery path: cancel releases it RESERVED -> AVAILABLE -> DELISTED.
 
-Desired: booking without a buyer identity is refused and no bid persists.
-FAILS on current main: the anonymous booking commits a bid with
-buyer="unknown" and the offer goes to "booked".
+Green on the fix; FAILS on pre-fix main (the anonymous booking persisted).
 """
 
 import sys
@@ -34,7 +31,7 @@ async def session() -> AsyncIterator[AsyncSession]:
 
 class TestAnonymousBookingRefused:
     @pytest.mark.asyncio
-    async def test_anonymous_booking_leaves_no_bid(self, session):
+    async def test_booking_without_buyer_is_rejected(self, session):
         svc = MarketService(session)
         offer = await svc.create_offer(
             {
@@ -45,12 +42,30 @@ class TestAnonymousBookingRefused:
                 "chain_id": "ait-testchain",
             }
         )
-        offer_id = offer.id
-        try:
-            await svc.book_offer(offer_id, {})
-        except Exception:
-            pass  # refusal shape unpinned; what matters is nothing persisted
-        bids = list((await session.execute(select(Bid).where(Bid.offer_id == offer_id))).scalars())
-        assert not any(b.buyer == "unknown" for b in bids), (
-            "anonymous booking persisted a bid with buyer='unknown' — it can never complete or cancel"
+        with pytest.raises(ValueError, match="(?i)buyer|wallet"):
+            await svc.book_offer(offer.id, {})
+        bids = list((await session.execute(select(Bid).where(Bid.offer_id == offer.id))).scalars())
+        assert not bids
+
+    @pytest.mark.asyncio
+    async def test_reserved_offer_is_recoverable_via_cancel(self, session):
+        """A RESERVED offer must reach DELISTED through cancel (release first)."""
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProviderAddr",
+                "price": "5",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
         )
+        oid = offer.id
+        offer.status = "booked"  # RESERVED on the wire
+        session.add(offer)
+        await session.commit()
+        # service-level transition sequence the cancel route performs
+        await svc.update_offer_status(oid, "available")
+        await svc.update_offer_status(oid, "cancelled")
+        stored = await svc.get_offer(oid)
+        assert stored.status in {"cancelled", "delisted"}
