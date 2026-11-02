@@ -12,6 +12,8 @@ still reach the head.
 
 from __future__ import annotations
 
+import asyncio
+import time
 from unittest.mock import patch
 
 import pytest
@@ -184,3 +186,71 @@ class TestBackfillCommitBatching:
         assert stored == 0
         stored = bridge._sync_local_chain_headers(CHAIN_ID)  # type: ignore[attr-defined]
         assert stored == HEAD_HEIGHT
+
+
+class TestFinalizerDeadlineMargin:
+    """BRIDGE-FINALIZER-DEADLINE-MARGIN-1: the cooperative deadline sits at
+    ``_FINALIZER_DEADLINE_FRACTION`` of the wait_for watchdog, so a pass that
+    stops on its own deadline returns before the watchdog fires and is not
+    counted as abandoned. A pass that ignores the deadline (wedged) still
+    trips the watchdog and is counted."""
+
+    async def _run_finalizer_briefly(self, bridge, seconds: float) -> None:
+        task = asyncio.create_task(bridge.start_finalizer())
+        try:
+            await asyncio.sleep(seconds)
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+    def _patch_chains(self, bridge, monkeypatch, pass_timeout: float) -> None:
+        monkeypatch.setattr(bridge, "_known_chains", lambda: [CHAIN_ID])
+        monkeypatch.setattr(settings, "bridge_finalizer_pass_timeout", pass_timeout)
+        monkeypatch.setattr(settings, "bridge_monitor_interval", 60)
+
+    @pytest.mark.asyncio
+    async def test_deadline_bound_pass_returns_before_the_watchdog(self, bridge, monkeypatch):
+        """A pass that honors its deadline finishes inside the margin and is
+        not reported abandoned — before the fix, deadline == watchdog meant it
+        always tripped wait_for and logged 'worker thread abandoned'."""
+        self._patch_chains(bridge, monkeypatch, pass_timeout=1.0)
+        reports: list[str] = []
+        monkeypatch.setattr(bridge, "_report_abandoned_pass", lambda abandoned, cid, t: reports.append(cid))
+        seen: list[float] = []
+
+        def deadline_bound_pass(cid, relayer, deadline):
+            seen.append(deadline)
+            while time.monotonic() < deadline:
+                time.sleep(0.01)
+
+        monkeypatch.setattr(bridge, "_finalizer_pass", deadline_bound_pass)
+
+        start = time.monotonic()
+        # Run past the 1.0 s watchdog budget: reports == [] is only possible
+        # if the pass stopped on its own deadline and wait_for never timed
+        # out. Under the old code the pass returns at about 1.0 s, races the
+        # 1.0 s watchdog, and is reported abandoned.
+        await self._run_finalizer_briefly(bridge, 1.3)
+
+        assert reports == []
+        assert len(seen) == 1
+        offset = seen[0] - start
+        assert 0 < offset < 0.95 * 1.0
+
+    @pytest.mark.asyncio
+    async def test_a_wedged_pass_is_still_abandoned(self, bridge, monkeypatch, caplog):
+        """The watchdog stays the backstop: a worker that ignores the deadline
+        and runs past the full pass budget is abandoned and counted."""
+        self._patch_chains(bridge, monkeypatch, pass_timeout=0.5)
+
+        def wedged_pass(cid, relayer, deadline):
+            time.sleep(5)
+
+        monkeypatch.setattr(bridge, "_finalizer_pass", wedged_pass)
+
+        with caplog.at_level("ERROR"):
+            await self._run_finalizer_briefly(bridge, 0.8)
+
+        assert bridge._finalizer_abandoned[CHAIN_ID] == 1
+        assert any("abandoned" in r.message for r in caplog.records)
