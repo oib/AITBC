@@ -19,7 +19,10 @@ import hmac
 import json
 import os
 import secrets
+import shutil
+import tempfile
 import threading
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -34,6 +37,16 @@ logger = get_logger(__name__)
 # /var/lib/aitbc/api_keys.json. The /var/lib/aitbc directory is setgid aitbc,
 # so new files inherit the aitbc group.
 _LOCK_FILE_MODE = 0o660
+
+# Deferred usage stats are folded into the JSON store at most this often;
+# every validate used to fsync-rewrite the whole file.
+_USAGE_FLUSH_SECONDS = 300.0
+
+
+class CorruptKeyStoreError(RuntimeError):
+    """api_keys.json is unreadable JSON — it must never be treated as an
+    empty store and never overwritten (a truncated write would otherwise
+    erase every key for good, APIKEY-STORE-ATOMIC-1)."""
 
 
 class APIKeyManager:
@@ -55,6 +68,9 @@ class APIKeyManager:
         self._lock_path = f"{self.storage_path}.lock"
         self._prepare_lock_file()
         self._lock = filelock.FileLock(self._lock_path, mode=_LOCK_FILE_MODE)
+        # key-hash -> {"last_used": str, "usage_count": int} pending a flush
+        self._usage: dict[str, dict[str, Any]] = {}
+        self._usage_flushed_at = time.monotonic()
         with self._lock:
             self.api_keys: dict[str, Any] = self._load_keys()
 
@@ -100,27 +116,70 @@ class APIKeyManager:
                     self.api_keys = migrated
                     self._save_keys()
                 return migrated
-        except (OSError, json.JSONDecodeError, KeyError, TypeError) as e:
+        except json.JSONDecodeError as e:
+            self._quarantine_corrupt_file(e)
+            raise CorruptKeyStoreError(f"{self.storage_path} is not readable JSON") from e
+        except (OSError, KeyError, TypeError) as e:
             logger.error("Error loading API keys: %s", e)
         return {}
+
+    def _quarantine_corrupt_file(self, cause: BaseException) -> None:
+        """Preserve the unreadable store beside a .corrupt copy and log it.
+
+        Never overwrite an existing .corrupt file — the first copy is the
+        forensic one; later corruptions get a timestamped sibling.
+        """
+        corrupt_path = f"{self.storage_path}.corrupt"
+        try:
+            if os.path.exists(corrupt_path):
+                corrupt_path = f"{self.storage_path}.{int(time.time())}.corrupt"
+            shutil.copy2(self.storage_path, corrupt_path)
+        except OSError as copy_error:
+            logger.critical("API key store at %s is corrupt AND could not be preserved: %s", self.storage_path, copy_error)
+        else:
+            logger.critical(
+                "API key store at %s is corrupt (%s); preserved as %s. Refusing to read it as empty or overwrite it — restore it or delete it deliberately.",
+                self.storage_path,
+                cause,
+                corrupt_path,
+            )
 
     @staticmethod
     def _looks_like_digest(key: str) -> bool:
         """Heuristic to detect already-hashed keys (64-char hex digest)."""
         return len(key) == 64 and all(c in "0123456789abcdefABCDEF" for c in key)
 
-    def _save_keys(self) -> None:
-        """Save API keys to persistent storage.
+    def _save_keys(self) -> bool:
+        """Save API keys to persistent storage, atomically.
+
+        Write-temp-fsync-replace: a kill mid-write leaves either the old file
+        or the new one, never a truncated mix. The temp file is created mode
+        0600 (mkstemp default, chmod'ed explicitly before the replace) in the
+        store's own directory so os.replace is same-filesystem atomic.
+        Returns False on a logged write failure.
 
         This is the unguarded write helper; callers must hold ``self._lock``.
         """
+        directory = os.path.dirname(self.storage_path) or "."
+        tmp_path = ""
         try:
-            os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
-            with open(self.storage_path, "w") as f:
+            os.makedirs(directory, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(dir=directory, prefix=".api_keys.", suffix=".tmp")
+            with os.fdopen(fd, "w") as f:
                 json.dump(self.api_keys, f, indent=2)
-            os.chmod(self.storage_path, 0o600)
+                f.flush()
+                os.fsync(f.fileno())
+            os.chmod(tmp_path, 0o600)
+            os.replace(tmp_path, self.storage_path)
+            return True
         except (OSError, TypeError) as e:
             logger.error("Error saving API keys: %s", e)
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            return False
 
     def _refresh(self) -> None:
         """Reload the in-memory key store from disk.
@@ -171,6 +230,8 @@ class APIKeyManager:
                     "permissions": permissions or [],
                     "created_at": key_data["created_at"],
                 }
+        except CorruptKeyStoreError:
+            return {"status": "error", "message": "API key store is corrupt; refusing to operate"}
         except (OSError, TypeError, KeyError) as e:
             logger.error("Error generating API key: %s", e)
             return {"status": "error", "message": "API key generation failed"}
@@ -188,19 +249,44 @@ class APIKeyManager:
                 matched_key, key_data = self._find_key_data(api_key)
                 if key_data is None:
                     return {"status": "error", "valid": False, "message": "Invalid API key"}
-                key_data["last_used"] = datetime.now(UTC).isoformat()
-                key_data["usage_count"] += 1
-                self._save_keys()
+                # usage stats live in memory and flush periodically — a
+                # successful validate must not fsync-rewrite the key file
+                # under the blocking FileLock on the async hot path.
+                usage = self._usage.setdefault(matched_key, {"last_used": None, "usage_count": 0})
+                usage["last_used"] = datetime.now(UTC).isoformat()
+                usage["usage_count"] += 1
+                self._maybe_flush_usage()
                 return {
                     "status": "success",
                     "valid": True,
                     "user_id": key_data["user_id"],
                     "permissions": key_data["permissions"],
-                    "usage_count": key_data["usage_count"],
+                    "usage_count": int(key_data.get("usage_count") or 0) + usage["usage_count"],
                 }
+        except CorruptKeyStoreError:
+            return {"status": "error", "valid": False, "message": "API key store is corrupt; refusing to operate"}
         except (OSError, TypeError, KeyError) as e:
             logger.error("Error validating API key: %s", e)
             return {"status": "error", "message": "API key validation failed"}
+
+    def _maybe_flush_usage(self) -> None:
+        """Fold deferred usage counters into the store once per interval.
+
+        Callers must hold ``self._lock``. Deltas survive a failed save and
+        ride the next flush; counters in the response always read persisted
+        + pending so callers see monotonic values.
+        """
+        if not self._usage or time.monotonic() - self._usage_flushed_at < _USAGE_FLUSH_SECONDS:
+            return
+        for key_hash, usage in self._usage.items():
+            data = self.api_keys.get(key_hash)
+            if data is None:
+                continue
+            data["usage_count"] = int(data.get("usage_count") or 0) + usage["usage_count"]
+            data["last_used"] = usage["last_used"]
+        if self._save_keys():
+            self._usage.clear()
+        self._usage_flushed_at = time.monotonic()
 
     def revoke_api_key(self, api_key: str) -> dict[str, Any]:
         """Revoke API key.
@@ -219,6 +305,8 @@ class APIKeyManager:
                     return {"status": "success", "message": "API key revoked"}
                 else:
                     return {"status": "error", "message": "API key not found"}
+        except CorruptKeyStoreError:
+            return {"status": "error", "message": "API key store is corrupt; refusing to operate"}
         except (OSError, TypeError, KeyError) as e:
             logger.error("Error revoking API key: %s", e)
             return {"status": "error", "message": "API key revocation failed"}

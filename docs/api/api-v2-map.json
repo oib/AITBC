@@ -249,6 +249,13 @@
           ]
         },
         {
+          "public": "/api/v2/agent-coordinator/api/v1/auth/api-key",
+          "upstream": "/api/v1/auth/api-key",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
           "public": "/api/v2/agent-coordinator/api/v1/auth/api-key/generate",
           "upstream": "/api/v1/auth/api-key/generate",
           "methods": [
@@ -260,13 +267,6 @@
           "upstream": "/api/v1/auth/api-key/validate",
           "methods": [
             "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/agent-coordinator/api/v1/auth/api-key/{api_key}",
-          "upstream": "/api/v1/auth/api-key/{api_key}",
-          "methods": [
-            "DELETE"
           ]
         },
         {
