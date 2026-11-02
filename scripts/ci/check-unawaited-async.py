@@ -22,6 +22,10 @@ Usage:
 
 Opt out for a deliberately fire-and-forget or sync receiver:
 ``# noqa: unawaited-async`` on the call line.
+
+Test paths are outside the ratchet's scope in every mode — changed-file
+arguments and the whole-scope scan apply the same filter, so ``--update``
+never writes baseline lines under ``tests/``.
 """
 
 from __future__ import annotations
@@ -118,12 +122,16 @@ DANGEROUS_VERBS = frozenset(
 )
 
 
+def _in_scope(p: Path) -> bool:
+    return "tests" not in p.parts and "__pycache__" not in p.parts
+
+
 def _scan_scope() -> list[Path]:
     out: list[Path] = []
     for d in SCOPE_DIRS:
         root = REPO_ROOT / d
         if root.is_dir():
-            out.extend(p for p in root.rglob("*.py") if "tests" not in p.parts and "__pycache__" not in p.parts)
+            out.extend(p for p in root.rglob("*.py") if _in_scope(p))
     return out
 
 
@@ -173,7 +181,9 @@ def main(argv: list[str]) -> int:
         print(f"baseline updated: {len(out)} findings across scope")
         return 0
 
-    paths = _scan_scope() if "--all" in argv or not argv else [Path(a) for a in argv if a.endswith(".py")]
+    paths = (
+        _scan_scope() if "--all" in argv or not argv else [Path(a) for a in argv if a.endswith(".py") and _in_scope(Path(a))]
+    )
     baseline = _load_baseline()
     bad = []
     for p in paths:
