@@ -178,7 +178,12 @@ async def test_health_check_does_not_materialise_pin_body(capped):
         client.__aenter__ = AsyncMock(return_value=client)
         client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("httpx.AsyncClient", return_value=client):
+        # ipfs.test is not a resolvable public host; the address guard has its
+        # own tests (test_health_url_guard.py), this one is about the stream.
+        with (
+            patch("httpx.AsyncClient", return_value=client),
+            patch("market_service.services.market_service._check_health_url", new=AsyncMock(return_value=None)),
+        ):
             out = await svc.check_software_offer_health("ipfs_pin_1")
         assert not accessed, f"health check materialised the pin/ls body via .{accessed[0]}"
         assert out["pinned_count"] is not None
