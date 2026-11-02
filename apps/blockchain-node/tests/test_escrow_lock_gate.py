@@ -10,9 +10,8 @@ ESCROW_LOCK for the job, so the caller retries instead of minting a dead
 settlement record.
 """
 
-import asyncio
 import importlib
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -78,6 +77,11 @@ class _FakeSession:
     def commit(self):
         self.committed = True
 
+    def get_bind(self):
+        # escrow_mutation asks which dialect this is; not Postgres, so it takes the
+        # in-process lock and the row write goes through a session of its own.
+        return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
+
     def __getattr__(self, name):
         # SQLAlchemy session surface the route may call but the fake does not
         # model (expunge, expire, close, rollback, ...) — no-op stand-ins.
@@ -100,7 +104,6 @@ def _session_scope(record):
 def _mgr(contract=None):
     mgr = MagicMock()
     mgr.escrow_contracts = {"c1": contract} if contract else {}
-    mgr.release_lock = MagicMock(side_effect=lambda cid: asyncio.Lock())
     mgr.snapshot_release_state = MagicMock(return_value={})
     mgr.snapshot_refund_state = MagicMock(return_value={})
     mgr.release_payment = AsyncMock(return_value=(True, "released"))
@@ -520,3 +523,139 @@ async def test_refund_gate_fails_closed_when_the_lock_probe_errors(monkeypatch):
     assert excinfo.value.status_code == 425
     submit_refund.assert_not_awaited()
     assert record.refunded_at is None
+
+
+# ---- #780 step c: the release/refund runs inside escrow_mutation -------------------
+
+
+def _busy_mutation(escrow_txn):
+    @asynccontextmanager
+    async def _busy(job_id, scope=None):
+        raise escrow_txn.EscrowBusy(job_id)
+        yield  # pragma: no cover
+
+    return _busy
+
+
+def _recording_mutation(events):
+    """An escrow_mutation stand-in that logs enter/exit and runs writes in a plain session."""
+
+    @asynccontextmanager
+    async def _mutation(job_id, scope=None):
+        events.append(f"enter:{job_id}")
+
+        class _Txn:
+            session = None
+
+            async def write(self, fn):
+                events.append("write")
+                with scope() as session:
+                    fn(session)
+
+        try:
+            yield _Txn()
+        finally:
+            events.append("exit")
+
+    return _mutation
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["release_escrow", "refund_escrow"])
+async def test_busy_escrow_answers_425_with_retry_after_and_settles_nothing(monkeypatch, route):
+    """Another worker holds the escrow's lock past the timeout: retryable, nothing sent."""
+    from aitbc_chain.contracts import escrow_txn
+
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr()
+    scope, session = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7] as submit_pay,
+        patches[8] as submit_refund,
+        patch.object(er, "escrow_mutation", _busy_mutation(escrow_txn)),
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await getattr(er, route)("job-1", {})
+    assert excinfo.value.status_code == 425
+    assert excinfo.value.headers == {"Retry-After": "5"}
+    mgr.release_payment.assert_not_awaited()
+    mgr.refund_contract.assert_not_awaited()
+    submit_pay.assert_not_awaited()
+    submit_refund.assert_not_awaited()
+    assert record.released_at is None and record.refunded_at is None
+    assert not session.committed
+
+
+@pytest.mark.asyncio
+async def test_release_settles_and_writes_inside_the_lock(monkeypatch):
+    """The settle and the row write both happen between the lock's enter and exit."""
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr()
+    events: list[str] = []
+    scope, _ = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    mgr.release_payment = AsyncMock(
+        side_effect=lambda cid, amount=None: events.append("release_payment") or (True, "released")
+    )
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7] as submit_pay,
+        patches[8],
+        patch.object(er, "escrow_mutation", _recording_mutation(events)),
+    ):
+        submit_pay.side_effect = lambda *a, **k: events.append("submit") or "0xreleasehash"
+        result = await er.release_escrow("job-1", {})
+    assert result["success"] is True
+    assert events[0] == "enter:job-1"
+    assert events[-1] == "exit"
+    assert events.index("release_payment") < events.index("submit") < events.index("write")
+    assert record.released_at is not None
+
+
+@pytest.mark.asyncio
+async def test_refund_settles_and_writes_inside_the_lock(monkeypatch):
+    _env(monkeypatch)
+    er = _reload_routes()
+    record = _record()
+    mgr = _mgr()
+    events: list[str] = []
+    scope, _ = _session_scope(record)
+    patches = _patches(er, mgr=mgr, scope=scope, lock_hash="0xlockhash")
+    mgr.refund_contract = AsyncMock(side_effect=lambda cid, reason: events.append("refund_contract") or (True, "refunded"))
+    with (
+        patches[0],
+        patches[1],
+        patches[2],
+        patches[3],
+        patches[4],
+        patches[5],
+        patches[6],
+        patches[7],
+        patches[8] as submit_refund,
+        patch.object(er, "escrow_mutation", _recording_mutation(events)),
+    ):
+        submit_refund.side_effect = lambda *a, **k: events.append("submit") or "0xrefundhash"
+        result = await er.refund_escrow("job-1", {})
+    assert result["success"] is True
+    assert events[0] == "enter:job-1"
+    assert events[-1] == "exit"
+    assert events.index("refund_contract") < events.index("submit") < events.index("write")
+    assert record.refunded_at is not None

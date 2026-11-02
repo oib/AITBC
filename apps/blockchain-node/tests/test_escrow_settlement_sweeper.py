@@ -16,7 +16,6 @@ Two halves:
   so the coordinator retry paths can never replay the v2 dead-set.
 """
 
-import asyncio
 import importlib
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -560,7 +559,6 @@ def _session_scope(record):
 def _mgr(er, contract=None):
     mgr = MagicMock()
     mgr.escrow_contracts = {"c1": contract} if contract else {}
-    mgr.release_lock = MagicMock(side_effect=lambda cid: asyncio.Lock())
     mgr.snapshot_release_state = MagicMock(return_value={})
     mgr.snapshot_refund_state = MagicMock(return_value={})
     mgr.release_payment = AsyncMock(return_value=(True, "released"))

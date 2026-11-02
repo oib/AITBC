@@ -40,7 +40,7 @@
       1 apps/blockchain-node/src/aitbc_chain/rpc/agent_staking.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/blocks.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/bridge.py
-      4 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
+      3 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
       5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_settlement_sweeper.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/staking.py
       2 apps/blockchain-node/src/aitbc_chain/rpc/sync.py
