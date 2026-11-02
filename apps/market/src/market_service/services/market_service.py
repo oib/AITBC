@@ -1842,6 +1842,17 @@ class MarketService:
             logger.error("Error in confirm_market_job_pin: %s: %s", type(e).__name__, e)
             raise
 
+    async def _require_confirmed_settle_tx(self, tx_hash: str) -> None:
+        """Refuse a caller-supplied settle hash that is not confirmed on-chain.
+
+        A caller-supplied hash is evidence, not authority: verify it on-chain
+        like complete_bid does before trusting the state flip (#814).
+        """
+        chain_id = settings.default_chain_id or resolve_chain_id()
+        tx = await self._rpc_client.get_transaction(tx_hash, chain_id=chain_id)
+        if not tx or tx.get("status") != "confirmed":
+            raise ValueError(f"Supplied tx_hash {tx_hash} is not a confirmed on-chain transaction")
+
     async def release_market_job_payment(self, job_id: str, release_data: dict[str, Any] | None = None) -> dict[str, Any]:
         """Release the escrow for a completed market job."""
         try:
@@ -1859,8 +1870,10 @@ class MarketService:
 
             tx_hash = release_data.get("tx_hash")
             released_amount = release_data.get("released_amount")
-            if not tx_hash:
-                result = await self._rpc_client.release_escrow(job.id)
+            if tx_hash:
+                await self._require_confirmed_settle_tx(tx_hash)
+            else:
+                result = await self._rpc_client.release_escrow(job.escrow_contract_id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow release failed for job {job_id}: {result}")
                 tx_hash = str(result.get("tx_hash", ""))
@@ -1910,8 +1923,10 @@ class MarketService:
 
             tx_hash = refund_data.get("tx_hash")
             refunded_amount = refund_data.get("refunded_amount")
-            if not tx_hash:
-                result = await self._rpc_client.refund_escrow(job.id)
+            if tx_hash:
+                await self._require_confirmed_settle_tx(tx_hash)
+            else:
+                result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
                 tx_hash = str(result.get("tx_hash", ""))
