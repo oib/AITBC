@@ -180,7 +180,7 @@ contract CrossChainBridgeOwnerSafeTest is Test {
         bytes[] memory calls = new bytes[](12);
         calls[0] = abi.encodeCall(CrossChainBridge.addSupportedToken, (address(0x99), 1000, 0, false));
         calls[1] = abi.encodeCall(
-            CrossChainBridge.addSupportedChain, (uint256(56), CrossChainBridge.ChainType.BSC, "bsc", address(0), 1, 3)
+            CrossChainBridge.addSupportedChain, (uint256(56), CrossChainBridge.ChainType.BSC, "bsc", address(0), 3)
         );
         calls[2] = abi.encodeCall(CrossChainBridge.addValidator, (address(0x77), 1));
         calls[3] = abi.encodeCall(CrossChainBridge.removeValidator, (validator1));
@@ -241,10 +241,10 @@ contract CrossChainBridgeOwnerSafeTest is Test {
         _exec(
             address(bridge),
             abi.encodeCall(
-                CrossChainBridge.addSupportedChain, (uint256(56), CrossChainBridge.ChainType.BSC, "bsc", address(0), 1, 3)
+                CrossChainBridge.addSupportedChain, (uint256(56), CrossChainBridge.ChainType.BSC, "bsc", address(0), 3)
             )
         );
-        (, , , bool cActive, , , ) = bridge.supportedChains(56);
+        (, , , bool cActive, , ) = bridge.supportedChains(56);
         assertTrue(cActive);
 
         _exec(address(bridge), abi.encodeCall(CrossChainBridge.updateMerkleRoot, (bytes32(uint256(42)))));
