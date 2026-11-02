@@ -38,3 +38,24 @@ def _test_database():
     from market_service import storage
 
     asyncio.run(storage.init_db())
+
+
+@pytest.fixture(autouse=True)
+def _auth_disabled_for_tests(request):
+    """Route tests exercise handler behaviour, not the key gate.
+
+    The mutating routes are API-key gated (#813); the suite disables the
+    authenticator per test so legacy callers keep working. Modules that
+    test the gate itself opt out by name.
+    """
+    if request.module.__name__.split(".")[-1] in {"test_market_auth_missing", "test_access_secret_hashing"}:
+        yield
+        return
+    from market_service.main import require_market_api_key
+
+    old = require_market_api_key.auth_enabled
+    require_market_api_key.auth_enabled = False
+    try:
+        yield
+    finally:
+        require_market_api_key.auth_enabled = old

@@ -383,7 +383,7 @@ async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: Deci
         logger.warning("Escrow creation skipped (non-fatal): %s", e)
 
 
-@app.post("/v1/market/offers/{offer_id}/book")
+@app.post("/v1/market/offers/{offer_id}/book", dependencies=[Depends(require_market_api_key)])
 async def book_offer(
     offer_id: str,
     booking_data: dict[str, Any],
@@ -442,7 +442,7 @@ async def book_offer(
         raise
 
 
-@app.post("/v1/market/bids/{bid_id}/complete")
+@app.post("/v1/market/bids/{bid_id}/complete", dependencies=[Depends(require_market_api_key)])
 async def complete_bid(
     bid_id: str,
     request_data: dict[str, Any],
@@ -479,7 +479,7 @@ class MatchRequest(BaseModel):
     chain_id: str | None = None
 
 
-@app.post("/v1/market/match")
+@app.post("/v1/market/match", dependencies=[Depends(require_market_api_key)])
 async def match_request(
     request: MatchRequest, http_request: Request, svc: Annotated[MatchingService, Depends(get_matching_service)]
 ) -> Any:
@@ -518,7 +518,7 @@ async def match_request(
         raise
 
 
-@app.post("/v1/market/offers")
+@app.post("/v1/market/offers", dependencies=[Depends(require_market_api_key)])
 async def create_offer(
     offer_data: dict[str, Any], request: Request, svc: Annotated[MarketService, Depends(get_market_service)]
 ) -> Any:
@@ -624,7 +624,7 @@ async def get_offer_history(offer_id: str, svc: Annotated[MarketService, Depends
     return history
 
 
-@app.post("/v1/market/offers/{offer_id}/cancel")
+@app.post("/v1/market/offers/{offer_id}/cancel", dependencies=[Depends(require_market_api_key)])
 async def cancel_offer(
     offer_id: str,
     request: Request,
@@ -878,7 +878,7 @@ async def unregister_offer(
         raise
 
 
-@app.post("/v1/market/ipfs/rental-token")
+@app.post("/v1/market/ipfs/rental-token", dependencies=[Depends(require_market_api_key)])
 async def register_ipfs_rental_token(
     token_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]
 ) -> Any:
@@ -920,7 +920,7 @@ async def get_ipfs_rental_token(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/v1/market/jobs")
+@app.post("/v1/market/jobs", dependencies=[Depends(require_market_api_key)])
 async def create_market_job(job_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
     """Create a market job and payment record."""
     try:
@@ -1082,7 +1082,7 @@ async def get_market_job(
         raise
 
 
-@app.post("/v1/market/jobs/{job_id}/cancel")
+@app.post("/v1/market/jobs/{job_id}/cancel", dependencies=[Depends(require_market_api_key)])
 async def cancel_market_job(
     job_id: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
@@ -1148,7 +1148,7 @@ async def confirm_market_job_pin(
         raise
 
 
-@app.post("/v1/market/jobs/{job_id}/release")
+@app.post("/v1/market/jobs/{job_id}/release", dependencies=[Depends(require_market_api_key)])
 async def release_market_job_payment(
     job_id: str,
     release_data: dict[str, Any] | None = None,
@@ -1166,7 +1166,7 @@ async def release_market_job_payment(
         raise
 
 
-@app.post("/v1/market/jobs/{job_id}/refund")
+@app.post("/v1/market/jobs/{job_id}/refund", dependencies=[Depends(require_market_api_key)])
 async def refund_market_job_payment(
     job_id: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
@@ -1440,7 +1440,7 @@ async def mark_ratings_synced(rating_ids: list[str], svc: Annotated[MarketServic
         raise
 
 
-@app.post("/v1/transactions")
+@app.post("/v1/transactions", dependencies=[Depends(require_market_api_key)])
 async def submit_transaction(
     transaction_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]
 ) -> Any:
