@@ -684,12 +684,6 @@ def _release_drive_mocks(escrow_routes, *, unsealed=True, expose: dict | None = 
     mgr.release_payment = AsyncMock(return_value=(True, "ok"))
     mgr.restore_after_failed_settlement = MagicMock()
 
-    @contextlib.asynccontextmanager
-    async def _lock(_contract_id):
-        yield
-
-    mgr.release_lock = _lock
-
     record = SimpleNamespace(
         job_id="job-1",
         contract_id="c1",
