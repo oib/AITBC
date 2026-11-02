@@ -963,74 +963,24 @@ class EscrowManager:
         """Release the whole escrowed payment to the agent."""
         return await self.release_payment(contract_id)
 
-    def snapshot_release_state(self, contract_id: str) -> dict[str, Any] | None:
-        """Capture the fields ``release_full_payment`` mutates, so they can be restored.
+    def evict_contract(self, contract_id: str) -> bool:
+        """Forget the cached contract, so the next lookup rebuilds it from the escrow row.
 
-        Settlement happens after the release is applied in memory, so a payout that
-        never lands on-chain must put the contract back rather than leave it reading
-        as RELEASED with nothing settled.
+        ``escrow_contracts`` is this worker's read-through cache of what the row and the
+        chain say, not the record. A release or refund is applied in memory before it
+        settles on-chain, so one that never lands must not leave this worker holding a
+        contract that reads RELEASED or REFUNDED. The route's database transaction rolls
+        the row back on its own; dropping the cached object makes the cache follow it, and
+        ``get_or_load_contract`` rebuilds the contract from the row the way any other
+        worker already does. Returns whether there was anything to forget.
         """
-        contract = self.escrow_contracts.get(contract_id)
-        if not contract:
-            return None
-        return {
-            "released_amount": contract.released_amount,
-            "state": contract.state,
-            "was_active": contract_id in self.active_contracts,
-        }
-
-    def restore_after_failed_settlement(self, contract_id: str, snapshot: dict[str, Any] | None) -> bool:
-        """Undo an in-memory release whose on-chain settlement did not land."""
-        if not snapshot:
-            return False
-        contract = self.escrow_contracts.get(contract_id)
-        if not contract:
-            return False
-        contract.released_amount = snapshot["released_amount"]
-        contract.state = snapshot["state"]
-        if snapshot.get("was_active"):
-            self.active_contracts.add(contract_id)
-        else:
-            self.active_contracts.discard(contract_id)
-        log_info(f"Rolled back unsettled release for contract: {contract_id}")
-        return True
-
-    def snapshot_refund_state(self, contract_id: str) -> dict[str, Any] | None:
-        """Capture the fields ``refund_contract`` mutates, so they can be restored.
-
-        Settlement happens after the refund is applied in memory, so a refund that
-        never lands on-chain must put the contract back rather than leave it reading
-        as REFUNDED with nothing settled.
-        """
-        contract = self.escrow_contracts.get(contract_id)
-        if not contract:
-            return None
-        return {
-            "refunded_amount": contract.refunded_amount,
-            "state": contract.state,
-            "was_active": contract_id in self.active_contracts,
-            "was_disputed": contract_id in self.disputed_contracts,
-        }
-
-    def restore_after_failed_refund(self, contract_id: str, snapshot: dict[str, Any] | None) -> bool:
-        """Undo an in-memory refund whose on-chain settlement did not land."""
-        if not snapshot:
-            return False
-        contract = self.escrow_contracts.get(contract_id)
-        if not contract:
-            return False
-        contract.refunded_amount = snapshot["refunded_amount"]
-        contract.state = snapshot["state"]
-        if snapshot.get("was_active"):
-            self.active_contracts.add(contract_id)
-        else:
-            self.active_contracts.discard(contract_id)
-        if snapshot.get("was_disputed"):
-            self.disputed_contracts.add(contract_id)
-        else:
-            self.disputed_contracts.discard(contract_id)
-        log_info(f"Rolled back unsettled refund for contract: {contract_id}")
-        return True
+        known = contract_id in self.escrow_contracts
+        self.escrow_contracts.pop(contract_id, None)
+        self.active_contracts.discard(contract_id)
+        self.disputed_contracts.discard(contract_id)
+        if known:
+            log_info(f"Evicted unsettled contract from the cache: {contract_id}")
+        return known
 
     async def create_dispute(
         self, contract_id: str, reason: DisputeReason, description: str, evidence: list[dict[str, Any]] | None = None

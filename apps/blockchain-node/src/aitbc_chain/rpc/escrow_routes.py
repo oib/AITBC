@@ -2021,7 +2021,6 @@ async def _release_settle_locked(
             detail="escrow row unavailable for a protected contract; refusing to release without the frozen quote terms",
         )
 
-    release_snapshot = mgr.snapshot_release_state(contract_id)
     ok, message = await mgr.release_payment(contract_id, requested_amount)
     if not ok:
         raise HTTPException(status_code=400, detail=message)
@@ -2038,7 +2037,7 @@ async def _release_settle_locked(
         if escrow_record.energy_net_floor_units is not None:
             floor_ait = units_to_ait(escrow_record.energy_net_floor_units)
             if released_amount < floor_ait:
-                mgr.restore_after_failed_settlement(contract_id, release_snapshot)
+                mgr.evict_contract(contract_id)
                 raise HTTPException(
                     status_code=422,
                     detail="Protected escrow release would underpay the energy floor",
@@ -2097,7 +2096,7 @@ async def _release_settle_locked(
     # Settle on-chain first; only a confirmed transaction counts as a release.
     tx_hash = await _submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
     if not tx_hash:
-        mgr.restore_after_failed_settlement(contract_id, release_snapshot)
+        mgr.evict_contract(contract_id)
         _logger.error(
             "Escrow release NOT settled on-chain: contract_id=%s job_id=%s provider=%s amount=%s. "
             "The release was rolled back so it can be retried.",
@@ -2360,8 +2359,8 @@ async def _refund_settle_locked(mgr: Any, job_id: str, plan: _RefundPlan, txn: E
     reason = plan.reason
     locked_units = plan.locked_units
     # B: a refund is only final once the on-chain ESCROW_REFUND transaction lands.
-    # Apply the in-memory state, then settle on-chain, then roll back if settlement fails.
-    refund_snapshot = mgr.snapshot_refund_state(contract_id)
+    # Apply the in-memory state, then settle on-chain, then drop the cached contract if
+    # settlement fails (the row is only written after it lands, so a rebuild reads it as it was).
     success, message = await mgr.refund_contract(contract_id, reason)
     if not success:
         raise HTTPException(status_code=400, detail=message)
@@ -2391,7 +2390,7 @@ async def _refund_settle_locked(mgr: Any, job_id: str, plan: _RefundPlan, txn: E
         contract_id,
     )
     if not tx_hash:
-        mgr.restore_after_failed_refund(contract_id, refund_snapshot)
+        mgr.evict_contract(contract_id)
         _logger.error(
             "Escrow refund NOT settled on-chain: contract_id=%s job_id=%s buyer=%s amount=%s. "
             "The refund was rolled back so it can be retried.",
