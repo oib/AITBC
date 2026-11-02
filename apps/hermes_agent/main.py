@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import hmac
 import json
 import os
 import shutil
@@ -19,7 +20,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import uvicorn  # noqa: E402
-from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, Request  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
@@ -44,6 +45,24 @@ _HERMES_ALLOWED_PROVIDERS = [p.strip() for p in os.getenv("HERMES_ALLOWED_PROVID
 _HERMES_ALLOWED_TOOLSETS = [t.strip() for t in os.getenv("HERMES_ALLOWED_TOOLSETS", "").split(",") if t.strip()]
 _HERMES_MAX_TIME_DEFAULT = int(os.getenv("HERMES_MAX_TIME_DEFAULT", "300"))
 _HERMES_MAX_TIME_LIMIT = int(os.getenv("HERMES_MAX_TIME_LIMIT", "3600"))
+# HERMES-RUN-SERVICE-HARDENING-1 (#808): /run answers with no credential today; when
+# HERMES_RUN_API_KEY is set every /run request must carry it in X-API-Key, the toolset
+# fallthrough below stops leaking the full profile, and a semaphore caps parallel runs.
+_HERMES_RUN_API_KEY = os.getenv("HERMES_RUN_API_KEY", "")
+_HERMES_RUN_MAX_CONCURRENT = int(os.getenv("HERMES_RUN_MAX_CONCURRENT", "4"))
+_run_semaphore = asyncio.Semaphore(_HERMES_RUN_MAX_CONCURRENT)
+_CONSERVATIVE_TOOLSETS = "web,memory,todo"
+
+
+async def _require_run_credential(request: Request) -> None:
+    """Reject /run without the shared secret when one is configured (constant-time compare)."""
+    if not _HERMES_RUN_API_KEY:
+        return
+    token = request.headers.get("x-api-key", "")
+    if not hmac.compare_digest(token, _HERMES_RUN_API_KEY):
+        raise HTTPException(status_code=401, detail="invalid or missing run credential")
+
+
 _HERMES_HOME = os.getenv("HERMES_HOME", "/var/lib/aitbc/hermes")
 
 _REASONING_LEVELS = {"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"}
@@ -185,27 +204,41 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
             raise HTTPException(status_code=400, detail=f"Invalid reasoning level '{reasoning}'")
         command.extend(["--reasoning", reasoning.lower()])
 
-    toolsets = request.toolsets or _HERMES_DEFAULT_TOOLSETS
-    if toolsets:
-        requested = [t.strip() for t in toolsets.split(",") if t.strip()]
-        if _HERMES_ALLOWED_TOOLSETS:
-            for t in requested:
-                if t not in _HERMES_ALLOWED_TOOLSETS:
-                    raise HTTPException(status_code=400, detail=f"Toolset '{t}' is not allowed by this offer")
-        if requested:
-            command.extend(["--toolsets", ",".join(requested)])
+    raw = request.toolsets if request.toolsets is not None else _HERMES_DEFAULT_TOOLSETS
+    requested = [t.strip() for t in (raw or "").split(",") if t.strip()]
+    if request.toolsets is not None and not requested:
+        # '', ',' or ' , ' means "use the default", not "run unrestricted".
+        requested = [t.strip() for t in _HERMES_DEFAULT_TOOLSETS.split(",") if t.strip()]
+    if _HERMES_ALLOWED_TOOLSETS:
+        for t in requested:
+            if t not in _HERMES_ALLOWED_TOOLSETS:
+                raise HTTPException(status_code=400, detail=f"Toolset '{t}' is not allowed by this offer")
+    if not requested and not _HERMES_ALLOWED_TOOLSETS:
+        # Neither a request, a default, nor an allow-list configured: pass an explicit
+        # conservative set instead of falling through to the service profile's full list.
+        requested = [t.strip() for t in _CONSERVATIVE_TOOLSETS.split(",") if t.strip()]
+    if requested:
+        command.extend(["--toolsets", ",".join(requested)])
 
     return command
 
 
 @app.post("/run")
-async def run_hermes(request: HermesRunRequest):
+async def run_hermes(request: HermesRunRequest, _cred: None = Depends(_require_run_credential)):
     """Run a one-shot Hermes prompt and return the result plus timing."""
+    await _run_semaphore.acquire()
+    try:
+        return await _run_hermes_inner(request)
+    finally:
+        _run_semaphore.release()  # noqa: unawaited-async — Semaphore.release() is synchronous
+
+
+async def _run_hermes_inner(request: HermesRunRequest):
     # Use a temporary working directory to avoid loading AGENTS.md/skills from the
     # service source tree.  Hermes still reads HERMES_HOME for config and env.
     with tempfile.TemporaryDirectory(prefix="hermes_run_") as tmpdir:
         usage_fd, usage_path = tempfile.mkstemp(prefix="hermes_usage_", suffix=".json", dir=tmpdir)
-        os.close(usage_fd)
+        os.close(usage_fd)  # noqa: unawaited-async — os.close() is synchronous
         command = _build_command(request, usage_path)
 
         t_start = time.time()
