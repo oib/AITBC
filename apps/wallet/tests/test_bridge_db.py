@@ -424,6 +424,18 @@ class TestPollRequestRoute:
         resp = client.post("/v1/bridge/poll-request")
         assert resp.status_code == 200  # kick is best-effort, never fatal
 
+    def test_stale_kick_entries_are_pruned(self, client, tmp_path, monkeypatch):
+        """RATELIMIT-KEY-RETENTION-1: entries older than the cooldown are
+        dropped on the next call — no revisit needed, no unbounded growth."""
+        import wallet_app.bridge.bridge_routes as br
+
+        monkeypatch.setattr(br, "_BRIDGE_KICK_FILE", tmp_path / "bridge_poll_kick")
+        monkeypatch.setattr(br, "_kick_last_by_ip", {"old-ip": 0.0})
+
+        resp = client.post("/v1/bridge/poll-request")
+        assert resp.status_code == 200
+        assert "old-ip" not in br._kick_last_by_ip
+
 
 class TestReleaseAttempts:
     """ETH-14: operator release attempts — recorded with operator, note,
