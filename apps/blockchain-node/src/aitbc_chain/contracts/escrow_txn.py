@@ -15,21 +15,40 @@ released" instead of settling again. The row write goes through the same
 transaction (``EscrowMutation.write``): the mutation and the lock release are one
 commit, with no window between them.
 
-Not on Postgres (sqlite, single process by construction): the lock is an
-in-process ``asyncio.Lock`` per job. The sketch for this step used ``BEGIN
-IMMEDIATE`` there; that takes sqlite's one database-wide writer lock and would hold
-it across the settlement submit -- an HTTP round trip to the same node -- stalling the
-block producer and every other writer, so it is deliberately not used.
+Not on Postgres (the chain database of every node, which is sqlite): an in-process
+``asyncio.Lock`` per job queues the callers of one worker, and an ``fcntl.flock`` on a
+lock file beside ``chain.db`` excludes the other workers (#827). The in-process lock
+alone is not enough: the RPC runs ``--workers N`` processes against one ``chain.db``,
+and a second process never sees the first one's ``asyncio.Lock``.
+
+The file lock is striped (``LOCK_STRIPES`` files, the stripe taken from a CRC of the
+job id), so the lock directory stays a fixed size and no file is ever unlinked while
+another process may be opening it. The stripe must be a stable hash: Python's own
+``hash()`` is randomised per process, which would give each worker a different stripe
+and exclude nothing. The kernel drops a ``flock`` when its process dies, so a crashed
+worker cannot leave an escrow locked, and nothing waits on sqlite's database-wide
+writer lock. ``BEGIN IMMEDIATE`` (the sketch for step c) would, held across the
+settlement submit -- an HTTP round trip to the same node -- stall the block producer
+and every other writer, so it is deliberately not used.
+
+A lock file that cannot be created or opened fails the mutation (it is logged and
+raised, never skipped): running unlocked would be the bug this exists to prevent. An
+in-memory or file-less sqlite database (the unit tests) has nothing to lock and keeps
+the in-process lock alone.
 """
 
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import os
+import time
 import weakref
+import zlib
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractContextManager, asynccontextmanager
-from typing import Any
+from pathlib import Path
+from typing import Any, NamedTuple
 
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -52,6 +71,12 @@ LOCK_TIMEOUT_ENV = "ESCROW_MUTATION_LOCK_TIMEOUT_SECONDS"
 DEFAULT_LOCK_TIMEOUT_SECONDS = 30
 
 _PG_LOCK_NOT_AVAILABLE = "55P03"
+
+# Cross-process lock for a file-backed sqlite chain.db (#827): LOCK_STRIPES lock files in
+# LOCK_DIR_NAME beside the database, polled without blocking a thread.
+LOCK_DIR_NAME = "escrow-locks"
+LOCK_STRIPES = 256
+_FLOCK_POLL_SECONDS = 0.05
 
 # In-process fallback (non-Postgres). Weak values: a lock nobody holds or waits on is
 # dropped, so the map does not grow with every job ever released.
@@ -119,20 +144,35 @@ class EscrowMutation:
         await run_in_threadpool(_own_session)
 
 
-def _open_locked_session(scope_factory: SessionScope, job_id: str, timeout_seconds: int) -> tuple[Any, Session] | None:
-    """Open a session and take the advisory lock; None when the database is not Postgres."""
+class _Opened(NamedTuple):
+    """What ``_open_locked_session`` found: a lock-holding session (Postgres), or, for any
+    other database, the sqlite file to lock beside (None when there is no file)."""
+
+    scope: Any = None
+    session: Session | None = None
+    sqlite_path: str | None = None
+
+
+def _sqlite_file(session: Session) -> str | None:
+    database = session.get_bind().engine.url.database
+    return database if database and database != ":memory:" else None
+
+
+def _open_locked_session(scope_factory: SessionScope, job_id: str, timeout_seconds: int) -> _Opened:
+    """Open a session and take the advisory lock; on any other database, say where its file is."""
     scope = scope_factory()
     session = scope.__enter__()
     try:
         if session.get_bind().dialect.name != "postgresql":
+            sqlite_path = _sqlite_file(session)
             scope.__exit__(None, None, None)
-            return None
+            return _Opened(sqlite_path=sqlite_path)
         conn = session.connection()
         # SET LOCAL lasts for this transaction only, so the pooled connection comes
         # back with the server default.
         conn.execute(text(f"SET LOCAL lock_timeout = {int(timeout_seconds) * 1000}"))
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": LOCK_KEY_PREFIX + job_id})
-        return scope, session
+        return _Opened(scope=scope, session=session)
     except BaseException as exc:
         scope.__exit__(type(exc), exc, exc.__traceback__)
         raise
@@ -146,6 +186,68 @@ def _close(scope: Any, session: Session, *, commit: bool) -> None:
             session.rollback()
     finally:
         scope.__exit__(None, None, None)
+
+
+def lock_stripe(job_id: str) -> int:
+    """The lock-file stripe of a job: stable across processes (not ``hash()``)."""
+    return zlib.crc32(job_id.encode()) % LOCK_STRIPES
+
+
+def _lock_file_path(sqlite_path: str, job_id: str) -> Path:
+    return Path(sqlite_path).parent / LOCK_DIR_NAME / f"stripe-{lock_stripe(job_id):03d}.lock"
+
+
+async def _acquire_file_lock(sqlite_path: str, job_id: str, timeout: float) -> int:
+    """Take the job's stripe lock; the fd is the lock. EscrowBusy once ``timeout`` runs out."""
+    path = _lock_file_path(sqlite_path, job_id)
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+    except OSError as exc:
+        logger.error("Escrow lock file %s unavailable for job_id=%s: %s", path, job_id, exc)
+        raise
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return fd
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise EscrowBusy(job_id) from None
+            await asyncio.sleep(_FLOCK_POLL_SECONDS)
+    except BaseException:
+        os.close(fd)  # noqa: unawaited-async — os.close is a synchronous syscall
+        raise
+
+
+def _release_file_lock(fd: int) -> None:
+    try:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+@asynccontextmanager
+async def _process_lock(job_id: str, sqlite_path: str | None, timeout: float) -> AsyncIterator[None]:
+    """The non-Postgres lock: this worker's asyncio lock, then the file lock for other workers."""
+    deadline = time.monotonic() + timeout
+    lock = _process_locks.get(job_id)
+    if lock is None:
+        lock = _process_locks.setdefault(job_id, asyncio.Lock())
+    try:
+        await asyncio.wait_for(lock.acquire(), timeout)
+    except TimeoutError as exc:
+        raise EscrowBusy(job_id) from exc
+    fd: int | None = None
+    try:
+        if sqlite_path is not None:
+            fd = await _acquire_file_lock(sqlite_path, job_id, max(0.0, deadline - time.monotonic()))
+        yield
+    finally:
+        if fd is not None:
+            _release_file_lock(fd)
+        lock.release()  # noqa: unawaited-async — asyncio.Lock.release() is synchronous
 
 
 @asynccontextmanager
@@ -167,21 +269,12 @@ async def escrow_mutation(job_id: str, scope: SessionScope | None = None) -> Asy
             raise EscrowBusy(job_id) from exc
         raise
 
-    if opened is None:
-        lock = _process_locks.get(job_id)
-        if lock is None:
-            lock = _process_locks.setdefault(job_id, asyncio.Lock())
-        try:
-            await asyncio.wait_for(lock.acquire(), timeout)
-        except TimeoutError as exc:
-            raise EscrowBusy(job_id) from exc
-        try:
+    if opened.session is None:
+        async with _process_lock(job_id, opened.sqlite_path, timeout):
             yield EscrowMutation(job_id, None, scope_factory)
-        finally:
-            lock.release()  # noqa: unawaited-async — asyncio.Lock.release() is synchronous
         return
 
-    held_scope, session = opened
+    held_scope, session = opened.scope, opened.session
     try:
         yield EscrowMutation(job_id, session, scope_factory)
     except BaseException:
