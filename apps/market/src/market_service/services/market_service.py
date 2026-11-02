@@ -1307,6 +1307,14 @@ class MarketService:
                     "message": "Bid already completed",
                 }
 
+            # Spent-hash check (#817): the tx must not already settle another
+            # bid — verification proves payment, not that it was paid for THIS
+            # bid, so the hash is recorded on completion and reuse refused.
+            stmt = select(Bid).where(Bid.tx_hash == tx_hash)
+            spent = (await self.session.execute(stmt)).scalars().first()
+            if spent is not None and spent.id != bid_id:
+                raise ValueError(f"Transaction {tx_hash} already settled bid {spent.id}")
+
             resolved_chain_id = chain_id or settings.default_chain_id or resolve_chain_id()
             tx = await self._rpc_client.get_transaction(tx_hash, chain_id=resolved_chain_id)
             self._verify_bid_payment_tx(bid, offer, tx, tx_hash, resolved_chain_id)
