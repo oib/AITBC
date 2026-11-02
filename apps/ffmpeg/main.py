@@ -15,11 +15,12 @@ import time
 from contextlib import asynccontextmanager
 
 import uvicorn  # noqa: E402
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile  # noqa: E402
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.shop_gate import require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
 logger = get_logger(__name__)
@@ -211,7 +212,7 @@ async def capabilities():
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@app.post("/process")
+@app.post("/process", dependencies=[Depends(require_job_access)])
 async def process_video(
     file: Annotated[UploadFile, File(...)],
     output_format: str = Form(default="mp4"),
