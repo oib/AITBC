@@ -15,6 +15,7 @@ Gitea change only when the register still matches that base; when both sides cha
 """
 
 import argparse
+import datetime
 import glob
 import hashlib
 import json
@@ -76,33 +77,32 @@ def plan_push(row, iss):
     return (new if new != body else None), sorted(want - have), sorted(have - want), owner, state
 
 
-def push(rows, dry, quiet=False):
-    ids = None
-    st = json.load(open(STATE)) if os.path.exists(STATE) else {}
-    changed = 0
-    for r in rows:
-        n = r["issue"]
-        iss = tea(f"/issues/{n}")
-        new, add, rem, owner, state = plan_push(r, iss)
-        what = (["body"] if new else []) + [f"+{x}" for x in add] + [f"-{x}" for x in rem]
-        note = "" if r.get("owner") in rowcard.OWNERS else f" (owner {r.get('owner')!r} has no label)"
-        if not what:
-            if not quiet:
-                print(f"{r['id']} #{n}: in sync{note}")
-            if not dry:
-                st[r["id"]] = {"card": card_hash(rowcard.fields(r)), "owner": owner, "state": state}
-            continue
-        changed += 1
-        print(f"{r['id']} #{n}: {' '.join(what)}{note}" + (" (dry-run)" if dry else ""))
-        if dry:
-            continue
-        ids = ids or label_ids()
-        _apply_push(r, n, new, add, rem, ids)
-        st[r["id"]] = {"card": card_hash(rowcard.fields(r)), "owner": owner, "state": state}
-    if not dry:
-        json.dump(st, open(STATE, "w"), indent=1, sort_keys=True)
-    print(f"push: {len(rows)} row(s), {changed} changed" + (" (dry-run)" if dry else ""))
-    return changed
+def _due_target(row):
+    """RFC3339 due_date the row wants (end of wait_until's day, local offset), or None to clear."""
+    w = row.get("wait_until")
+    if not w:
+        return None
+    d = datetime.date.fromisoformat(str(w)[:10])
+    return datetime.datetime(d.year, d.month, d.day, 23, 59, 59).astimezone().isoformat()
+
+
+def native_plan(row, iss, by_id, base_due=None):
+    """(deps to add, deps to remove, due_date to PATCH) — native Gitea field deltas.
+
+    blocked_by is a list of row ids; Gitea dependencies are issue numbers, resolved via by_id.
+    due_date is cleared only when the base recorded one we pushed — a due set on Gitea by hand
+    is left alone (pull imports it into wait_until instead of erasing it)."""
+    want = {by_id[b].get("issue") for b in row.get("blocked_by") or [] if by_id.get(b)}
+    want.discard(None)
+    have = {d["number"] for d in iss.get("dependencies") or [] if isinstance(d, dict) and d.get("number")}
+    target, have_due = _due_target(row), bool(iss.get("due_date"))
+    if target and target[:10] != (iss.get("due_date") or "")[:10]:
+        due = target
+    elif have_due and not target and base_due:
+        due = ""  # the row dropped wait_until; only clear a due we pushed
+    else:
+        due = None
+    return sorted(want - have), sorted(have - want), due
 
 
 def _apply_push(r, n, new, add, rem, ids):
@@ -124,7 +124,102 @@ def _apply_push(r, n, new, add, rem, ids):
         sys.exit(f"{r['id']} #{n}: read-back differs after push; check the issue by hand")
 
 
-def _pull_update(r, iss, base):
+def _apply_native(n, dep_add, dep_rem, due):
+    for m in dep_add:
+        tea(f"/issues/{n}/dependencies", "POST", {"owner": "oib", "repo": "AITBC", "index": m})
+    for m in dep_rem:
+        tea(f"/issues/{n}/dependencies/{m}", "DELETE")
+    if due is not None:
+        # Gitea clears a due date on the zero time, not on null.
+        tea(f"/issues/{n}", "PATCH", {"due_date": "0001-01-01T00:00:00Z" if due == "" else due})
+    back = tea(f"/issues/{n}")
+    have = {d["number"] for d in back.get("dependencies") or [] if isinstance(d, dict) and d.get("number")}
+    ok = all(m in have for m in dep_add) and all(m not in have for m in dep_rem)
+    if due:
+        ok = ok and (bool(back.get("due_date")) == (due != ""))
+    if not ok:
+        sys.exit(f"#{n}: dependency/due_date read-back differs after push; check the issue by hand")
+
+
+def push(rows, dry, quiet=False):
+    ids = None
+    st = json.load(open(STATE)) if os.path.exists(STATE) else {}
+    by_id = {x["id"]: x for x in load_rows()}
+    changed = 0
+    for r in rows:
+        n = r["issue"]
+        iss = tea(f"/issues/{n}")
+        new, add, rem, owner, state = plan_push(r, iss)
+        dep_add, dep_rem, due = native_plan(r, iss, by_id, (st.get(r["id"]) or {}).get("due"))
+        what = (
+            (["body"] if new else [])
+            + [f"+{x}" for x in add]
+            + [f"-{x}" for x in rem]
+            + [f"dep+#{m}" for m in dep_add]
+            + [f"dep-#{m}" for m in dep_rem]
+            + (["due=" + (due or "cleared")] if due is not None else [])
+        )
+        note = "" if r.get("owner") in rowcard.OWNERS else f" (owner {r.get('owner')!r} has no label)"
+        if not what:
+            if not quiet:
+                print(f"{r['id']} #{n}: in sync{note}")
+            if not dry:
+                st[r["id"]] = _base_entry(r, owner, state, by_id)
+            continue
+        changed += 1
+        print(f"{r['id']} #{n}: {' '.join(what)}{note}" + (" (dry-run)" if dry else ""))
+        if dry:
+            continue
+        ids = ids or label_ids()
+        _apply_push(r, n, new, add, rem, ids)
+        _apply_native(n, dep_add, dep_rem, due)
+        st[r["id"]] = _base_entry(r, owner, state, by_id)
+    if not dry:
+        json.dump(st, open(STATE, "w"), indent=1, sort_keys=True)
+    print(f"push: {len(rows)} row(s), {changed} changed" + (" (dry-run)" if dry else ""))
+    return changed
+
+
+def _base_entry(r, owner, state, by_id):
+    """The last-pushed desired state: card hash, labels, wanted dependency issues, due date."""
+    want = sorted({by_id[b].get("issue") for b in r.get("blocked_by") or [] if by_id.get(b)} - {None})
+    t = _due_target(r)
+    return {
+        "card": card_hash(rowcard.fields(r)),
+        "owner": owner,
+        "state": state,
+        "deps": want,
+        "due": t[:10] if t else None,
+    }
+
+
+def _native_pull(r, iss, base, by_issue):
+    """(blocked_by, wait_until, conflict or None): native dep/due fields pull-side."""
+    n = r["issue"]
+    have = sorted(d["number"] for d in iss.get("dependencies") or [] if isinstance(d, dict) and d.get("number"))
+    base_deps = sorted(base.get("deps") or [])
+    reg_deps = sorted({by_issue[i].get("issue") for i in (r.get("blocked_by") or [])} - {None})
+    conflict = None
+    if have != base_deps and reg_deps != base_deps:
+        conflict = f"{r['id']} #{n}: dependencies changed on Gitea and register blocked_by changed ({have} vs {reg_deps})"
+    new_blocked = r.get("blocked_by")
+    if have != base_deps and reg_deps == base_deps:
+        by_num = {x.get("issue"): x["id"] for x in by_issue.values()}
+        new_blocked = [by_num.get(m, f"issue-{m}") for m in have]
+    gitea_due = (iss.get("due_date") or "")[:10] or None
+    base_due = base.get("due")
+    reg_due = str(r.get("wait_until"))[:10] if r.get("wait_until") else None
+    new_wait = r.get("wait_until")
+    if gitea_due != base_due and reg_due != base_due:
+        conflict = (conflict + "; " if conflict else "") + (
+            f"{r['id']} #{n}: due_date changed on Gitea and register wait_until changed"
+        )
+    if gitea_due != base_due and reg_due == base_due:
+        new_wait = gitea_due
+    return new_blocked, new_wait, conflict
+
+
+def _pull_update(r, iss, base, by_id):
     """(new row or None, conflict message or None): what pull would take from one issue."""
     n = r["issue"]
     card = rowcard.parse(iss.get("body"))
@@ -146,7 +241,13 @@ def _pull_update(r, iss, base):
         new["owner"] = owners[0].split("/", 1)[1]
     if len(states) == 1 and states[0] != base.get("state") and states[0] in ("state/held", "state/ready"):
         new["ready"] = states[0] == "state/ready"
-    return (new if rowcard.diff(rowcard.fields(new), r) else None), None
+    nb, nw, nat_conflict = _native_pull(r, iss, base, by_id)
+    if nb is not None and nb != new.get("blocked_by"):
+        new["blocked_by"] = nb
+    if nw is not None and nw != new.get("wait_until"):
+        new["wait_until"] = nw
+    out = new if rowcard.diff(rowcard.fields(new), r) else None
+    return out, nat_conflict
 
 
 def pull(rows, dry):
@@ -157,7 +258,7 @@ def pull(rows, dry):
         n = r["issue"]
         iss = tea(f"/issues/{n}")
         base = st.get(r["id"])
-        new, conflict = _pull_update(r, iss, base)
+        new, conflict = _pull_update(r, iss, base, {x["id"]: x for x in alls})
         if conflict:
             conflicts.append(conflict)
         if new is not None:
