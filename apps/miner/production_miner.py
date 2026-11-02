@@ -5,6 +5,8 @@ Real GPU Miner Client for AITBC - runs on host with actual GPU
 import asyncio
 import base64
 from functools import partial
+import ipaddress
+import socket
 import os
 import subprocess
 import sys
@@ -534,27 +536,106 @@ def build_tee_quote(job, output=""):
         return None
 
 
+# Media download bounds (#800): job payloads are buyer-controlled, so the
+# fetch must refuse non-public targets and stop at a byte cap + deadline.
+_MEDIA_MAX_BYTES_ENV = "MINER_MEDIA_MAX_BYTES"
+_MEDIA_DEFAULT_MAX_BYTES = 512 * 1024 * 1024  # sized to the ffmpeg upload limit
+_MEDIA_MAX_REDIRECTS = 5
+_MEDIA_TOTAL_DEADLINE_S = 600
+
+
+def _media_max_bytes() -> int:
+    try:
+        return max(1, int(os.environ.get(_MEDIA_MAX_BYTES_ENV, _MEDIA_DEFAULT_MAX_BYTES)))
+    except ValueError:
+        return _MEDIA_DEFAULT_MAX_BYTES
+
+
+def _check_media_url(url: str) -> urllib.parse.ParseResult:
+    """Refuse http(s) URLs whose host resolves to any non-public address —
+    loopback, private, link-local, metadata, multicast. Called per hop, so a
+    redirect to a non-public target is refused the same way."""
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or ""
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
+    except OSError as e:
+        raise ValueError(f"media URL host does not resolve: {host}: {e}") from e
+    if not infos:
+        raise ValueError(f"media URL host does not resolve: {host}")
+    for info in infos:
+        addr = ipaddress.ip_address(info[4][0])
+        if not addr.is_global:
+            raise ValueError(f"media URL host resolves to a non-public address: {addr}")
+    return parsed
+
+
+def _write_data_uri(parsed: urllib.parse.ParseResult, dest: str, cap: int) -> None:
+    # data:[<mediatype>][;base64],<data>
+    header, _, data = parsed.path.partition(",")
+    if ";base64" in header:
+        if len(data) * 3 // 4 > cap:
+            raise ValueError(f"media exceeds {cap} bytes")
+        content = base64.b64decode(data)
+    else:
+        content = urllib.parse.unquote_to_bytes(data)
+    if len(content) > cap:
+        raise ValueError(f"media exceeds {cap} bytes")
+    with open(dest, "wb") as f:
+        f.write(content)
+
+
+def _stream_to_file(resp: requests.Response, dest: str, cap: int, deadline: float) -> None:
+    """Write a response body to *dest*, aborting past *cap* or *deadline*;
+    a partial file is removed."""
+    written = 0
+    try:
+        with open(dest, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                written += len(chunk)
+                if written > cap:
+                    raise ValueError(f"media exceeds {cap} bytes")
+                if time.monotonic() > deadline:
+                    raise ValueError("media download deadline exceeded")
+                f.write(chunk)
+    except Exception:
+        try:
+            os.unlink(dest)
+        except OSError:
+            pass
+        raise
+
+
+def _fetch_http_media(url: str, dest: str, cap: int, deadline: float) -> None:
+    """GET *url* to *dest*, following at most _MEDIA_MAX_REDIRECTS hops with
+    the public-address check re-run on each."""
+    url_now = url
+    for _ in range(_MEDIA_MAX_REDIRECTS + 1):
+        _check_media_url(url_now)
+        with requests.get(url_now, timeout=(10, 30), stream=True, allow_redirects=False) as resp:
+            if resp.is_redirect or resp.is_permanent_redirect:
+                location = resp.headers.get("Location")
+                if not location:
+                    raise ValueError("redirect without Location")
+                url_now = urllib.parse.urljoin(url_now, location)
+                continue
+            resp.raise_for_status()
+            _stream_to_file(resp, dest, cap, deadline)
+            return
+    raise ValueError(f"too many redirects (>{_MEDIA_MAX_REDIRECTS})")
+
+
 def _download_media(url: str, dest: str) -> None:
     """Download an audio/video file from a URL (or data URI) to a local path."""
     try:
+        cap = _media_max_bytes()
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme == "data":
-            # data:[<mediatype>][;base64],<data>
-            header, _, data = parsed.path.partition(",")
-            if ";base64" in header:
-                content = base64.b64decode(data)
-            else:
-                content = urllib.parse.unquote_to_bytes(data)
-            with open(dest, "wb") as f:
-                f.write(content)
+            _write_data_uri(parsed, dest, cap)
             return
         if parsed.scheme not in {"http", "https"}:
             raise ValueError(f"unsupported URL scheme: {parsed.scheme}")
-        with requests.get(url, timeout=30, stream=True) as resp:
-            resp.raise_for_status()
-            with open(dest, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    f.write(chunk)
+        _fetch_http_media(url, dest, cap, time.monotonic() + _MEDIA_TOTAL_DEADLINE_S)
     except Exception as e:
         raise Exception(f"Failed to download media from {url}: {e}") from e
 
