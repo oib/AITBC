@@ -363,3 +363,81 @@ class TestAPIKeyManager:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestAPIKeyStoreAtomicity:
+    """APIKEY-STORE-ATOMIC-1 (#792): a corrupt store is refused (never read
+    as empty, never overwritten), saves are atomic 0600, and a successful
+    validate no longer rewrites the file."""
+
+    SECRET_PATH_KEYS = ("user1", ["read"])
+
+    def _manager(self, tmp_path):
+        return APIKeyManager(storage_path=str(tmp_path / "api_keys.json"))
+
+    def test_corrupt_store_is_quarantined_and_refused(self, tmp_path, caplog):
+        store = tmp_path / "api_keys.json"
+        store.write_text('{"abc123": {"user_id": "u", "permi')  # truncated write
+        from aitbc.auth.api_key import CorruptKeyStoreError
+
+        with pytest.raises(CorruptKeyStoreError):
+            self._manager(tmp_path)
+        corrupt = list(tmp_path.glob("api_keys.json*.corrupt"))
+        assert corrupt, "unreadable store was not preserved"
+        assert store.read_bytes() == b'{"abc123": {"user_id": "u", "permi'
+        assert any(r.levelname == "CRITICAL" for r in caplog.records)
+
+    def test_corrupt_after_construction_refuses_operations(self, tmp_path):
+        manager = self._manager(tmp_path)
+        gen = manager.generate_api_key("user1", ["read"])
+        assert gen["status"] == "success"
+        (tmp_path / "api_keys.json").write_text("{oops")
+        assert manager.validate_api_key(gen["api_key"])["valid"] is False
+        assert manager.generate_api_key("user2")["status"] == "error"
+        assert manager.revoke_api_key(gen["api_key"])["status"] == "error"
+        # …and the corrupt file is still there, not silently overwritten.
+        assert (tmp_path / "api_keys.json").read_text() == "{oops"
+
+    def test_save_is_atomic_and_0600(self, tmp_path, monkeypatch):
+        import os
+        import stat
+
+        replaces = []
+        real_replace = os.replace
+        monkeypatch.setattr("aitbc.auth.api_key.os.replace", lambda s, d: replaces.append((s, d)) or real_replace(s, d))
+
+        manager = self._manager(tmp_path)
+        assert manager.generate_api_key("user1")["status"] == "success"
+
+        assert replaces, "save did not go through os.replace"
+        store = tmp_path / "api_keys.json"
+        assert stat.S_IMODE(store.stat().st_mode) == 0o600
+        assert not list(tmp_path.glob(".api_keys.*.tmp")), "temp file left behind"
+
+    def test_validate_does_not_rewrite_the_store(self, tmp_path, monkeypatch):
+        manager = self._manager(tmp_path)
+        gen = manager.generate_api_key("user1")
+        key = gen["api_key"]
+        saves = []
+        real_save = manager._save_keys
+        monkeypatch.setattr(manager, "_save_keys", lambda: saves.append(1) or real_save())
+
+        first = manager.validate_api_key(key)
+        second = manager.validate_api_key(key)
+
+        assert first["valid"] is True and second["valid"] is True
+        assert second["usage_count"] == 2  # persisted + pending, monotonic
+        assert saves == [], "a successful validate rewrote the key file"
+
+    def test_pending_usage_flushes_on_interval(self, tmp_path, monkeypatch):
+        import json
+
+        manager = self._manager(tmp_path)
+        key = manager.generate_api_key("user1")["api_key"]
+        manager._usage_flushed_at = 0  # force the next validate to flush
+        manager.validate_api_key(key)
+
+        data = json.loads((tmp_path / "api_keys.json").read_text())
+        row = next(iter(data.values()))
+        assert row["usage_count"] == 1 and row["last_used"] is not None
+        assert manager._usage == {}
