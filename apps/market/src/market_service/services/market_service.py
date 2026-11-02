@@ -1460,18 +1460,32 @@ class MarketService:
                 if field in data:
                     data[field] = self._parse_iso_dt(data[field])
 
+            # Column allowlist: settlement state (status, pinned, expires_at,
+            # tx_hash, timestamps) is service-owned — a caller writing it could
+            # steer the rental sweeper at a victim escrow (#815).
+            _TOKEN_WRITABLE = {
+                "access_key",
+                "access_secret",
+                "rental_id",
+                "offer_id",
+                "cid",
+                "buyer_address",
+                "provider_address",
+                "ipfs_api",
+                "public_endpoint",
+                "disk_quota_mb",
+                "size",
+            }
+            data = {k: v for k, v in data.items() if k in _TOKEN_WRITABLE}
+
             stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)
             result = await self.session.execute(stmt)
             existing = result.scalar_one_or_none()
             if existing:
-                existing.access_secret = data.get("access_secret") or existing.access_secret
-                existing.cid = data.get("cid") or existing.cid
-                existing.escrow_contract_id = data.get("escrow_contract_id") or existing.escrow_contract_id
-                existing.status = data.get("status") or existing.status
-                if "pinned" in data:
-                    existing.pinned = bool(data["pinned"])
-                if "expires_at" in data:
-                    existing.expires_at = data["expires_at"]
+                for k, v in data.items():
+                    if k in {"access_key", "rental_id"} or v is None:
+                        continue
+                    setattr(existing, k, v)
                 existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 await self.session.commit()
                 await self.session.refresh(existing)
@@ -1628,7 +1642,27 @@ class MarketService:
                 if secret and not is_hashed_secret(secret):
                     payload["access_secret"] = hash_access_secret(secret)
 
-            job = MarketJob(**data)
+            # Column allowlist: lifecycle/settlement columns (state, escrow ids,
+            # tx hashes, payment denormalization, service timestamps) are
+            # service-owned — a caller writing them seeds the job sweeper
+            # against a victim escrow (#815).
+            _JOB_WRITABLE = {
+                "client_id",
+                "client_ref",
+                "offer_id",
+                "plugin_id",
+                "service_type",
+                "model",
+                "buyer_address",
+                "provider_address",
+                "payload",
+                "constraints",
+                "ttl_seconds",
+                "expires_at",
+                "payment",
+            }
+            job_data = {k: v for k, v in data.items() if k in _JOB_WRITABLE}
+            job = MarketJob(**job_data)
             job.id = job_id
             if not job.requested_at:
                 job.requested_at = datetime.now(UTC).replace(tzinfo=None)
@@ -1638,22 +1672,22 @@ class MarketService:
                 job.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             payment_data = data.get("payment") or {}
+            # Payment lifecycle fields (status, tx hashes, escrowed/released/
+            # refunded timestamps) are written by the payment path, never from
+            # the request — a caller-set "escrowed" row is what the sweeper
+            # steering relied on (#815).
             payment = MarketJobPayment(
                 id=payment_data.get("id") or uuid4().hex,
                 job_id=job.id,
                 amount=Decimal(str(payment_data.get("amount", payment_data.get("payment_amount", 0)))),
                 currency=payment_data.get("currency", "AITBC"),
-                status=payment_data.get("status", "pending"),
+                status="pending",
                 payment_method=payment_data.get("payment_method", "aitbc_token"),
                 escrow_address=payment_data.get("escrow_address"),
                 refund_address=payment_data.get("refund_address"),
-                transaction_hash=payment_data.get("transaction_hash"),
                 meta_data=payment_data.get("meta_data"),
                 created_at=datetime.now(UTC).replace(tzinfo=None),
                 updated_at=datetime.now(UTC).replace(tzinfo=None),
-                escrowed_at=payment_data.get("escrowed_at")
-                and self._parse_iso_dt(payment_data["escrowed_at"])
-                or (datetime.now(UTC).replace(tzinfo=None) if payment_data.get("status") == "escrowed" else None),
                 expires_at=job.expires_at,
             )
 

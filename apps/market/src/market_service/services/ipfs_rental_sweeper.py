@@ -172,7 +172,19 @@ class IpfsRentalSweeper:
         token.buyer_address = canonical_address(token.buyer_address or "")
         token.provider_address = canonical_address(token.provider_address or "")
 
-        job_id = token.rental_id or token.escrow_contract_id
+        # Ownership binding (#815): settle the escrow id this token was paid
+        # against — prefer escrow_contract_id over the free-form rental_id,
+        # and refuse to act when they disagree (a rental_id pointing at a
+        # foreign escrow is a steering row, not a rental).
+        job_id = token.escrow_contract_id or token.rental_id
+        if token.rental_id and token.escrow_contract_id and token.rental_id != token.escrow_contract_id:
+            logger.warning(
+                "Skipping token %s: rental_id %r disagrees with escrow_contract_id %r — refusing to settle a mismatched escrow",
+                token.access_key,
+                token.rental_id,
+                token.escrow_contract_id,
+            )
+            return False, False
         should_refund = token.status == "refund_pending" or getattr(token, "pinned", True) is False
 
         # Mark the rental as expired first so concurrent access-key checks stop.
