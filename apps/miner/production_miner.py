@@ -6,6 +6,7 @@ import asyncio
 import base64
 from functools import partial
 import ipaddress
+import math
 import socket
 import os
 import subprocess
@@ -875,6 +876,56 @@ def _gpu_snapshot() -> dict[str, Any]:
     return {}
 
 
+# A rental holds one worker thread for its whole duration and a thread cannot be
+# killed, so the buyer's duration is clamped to a ceiling the node sets.
+_GPU_COMPUTE_MAX_ENV = "GPU_COMPUTE_MAX_SECONDS"
+_GPU_COMPUTE_DEFAULT_MAX_SECONDS = 3600
+_GPU_COMPUTE_DEFAULT_SECONDS = 60
+
+
+def _gpu_compute_max_seconds() -> int:
+    try:
+        return max(1, int(os.environ.get(_GPU_COMPUTE_MAX_ENV, _GPU_COMPUTE_DEFAULT_MAX_SECONDS)))
+    except ValueError:
+        return _GPU_COMPUTE_DEFAULT_MAX_SECONDS
+
+
+def _duration_number(name, value):
+    """A payload duration as a number, or TypeError/ValueError (the job then fails)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"{name} must be a number, got {type(value).__name__}")
+    if value < 0 or (isinstance(value, float) and not math.isfinite(value)):
+        raise ValueError(f"{name} must be a finite, non-negative number, got {value!r}")
+    return value
+
+
+def _gpu_compute_requested_seconds(payload):
+    """The validated duration the buyer asked for; the default when it asked for none."""
+    seconds = payload.get("duration_seconds")
+    if not seconds:
+        seconds = _duration_number("duration_hours", payload.get("duration_hours") or 0) * 3600
+    else:
+        seconds = _duration_number("duration_seconds", seconds)
+    return seconds or _GPU_COMPUTE_DEFAULT_SECONDS
+
+
+def _job_deadline(job):
+    """The job's expires_at as epoch seconds (a number or an ISO-8601 string), else None."""
+    raw = job.get("expires_at")
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw) if math.isfinite(raw) else None
+    if isinstance(raw, str):
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            logger.warning("Ignoring unparsable expires_at %r", raw)
+            return None
+        return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).timestamp()
+    return None
+
+
 def _execute_gpu_compute(job):
     """Run a fixed-duration GPU compute rental.
 
@@ -882,14 +933,25 @@ def _execute_gpu_compute(job):
     time, snapshots the GPU at start and end, and returns a completion proof.
     This is enough for market rental settlement; heavier workloads can be
     layered on top later.
+
+    The duration is validated (finite, non-negative), clamped to
+    GPU_COMPUTE_MAX_SECONDS, and the hold ends early once the job's
+    ``expires_at`` passes, so a payload cannot keep a worker past either bound.
     """
     job_id = job.get("job_id")
     payload = job.get("payload", {})
     task = payload.get("task", "general_compute")
-    duration_hours = payload.get("duration_hours", 0.0)
-    duration_seconds = payload.get("duration_seconds") or int(duration_hours * 3600)
-    if duration_seconds <= 0:
-        duration_seconds = 60
+    requested_seconds = _gpu_compute_requested_seconds(payload)
+    duration_seconds = min(requested_seconds, _gpu_compute_max_seconds())
+    deadline = _job_deadline(job)
+    if duration_seconds < requested_seconds:
+        logger.warning(
+            "Job %s asked for %ss of GPU compute; holding %ss (%s)",
+            job_id,
+            requested_seconds,
+            duration_seconds,
+            _GPU_COMPUTE_MAX_ENV,
+        )
 
     logger.info("Running GPU compute rental for %ss (%s)", duration_seconds, task)
     start_time = time.time()
@@ -898,13 +960,16 @@ def _execute_gpu_compute(job):
     # Hold the reservation in small sleeps so we can still be interrupted.
     elapsed = 0
     while elapsed < duration_seconds:
+        if deadline is not None and time.time() >= deadline:
+            logger.warning("Job %s passed its deadline after %ss of %ss; ending the rental", job_id, elapsed, duration_seconds)
+            break
         sleep_chunk = min(5, duration_seconds - elapsed)
         time.sleep(sleep_chunk)
         elapsed += sleep_chunk
 
     end_snapshot = _gpu_snapshot()
     execution_time = time.time() - start_time
-    output = f"GPU rental completed: {task} for {duration_seconds}s"
+    output = f"GPU rental completed: {task} for {elapsed}s"
     tee_quote = build_tee_quote(job, output=output)
     if tee_quote:
         logger.info("Attaching TEE quote for job %s", job_id)
@@ -914,7 +979,8 @@ def _execute_gpu_compute(job):
         execution_time,
         {
             "task": task,
-            "duration_seconds": duration_seconds,
+            "duration_seconds": elapsed,
+            "requested_seconds": requested_seconds,
             "gpu_start": start_snapshot,
             "gpu_end": end_snapshot,
         },
