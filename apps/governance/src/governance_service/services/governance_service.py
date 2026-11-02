@@ -2,13 +2,14 @@
 Governance service for managing governance operations
 """
 
+import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 import logging
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -28,6 +29,13 @@ from ..domain.governance import (
 )
 
 logger = logging.getLogger(__name__)
+
+# GOV-LIST-RECONCILE-COST-1: how many chain probes a list_proposals may run at
+# once (they are one RPC call each) and how long a "not executed" answer is
+# remembered. The cache is class-level: the service is constructed per request,
+# so an instance dict would reset on every call and never save a probe.
+_RECONCILE_PROBE_CONCURRENCY = 4
+_RECONCILE_NEG_CACHE_SECONDS = 60.0
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -134,8 +142,19 @@ class GovernanceService:
             stmt = stmt.where(Proposal.proposer_id == proposer_id)
         result = await self.session.execute(stmt)
         proposals = list(result.scalars().all())
-        for proposal in proposals:
-            await self._reconcile_executed_onchain(proposal)
+        # Probes are one RPC call per proposal: run them bounded-concurrent
+        # (a list over N stale proposals used to serialize N RPCs), then
+        # stamp serially — AsyncSession is not safe for concurrent writes.
+        semaphore = asyncio.Semaphore(_RECONCILE_PROBE_CONCURRENCY)
+
+        async def _probe(p: Proposal) -> dict[str, Any] | None:
+            async with semaphore:
+                return await self._reconcile_probe_onchain(p)
+
+        sealed_answers = await asyncio.gather(*(_probe(p) for p in proposals))
+        for proposal, sealed in zip(proposals, sealed_answers, strict=True):
+            if sealed and sealed.get("executed"):
+                await self._stamp_executed_from_chain(proposal, sealed)
         return proposals
 
     async def get_proposal(self, proposal_id: str) -> Proposal | None:
@@ -147,50 +166,100 @@ class GovernanceService:
             await self._reconcile_executed_onchain(proposal)
         return proposal
 
+    _reconcile_neg_cache: dict[tuple[str | None, str], float] = {}
+
     async def _reconcile_executed_onchain(self, proposal: Proposal) -> Proposal:
-        """Write-back reconcile against the chain's transaction table.
+        """Probe the chain for a sealed EXECUTE and stamp the row when found.
+
+        Kept thin: the probe half is shared with list_proposals (which runs it
+        bounded-concurrent and stamps serially).
+        """
+        sealed = await self._reconcile_probe_onchain(proposal)
+        if not sealed or not sealed.get("executed"):
+            return proposal
+        return await self._stamp_executed_from_chain(proposal, sealed)
+
+    async def _reconcile_probe_onchain(self, proposal: Proposal) -> dict[str, Any] | None:
+        """Ask the node's sealed-proposal view whether an EXECUTE exists.
 
         A GOVERNANCE_EXECUTE submitted straight to the blockchain RPC seals
         without this service ever seeing it (prop_76855f71, 28 Oct), and the
-        service row then reports ``active`` forever. Ask the node's
-        sealed-proposal view whether an EXECUTE exists; when it does, stamp
-        the row exactly as a service-path execution would, and log a
-        ``reconcile`` step so the audit trail distinguishes it from a
-        service-path execute.
+        service row then reports ``active`` forever.
 
-        Skipped (no probe) when the row is already EXECUTED or still inside
-        its voting window. Failure-soft: an unreachable RPC or a missing
-        record returns the row unchanged — a list/get must never fail on a
-        reconcile probe.
+        Returns the sealed answer dict, or None when the proposal is already
+        EXECUTED, still inside its voting window, answered "not executed"
+        recently (negative cache), the probe failed, or the answer carries no
+        execute. Failure-soft: an unreachable RPC or a missing record returns
+        None — a list/get must never fail on a reconcile probe. Probe failures
+        are NOT cached, so the next call retries the node.
         """
         if proposal.status == ProposalStatus.EXECUTED:
-            return proposal
+            return None
         voting_ends = proposal.voting_ends
         if voting_ends is not None:
             if voting_ends.tzinfo is None:
                 voting_ends = voting_ends.replace(tzinfo=UTC)
             if datetime.now(UTC) < voting_ends:
-                return proposal
+                return None
+        cache = type(self)._reconcile_neg_cache
+        key = (proposal.chain_id, proposal.proposal_id)
+        now = time.monotonic()
+        for k, expiry in list(cache.items()):
+            if expiry <= now:
+                del cache[k]
+        if cache.get(key, 0.0) > now:
+            return None
         try:
             sealed = await self._blockchain.get_sealed_governance_proposal(proposal.proposal_id, proposal.chain_id)
         except Exception as e:
             logger.warning("chain execute reconcile probe failed for %s: %s", proposal.proposal_id, e)
-            return proposal
+            return None
         if not sealed or not sealed.get("executed"):
-            return proposal
-        return await self._stamp_executed_from_chain(proposal, sealed)
+            cache[key] = now + _RECONCILE_NEG_CACHE_SECONDS
+            return None
+        return sealed
 
     async def _stamp_executed_from_chain(self, proposal: Proposal, sealed: dict[str, Any]) -> Proposal:
-        """Apply the chain's sealed-EXECUTE verdict to the row and log it."""
+        """Apply the chain's sealed-EXECUTE verdict to the row and log it.
+
+        The status write is a conditional UPDATE (``status != executed``): two
+        callers racing the same reconcile both see the sealed verdict, but only
+        the winner's update lands and adds the ``reconcile`` log row — the
+        loser just refreshes its view. A plain ORM assignment let both write
+        and double the audit trail (GOV-LIST-RECONCILE-COST-1).
+        """
+        height = sealed.get("execute_block_height")
+        sealed_at = await self._sealing_block_time(proposal, int(height)) if height is not None else None
+        metadata = (
+            {**(proposal.proposal_metadata or {}), "execution_block_height": height}
+            if height is not None
+            else proposal.proposal_metadata
+        )
+        values: dict[str, Any] = {
+            "status": ProposalStatus.EXECUTED,
+            "execution_tx_hash": sealed.get("execute_tx_hash"),
+        }
+        if height is not None:
+            values["proposal_metadata"] = metadata
+        if sealed_at is not None:
+            values["executed_at"] = sealed_at
+        result = await self.session.execute(
+            update(Proposal)
+            .where(
+                Proposal.proposal_id == proposal.proposal_id,
+                Proposal.status != ProposalStatus.EXECUTED,
+            )
+            .values(**values)
+        )
+        # Test stubs and SELECT results carry no rowcount; only an explicit 0
+        # means another writer already stamped the row.
+        if getattr(result, "rowcount", None) == 0:
+            await self.session.refresh(proposal)
+            return proposal
         proposal.status = ProposalStatus.EXECUTED
         proposal.execution_tx_hash = sealed.get("execute_tx_hash")
-        height = sealed.get("execute_block_height")
         if height is not None:
-            proposal.proposal_metadata = {
-                **(proposal.proposal_metadata or {}),
-                "execution_block_height": height,
-            }
-            sealed_at = await self._sealing_block_time(proposal, int(height))
+            proposal.proposal_metadata = metadata
             if sealed_at is not None:
                 proposal.executed_at = sealed_at
         self.session.add(
