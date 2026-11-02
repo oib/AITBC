@@ -12,7 +12,8 @@
     "circom_runtime": {
       "ffjavascript": "^0.3.1"
     },
-    "underscore": "^1.13.8"
+    "underscore": "^1.13.8",
+    "minimatch": "^11.0.1"
   },
   "engines": {
     "node": ">=24.14.0"

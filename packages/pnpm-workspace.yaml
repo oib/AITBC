@@ -15,3 +15,7 @@
 packages:
   - theme-provider
   - web
+
+# GHSA-g3hv-75wg-m249: force minimatch >= 11.0.1 across the workspace.
+overrides:
+  minimatch: ^11.0.1
