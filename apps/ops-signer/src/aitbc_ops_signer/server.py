@@ -22,6 +22,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from aitbc.exceptions import AmbiguousRequestError
+
 from .audit import audit_line
 from .config import Config
 from .ledger import DailyLedger
@@ -99,6 +101,23 @@ def _drain_before_close(conn: socket.socket, timeout: float = 1.0) -> None:
         pass  # peer timeout or reset — either way there is nothing left to read
 
 
+def _may_have_sent(exc: BaseException) -> bool:
+    """Whether a failed sign_and_send may still have committed the payment.
+
+    Only an AmbiguousRequestError anywhere in the cause chain means the
+    request left this host and its answer was lost — the node may have
+    accepted the transfer. Everything else (a node 4xx before acceptance,
+    credential/signing failure before any send, exhausted pre-send retries)
+    is a definite refusal and the cap reservation can be released.
+    """
+    seen: BaseException | None = exc
+    while seen is not None:
+        if isinstance(seen, AmbiguousRequestError):
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return False
+
+
 def handle_request(
     payload: dict,
     *,
@@ -130,8 +149,21 @@ def handle_request(
             raise Refused("over_day_cap")
         try:
             tx_hash = signer.sign_and_send(to=req.to, amount_units=req.amount_units)
-        except Exception:
-            ledger.release(row_id)
+        except Exception as e:
+            # Release the reservation only on a definite refusal. A timeout
+            # or lost response after the request left may still have paid:
+            # keeping the row spends the cap headroom a phantom commit
+            # would have used; deleting it lets a retry storm spend twice
+            # (OPS-SIGNER-CAP-RELEASE-AMBIGUOUS-1).
+            if _may_have_sent(e):
+                log.warning(
+                    "sign outcome ambiguous; cap reservation kept for ledger row %s: %s: %s",
+                    row_id,
+                    type(e).__name__,
+                    e,
+                )
+            else:
+                ledger.release(row_id)
             raise
         ledger.record_tx_hash(row_id, tx_hash)
         result = "signed"

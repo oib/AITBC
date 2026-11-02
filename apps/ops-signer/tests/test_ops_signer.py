@@ -460,3 +460,71 @@ def test_unauthorized_peer_gets_refusal_reply_not_rst(tmp_path: Path):
         srv.stop()
         t.join(timeout=5)
     assert not t.is_alive()
+
+
+class FailingSigner:
+    """Stands in for Signer: always raises the configured error."""
+
+    def __init__(self, exc: BaseException) -> None:
+        self.exc = exc
+
+    def sign_and_send(self, *, to: str, amount_units: int) -> str:
+        raise self.exc
+
+
+def _deps_with_failing_signer(deps, exc: BaseException):
+    return {**deps, "signer": FailingSigner(exc)}
+
+
+def test_ambiguous_send_failure_keeps_the_cap_reservation(deps):
+    """OPS-SIGNER-CAP-RELEASE-AMBIGUOUS-1: a lost answer after the request
+    left is not a refusal — the row stays, so a retry storm cannot spend
+    past the daily cap."""
+    from aitbc.exceptions import AmbiguousRequestError
+
+    exc = AmbiguousRequestError("POST may have reached the server (timeout)")
+    r = handle_request(req(amount=500), **_deps_with_failing_signer(deps, exc))
+    assert r["ok"] is False and r["result"] == "error"
+    assert deps["ledger"].spent_last_24h() == 500
+    # Headroom is still burned: with the row held, 1000 more spends 1500 and
+    # a further 1000 trips the day cap — released, it would have fit.
+    handle_request(req(amount=500, memo="S-11"), **_deps_with_failing_signer(deps, exc))
+    assert deps["ledger"].spent_last_24h() == 1000
+    assert handle_request(req(amount=1_000, memo="S-12", to=SHOP), **deps)["result"] == "signed"
+    r2 = handle_request(req(amount=1_000, memo="S-13", to=SHOP), **deps)
+    assert r2["reason"] == "over_day_cap"
+
+
+def test_definite_4xx_rejection_releases_the_reservation(deps):
+    """A node 4xx before acceptance is a definite refusal: the row goes and
+    the headroom is available again."""
+    import requests
+
+    from aitbc.exceptions import NetworkError
+
+    response = requests.Response()
+    response.status_code = 400
+    exc = NetworkError("POST request failed")
+    exc.__cause__ = requests.HTTPError(response=response)
+    r = handle_request(req(amount=500), **_deps_with_failing_signer(deps, exc))
+    assert r["ok"] is False
+    assert deps["ledger"].spent_last_24h() == 0
+
+
+def test_presend_signing_failure_releases_the_reservation(deps):
+    """A credential/signing error before anything left is safe to release."""
+    r = handle_request(req(amount=500), **_deps_with_failing_signer(deps, ValueError("bad key")))
+    assert r["ok"] is False
+    assert deps["ledger"].spent_last_24h() == 0
+
+
+def test_ambiguous_cause_inside_a_wrapper_keeps_the_reservation(deps):
+    """The classifier walks the cause chain: AmbiguousRequestError wrapped
+    inside another error still counts as 'may have sent'."""
+    from aitbc.exceptions import AmbiguousRequestError
+
+    exc = RuntimeError("transport blew up")
+    exc.__cause__ = AmbiguousRequestError("lost the response")
+    r = handle_request(req(amount=500), **_deps_with_failing_signer(deps, exc))
+    assert r["ok"] is False
+    assert deps["ledger"].spent_last_24h() == 500
