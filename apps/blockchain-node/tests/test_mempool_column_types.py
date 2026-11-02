@@ -11,8 +11,9 @@ Desired behaviour (pinned here): fee is BIGINT, received_at is DOUBLE
 PRECISION, a fee above 2^31 base units stores cleanly, and received_at
 round-trips to the millisecond. These tests FAIL on current main against a
 real Postgres — that is the bug demonstration. sqlite has no such width
-limit, so the tests are postgres-marked and auto-skip without a server
-(DATABASE_URL / MEMPOOL_DB_URL, else postgresql://localhost:5432/aitbc).
+limit, so the tests are postgres-marked and auto-skip unless MEMPOOL_DB_URL (or
+DATABASE_URL) names a reachable *scratch* Postgres -- they create and drop the
+mempool table, so there is no localhost fallback.
 """
 
 import os
@@ -28,7 +29,10 @@ CHAIN = "bc-2.test"
 
 
 def _db_url() -> str:
-    return os.environ.get("MEMPOOL_DB_URL") or os.environ.get("DATABASE_URL") or "postgresql://localhost:5432/aitbc"
+    url = os.environ.get("MEMPOOL_DB_URL") or os.environ.get("DATABASE_URL")
+    if not url:
+        pytest.skip("requires_postgres: set MEMPOOL_DB_URL to a scratch database")
+    return url
 
 
 @pytest.fixture
