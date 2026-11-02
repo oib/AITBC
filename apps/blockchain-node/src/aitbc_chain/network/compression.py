@@ -16,12 +16,32 @@ import base64
 import json
 from typing import Any
 
-from aitbc.network import compress_json, decompress_json
+from aitbc.network import PayloadTooLargeError, compress_json, decompress_json
 
 # Magic prefix that marks a compressed payload.  Chosen so that it can never
 # appear at the start of valid JSON (which always begins with ``{``, ``[``,
 # ``"``, a digit, ``t``, ``f``, ``n``, or ``-``).
 COMPRESSION_PREFIX = "GZ:"
+
+
+def _payload_size_cap() -> int:
+    """Decompressed-size bound for inbound payloads.
+
+    The largest legitimate payload this node carries is a full block; tx and
+    gossip-message limits sit below it. A compressed line that expands past
+    this is refused — the asyncio readline cap (~64 KiB inbound) says nothing
+    about what it can inflate to.
+    """
+    try:
+        from ..config import settings
+
+        return max(
+            getattr(settings, "max_block_size_bytes", 1_000_000),
+            getattr(settings, "gossip_max_message_size", 1_048_576),
+            getattr(settings, "mempool_max_tx_size_bytes", 131_072),
+        )
+    except Exception:
+        return 4 * 1024 * 1024
 
 
 def is_compression_enabled() -> bool:
@@ -63,7 +83,11 @@ def decode_payload(message: Any) -> Any:
         if message.startswith(COMPRESSION_PREFIX):
             try:
                 compressed = base64.b64decode(message[len(COMPRESSION_PREFIX) :])
-                return decompress_json(compressed)
+                return decompress_json(compressed, max_bytes=_payload_size_cap())
+            except PayloadTooLargeError:
+                # Over-cap expansion: refuse outright, no fallback parse —
+                # the caller must drop the connection or message.
+                raise
             except Exception:
                 # Decompression failed — fall through to JSON parse as fallback
                 pass
