@@ -39,7 +39,7 @@ apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:123
 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:548
 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:636
 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:97
-apps/blockchain-node/src/aitbc_chain/contracts/escrow.py:608
+apps/blockchain-node/src/aitbc_chain/contracts/escrow.py:697
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:347
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:348
 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:437
@@ -89,11 +89,11 @@ apps/blockchain-node/src/aitbc_chain/p2p_network.py:442
 apps/blockchain-node/src/aitbc_chain/p2p_network.py:642
 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1450
 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1451
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1729
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1822
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1845
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:2113
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:2307
+apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1747
+apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1840
+apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1863
+apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:2131
+apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:2325
 apps/blockchain-node/src/aitbc_chain/rpc/websocket.py:247
 apps/blockchain-node/src/aitbc_chain/rpc/websocket.py:86
 apps/blockchain-node/src/aitbc_chain/sync_bulk.py:548

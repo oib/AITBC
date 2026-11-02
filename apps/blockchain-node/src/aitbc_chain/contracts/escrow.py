@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
 from typing import Any, TYPE_CHECKING
@@ -143,6 +144,85 @@ def expected_release_units(
     if protected and credit_units is not None:
         expected = max(expected, credit_units)
     return expected
+
+
+# How long a contract rebuilt from its row stays open; the same ceiling a freshly
+# created contract is capped at (EscrowManager.max_contract_duration).
+MAX_CONTRACT_DURATION_SECONDS = 86400 * 30
+
+
+def row_state_for(released_at: Any, refunded_at: Any) -> str:
+    """The EscrowState value an escrow row reads as, from its settlement timestamps (#780).
+
+    The mapping the migration backfill applies and readers fall back to while a row's
+    ``state`` is still NULL: a settled row is RELEASED or REFUNDED, anything else is
+    FUNDED, because the table only ever held funded locks.
+    """
+    if released_at is not None:
+        return EscrowState.RELEASED.value
+    if refunded_at is not None:
+        return EscrowState.REFUNDED.value
+    return EscrowState.FUNDED.value
+
+
+def default_milestones(amount: Decimal, *, completed: bool = False) -> list[dict[str, Any]]:
+    """The single "complete the job" milestone a contract without explicit ones carries."""
+    return [{"milestone_id": "milestone_1", "description": "Complete job", "amount": amount, "completed": completed}]
+
+
+def serialise_milestones(milestones: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """JSON-safe copy of a contract's milestones: Decimal amounts become strings."""
+    out: list[dict[str, Any]] = []
+    for milestone in milestones:
+        item = dict(milestone)
+        if "amount" in item:
+            item["amount"] = str(item["amount"])
+        out.append(item)
+    return out
+
+
+def deserialise_milestones(raw: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Inverse of serialise_milestones: amounts back to Decimal."""
+    out: list[dict[str, Any]] = []
+    for milestone in raw or []:
+        item = dict(milestone)
+        if "amount" in item:
+            item["amount"] = Decimal(str(item["amount"]))
+        out.append(item)
+    return out
+
+
+def escrow_state_columns(
+    *,
+    buyer: str,
+    provider: str,
+    job_id: str,
+    amount_units: int,
+    created_at: datetime,
+    protected: bool = False,
+    energy_fee_basis_points: int | None = None,
+    released_at: Any = None,
+    refunded_at: Any = None,
+) -> dict[str, Any]:
+    """The #780 contract-state columns for a row built from chain facts alone.
+
+    Used where there is no live contract to read them from: the reconstruction of a
+    row from its on-chain lock. The migration backfill applies the same rules in plain
+    SQL-side Python (migrations do not import application code), and a test holds the
+    two together.
+    """
+    state = row_state_for(released_at, refunded_at)
+    fee_bps = energy_fee_basis_points if protected and energy_fee_basis_points is not None else DEFAULT_FEE_BPS
+    return {
+        "contract_id": contract_id_for(buyer, provider, job_id),
+        "state": state,
+        "expires_at": created_at + timedelta(seconds=MAX_CONTRACT_DURATION_SECONDS),
+        "fee_bps": fee_bps,
+        "milestones": serialise_milestones(
+            default_milestones(units_to_ait(amount_units), completed=state == EscrowState.RELEASED.value)
+        ),
+        "current_milestone": 0,
+    }
 
 
 def recompute_release_proofs(
@@ -353,7 +433,7 @@ class EscrowManager:
         self.active_contracts: set[str] = set()
         self.disputed_contracts: set[str] = set()
         self.default_fee_rate = Decimal("0.025")
-        self.max_contract_duration = 86400 * 30
+        self.max_contract_duration = MAX_CONTRACT_DURATION_SECONDS
         self.dispute_timeout = 86400 * 7
         self.min_dispute_evidence = 1
         self.max_dispute_evidence = 10
@@ -603,6 +683,15 @@ class EscrowManager:
                 # settlement; the release hash belongs in its own column.
                 release_tx_hash=legs.get("release_tx_hash"),
                 refund_tx_hash=legs.get("refund_tx_hash"),
+                **escrow_state_columns(
+                    buyer=buyer,
+                    provider=provider,
+                    job_id=job_id,
+                    amount_units=lock_tx.value,
+                    created_at=lock_tx.created_at,
+                    released_at=legs.get("released_at"),
+                    refunded_at=legs.get("refunded_at"),
+                ),
             )
             session.add(record)
             session.commit()

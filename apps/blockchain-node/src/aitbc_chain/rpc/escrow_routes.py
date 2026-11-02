@@ -32,7 +32,7 @@ from eth_utils import keccak
 
 from ..chain_id import resolve_chain_id
 from ..config import settings
-from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager
+from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager, serialise_milestones
 from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import escrow_fee_sweep_total, escrow_settlement_refused_total
@@ -1673,6 +1673,21 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         mgr.disputed_contracts.discard(contract_id)
         raise HTTPException(status_code=425, detail=fund_message, headers={"Retry-After": "5"}) from None
 
+    # #780 (b): the contract's lifecycle columns, taken from the contract just funded so
+    # the row carries what the in-memory object does. The id is the one create_contract
+    # derived (contract_id_for), identical on every worker.
+    funded_contract = mgr.escrow_contracts.get(contract_id)
+    state_columns: dict[str, Any] = {}
+    if funded_contract is not None:
+        state_columns = {
+            "contract_id": contract_id,
+            "state": EscrowState.FUNDED.value,
+            "expires_at": datetime.fromtimestamp(funded_contract.expires_at, UTC),
+            "fee_bps": int((funded_contract.fee_rate * 10000).to_integral_value()),
+            "milestones": serialise_milestones(funded_contract.milestones),
+            "current_milestone": funded_contract.current_milestone,
+        }
+
     # Persist the Escrow DB record only once the lock was accepted. If the
     # process dies between submit and this write the row is missing, but the
     # next create (or release/refund) rebuilds it from the on-chain lock via
@@ -1688,6 +1703,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     existing.buyer = _to_canonical(buyer)
                     existing.provider = _to_canonical(provider)
                     existing.amount = amount_units
+                    for column, value in state_columns.items():
+                        setattr(existing, column, value)
                     if energy_kwargs:
                         existing.protected = True
                         existing.energy_quote_snapshot = energy_kwargs.get("energy_quote_snapshot")
@@ -1708,6 +1725,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                         amount=amount_units,
                         status="locked",
                         lock_tx_hash=lock_tx_hash,
+                        **state_columns,
                         **(
                             {
                                 "protected": True,
