@@ -529,11 +529,66 @@ def _fail_task(task_id: str, provider_wallet: str, reason: str | None = None) ->
 
 # --- IPFS helpers (island daemon) --------------------------------------------
 
+# Payload bounds (#801): the buyer chooses payload_ref, so the cat and every
+# service response are capped — refuse above the cap before holding it.
+_TASK_MAX_PAYLOAD_ENV = "AGENT_TASK_MAX_PAYLOAD_BYTES"
+_TASK_DEFAULT_MAX_BYTES = 512 * 1024 * 1024  # sized to the ffmpeg upload limit
 
-def _ipfs_cat(cid: str, timeout: int = 120) -> bytes:
-    resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/cat", params={"arg": cid}, timeout=timeout)
+
+def _task_max_payload_bytes() -> int:
+    try:
+        return max(1, int(os.environ.get(_TASK_MAX_PAYLOAD_ENV, _TASK_DEFAULT_MAX_BYTES)))
+    except ValueError:
+        return _TASK_DEFAULT_MAX_BYTES
+
+
+def _bounded_content(resp: requests.Response, cap: int) -> bytes:
+    """Read a response body with a running byte count — never holds > cap."""
+    headers = getattr(resp, "headers", None) or {}
+    cl = headers.get("Content-Length")
+    try:
+        declared = int(cl) if cl is not None else None
+    except (TypeError, ValueError):
+        declared = None
+    if declared is not None and declared > cap:
+        raise ValueError(f"response body {cl} bytes exceeds {cap} cap")
+    stream = getattr(resp, "iter_content", None)
+    if callable(stream):
+        buf = bytearray()
+        try:
+            for chunk in stream(chunk_size=65536):
+                buf += chunk
+                if len(buf) > cap:
+                    raise ValueError(f"response body exceeds {cap} cap")
+            return bytes(buf)
+        except TypeError:
+            pass  # streamless/mocked response — bound on .content instead
+    content = resp.content
+    if len(content) > cap:
+        raise ValueError(f"response body {len(content)} bytes exceeds {cap} cap")
+    return content
+
+
+def _ipfs_object_size(cid: str) -> int | None:
+    """Best-effort object size from the daemon; None when unknown."""
+    try:
+        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/object/stat", params={"arg": cid}, timeout=30)
+        if resp.status_code == 200:
+            size = resp.json().get("CumulativeSize") or resp.json().get("DataSize")
+            return int(size) if size is not None else None
+    except Exception:
+        pass  # stat is advisory; the cat stream below still bounds the read
+    return None
+
+
+def _ipfs_cat(cid: str, timeout: int = 120, max_bytes: int | None = None) -> bytes:
+    cap = _task_max_payload_bytes() if max_bytes is None else max_bytes
+    size = _ipfs_object_size(cid)
+    if size is not None and size > cap:
+        raise ValueError(f"IPFS object {cid} is {size} bytes, over the {cap} cap")
+    resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/cat", params={"arg": cid}, timeout=timeout, stream=True)
     resp.raise_for_status()
-    return resp.content
+    return _bounded_content(resp, cap)
 
 
 def _ipfs_add(data: bytes, filename: str = "result.bin") -> str:
@@ -558,9 +613,10 @@ def _exec_whisper(req: dict[str, Any], payload: bytes) -> bytes:
         files={"file": ("audio", payload)},
         data={"task": "transcribe"},
         timeout=600,
+        stream=True,
     )
     resp.raise_for_status()
-    return resp.content
+    return _bounded_content(resp, _task_max_payload_bytes())
 
 
 def _exec_ffmpeg(req: dict[str, Any], payload: bytes) -> bytes:
@@ -569,9 +625,10 @@ def _exec_ffmpeg(req: dict[str, Any], payload: bytes) -> bytes:
         files={"file": ("input", payload)},
         data={"output_format": "mp4", "codec": "h264"},
         timeout=1800,
+        stream=True,
     )
     resp.raise_for_status()
-    return resp.content
+    return _bounded_content(resp, _task_max_payload_bytes())
 
 
 def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
@@ -585,9 +642,10 @@ def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
         f"{OLLAMA_URL}/api/generate",
         json={"model": model, "prompt": prompt, "stream": False},
         timeout=600,
+        stream=True,
     )
     resp.raise_for_status()
-    return resp.content
+    return _bounded_content(resp, _task_max_payload_bytes())
 
 
 def _exec_ipfs(req: dict[str, Any], payload: bytes) -> bytes:
