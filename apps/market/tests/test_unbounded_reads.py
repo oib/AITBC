@@ -47,11 +47,18 @@ def capped(monkeypatch):
     return CAP
 
 
+def _uid() -> str:
+    from uuid import uuid4
+
+    return uuid4().hex[:8]
+
+
 async def _seed_jobs(session: AsyncSession, n: int = SEEDED) -> None:
+    u = _uid()
     for i in range(n):
-        pay = MarketJobPayment(job_id=f"job_pin_{i}", amount=1, status="locked")
+        pay = MarketJobPayment(job_id=f"job_pin_{u}_{i}", amount=1, status="locked")
         job = MarketJob(
-            id=f"job_pin_{i}",
+            id=f"job_pin_{u}_{i}",
             buyer_address="0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76",
             provider_address="0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2",
             service_type="ipfs",
@@ -66,14 +73,16 @@ async def _seed_jobs(session: AsyncSession, n: int = SEEDED) -> None:
 async def _seed_offers(session: AsyncSession, n: int = SEEDED) -> None:
     from aitbc_shared import MarketOffer
 
+    u = _uid()
     for i in range(n):
-        session.add(MarketOffer(id=f"offer_pin_{i}", provider="0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2", status="open"))
+        session.add(MarketOffer(id=f"offer_pin_{u}_{i}", provider="0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2", status="open"))
     await session.commit()
 
 
 async def _seed_services(session: AsyncSession, n: int = SEEDED) -> None:
+    u = _uid()
     for i in range(n):
-        session.add(SoftwareService(plugin_id=f"svc_pin_{i}", service_type="whisper", status="active"))
+        session.add(SoftwareService(plugin_id=f"svc_pin_{u}_{i}", service_type="whisper", status="active"))
     await session.commit()
 
 
