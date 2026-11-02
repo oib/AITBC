@@ -8,10 +8,11 @@ applied in SQL alongside it — all supplied filters must hold.
 
 from __future__ import annotations
 
+import pytest
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
-import pytest
+from sqlalchemy import event
 
 from aitbc_chain.base_models import Transaction
 from aitbc_chain.rpc.transactions import query_transactions
@@ -35,7 +36,7 @@ def patched_db_fixture(session, monkeypatch):
     return session
 
 
-def _tx(chain_id: str, tx_hash: str, sender: str, recipient: str) -> Transaction:
+def _tx(chain_id: str, tx_hash: str, sender: str, recipient: str, tx_type: str = "TRANSFER") -> Transaction:
     return Transaction(
         chain_id=chain_id,
         tx_hash=tx_hash,
@@ -43,7 +44,7 @@ def _tx(chain_id: str, tx_hash: str, sender: str, recipient: str) -> Transaction
         sender=sender,
         recipient=recipient,
         payload={},
-        type="TRANSFER",
+        type=tx_type,
         status="confirmed",
         timestamp=datetime(2026, 10, 7, tzinfo=UTC),
     )
@@ -96,3 +97,64 @@ def test_limit_counts_after_filter(seeded_db):
     # Two matching rows exist; limit=1 keeps only the newest (highest id).
     result = query_transactions(None, chain_id="test-chain", address=OTHER, limit=1)
     assert len(result) == 1
+
+
+def _select_statements(engine):
+    """Statement capture for asserting the query's SQL shape."""
+    statements = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listens_for(engine, "before_cursor_execute")(capture)
+    return statements, capture
+
+
+def test_type_filter_applies_in_sql(patched_db, engine):
+    """transaction_type is a column: the filter belongs in the WHERE clause,
+    not the Python loop over every row on the chain."""
+    patched_db.add(_tx("test-chain", "0xt1", SENDER, OTHER, tx_type="TRANSFER"))
+    patched_db.add(_tx("test-chain", "0xe1", SENDER, OTHER, tx_type="ESCROW_LOCK"))
+    patched_db.commit()
+
+    statements, capture = _select_statements(engine)
+    try:
+        result = query_transactions(None, chain_id="test-chain", transaction_type="ESCROW_LOCK")
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+
+    assert {t["tx_hash"] for t in result} == {"0xe1"}
+    selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
+    assert any("type" in s for s in selects), selects
+
+
+def test_limit_is_applied_in_sql(patched_db, engine):
+    """RPC-TX-QUERY-UNBOUNDED-1: with no payload-field filter the limit binds
+    in SQL — the query must not read the whole table to slice it in Python."""
+    for i in range(5):
+        patched_db.add(_tx("test-chain", f"0x{i}", SENDER, OTHER))
+    patched_db.commit()
+
+    statements, capture = _select_statements(engine)
+    try:
+        result = query_transactions(None, chain_id="test-chain", limit=2)
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+
+    assert [t["tx_hash"] for t in result] == ["0x4", "0x3"]  # newest first
+    selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
+    assert any("LIMIT" in s.upper() for s in selects), selects
+
+
+def test_payload_filter_path_still_searches_past_the_limit(patched_db):
+    """Payload filters still run in Python, so a SQL limit there would be
+    wrong: an older matching row must still be found beyond the window."""
+    old = _tx("test-chain", "0xold", SENDER, OTHER)
+    old.payload = {"island_id": "isl-1"}
+    patched_db.add(old)
+    for i in range(3):
+        patched_db.add(_tx("test-chain", f"0xnew{i}", SENDER, OTHER))
+    patched_db.commit()
+
+    result = query_transactions(None, chain_id="test-chain", island_id="isl-1", limit=1)
+    assert [t["tx_hash"] for t in result] == ["0xold"]

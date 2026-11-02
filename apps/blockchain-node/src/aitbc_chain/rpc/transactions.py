@@ -608,6 +608,11 @@ def query_transactions(
 
             query = query.where(col(Transaction.recipient).in_(address_spellings(recipient)))
 
+        if transaction_type:
+            # Column filter in SQL. It used to live in the Python loop below,
+            # so a type-filtered call still read every row on the chain.
+            query = query.where(Transaction.type == transaction_type)
+
         if job_id is not None:
             # Filter in SQL, not in Python: the other payload filters below load every
             # transaction on the chain first. Settlement asks this question before paying
@@ -623,6 +628,14 @@ def query_transactions(
                 query = query.where(literal_column(expression) == job_id)
             else:
                 query = query.where(Transaction.payload["job_id"].as_string() == job_id)
+
+        # Bind the limit in SQL when no payload-field filter is active. The
+        # payload filters below still run in Python, so limiting the query
+        # there could drop matching rows beyond the window; without them the
+        # SQL result is the final one and must not materialise the whole
+        # table to slice it in Python (RPC-TX-QUERY-UNBOUNDED-1).
+        if limit and not (island_id or pair or status or order_id):
+            query = query.limit(limit)
 
         _logger.debug(f"Query: {query}")
 
@@ -646,10 +659,6 @@ def query_transactions(
 
         results = []
         for tx in transactions:
-            # Filter by transaction type in transaction type field (not payload)
-            if transaction_type and tx.type != transaction_type:
-                continue
-
             # Filter by island_id in payload
             if island_id and tx.payload.get("island_id") != island_id:
                 continue
