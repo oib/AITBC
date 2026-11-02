@@ -1645,6 +1645,8 @@ def run_cron_job(
 ) -> str:
     """Manually run an AITBC cron/script job on the selected node."""
     target = _host_for_role(role, host)
+    if ".." in Path(script_path).parts or not script_path.startswith("/"):
+        return _json({"error": "invalid script path", "path": script_path})
     command = _build_aitbc_cli_command(
         "system",
         "run-script",
@@ -2576,6 +2578,8 @@ def get_remote_file(
     """Read a remote AITBC configuration, log, or data file."""
     target = _host_for_role(role, host)
     if re.search(r"[;&|<>$`\\!\n\r]", file_path):
+        return _json({"error": "invalid file path", "path": file_path})
+    if ".." in Path(file_path).parts or not file_path.startswith("/"):
         return _json({"error": "invalid file path", "path": file_path})
     return _json(
         _run_aitbc_cli(
