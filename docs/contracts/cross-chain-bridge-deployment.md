@@ -167,6 +167,17 @@ pins, staleness gate, payout cap) in two profiles:
   `lockTxHash` to equal the first confirmation's stored value
   (`request.confirmations == 0 || request.lockTxHash == lockTxHash`),
   or track confirmations per hash.
+- `confirmBridge` quorum (forge-reproduced on node2, issue #795):
+  `quorum` is a constant 3 — the per-chain `minConfirmations` lookup for
+  the current chain always returns 0 and is never used, so a two-validator
+  deployment can never reach confirmation quorum.
+- A `CONFIRMED` request on its own chain can be neither completed nor
+  cancelled (forge-reproduced): tokens locked by it exit only via the
+  owner's `emergencyWithdraw`.
+- A deposit to the seeded chain 1 forfeits the fee on `cancelBridge`
+  (forge-reproduced): the refund path does not return the fee portion.
+- The fix for all three is a contract change plus a Safe redeploy; it is
+  held behind the mainnet deployment decision (#795).
 
 ## Recovery notes
 
