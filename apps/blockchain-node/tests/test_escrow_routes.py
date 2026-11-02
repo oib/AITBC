@@ -680,9 +680,8 @@ def _release_drive_mocks(escrow_routes, *, unsealed=True, expose: dict | None = 
     mgr = MagicMock()
     contract = _locked_contract()
     mgr.escrow_contracts = {"c1": contract}
-    mgr.snapshot_release_state = MagicMock(return_value={})
     mgr.release_payment = AsyncMock(return_value=(True, "ok"))
-    mgr.restore_after_failed_settlement = MagicMock()
+    mgr.evict_contract = MagicMock()
 
     record = SimpleNamespace(
         job_id="job-1",
@@ -1004,7 +1003,7 @@ async def test_release_retry_at_lock_cannot_reenter_submission(release_key, monk
             await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
         assert exc.value.status_code == 400
         escrow_routes._submit_payment_tx.assert_not_awaited()
-        mgr.restore_after_failed_settlement.assert_not_called()
+        mgr.evict_contract.assert_not_called()
 
 
 @pytest.mark.asyncio
