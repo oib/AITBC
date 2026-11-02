@@ -657,6 +657,11 @@ async def cancel_offer(
             key, attempt, JSONResponse(status_code=400, content={"error": f"Offer has an unknown status: '{offer.status}'"})
         )
     try:
+        if current is OfferStatus.RESERVED:
+            # Recovery path for a stranded reservation (#816): release the
+            # RESERVED offer back to AVAILABLE first, then delist — otherwise
+            # a booking gone stale locks the offer forever.
+            await svc.update_offer_status(offer_id, "available")
         await svc.update_offer_status(offer_id, "cancelled")
     except ValueError:
         # Reached for an offer someone holds: RESERVED can go to IN_USE, back to AVAILABLE, or
