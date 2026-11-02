@@ -1346,12 +1346,9 @@ _ALLOWED_READ_PREFIXES = (
 @click.pass_context
 def read_file(ctx, path: str):
     """Read a remote AITBC configuration, log, or data file."""
-    if not any(path.startswith(prefix) for prefix in _ALLOWED_READ_PREFIXES):
-        raise click.ClickException(f"file path not allowed: {path}")
-    if re.search(r"[;&|<>$`\\!\n\r]", path):
-        raise click.ClickException(f"invalid file path: {path}")
+    resolved = _resolve_allowed_read_path(path)
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(resolved, encoding="utf-8") as f:
             click.echo(f.read())
     except Exception as e:
         raise click.ClickException(f"Error reading {path}: {e}") from e
@@ -1397,6 +1394,21 @@ _ALLOWED_SCRIPT_PREFIXES = (
 )
 
 
+def _resolve_allowed_script_path(path: str) -> Path:
+    """Allowlist + metachar check, then the resolved path must stay inside it."""
+    if not any(path.startswith(prefix) for prefix in _ALLOWED_SCRIPT_PREFIXES):
+        raise click.ClickException(f"script path not allowed: {path}")
+    if re.search(r"[;&|<>$`\\!\n\r]", path):
+        raise click.ClickException(f"invalid script path: {path}")
+    try:
+        resolved = Path(path).resolve(strict=True)
+    except OSError as e:
+        raise click.ClickException(f"Error running script {path}: {e}") from e
+    if not any(str(resolved).startswith(prefix) for prefix in _ALLOWED_SCRIPT_PREFIXES):
+        raise click.ClickException(f"script path not allowed: {path} resolves outside the allowed prefixes")
+    return resolved
+
+
 @system.command(
     name="run-script",
     epilog="""Examples:
@@ -1407,12 +1419,9 @@ _ALLOWED_SCRIPT_PREFIXES = (
 @click.pass_context
 def run_script(ctx, path: str):
     """Run an allowed AITBC maintenance or monitoring script."""
-    if not any(path.startswith(prefix) for prefix in _ALLOWED_SCRIPT_PREFIXES):
-        raise click.ClickException(f"script path not allowed: {path}")
-    if re.search(r"[;&|<>$`\\!\n\r]", path):
-        raise click.ClickException(f"invalid script path: {path}")
+    resolved = _resolve_allowed_script_path(path)
     try:
-        result = subprocess.run(["bash", "--", path], capture_output=True, text=True, timeout=300)
+        result = subprocess.run(["bash", "--", str(resolved)], capture_output=True, text=True, timeout=300)
         if result.returncode == 0:
             click.echo(result.stdout)
             return
