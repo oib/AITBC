@@ -351,7 +351,13 @@ class JobService:
                 if not raw.get("tee_enclave_id"):
                     raw["tee_enclave_id"] = os.getenv("COORDINATOR_TEE_DEFAULT_ENCLAVE_ID", "aitbc-miner-tee")
         constraints = Constraints(**raw)
-        return AssignedJob(job_id=job.id, payload=job.payload, constraints=constraints)
+        deadline = _to_utc(job.expires_at)
+        return AssignedJob(
+            job_id=job.id,
+            payload=job.payload,
+            constraints=constraints,
+            expires_at=deadline.timestamp() if deadline else None,
+        )
 
     # Cap the queued-job scan per dispatch call. FIFO order means the oldest
     # jobs are always considered first; the cap only bounds how far a single
