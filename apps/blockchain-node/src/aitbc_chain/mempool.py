@@ -9,7 +9,7 @@ from threading import Lock, RLock
 from typing import Any, cast
 from collections.abc import Iterable
 
-from sqlalchemy import Column, Float, Index, Integer, MetaData, Text, delete, func
+from sqlalchemy import Boolean, Column, Float, Index, Integer, MetaData, Text, delete, func
 from sqlmodel import Field, Session, create_engine, select, text
 
 from .metadata import ChainBase
@@ -37,6 +37,13 @@ class MempoolEntry(ChainBase, table=True):
     received_at: float = Field(sa_column=Column(Float, nullable=False))
     sender: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     nonce: int | None = Field(default=None, sa_column=Column(Integer, nullable=True))
+    # Whether the entry holds a signed (sender, nonce) slot — i.e.
+    # _tx_slot_key(content) is not None. Unsigned protocol-internal writes
+    # (escrow, bond, bridge) carry no signature and must never be
+    # supersede-swept by a sealed tx of the same sender (#796). NULL marks a
+    # row written before the column existed; it is treated as unsigned —
+    # sweeping it could drop a protocol write, never the reverse.
+    signed: bool | None = Field(default=None, sa_column=Column(Boolean, nullable=True))
 
 
 @dataclass(frozen=True)
@@ -278,6 +285,11 @@ class InMemoryMempool:
         removed = 0
         with self._lock:
             for entry in list(self._get_chain_transactions(chain_id).values()):
+                # Only slot-holding (signed) entries may be swept — an
+                # unsigned protocol-internal write must survive a sealed tx
+                # from the same sender (#796).
+                if _tx_slot_key(entry.content) is None:
+                    continue
                 if _tx_sender(entry.content) != sender.lower():
                     continue
                 entry_nonce = _tx_nonce(entry.content)
@@ -428,6 +440,7 @@ class DatabaseMempool:
                         received_at REAL NOT NULL,
                         sender TEXT,
                         nonce INTEGER,
+                        signed BOOLEAN,
                         PRIMARY KEY (chain_id, tx_hash)
                     )
                 """)
@@ -452,18 +465,21 @@ class DatabaseMempool:
         return set()
 
     def _ensure_slot_columns(self, session: Session) -> None:
-        """Add sender/nonce to mempool tables that predate the columns.
+        """Add sender/nonce/signed to mempool tables that predate the columns.
 
         The nonce-slot index needs real columns; rows written before the
         upgrade stay NULL and simply never occupy a slot — they drain or
-        expire normally.
+        expire normally. ``signed`` (#796) marks slot-holding entries; NULL
+        rows are treated as unsigned so a stale signed row can never be
+        supersede-swept, only left to drain. A small backfill below derives
+        the flag from each row's content.
         """
         existing = self._table_columns(session)
         if not existing:
             return
-        # Both ALTERs join the caller's transaction — committing here would
+        # The ALTERs join the caller's transaction — committing here would
         # release the advisory lock while the migration is only half done.
-        for column, ddl in (("sender", "TEXT"), ("nonce", "INTEGER")):
+        for column, ddl in (("sender", "TEXT"), ("nonce", "INTEGER"), ("signed", "BOOLEAN")):
             if column in existing:
                 continue
             try:
@@ -471,7 +487,7 @@ class DatabaseMempool:
             except Exception:
                 # Rolling back also releases the advisory lock and undoes
                 # every ALTER in the transaction — a sender added moments
-                # earlier is gone too if nonce failed. Verify both columns,
+                # earlier is gone too if nonce failed. Verify all columns,
                 # not just the one that errored: a writer that does not take
                 # the lock (e.g. an older build) could still have added the
                 # failing one meanwhile. Anything else must surface — a
@@ -479,6 +495,26 @@ class DatabaseMempool:
                 session.rollback()
                 if not {"sender", "nonce"} <= self._table_columns(session):
                     raise
+        if "signed" in self._table_columns(session):
+            self._backfill_signed_flag(session)
+
+    def _backfill_signed_flag(self, session: Session) -> None:
+        """Derive ``signed`` for rows written before the column existed."""
+        rows = session.exec(
+            select(MempoolEntry.chain_id, MempoolEntry.tx_hash, MempoolEntry.content).where(
+                MempoolEntry.signed.is_(None)  # type: ignore[union-attr]
+            )
+        ).all()
+        for chain_id, tx_hash, content in rows:
+            try:
+                tx = json.loads(content)
+            except (TypeError, ValueError):
+                continue
+            session.exec(
+                text("UPDATE mempool SET signed = :signed WHERE chain_id = :chain_id AND tx_hash = :tx_hash").bindparams(
+                    signed=_tx_slot_key(tx) is not None, chain_id=chain_id, tx_hash=tx_hash
+                )  # type: ignore[call-overload]
+            )
 
     def add(
         self,
@@ -573,6 +609,7 @@ class DatabaseMempool:
                     received_at=time.time(),
                     sender=_tx_sender(tx) or None,
                     nonce=_tx_nonce(tx),
+                    signed=_tx_slot_key(tx) is not None,
                 )
                 session.add(entry)
                 if commit:
@@ -680,6 +717,7 @@ class DatabaseMempool:
                         received_at=time.time(),
                         sender=_tx_sender(tx) or None,
                         nonce=_tx_nonce(tx),
+                        signed=_tx_slot_key(tx) is not None,
                     )
                     session.add(entry)
                     current_count += 1
@@ -838,6 +876,11 @@ class DatabaseMempool:
                         MempoolEntry.chain_id == chain_id,
                         MempoolEntry.sender == sender.lower(),
                         cast(Any, MempoolEntry.nonce) <= nonce,
+                        # Only slot-holding (signed) rows may be swept —
+                        # unsigned protocol-internal writes survive (#796).
+                        # NULL reads as not-signed for rows that predate the
+                        # backfill.
+                        MempoolEntry.signed.is_(True),  # type: ignore[union-attr]
                     )
                 ).all()
                 for row in rows:
