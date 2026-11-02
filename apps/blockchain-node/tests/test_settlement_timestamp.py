@@ -43,7 +43,6 @@ def _manager():
     )
     mgr = MagicMock()
     mgr.escrow_contracts = {"c-1": contract}
-    mgr.release_lock.return_value = asyncio.Lock()
     mgr.snapshot_release_state.return_value = {"state": None}
     mgr.release_payment = AsyncMock(return_value=(True, "released"))
     return mgr

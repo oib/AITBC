@@ -23690,7 +23690,7 @@
             }
           },
           "425": {
-            "description": "escrow lock for job_id={job_id} is not yet sealed in a block (absent or still in mempool); retry after the ESCROW_LOCK lands",
+            "description": "escrow lock for job_id={job_id} is not yet sealed in a block (absent or still in mempool); retry after the ESCROW_LOCK lands / Escrow for job_id={job_id} is being released or refunded by another request; retry shortly",
             "content": {
               "application/json": {
                 "schema": {
@@ -23818,7 +23818,7 @@
             }
           },
           "425": {
-            "description": "escrow lock for job_id={job_id} is not yet sealed in a block (absent or still in mempool); retry after the ESCROW_LOCK lands",
+            "description": "escrow lock for job_id={job_id} is not yet sealed in a block (absent or still in mempool); retry after the ESCROW_LOCK lands / Escrow for job_id={job_id} is being released or refunded by another request; retry shortly",
             "content": {
               "application/json": {
                 "schema": {
