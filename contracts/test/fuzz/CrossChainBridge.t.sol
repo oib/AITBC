@@ -115,14 +115,14 @@ contract CrossChainBridgeFuzzTest is Test {
         vm.assume(chainId != block.chainid);
         vm.assume(bytes(name).length <= 64);
 
-        bridge.addSupportedChain(chainId, CrossChainBridge.ChainType.POLYGON, name, address(0), 1, 12);
-        (, , , bool isActive, , , ) = bridge.supportedChains(chainId);
+        bridge.addSupportedChain(chainId, CrossChainBridge.ChainType.POLYGON, name, address(0), 12);
+        (, , , bool isActive, , ) = bridge.supportedChains(chainId);
         assertTrue(isActive);
     }
 
     function testFuzz_AddSupportedChainRejectsCurrent() public {
         vm.expectRevert("Cannot add current chain");
-        bridge.addSupportedChain(block.chainid, CrossChainBridge.ChainType.ETHEREUM, "self", address(0), 1, 12);
+        bridge.addSupportedChain(block.chainid, CrossChainBridge.ChainType.ETHEREUM, "self", address(0), 12);
     }
 
     function testFuzz_AddValidatorOnlyOwner(address caller, address newValidator) public {
@@ -527,14 +527,31 @@ contract CrossChainBridgeFuzzTest is Test {
         bridge.confirmBridge(requestId, lockTxHash, _sign(V1_PK, requestId, lockTxHash));
     }
 
-    function testFuzz_CancelRejectsConfirmed(uint256 amount) public {
+    function testFuzz_CancelRejectsConfirmedBeforeCompletionTimeout(uint256 amount) public {
         amount = bound(amount, 1, 1000);
         uint256 requestId = _initiateAndConfirm(amount);
 
-        vm.warp(block.timestamp + 25 hours);
+        // confirmed but inside the completion window — still locked (#795)
+        vm.warp(block.timestamp + 23 hours);
         vm.prank(user);
-        vm.expectRevert("Request not pending");
-        bridge.cancelBridge(requestId, "too late");
+        vm.expectRevert("Confirmed request not expired");
+        bridge.cancelBridge(requestId, "too early");
+    }
+
+    function testFuzz_CancelConfirmedAfterExpiryRefundsPrincipalOnly(uint256 amount) public {
+        amount = bound(amount, 1, 1000);
+        uint256 requestId = _initiateAndConfirm(amount);
+
+        // past COMPLETION_TIMEOUT (24h after confirmedAt): sender exits on the
+        // source chain and gets the principal back — never the fee (2C).
+        vm.warp(block.timestamp + 25 hours);
+        uint256 balBefore = sourceToken.balanceOf(user);
+        vm.prank(user);
+        bridge.cancelBridge(requestId, "expired");
+
+        (, , , uint256 amt, , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        assertTrue(st == CrossChainBridge.BridgeStatus.CANCELLED);
+        assertEq(sourceToken.balanceOf(user), balBefore + amt);
     }
 
     function test_GetUserBridgeHistory() public {
@@ -564,7 +581,7 @@ contract CrossChainBridgeFuzzTest is Test {
 
     function test_AddSupportedChainRejectsZeroId() public {
         vm.expectRevert("Invalid chain ID");
-        bridge.addSupportedChain(0, CrossChainBridge.ChainType.POLYGON, "x", address(0), 1, 12);
+        bridge.addSupportedChain(0, CrossChainBridge.ChainType.POLYGON, "x", address(0), 12);
     }
 
     function test_RemoveValidatorMiddleCompacts() public {
