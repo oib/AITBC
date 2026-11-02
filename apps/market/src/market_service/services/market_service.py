@@ -1079,7 +1079,11 @@ class MarketService:
     async def _create_bid(self, offer_id: str, booking_data: dict[str, Any], offer: MarketOffer) -> Bid:
         """Create and persist a bid record for a market offer booking."""
         try:
-            buyer = booking_data.get("wallet") or booking_data.get("buyer") or "unknown"
+            # A buyer identity is mandatory (#816): 'unknown' can never match
+            # an on-chain sender in complete_bid, which stranded the offer.
+            buyer = booking_data.get("wallet") or booking_data.get("buyer")
+            if not buyer:
+                raise ValueError("booking requires a buyer identity (wallet or buyer)")
             price = Decimal(str(booking_data.get("price", offer.price or 0)))
             capacity = float(booking_data.get("duration_hours", 1.0))
             bid = Bid(
