@@ -359,6 +359,10 @@ def do_close(a):
         capture_output=True,
         text=True,
     ).stdout.split()
+    deps = tea(f"/issues/{n}/dependencies") or []
+    open_deps = [d.get("number") for d in deps if isinstance(d, dict) and d.get("state") != "closed"]
+    if open_deps:
+        sys.exit(f"#{n} waits for open {', '.join('#' + str(x) for x in sorted(open_deps))}; close them first")
     text = _close_comment(a, r, n, refs)
     if a.dry_run:
         print(f"[dry-run] #{n} {a.row}: commits on main={len(refs)}; comment would be:\n{text}")
