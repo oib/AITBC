@@ -1479,9 +1479,10 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     elif lock_signature:
         nonce = body.get("lock_nonce")
         if nonce is None:
-            nonce = await _settlement_signing_nonce(_to_canonical(buyer))
-            if nonce is None:
-                raise HTTPException(status_code=503, detail="account nonce probe failed; retry shortly")
+            raise HTTPException(
+                status_code=400,
+                detail="lock_nonce is required with lock_signature: the nonce is inside the signed envelope and cannot be reconstructed",
+            )
         try:
             nonce = int(nonce)
         except Exception:
