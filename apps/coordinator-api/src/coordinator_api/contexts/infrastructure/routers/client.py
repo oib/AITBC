@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session
 
@@ -24,7 +24,7 @@ from ....custom_types import JobState, job_state_filter_help, parse_job_state_fi
 from ....schemas import JobCreate, JobPaymentCreate, JobRejection, JobResult, JobView
 from ....services import JobService
 from ....storage import get_session
-from ....utils.cache import cached, get_cache_config
+
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["client"])
@@ -210,13 +210,14 @@ async def _submit_job_impl(
 # Pinned by tests/security/test_no_unreachable_routes.py.
 @router.get("/jobs/history", summary="Get job history")
 @rate_limit(rate=200, per=60)
-@cached(**get_cache_config("job_list"))
+# JOBS-LIST-CACHE-1 (#806): no @cached — the list is client-scoped and cheap, and a job
+# created after a cached list stayed invisible for the TTL. Same for /jobs below.
 def get_job_history(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
-    limit: int = 20,
-    offset: int = 0,
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     status: str | None = None,
     job_type: str | None = None,
     from_time: str | None = None,
@@ -349,13 +350,12 @@ def list_job_receipts(
 
 @router.get("/jobs", summary="List jobs with filtering")
 @rate_limit(rate=200, per=60)
-@cached(**get_cache_config("job_list"))
 def list_jobs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
-    limit: int = 20,
-    offset: int = 0,
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     status: str | None = None,
     job_type: str | None = None,
 ) -> dict:
