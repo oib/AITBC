@@ -1035,6 +1035,11 @@ class PaymentService:
         try:
             nonce = payment_data.buyer_lock_nonce
             if nonce is None:
+                # ESCROW-LOCK-NONCE-1 (#807): a signed lock fixes its nonce — guessing the
+                # account nonce here would build a tx the buyer's signature never verifies.
+                # The guess stays only for the coordinator-signed path (no buyer signature).
+                if payment_data.buyer_lock_signature:
+                    raise ValueError("buyer_lock_nonce is required when buyer_lock_signature is given")
                 nonce = await self._get_account_nonce(buyer)
             fee = payment_data.buyer_lock_fee
             lock_tx, _amount_seconds = self._build_escrow_lock_tx(payment, buyer, provider, nonce, fee)
