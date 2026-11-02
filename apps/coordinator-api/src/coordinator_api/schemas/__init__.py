@@ -41,6 +41,15 @@ class JobPaymentCreate(BaseModel):
     auto_reinvest_pct: Decimal | None = Field(
         default=None, ge=Decimal("0"), le=Decimal("100"), description="Percentage of released payment to auto-stake"
     )
+
+    @model_validator(mode="after")
+    def _lock_signature_needs_nonce(self):
+        # ESCROW-LOCK-NONCE-1 (#807): a signature is over a concrete nonce; without it the
+        # coordinator would guess the account nonce and the buyer's signature never verifies.
+        if self.buyer_lock_signature and self.buyer_lock_nonce is None:
+            raise ValueError("buyer_lock_nonce is required when buyer_lock_signature is given")
+        return self
+
     # G1: the quote this amount came from, kept so a settlement can be audited against
     # what was advertised rather than only against what was charged.
     offer_id: str | None = Field(default=None, description="Market offer the amount was quoted from")
@@ -322,6 +331,14 @@ class JobCreate(BaseModel):
     buyer_lock_signature: str | None = None  # Pre-signed ESCROW_LOCK transaction signature
     buyer_lock_nonce: int | None = None  # Nonce used in the ESCROW_LOCK transaction
     buyer_lock_fee: int | None = None  # Fee used in the ESCROW_LOCK transaction
+
+    @model_validator(mode="after")
+    def _lock_signature_needs_nonce(self):
+        # ESCROW-LOCK-NONCE-1 (#807): see JobPaymentCreate.
+        if self.buyer_lock_signature and self.buyer_lock_nonce is None:
+            raise ValueError("buyer_lock_nonce is required when buyer_lock_signature is given")
+        return self
+
     # G1: the market listing this job is bought against. When set, the offer
     # decides the price and the payee, and a payment_amount or provider_address that
     # disagrees with it is refused rather than quietly preferred.
