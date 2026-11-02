@@ -538,7 +538,7 @@ tests:
   # resolves when the window empties it again.
   - interval: 1m
     input_series:
-      - series: 'aitbc_journal_error_messages{unit="aitbc-foo.service", node="node9", instance="127.0.0.1:9100"}'
+      - series: 'aitbc_journal_error_messages{unit="aitbc-foo.service", instance="127.0.0.1:9100"}'
         values: '0x2 4x12 0x6'
     alert_rule_test:
       - eval_time: 4m
@@ -551,10 +551,9 @@ tests:
               alertname: AITBCJournalErrors
               severity: warning
               unit: aitbc-foo.service
-              node: node9
               instance: 127.0.0.1:9100
             exp_annotations:
-              summary: "aitbc-foo.service logged errors on node9"
+              summary: "aitbc-foo.service logged errors on 127.0.0.1:9100"
               description: "aitbc-foo.service produced 4 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-foo.service -p err."
 
   # AITBCJournalScanStale: the collector writes a scan timestamp every 5 min.
@@ -1875,7 +1874,7 @@ tests:
               node: "node0"
               unit: "aitbc-blockchain-node.service"
             exp_annotations:
-              summary: "aitbc-blockchain-node.service logged errors on node0"
+              summary: "aitbc-blockchain-node.service logged errors on n0:9009"
               description: "aitbc-blockchain-node.service produced 4 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-blockchain-node.service -p err."
 
   # PROXY-BLACKBOX-PROBE-1 (#605): a wedged proxy must fire
