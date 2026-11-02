@@ -30,6 +30,14 @@ from .bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL, BridgeLocksPausedError, Br
 
 logger = get_logger(__name__)
 
+# Share of ``bridge_finalizer_pass_timeout`` given to a pass's cooperative
+# deadline. The deadline must fire *inside* the wait_for watchdog: equal
+# budgets meant a pass that stopped on its own deadline still tripped the
+# watchdog and was logged and counted as abandoned (BRIDGE-FINALIZER-
+# DEADLINE-MARGIN-1). The watchdog stays the backstop for a pass that
+# ignores the deadline entirely (wedged on a sqlite lock, say).
+_FINALIZER_DEADLINE_FRACTION = 0.8
+
 
 class BridgeTransferMixin(BridgeBase):
     """Cross-chain transfer lock/confirm/refund and batch operations."""
@@ -1898,7 +1906,7 @@ class BridgeTransferMixin(BridgeBase):
                         continue
                     inflight.add(chain_id)
 
-                    deadline = time.monotonic() + pass_timeout
+                    deadline = time.monotonic() + pass_timeout * _FINALIZER_DEADLINE_FRACTION
 
                     def _run(cid: str = chain_id, pass_deadline: float = deadline) -> None:
                         # The mark is cleared inside the worker so it is
