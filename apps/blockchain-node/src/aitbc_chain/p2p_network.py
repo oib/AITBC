@@ -320,6 +320,10 @@ class P2PNetworkService:
                 logger.warning("Received invalid JSON from %s: %s. Error: %s", addr, repr(raw_data[:100]), e)
                 writer.close()
                 return
+            except ValueError as e:
+                logger.warning("Refused payload from %s: %s. Closing connection.", addr, e)
+                writer.close()
+                return
             if message.get("type") != "handshake":
                 logger.warning("Peer %s did not handshake first. Dropping.", addr)
                 writer.close()
@@ -620,6 +624,9 @@ class P2PNetworkService:
                         logger.info("Received %s from %s: %s", msg_type, peer_id, message)
                 except json.JSONDecodeError:
                     logger.warning("Invalid JSON received from %s", addr)
+                except ValueError as e:
+                    logger.warning("Refused payload from %s: %s. Closing stream.", addr, e)
+                    break
         except asyncio.CancelledError:
             pass
         except Exception as e:
