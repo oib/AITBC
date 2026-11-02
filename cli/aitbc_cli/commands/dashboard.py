@@ -387,6 +387,11 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
 
         # Miner-role headers for /v1/miners/* and /v1/monitoring* (ANY authenticated role).
         miner_headers = _auth_headers(ctx, role="miner")
+        if miner_headers is not None:
+            # The path miner_id comes from --miner-id/NODE_ID/hostname while
+            # _auth_headers only reads MINER_ID; the coordinator refuses a
+            # path/header mismatch (#804), so pin the header to the resolved id.
+            miner_headers = {**miner_headers, "X-Miner-ID": miner_id}
         coord_url = _coordinator_base_url(ctx)
         coord_client = AITBCHTTPClient(base_url=coord_url, timeout=15, headers=miner_headers)
 

@@ -677,6 +677,8 @@ async def list_miner_jobs(
             ) from None
         if state is not None:
             filters["state"] = state.value
+    if miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         service = JobService(session)
         jobs = await run_in_threadpool(service.list_jobs, assigned_miner_id=miner_id, limit=limit, offset=offset, **filters)
@@ -703,6 +705,8 @@ async def get_miner_earnings(
     to_time: str | None = None,
 ) -> dict[str, Any]:
     """Get earnings for a specific miner"""
+    if miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         from decimal import Decimal
         from ...infrastructure.services.jobs import JobService
@@ -775,7 +779,7 @@ async def get_miner_earnings(
             "paid_earnings": "0",
             "completed_jobs": 0,
             "currency": "AITBC",
-            "error": str(e),
+            "error": "Failed to get miner earnings",
         }
 
 
@@ -789,6 +793,8 @@ async def update_miner_capabilities(
     user: MinerDep,
 ) -> dict[str, Any]:
     """Update capabilities for a registered miner"""
+    if miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         service = MinerService(session)
         record = await run_in_threadpool(service.register, user["sub"], req)
@@ -816,6 +822,8 @@ async def deregister_miner(
     user: MinerDep,
 ) -> dict[str, str]:
     """Deregister a miner from the coordinator"""
+    if miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         service = MinerService(session)
         await run_in_threadpool(service.deregister, miner_id)
