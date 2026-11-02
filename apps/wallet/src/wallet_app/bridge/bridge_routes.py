@@ -324,6 +324,10 @@ def bridge_request_poll(request: Request) -> dict[str, Any]:
     """
     ip = client_ip_for_rate_limit(request)
     now = time.monotonic()
+    # Prune entries past the cooldown on every call: the old map kept every
+    # IP that ever kicked forever, and one IPv6 /64 supplies unlimited IPs.
+    for stale_ip in [k for k, ts in _kick_last_by_ip.items() if now - ts >= _KICK_COOLDOWN_SECONDS]:
+        del _kick_last_by_ip[stale_ip]
     elapsed = now - _kick_last_by_ip.get(ip, 0.0)
     if elapsed < _KICK_COOLDOWN_SECONDS:
         return {"kicked": False, "retry_after_seconds": int(_KICK_COOLDOWN_SECONDS - elapsed)}
