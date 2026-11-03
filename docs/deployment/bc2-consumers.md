@@ -68,3 +68,21 @@ This document names no order and no timing. Classes: `at the cut`,
   `EnvironmentFile=-/etc/aitbc/aitbc-backup.env` and executes
   `/opt/aitbc/scripts/maintenance/aitbc-backup.sh`. The env file exists on
   all five hosts; no host sets `BACKUP_GOOD_CHAIN_GLOB` today.
+
+## Hard-stopped legacy genesis/reset scripts
+
+The legacy single-node genesis/reset tools below are hard-stopped by
+`aitbc.utils.reset_guard` (#290 pattern): they refuse outside a declared
+`AITBC_RESET_SCRATCH` root, refuse a live chain id, and (where they write
+files) require every target to resolve under the scratch root. They are
+NOT part of the bc-2 cut path — reset-day writes go through
+`scripts/ops/build-genesis.py`. Listed here per #859/#860/#861 so the
+consumers inventory records that they exist and where they now stop:
+
+| script | writes | guard |
+|---|---|---|
+| `scripts/utils/init_production_genesis.py` | chain DB + mempool + account seeds | `assert_data_dir_env` + `assert_not_live_chain` + scratch targets on `--db-path` (#859) |
+| `apps/blockchain-node/scripts/create_genesis_wallet.py` | `KEYSTORE_DIR` (default `/var/lib/aitbc/keystore`) | `assert_scratch_targets` + refuse-if-exists + O_EXCL/0600 (#860) |
+| `scripts/utils/genesis-init.py` | genesis.json + chain DB | `assert_scratch_targets`/`assert_data_dir_env` + `assert_not_live_chain` (#861) |
+| `apps/blockchain-node/create_genesis.py` | chain DB via `session_scope` | `assert_data_dir_env` (#861) |
+| `apps/blockchain-node/init_genesis.py` | chain DB via `session_scope` | `assert_data_dir_env` (#861) |
