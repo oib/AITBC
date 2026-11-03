@@ -1,900 +1,753 @@
 groups:
-  - name: aitbc
-    rules:
-      - record: aitbc:block_interval_seconds:rate5m
-        expr: 60 / rate(blockchain_block_height[5m])
-
-      - record: aitbc:rpc_requests_per_second:rate5m
-        expr: rate(rpc_requests_total[5m])
-
-      - record: aitbc:rpc_error_rate:ratio5m
-        expr: |
-          (
-            rate(rpc_client_errors_total[5m])
-            + rate(rpc_server_errors_total[5m])
-          ) / clamp_min(rate(rpc_requests_total[5m]), 1)
-
-      - record: aitbc:bridge_locked_amount
-        expr: blockchain_bridge_total_locked_amount
-
-      - alert: GossipBlockDeliveryFailing
-        # Real delivery failure: blocks are published to the mesh but every
-        # peer push for the blocks topic fails. A single dead peer does not
-        # fire this — fan-out tolerates partial failure; zero successes does
-        # not. Replaces BlockProposedButNoSubscribers, which measured the
-        # local lease registry (meaningless for mesh delivery) and fired
-        # critical on fully healthy propagation (#705).
-        expr: |
-          (
-            increase(gossip_mesh_publications_topic_blocks_bc_2[5m]) > 0
-            and on() (increase(gossip_mesh_peer_publish_topic_blocks_bc_2[5m]) == 0)
-            and on() (increase(gossip_mesh_peer_publish_failed_topic_blocks_bc_2[5m]) > 0)
-          )
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "bc-2 blocks published on {{ $labels.instance }} but every peer push fails"
-          description: "The proposer is publishing bc-2 blocks to the gossip mesh but no peer push succeeds — peers cannot hear this proposer and are falling back to pull-sync."
-
-      - alert: BroadcastSkipped
-        # The counter now only increments when gossip_broker.publish raises —
-        # a genuine skipped broadcast (local bus publish failure), not the
-        # zero-lease metric it counted before #705.
-        expr: increase(blockchain_poa_broadcast_skipped_total{chain_id!~".*island.*"}[5m]) > 0
-        for: 1m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Block broadcast on {{ $labels.chain_id }} failed at publish"
-
-      - alert: ServiceDown
-        # 1m fired on sub-minute restart blips during deploy waves
-        # (median episode 0.8 min — ALERT-REVIEW-1).
-        expr: up == 0
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Service {{ $labels.instance }} is down"
-
-      - alert: BlockProcessingTooSlow
-        expr: histogram_quantile(0.95, rate(blockchain_block_processing_duration_seconds_bucket[5m])) > 1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Block processing p95 exceeds 1 second"
-
-      - alert: RpcErrorsSpiking
-        # 5xx lane keeps the 5% threshold at any request rate. 4xx noise
-        # (wrong-route 404s, rate-limit 429s, replay traffic) only fires
-        # above 20% AND a real request floor — the counters carry no
-        # route labels, so 404s cannot be excluded by selector.
-        expr: |
-          rate(rpc_server_errors_total[5m])
-            / clamp_min(rate(rpc_requests_total[5m]), 1) > 0.05
-          or (
-            rate(rpc_client_errors_total[5m])
-              / clamp_min(rate(rpc_requests_total[5m]), 1) > 0.20
-            and rate(rpc_requests_total[5m]) > 0.5
-          )
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "RPC error rate is spiking"
-
-      - alert: SyncLagHigh
-        expr: blockchain_sync_lag_blocks > 10
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Node is lagging on {{ $labels.chain_id }}"
-          description: "Local chain on {{ $labels.chain_id }} is {{ $value }} blocks behind the remote peer."
-
-      # CHAIN-STALL-1: the local chain head has not moved for 15 minutes.
-      # ServiceDown and SyncLagHigh stay quiet when every node is up but stuck
-      # at the same height — the shape of the 2026-08-24/25 stalls (21+ min
-      # with no block on any host). Heartbeat blocks seal every ~68 s and a
-      # stand-in proposer takes over within ~2 min, so 15 min is a stall, not
-      # a slow round. The gauge is the RPC process's scrape-time read of
-      # max(block.height) from the chain DB (messaging_metrics.collect_gauges),
-      # not blockchain_block_height, which only moves in a process that seals
-      # or imports. The offset keeps it quiet until 15 min of history exists
-      # (fresh Prometheus); the > 0 arm keeps an empty fresh node quiet and,
-      # as the left side of `and`, makes $value the stuck height.
-      - alert: ChainHeadStalled
-        expr: |
-          aitbc_messaging_chain_head_height > 0
-          and (aitbc_messaging_chain_head_height - aitbc_messaging_chain_head_height offset 15m) <= 0
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Chain head on {{ $labels.chain_id }} has not advanced for 15 minutes on {{ $labels.instance }}"
-          description: "aitbc_messaging_chain_head_height on {{ $labels.instance }} has stayed at {{ $value }} for 15 min. Firing on every host means the chain stopped producing (check proposer rotation and attestations); firing on one host means that node stopped importing (check its sync peer and gossip). A failing scrape-time collect also freezes the gauge — look for 'messaging metrics: collect failed' in the rpc journal."
-
-      # DEAD-ISLAND-GOSSIP-1 (#393): the hub is silent while the head keeps
-      # advancing — the surviving validators rotate, so ChainHeadStalled
-      # stays green. aitbc_island_hub_silence_seconds is the island
-      # monitor's in-memory gauge: seconds since the last hub-originated
-      # observation on ANY path (gossip block with proposer=hub, pull sync
-      # answer, hub RPC read). Warning, not critical — the island survives
-      # hub loss; a survivable loss must not page critical.
-      # Both silences are computed at scrape time, so a node that stops
-      # importing sees both climb. Despite the gauge name,
-      # aitbc_island_import_silence_seconds counts silence since the last
-      # ACCEPTED IMPORT on any transport — gossip, subscription sync or
-      # pull — not gossip traffic only (verified 25 Oct: node0 imported
-      # 997 blocks via subscription sync and 0 via gossip over 24 h, and
-      # its gauge read ~74 s). One shared boundary (import silence 300s,
-      # several ~65s slots so one slow slot cannot reset the for-timer)
-      # splits the cases: hub dark + imports fresh -> IslandHubSilent;
-      # imports silent -> IslandImportSilent; every state fires one or
-      # neither. The hub runs no monitor and exports neither series, so
-      # neither rule can fire there. A restarted node starts both at 0.
-      - alert: IslandHubSilent
-        expr: aitbc_island_hub_silence_seconds > 600 and on(instance, job) aitbc_island_import_silence_seconds < 300
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "No hub-originated observation for 25+ minutes on {{ $labels.instance }}"
-          description: "aitbc_island_hub_silence_seconds on {{ $labels.instance }} is {{ $value }}s. The monitor counts silence across every observation path — hub-proposed blocks (by any transport), pull-sync answers and hub RPC reads — so firing means the hub is dark on all of them while blocks from the other validators keep arriving. Check hub's blockchain-node and RPC units and its network path to the validators. Not a failover trigger: promotion stays operator-gated (FAILOVER-PROMOTE-1)."
-
-      # #393: this node imports no block from any validator on any
-      # transport. A node that stops importing also stops seeing the hub;
-      # this rule owns that case so IslandHubSilent keeps its meaning
-      # (shared 300s boundary). The gauge name says "gossip" but the
-      # monitor is fed on every accepted import (see above).
-      - alert: IslandImportSilent
-        expr: aitbc_island_import_silence_seconds >= 300
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "No block import for 20+ minutes on {{ $labels.instance }}"
-          description: "aitbc_island_import_silence_seconds on {{ $labels.instance }} is {{ $value }}s: this node has imported no block from any validator on any transport (the gauge counts every accepted import on any transport), so its hub silence is not meaningful and IslandHubSilent stays quiet here by design. Check the node's sync peer, gossip connections and network path. Firing on every follower means the island stopped producing (see ChainHeadStalled)."
-
-      # CHAIN-STALL-2: ChainHeadStalled reads the messaging head gauge, so a
-      # target that keeps scraping but stops exposing the series leaves the
-      # stall rule blind — collect_gauges crashed or the RPC dropped the
-      # metrics family. The gauge lives on the blockchain-rpc job (the RPC
-      # process's scrape-time collect), not blockchain-node, so `up` is
-      # matched on that job family — the `(.*-)?` prefix covers the
-      # per-host `aitbc3-blockchain-rpc` shape. The join is on(instance,
-      # node), not instance alone: followers remote-write the same instance
-      # strings (hub1/node1/node2 all scrape 127.0.0.1:8202) and the node
-      # external_label is what tells them apart on hub, while hub's own
-      # local series carry no node label and match the empty value.
-      # Warning, not critical: monitoring is broken, the chain is not (yet)
-      # shown to be.
-      - alert: ChainHeadMetricMissing
-        expr: up{job=~"(.*-)?blockchain-rpc"} == 1 unless on(instance, node) aitbc_messaging_chain_head_height
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "chain-head metric missing on {{ $labels.instance }}"
-          description: "{{ $labels.instance }} answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height, so ChainHeadStalled cannot see a stall there. Check for 'messaging metrics: collect failed' in the rpc journal and that the metrics endpoint still serves the messaging family."
-
-      - alert: MempoolFull
-        expr: blockchain_mempool_pending_count > 9000
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Mempool is filling on {{ $labels.chain_id }}"
-
-      # Fork-choice safety valve: a peer branch won but the local losing
-      # segment is not provably empty, so the node escalates instead of
-      # auto-reverting. This means a divergent segment with real state
-      # exists — an operator must reconcile (AGENTS.md fork runbook).
-      - alert: ForkReorgUnsafe
-        expr: increase(sync_fork_reorg_unsafe_total[10m]) > 0
-        labels:
-          severity: critical
-        annotations:
-          summary: "Unsafe fork reorg refused on {{ $labels.instance }} — operator action required"
-          description: "A peer branch won fork choice on {{ $labels.instance }} but the local losing segment is not provably empty; the node escalates instead of auto-reverting. Manual reconciliation needed."
-
-      # A confirmed transaction was orphaned by a fork and could not be
-      # re-admitted to the mempool nor found on the winning branch — a user
-      # transaction is gone. Same operator-action severity as the unsafe
-      # reorg itself.
-      - alert: ForkOrphanedTxLost
-        expr: increase(sync_fork_orphaned_tx_lost_total[10m]) > 0
-        labels:
-          severity: critical
-        annotations:
-          summary: "Orphaned transaction lost after fork reorg on {{ $labels.instance }}"
-          description: "A transaction that existed only on the losing fork segment on {{ $labels.instance }} failed mempool requeue and is absent from the winning branch — the user's confirmed transaction disappeared. Reconcile and resubmit."
-
-      # A reorg that DID auto-revert still rewrote confirmed state — worth
-      # knowing even though it is the success path. Pairs with
-      # ForkReorgUnsafe: every non-empty fork resolution fires exactly one of
-      # the two.
-      - alert: ForkReorgUndone
-        expr: increase(sync_fork_reorg_undone_total[10m]) > 0
-        labels:
-          severity: warning
-        annotations:
-          summary: "Fork reorg auto-reverted blocks on {{ $labels.instance }}"
-          description: "The delta journal undid a losing non-empty segment on {{ $labels.instance }}. Correct behavior, but confirmed transactions were displaced — check ForkOrphanedTxLost for any that failed requeue."
-
-      # A queue-time domain row (stake / agent_stake / bounty_contract) was
-      # marked orphaned because its confirming lock tx vanished in a reorg.
-      # The user-facing row is disabled until an operator or the reconciler's
-      # revive pass restores it.
-      - alert: ForkDomainRowOrphaned
-        expr: increase(sync_fork_domain_rows_orphaned_total[10m]) > 0
-        labels:
-          severity: warning
-        annotations:
-          summary: "Domain row orphaned by fork on {{ $labels.instance }}"
-          description: "A stake/agent_stake/bounty_contract row lost its confirming lock transaction in a reorg on {{ $labels.instance }} and was marked orphaned. It revives automatically if the lock confirms on the winning branch."
-
-      # Faucet drain tripwire — the coin_request_auto_budget_trips_total
-      # counter exists so this scrape alert can flag an ongoing drain without
-      # journal access (v0.25.8, 7da4bde0f).
-      - alert: FaucetBudgetTripped
-        expr: increase(coin_request_auto_budget_trips_total[15m]) > 0
-        labels:
-          severity: warning
-        annotations:
-          summary: "Faucet auto-budget tripped on {{ $labels.instance }} ({{ $labels.window }})"
-          description: "Automatic coin requests are parking on the exhausted {{ $labels.window }} budget on {{ $labels.instance }} — possible drain attempt."
-
-      # v9 shadow-mode tripwires — while the v9 height is unset every
-      # would-reject only counts; these fire on the counters so a real tx that
-      # would break post-activation is seen before the height is pinned.
-      - alert: V9ShadowRejection
-        expr: increase(v9_would_reject_total[10m]) > 0
-        labels:
-          severity: warning
-        annotations:
-          summary: "v9 transaction-authorization check would have rejected on {{ $labels.instance }}"
-          description: "A transaction on {{ $labels.instance }} failed a v9 rule in shadow mode — inspect the v9_would_reject_* detail counters and the node journal before pinning the v9 height."
-
-      - alert: V9AttestationRefusal
-        expr: increase({__name__=~"v9_would_reject_attest_.*_total"}[10m]) > 0
-        labels:
-          severity: warning
-        annotations:
-          summary: "v9 attestation would have been refused on {{ $labels.instance }}"
-          description: "A validator on {{ $labels.instance }} would have refused to attest a block under v9 rules — inspect the v9_would_reject_attest_* counters and the node journal before pinning the v9 height."
-
-      # Authority-account alerts live in aitbc_hub_rules.yml. They evaluate
-      # series that exist only where aitbc-authority-balances.timer runs (hub);
-      # AuthorityBalanceStale uses absent(), so loading them on a host without
-      # the exporter makes the alert fire permanently. Deploy that file only
-      # alongside the timer.
-
-      # The alert watcher writes its own heartbeat into node-exporter's textfile
-      # directory every poll (--metrics-file / AITBC_WATCH_METRICS_FILE). If the
-      # series is missing or older than five minutes the watcher is dead and all
-      # alert delivery -- events, silences, webhook notifications -- is blind.
-      # Caveat: a node that has never run the watcher has no series at all and is
-      # invisible to this rule; when node-exporter itself is down the series goes
-      # absent and ServiceDown on the node job is the alert that fires.
-      - alert: PrometheusWatchStale
-        expr: |
-          absent(aitbc_prometheus_watch_poll_timestamp_seconds)
-          or time() - aitbc_prometheus_watch_poll_timestamp_seconds > 300
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Alert watcher heartbeat has stopped ({{ $labels.instance }})"
-          description: "aitbc-prometheus-watch has not written its textfile metric for five minutes; alert events and webhook notifications on this node are blind. Check systemctl status aitbc-prometheus-watch."
-
-      # RemoteWriteFailing: remote_write batches rejected at the receiver are
-      # dropped whole -- a 400 "duplicate sample" takes every other series in
-      # the batch down with it, so a rising failed counter means real series
-      # loss, not just the duplicates. The counter lives on the sender; a
-      # Prometheus with no remote_write block has no series and stays silent.
-      - alert: RemoteWriteFailing
-        expr: rate(prometheus_remote_storage_samples_failed_total[15m]) > 0
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "remote_write samples being rejected on {{ $labels.instance }}"
-          description: "Prometheus on {{ $labels.instance }} is losing remote_write batches ({{ $value }} samples/s rejected over 15m); a rejected batch drops every series it carries. Check the receiver journal for 'duplicate sample' or other non-recoverable 400s."
-
-      # AitbcJournalErrors: the journal-errors timer counts err-or-worse journal
-      # messages per unit over a rolling 15-minute window into the node-exporter
-      # textfile. A unit that logs an error fires until the window moves past it.
-      # Journal warnings (priority 4) stay page-visible via /api/journal/recent
-      # without alerting -- errors are rare enough to page on.
-      - alert: AITBCJournalErrors
-        # aitbc-* services only — init.scope / session-*.scope stderr
-        # noise is not a service fault (OPS-NOISE-4). >3 not >0: a
-        # single stray line in the 15m window is noise; a run of them
-        # is a service problem.
-        expr: aitbc_journal_error_messages{unit=~"aitbc-.*\\.service"} > 3
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "{{ $labels.unit }} logged errors on {{ $labels.instance }}"
-          description: "{{ $labels.unit }} produced {{ $value }} err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u {{ $labels.unit }} -p err."
-
-      # AITBCJournalScanStale: aitbc-journal-errors.timer runs every 5 min and
-      # writes a scan timestamp; two missed runs means the error/warning gauges
-      # are frozen and AITBCJournalErrors is blind on this node.
-      - alert: AITBCJournalScanStale
-        expr: |
-          absent(aitbc_journal_scan_timestamp_seconds)
-          or time() - aitbc_journal_scan_timestamp_seconds > 600
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Journal-error collector has stopped ({{ $labels.instance }})"
-          description: "aitbc_journal_scan_timestamp_seconds is absent or older than ten minutes on {{ $labels.instance }} — aitbc_journal_error_messages is frozen, so AITBCJournalErrors cannot see new service errors. Check systemctl status aitbc-journal-errors.timer."
-
-      # EscrowSettlementUnlanded: S-8 remedy 3. Escrow rows are marked
-      # released/refunded at RPC acceptance, but a settlement evaluated before
-      # its lock's block is dropped at production and never re-driven -- the
-      # row serves a dead hash forever while custody sits unresolved (15 such
-      # rows exist fleet-wide). aitbc-escrow-settlements.timer reads each
-      # host's local chain.db (escrow rows are per-node bookkeeping) and counts
-      # rows whose stored settlement hash is absent from the sealed
-      # transaction table past the exporter's age threshold (900s default --
-      # ~15x the largest observed submit-before-lock gap). Repair path:
-      # TOPOLOGY/2026-10-03-s8-remedy2-design.md.
-      - alert: EscrowSettlementUnlanded
-        expr: aitbc_escrow_unlanded_settlements > 0
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Unlanded escrow settlement on {{ $labels.instance }} ({{ $value }} rows)"
-          description: "An escrow row on {{ $labels.instance }} is marked released/refunded but its settlement hash never sealed — a dead hash is being served and custody is unresolved (provider unpaid or buyer unrefunded). The aitbc_escrow_unlanded_settlement{job_id,kind} series names the rows; repair per the S-8 remedy-2 path."
-
-      # EscrowSettlementCheckStale: the check itself must run -- a stopped
-      # exporter puts the dead-hash disease back in the dark. Requires the
-      # timer on every host it should fire on; a host where it was never
-      # installed has no series and stays invisible, so deploy coverage is
-      # checked separately. Unlike AITBCJournalScanStale there is deliberately
-      # no absent() arm: absent() carries no instance label, and on the
-      # per-host evaluation model it fires on every host lacking the timer --
-      # the T35 mechanism in miniature.
-      - alert: EscrowSettlementCheckStale
-        expr: time() - aitbc_escrow_settlement_scrape_timestamp_seconds > 600
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Escrow settlement check has stopped ({{ $labels.instance }})"
-          description: "aitbc_escrow_settlement_scrape_timestamp_seconds is older than ten minutes on {{ $labels.instance }} — unlanded settlements are invisible on this host again. Check systemctl status aitbc-escrow-settlements.timer."
-
-      # EscrowSettlementCheckFailed: the exporter writes scrape_success 0 and
-      # exits 1 when a chain.db cannot be opened or lacks the escrow table.
-      # Without this alert that failure reads as a clean count of zero -- the
-      # unlanded alert would resolve while the check is blind.
-      - alert: EscrowSettlementCheckFailed
-        expr: aitbc_escrow_settlement_scrape_success == 0
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Escrow settlement check cannot read {{ $labels.db }} ({{ $labels.instance }})"
-          description: "aitbc_escrow_settlement_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no escrow table, so the unlanded count for it cannot be trusted. Check journalctl -u aitbc-escrow-settlements.service."
-
-      # EscrowRelayErrorRatio (ESCROW-RELAY-OBS-1): the coordinator's escrow
-      # relays surface chain timeouts and chain 5xx as 502, which the generic
-      # http_errors_total labels cannot split — the relays count outcomes
-      # themselves on aitbc_escrow_relay_requests_total{relay,result}. This
-      # alert fires when the upstream_5xx + chain_timeout share of a relay's
-      # requests over 15m exceeds 20%, behind a >=5-request floor so a single
-      # failure on an idle relay does not trip. Requires the coordinator-api
-      # scrape job (metrics_path /prometheus) — see docs/ops/escrow-relays.md.
-      - alert: EscrowRelayErrorRatio
-        expr: |
-          (
-            sum by (instance, relay) (increase(aitbc_escrow_relay_requests_total{result=~"upstream_5xx|chain_timeout"}[15m]))
-            / clamp_min(sum by (instance, relay) (increase(aitbc_escrow_relay_requests_total[15m])), 1)
-          ) > 0.2
-          and
-          sum by (instance, relay) (increase(aitbc_escrow_relay_requests_total[15m])) >= 5
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Escrow relay {{ $labels.relay }} error ratio {{ $value | humanizePercentage }} on {{ $labels.instance }}"
-          description: "More than 20% of {{ $labels.relay }} escrow relay requests over the last 15m ended in an upstream 5xx or a chain timeout on {{ $labels.instance }}. Check the settlement node's /rpc/escrow health and journalctl -u aitbc-coordinator-api."
-
-      # EscrowRelay425Storm (ESCROW-RELAY-OBS-1): 425 "lock not yet sealed"
-      # is normal Retry-After traffic while an ESCROW_LOCK sits in mempool —
-      # a storm means releases are racing unsealed locks at volume or the
-      # chain stopped sealing them.
-      - alert: EscrowRelay425Storm
-        expr: sum by (instance, relay) (increase(aitbc_escrow_relay_requests_total{result="too_early_425"}[15m])) > 20
-        for: 0m
-        labels:
-          severity: warning
-        annotations:
-          summary: "425 storm on escrow relay {{ $labels.relay }} ({{ $labels.instance }})"
-          description: "{{ $value }} 'lock not yet sealed' (425) answers from the {{ $labels.relay }} relay on {{ $labels.instance }} in 15m — releases are racing unsealed locks, or the chain has stopped sealing ESCROW_LOCK transactions. Check the settlement node's mempool and block production."
-
-      # EscrowResidueStale: a terminal escrow row still holds a SWEEPABLE fee
-      # leg older than the exporter's threshold (7d default). S-13: the metric
-      # counts only rows classed "fee leg" — stale-ledger classes (already
-      # settled, swept, v2-retained, void-never-locked) are informational on
-      # aitbc_escrow_residue_stale_ledger_rows{class=...} with no alert, so a
-      # ledger that never updates can never page. Sweepable via an
-      # operator-approved ESCROW_FEE_SWEEP batch to escrow_fee_recipient
-      # (v11+, block 35400); list rows with scripts/ops/escrow_residue_dryrun.py.
-      - alert: EscrowResidueStale
-        expr: aitbc_escrow_residue_accounts > 0
-        for: 6h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Sweepable escrow fee-leg residue on {{ $labels.instance }} ({{ $value }} rows)"
-          description: "Terminal escrow rows on {{ $labels.instance }} hold residue classed fee leg older than the threshold — money a FEE_SWEEP could actually move. The informational aitbc_escrow_residue_stale_ledger_rows gauge shows the stale-ledger classes that need no action. List rows with scripts/ops/escrow_residue_dryrun.py; sweeping is an operator-approved chain write (ESCROW_FEE_SWEEP to the governed escrow_fee_recipient)."
-
-      # EscrowResidueCheckStale / EscrowResidueCheckFailed: the residue check
-      # itself must run and read its DBs, same reasoning as the settlement
-      # exporter's guards.
-      - alert: EscrowResidueCheckStale
-        expr: absent(aitbc_escrow_residue_scrape_timestamp_seconds) or time() - aitbc_escrow_residue_scrape_timestamp_seconds > 86400
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Escrow residue check has stopped ({{ $labels.instance }})"
-          description: "aitbc_escrow_residue_scrape_timestamp_seconds is older than a day on {{ $labels.instance }} — stale residue is invisible again. Check the aitbc-escrow-residue timer."
-
-      - alert: EscrowResidueCheckFailed
-        expr: aitbc_escrow_residue_scrape_success == 0
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Escrow residue check cannot read {{ $labels.db }} ({{ $labels.instance }})"
-          description: "aitbc_escrow_residue_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the residue count for that DB cannot be trusted."
-
-      # EscrowOpenTxOnlyLock: a sealed ESCROW_LOCK transaction with no escrow
-      # row and no settlement leg means funds sit in custody that nothing
-      # will settle. The minutely textfile collector counts them minus the
-      # known-artifacts registry (escrow-known-artifacts.yml), so only
-      # unregistered locks alert here. for: 15m outlasts one timer interval
-      # plus the seconds-to-minutes lock-to-row window -- a lock that gets
-      # its row inside the window never leaves pending. No new rules for a
-      # broken registry (scrape_success{db=<registry>} covers it) or a
-      # stopped exporter (CheckStale). Response: "Open tx-only lock" in
-      # docs/ops/escrow-settlement-ops.md.
-      - alert: EscrowOpenTxOnlyLock
-        expr: aitbc_escrow_open_tx_only_locks > 0
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Unregistered open tx-only escrow locks on {{ $labels.instance }} ({{ $value }})"
-          description: "{{ $value }} ESCROW_LOCK transaction(s) on {{ $labels.instance }} have no escrow row and no settlement leg — funds sit in custody that nothing will settle. The per-job series aitbc_escrow_open_tx_only_lock{job_id} names them. Response per docs/ops/escrow-settlement-ops.md: decide whether each belongs in the known-artifacts registry (documentation only, no chain write) or needs a chain refund."
-
-      # EscrowSettlementPasses: the periodic fee-residue and owed-change
-      # passes (A4/A6/A7) run inside the blockchain-node process and can fail
-      # without any other visible symptom -- a dead pass strands buyer change
-      # and fee residue in custody indefinitely.
-      #
-      # Staleness: each executed tick increments the {result="tick"} series,
-      # so a stale pass is rate(tick)==0. The series only exists once the
-      # pass has run at least once on this instance -- a pass that has never
-      # been enabled (flag unset, by design until its rollout go) emits
-      # nothing and stays invisible, matching the EscrowSettlementCheckStale
-      # no-absent() convention. 20m covers ~20 missed ticks at the 60s
-      # interval.
-      - alert: EscrowChangePassStale
-        expr: sum by (instance) (rate(blockchain_escrow_change_pass_total{result="tick"}[20m])) == 0
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Owed-change pass not ticking on {{ $labels.instance }}"
-          description: "blockchain_escrow_change_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so released escrows owing buyer change are not being settled. The tick fires on every enabled pass run, including an enabled-but-keyless one, so this means a hung or crashing pass, not a missing settlement key. If ESCROW_CHANGE_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW change pass' errors."
-
-      - alert: EscrowFeeSweepPassStale
-        expr: sum by (instance) (rate(blockchain_escrow_fee_sweep_pass_total{result="tick"}[20m])) == 0
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Fee-residue pass not ticking on {{ $labels.instance }}"
-          description: "blockchain_escrow_fee_sweep_pass_total{result=\"tick\"} has produced no increments for twenty minutes on {{ $labels.instance }} — the pass ran before and has stopped, so settled fee residue is not being swept. The tick fires on every enabled pass run, including an enabled-but-keyless one, so this means a hung or crashing pass, not a missing settlement key. If ESCROW_FEE_SWEEP_PASS_ENABLED was never set on this host the series does not exist and this rule cannot see it; otherwise check the node logs for 'ESCROW fee sweep' errors."
-
-      # Unproven growth: every tick recounts each row the proof cannot cover
-      # (A7: no recorded billed, unpaired release leg, recompute mismatch),
-      # so the counter grows at a constant rate while any such row exists.
-      # This alert therefore stays firing while unproven rows remain — that
-      # is the intent: they never settle automatically and need operator
-      # triage. Post-A7 deploy the hub's pre-recording rows are the expected
-      # baseline; a NEW release landing here means the route failed to record
-      # or signed off-rule — that is the case worth paging on.
-      - alert: EscrowChangePassUnprovenRows
-        expr: increase(blockchain_escrow_change_pass_total{result="deferred_unproven"}[6h]) > 0
-        for: 6h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Unproven released escrows accumulating on {{ $labels.instance }}"
-          description: "The owed-change pass keeps deferring released escrow rows it cannot prove (missing billed record, unpaired release leg, or sealed value off the route's fee rule). These rows never refund automatically — triage per docs/ops/escrow-settlement-ops.md. Rows released before billed recording was added (A7) are a known baseline on hub."
-
-      - alert: EscrowFeeSweepPassUnprovenRows
-        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_unproven"}[6h]) > 0
-        for: 6h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Unprovable fee residue accumulating on {{ $labels.instance }}"
-          description: "The fee-residue pass keeps deferring settled escrows whose residue exceeds the provable fee bound — either owed buyer change is still in custody or the row carries an off-rule release shape. The residue is not treasury money until proven; triage per docs/ops/escrow-settlement-ops.md."
-
-      # deferred_change_pending is a PROVABLE row whose custody still carries
-      # owed buyer change — the fee pass correctly refuses to sweep. Expected
-      # for roughly one change-pass cycle (the first live metered settle sat
-      # here ~6 minutes). The 5m increase window inside for:15m means the
-      # alert fires only while the counter is still rising for >15m and
-      # resolves ~5m after the increments stop; a short stall stays silent.
-      - alert: EscrowFeeSweepChangePending
-        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_change_pending"}[5m]) > 0
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Provable escrow residue blocked on unpaid change on {{ $labels.instance }}"
-          description: "The fee-residue pass keeps seeing a provable escrow whose residue exceeds the provable fee bound because owed buyer change is still in custody — it must not sweep until the change pass pays out. Check the change pass flags (ESCROW_CHANGE_PASS_ENABLED / ESCROW_CHANGE_PASS_DRY_RUN) and the row's billed_legs; triage per docs/ops/escrow-settlement-ops.md."
-
-      # Errors: a failed submission backs off exponentially but keeps the row
-      # eligible; sustained error increments mean the pass is failing to
-      # settle for real (RPC unreachable, signing failure) rather than
-      # deferring on policy.
-      - alert: EscrowChangePassErrors
-        expr: increase(blockchain_escrow_change_pass_total{result="error"}[1h]) > 0
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Owed-change pass submissions failing on {{ $labels.instance }}"
-          description: "The owed-change pass has been erroring for over thirty minutes on {{ $labels.instance }} — change refunds are being attempted and failing (per-job exponential backoff applies). Check the node logs for 'ESCROW change pass' and proposer RPC reachability."
-
-      - alert: EscrowFeeSweepPassErrors
-        expr: increase(blockchain_escrow_fee_sweep_pass_total{result="error"}[1h]) > 0
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Fee-residue pass submissions failing on {{ $labels.instance }}"
-          description: "The fee-residue pass has been erroring for over thirty minutes on {{ $labels.instance }} — sweeps are being attempted and failing (per-job exponential backoff applies). Check the node logs for 'ESCROW fee sweep' and proposer RPC reachability."
-
-      # EscrowSettlementRefusedOnFollower: the A10/A11 settlement-signing gate
-      # refuses escrow create/refund/release with HTTP 503 on a node that
-      # cannot sign settlement. On a follower that refusal is the intended
-      # fail-closed behaviour, so this alert is informational: some caller is
-      # still routing settlement-bound escrow requests at a node that cannot
-      # sign them (the 503 detail names the settlement hub; the CLI prints it
-      # verbatim since A12). It keeps alerting until the mis-routed caller is
-      # repointed or stops.
-      #
-      # The {node!=""} selector scopes the alert to follower series. On hub's
-      # central Prometheus remote-written copies carry node=<host>, while
-      # hub's own locally scraped series have no node label and are covered
-      # by EscrowSettlementRefusedOnHub (aitbc_hub_rules.yml) instead. node2's
-      # blockchain jobs carry a target-level node="aitbc3" label, so its local
-      # Prometheus fires this alert too; the other followers only alert via
-      # their remote-written copies on hub. The 15m increase window means the
-      # alert lingers ~15m after the last refusal — it reports "a refusal was
-      # seen recently", not "still refusing right now".
-      - alert: EscrowSettlementRefusedOnFollower
-        expr: increase(blockchain_escrow_settlement_refused_total{node!=""}[15m]) > 0
-        for: 5m
-        labels:
-          severity: info
-        annotations:
-          summary: "Escrow settlement refused on follower {{ $labels.node }} (op {{ $labels.op }})"
-          description: "The settlement-signing gate on {{ $labels.node }} refused an escrow {{ $labels.op }} within the last 15m — intended fail-closed behaviour on a follower, so a caller is still directing settlement-bound escrow calls at a node that cannot sign them. The 503 detail names the settlement hub endpoint; repoint the caller there, or check for a stale script/config still targeting {{ $labels.instance }}."
-
-  - name: aitbc-systemd-units
-    rules:
-      - alert: AitbcSystemdUnitFailed
-        expr: node_systemd_unit_state{name=~"aitbc-.+", state="failed"} == 1
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "AITBC unit {{ $labels.name }} failed on {{ $labels.instance }}"
-          description: "systemd unit {{ $labels.name }} (job {{ $labels.job }}) has been in the failed state >15m. Check: systemctl status {{ $labels.name }} ; journalctl -u {{ $labels.name }} -n 50. On hosts with remote-write, the same unit may alert on both the local and the central Prometheus — the instance label identifies the reporting scraper, not necessarily the host running the unit."
-
-      # Guards AitbcSystemdUnitFailed's blind spot: a node-exporter running
-      # without --collector.systemd exposes no node_systemd_unit_state
-      # series at all, so the unit-failed rule reads a silent all-clear.
-      # node="" selects locally-scraped series only — remote-written copies
-      # on hub central carry a node=<host> external label and are excluded,
-      # so each host's own Prometheus checks its own exporter and hub
-      # cannot fire a duplicate or ambiguous-instance alert for a remote
-      # host's missing collector. The instance join is safe after the
-      # filter: at most one local candidate remains on each side.
-      - alert: AitbcSystemdCollectorMissing
-        expr: up{job=~"node.*", node=""} == 1 unless on(instance) count by (instance) (node_systemd_unit_state{node=""})
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "node-exporter on {{ $labels.instance }} exposes no systemd-unit series"
-          description: "The node job on {{ $labels.instance }} (job {{ $labels.job }}) is up but has exported no node_systemd_unit_state series for >15m — its --collector.systemd is disabled, so AitbcSystemdUnitFailed is blind there. Enable the collector in the node-exporter unit and restart it."
-
-  # aitbc-cgroup-oom (MEMMON-ROOT-OOM-1): scope-level OOM kills, the blind
-  # spot that made 22 Oct's kills invisible — per-unit memory.events all
-  # read 0 while the container ROOT cgroup enforced its 3.9 GiB wall 18
-  # times. scripts/monitoring/memory-monitor.sh exports
-  # aitbc_cgroup_oom_kill_total{cgroup="root|user.slice|system.slice"} as a
-  # cumulative-since-boot counter, so increase() is the right check: it
-  # ignores the known pre-existing count and fires only on a NEW kill.
-  - name: aitbc-cgroup-oom
-    rules:
-      - alert: CgroupOomKill
-        expr: increase(aitbc_cgroup_oom_kill_total[15m]) > 0
-        for: 0m
-        labels:
-          severity: critical
-        annotations:
-          summary: "New OOM kill in cgroup {{ $labels.cgroup }} ({{ $labels.instance }})"
-          description: "aitbc_cgroup_oom_kill_total for cgroup {{ $labels.cgroup }} increased over the last 15m on {{ $labels.instance }} — the kernel killed a process in that scope. A root or slice-scope kill is enforced by the container/systemd limit, not the unit's own MemoryMax, so per-unit memory.events stays at 0: check memory-monitor.log and journalctl -k/systemctl --failed for the victim."
-
-  # aitbc-attestation-arrival (MON-1): remote-attestation arrival measured
-  # from the sealed outcome — a block's block_metadata.attestations holds
-  # only the remote attestations that arrived before sealing, so an absent
-  # validator was too late. The exporter
-  # (scripts/monitoring/attestation-arrival-textfile.py) reads the last
-  # AITBC_ATTESTATION_WINDOW_BLOCKS (default 200) blocks of each local
-  # chain.db read-only and emits aitbc_attestation_* series.
-  #
-  # This group loads with the rest of aitbc_rules.yml on every host whose
-  # prometheus.yml lists it under rule_files (all of them) — no separate
-  # rule_files entry is needed. What remains an operator decision is
-  # installing the exporter's systemd timer
-  # (aitbc-attestation-arrival.{service,timer}) on the hosts whose chain.dbs
-  # should be read: until the exporter runs, the aitbc_attestation_* series
-  # are absent and these alerts cannot fire.
-  #
-  # The window briefly mixes two eras during a validator-set rotation
-  # (the set is derived per-window); every rule's for: absorbs that.
-  - name: aitbc-attestation-arrival
-    rules:
-      # AttestationArrivalDegraded: share of owed remote attestations that
-      # sealed dropped below 0.97 across the window. On a 4-validator set,
-      # one remote validator missing >=10% of its owed blocks lands the
-      # share near 0.967 — the threshold sits under that so a single
-      # slacking validator fires it. Baseline on the live island is ~0.9967
-      # (V-9), so healthy operation never approaches it.
-      - alert: AttestationArrivalDegraded
-        expr: aitbc_attestation_arrival_share < 0.97
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Remote attestation arrival degraded on {{ $labels.instance }} (share {{ $value }})"
-          description: "aitbc_attestation_arrival_share for {{ $labels.db }} is below 0.97 over the last window — a remote validator's attestations are arriving too late to seal (or not at all). On a 4-validator set, one validator missing ~10% of its owed blocks lands the share near 0.967; the V-9 baseline is ~0.9967. aitbc_attestation_missed_blocks{validator=...} names who is missing; check that validator's connectivity and the proposer journal 'Attestation arrival:' lines."
-
-      # AttestationValidatorSilent: a validator has missed every remote
-      # attestation it owed for >=20 consecutive blocks counting back from
-      # the head (blocks it proposed are skipped). That is silence, not
-      # jitter — the validator is down, partitioned, or rejecting
-      # attestations while the rest of the set still arrives.
-      # The "genesis" pseudo-proposer never owes an attestation; the
-      # exporter no longer emits its series and the label guard keeps even
-      # a stale series from firing this alert.
-      - alert: AttestationValidatorSilent
-        expr: aitbc_attestation_consecutive_missed{validator!="genesis"} >= 20
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Validator {{ $labels.validator }} silent for {{ $value }} consecutive owed blocks ({{ $labels.instance }})"
-          description: "aitbc_attestation_consecutive_missed shows {{ $labels.validator }} missed every remote attestation it owed for >=20 blocks back from the head on {{ $labels.db }} — likely down or partitioned. Check that validator's node and its attestation signer."
-
-      # AttestationArrivalCheckStale / AttestationArrivalCheckFailed: the
-      # check itself must run and read its DBs — a stopped exporter or an
-      # unopenable chain.db reads as "all clear" otherwise.
-      - alert: AttestationArrivalCheckStale
-        expr: time() - aitbc_attestation_scrape_timestamp_seconds > 3600
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Attestation arrival check has stopped ({{ $labels.instance }})"
-          description: "aitbc_attestation_scrape_timestamp_seconds is older than an hour on {{ $labels.instance }} — attestation arrival is invisible again. Check the exporter run/timer once wired."
-
-      - alert: AttestationArrivalCheckFailed
-        expr: aitbc_attestation_scrape_success == 0
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Attestation arrival check cannot read {{ $labels.db }} ({{ $labels.instance }})"
-          description: "aitbc_attestation_scrape_success is 0 for {{ $labels.db }} on {{ $labels.instance }} — the DB could not be opened or has no block table, so the arrival share cannot be trusted."
-
-  - name: aitbc-backup-freshness
-    rules:
-      # BackupStale: the nightly aitbc-backup.timer lands a generation ~01:0x;
-      # a newest-generation mtime older than 30 h means tonight's run never
-      # landed -- MON-2, a silent backup stop would otherwise surface only
-      # when someone needed the backup.
-      - alert: BackupStale
-        expr: time() - aitbc_backup_last_generation_timestamp_seconds > 30 * 3600
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: "No fresh backup generation on {{ $labels.instance }}"
-          description: "The newest generation under /var/backups/aitbc on {{ $labels.instance }} is older than 30 h — tonight's aitbc-backup run did not land. Check systemctl status aitbc-backup.timer and journalctl -u aitbc-backup.service."
-
-      # BackupFailed: the exporter reads the unit's Result each run; a
-      # completed failure is critical -- the last landing may be torn.
-      - alert: BackupFailed
-        expr: aitbc_backup_last_run_success == 0
-        for: 15m
-        labels:
-          severity: critical
-        annotations:
-          summary: "aitbc-backup.service failed on {{ $labels.instance }}"
-          description: "The last aitbc-backup.service run on {{ $labels.instance }} did not end Result=success. Check journalctl -u aitbc-backup.service -n 50."
-
-      # BackupExporterMissing: the freshness check itself must keep running.
-      # Same lesson as EscrowSettlementCheckStale/T35: no absent() arm -- it
-      # carries no instance label and would fire on every host that lacks
-      # the timer. Only hosts WITH the exporter installed emit this series;
-      # when its timer stops the file persists and the timestamp goes stale.
-      - alert: BackupExporterMissing
-        expr: time() - aitbc_backup_exporter_timestamp_seconds > 3600
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Backup freshness exporter has stopped ({{ $labels.instance }})"
-          description: "aitbc_backup_exporter_timestamp_seconds is older than an hour on {{ $labels.instance }} — backup staleness is invisible on this host again. Check systemctl status aitbc-backup-metrics.timer."
-
-      # BackupSizeCollapse: a generation that still lands but is under half
-      # the 7-day median size usually means the job degraded (empty dumps,
-      # missing tarballs) rather than real growth change.
-      # bc-2 note: fires on EACH post-reset generation while the 7-day
-      # median still holds old-chain sizes — the median re-anchors once
-      # post-reset samples pass half the window (~3.5 days after the size
-      # drop). Benign while run journals stay clean; handled by a per-host
-      # silence with expiry, not by this rule
-      # (see docs/deployment/bc2-alert-window.md).
-      - alert: BackupSizeCollapse
-        # Second clause: also require a sharp drop from the PREVIOUS
-        # generation (offset ~1d ≈ last run). Post-reset the median sits
-        # above every generation for ~3.5 days — without this, the rule
-        # re-fires daily on a sustained lower baseline (ALERT-REVIEW-1).
-        expr: |
-          aitbc_backup_last_generation_bytes < 0.5 * quantile_over_time(0.5, aitbc_backup_last_generation_bytes[7d])
-          and aitbc_backup_last_generation_bytes < 0.6 * max_over_time(aitbc_backup_last_generation_bytes[2d])
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Newest backup generation is under 50% of the 7-day median on {{ $labels.instance }}"
-          description: "The newest generation on {{ $labels.instance }} is {{ $value }} bytes — under half its own 7-day median. Check the run journal for skipped sources or truncated artifacts."
-
-      # BackupNoGoodChain: aitbc-backup skips pruning entirely when no
-      # generation holds a valid dump of the ACTIVE chain id — the run still
-      # exits 0, so last_run_success stays green while retention silently
-      # stalls. This gauge is the tripwire for that state.
-      # bc-2 note: expected to fire between the reset cut (CHAIN_ID flips)
-      # and the first post-cut nightly — until then every generation holds
-      # only old-chain dumps. It clearing on that first bc-2 generation is
-      # the post-cut confirmation the glob derived correctly; a firing
-      # during normal ops means the artifact name drifted from the chain id.
-      - alert: BackupNoGoodChain
-        expr: aitbc_backup_last_good_generation_timestamp_seconds == 0
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "No backup generation holds a valid current-chain dump on {{ $labels.instance }}"
-          description: "aitbc-backup on {{ $labels.instance }} has no generation containing a good dump of the active chain id — its prune step is skipping entirely and no restorable chain artifact exists. Check the run journal for 'pruning skipped entirely' and verify the chain artifact name matches CHAIN_ID."
-
-      # OffsitePullStale: the IDE host cannot be scraped, so the pull script
-      # writes this timestamp into hub's textfile dir after each fully
-      # successful run (operator design, BK-4). No absent() arm by design:
-      # before the first successful run the series does not exist, and the
-      # IDE host may legitimately be off -- the alert text says so.
-      - alert: OffsitePullStale
-        expr: time() - aitbc_offsite_pull_last_success_timestamp_seconds > 36 * 3600
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Off-site backup pull has not succeeded for over 36 h"
-          description: "aitbc_offsite_pull_last_success_timestamp_seconds is older than 36 h — the IDE host's off-site pull has not succeeded; that includes the IDE host being powered down or unreachable. Run offsite-pull-backups.sh --status on the IDE host."
-
-  - name: aitbc-env-watch
-    rules:
-      # AITBCReceiptSigningKeyAbsent: a var dropped from a service's env file
-      # stays invisible until the next restart — the running process keeps
-      # its old environment (RECEIPT_SIGNING_KEY_HEX sat missing for ~4.5
-      # days in Oct 2026 after an env rewrite; signing broke only at the
-      # eventual restart). env-watch-textfile greps env files for ^VAR=
-      # every 15 min. No absent() arm by design: hosts without the timer
-      # emit no series and should not fire.
-      - alert: AITBCReceiptSigningKeyAbsent
-        expr: aitbc_env_var_present{var="RECEIPT_SIGNING_KEY_HEX"} == 0
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "RECEIPT_SIGNING_KEY_HEX absent from coordinator env on {{ $labels.instance }}"
-          description: "No coordinator env file on {{ $labels.instance }} assigns RECEIPT_SIGNING_KEY_HEX — the next aitbc-coordinator-api restart leaves JobReceipt signing disabled and paid jobs unreleasable. Restore the key into /etc/aitbc/aitbc-coordinator-api(-override).env before the service restarts."
-
-      # AITBCEnvWatchStale: same stale-collector pattern as
-      # BackupExporterMissing — the timestamp stays in the last-written
-      # textfile when the timer stops, so age catches blindness without an
-      # absent() arm that would fire on hosts where it was never installed.
-      - alert: AITBCEnvWatchStale
-        expr: time() - aitbc_env_watch_timestamp_seconds > 2700
-        for: 15m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Env-watch exporter has stopped ({{ $labels.instance }})"
-          description: "aitbc_env_watch_timestamp_seconds is older than 45 minutes on {{ $labels.instance }} — env-var presence is no longer being checked. Check systemctl status aitbc-env-watch.timer."
-
-  - name: aitbc-messaging
-    rules:
-      # MSG-6: derived forum/messaging index operability. All informational
-      # except MessagingIndexDigestMismatch, which means two nodes derived
-      # different state from the same sealed rows — a real divergence, not
-      # a capacity wobble.
-
-      - alert: MessagingIndexLag
-        expr: aitbc_messaging_index_lag_blocks > 50
-        for: 10m
-        labels:
-          severity: info
-        annotations:
-          summary: "Messaging index lags the chain head on {{ $labels.instance }}"
-          description: "aitbc_messaging_index_lag_blocks is {{ $value }} on {{ $labels.instance }} for 10m — the derived forum index is reading more than 50 blocks behind the local head. See docs/ops/messaging-operability.md."
-
-      - alert: MessagingIndexDigestMismatch
-        expr: count by (chain_id, checkpoint) (count by (chain_id, checkpoint, digest) (aitbc_messaging_index_digest)) > 1
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Messaging index digests differ between nodes (checkpoint {{ $labels.checkpoint }})"
-          description: "More than one distinct aitbc_messaging_index_digest exists for {{ $labels.chain_id }} at checkpoint {{ $labels.checkpoint }} — at least one node derived different forum state from the same sealed rows. Compare topics per docs/ops/messaging-operability.md; never 'fix' by restarting first."
-
-      - alert: MessagingReadErrors
-        expr: rate(aitbc_messaging_read_errors_total[10m]) > 0.1
-        for: 15m
-        labels:
-          severity: info
-        annotations:
-          summary: "Messaging reads are erroring on {{ $labels.instance }}"
-          description: "rate(aitbc_messaging_read_errors_total) exceeds 0.1/s for 15m on {{ $labels.instance }} (route {{ $labels.route }}). 4xx and 5xx both count; check whether the rate limiter or a bad query is the cause first."
-
-      - alert: MessagingVolumeSpike
-        expr: increase(aitbc_messaging_messages_total[1h]) > 50 and increase(aitbc_messaging_messages_total[1h]) > 3 * (increase(aitbc_messaging_messages_total[6h] offset 1h) / 6)
-        for: 15m
-        labels:
-          severity: info
-        annotations:
-          summary: "Messaging volume spike on {{ $labels.instance }}"
-          description: "Message count grew {{ $value | humanize }} in the last hour on {{ $labels.instance }} — over 3x the trailing 6h hourly rate and above the 50/h floor (the floor keeps a quiet forum from alerting on a handful of posts). Check for a spam run before treating it as growth."
-
-  - name: aitbc-tmp-guard
-    rules:
-      - alert: AITBCTmpfsHigh
-        expr: 1 - (node_filesystem_avail_bytes{mountpoint="/tmp",fstype="tmpfs"} / node_filesystem_size_bytes{mountpoint="/tmp",fstype="tmpfs"}) > 0.5
-        for: 30m
-        labels:
-          severity: warning
-        annotations:
-          summary: "/tmp (tmpfs) over 50% on {{ $labels.instance }} — RAM pressure"
-          description: "tmpfs /tmp usage {{ $value | humanizePercentage }} for 30m on {{ $labels.instance }} — likely accumulated test/archive debris charged to the container cgroup (see tasks/NODE2-TMP-GUARD.md)."
+- name: aitbc
+  rules:
+  - record: aitbc:block_interval_seconds:rate5m
+    expr: 60 / rate(blockchain_block_height[5m])
+  - record: aitbc:rpc_requests_per_second:rate5m
+    expr: rate(rpc_requests_total[5m])
+  - record: aitbc:rpc_error_rate:ratio5m
+    expr: "(\n  rate(rpc_client_errors_total[5m])\n  + rate(rpc_server_errors_total[5m])\n\
+      ) / clamp_min(rate(rpc_requests_total[5m]), 1)\n"
+  - record: aitbc:bridge_locked_amount
+    expr: blockchain_bridge_total_locked_amount
+  - alert: GossipBlockDeliveryFailing
+    expr: "(\n  increase(gossip_mesh_publications_topic_blocks_bc_2[5m]) > 0\n  and\
+      \ on() (increase(gossip_mesh_peer_publish_topic_blocks_bc_2[5m]) == 0)\n  and\
+      \ on() (increase(gossip_mesh_peer_publish_failed_topic_blocks_bc_2[5m]) > 0)\n\
+      )\n"
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: bc-2 blocks published on {{ $labels.instance }} but every peer push
+        fails
+      description: The proposer is publishing bc-2 blocks to the gossip mesh but no
+        peer push succeeds — peers cannot hear this proposer and are falling back
+        to pull-sync.
+  - alert: BroadcastSkipped
+    expr: increase(blockchain_poa_broadcast_skipped_total{chain_id!~".*island.*"}[5m])
+      > 0
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: Block broadcast on {{ $labels.chain_id }} failed at publish
+  - alert: ServiceDown
+    expr: up == 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: Service {{ $labels.instance }} is down
+  - alert: BlockProcessingTooSlow
+    expr: histogram_quantile(0.95, rate(blockchain_block_processing_duration_seconds_bucket[5m]))
+      > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Block processing p95 exceeds 1 second
+  - alert: RpcErrorsSpiking
+    expr: "rate(rpc_server_errors_total[5m])\n  / clamp_min(rate(rpc_requests_total[5m]),\
+      \ 1) > 0.05\nor (\n  rate(rpc_client_errors_total[5m])\n    / clamp_min(rate(rpc_requests_total[5m]),\
+      \ 1) > 0.20\n  and rate(rpc_requests_total[5m]) > 0.5\n)\n"
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: RPC error rate is spiking
+  - alert: SyncLagHigh
+    expr: blockchain_sync_lag_blocks > 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Node is lagging on {{ $labels.chain_id }}
+      description: Local chain on {{ $labels.chain_id }} is {{ $value }} blocks behind
+        the remote peer.
+  - alert: ChainHeadStalled
+    expr: 'aitbc_messaging_chain_head_height > 0
+
+      and (aitbc_messaging_chain_head_height - aitbc_messaging_chain_head_height offset
+      15m) <= 0
+
+      '
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: Chain head on {{ $labels.chain_id }} has not advanced for 15 minutes
+        on {{ $labels.instance }}
+      description: 'aitbc_messaging_chain_head_height on {{ $labels.instance }} has
+        stayed at {{ $value }} for 15 min. Firing on every host means the chain stopped
+        producing (check proposer rotation and attestations); firing on one host means
+        that node stopped importing (check its sync peer and gossip). A failing scrape-time
+        collect also freezes the gauge — look for ''messaging metrics: collect failed''
+        in the rpc journal.'
+  - alert: IslandHubSilent
+    expr: aitbc_island_hub_silence_seconds > 600 and on(instance, job) aitbc_island_import_silence_seconds
+      < 300
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: No hub-originated observation for 25+ minutes on {{ $labels.instance
+        }}
+      description: 'aitbc_island_hub_silence_seconds on {{ $labels.instance }} is
+        {{ $value }}s. The monitor counts silence across every observation path —
+        hub-proposed blocks (by any transport), pull-sync answers and hub RPC reads
+        — so firing means the hub is dark on all of them while blocks from the other
+        validators keep arriving. Check hub''s blockchain-node and RPC units and its
+        network path to the validators. Not a failover trigger: promotion stays operator-gated
+        (FAILOVER-PROMOTE-1).'
+  - alert: IslandImportSilent
+    expr: aitbc_island_import_silence_seconds >= 300
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: No block import for 20+ minutes on {{ $labels.instance }}
+      description: 'aitbc_island_import_silence_seconds on {{ $labels.instance }}
+        is {{ $value }}s: this node has imported no block from any validator on any
+        transport (the gauge counts every accepted import on any transport), so its
+        hub silence is not meaningful and IslandHubSilent stays quiet here by design.
+        Check the node''s sync peer, gossip connections and network path. Firing on
+        every follower means the island stopped producing (see ChainHeadStalled).'
+  - alert: ChainHeadMetricMissing
+    expr: up{job=~"(.*-)?blockchain-rpc"} == 1 unless on(instance, node) aitbc_messaging_chain_head_height
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: chain-head metric missing on {{ $labels.instance }}
+      description: '{{ $labels.instance }} answers scrapes (up=1) but exposes no aitbc_messaging_chain_head_height,
+        so ChainHeadStalled cannot see a stall there. Check for ''messaging metrics:
+        collect failed'' in the rpc journal and that the metrics endpoint still serves
+        the messaging family.'
+  - alert: MempoolFull
+    expr: blockchain_mempool_pending_count > 9000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Mempool is filling on {{ $labels.chain_id }}
+  - alert: ForkReorgUnsafe
+    expr: increase(sync_fork_reorg_unsafe_total[10m]) > 0
+    labels:
+      severity: critical
+    annotations:
+      summary: Unsafe fork reorg refused on {{ $labels.instance }} — operator action
+        required
+      description: A peer branch won fork choice on {{ $labels.instance }} but the
+        local losing segment is not provably empty; the node escalates instead of
+        auto-reverting. Manual reconciliation needed.
+  - alert: ForkOrphanedTxLost
+    expr: increase(sync_fork_orphaned_tx_lost_total[10m]) > 0
+    labels:
+      severity: critical
+    annotations:
+      summary: Orphaned transaction lost after fork reorg on {{ $labels.instance }}
+      description: A transaction that existed only on the losing fork segment on {{
+        $labels.instance }} failed mempool requeue and is absent from the winning
+        branch — the user's confirmed transaction disappeared. Reconcile and resubmit.
+  - alert: ForkReorgUndone
+    expr: increase(sync_fork_reorg_undone_total[10m]) > 0
+    labels:
+      severity: warning
+    annotations:
+      summary: Fork reorg auto-reverted blocks on {{ $labels.instance }}
+      description: The delta journal undid a losing non-empty segment on {{ $labels.instance
+        }}. Correct behavior, but confirmed transactions were displaced — check ForkOrphanedTxLost
+        for any that failed requeue.
+  - alert: ForkDomainRowOrphaned
+    expr: increase(sync_fork_domain_rows_orphaned_total[10m]) > 0
+    labels:
+      severity: warning
+    annotations:
+      summary: Domain row orphaned by fork on {{ $labels.instance }}
+      description: A stake/agent_stake/bounty_contract row lost its confirming lock
+        transaction in a reorg on {{ $labels.instance }} and was marked orphaned.
+        It revives automatically if the lock confirms on the winning branch.
+  - alert: FaucetBudgetTripped
+    expr: increase(coin_request_auto_budget_trips_total[15m]) > 0
+    labels:
+      severity: warning
+    annotations:
+      summary: Faucet auto-budget tripped on {{ $labels.instance }} ({{ $labels.window
+        }})
+      description: Automatic coin requests are parking on the exhausted {{ $labels.window
+        }} budget on {{ $labels.instance }} — possible drain attempt.
+  - alert: V9ShadowRejection
+    expr: increase(v9_would_reject_total[10m]) > 0
+    labels:
+      severity: warning
+    annotations:
+      summary: v9 transaction-authorization check would have rejected on {{ $labels.instance
+        }}
+      description: A transaction on {{ $labels.instance }} failed a v9 rule in shadow
+        mode — inspect the v9_would_reject_* detail counters and the node journal
+        before pinning the v9 height.
+  - alert: V9AttestationRefusal
+    expr: increase({__name__=~"v9_would_reject_attest_.*_total"}[10m]) > 0
+    labels:
+      severity: warning
+    annotations:
+      summary: v9 attestation would have been refused on {{ $labels.instance }}
+      description: A validator on {{ $labels.instance }} would have refused to attest
+        a block under v9 rules — inspect the v9_would_reject_attest_* counters and
+        the node journal before pinning the v9 height.
+  - alert: PrometheusWatchStale
+    expr: 'absent(aitbc_prometheus_watch_poll_timestamp_seconds)
+
+      or time() - aitbc_prometheus_watch_poll_timestamp_seconds > 300
+
+      '
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Alert watcher heartbeat has stopped ({{ $labels.instance }})
+      description: aitbc-prometheus-watch has not written its textfile metric for
+        five minutes; alert events and webhook notifications on this node are blind.
+        Check systemctl status aitbc-prometheus-watch.
+  - alert: RemoteWriteFailing
+    expr: rate(prometheus_remote_storage_samples_failed_total[15m]) > 0
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: remote_write samples being rejected on {{ $labels.instance }}
+      description: Prometheus on {{ $labels.instance }} is losing remote_write batches
+        ({{ $value }} samples/s rejected over 15m); a rejected batch drops every series
+        it carries. Check the receiver journal for 'duplicate sample' or other non-recoverable
+        400s.
+  - alert: AITBCJournalErrors
+    expr: aitbc_journal_error_messages{unit=~"aitbc-.*\\.service"} > 3
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: '{{ $labels.unit }} logged errors on {{ $labels.instance }}'
+      description: '{{ $labels.unit }} produced {{ $value }} err-or-worse journal
+        messages in the last 15 minutes. See the Service Journal card on alerts.html
+        or: journalctl -u {{ $labels.unit }} -p err.'
+  - alert: AITBCJournalScanStale
+    expr: 'absent(aitbc_journal_scan_timestamp_seconds)
+
+      or time() - aitbc_journal_scan_timestamp_seconds > 600
+
+      '
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Journal-error collector has stopped ({{ $labels.instance }})
+      description: aitbc_journal_scan_timestamp_seconds is absent or older than ten
+        minutes on {{ $labels.instance }} — aitbc_journal_error_messages is frozen,
+        so AITBCJournalErrors cannot see new service errors. Check systemctl status
+        aitbc-journal-errors.timer.
+  - alert: EscrowSettlementUnlanded
+    expr: aitbc_escrow_unlanded_settlements > 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: Unlanded escrow settlement on {{ $labels.instance }} ({{ $value }}
+        rows)
+      description: An escrow row on {{ $labels.instance }} is marked released/refunded
+        but its settlement hash never sealed — a dead hash is being served and custody
+        is unresolved (provider unpaid or buyer unrefunded). The aitbc_escrow_unlanded_settlement{job_id,kind}
+        series names the rows; repair per the S-8 remedy-2 path.
+  - alert: EscrowSettlementCheckStale
+    expr: time() - aitbc_escrow_settlement_scrape_timestamp_seconds > 600
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Escrow settlement check has stopped ({{ $labels.instance }})
+      description: aitbc_escrow_settlement_scrape_timestamp_seconds is older than
+        ten minutes on {{ $labels.instance }} — unlanded settlements are invisible
+        on this host again. Check systemctl status aitbc-escrow-settlements.timer.
+  - alert: EscrowSettlementCheckFailed
+    expr: aitbc_escrow_settlement_scrape_success == 0
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Escrow settlement check cannot read {{ $labels.db }} ({{ $labels.instance
+        }})
+      description: aitbc_escrow_settlement_scrape_success is 0 for {{ $labels.db }}
+        on {{ $labels.instance }} — the DB could not be opened or has no escrow table,
+        so the unlanded count for it cannot be trusted. Check journalctl -u aitbc-escrow-settlements.service.
+  - alert: EscrowRelayErrorRatio
+    expr: "(\n  sum by (instance, relay) (increase(aitbc_escrow_relay_requests_total{result=~\"\
+      upstream_5xx|chain_timeout\"}[15m]))\n  / clamp_min(sum by (instance, relay)\
+      \ (increase(aitbc_escrow_relay_requests_total[15m])), 1)\n) > 0.2\nand\nsum\
+      \ by (instance, relay) (increase(aitbc_escrow_relay_requests_total[15m])) >=\
+      \ 5\n"
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Escrow relay {{ $labels.relay }} error ratio {{ $value | humanizePercentage
+        }} on {{ $labels.instance }}
+      description: More than 20% of {{ $labels.relay }} escrow relay requests over
+        the last 15m ended in an upstream 5xx or a chain timeout on {{ $labels.instance
+        }}. Check the settlement node's /rpc/escrow health and journalctl -u aitbc-coordinator-api.
+  - alert: EscrowRelay425Storm
+    expr: sum by (instance, relay) (increase(aitbc_escrow_relay_requests_total{result="too_early_425"}[15m]))
+      > 20
+    for: 0m
+    labels:
+      severity: warning
+    annotations:
+      summary: 425 storm on escrow relay {{ $labels.relay }} ({{ $labels.instance
+        }})
+      description: '{{ $value }} ''lock not yet sealed'' (425) answers from the {{
+        $labels.relay }} relay on {{ $labels.instance }} in 15m — releases are racing
+        unsealed locks, or the chain has stopped sealing ESCROW_LOCK transactions.
+        Check the settlement node''s mempool and block production.'
+  - alert: EscrowResidueStale
+    expr: aitbc_escrow_residue_accounts > 0
+    for: 6h
+    labels:
+      severity: warning
+    annotations:
+      summary: Sweepable escrow fee-leg residue on {{ $labels.instance }} ({{ $value
+        }} rows)
+      description: Terminal escrow rows on {{ $labels.instance }} hold residue classed
+        fee leg older than the threshold — money a FEE_SWEEP could actually move.
+        The informational aitbc_escrow_residue_stale_ledger_rows gauge shows the stale-ledger
+        classes that need no action. List rows with scripts/ops/escrow_residue_dryrun.py;
+        sweeping is an operator-approved chain write (ESCROW_FEE_SWEEP to the governed
+        escrow_fee_recipient).
+  - alert: EscrowResidueCheckStale
+    expr: absent(aitbc_escrow_residue_scrape_timestamp_seconds) or time() - aitbc_escrow_residue_scrape_timestamp_seconds
+      > 86400
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Escrow residue check has stopped ({{ $labels.instance }})
+      description: aitbc_escrow_residue_scrape_timestamp_seconds is older than a day
+        on {{ $labels.instance }} — stale residue is invisible again. Check the aitbc-escrow-residue
+        timer.
+  - alert: EscrowResidueCheckFailed
+    expr: aitbc_escrow_residue_scrape_success == 0
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Escrow residue check cannot read {{ $labels.db }} ({{ $labels.instance
+        }})
+      description: aitbc_escrow_residue_scrape_success is 0 for {{ $labels.db }} on
+        {{ $labels.instance }} — the residue count for that DB cannot be trusted.
+  - alert: EscrowOpenTxOnlyLock
+    expr: aitbc_escrow_open_tx_only_locks > 0
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Unregistered open tx-only escrow locks on {{ $labels.instance }} ({{
+        $value }})
+      description: '{{ $value }} ESCROW_LOCK transaction(s) on {{ $labels.instance
+        }} have no escrow row and no settlement leg — funds sit in custody that nothing
+        will settle. The per-job series aitbc_escrow_open_tx_only_lock{job_id} names
+        them. Response per docs/ops/escrow-settlement-ops.md: decide whether each
+        belongs in the known-artifacts registry (documentation only, no chain write)
+        or needs a chain refund.'
+  - alert: EscrowChangePassStale
+    expr: sum by (instance) (rate(blockchain_escrow_change_pass_total{result="tick"}[20m]))
+      == 0
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Owed-change pass not ticking on {{ $labels.instance }}
+      description: blockchain_escrow_change_pass_total{result="tick"} has produced
+        no increments for twenty minutes on {{ $labels.instance }} — the pass ran
+        before and has stopped, so released escrows owing buyer change are not being
+        settled. The tick fires on every enabled pass run, including an enabled-but-keyless
+        one, so this means a hung or crashing pass, not a missing settlement key.
+        If ESCROW_CHANGE_PASS_ENABLED was never set on this host the series does not
+        exist and this rule cannot see it; otherwise check the node logs for 'ESCROW
+        change pass' errors.
+  - alert: EscrowFeeSweepPassStale
+    expr: sum by (instance) (rate(blockchain_escrow_fee_sweep_pass_total{result="tick"}[20m]))
+      == 0
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Fee-residue pass not ticking on {{ $labels.instance }}
+      description: blockchain_escrow_fee_sweep_pass_total{result="tick"} has produced
+        no increments for twenty minutes on {{ $labels.instance }} — the pass ran
+        before and has stopped, so settled fee residue is not being swept. The tick
+        fires on every enabled pass run, including an enabled-but-keyless one, so
+        this means a hung or crashing pass, not a missing settlement key. If ESCROW_FEE_SWEEP_PASS_ENABLED
+        was never set on this host the series does not exist and this rule cannot
+        see it; otherwise check the node logs for 'ESCROW fee sweep' errors.
+  - alert: EscrowChangePassUnprovenRows
+    expr: increase(blockchain_escrow_change_pass_total{result="deferred_unproven"}[6h])
+      > 0
+    for: 6h
+    labels:
+      severity: warning
+    annotations:
+      summary: Unproven released escrows accumulating on {{ $labels.instance }}
+      description: The owed-change pass keeps deferring released escrow rows it cannot
+        prove (missing billed record, unpaired release leg, or sealed value off the
+        route's fee rule). These rows never refund automatically — triage per docs/ops/escrow-settlement-ops.md.
+        Rows released before billed recording was added (A7) are a known baseline
+        on hub.
+  - alert: EscrowFeeSweepPassUnprovenRows
+    expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_unproven"}[6h])
+      > 0
+    for: 6h
+    labels:
+      severity: warning
+    annotations:
+      summary: Unprovable fee residue accumulating on {{ $labels.instance }}
+      description: The fee-residue pass keeps deferring settled escrows whose residue
+        exceeds the provable fee bound — either owed buyer change is still in custody
+        or the row carries an off-rule release shape. The residue is not treasury
+        money until proven; triage per docs/ops/escrow-settlement-ops.md.
+  - alert: EscrowFeeSweepChangePending
+    expr: increase(blockchain_escrow_fee_sweep_pass_total{result="deferred_change_pending"}[5m])
+      > 0
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Provable escrow residue blocked on unpaid change on {{ $labels.instance
+        }}
+      description: The fee-residue pass keeps seeing a provable escrow whose residue
+        exceeds the provable fee bound because owed buyer change is still in custody
+        — it must not sweep until the change pass pays out. Check the change pass
+        flags (ESCROW_CHANGE_PASS_ENABLED / ESCROW_CHANGE_PASS_DRY_RUN) and the row's
+        billed_legs; triage per docs/ops/escrow-settlement-ops.md.
+  - alert: EscrowChangePassErrors
+    expr: increase(blockchain_escrow_change_pass_total{result="error"}[1h]) > 0
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: Owed-change pass submissions failing on {{ $labels.instance }}
+      description: The owed-change pass has been erroring for over thirty minutes
+        on {{ $labels.instance }} — change refunds are being attempted and failing
+        (per-job exponential backoff applies). Check the node logs for 'ESCROW change
+        pass' and proposer RPC reachability.
+  - alert: EscrowFeeSweepPassErrors
+    expr: increase(blockchain_escrow_fee_sweep_pass_total{result="error"}[1h]) > 0
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: Fee-residue pass submissions failing on {{ $labels.instance }}
+      description: The fee-residue pass has been erroring for over thirty minutes
+        on {{ $labels.instance }} — sweeps are being attempted and failing (per-job
+        exponential backoff applies). Check the node logs for 'ESCROW fee sweep' and
+        proposer RPC reachability.
+  - alert: EscrowSettlementRefusedOnFollower
+    expr: increase(blockchain_escrow_settlement_refused_total{node!=""}[15m]) > 0
+    for: 5m
+    labels:
+      severity: info
+    annotations:
+      summary: Escrow settlement refused on follower {{ $labels.node }} (op {{ $labels.op
+        }})
+      description: The settlement-signing gate on {{ $labels.node }} refused an escrow
+        {{ $labels.op }} within the last 15m — intended fail-closed behaviour on a
+        follower, so a caller is still directing settlement-bound escrow calls at
+        a node that cannot sign them. The 503 detail names the settlement hub endpoint;
+        repoint the caller there, or check for a stale script/config still targeting
+        {{ $labels.instance }}.
+- name: aitbc-systemd-units
+  rules:
+  - alert: AitbcSystemdUnitFailed
+    expr: node_systemd_unit_state{name=~"aitbc-.+", state="failed"} == 1
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: AITBC unit {{ $labels.name }} failed on {{ $labels.instance }}
+      description: 'systemd unit {{ $labels.name }} (job {{ $labels.job }}) has been
+        in the failed state >15m. Check: systemctl status {{ $labels.name }} ; journalctl
+        -u {{ $labels.name }} -n 50. On hosts with remote-write, the same unit may
+        alert on both the local and the central Prometheus — the instance label identifies
+        the reporting scraper, not necessarily the host running the unit.'
+  - alert: AitbcSystemdCollectorMissing
+    expr: up{job=~"node.*", node=""} == 1 unless on(instance) count by (instance)
+      (node_systemd_unit_state{node=""})
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: node-exporter on {{ $labels.instance }} exposes no systemd-unit series
+      description: The node job on {{ $labels.instance }} (job {{ $labels.job }})
+        is up but has exported no node_systemd_unit_state series for >15m — its --collector.systemd
+        is disabled, so AitbcSystemdUnitFailed is blind there. Enable the collector
+        in the node-exporter unit and restart it.
+- name: aitbc-cgroup-oom
+  rules:
+  - alert: CgroupOomKill
+    expr: increase(aitbc_cgroup_oom_kill_total[15m]) > 0
+    for: 0m
+    labels:
+      severity: critical
+    annotations:
+      summary: New OOM kill in cgroup {{ $labels.cgroup }} ({{ $labels.instance }})
+      description: 'aitbc_cgroup_oom_kill_total for cgroup {{ $labels.cgroup }} increased
+        over the last 15m on {{ $labels.instance }} — the kernel killed a process
+        in that scope. A root or slice-scope kill is enforced by the container/systemd
+        limit, not the unit''s own MemoryMax, so per-unit memory.events stays at 0:
+        check memory-monitor.log and journalctl -k/systemctl --failed for the victim.'
+- name: aitbc-attestation-arrival
+  rules:
+  - alert: AttestationArrivalDegraded
+    expr: aitbc_attestation_arrival_share < 0.97
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: Remote attestation arrival degraded on {{ $labels.instance }} (share
+        {{ $value }})
+      description: aitbc_attestation_arrival_share for {{ $labels.db }} is below 0.97
+        over the last window — a remote validator's attestations are arriving too
+        late to seal (or not at all). On a 4-validator set, one validator missing
+        ~10% of its owed blocks lands the share near 0.967; the V-9 baseline is ~0.9967.
+        aitbc_attestation_missed_blocks{validator=...} names who is missing; check
+        that validator's connectivity and the proposer journal 'Attestation arrival:'
+        lines.
+  - alert: AttestationValidatorSilent
+    expr: aitbc_attestation_consecutive_missed{validator!="genesis"} >= 20
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Validator {{ $labels.validator }} silent for {{ $value }} consecutive
+        owed blocks ({{ $labels.instance }})
+      description: aitbc_attestation_consecutive_missed shows {{ $labels.validator
+        }} missed every remote attestation it owed for >=20 blocks back from the head
+        on {{ $labels.db }} — likely down or partitioned. Check that validator's node
+        and its attestation signer.
+  - alert: AttestationArrivalCheckStale
+    expr: time() - aitbc_attestation_scrape_timestamp_seconds > 3600
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Attestation arrival check has stopped ({{ $labels.instance }})
+      description: aitbc_attestation_scrape_timestamp_seconds is older than an hour
+        on {{ $labels.instance }} — attestation arrival is invisible again. Check
+        the exporter run/timer once wired.
+  - alert: AttestationArrivalCheckFailed
+    expr: aitbc_attestation_scrape_success == 0
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Attestation arrival check cannot read {{ $labels.db }} ({{ $labels.instance
+        }})
+      description: aitbc_attestation_scrape_success is 0 for {{ $labels.db }} on {{
+        $labels.instance }} — the DB could not be opened or has no block table, so
+        the arrival share cannot be trusted.
+- name: aitbc-backup-freshness
+  rules:
+  - alert: BackupStale
+    expr: time() - aitbc_backup_last_generation_timestamp_seconds > 30 * 3600
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: No fresh backup generation on {{ $labels.instance }}
+      description: The newest generation under /var/backups/aitbc on {{ $labels.instance
+        }} is older than 30 h — tonight's aitbc-backup run did not land. Check systemctl
+        status aitbc-backup.timer and journalctl -u aitbc-backup.service.
+  - alert: BackupFailed
+    expr: aitbc_backup_last_run_success == 0
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: aitbc-backup.service failed on {{ $labels.instance }}
+      description: The last aitbc-backup.service run on {{ $labels.instance }} did
+        not end Result=success. Check journalctl -u aitbc-backup.service -n 50.
+  - alert: BackupExporterMissing
+    expr: time() - aitbc_backup_exporter_timestamp_seconds > 3600
+    for: 1h
+    labels:
+      severity: warning
+    annotations:
+      summary: Backup freshness exporter has stopped ({{ $labels.instance }})
+      description: aitbc_backup_exporter_timestamp_seconds is older than an hour on
+        {{ $labels.instance }} — backup staleness is invisible on this host again.
+        Check systemctl status aitbc-backup-metrics.timer.
+  - alert: BackupSizeCollapse
+    expr: 'aitbc_backup_last_generation_bytes < 0.5 * quantile_over_time(0.5, aitbc_backup_last_generation_bytes[7d])
+
+      and aitbc_backup_last_generation_bytes < 0.6 * max_over_time(aitbc_backup_last_generation_bytes[2d])
+
+      '
+    for: 1h
+    labels:
+      severity: warning
+    annotations:
+      summary: Newest backup generation is under 50% of the 7-day median on {{ $labels.instance
+        }}
+      description: The newest generation on {{ $labels.instance }} is {{ $value }}
+        bytes — under half its own 7-day median. Check the run journal for skipped
+        sources or truncated artifacts.
+  - alert: BackupNoGoodChain
+    expr: aitbc_backup_last_good_generation_timestamp_seconds == 0
+    for: 1h
+    labels:
+      severity: warning
+    annotations:
+      summary: No backup generation holds a valid current-chain dump on {{ $labels.instance
+        }}
+      description: aitbc-backup on {{ $labels.instance }} has no generation containing
+        a good dump of the active chain id — its prune step is skipping entirely and
+        no restorable chain artifact exists. Check the run journal for 'pruning skipped
+        entirely' and verify the chain artifact name matches CHAIN_ID.
+  - alert: OffsitePullStale
+    expr: time() - aitbc_offsite_pull_last_success_timestamp_seconds > 36 * 3600
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: Off-site backup pull has not succeeded for over 36 h
+      description: aitbc_offsite_pull_last_success_timestamp_seconds is older than
+        36 h — the IDE host's off-site pull has not succeeded; that includes the IDE
+        host being powered down or unreachable. Run offsite-pull-backups.sh --status
+        on the IDE host.
+- name: aitbc-env-watch
+  rules:
+  - alert: AITBCReceiptSigningKeyAbsent
+    expr: aitbc_env_var_present{var="RECEIPT_SIGNING_KEY_HEX"} == 0
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: RECEIPT_SIGNING_KEY_HEX absent from coordinator env on {{ $labels.instance
+        }}
+      description: No coordinator env file on {{ $labels.instance }} assigns RECEIPT_SIGNING_KEY_HEX
+        — the next aitbc-coordinator-api restart leaves JobReceipt signing disabled
+        and paid jobs unreleasable. Restore the key into /etc/aitbc/aitbc-coordinator-api(-override).env
+        before the service restarts.
+  - alert: AITBCEnvWatchStale
+    expr: time() - aitbc_env_watch_timestamp_seconds > 2700
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Env-watch exporter has stopped ({{ $labels.instance }})
+      description: aitbc_env_watch_timestamp_seconds is older than 45 minutes on {{
+        $labels.instance }} — env-var presence is no longer being checked. Check systemctl
+        status aitbc-env-watch.timer.
+- name: aitbc-messaging
+  rules:
+  - alert: MessagingIndexLag
+    expr: aitbc_messaging_index_lag_blocks > 50
+    for: 10m
+    labels:
+      severity: info
+    annotations:
+      summary: Messaging index lags the chain head on {{ $labels.instance }}
+      description: aitbc_messaging_index_lag_blocks is {{ $value }} on {{ $labels.instance
+        }} for 10m — the derived forum index is reading more than 50 blocks behind
+        the local head. See docs/ops/messaging-operability.md.
+  - alert: MessagingIndexDigestMismatch
+    expr: count by (chain_id, checkpoint) (count by (chain_id, checkpoint, digest)
+      (aitbc_messaging_index_digest)) > 1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: Messaging index digests differ between nodes (checkpoint {{ $labels.checkpoint
+        }})
+      description: More than one distinct aitbc_messaging_index_digest exists for
+        {{ $labels.chain_id }} at checkpoint {{ $labels.checkpoint }} — at least one
+        node derived different forum state from the same sealed rows. Compare topics
+        per docs/ops/messaging-operability.md; never 'fix' by restarting first.
+  - alert: MessagingReadErrors
+    expr: rate(aitbc_messaging_read_errors_total[10m]) > 0.1
+    for: 15m
+    labels:
+      severity: info
+    annotations:
+      summary: Messaging reads are erroring on {{ $labels.instance }}
+      description: rate(aitbc_messaging_read_errors_total) exceeds 0.1/s for 15m on
+        {{ $labels.instance }} (route {{ $labels.route }}). 4xx and 5xx both count;
+        check whether the rate limiter or a bad query is the cause first.
+  - alert: MessagingVolumeSpike
+    expr: increase(aitbc_messaging_messages_total[1h]) > 50 and increase(aitbc_messaging_messages_total[1h])
+      > 3 * (increase(aitbc_messaging_messages_total[6h] offset 1h) / 6)
+    for: 15m
+    labels:
+      severity: info
+    annotations:
+      summary: Messaging volume spike on {{ $labels.instance }}
+      description: Message count grew {{ $value | humanize }} in the last hour on
+        {{ $labels.instance }} — over 3x the trailing 6h hourly rate and above the
+        50/h floor (the floor keeps a quiet forum from alerting on a handful of posts).
+        Check for a spam run before treating it as growth.
+- name: aitbc-tmp-guard
+  rules:
+  - alert: AITBCTmpfsHigh
+    expr: 1 - (node_filesystem_avail_bytes{mountpoint="/tmp",fstype="tmpfs"} / node_filesystem_size_bytes{mountpoint="/tmp",fstype="tmpfs"})
+      > 0.5
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: /tmp (tmpfs) over 50% on {{ $labels.instance }} — RAM pressure
+      description: tmpfs /tmp usage {{ $value | humanizePercentage }} for 30m on {{
+        $labels.instance }} — likely accumulated test/archive debris charged to the
+        container cgroup (see tasks/NODE2-TMP-GUARD.md).
+- name: chain_isolation_alerts
+  interval: 30s
+  rules:
+  - alert: ChainIsolationViolationDetected
+    expr: increase(chain_isolation_violations_total[15m]) > 0
+    for: 0s
+    labels:
+      severity: critical
+      component: blockchain
+    annotations:
+      summary: Chain isolation violation detected
+      description: Chain isolation violation of type {{ $labels.violation_type }}
+        detected on node {{ $labels.node }}
+  - alert: CrossChainTransactionAttempt
+    expr: rate(cross_chain_transaction_attempts_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+      component: blockchain
+    annotations:
+      summary: Cross-chain transaction attempts detected
+      description: '{{ $value }} cross-chain transaction attempts per second from
+        {{ $labels.source_chain }} to {{ $labels.target_chain }} on node {{ $labels.node
+        }}'
+  - alert: ChainIdValidationFailure
+    expr: rate(chain_id_validation_failures_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+      component: blockchain
+    annotations:
+      summary: Chain ID validation failures detected
+      description: '{{ $value }} chain_id validation failures per second (expected:
+        {{ $labels.expected_chain }}, actual: {{ $labels.actual_chain }}) on node
+        {{ $labels.node }}'
+  - alert: BridgeRequestChainMismatch
+    expr: rate(bridge_request_chain_mismatches_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+      component: coordinator-api
+    annotations:
+      summary: Bridge request chain mismatches detected
+      description: '{{ $value }} bridge request chain mismatches per second from {{
+        $labels.source_chain }} to {{ $labels.target_chain }} on node {{ $labels.node
+        }}'
