@@ -148,7 +148,7 @@ def find_dbs(explicit: str | None, data_dir: str) -> list[str]:
     return dbs
 
 
-def render(results: list[Result], consensus: set[str], threshold: int, grace: int, now: float) -> str:
+def render(results: list[Result], consensus: set[str], threshold: int, grace: int, now: float, ok: bool | None = None) -> str:
     lines = []
     active_total = 0
     possible_total = 0
@@ -186,7 +186,7 @@ def render(results: list[Result], consensus: set[str], threshold: int, grace: in
         f"aitbc_bridge_set_fresh {fresh}",
         "# HELP aitbc_bridge_set_scrape_success 1 when the chain DB read worked",
         "# TYPE aitbc_bridge_set_scrape_success gauge",
-        f"aitbc_bridge_set_scrape_success {1 if results else 0}",
+        f"aitbc_bridge_set_scrape_success {1 if (ok if ok is not None else bool(results)) else 0}",
         "# HELP aitbc_bridge_set_scrape_timestamp_seconds When this run finished",
         "# TYPE aitbc_bridge_set_scrape_timestamp_seconds gauge",
         f"aitbc_bridge_set_scrape_timestamp_seconds {now:.0f}",
@@ -225,17 +225,22 @@ def main(argv: list[str] | None = None) -> int:
     consensus = parse_consensus_set(os.environ.get("VALIDATOR_SET", ""))
 
     results = []
-    for db in find_dbs(args.db, data_dir):
+    skipped = 0
+    dbs = find_dbs(args.db, data_dir)
+    for db in dbs:
         try:
             results.append(scan_db(db))
-        except (sqlite3.Error, OSError):
-            continue  # unreadable DB -> scrape_success 0 via empty results
+        except (sqlite3.Error, OSError) as e:
+            # A partial read is not success: with two DBs and one broken,
+            # scrape_success used to read 1 and hide the gap (#928).
+            print(f"bridge-set: skipping unreadable chain.db {db}: {e}", file=sys.stderr)
+            skipped += 1
 
-    text = render(results, consensus, threshold, grace, now)
+    text = render(results, consensus, threshold, grace, now, ok=(bool(results) and not skipped))
     write_atomic(textfile_dir, text)
     if not results:
         print("bridge-set: no readable chain.db", file=sys.stderr)
-    return 0 if results else 1
+    return 0 if results and not skipped else 1
 
 
 if __name__ == "__main__":
