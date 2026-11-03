@@ -120,7 +120,10 @@ class SecurityAudit:
                                     "file": str(file_path.relative_to(self.project_root)),
                                     "current": current_perm,
                                     "expected": str(expected_perm),
-                                    "severity": "warning" if current_perm > "644" else "critical",
+                                    # More permissive than needed is the real risk —
+                                    # a string compare made that a 'warning' and a
+                                    # stricter-than-expected file 'critical' (#1018).
+                                    "severity": "critical" if int(current_perm, 8) > int(str(expected_perm), 8) else "warning",
                                 }
                             )
                             score -= 1
@@ -510,8 +513,11 @@ class SecurityAudit:
                     with open(service_file) as f:
                         content = f.read()
 
-                    # Check for running as root
-                    if "User=root" in content or "User=root" not in content:
+                    # A unit with no User= runs as root; one with
+                    # User=<non-root> does not. The old check was a
+                    # tautology — every service file flagged (#1018).
+                    user_lines = [line.split("=", 1)[1].strip() for line in content.splitlines() if line.startswith("User=")]
+                    if not user_lines or all(u == "root" for u in user_lines):
                         issues.append(
                             {
                                 "type": "service_running_as_root",
