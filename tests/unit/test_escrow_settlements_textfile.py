@@ -472,7 +472,7 @@ class TestFilesAgree:
             re.findall(
                 r"\baitbc_escrow_[a-z_]+",
                 residue_exporter.render(
-                    {"/db": [residue_exporter.ResidueRow(job_id="j", residue=1, age_seconds=1.0, cls="fee leg")]},
+                    {"/db": ([residue_exporter.ResidueRow(job_id="j", residue=1, age_seconds=1.0, cls="fee leg")], 0)},
                     now=1,
                 ),
             )
