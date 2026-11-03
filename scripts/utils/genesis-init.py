@@ -20,6 +20,7 @@ Usage:
 import argparse
 import json
 import sqlite3
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -168,6 +169,26 @@ def main():
     parser.add_argument("--skip-db", action="store_true", help="Skip database initialization")
 
     args = parser.parse_args()
+
+    # #290/#861 hard stop: legacy live defaults — refuses outside a
+    # scratch root and against any live chain id.
+    from aitbc.utils import reset_guard
+
+    try:
+        if not args.skip_genesis:
+            target = (
+                Path(args.genesis_path) if args.genesis_path else Path(f"/var/lib/aitbc/data/{args.chain_id}/genesis.json")
+            )
+            reset_guard.assert_scratch_targets(target)
+        if not args.skip_db:
+            if args.db_path:
+                reset_guard.assert_scratch_targets(Path(args.db_path))
+            else:
+                reset_guard.assert_data_dir_env()
+        reset_guard.assert_not_live_chain(args.chain_id)
+    except reset_guard.ResetGuardError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if not args.skip_genesis:
         genesis_path = Path(args.genesis_path) if args.genesis_path else None
