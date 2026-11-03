@@ -39,8 +39,10 @@ sweeper plus the coordinator retry paths can never replay the v2 dead-set
 without an operator go.
 
 Runs inside ``aitbc-blockchain-rpc`` next to the mempool sweeper: the service
-runs ``--workers 1``, so exactly one instance sweeps each host's own escrow
-table — matching the per-host truth of the marks.
+runs ``--workers N``, and the app lifespan only starts this on the worker
+holding the per-host sweeper leader lock (``rpc/sweeper_leader.py``), so
+exactly one instance sweeps each host's own escrow table — matching the
+per-host truth of the marks.
 
 Probe target: ``HUB_BLOCKCHAIN_RPC_URL`` — set on every host to the actual
 hub — falling back to the route module's ``_HUB_RPC_URL``. The latter alone
@@ -1101,8 +1103,10 @@ def start_settlement_sweeper() -> asyncio.Task[None] | None:
     """Start the demote-only sweeper, unless the interval disables it.
 
     Owned by the RPC app for the same reason as the mempool sweeper:
-    ``aitbc-blockchain-rpc`` runs ``--workers 1``, so exactly one sweeper
-    exists per host and each sweeps only its own escrow table.
+    ``aitbc-blockchain-rpc`` runs ``--workers N``, and the lifespan only
+    calls this on the worker holding the sweeper leader lock
+    (``rpc/sweeper_leader.py``), so exactly one sweeper exists per host
+    and each sweeps only its own escrow table.
     """
     if settings.escrow_settlement_sweep_interval <= 0:
         _logger.info("Settlement-mark sweeper disabled (escrow_settlement_sweep_interval <= 0)")
