@@ -116,8 +116,12 @@ check_python_packages() {
     if [ ${#missing_packages[@]} -gt 0 ]; then
         log_error "Missing ${#missing_packages[@]} required packages: ${missing_packages[*]}"
         if [ "$FIX" = true ]; then
-            log_info "Installing missing packages..."
-            pip install "${missing_packages[@]}"
+            if [ -f "requirements.txt" ]; then
+                log_info "Installing from pinned requirements.txt (never bare pip install of unversioned names)..."
+                pip install -r requirements.txt
+            else
+                log_error "No requirements.txt to pin against — refusing an unpinned pip install"
+            fi
         fi
         return 1
     fi
@@ -236,9 +240,10 @@ check_keystore() {
     if [ ! -d "$KEYSTORE_DIR" ]; then
         log_warn "Keystore directory not found at $KEYSTORE_DIR"
         if [ "$FIX" = true ]; then
-            log_info "Creating keystore directory..."
+            log_info "Creating keystore directory (aitbc:aitbc 0700, non-recursive)..."
             sudo mkdir -p "$KEYSTORE_DIR"
-            sudo chown -R $USER:$USER "$KEYSTORE_DIR"
+            sudo chown aitbc:aitbc "$KEYSTORE_DIR"
+            sudo chmod 700 "$KEYSTORE_DIR"
         fi
         return 1
     fi
