@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/api/export/search")
-async def export_search(format: str = "csv", type: str = "transactions", data: str = "") -> StreamingResponse:
+def export_search(format: str = "csv", type: str = "transactions", data: str = "") -> StreamingResponse:
     """Export search results"""
     try:
         if not data:
