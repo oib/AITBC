@@ -139,3 +139,15 @@ def test_no_single_quoted_rpc_vars_in_ssh():
 def test_26_fails_on_empty_height():
     src = (Path(__file__).resolve().parents[2] / "scripts/workflow/26_production_deployment.sh").read_text()
     assert "height read failed" in src
+
+
+def test_no_script_scps_whole_env_between_hosts():
+    """#963: no workflow script copies a whole node env to another host."""
+    import re
+
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    for sh in wf.glob("*.sh"):
+        for i, line in enumerate(sh.read_text().splitlines(), 1):
+            if re.search(r"scp.*blockchain\.env\s+\S+:", line):
+                raise AssertionError(f"{sh.name}:{i}: scp of whole env")
+    assert not (wf / "11_network_optimizer.sh").exists()
