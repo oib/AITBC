@@ -829,3 +829,47 @@ def test_prom_via_ssh_nonstring_fails_clear(tmp_path):
     c = ctx(tmp_path, manifest_over=m)
     rows = pcv.check_alerts(c)
     assert rows[0].ok is False and "prom_via_ssh" in rows[0].expected
+
+
+# --- #1003: SKIP on a STOP row is an unverifiable gate, not a pass ---------
+
+
+def test_stop_skip_fails_run(tmp_path):
+    """A STOP-severity SKIP (endpoint 500) fails the run — verified nothing."""
+
+    def supply_500(url, timeout=5):
+        if url.endswith("/rpc/state/snapshot"):
+            return 500, {"detail": "internal"}
+        return http_get_factory()(url, timeout)
+
+    c = ctx(tmp_path, http_get=supply_500, window_start_epoch=1)
+    rows = pcv.run(c)
+    row = [r for r in rows if r.check == "supply-total"][0]
+    assert row.ok is None and row.severity == "STOP"
+    assert pcv.worst(rows) != 0
+
+
+def test_override_skip_still_passes(tmp_path):
+    """An operator check_overrides SKIP is deliberate — it stays a pass."""
+    c = ctx(tmp_path, window_start_epoch=1)
+    pcv.run(c)
+    # force one override row through _apply_overrides
+    h = c.manifest["hosts"]["hub"]
+    h["check_overrides"] = {"env-pins": {"skip": True, "reason": "rotated"}}
+    c2 = pcv.Ctx(manifest=c.manifest, http_get=c.http_get, http_post=c.http_post, host_sh=c.host_sh, window_start_epoch=1)
+    rows2 = pcv.per_host_env_checks(c2)
+    assert any(r.ok is None and r.check == "env-pins" for r in rows2)
+
+
+def test_stray_check_unreadable_is_error_not_clean():
+    """No output from the host command is a scrape error, never 'clean'."""
+    c = pcv.Ctx(manifest={"expected": {"chain_id": CID}}, host_sh=lambda ssh, cmd: None)
+    row = pcv.check_no_stray_dbs(c, "hub", {"data_dir": "/d"})[0]
+    assert row.ok is not True
+
+
+def test_override_skip_exempt_from_worst(tmp_path):
+    rows = [pcv.Result("journal-evidence", "hub", "STOP", None, "check_overrides.skip", "rotated")]
+    assert pcv.worst(rows) == 0
+    rows2 = [pcv.Result("supply-total", "fleet", "STOP", None, "200", "500")]
+    assert pcv.worst(rows2) == 2

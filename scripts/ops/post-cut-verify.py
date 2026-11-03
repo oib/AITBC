@@ -513,7 +513,9 @@ def check_bridge(ctx: Ctx) -> list[Result]:
             Result(
                 "bridge-paused-probe",
                 "hub",
-                "STOP",
+                # Deliberately opt-in — a skipped probe verifies nothing but is
+                # not a gate failure; NOTE keeps it out of the STOP-SKIP=2 rule.
+                "NOTE",
                 None,
                 "POST lock → 503",
                 "not run (pass --probe with the operator's line)",
@@ -681,6 +683,19 @@ def check_no_stray_dbs(ctx: Ctx, name: str, h: dict) -> list[Result]:
     exp = ctx.manifest["expected"]
     data_dir = h.get("data_dir", "/var/lib/aitbc/data")
     out = sh(ctx, h, f"find {shlex.quote(data_dir)} -name chain.db -printf '%s %p\\n' 2>/dev/null")
+    if out is None:
+        # No output at all is an unreadable host, not an empty result (#1003).
+        return [
+            Result(
+                "no-stray-chaindb",
+                name,
+                "STOP",
+                None,
+                f"only */{exp['chain_id']}/chain.db under data/",
+                "unreadable",
+                "host command returned nothing",
+            )
+        ]
     allowed = f"/{exp['chain_id']}/chain.db"
     empty, nonempty = [], []
     for line in (out or "").splitlines():
@@ -920,7 +935,14 @@ def run(ctx: Ctx) -> list[Result]:
 
 
 def worst(rows: list[Result]) -> int:
-    return 1 if any(r.ok is False for r in rows) else 0
+    # A SKIP on a STOP-severity row means the gate could not read the thing it
+    # exists to verify — that is a run error (2), not a pass (#1003). The only
+    # exempt SKIP is an operator's check_overrides entry, which is deliberate.
+    if any(r.ok is False for r in rows):
+        return 1
+    if any(r.ok is None and r.severity == "STOP" and r.expected != "check_overrides.skip" for r in rows):
+        return 2
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
