@@ -409,6 +409,30 @@ def default_config_path() -> Path:
     return Path.home() / ".aitbc.yaml"
 
 
+def _register_trusted_api_key_hosts(config: "CLIConfig") -> "CLIConfig":
+    """Register the configured service hosts as the only API-key targets (#850).
+
+    Every str field named ``*_url`` (or ``url``) on the config is an
+    operator-chosen endpoint; a URL a *caller* overrides in (``--hub-url``,
+    ``--coordinator-url``) that lands elsewhere must not carry the stored
+    credential — the network client refuses it. Loopback is always trusted.
+    """
+    from urllib.parse import urlparse
+
+    from aitbc.network.client import set_trusted_api_key_hosts
+
+    hosts = {"localhost", "127.0.0.1", "::1", "[::1]"}
+    for name in CLIConfig.model_fields:
+        if name == "url" or name.endswith("_url"):
+            value = getattr(config, name, None)
+            if isinstance(value, str) and value:
+                host = urlparse(value).hostname
+                if host:
+                    hosts.add(host)
+    set_trusted_api_key_hosts(frozenset(hosts))
+    return config
+
+
 def get_config(config_file: str | None = None) -> CLIConfig:
     """Load CLI configuration from shared config system"""
     # Determine the config file to load. If not explicitly provided, use
@@ -431,12 +455,14 @@ def get_config(config_file: str | None = None) -> CLIConfig:
         # (CONFIG_FILE_KEYS); unknown keys stay env-only. ``api_key`` goes
         # through _resolve_api_key for its env/credential-file fallbacks.
         kwargs = {field: config_data[key] for key, field in CONFIG_FILE_KEYS.items() if key in config_data}
-        return CLIConfig(
-            api_key=_resolve_api_key(config_data),
-            config_file=str(config_path),
-            _env_file=_cli_env_files(),
-            **kwargs,
+        return _register_trusted_api_key_hosts(
+            CLIConfig(
+                api_key=_resolve_api_key(config_data),
+                config_file=str(config_path),
+                _env_file=_cli_env_files(),
+                **kwargs,
+            )
         )
 
     # Use shared config system with environment variables
-    return CLIConfig(_env_file=_cli_env_files())
+    return _register_trusted_api_key_hosts(CLIConfig(_env_file=_cli_env_files()))
