@@ -88,8 +88,13 @@ setup_dnat() {
         exit 1
     fi
 
+    # Idempotent -C check / -A add (#885): never flush the table — other
+    # deployments' forwarding rules live in it too.
+    iptables -t nat -C PREROUTING -p tcp --dport "$port" -j DNAT \
+        --to-destination "$target:$port" 2>/dev/null || \
     iptables -t nat -A PREROUTING -p tcp --dport "$port" -j DNAT \
         --to-destination "$target:$port"
+    iptables -t nat -C POSTROUTING -p tcp -d "$target" --dport "$port" -j MASQUERADE 2>/dev/null || \
     iptables -t nat -A POSTROUTING -p tcp -d "$target" --dport "$port" -j MASQUERADE
 }
 
