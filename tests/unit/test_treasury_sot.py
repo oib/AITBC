@@ -74,6 +74,20 @@ def test_bc3_treasury_literal_only_in_sot_surfaces():
     assert not bad, f"bc-3 treasury literal restated outside SOT surfaces: {bad}"
 
 
+def test_bc3_challenge_string_is_chain_scoped():
+    """The proof challenge pinned in the SOT is the chain-scoped bc-3
+    rendering of TREASURY_CHALLENGE_TEMPLATE — a bc-2 proof can never
+    replay, and neither can a proof for a different address."""
+    classes = BC3_GENESIS / "classes.json"
+    if not classes.exists():
+        pytest.skip("bc-3 classes.json not committed yet")
+    treasury = json.loads(classes.read_text())["treasury"]
+    addr = treasury["address"]
+    expected = f"AITBC bc-3 genesis treasury spendability proof for {addr}"
+    assert treasury["proof"]["challenge"] == expected
+    assert expected != f"AITBC bc-2 genesis treasury spendability proof for {addr}"
+
+
 def test_bc2_treasury_literal_stays_in_its_sot_generation():
     """bc-2's literal may be cited in docs (it is a documented address) but
     never inside code/scripts/env that could feed a fresh surface."""
