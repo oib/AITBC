@@ -6,7 +6,6 @@ that the destructive reset logic is isolated and can be reviewed independently.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import secrets
@@ -123,7 +122,9 @@ def _write_default_wallet(wallet_dir: Path, address: str, public_key: str, priva
         "balance": 0,
         "transactions": [],
     }
-    wallet_path.write_text(json.dumps(wallet, indent=2))
+    from .wallet_loader import write_json_0600
+
+    write_json_0600(wallet_path, wallet)
     os.chmod(wallet_path, 0o640)
     _chown_aitbc(wallet_path)
     return wallet_path

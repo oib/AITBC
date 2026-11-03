@@ -44,6 +44,23 @@ def validate_wallet_name(name: object) -> str:
     return name
 
 
+def write_json_0600(path: Path, data: dict, *, fsync: bool = False) -> None:
+    """Write JSON to *path* readable only by the owner, never via a symlink.
+
+    ``O_NOFOLLOW`` refuses a planted symlink at *path*; the create mode is
+    0600 and ``fchmod`` runs on every call so a pre-existing lax file is
+    tightened too — there is no umask window at any point of the write
+    (CLI-WALLET-FILE-MODES-1, #845).
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as f:
+        os.fchmod(fd, 0o600)
+        json.dump(data, f, indent=2)
+        f.flush()
+        if fsync:
+            os.fsync(f.fileno())
+
+
 def _resolve_wallet_name_and_path(
     wallet_name: str | None = None,
     wallet_path: str | None = None,
