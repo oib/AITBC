@@ -37,7 +37,7 @@ import sys
 from pathlib import Path
 
 _ACCOUNT = re.compile(r"^([a-z][a-z0-9_]*):(0x[0-9a-fA-F]{40})$")
-_ENV_ASSIGN = re.compile(r"^([A-Z][A-Z0-9_]*)=(\S*)")
+_ENV_ASSIGN = re.compile(r"^(?:export\s+)?([A-Z][A-Z0-9_]*)=(\S*)")
 _HEX_KEY = re.compile(r"^(?:0x)?[0-9a-fA-F]{64}$")
 
 # role -> (host label, env file basename, env var name). Only extras roles
@@ -84,19 +84,22 @@ def parse_watch_accounts(unit_text: str) -> list[tuple[str, str]]:
 def read_env_var(env_dir: Path, filename: str, var: str) -> str | None:
     """The value of ``var`` in ``env_dir/filename``, or None when absent.
 
-    Only the first whitespace-separated token of the value is taken (a
-    trailing ``#`` comment would not survive EnvironmentFile parsing
-    anyway); the file is opened read-only and no line content leaves this
-    function.
+    Mirrors systemd's EnvironmentFile rules (#914): the LAST assignment of
+    a name wins, matching surrounding quotes are stripped, an ``export``
+    prefix is ignored, and an inline ``#`` comment never reaches the value.
     """
     path = env_dir / filename
     if not path.is_file():
         return None
+    value: str | None = None
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         m = _ENV_ASSIGN.match(line.strip())
         if m and m.group(1) == var:
-            return m.group(2).split("#", 1)[0] or None
-    return None
+            v = m.group(2).split("#", 1)[0]
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+                v = v[1:-1]
+            value = v or None
+    return value
 
 
 def derive_address(key_hex: str) -> str | None:
