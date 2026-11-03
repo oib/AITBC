@@ -445,16 +445,9 @@ run_test_verbose "Automated analytics scheduling" "
     echo 'Setting up automated analytics...'
 
     # Create analytics cron job
-    cat > /etc/cron.d/aitbc-analytics << EOF
-# AITBC Analytics - Run every 5 minutes
-*/5 * * * * root /opt/aitbc/scripts/workflow/37_contract_event_monitoring.sh >/dev/null 2>&1
-
-# AITBC Data Analytics - Run every hour
-0 * * * * root /opt/aitbc/scripts/workflow/38_contract_data_analytics.sh >/dev/null 2>&1
-
-# AITBC Report Generation - Run daily at midnight
-0 0 * * * root /opt/aitbc/scripts/workflow/38_contract_data_analytics.sh report >/dev/null 2>&1
-EOF
+    # The cron.d entry used to run 37 every five minutes and this suite
+    # hourly/daily — cron jobs must not run a self-test suite (#970).
+    echo "analytics scheduling retired — see runbook"
 
     echo \"✅ Automated analytics scheduled\"
     echo \"Cron jobs configured:\"
