@@ -115,6 +115,8 @@ log_security_finding() {
             ;;
     esac
 }
+export -f log_security_finding 2>/dev/null || true
+export SECURITY_REPORT_DIR
 
 # 1. CONTRACT CODE SECURITY ANALYSIS
 echo "1. 🔍 CONTRACT CODE SECURITY ANALYSIS"
@@ -344,7 +346,7 @@ run_test_verbose "API input validation" "
     echo 'Testing API input validation...'
 
     # Test with malformed input
-    MALFORMED_RESPONSE=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/sendTx \\
+    MALFORMED_RESPONSE=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/importBlock \\
         -H 'Content-Type: application/json' \\
         -d '{\"invalid\": \"data\"}' 2>/dev/null)
 
@@ -416,7 +418,11 @@ SECURITY ASSESSMENT
 ------------------
 EOF
 
-if [ "$TESTS_FAILED" -eq 0 ]; then
+# A check that logged a finding must count — bash -c can't see the
+# outer-scope helper, so findings live in the file and the verdict reads
+# it back (#969).
+FINDINGS_COUNT=$(wc -l < "$SECURITY_REPORT_DIR/security_findings.log" 2>/dev/null || echo 0)
+if [ "$TESTS_FAILED" -eq 0 ] && [ "$FINDINGS_COUNT" -eq 0 ]; then
     echo "✅ No critical security issues detected" >> "$SECURITY_REPORT"
     echo "✅ All security tests passed" >> "$SECURITY_REPORT"
     echo "✅ System appears secure for production use" >> "$SECURITY_REPORT"
@@ -468,7 +474,11 @@ echo "Tests Passed: $TESTS_PASSED"
 echo "Tests Failed: $TESTS_FAILED"
 echo "Total Tests: $((TESTS_PASSED + TESTS_FAILED))"
 
-if [ "$TESTS_FAILED" -eq 0 ]; then
+# A check that logged a finding must count — bash -c can't see the
+# outer-scope helper, so findings live in the file and the verdict reads
+# it back (#969).
+FINDINGS_COUNT=$(wc -l < "$SECURITY_REPORT_DIR/security_findings.log" 2>/dev/null || echo 0)
+if [ "$TESTS_FAILED" -eq 0 ] && [ "$FINDINGS_COUNT" -eq 0 ]; then
     echo -e "${GREEN}🎉 ALL SECURITY TESTS PASSED!${NC}"
     echo "✅ No critical security vulnerabilities detected"
     echo "✅ System appears secure for production use"
