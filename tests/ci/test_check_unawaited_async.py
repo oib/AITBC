@@ -71,5 +71,5 @@ class TestUpdateWritesNoTestLines:
         monkeypatch.chdir(root)
         assert ratchet.main(["--update"]) == 0
         lines = [ln for ln in baseline.read_text().splitlines() if ln.strip() and not ln.startswith("#")]
-        assert lines == ["apps/mod.py:2"]
-        assert not any("tests" in Path(ln.split(":")[0]).parts for ln in lines)
+        assert lines == ["apps/mod.py\tf\ts.commit()\t1"]
+        assert not any("tests" in Path(ln.split("\t")[0]).parts for ln in lines)
