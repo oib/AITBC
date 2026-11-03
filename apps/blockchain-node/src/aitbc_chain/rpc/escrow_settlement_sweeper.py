@@ -72,6 +72,7 @@ from aitbc.utils import units_to_ait
 
 from ..config import settings
 from ..contracts.escrow import DEFAULT_FEE_BPS, get_escrow_manager, recompute_release_proofs, row_state_for
+from ..contracts.escrow_txn import escrow_row_lock
 from ..mempool import compute_tx_hash
 from ..database import session_scope
 from ..logger import get_logger
@@ -184,7 +185,7 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
     supplies ``proposer_pending`` so the function is testable without HTTP.
     Returns counters for logging.
     """
-    stats = {"rows": 0, "verified": 0, "demoted": 0, "remarked": 0}
+    stats = {"rows": 0, "verified": 0, "demoted": 0, "remarked": 0, "skipped_locked": 0}
     rows = session.exec(
         select(Escrow).where(
             (Escrow.released_at.is_not(None))  # type: ignore[union-attr]
@@ -210,69 +211,78 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
 
     for row in rows:
         stats["rows"] += 1
-        changed = False
-        for leg_mark, leg_hash, leg_amount, tx_type, leg_status in (
-            ("released_at", "release_tx_hash", "released_amount", "ESCROW_RELEASE", "released"),
-            ("refunded_at", "refund_tx_hash", "refunded_amount", "ESCROW_REFUND", "refunded"),
-        ):
-            mark = getattr(row, leg_mark)
-            stored = getattr(row, leg_hash)
-            stored_sealed = sealed_map.get(stored) if stored else None
-            leg_tx = stored_sealed or by_job.get((row.job_id, tx_type))
-            if leg_tx is not None:
-                if mark is None:
-                    # Re-mark only: the leg was unmarked (demoted, status-only,
-                    # or hash-only claim) and its settlement is proven. Fill
-                    # the hash when absent or itself unsealed — a stored hash
-                    # that IS sealed is never overwritten.
-                    setattr(row, leg_mark, leg_tx.created_at)
-                    if stored_sealed is None and stored != leg_tx.tx_hash:
-                        setattr(row, leg_hash, leg_tx.tx_hash)
-                    changed = True
-                    stats["remarked"] += 1
-                else:
-                    # Verified healthy: the mark stands and the settlement is
-                    # sealed — nothing on the row is touched.
-                    stats["verified"] += 1
-                if getattr(row, leg_amount) is None:
-                    # A sealed leg proves the amount too — marking only
-                    # time+hash leaves released rows in the change pass's
-                    # refunded_amount-IS-NULL scan forever, and a demote that
-                    # cleared the amount must heal when the leg seals.
-                    setattr(row, leg_amount, leg_tx.value or 0)
-                    changed = True
+        # Serialise with the routes (#831): the same stripe flock the release/
+        # refund path polls, then a refresh so a settlement that landed between
+        # the SELECT and the lock is seen on fresh attributes. A contended row
+        # is skipped this tick — the next pass catches it.
+        with escrow_row_lock(session, row.job_id) as locked:
+            if not locked:
+                stats["skipped_locked"] += 1
                 continue
-            # Unsealed leg. Claimed by its timestamp mark or by status alone
-            # (the detector's claim channels). A claim without a timestamp
-            # cannot prove recency, so it is stale by definition — the
-            # illegible-timestamp rule, mirrored.
-            claimed = _claiming(row, leg_status, mark)
-            stale = mark is None or _mark_age_seconds(mark, now) > _MAX_AGE_SECONDS
-            if claimed and stale and proposer_pending is not None and (stored or "") not in proposer_pending:
-                if mark is not None:
-                    setattr(row, leg_mark, None)
-                if getattr(row, leg_amount) is not None:
-                    # The amount makes the same settlement claim as the mark:
-                    # a demoted leg proves it never sealed, so the amount must
-                    # not keep reporting money as moved (C21 I1).
-                    setattr(row, leg_amount, None)
-                changed = True
-                stats["demoted"] += 1
+            session.refresh(row)
+            changed = False
+            for leg_mark, leg_hash, leg_amount, tx_type, leg_status in (
+                ("released_at", "release_tx_hash", "released_amount", "ESCROW_RELEASE", "released"),
+                ("refunded_at", "refund_tx_hash", "refunded_amount", "ESCROW_REFUND", "refunded"),
+            ):
+                mark = getattr(row, leg_mark)
+                stored = getattr(row, leg_hash)
+                stored_sealed = sealed_map.get(stored) if stored else None
+                leg_tx = stored_sealed or by_job.get((row.job_id, tx_type))
+                if leg_tx is not None:
+                    if mark is None:
+                        # Re-mark only: the leg was unmarked (demoted, status-only,
+                        # or hash-only claim) and its settlement is proven. Fill
+                        # the hash when absent or itself unsealed — a stored hash
+                        # that IS sealed is never overwritten.
+                        setattr(row, leg_mark, leg_tx.created_at)
+                        if stored_sealed is None and stored != leg_tx.tx_hash:
+                            setattr(row, leg_hash, leg_tx.tx_hash)
+                        changed = True
+                        stats["remarked"] += 1
+                    else:
+                        # Verified healthy: the mark stands and the settlement is
+                        # sealed — nothing on the row is touched.
+                        stats["verified"] += 1
+                    if getattr(row, leg_amount) is None:
+                        # A sealed leg proves the amount too — marking only
+                        # time+hash leaves released rows in the change pass's
+                        # refunded_amount-IS-NULL scan forever, and a demote that
+                        # cleared the amount must heal when the leg seals.
+                        setattr(row, leg_amount, leg_tx.value or 0)
+                        changed = True
+                    continue
+                # Unsealed leg. Claimed by its timestamp mark or by status alone
+                # (the detector's claim channels). A claim without a timestamp
+                # cannot prove recency, so it is stale by definition — the
+                # illegible-timestamp rule, mirrored.
+                claimed = _claiming(row, leg_status, mark)
+                stale = mark is None or _mark_age_seconds(mark, now) > _MAX_AGE_SECONDS
+                if claimed and stale and proposer_pending is not None and (stored or "") not in proposer_pending:
+                    if mark is not None:
+                        setattr(row, leg_mark, None)
+                    if getattr(row, leg_amount) is not None:
+                        # The amount makes the same settlement claim as the mark:
+                        # a demoted leg proves it never sealed, so the amount must
+                        # not keep reporting money as moved (C21 I1).
+                        setattr(row, leg_amount, None)
+                    changed = True
+                    stats["demoted"] += 1
 
-        if not changed:
-            continue
-        # Re-derive the single status from whatever legs still claim settled.
-        if row.released_at is not None:
-            row.status = "released"
-        elif row.refunded_at is not None:
-            row.status = "refunded"
-        elif row.status in _SETTLED_STATUSES:
-            row.status = "settlement_failed"
-        # The lifecycle column follows the legs, not the status: a demoted row still
-        # holds its funds (FUNDED) and a re-marked one is settled again.
-        row.state = row_state_for(row.released_at, row.refunded_at)
-        session.add(row)
-        session.commit()
+            if not changed:
+                continue
+            # Re-derive the single status from whatever legs still claim settled.
+            if row.released_at is not None:
+                row.status = "released"
+            elif row.refunded_at is not None:
+                row.status = "refunded"
+            elif row.status in _SETTLED_STATUSES:
+                row.status = "settlement_failed"
+            # The lifecycle column follows the legs, not the status: a demoted row still
+            # holds its funds (FUNDED) and a re-marked one is settled again.
+            row.state = row_state_for(row.released_at, row.refunded_at)
+            session.add(row)
+            session.commit()
     return stats
 
 
