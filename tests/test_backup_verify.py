@@ -131,3 +131,26 @@ def test_empty_newest_set_fails(tmp_path):
     empty.mkdir()
     errs, rep = bv.verify_set(empty, tmp_path / "sc", None)
     assert any("no chain" in e for e in errs)
+
+
+def test_user_scratch_dir_survives(tmp_path, good_set):
+    """#912: an existing --scratch dir and its files survive a run."""
+    sc = tmp_path / "operator-dir"
+    sc.mkdir()
+    keep = sc / "keep.txt"
+    keep.write_text("do not delete")
+    errs, _ = bv.verify_set(good_set, tmp_path / "sc2", None)
+    # now drive the main() scratch path — call the same code path via subprocess
+    subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).parents[1] / "scripts/ops/backup-verify.py"),
+            "--set",
+            str(good_set),
+            "--scratch",
+            str(sc),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert keep.exists(), "the run deleted the operator's scratch dir"
