@@ -54,3 +54,10 @@ def test_unreachable_is_flag_not_unset():
     assert "UNREACHABLE — cannot verify the mock flag is unset" in src
     # the all-clear lines only print when no flag was raised
     assert src.count("UNREACHABLE") >= 6
+
+
+def test_dropped_host_fails_digest():
+    """#1012: a dropped host sets dig_bad and names the compared hosts."""
+    src = SCRIPT_FCC.read_text()
+    assert "FAIL: no digest from:" in src
+    assert "dig_dropped" in src
