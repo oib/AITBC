@@ -665,8 +665,9 @@ class ChainSettings(BaseSettings):
     # rewrite of bridge_block_header per block (22k rows, 12.5 MiB, ~3,200 WAL frames per block per node
     # on 2026-10-01, growing with chain height). Nothing decides on a count above the deepest requirement.
     bridge_confirmation_count_cap: int = 100
-    # AIT units (1 AIT = 36,000,000 units): a transfer whose amount >= this threshold
-    # requires full finality (bridge_finality_blocks); below it, bridge_min_confirmations.
+    # Whole AIT, converted to compute-units (1 AIT = 36,000,000) at the
+    # comparison: a transfer whose amount >= this threshold requires full
+    # finality (bridge_finality_blocks); below it, bridge_min_confirmations.
     bridge_large_transfer_threshold: int = 10000
     # Production hardening: when True, _validate_proof REJECTS any proof that
     # does not carry a Merkle inclusion proof (merkle_proof + lock_event). The
