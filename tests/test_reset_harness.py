@@ -91,6 +91,52 @@ def test_scratch_root_accepts_three_component_tmp():
     assert rh.scratch_root("/tmp/bc2-rehearsal") == Path("/tmp/bc2-rehearsal")
 
 
+def test_scratch_root_refuses_a_root_containing_a_live_prefix():
+    """#855: the guard refused root-under-prefix but not root-CONTAINING-
+    prefix — /var/lib passes the depth rule yet teardown would rmtree
+    /var/lib/aitbc."""
+    for bad in ("/var/lib", "/etc", "/etc/aitbc"):
+        with pytest.raises(SystemExit):
+            rh.scratch_root(bad)
+
+
+def test_scratch_root_ancestor_check_resolves_symlinks(tmp_path):
+    """#855: a symlinked scratch root resolving to a live-prefix parent is
+    refused the same way."""
+    link = tmp_path / "linkroot"
+    link.symlink_to("/var/lib")
+    with pytest.raises(SystemExit):
+        rh.scratch_root(str(link))
+
+
+# ---------- scratch-root claim sentinel (#855) ----------
+
+
+def test_claim_writes_the_sentinel(tmp_path):
+    from aitbc.utils import reset_guard
+
+    root = tmp_path / "scratch"
+    root.mkdir()
+    reset_guard.claim_scratch_root(root)
+    assert (root / reset_guard.SCRATCH_SENTINEL).is_file()
+
+
+def test_require_sentinel_refuses_an_unclaimed_dir(tmp_path):
+    """Teardown must not rmtree a directory that was never claimed."""
+    from aitbc.utils import reset_guard
+
+    with pytest.raises(reset_guard.ResetGuardError):
+        reset_guard.require_scratch_sentinel(tmp_path)
+
+
+def test_teardown_requires_the_sentinel_before_rmtree():
+    """The rmtree site is gated: require_scratch_sentinel runs first."""
+    src = (REPO_ROOT / "scripts/reset-harness/rehearsal.py").read_text()
+    i = src.index("require_scratch_sentinel(root)")
+    j = src.index("shutil.rmtree(root", i)
+    assert i < j
+
+
 # ---------- instance map ----------
 
 
