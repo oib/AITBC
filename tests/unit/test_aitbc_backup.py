@@ -165,6 +165,12 @@ def env(tmp_path):
         # entirely and every prune test fails.
         "BLOCKCHAIN_ENV": str(etc_aitbc / "blockchain.env"),
         "ETC_PROMETHEUS_DIR": str(etc_prometheus),
+        # Keep the sweeps off real paths: on nodes /var/lib/aitbc and
+        # /etc/systemd/system exist and the svc/misc legs would walk live
+        # files (with stub sqlite3 the .backup target is never written, the
+        # gzip leg fails, and every rc==0 pin flips under #895).
+        "SVC_DB_DIR": str(tmp_path / "svcdir"),
+        "SYSTEMD_DIR": str(tmp_path / "systemddir"),
         "PYTHON": str(bin_dir / "python-stub"),
         "STUB_LOG": str(tmp_path / "backup.log"),
         "GPG_CALLS": str(tmp_path / "gpg_calls"),
