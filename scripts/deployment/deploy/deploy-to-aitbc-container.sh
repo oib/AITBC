@@ -66,11 +66,11 @@ incus exec "${AITBC_CONTAINER}" -- bash /opt/deploy-in-container.sh
 # rather than installing rules that point at someone else's network.
 print_status "Setting up port forwarding on host..."
 if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
-    iptables -t nat -F PREROUTING 2>/dev/null || true
-    iptables -t nat -F POSTROUTING 2>/dev/null || true
+    # Only this deployment's rules, added idempotently (#885). No table
+    # flush, no forced persistence — persist_dnat is a no-op unless the
+    # host already keeps /etc/iptables.
     setup_dnat 8202
     setup_dnat 3000
-    mkdir -p /etc/iptables
     persist_dnat
 else
     echo "NOTE: AITBC_DNAT_TARGET is not set -- the container's ports are NOT" >&2

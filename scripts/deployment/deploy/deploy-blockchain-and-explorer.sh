@@ -168,21 +168,25 @@ if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
     print_status "Setting up port forwarding..."
     ssh "$AITBC_SSH_TARGET" "AITBC_DNAT_TARGET='${AITBC_DNAT_TARGET}' bash -s" << 'EOF'
 set -euo pipefail
-iptables -t nat -F PREROUTING 2>/dev/null || true
-iptables -t nat -F POSTROUTING 2>/dev/null || true
-
+# Add only this deployment's rules — never flush the nat table; other
+# deployments' forwarding rules live in it too (#885).
 for port in 8202 3000; do
+    iptables -t nat -C PREROUTING -p tcp --dport "$port" -j DNAT \
+        --to-destination "$AITBC_DNAT_TARGET:$port" 2>/dev/null || \
     iptables -t nat -A PREROUTING -p tcp --dport "$port" -j DNAT \
         --to-destination "$AITBC_DNAT_TARGET:$port"
+    iptables -t nat -C POSTROUTING -p tcp -d "$AITBC_DNAT_TARGET" --dport "$port" \
+        -j MASQUERADE 2>/dev/null || \
     iptables -t nat -A POSTROUTING -p tcp -d "$AITBC_DNAT_TARGET" --dport "$port" \
         -j MASQUERADE
 done
 
-mkdir -p /etc/iptables
-iptables-save > /etc/iptables/rules.v4
-
-apt-get update
-apt-get install -y iptables-persistent
+# Persist only into a pre-existing /etc/iptables (#885): creating the dir
+# or pulling in a persistence package would snapshot a nat table this
+# script did not build.
+if [ -d /etc/iptables ]; then
+    iptables-save > /etc/iptables/rules.v4
+fi
 EOF
 else
     echo "NOTE: AITBC_DNAT_TARGET is not set -- nothing is published from the" >&2
