@@ -9,6 +9,7 @@ verifier (Bug 4 fix) and the shared TransactionService signer (A1).
 import json
 import os
 import secrets
+import sys
 from pathlib import Path
 
 from cryptography.hazmat.primitives import hashes
@@ -30,6 +31,25 @@ def create_genesis_wallet(password: str = None):
     # Generate password if not provided
     if not password:
         password = secrets.token_urlsafe(32)
+
+    # #860: refuse before doing any work — O_EXCL + 0600 at creation,
+    # never an overwrite. KEYSTORE_DIR is the scratch hook; the reset
+    # guard (#290) hard-stops a default run at the live keystore.
+    keystore_dir = Path(os.environ.get("KEYSTORE_DIR", "/var/lib/aitbc/keystore"))
+    keystore_path = keystore_dir / "genesis.json"
+    password_path = keystore_dir / ".genesis_password"
+
+    from aitbc.utils import reset_guard
+
+    try:
+        reset_guard.assert_scratch_targets(keystore_path, password_path)
+    except reset_guard.ResetGuardError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        sys.exit(1)
+    for path in (keystore_path, password_path):
+        if path.exists():
+            print(f"refused: {path} already exists — no overwrite (#860)", file=sys.stderr)
+            sys.exit(1)
 
     # Encrypt private key with password
     private_key_bytes = bytes.fromhex(private_key_hex)
@@ -62,16 +82,16 @@ def create_genesis_wallet(password: str = None):
         "version": 1,
     }
 
-    # Write to keystore
-    keystore_path = Path("/var/lib/aitbc/keystore/genesis.json")
-    with open(keystore_path, "w") as f:
-        json.dump(wallet_data, f, indent=2)
-
-    # Save password to secure file
-    password_path = Path("/var/lib/aitbc/keystore/.genesis_password")
-    with open(password_path, "w") as f:
-        f.write(password)
-    os.chmod(password_path, 0o600)
+    # Write to keystore — atomic O_EXCL, mode 0600 (#860).
+    keystore_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(keystore_path, "x", opener=lambda p, f: os.open(p, f, 0o600)) as f:
+            json.dump(wallet_data, f, indent=2)
+        with open(password_path, "x", opener=lambda p, f: os.open(p, f, 0o600)) as f:
+            f.write(password)
+    except FileExistsError:
+        print("refused: keystore file appeared during write — no overwrite (#860)", file=sys.stderr)
+        sys.exit(1)
 
     print("✅ Created new genesis wallet with secure random secp256k1 private key")
     print(f"Address: {address}")
