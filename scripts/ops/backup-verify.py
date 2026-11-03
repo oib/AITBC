@@ -58,11 +58,23 @@ def _sqlite(path: Path, sql: str) -> str:
 
 
 def check_chain_dump(gz: Path, scratch: Path) -> list[str]:
-    """Rebuild a .dump text export and integrity-check it."""
+    """Rebuild a .dump text export and integrity-check it.
+
+    An aborted dump is a valid gzip of a truncated export: sqlite3 exits 0
+    on it, the tail is "ROLLBACK; -- due to errors", and the rebuilt db is
+    empty and integrity-clean — which used to report CLEAN on a broken
+    snapshot (#910). Require the COMMIT trailer, reject the ROLLBACK one,
+    and prove the rebuilt database actually holds blocks.
+    """
     errors: list[str] = []
     dest = scratch / (gz.name.removesuffix(".gz"))
     with gzip.open(gz, "rb") as src:
         dump = src.read()
+    tail = dump.decode("utf-8", errors="replace").rstrip().splitlines()[-1:] or [""]
+    if any(line.startswith("ROLLBACK") for line in tail):
+        return [f"{gz.name}: dump aborted with errors (ROLLBACK trailer)"]
+    if b"COMMIT;" not in dump:
+        errors.append(f"{gz.name}: dump has no COMMIT trailer (truncated?)")
     build = subprocess.run(
         ["sqlite3", str(dest)],
         input=dump,
@@ -74,6 +86,16 @@ def check_chain_dump(gz: Path, scratch: Path) -> list[str]:
         return [f"{gz.name}: rebuild failed: {build.stderr.decode(errors='replace').strip()[:120]}"]
     if _sqlite(dest, "PRAGMA integrity_check;") != "ok":
         errors.append(f"{gz.name}: integrity_check not ok")
+    blocks = _sqlite(
+        dest,
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('block','blocks');",
+    )
+    if blocks != "1":
+        errors.append(f"{gz.name}: no block table in rebuilt db")
+    else:
+        count = _sqlite(dest, "SELECT COUNT(*) FROM blocks;") or _sqlite(dest, "SELECT COUNT(*) FROM block;")
+        if not count.isdigit() or int(count) == 0:
+            errors.append(f"{gz.name}: rebuilt db holds zero blocks")
     return errors
 
 
