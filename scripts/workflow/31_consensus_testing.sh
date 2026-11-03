@@ -133,7 +133,7 @@ echo "=========================="
 
 # Create test transaction
 echo "Creating test transaction for consensus testing..."
-TEST_TX=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/sendTx \
+TEST_TX=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/importBlock \
   -H "Content-Type: application/json" \
   -d "{
     \"type\": \"TRANSFER\",
@@ -203,6 +203,17 @@ echo ""
 echo "7. 🌐 NETWORK PARTITION TESTING"
 echo "=============================="
 
+# Live validator traffic is never cut by default (#971): the partition step
+# runs only with --partition and only when the follower reads as a scratch
+# island (not a fleet name).
+ALLOW_PARTITION=0
+for a in "$@"; do [ "$a" = "--partition" ] && ALLOW_PARTITION=1; done
+
+if [ "$ALLOW_PARTITION" != 1 ]; then
+    echo "Skipping partition test (needs --partition and a scratch island)"
+elif [ "$FOLLOWER_NODE" = "aitbc" ] || [ "$FOLLOWER_NODE" = "hub" ]; then
+    echo "REFUSING partition test against a fleet node ($FOLLOWER_NODE)" >&2
+else
 echo "Simulating network partition by blocking sync..."
 # This used to run `ufw --force enable` and leave it enabled: a consensus test
 # turned on a firewall the deployment does not otherwise use and never turned it
@@ -230,7 +241,7 @@ if command -v iptables >/dev/null 2>&1 &&
 
     # Create transaction during partition
     echo "Creating transaction during partition..."
-    PARTITION_TX=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/sendTx \
+    PARTITION_TX=$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/importBlock \
       -H "Content-Type: application/json" \
       -d "{
         \"type\": \"TRANSFER\",
@@ -274,6 +285,8 @@ fi
 
 # 8. CONSENSUS DEBUGGING TOOLS
 echo ""
+fi
+
 echo "8. 🔧 CONSENSUS DEBUGGING TOOLS"
 echo "=============================="
 

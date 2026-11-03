@@ -232,3 +232,14 @@ def test_37_helpers_exported_and_no_self_contradicting_test():
 def test_38_installs_no_cron_d_line():
     src = SCRIPT38.read_text()
     assert "cat > /etc/cron.d/aitbc-analytics" not in src
+
+
+SCRIPT31 = Path(__file__).resolve().parents[2] / "scripts/workflow/31_consensus_testing.sh"
+
+
+def test_partition_never_default():
+    """#971: iptables DROP is behind --partition and a scratch-island check."""
+    src = SCRIPT31.read_text()
+    assert '"--partition"' in src
+    assert "REFUSING partition test" in src
+    assert "sendTx" not in src
