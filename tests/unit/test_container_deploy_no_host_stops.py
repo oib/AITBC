@@ -23,13 +23,9 @@ def test_no_host_unit_stops_in_container_deploys():
 def test_run_command_failures_are_fatal():
     src = (D / "container-deploy.py").read_text()
     body = src[src.index("def deploy_to_container") :]
-    bare = [
-        line
-        for line in body.splitlines()
-        if "run_command(" in line and "if not run_command" not in line and "ok = run_command" not in line
-    ]
-    assert bare == [], f"unchecked run_command calls: {bare}"
     assert "returncode != 0" in body, "incus file push is still unchecked"
+    run_command_body = src[src.index("def run_command") : src.index("def deploy_to_container")]
+    assert "sys.exit(1)" in run_command_body, "run_command no longer exits on a failed step"
 
 
 def test_no_hardcoded_domain_container_or_python():
