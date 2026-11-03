@@ -109,3 +109,41 @@ print_success() {
     GREEN='\033[0;32m'; NC='\033[0m'
     echo -e "${GREEN}[OK]${NC} $1"
 }
+
+# #888: the legacy node scripts used to write a working-directory `.env`
+# the node never reads — the node reads /etc/aitbc/blockchain.env (or
+# AITBC_CHAIN_ENV_FILE). Write the real file with real variables; a node
+# meant to produce blocks needs the operator-supplied proposer identity,
+# never a clock-derived placeholder.
+write_blockchain_env() {
+    local db_path="$1" rpc_bind="$2" rpc_port="$3" p2p_bind="$4" p2p_port="$5" gossip="${6:-memory}" gossip_url="${7:-}"
+    local chain_id="${AITBC_CHAIN_ID:-ait-devnet}"
+    local enable="${AITBC_ENABLE_BLOCK_PRODUCTION:-false}"
+    local out="${AITBC_CHAIN_ENV_FILE:-/etc/aitbc/blockchain.env}"
+    if [ "${enable}" = "true" ]; then
+        : "${AITBC_PROPOSER_ID:?set AITBC_PROPOSER_ID (a 0x validator address) when AITBC_ENABLE_BLOCK_PRODUCTION=true}"
+        : "${AITBC_PROPOSER_KEY:?set AITBC_PROPOSER_KEY (the 64-hex private key) when AITBC_ENABLE_BLOCK_PRODUCTION=true}"
+    fi
+    mkdir -p "$(dirname "$out")"
+    {
+        echo "CHAIN_ID=${chain_id}"
+        echo "DB_PATH=${db_path}"
+        echo "RPC_BIND_HOST=${rpc_bind}"
+        echo "RPC_BIND_PORT=${rpc_port}"
+        echo "P2P_BIND_HOST=${p2p_bind}"
+        echo "P2P_BIND_PORT=${p2p_port}"
+        echo "ENABLE_BLOCK_PRODUCTION=${enable}"
+        echo "MINT_PER_UNIT=1000"
+        echo "COORDINATOR_RATIO=0.05"
+        echo "GOSSIP_BACKEND=${gossip}"
+        if [ -n "${gossip_url}" ]; then
+            echo "GOSSIP_BROADCAST_URL=${gossip_url}"
+        fi
+        if [ "${enable}" = "true" ]; then
+            echo "PROPOSER_ID=${AITBC_PROPOSER_ID}"
+            echo "PROPOSER_KEY=${AITBC_PROPOSER_KEY}"
+        fi
+    } > "${out}"
+    chmod 0600 "${out}"
+    echo "[deploy-env] wrote ${out} (ENABLE_BLOCK_PRODUCTION=${enable})"
+}
