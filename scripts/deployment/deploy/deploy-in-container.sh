@@ -2,7 +2,7 @@
 
 # Deploy blockchain node and explorer inside the container
 
-set -e
+set -euo pipefail
 
 echo "🚀 Deploying Inside Container"
 echo "============================"
@@ -11,6 +11,9 @@ echo "============================"
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
+
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"  # #886: print_success lives here
 
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
