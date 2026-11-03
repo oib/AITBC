@@ -77,8 +77,10 @@ def _collect(log_path: Path, since_unix: float) -> dict[str, dict]:
     )
     try:
         lines = log_path.read_text(errors="replace").splitlines()
-    except OSError:
-        return groups
+    except OSError as e:
+        # An unreadable log is not a quiet day — surface it so the unit
+        # alerts instead of reporting "nothing to send" (#925).
+        raise SystemExit(f"cannot read alert log {log_path}: {e}") from e
     for line in lines:
         if not line.startswith("{"):
             continue
