@@ -33,6 +33,7 @@ import json
 import os
 import stat
 import sys
+import tempfile
 
 SIGNING_METADATA_FIELDS = ("signature", "signature_note")
 
@@ -48,7 +49,8 @@ def _read_key(path: str) -> str:
     st = os.stat(path)
     if stat.S_IMODE(st.st_mode) != 0o600:
         raise ValueError(f"key file {path} must be mode 600 (got {oct(stat.S_IMODE(st.st_mode))})")
-    token = open(path, "rb").read().strip()
+    with open(path, "rb") as f:
+        token = f.read().strip()
     if token.startswith(b"0x"):
         token = token[2:]
     if len(token) != 64 or any(c not in b"0123456789abcdefABCDEF" for c in token):
@@ -60,6 +62,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Sign a snapshot manifest in place (EIP-191 personal_sign).")
     ap.add_argument("manifest", help="manifest JSON file; updated in place, mode/owner preserved")
     ap.add_argument("--key-file", required=True, help="path to a mode-600 file holding one 64-hex private key")
+    ap.add_argument(
+        "--allow-unchecked-root",
+        action="store_true",
+        help="sign a manifest whose state_root was skipped or does not match (deliberate override; printed loudly)",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -80,6 +87,16 @@ def main(argv: list[str] | None = None) -> int:
         print("manifest already carries a signature — refusing to re-sign", file=sys.stderr)
         return 2
 
+    sr = manifest.get("state_root", {})
+    root_unchecked = not isinstance(sr, dict) or sr.get("skipped") or sr.get("recomputed") is None or not sr.get("match")
+    if root_unchecked and not args.allow_unchecked_root:
+        print(
+            "manifest state_root was skipped or does not match — refusing to sign an unchecked root "
+            "(pass --allow-unchecked-root to override deliberately)",
+            file=sys.stderr,
+        )
+        return 2
+
     body = canonical_bytes(manifest)
     digest = hashlib.sha256(body).hexdigest()
 
@@ -94,14 +111,32 @@ def main(argv: list[str] | None = None) -> int:
         f"EIP-191 personal_sign by {acct.address} over the canonical manifest bytes "
         "(signature/signature_note excluded; json.dumps indent=2 sort_keys=True)."
     )
+    if root_unchecked:
+        manifest["signature_note"] += " Signed with --allow-unchecked-root: the state root was skipped or unmatched."
 
+    # Atomic in-place update: write to a sibling temp file, fsync, set the
+    # original mode, then os.replace — a crash or ENOSPC mid-write can never
+    # leave a torn manifest or lose the unsigned original.
     st = os.stat(args.manifest)
-    fd = os.open(args.manifest, os.O_WRONLY | os.O_TRUNC)
+    payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    manifest_dir = os.path.dirname(os.path.abspath(args.manifest))
+    fd, tmp_path = tempfile.mkstemp(prefix=".manifest-", suffix=".tmp", dir=manifest_dir)
     try:
-        os.write(fd, (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"))
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            os.chmod(tmp_path, stat.S_IMODE(st.st_mode))
+            os.replace(tmp_path, args.manifest)
+        except OSError as e:
+            print(f"cannot write signed manifest: {e}", file=sys.stderr)
+            return 2
     finally:
-        os.close(fd)
-    os.chmod(args.manifest, stat.S_IMODE(st.st_mode))
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass  # already replaced, or never created
 
     print(f"signer {acct.address}")
     print(f"digest 0x{digest}")
