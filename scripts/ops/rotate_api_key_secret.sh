@@ -1,17 +1,23 @@
 #!/bin/bash
-set -euo pipefail
 # Secret Rotation Script for API_KEY_HASH_SECRET
-# This script rotates API_KEY_HASH_SECRET with zero-downtime using dual-secret overlap
+# This script rotates API_KEY_HASH_SECRET with zero-downtime using dual-secret
+# overlap: coordinator-api derives API-key digests with HMAC under
+# API_KEY_HASH_SECRET and also accepts API_KEY_HASH_SECRET_NEW /
+# API_KEY_HASH_SECRET_PREVIOUS while a rotation is in flight (see the
+# enterprise-integration partners router).
 # Usage: sudo ./rotate_api_key_secret.sh < secret.txt
 #        (or: NEW_SECRET=... sudo -E ./rotate_api_key_secret.sh)
 # The secret is never passed as an argument -- argv is visible via ps and shell history.
 
-set -e
+set -euo pipefail
 
 # Configuration
 SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-market" "aitbc-exchange" "aitbc-gpu")
+ENV_DIR="${AITBC_ENV_DIR:-/etc/aitbc}"
+LOG_DIR="${AITBC_LOG_DIR:-/var/log/aitbc}"
 ROLLBACK_FILE="/tmp/api_key_rotation_rollback_$(date +%Y%m%d_%H%M%S).sh"
-LOG_FILE="/var/log/aitbc/api_key_rotation_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="${LOG_DIR}/api_key_rotation_$(date +%Y%m%d_%H%M%S).log"
+mkdir -p "$LOG_DIR"
 
 # Colors for output
 RED='\033[0;31m'
@@ -93,7 +99,7 @@ fi
 # /proc/<pid>/cmdline for the lifetime of the process, and is written to the invoking
 # shell's history file. Accept the secret on stdin, or via the NEW_SECRET environment
 # variable, instead.
-if [ -n "$1" ]; then
+if [ -n "${1:-}" ]; then
     error_exit "Refusing to take the secret as an argument (visible in ps/shell history). Pipe it on stdin: $0 < secret.txt"
 fi
 
@@ -115,24 +121,24 @@ log "New secret length: ${#NEW_SECRET} characters"
 # Backup current secrets
 log "Backing up current secrets..."
 for service in "${SERVICES[@]}"; do
-    if [ -f "/etc/aitbc/${service}.env" ]; then
-        cp "/etc/aitbc/${service}.env" "/etc/aitbc/${service}.env.backup_$(date +%Y%m%d_%H%M%S)"
+    if [ -f "$ENV_DIR/${service}.env" ]; then
+        cp "$ENV_DIR/${service}.env" "$ENV_DIR/${service}.env.backup_$(date +%Y%m%d_%H%M%S)"
         log "Backed up ${service}.env"
     fi
 done
 
 # Create rollback script
-cat > "$ROLLBACK_FILE" << 'ROLLBACK_EOF'
+cat > "$ROLLBACK_FILE" << ROLLBACK_EOF
 #!/bin/bash
 # Auto-generated rollback script for API key secret rotation
 set -e
 echo "Rolling back API key secret rotation..."
 # Restore backups
-for backup in /etc/aitbc/*.env.backup_*; do
-    if [ -f "$backup" ]; then
-        original="${backup%.backup_*}"
-        cp "$backup" "$original"
-        echo "Restored $original"
+for backup in $ENV_DIR/*.env.backup_*; do
+    if [ -f "\$backup" ]; then
+        original="\${backup%.backup_*}"
+        cp "\$backup" "\$original"
+        echo "Restored \$original"
     fi
 done
 # Restart all services
@@ -145,7 +151,7 @@ log "Rollback script created: $ROLLBACK_FILE"
 # Phase 1: Add new secret alongside old secret (dual-secret overlap)
 log "Phase 1: Adding new secret with dual-secret overlap..."
 for service in "${SERVICES[@]}"; do
-    env_file="/etc/aitbc/${service}.env"
+    env_file="$ENV_DIR/${service}.env"
     if [ -f "$env_file" ]; then
         # Add new secret as API_KEY_HASH_SECRET_NEW
         if ! grep -q "API_KEY_HASH_SECRET_NEW=" "$env_file"; then
@@ -186,21 +192,36 @@ for service in "${SERVICES[@]}"; do
     fi
 done
 
-# Phase 4: Replace old secret with new secret
+# Phase 4: Replace old secret with new secret.
+# The retired secret is moved to API_KEY_HASH_SECRET_PREVIOUS (comma-separated
+# with any earlier retirees): stored credential digests are keyed by the secret
+# that was live when they were issued, so the old secret must keep verifying
+# them — that is what makes the overlap real.
 log "Phase 4: Replacing old secret with new secret..."
 for service in "${SERVICES[@]}"; do
-    env_file="/etc/aitbc/${service}.env"
+    env_file="$ENV_DIR/${service}.env"
     if [ -f "$env_file" ]; then
-        # Replace API_KEY_HASH_SECRET with API_KEY_HASH_SECRET_NEW
+        old_secret="$(sed -n 's/^API_KEY_HASH_SECRET=//p' "$env_file" | head -n1)"
+        previous="$(sed -n 's/^API_KEY_HASH_SECRET_PREVIOUS=//p' "$env_file" | head -n1)"
+        # Replace API_KEY_HASH_SECRET with the new secret
         set_env_var "API_KEY_HASH_SECRET" "$NEW_SECRET" "$env_file"
-        # Remove API_KEY_HASH_SECRET_NEW
+        # Move API_KEY_HASH_SECRET_NEW into the retired-secret slot
         unset_env_var "API_KEY_HASH_SECRET_NEW" "$env_file"
-        log "Updated ${service}.env with new secret"
+        if [ -n "$old_secret" ]; then
+            if [ -n "$previous" ]; then
+                previous="$old_secret,$previous"
+            else
+                previous="$old_secret"
+            fi
+            set_env_var "API_KEY_HASH_SECRET_PREVIOUS" "$previous" "$env_file"
+        fi
+        log "Updated ${service}.env with new secret (old retained in API_KEY_HASH_SECRET_PREVIOUS)"
     fi
 done
 
-# Phase 5: Final rolling restart with new secret only
-log "Phase 5: Final rolling restart with new secret only..."
+# Phase 5: Final rolling restart with new secret signing.
+# API_KEY_HASH_SECRET_PREVIOUS keeps already-issued credentials verifiable.
+log "Phase 5: Final rolling restart with new secret signing..."
 for service in "${SERVICES[@]}"; do
     log "Restarting $service with new secret..."
     systemctl restart "$service"
@@ -232,7 +253,7 @@ log "Cleaning up backup files..."
 # Backups contain the OLD PLAINTEXT SECRET. Rotation has completed and every
 # service has been verified healthy, so they are removed now rather than left on
 # disk for a week (-mtime +7 never even matched the backups this run created).
-find /etc/aitbc -name "*.env.backup_*" -delete
+find "$ENV_DIR" -name "*.env.backup_*" -delete
 rm "$ROLLBACK_FILE"
 log "Rollback script removed"
 
