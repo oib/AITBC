@@ -112,6 +112,11 @@ def _looks_like_secret(value: str) -> bool:
         return False
     if any(sub in stripped for sub in ALLOWLIST_SUBSTRINGS):
         return False
+    # A SCREAMING_SNAKE value is a constant/env-var *name*, not a secret —
+    # e.g. `ENV_PASSWORD = "AITBC_WALLET_PASSWORD"` holds the variable's
+    # name, not its value.
+    if re.fullmatch(r"[a-z]*[A-Z][A-Z0-9_]{4,}", value.strip().strip("\"'")):
+        return False
     # Skip short/repeated placeholders like xxxxx, 00000, etc.
     if len(set(stripped)) <= 3:
         return False
