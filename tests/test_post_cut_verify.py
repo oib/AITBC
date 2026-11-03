@@ -873,3 +873,51 @@ def test_override_skip_exempt_from_worst(tmp_path):
     assert pcv.worst(rows) == 0
     rows2 = [pcv.Result("supply-total", "fleet", "STOP", None, "200", "500")]
     assert pcv.worst(rows2) == 2
+
+
+# --- #1004: page checks verify content; the old-chain glob is enforced ------
+
+
+def test_explorer_without_chain_id_fails(tmp_path):
+    """200 with no bc-2 in the body means the old chain is still being served."""
+    m = manifest(tmp_path)
+    m["hosts"]["hub"]["explorer_url"] = "http://exp/status"
+    m["hosts"]["hub"]["website_url"] = None
+
+    def get(url, timeout=5):
+        if url.startswith("http://exp"):
+            return 200, "<html>old chain hub-mainnet</html>"
+        return http_get_factory()(url, timeout)
+
+    c = ctx(tmp_path, http_get=get, manifest_over={"hosts": m["hosts"]})
+    rows = pcv.check_pages(c)
+    assert [r for r in rows if r.check == "explorer"][0].ok is False
+
+
+def test_explorer_with_chain_id_passes(tmp_path):
+    m = manifest(tmp_path)
+    m["hosts"]["hub"]["explorer_url"] = "http://exp/status"
+    m["hosts"]["hub"]["website_url"] = None
+
+    def get(url, timeout=5):
+        if url.startswith("http://exp"):
+            return 200, "<html>chain bc-2 explorer</html>"
+        return http_get_factory()(url, timeout)
+
+    c = ctx(tmp_path, http_get=get, manifest_over={"hosts": m["hosts"]})
+    assert [r for r in pcv.check_pages(c) if r.check == "explorer"][0].ok is True
+
+
+def test_old_chain_glob_dir_is_reported(tmp_path):
+    """A leftover ait-hub* directory under data/ is flagged, not ignored."""
+    m = manifest(tmp_path)
+    m["expected"]["old_chain_glob"] = "ait-hub*"
+
+    def sh(ssh, cmd):
+        if "-name" in cmd and "ait-hub*" in cmd:
+            return "/d/ait-hub-3\n"
+        return host_sh_factory()(ssh, cmd)
+
+    c = ctx(tmp_path, host_sh=sh, manifest_over={"expected": m["expected"]})
+    row = pcv.check_no_stray_dbs(c, "hub", {"data_dir": "/d"})[0]
+    assert row.ok is False

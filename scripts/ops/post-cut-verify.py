@@ -569,7 +569,11 @@ def check_pages(ctx: Ctx) -> list[Result]:
                 continue
             code, body = _get(ctx, url)
             text = json.dumps(body)[:400] if isinstance(body, (dict, list)) else str(body)[:400]
-            rows.append(Result(chk, name, "INVESTIGATE", code == 200, "200 + bc-2 visible", f"{code} {cid in text}"))
+            # 200 alone proves nothing — the old chain's explorer answers 200
+            # too; the new chain id must appear in the body (#1004).
+            rows.append(
+                Result(chk, name, "INVESTIGATE", code == 200 and cid in text, "200 + bc-2 visible", f"{code} {cid in text}")
+            )
     if not rows:
         rows.append(Result("pages", "fleet", "INVESTIGATE", None, "explorer_url/website_url in manifest", "none configured"))
     return rows
@@ -697,6 +701,21 @@ def check_no_stray_dbs(ctx: Ctx, name: str, h: dict) -> list[Result]:
             )
         ]
     allowed = f"/{exp['chain_id']}/chain.db"
+    glob_pat = exp.get("old_chain_glob")
+    if glob_pat:
+        old_dirs = sh(ctx, h, f"find {shlex.quote(data_dir)} -maxdepth 2 -name {shlex.quote(glob_pat)} 2>/dev/null")
+        if old_dirs and old_dirs.strip():
+            return [
+                Result(
+                    "no-stray-chaindb",
+                    name,
+                    "STOP",
+                    False,
+                    f"no {glob_pat} under data/",
+                    old_dirs.strip(),
+                    "leftover old-chain directory",
+                )
+            ]
     empty, nonempty = [], []
     for line in (out or "").splitlines():
         size, _, path = line.strip().partition(" ")
