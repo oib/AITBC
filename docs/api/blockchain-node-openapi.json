@@ -23680,7 +23680,7 @@
             }
           },
           "409": {
-            "description": "Escrow for job_id={job_id} has already been refunded / Escrow for job_id={job_id} is not locked (status={record.status}) / escrow lock for job_id={job_id} returned without a readable block_height; routes do not settle locks of unverifiable era \u2014 retry or repair manually / escrow lock for job_id={job_id} sealed at block {block_height}, below state_transition_v3_height={settings.state_transition_v3_height} (v2-era); routes do not settle these rows \u2014 operator repair only / \u2026",
+            "description": "Escrow for job_id={job_id} has already been refunded / Escrow for job_id={job_id} is not locked (status={record.status}) / escrow lock for job_id={job_id} returned without a readable block_height; routes do not settle locks of unverifiable era \u2014 retry or repair manually / escrow lock for job_id={job_id} sealed at block {block_height}, below state_transition_v3_height={settings.state_transition_v3_height} (v2-era); routes do not settle these rows \u2014 operator repair only",
             "content": {
               "application/json": {
                 "schema": {

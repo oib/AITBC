@@ -1974,7 +1974,30 @@ async def _release_settle_locked(
     plan: _ReleasePlan,
     txn: EscrowMutation,
 ) -> dict[str, Any]:
-    """Settle the release on-chain and record it, still holding the escrow's lock (#780)."""
+    """Settle the release on-chain and record it, still holding the escrow's lock (#780).
+
+    The impl marks the cached contract JOB_COMPLETED before the guards run;
+    any raise that follows must not leave that mark behind, or a later
+    refund on this worker reads a completed job that never settled
+    (ESCROW-CACHE-STUCK-JOB-COMPLETED-1, #833). Evict on every error exit —
+    the rebuild then reads the row, which is the truth either way.
+    """
+    try:
+        return await _release_settle_locked_impl(mgr, job_id, request, requested_amount, plan, txn)
+    except Exception:
+        if plan.contract_id in mgr.escrow_contracts:
+            mgr.evict_contract(plan.contract_id)
+        raise
+
+
+async def _release_settle_locked_impl(
+    mgr: Any,
+    job_id: str,
+    request: dict[str, Any],
+    requested_amount: Decimal | None,
+    plan: _ReleasePlan,
+    txn: EscrowMutation,
+) -> dict[str, Any]:
     job_tx_hash = request.get("job_tx_hash")
     escrow_record = plan.escrow_record
     contract_id = plan.contract_id
@@ -2354,7 +2377,22 @@ async def _refund_read_locked(mgr: Any, job_id: str, body: dict[str, Any] | None
 
 
 async def _refund_settle_locked(mgr: Any, job_id: str, plan: _RefundPlan, txn: EscrowMutation) -> dict[str, Any]:
-    """Settle the refund on-chain and record it, still holding the escrow's lock (#780)."""
+    """Settle the refund on-chain and record it, still holding the escrow's lock (#780).
+
+    refund_contract marks the cached contract REFUNDED before settlement;
+    any raise after that must not leave the mark, or the cache shows a
+    refund the chain never saw (same class as #833). Evict on every error
+    exit.
+    """
+    try:
+        return await _refund_settle_locked_impl(mgr, job_id, plan, txn)
+    except Exception:
+        if plan.contract_id in mgr.escrow_contracts:
+            mgr.evict_contract(plan.contract_id)
+        raise
+
+
+async def _refund_settle_locked_impl(mgr: Any, job_id: str, plan: _RefundPlan, txn: EscrowMutation) -> dict[str, Any]:
     contract_id = plan.contract_id
     reason = plan.reason
     locked_units = plan.locked_units
