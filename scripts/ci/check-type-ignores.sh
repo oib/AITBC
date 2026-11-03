@@ -10,10 +10,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 echo "Checking for undocumented mypy: ignore-errors comments..."
 
 # Find all Python files with # mypy: ignore-errors
-TYPE_IGNORE_FILES=$(grep -r "# mypy: ignore-errors" --include="*.py" --exclude-dir=.venv /opt/aitbc/apps /opt/aitbc/aitbc 2>/dev/null || true)
+TYPE_IGNORE_FILES=$(grep -r "# mypy: ignore-errors" --include="*.py" --exclude-dir=.venv "$REPO_ROOT/apps" "$REPO_ROOT/aitbc" 2>/dev/null || true)
 
 if [ -z "$TYPE_IGNORE_FILES" ]; then
     echo -e "${GREEN}✓ No mypy: ignore-errors comments found${NC}"
@@ -28,7 +30,7 @@ echo "$TYPE_IGNORE_FILES"
 echo ""
 
 # Check if TYPE_CHECKING.md exists
-TYPE_CHECKING_MD="/opt/aitbc/docs/development/TYPE_CHECKING.md"
+TYPE_CHECKING_MD="$REPO_ROOT/docs/development/TYPE_CHECKING.md"
 if [ ! -f "$TYPE_CHECKING_MD" ]; then
     echo -e "${RED}✗ ERROR: docs/development/TYPE_CHECKING.md does not exist${NC}"
     echo "Please create docs/development/TYPE_CHECKING.md to document type checking debt"
@@ -42,7 +44,7 @@ while IFS= read -r line; do
     FILE_PATH=$(echo "$line" | cut -d: -f1)
 
     # Extract relative path for documentation
-    REL_PATH=${FILE_PATH#/opt/aitbc/}
+    REL_PATH=${FILE_PATH#$REPO_ROOT/}
 
     # Check if file is documented in TYPE_CHECKING.md
     if ! grep -q "$REL_PATH" "$TYPE_CHECKING_MD"; then
