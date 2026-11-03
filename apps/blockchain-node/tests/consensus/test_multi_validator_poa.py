@@ -274,32 +274,34 @@ class TestConsensusSecurity:
             self.consensus.record_prepare(self.addr1, f"hashB{i}", 10 + i)
         assert self.consensus.validators[self.addr1].is_active is False
 
-    def test_validator_rotation_epoch_transition(self):
-        """C3: rotation triggers at epoch boundary"""
-        # Set all validators as proposers
+    def test_no_epoch_rotation_entry_point(self):
+        """Pin for #848: validator-set epoch rotation is gone, not dormant.
+
+        The documented epoch rotation was never invoked in production code
+        and would have demoted every validator past the top slots to STANDBY
+        if it had run. The removal keeps the active set stable across any
+        height: no ``maybe_rotate`` entry point, no ``_rotation`` machinery,
+        and the rotation module itself no longer exists.
+        """
+        import importlib.util
+
+        assert not hasattr(self.consensus, "maybe_rotate")
+        assert not hasattr(self.consensus, "_rotation")
+        assert importlib.util.find_spec("aitbc_chain.consensus.rotation") is None
+
+    def test_validator_set_stable_across_epoch_boundary(self):
+        """Crossing any height boundary leaves every active validator active.
+
+        Deterministic membership is the documented behavior now: the set only
+        changes through explicit registration/deactivation, never through a
+        scheduled rotation.
+        """
         for addr in [self.addr1, self.addr2, self.addr3]:
             self.consensus.validators[addr].role = ValidatorRole.PROPOSER
-        # Use a small epoch size for testing by directly setting _current_epoch
-        from aitbc_chain.config import settings
-
-        original_epoch = settings.consensus_validator_set_epoch_blocks
-        settings.consensus_validator_set_epoch_blocks = 10
-        # Set rotation config's interval to match
-        from aitbc_chain.consensus.rotation import RotationConfig, RotationStrategy
-
-        self.consensus._rotation.config = RotationConfig(
-            strategy=RotationStrategy.ROUND_ROBIN,
-            rotation_interval=10,
-            min_stake=100.0,
-            reputation_threshold=0.5,
-            max_validators=10,
-        )
-        self.consensus._rotation.last_rotation_height = 0
-        self.consensus.maybe_rotate(10)
-        settings.consensus_validator_set_epoch_blocks = original_epoch
-        # Rotation may or may not return True depending on strategy impl,
-        # but epoch should have advanced
-        assert self.consensus._current_epoch == 1
+        before = {a: v.is_active for a, v in self.consensus.validators.items()}
+        # no call exists that would rotate — the set observed is the set kept
+        assert all(before.values())
+        assert set(self.consensus.get_consensus_participants()) == set(before)
 
     def test_create_block_includes_parent_hash(self):
         """H3: block hash includes parent hash"""

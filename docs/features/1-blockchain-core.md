@@ -19,7 +19,7 @@
 |---------|-------------|---------------|--------|---------|
 | Multi-Validator PoA | Multiple validators with PROPOSER, VALIDATOR, STANDBY roles — config-gated (`multi_validator_consensus_enabled`), enabled on this deployment | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | v0.7.5 |
 | PBFT Consensus | Byzantine fault tolerance via PBFT protocol — implemented but disabled (`pbft_consensus_enabled=false`) | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | v0.7.5 |
-| Validator Rotation | Automatic rotation by stake, reputation, or round-robin — implemented behind consensus flags, not wired into live production | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | — |
+| Validator Rotation | Removed (#848) — epoch set-rotation was never invoked and would have demoted validators; proposer selection is per-height/round round-robin | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | — | — |
 | Proposer Selection | Round-robin, stake-weighted, reputation-based, hybrid | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ✅ | — |
 | Network Partition Handling | Partition detection with 5-second cooldown | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ✅ | — |
 | Fork Selection | Longest chain rule with reorgs within last 10 blocks — implemented, not wired into live production (config-gated) | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | — |

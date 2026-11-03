@@ -87,7 +87,6 @@ PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/packages/py \
   python3 -m pytest apps/blockchain-node/tests/consensus/test_multi_validator_poa.py \
                    apps/blockchain-node/tests/consensus/test_multi_validator_poa_soak.py \
                    apps/blockchain-node/tests/consensus/test_pbft.py \
-                   apps/blockchain-node/tests/consensus/test_rotation.py \
                    -q --override-ini="addopts="
 ```
 

@@ -23,7 +23,7 @@ set and optional PBFT finality:
 - Configurable block time via `block_time_seconds` (default: 10 seconds)
 - Single proposer (`proposer_id`) by default; multi-validator authority set
   with role-based permissions when `multi_validator_consensus_enabled=true`
-- Round-robin proposer selection and validator-set epochs in MV-PoA mode
+- Round-robin proposer selection over the active validator set in MV-PoA mode
 - Optional Byzantine fault tolerance via the PBFT protocol
   (`pbft_consensus_enabled`, disabled on the live fleet)
 - Transaction finality on each block
@@ -40,7 +40,7 @@ AITBC supports multiple validators with distinct roles:
 
 ### Proposer Selection
 
-The current implementation uses **round-robin** selection across the active validator set. Future rotation strategies may incorporate stake and reputation weighting; they are not active in the default configuration.
+The implementation uses **round-robin** selection across the active validator set — the only selection strategy. Stake- and reputation-weighted proposer selection is not implemented.
 
 Proposers are selected from active validators with PROPOSER or VALIDATOR roles.
 
@@ -98,20 +98,23 @@ AITBC implements Practical Byzantine Fault Tolerance for safety:
 
 The system tolerates up to 1/3 faulty validators while maintaining safety and liveness.
 
-## Validator Rotation
+## Validator Set Membership and Proposer Rotation
 
-In MV-PoA mode the engine rotates the active set on epoch boundaries:
+The validator **set** does not rotate on a schedule. Membership changes only
+through explicit registration/deactivation (and slashing); an earlier epoch
+rotation mechanism was never invoked and has been removed (#848) rather than
+wired in, because its strategies would have demoted validators beyond the top
+slots to STANDBY and dropped part of the live set.
 
-- **Epoch length**: `consensus_validator_set_epoch_blocks` (default 7200 blocks)
-- **Strategies implemented** (`consensus/rotation.py`): round-robin,
-  stake-weighted, reputation-based, or hybrid — over the `validator_set`
-  weights, not on-chain balances
+The **proposer slot** does rotate — deterministically, per height and round:
+
+- **Round-robin selection**: `select_proposer(height, round)` walks the active
+  validator set in sorted-address order, so every node derives the same owner
+  for every slot
 - **Missed-slot routing** (`consensus_proposer_round_seconds`, default 60s):
   when the scheduled proposer for a height does not produce, the round derived
   from the parent block's timestamp advances and the next validator takes the
   slot — no view-change messages needed
-
-Rotation ensures decentralization and prevents single-point failures.
 
 ## Network Partition Handling
 
@@ -154,7 +157,7 @@ VALIDATOR_KEYS='{"0x<address>":"<private key>"}'            # in validator-secre
 MULTI_VALIDATOR_MIN_ATTESTATIONS=2        # attestation quorum on MV-PoA blocks
 MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS=1.0
 ATTESTATION_POST_QUORUM_LINGER_SECONDS=0.0 # extra collection time after quorum; 0 = seal at quorum
-CONSENSUS_VALIDATOR_SET_EPOCH_BLOCKS=7200 # epoch length for validator-set rotation
+# CONSENSUS_VALIDATOR_SET_EPOCH_BLOCKS removed (#848) — validator-set epoch rotation no longer exists
 CONSENSUS_ENFORCE_PROPOSER_SCHEDULE=true  # drop pre-prepares from off-schedule proposers
 
 # PBFT (implemented, disabled on the live fleet)
@@ -168,7 +171,7 @@ CONSENSUS_ROUND_TIMEOUT_SECONDS=10
 ### Single vs Multi-Validator Mode
 
 - **Single-validator (code default)**: `multi_validator_consensus_enabled=False`. `PoAProposer` in `poa.py` produces every block with the configured `proposer_id` — a simple setup where the hub is the only validator.
-- **Multi-validator (this deployment)**: `multi_validator_consensus_enabled=true` with a `VALIDATOR_SET` configured identically on every node. `MultiValidatorPoA` selects proposers round-robin per epoch and requires `multi_validator_min_attestations` validator attestations on each block. The engine is regression-tested and covered by a 1000-round soak test.
+- **Multi-validator (this deployment)**: `multi_validator_consensus_enabled=true` with a `VALIDATOR_SET` configured identically on every node. `MultiValidatorPoA` selects proposers round-robin per height and round, and requires `multi_validator_min_attestations` validator attestations on each block. The engine is regression-tested and covered by a 1000-round soak test.
 - **PBFT**: `pbft_consensus_enabled=true` runs full pre-prepare / prepare / commit phases before commit. Implemented and tested; **disabled on the live fleet** (`PBFT_CONSENSUS_ENABLED=false`).
 
 ## Implementation
@@ -177,7 +180,6 @@ The consensus is implemented in:
 
 - `apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py` - Core PoA logic
 - `apps/blockchain-node/src/aitbc_chain/consensus/pbft.py` - PBFT protocol
-- `apps/blockchain-node/src/aitbc_chain/consensus/rotation.py` - Validator rotation
 - `apps/blockchain-node/src/aitbc_chain/consensus/slashing.py` - Slashing conditions
 
 ## Next
