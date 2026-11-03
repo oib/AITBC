@@ -167,3 +167,22 @@ def test_main_offline_files(tmp_path):
     fa.write_text(CAP_A)
     fb.write_text(CAP_B)
     assert hc.main(["--a-file", str(fa), "--a-name", "hub", "--b-file", str(fb), "--b-name", "hub1"]) == 0
+
+
+def test_none_height_produces_diff_not_crash():
+    """#913: a chain.db with no block row yields a DIFF line, not TypeError."""
+    a = hc.HostData(name="hub", raw="", sections={})
+    b = hc.HostData(name="hub1", raw="", sections={})
+    a.sections["CHAIN"] = [
+        "DB /var/lib/aitbc/data/ait-hub/chain.db",
+        "1234|0xabc|2026-11-03 10:00:00",
+        "SIZE 100",
+    ]
+    b.sections["CHAIN"] = [
+        "DB /var/lib/aitbc/data/ait-hub/chain.db",
+        "SIZE 50",
+    ]
+    out = []
+    hc._cmp_chain(a, b, out)
+    assert any("DIFF" in ln for ln in out)
+    assert any("n/a" in ln for ln in out)
