@@ -112,6 +112,7 @@ log_service_event() {
 
     echo "[$timestamp] [SERVICE] [$event_type] $service_name - $details" >> "$SERVICE_EVENT_LOG"
 }
+export -f log_contract_event log_service_event 2>/dev/null || true
 
 # 1. EVENT LOGGING SETUP
 echo "1. 📝 EVENT LOGGING SETUP"
@@ -386,29 +387,10 @@ echo ""
 echo "8. 📦 EVENT RETENTION AND ARCHIVAL"
 echo "================================"
 
-# Test event retention
-run_test_verbose "Event retention" "
-    echo 'Testing event retention policies...'
+# The retention test used to demand /etc/logrotate.d/aitbc-events, which
+# this script deliberately does not create (canonical aitbc stanza covers
+# event logs) — a self-contradicting FAIL every run; dropped (#970).
 
-    # Check log rotation configuration
-    if [ -f /etc/logrotate.d/aitbc-events ]; then
-        echo '✅ Log rotation configured'
-        echo 'Log rotation settings:'
-        cat /etc/logrotate.d/aitbc-events
-    else
-        echo '❌ Log rotation not configured'
-        exit 1
-    fi
-
-    # Check log sizes
-    CONTRACT_LOG_SIZE=\$(du -sh \"$CONTRACT_EVENT_LOG\" 2>/dev/null | cut -f1 || echo \"0\")
-    SERVICE_LOG_SIZE=\$(du -sh \"$SERVICE_EVENT_LOG\" 2>/dev/null | cut -f1 || echo \"0\")
-
-    echo \"Contract log size: \$CONTRACT_LOG_SIZE\"
-    echo \"Service log size: \$SERVICE_LOG_SIZE\"
-
-    echo \"✅ Event retention verified\"
-"
 
 # 8. EVENT DASHBOARD GENERATION
 echo ""
