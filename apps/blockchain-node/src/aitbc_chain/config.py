@@ -1096,7 +1096,9 @@ class ChainSettings(BaseSettings):
     # from the ahead check for this long (~10 round windows): its taller fork
     # would otherwise silence us forever. Hash votes are unaffected.
     proposal_freshness_peer_quarantine_seconds: float = 600.0
-    consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation
+    # consensus_validator_set_epoch_blocks was removed (#848): validator-set
+    # epoch rotation was never invoked and has been deleted; the env var is now
+    # ignored (pydantic extra="ignore").
     consensus_slashing_enabled: bool = True  # C2 — enable slashing
     consensus_slashing_amount: Decimal = Decimal("100.0")  # stake to slash per offense
     consensus_byzantine_threshold: int = 3  # slash count before deactivation
