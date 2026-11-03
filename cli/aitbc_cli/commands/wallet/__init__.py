@@ -266,6 +266,15 @@ def wallet(ctx, wallet_name: str | None, wallet_path: str | None, use_daemon: bo
         if not wallet_name:
             wallet_name = "default"
 
+    from ...utils.error_handling import abort as _abort
+    from ...utils.wallet_loader import validate_wallet_name
+
+    try:
+        validate_wallet_name(wallet_name)
+    except ValueError as e:
+        _abort(ctx, str(e))
+        return
+
     ctx.obj["wallet_name"] = wallet_name
     ctx.obj["wallet_dir"] = wallet_dir
     # Two views of the same name (CLI-6c ASK answer): ``wallet_path`` is the
