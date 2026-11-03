@@ -121,3 +121,21 @@ def test_03_is_guarded_do_not_use():
     head = src.split("exit 1")[0]
     assert "DO NOT USE" in head
     assert "setup.sh --open-island" in head
+
+
+def test_no_single_quoted_rpc_vars_in_ssh():
+    """#962: no ssh 'literal $VAR' call sites that only resolve on the caller."""
+    import re
+
+    bad = []
+    for sh in Path(__file__).resolve().parents[2].joinpath("scripts/workflow").glob("*.sh"):
+        for i, line in enumerate(sh.read_text().splitlines(), 1):
+            m = re.search(r"ssh \S+ '[^']*\$(BLOCKCHAIN_RPC|RPC_URL|WALLET_ADDR|TOKEN|API_KEY)", line)
+            if m:
+                bad.append(f"{sh.name}:{i}")
+    assert bad == []
+
+
+def test_26_fails_on_empty_height():
+    src = (Path(__file__).resolve().parents[2] / "scripts/workflow/26_production_deployment.sh").read_text()
+    assert "height read failed" in src

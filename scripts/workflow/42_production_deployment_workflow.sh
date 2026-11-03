@@ -221,7 +221,7 @@ run_test_verbose "AI services deployment" "
 
     # Test AI service on follower node
     echo 'AI service test:'
-    ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo 'AI service responding'
+    ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo 'AI service responding"
 
     echo '✅ AI services deployed'
 "
@@ -236,7 +236,7 @@ run_test_verbose "Cross-node deployment" "
 
     # Test cross-node synchronization
     LOCAL_HEIGHT=\$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
-    REMOTE_HEIGHT=\$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
+    REMOTE_HEIGHT=\$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height")
     SYNC_DIFF=\$((LOCAL_HEIGHT - REMOTE_HEIGHT))
 
     echo \"Cross-node sync status: \$SYNC_DIFF blocks difference\"
@@ -260,7 +260,7 @@ run_test_verbose "Production validation" "
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Coordinator API: \$(curl -fsS http://localhost:8203/health/live >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Market: \$(curl -s $BLOCKCHAIN_RPC/rpc/market/listings >/dev/null && echo 'PASS' || echo 'FAIL')\"
-    echo \"✅ AI Service: \$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'PASS' || echo 'FAIL')\"
+    echo \"✅ AI Service: \$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'PASS' || echo 'FAIL")\"
     echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Security Systems: \$(test -d /opt/aitbc/security_reports && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Monitoring Systems: \$(test -d /var/log/aitbc/events && echo 'PASS' || echo 'FAIL')\"

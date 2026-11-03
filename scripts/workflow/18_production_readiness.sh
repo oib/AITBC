@@ -124,7 +124,7 @@ else
 fi
 TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 
-if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/info' >/dev/null 2>&1; then
+if ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/info" >/dev/null 2>&1; then
     echo "   Remote RPC: ✅ PASS"
     PASSED_CHECKS=$((PASSED_CHECKS + 1))
 else
