@@ -1,0 +1,22 @@
+{
+  "chain_id": "bc-3",
+  "treasury": {
+    "address": "0xB0e6CF0D8dF844235A54d6D210D446099ef15a69",
+    "kind": "fixed-eoa",
+    "custody": "off-fleet — operator custody at ~/windsurf/aitbc/keys/treasury_bc3.key (mode 600); key material never in repo, env, or logs",
+    "decided": "1 Nov 2026 — operator ruling on #489 (comment 7424): fixed-EOA path, retracted-multisig design; address posted on the issue (comment 7425)",
+    "feeds": [
+      "allocations.json — the 100M-AIT treasury row (created at the genesis cut)",
+      "genesis parameters.treasury-adjacent cites — only where a parameter names the treasury",
+      "post-cut on-chain treasury row — exactly one"
+    ],
+    "proof": {
+      "challenge": "AITBC bc-3 genesis treasury spendability proof for 0xB0e6CF0D8dF844235A54d6D210D446099ef15a69",
+      "challenge_version": "chain-scoped template TREASURY_CHALLENGE_TEMPLATE (check-alloc-file.py) rendered with chain_id=bc-3; a bc-2 proof can never replay — different message, different signature",
+      "type": "personal_sign (EIP-191) by the treasury EOA key, single signature",
+      "verified_by": "scripts/ops/check-alloc-file.py --treasury-proof <file> with AITBC_CHAIN_ID=bc-3 (or chain_id read from allocations.json)",
+      "status": "pending — producing the signature needs the operator's sign-off"
+    },
+    "supersedes": "bc-2 treasury 0x4aF8F36d91ff6b0125D18A76f242184e4F083EE0"
+  }
+}
