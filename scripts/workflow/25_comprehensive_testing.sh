@@ -101,9 +101,9 @@ echo ""
 echo "1. [NET] BASIC CONNECTIVITY TESTS"
 echo "=============================="
 
-run_test "Local RPC connectivity" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
+run_test "Local RPC connectivity" "curl -fs http://localhost:$GENESIS_PORT/rpc/info"
 if [ "$SKIP_REMOTE_TESTS" = false ]; then
-    run_test "Remote RPC connectivity" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/info'"
+    run_test "Remote RPC connectivity" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -fs http://localhost:$FOLLOWER_PORT/rpc/info'"
     run_test "Cross-node SSH connectivity" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'echo SSH_OK'"
     run_test "Network ping connectivity" "ping -c 1 -W 2 $FOLLOWER_NODE"
 fi
@@ -113,17 +113,17 @@ echo ""
 echo "2. [CHAIN] BLOCKCHAIN CORE TESTS"
 echo "=========================="
 
-run_test_verbose "Blockchain head retrieval" "curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height"
-run_test_verbose "Blockchain info retrieval" "curl -s http://localhost:$GENESIS_PORT/rpc/info | jq .total_transactions"
-run_test_verbose "Genesis wallet balance" "curl -s 'http://localhost:$GENESIS_PORT/rpc/balance/0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a' | jq .balance"
-run_test_verbose "User wallet balance" "curl -s 'http://localhost:$GENESIS_PORT/rpc/balance/0xE7d5e60688Ff0b4a5C6863f1625E47945D84C94b' | jq .balance"
+run_test_verbose "Blockchain head retrieval" "curl -fs http://localhost:$GENESIS_PORT/rpc/head | jq .height"
+run_test_verbose "Blockchain info retrieval" "curl -fs http://localhost:$GENESIS_PORT/rpc/info | jq .total_transactions"
+run_test_verbose "Genesis wallet balance" "curl -fs 'http://localhost:$GENESIS_PORT/rpc/balance/0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a' | jq .balance"
+run_test_verbose "User wallet balance" "curl -fs 'http://localhost:$GENESIS_PORT/rpc/balance/0xE7d5e60688Ff0b4a5C6863f1625E47945D84C94b' | jq .balance"
 
 # 3. TRANSACTION TESTS
 echo ""
 echo "3. [TX] TRANSACTION TESTS"
 echo "======================"
 
-run_test_verbose "Transaction submission" "curl -s -X POST http://localhost:$GENESIS_PORT/rpc/transaction \
+run_test_verbose "Transaction submission" "curl -fs -X POST http://localhost:$GENESIS_PORT/rpc/transaction \
   -H 'Content-Type: application/json' \
   -d '{
     \"type\": \"TRANSFER\",
@@ -135,7 +135,7 @@ run_test_verbose "Transaction submission" "curl -s -X POST http://localhost:$GEN
     \"signature\": \"0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"
   }' | jq .tx_hash"
 
-run_test "Mempool functionality" "curl -s http://localhost:$GENESIS_PORT/rpc/mempool | jq .total"
+run_test "Mempool functionality" "curl -fs http://localhost:$GENESIS_PORT/rpc/mempool | jq .total"
 
 # 4. CROSS-NODE SYNC TESTS
 echo ""
@@ -143,8 +143,8 @@ echo "4. [SYNC] CROSS-NODE SYNC TESTS"
 echo "=========================="
 
 if [ "$SKIP_REMOTE_TESTS" = false ]; then
-    LOCAL_HEIGHT=$(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height)
-    REMOTE_HEIGHT=$(ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/head | jq .height')
+    LOCAL_HEIGHT=$(curl -fs http://localhost:$GENESIS_PORT/rpc/head | jq .height)
+    REMOTE_HEIGHT=$(ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -fs http://localhost:$FOLLOWER_PORT/rpc/head | jq .height')
     SYNC_DIFF=$((LOCAL_HEIGHT - REMOTE_HEIGHT))
 
     echo "Local height: $LOCAL_HEIGHT"
@@ -178,8 +178,8 @@ echo "5. [MARKET] MARKET FUNCTIONALITY TESTS"
 echo "===================================="
 
 if [ "$SKIP_REMOTE_TESTS" = false ]; then
-    run_test "Market listings API" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/market/listings | jq .total'"
-    run_test "AI submission endpoint" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -s -X POST http://localhost:$FOLLOWER_PORT/rpc/ai/submit \
+    run_test "Market listings API" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -fs http://localhost:$FOLLOWER_PORT/rpc/market/listings | jq .total'"
+    run_test "AI submission endpoint" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -fs -X POST http://localhost:$FOLLOWER_PORT/rpc/ai/submit \
       -H \"Content-Type: application/json\" \
       -d \"{\\\"prompt\\\": \\\"Test prompt\\\", \\\"model\\\": \\\"llama3.2:3b\\\"}\"'"
 else
@@ -228,9 +228,8 @@ echo ""
 echo "8. [INTEGRATION] INTEGRATION TESTS"
 echo "======================"
 
-run_test "Bulk sync functionality" "test -f /opt/aitbc/scripts/sync/fast_bulk_sync.sh"
-run_test "Health monitoring" "test -f /opt/aitbc/scripts/workflow/22_advanced_monitoring.sh"
-run_test "Market scenario" "test -f /opt/aitbc/scripts/workflow/24_market_scenario_real.sh"
+# File-exists checks removed — they tested that a script is on disk, not
+# that anything works (#975).
 
 # 9. PERFORMANCE TESTS
 echo ""
@@ -239,7 +238,7 @@ echo "======================"
 
 echo "Testing RPC response time..."
 START_TIME=$(date +%s%N)
-curl -s http://localhost:$GENESIS_PORT/rpc/info >/dev/null
+curl -fs http://localhost:$GENESIS_PORT/rpc/info >/dev/null
 END_TIME=$(date +%s%N)
 RESPONSE_TIME=$(( (END_TIME - START_TIME) / 1000000 ))
 
@@ -258,8 +257,7 @@ echo ""
 echo "10. [SECURITY] SECURITY TESTS"
 echo "====================="
 
-run_test "Security hardening status" "test -f /opt/aitbc/scripts/workflow/36_contract_security_testing.sh"
-run_test "SSH configuration" "test -f /etc/ssh/sshd_config"
+# File-exists checks removed (#975).
 
 # FINAL RESULTS
 echo ""
