@@ -3,6 +3,8 @@
 # Monitors Redis cache performance and statistics
 
 # Configuration
+set -euo pipefail
+
 LOG_FILE="/var/log/aitbc/cache-monitor.log"
 ALERT_THRESHOLD=90  # Memory usage alert threshold
 
@@ -54,6 +56,7 @@ check_redis_memory() {
 
     local memory_used=$(redis-cli info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
     local memory_peak=$(redis-cli info memory | grep used_memory_peak_human | cut -d: -f2 | tr -d '\r')
+    local used_bytes=$(redis-cli info memory | awk -F: '/^used_memory:/ {gsub(/\r/,"",$2); print $2; exit}')
     local max_memory=$(redis-cli config get maxmemory | tail -1)
 
     echo "Current Memory: $memory_used"
@@ -61,12 +64,25 @@ check_redis_memory() {
     echo "Max Memory: $max_memory"
 
     if [ "$max_memory" != "0" ]; then
-        # Calculate percentage (simplified)
-        echo "Memory limit is configured"
+        # ALERT_THRESHOLD was declared but never used — a configured limit
+        # printed 'configured' at every fill level (#921).
+        if [[ "$used_bytes" =~ ^[0-9]+$ ]]; then
+            local percent=$((used_bytes * 100 / max_memory))
+            echo "Memory usage: ${percent}% of limit"
+            if [ "$percent" -gt "$ALERT_THRESHOLD" ]; then
+                echo -e "${RED}ALERT: Redis memory usage ${percent}% exceeds threshold ${ALERT_THRESHOLD}%${NC}"
+                log_message "ALERT" "Redis memory usage ${percent}% exceeds threshold ${ALERT_THRESHOLD}%"
+                return 1
+            fi
+        else
+            echo -e "${YELLOW}WARNING: Could not parse used_memory bytes${NC}"
+            log_message "WARNING" "Could not parse Redis used_memory bytes"
+        fi
     else
         echo -e "${YELLOW}WARNING: No memory limit configured${NC}"
         log_message "WARNING" "No Redis memory limit configured"
     fi
+    return 0
 }
 
 # Function to check cache statistics
