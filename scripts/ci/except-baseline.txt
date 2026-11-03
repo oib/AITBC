@@ -466,7 +466,6 @@
       2 scripts/utils/migrate_addresses_to_0x.py
       2 scripts/utils/reset_chain_0x.py
       1 scripts/utils/rotate_service_accounts.py
-      1 scripts/utils/run_production_node.py
       1 scripts/utils/verify-db-schema.py
       1 tests/cli/conftest.py
       1 tests/contract_tests/test_blockchain_rpc_contract.py
