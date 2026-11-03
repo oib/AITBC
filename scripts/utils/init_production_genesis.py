@@ -156,6 +156,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # #290/#859 hard stop: this legacy seeder rewrites chain state with no
+    # confirmation — it refuses to run outside a declared scratch root.
+    # Reset-day writes go through scripts/ops/build-genesis.py.
+    from aitbc.utils import reset_guard
+
+    try:
+        reset_guard.assert_data_dir_env()
+        reset_guard.assert_not_live_chain(args.chain_id)
+        if args.db_path:
+            reset_guard.assert_scratch_targets(args.db_path)
+    except reset_guard.ResetGuardError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        sys.exit(1)
+
     # Override environment for config
     os.environ["CHAIN_ID"] = args.chain_id
     if args.db_path:
