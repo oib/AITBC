@@ -29,57 +29,93 @@ generate_password() {
     echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)"
 }
 
+# Does a PostgreSQL role already exist?
+role_exists() {
+    local out
+    out=$(sudo -u postgres psql -tAc \
+        "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = '$1'")
+    [ "$out" = "1" ]
+}
+
+# Merge a KEY=VALUE pair into an env file: update in place when the key
+# already exists, append otherwise. Re-running this script must merge, not
+# clobber -- a plain `cat >` wiped every unrelated key the operator had in
+# the file.
+set_env_key() {
+    local file="$1"
+    local key="$2"
+    local value="$3"
+    mkdir -p "$(dirname "$file")"
+    if [ -f "$file" ] && grep -q "^${key}=" "$file"; then
+        sed -i "s|^${key}=.*|${key}=${value}|g" "$file"
+    else
+        echo "${key}=${value}" >> "$file"
+    fi
+}
+
 # Function to create user and database
 setup_database() {
     local db_name=$1
     local db_user=$2
     local db_password="${3:-}"
-
-    # Generate a secure password if not provided
-    if [ -z "$db_password" ]; then
-        db_password=$(generate_password)
-    fi
+    local cred_file="$CREDENTIALS_DIR/postgres_${db_user}_password"
 
     echo -e "${BLUE}Setting up ${db_name}...${NC}"
 
-    # Create user if not exists, or update password if already exists
-    sudo -u postgres psql -c "DO \$\$
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${db_user}') THEN
-            CREATE USER ${db_user} WITH PASSWORD '${db_password}';
-        ELSE
-            ALTER USER ${db_user} WITH PASSWORD '${db_password}';
-        END IF;
-    END
-    \$\$;" 2>/dev/null || echo "User ${db_user} setup completed"
+    mkdir -p "$CREDENTIALS_DIR"
 
-    # Create database if not exists
-    sudo -u postgres psql -c "SELECT 'CREATE DATABASE ${db_name} OWNER ${db_user}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db_name}')\\gexec" 2>/dev/null || echo "Database ${db_name} already exists"
+    if role_exists "$db_user"; then
+        # Keep the existing role AND its password: rotating on every run used
+        # to invalidate the env files the services already had.
+        if [ -f "$cred_file" ]; then
+            db_password=$(cat "$cred_file")
+            echo -e "${GREEN}✅ Role ${db_user} already exists; keeping its password${NC}"
+        else
+            db_password=""
+            echo -e "${YELLOW}⚠️  Role ${db_user} exists but ${cred_file} is missing;${NC}"
+            echo -e "${YELLOW}   its password is unknown -- env files are left unchanged.${NC}"
+        fi
+    else
+        if [ -z "$db_password" ]; then
+            db_password=$(generate_password)
+        fi
+        # -v ON_ERROR_STOP=1 plus set -e: a failed CREATE USER aborts the run
+        # instead of being swallowed by `|| echo`.
+        sudo -u postgres psql -v ON_ERROR_STOP=1 -c \
+            "CREATE USER ${db_user} WITH PASSWORD '${db_password}';"
+        echo "$db_password" > "$cred_file"
+        chmod 600 "$cred_file"
+    fi
+
+    # Create database if it does not exist
+    if ! sudo -u postgres psql -tAc \
+        "SELECT 1 FROM pg_database WHERE datname = '${db_name}'" | grep -q '^1$'; then
+        sudo -u postgres psql -v ON_ERROR_STOP=1 -c \
+            "CREATE DATABASE ${db_name} OWNER ${db_user};"
+    fi
 
     # Grant privileges
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_user};" 2>/dev/null || true
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -c \
+        "GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_user};"
 
     # Grant schema permissions
-    sudo -u postgres psql -d ${db_name} -c "ALTER SCHEMA public OWNER TO ${db_user};" 2>/dev/null || true
-    sudo -u postgres psql -d ${db_name} -c "GRANT CREATE ON SCHEMA public TO ${db_user};" 2>/dev/null || true
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${db_name}" -c \
+        "ALTER SCHEMA public OWNER TO ${db_user};"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${db_name}" -c \
+        "GRANT CREATE ON SCHEMA public TO ${db_user};"
 
     # Guard (BACKUP-PG-OWNER-1): reassign public-schema tables owned by a
     # foreign role (e.g. tables created by an early `sudo -u postgres` run)
     # to ${db_user}, so same-named-role operations — migrations, restores,
     # role-scoped dumps — see the whole schema. Idempotent.
     foreign_tables=$(sudo -u postgres psql -d "${db_name}" -tAc \
-        "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tableowner <> '${db_user}'" 2>/dev/null || echo 0)
+        "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tableowner <> '${db_user}'")
     if [ "${foreign_tables}" != "0" ]; then
         echo "Reassigning ${foreign_tables} foreign-owned table(s) in ${db_name} to ${db_user}"
         sudo -u postgres psql -d "${db_name}" -tAc \
             "SELECT 'ALTER TABLE ' || quote_ident(tablename) || ' OWNER TO ${db_user};' FROM pg_tables WHERE schemaname='public' AND tableowner <> '${db_user}'" \
-            | sudo -u postgres psql -d "${db_name}" >/dev/null 2>&1 || true
+            | sudo -u postgres psql -d "${db_name}" >/dev/null
     fi
-
-    # Store password in credentials directory
-    mkdir -p "$CREDENTIALS_DIR"
-    echo "$db_password" > "$CREDENTIALS_DIR/postgres_${db_user}_password"
-    chmod 600 "$CREDENTIALS_DIR/postgres_${db_user}_password"
 
     echo -e "${GREEN}✅ ${db_name} setup complete${NC}"
 }
@@ -163,8 +199,16 @@ configure_remote_connections() {
 echo -e "${BLUE}Creating databases and users...${NC}"
 echo ""
 
-# Generate a shared password for the aitbc_user role (used by coordinator, exchange, wallet)
-AITBC_USER_PASSWORD=$(generate_password)
+# Shared password for the aitbc_user role (coordinator, exchange, wallet).
+# Reuse the stored password when the role already exists -- generating a new
+# one every run used to rotate the role and invalidate the env files.
+AITBC_USER_PASSWORD=""
+if [ -f "$CREDENTIALS_DIR/postgres_aitbc_user_password" ]; then
+    AITBC_USER_PASSWORD=$(cat "$CREDENTIALS_DIR/postgres_aitbc_user_password")
+fi
+if [ -z "$AITBC_USER_PASSWORD" ] && ! role_exists "aitbc_user"; then
+    AITBC_USER_PASSWORD=$(generate_password)
+fi
 
 # AITBC core databases (shared user)
 setup_database "aitbc_coordinator" "aitbc_user" "$AITBC_USER_PASSWORD"
@@ -184,27 +228,29 @@ setup_database "aitbc_mempool" "aitbc_mempool"
 # These files are referenced by EnvironmentFile=/etc/aitbc/%N.env in service units
 echo ""
 echo -e "${BLUE}Writing service environment files...${NC}"
-write_env_database_url "aitbc-coordinator-api" "postgresql://aitbc_user:${AITBC_USER_PASSWORD}@localhost:5432/aitbc_coordinator"
-write_env_database_url "aitbc-exchange" "postgresql://aitbc_user:${AITBC_USER_PASSWORD}@localhost:5432/aitbc_exchange"
-write_env_database_url "aitbc-wallet" "postgresql://aitbc_user:${AITBC_USER_PASSWORD}@localhost:5432/aitbc_wallet"
+if [ -n "$AITBC_USER_PASSWORD" ]; then
+    write_env_database_url "aitbc-coordinator-api" "postgresql://aitbc_user:${AITBC_USER_PASSWORD}@localhost:5432/aitbc_coordinator"
+    write_env_database_url "aitbc-exchange" "postgresql://aitbc_user:${AITBC_USER_PASSWORD}@localhost:5432/aitbc_exchange"
+    write_env_database_url "aitbc-wallet" "postgresql://aitbc_user:${AITBC_USER_PASSWORD}@localhost:5432/aitbc_wallet"
+else
+    echo -e "${YELLOW}⚠️  aitbc_user exists but its password is not in ${CREDENTIALS_DIR};${NC}"
+    echo -e "${YELLOW}   leaving the DATABASE_URL env files unchanged.${NC}"
+fi
 
 # governance uses DB_USER/DB_PASS/DB_HOST/DB_PORT/DB_NAME format (not DATABASE_URL)
 GOVERNANCE_PASS=$(cat "$CREDENTIALS_DIR/postgres_aitbc_governance_password" 2>/dev/null || echo "")
 if [ -n "$GOVERNANCE_PASS" ]; then
     GOV_ENV="$ENV_DIR/aitbc-governance.env"
-    mkdir -p "$ENV_DIR"
-    cat > "$GOV_ENV" << EOF
-# Database configuration for governance service
-DB_TYPE=postgresql
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=aitbc_governance
-DB_USER=aitbc_governance
-DB_PASS=${GOVERNANCE_PASS}
-
-# Redis configuration
-REDIS_URL=redis://localhost:6379/0
-EOF
+    if [ ! -f "$GOV_ENV" ]; then
+        echo "# Database configuration for governance service" > "$GOV_ENV"
+    fi
+    set_env_key "$GOV_ENV" DB_TYPE postgresql
+    set_env_key "$GOV_ENV" DB_HOST localhost
+    set_env_key "$GOV_ENV" DB_PORT 5432
+    set_env_key "$GOV_ENV" DB_NAME aitbc_governance
+    set_env_key "$GOV_ENV" DB_USER aitbc_governance
+    set_env_key "$GOV_ENV" DB_PASS "${GOVERNANCE_PASS}"
+    set_env_key "$GOV_ENV" REDIS_URL "redis://localhost:6379/0"
     echo -e "${GREEN}✅ Wrote governance DB config to ${GOV_ENV}${NC}"
 fi
 
@@ -212,11 +258,11 @@ fi
 MEMPOOL_PASS=$(cat "$CREDENTIALS_DIR/postgres_aitbc_mempool_password" 2>/dev/null || echo "")
 if [ -n "$MEMPOOL_PASS" ]; then
     MEMPOOL_ENV="$ENV_DIR/aitbc-blockchain-p2p.env"
-    mkdir -p "$ENV_DIR"
-    cat > "$MEMPOOL_ENV" << EOF
-# Mempool database URL for P2P service
-MEMPOOL_DB_URL=postgresql+psycopg2://aitbc_mempool:${MEMPOOL_PASS}@localhost:5432/aitbc_mempool
-EOF
+    if [ ! -f "$MEMPOOL_ENV" ]; then
+        echo "# Mempool database URL for P2P service" > "$MEMPOOL_ENV"
+    fi
+    set_env_key "$MEMPOOL_ENV" MEMPOOL_DB_URL \
+        "postgresql+psycopg2://aitbc_mempool:${MEMPOOL_PASS}@localhost:5432/aitbc_mempool"
     echo -e "${GREEN}✅ Wrote mempool DB config to ${MEMPOOL_ENV}${NC}"
 
     # Also update MEMPOOL_DB_URL in node.env if it exists (blockchain-node reads it from there)
@@ -237,7 +283,8 @@ fi
 
 echo ""
 echo -e "${BLUE}=== Database Summary ===${NC}"
-sudo -u postgres psql -c "\l" | grep aitbc || true
+DB_LIST=$(sudo -u postgres psql -c "\l")
+echo "$DB_LIST" | grep aitbc || echo "(no aitbc databases found)"
 
 echo ""
 echo -e "${GREEN}=== Setup Complete ===${NC}"
