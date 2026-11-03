@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
 Keystore management for AITBC production keys.
-Generates a random private key and encrypts it with a password using Fernet (AES-128).
+
+Encrypts an EXISTING private key with a password using Fernet (AES-128).
+The keystore address is derived from the private key itself (eth_account) —
+never taken from the command line — so the file always names the account the
+key actually controls. Key material is never printed.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cryptography.fernet import Fernet
+from eth_account import Account
 
 
 # PBKDF2 work factor for newly written keystores (OWASP minimum). Stored in
@@ -47,44 +52,54 @@ def encrypt_private_key(private_key_hex: str, password: str) -> dict:
 
 
 def create_keystore(
-    address: str, password: str, keystore_dir: Path | str = "/var/lib/aitbc/keystore", force: bool = False
+    private_key: str, password: str, keystore_dir: Path | str = "/var/lib/aitbc/keystore", force: bool = False
 ) -> Path:
-    """Create encrypted keystore file and return its path."""
+    """Encrypt ``private_key`` into ``<keystore_dir>/<derived-address>.json``.
+
+    The address is derived from the key, so the keystore can never name an
+    account the key does not control. The file is created O_EXCL with mode
+    0600 — no write-then-chmod window and no silent overwrite.
+    """
+    address = Account.from_key(private_key).address
     keystore_dir = Path(keystore_dir)
     keystore_dir.mkdir(parents=True, exist_ok=True)
     out_file = keystore_dir / f"{address}.json"
 
-    if out_file.exists() and not force:
-        raise FileExistsError(f"Keystore file {out_file} exists. Use force=True to overwrite.")
-
-    private_key = secrets.token_hex(32)
-    encrypted = encrypt_private_key(private_key, password)
     keystore = {
         "address": address,
-        "crypto": encrypted,
-        "created_at": datetime.now(UTC).isoformat() + "Z",
+        "crypto": encrypt_private_key(private_key, password),
+        "created_at": datetime.now(UTC).isoformat(),
     }
 
-    out_file.write_text(json.dumps(keystore, indent=2))
+    flags = os.O_WRONLY | os.O_CREAT
+    if not force:
+        flags |= os.O_EXCL
+    try:
+        fd = os.open(out_file, flags, 0o600)
+    except FileExistsError:
+        raise FileExistsError(f"Keystore file {out_file} exists. Use force=True to overwrite.") from None
+    with os.fdopen(fd, "w") as f:
+        f.write(json.dumps(keystore, indent=2))
     os.chmod(out_file, 0o600)
     return out_file
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate encrypted keystore for an account")
-    parser.add_argument("address", help="Account address (e.g., 0xF2960ce8B9316F198A2aF4A864e9D3A6AeFA606F)")
+    parser = argparse.ArgumentParser(
+        description="Encrypt an existing private key into a keystore file (address is derived from the key)"
+    )
+    parser.add_argument(
+        "--private-key",
+        default=os.getenv("AITBC_PRIVATE_KEY") or os.getenv("PRIVATE_KEY"),
+        help="Hex private key to encrypt (or set AITBC_PRIVATE_KEY). Never printed.",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("/var/lib/aitbc/keystore"), help="Keystore directory")
     parser.add_argument("--force", action="store_true", help="Overwrite existing keystore file")
     parser.add_argument("--password", help="Encryption password (or read from KEYSTORE_PASSWORD / keystore/.password)")
     args = parser.parse_args()
 
-    out_dir = args.output_dir
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_file = out_dir / f"{args.address}.json"
-
-    if out_file.exists() and not args.force:
-        print(f"Keystore file {out_file} exists. Use --force to overwrite.")
-        return
+    if not args.private_key:
+        parser.error("a private key is required: pass --private-key or set AITBC_PRIVATE_KEY")
 
     # Determine password: CLI > env var > password file
     password = args.password
@@ -98,20 +113,12 @@ def main() -> None:
         print("No password provided. Set KEYSTORE_PASSWORD, pass --password, or create /var/lib/aitbc/keystore/.password")
         sys.exit(1)
 
-    print(f"Generating keystore for {args.address}...")
-    private_key = secrets.token_hex(32)
-    print(f"Private key (hex): {private_key}")
-    print("** SAVE THIS KEY SECURELY ** (It cannot be recovered from the encrypted file without the password)")
+    try:
+        out_file = create_keystore(args.private_key, password, keystore_dir=args.output_dir, force=args.force)
+    except FileExistsError as exc:
+        print(exc)
+        sys.exit(1)
 
-    encrypted = encrypt_private_key(private_key, password)
-    keystore = {
-        "address": args.address,
-        "crypto": encrypted,
-        "created_at": datetime.now(UTC).isoformat() + "Z",
-    }
-
-    out_file.write_text(json.dumps(keystore, indent=2))
-    os.chmod(out_file, 0o600)
     print(f"[+] Keystore written to {out_file}")
     print("[!] Keep the password safe. Without it, the private key cannot be recovered.")
 
