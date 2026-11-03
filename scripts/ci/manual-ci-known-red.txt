@@ -1,14 +1,66 @@
 # Tolerated known-red for scripts/ci/run-suite-manual.sh.
 #
 # One junit id per line: `<classname>::<testname>` for test failures,
-# `check::<check-name>` for the synthesized check cases. A failure NOT listed
-# here fails the run. Entries that stop firing are reported as stale
+# `check::<check-name>` for a synthesized one-case check failure, and
+# `check::<ratchet>::<file>` for a single regressed file in a ratchet check
+# (c901-ratchet / except-ratchet emit one testcase per regressed path).
+# A failure NOT listed here fails the run — a whole-check `check::<name>`
+# entry tolerates every future failure of that check, so ratchet entries
+# must stay per-file. Entries that stop firing FAIL the run as stale
 # tolerances — remove them when the debt clears, don't let the list mask a
 # renamed failure. Comment freely; keep one id + tab + reason per entry.
 #
-# Entries as of 2026-10-04 (sources: C7 dry-run TOPOLOGY/2026-10-04-ci-dry-run.md,
-# C8 ratchet attribution):
-check::version-check	README badge v0.25.8 vs aitbc/_version.py 0.10.18 — two different version axes; operator decision on the canonical source is pending
-check::c901-ratchet	15 file regressions vs c901-baseline.txt — Sep-24..Oct-2 commits; C8 attributed each, all keep-verdict; baseline bumps are the operator's call
-check::except-ratchet	15 file regressions vs except-baseline.txt post-C8 (payments.py fixed by dbe4605ffb); same keep-verdict set; baseline bumps are the operator's call
+# The except-ratchet set below is per-file because the whole-check entry it
+# replaced tolerated any new regression (#978). Regenerating
+# except-baseline.txt is the operator's call; until then a regression in a
+# file NOT listed here — or a listed file that drops back to baseline —
+# turns the manual gate red. Files as of the 2026-11-03 audit-34 follow-up.
+check::except-ratchet::aitbc/island_deferral.py	regression vs except-baseline.txt; per-file tolerance pending the operator's baseline bump
+check::except-ratchet::aitbc/network/client.py	same
+check::except-ratchet::apps/agent-coordinator/src/agent_app/routing/agent_discovery.py	same
+check::except-ratchet::apps/agent-coordinator/src/agent_app/services/coin_request_policy.py	same
+check::except-ratchet::apps/blockchain-node/migrations/versions/a7c3d9e2f184_mempool_wide_columns.py	same
+check::except-ratchet::apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py	same
+check::except-ratchet::apps/blockchain-node/src/aitbc_chain/network/compression.py	same
+check::except-ratchet::apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py	same
+check::except-ratchet::apps/blockchain-node/src/aitbc_chain/rpc/utils.py	same
+check::except-ratchet::apps/blockchain-node/src/aitbc_chain/state/bridge_credit.py	same
+check::except-ratchet::apps/blockchain-node/src/aitbc_chain/sync_block_import.py	same
+check::except-ratchet::apps/blockchain-node/src/aitbc_chain/sync_manager.py	same
+check::except-ratchet::apps/blockchain-node/tests/test_bridge_header_batch_idempotent.py	same
+check::except-ratchet::apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py	same
+check::except-ratchet::apps/coordinator-api/src/coordinator_api/contexts/market/services/bond_slashing.py	same
+check::except-ratchet::apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py	same
+check::except-ratchet::apps/governance/src/governance_service/services/governance_service.py	same
+check::except-ratchet::apps/gpu/src/gpu_service/main.py	same
+check::except-ratchet::apps/market/tests/test_bid_commit_expire.py	same
+check::except-ratchet::apps/market/tests/test_bid_tx_replay.py	same
+check::except-ratchet::apps/miner/agent_task_executor.py	same
+check::except-ratchet::apps/miner/tests/test_download_media_ssrf.py	same
+check::except-ratchet::apps/wallet/src/wallet_app/bridge/bridge_withdraw_monitor.py	same
+check::except-ratchet::cli/aitbc_cli/commands/agent_staking.py	same
+check::except-ratchet::cli/aitbc_cli/commands/bounty.py	same
+check::except-ratchet::cli/aitbc_cli/commands/contract.py	same
+check::except-ratchet::cli/aitbc_cli/commands/governance.py	same
+check::except-ratchet::cli/aitbc_cli/commands/liquidity.py	same
+check::except-ratchet::cli/aitbc_cli/commands/prometheus.py	same
+check::except-ratchet::cli/aitbc_cli/commands/wallet/staking.py	same
+check::except-ratchet::cli/aitbc_cli/core/main.py	same
+check::except-ratchet::cli/aitbc_cli/utils/output.py	same
+check::except-ratchet::cli/aitbc_cli/utils/signed_rpc.py	same
+check::except-ratchet::cli/tests/test_edge_join_guard.py	same
+check::except-ratchet::scripts/dev/gen_option_coverage.py	same
+check::except-ratchet::scripts/ops/bridge-leaf-audit.py	same
+check::except-ratchet::scripts/ops/check-alloc-file.py	same
+check::except-ratchet::scripts/ops/escrow-stuck-sweep.py	same
+check::except-ratchet::scripts/ops/ops_http.py	same
+check::except-ratchet::scripts/ops/option-coverage.py	same
+check::except-ratchet::scripts/ops/post_activation_audit.py	same
+check::except-ratchet::scripts/ops/post-cut-verify.py	same
+check::except-ratchet::scripts/ops/unpause-precheck.py	same
+check::except-ratchet::scripts/reset-harness/gossip_filter.py	same
+check::except-ratchet::scripts/reset-harness/rehearsal.py	same
+check::except-ratchet::tests/escrow_e2e/conftest.py	same
+check::except-ratchet::tests/unit/test_website_api_contract.py	same
+check::except-ratchet::tests/unit/test_website_states.py	same
 apps.exchange.tests.test_http_contract.TestRoutingTable::test_id_route_answers_404_for_an_unknown_id[/v1/bridge/deposit/some-id]	gitea-runner host state: /var/lib/aitbc/bridge_deposits.db (Aug 9) predates the `recipient` column; CREATE TABLE IF NOT EXISTS no-ops → 500 not 404. Live hosts verified unaffected (C7 §4); passes with a clean DATA_DIR
