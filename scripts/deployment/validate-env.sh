@@ -2,13 +2,24 @@
 
 # AITBC Environment Validation Script
 # Validates environment configuration before deployment
+#
+# Env files are parsed with systemd EnvironmentFile semantics via
+# scripts/utils/systemd-env.sh — never `source`d (a sourced file executes
+# as shell; a malformed or hostile line ran in the validator). Keys are
+# read case-insensitively: systemd units consume the UPPERCASE spellings
+# while some legacy files carry lower_case ones, so both are checked.
+#
+# File locations can be overridden for testing — never validate against
+# scratch paths on a live host without meaning to:
+#   BLOCKCHAIN_ENV_FILE, NODE_ENV_FILE
 
 set -euo pipefail
 
 # Configuration
 REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
-NODE_ENV_FILE="/etc/aitbc/node.env"
-BLOCKCHAIN_ENV_FILE="/etc/aitbc/blockchain.env"
+SYSTEMD_ENV_SCRIPT="${SYSTEMD_ENV_SCRIPT:-${REPO_ROOT}/scripts/utils/systemd-env.sh}"
+NODE_ENV_FILE="${NODE_ENV_FILE:-/etc/aitbc/node.env}"
+BLOCKCHAIN_ENV_FILE="${BLOCKCHAIN_ENV_FILE:-/etc/aitbc/blockchain.env}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -32,6 +43,64 @@ success() {
 
 warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# ----------------------------------------------------------------------------
+# Read one key from a single env file with systemd EnvironmentFile semantics.
+# Accepts the exact spelling first, then the optional alias (lower_case
+# legacy). Prints the value; rc 1 = absent.
+# Usage: _env_val <file> KEY [lowercase_alias]
+# ----------------------------------------------------------------------------
+_env_val() {
+    local file="$1" key="$2" alias="${3:-}" v
+    if v=$("$SYSTEMD_ENV_SCRIPT" get "$file" "$key" 2>/dev/null); then
+        printf '%s' "$v"
+        return 0
+    fi
+    if [ -n "$alias" ] && v=$("$SYSTEMD_ENV_SCRIPT" get "$file" "$alias" 2>/dev/null); then
+        printf '%s' "$v"
+        return 0
+    fi
+    return 1
+}
+
+# Read a key across both env files (blockchain.env first, then node.env —
+# the same precedence update.sh uses), then the ambient environment.
+_env_val_any() {
+    local key="$1" alias="${2:-}" v
+    if v=$(_env_val "$BLOCKCHAIN_ENV_FILE" "$key" "$alias"); then
+        printf '%s' "$v"
+        return 0
+    fi
+    if v=$(_env_val "$NODE_ENV_FILE" "$key" "$alias"); then
+        printf '%s' "$v"
+        return 0
+    fi
+    printf '%s' "${!key:-}"
+}
+
+# Check an env file parses cleanly as a systemd EnvironmentFile.
+_check_env_file() {
+    local env_file="$1" file_name="$2"
+
+    if [[ ! -f "$env_file" ]]; then
+        error "$file_name: File not found at $env_file"
+        return 1
+    fi
+
+    if [[ ! -r "$env_file" ]]; then
+        error "$file_name: File is not readable"
+        return 1
+    fi
+
+    local rc=0
+    "$SYSTEMD_ENV_SCRIPT" parse "$env_file" > /dev/null || rc=$?
+    if [[ $rc -eq 2 ]]; then
+        error "$file_name: contains a malformed KEY=VALUE line"
+        return 1
+    fi
+
+    return 0
 }
 
 # Validate port number
@@ -154,63 +223,51 @@ validate_redis() {
     fi
 }
 
-# Validate environment file
-validate_env_file() {
-    local env_file="$1"
-    local file_name="$2"
-
-    if [[ ! -f "$env_file" ]]; then
-        error "$file_name: File not found at $env_file"
-        return 1
-    fi
-
-    if [[ ! -r "$env_file" ]]; then
-        error "$file_name: File is not readable"
-        return 1
-    fi
-
-    log "Validating $file_name..."
-
-    # Source the file to validate variables
-    # shellcheck disable=SC1090
-    source "$env_file"
-
-    return 0
-}
-
 # Validate blockchain.env file
 validate_blockchain_env() {
     log "Validating blockchain.env file..."
 
-    if [[ ! -f "$BLOCKCHAIN_ENV_FILE" ]]; then
-        error "blockchain.env not found at $BLOCKCHAIN_ENV_FILE"
+    _check_env_file "$BLOCKCHAIN_ENV_FILE" "blockchain.env" || {
         error "Please create /etc/aitbc/blockchain.env with blockchain configuration"
         return 1
-    fi
-
-    # Load environment variables
-    # shellcheck disable=SC1090
-    source "$BLOCKCHAIN_ENV_FILE"
+    }
 
     ERRORS=0
 
-    # Validate blockchain configuration
-    if [[ -z "${chain_id:-}" ]] && [[ -z "${CHAIN_ID:-}" ]]; then
-        error "chain_id or CHAIN_ID is not set"
+    # chain id — both spellings
+    local chain_id
+    chain_id=$(_env_val "$BLOCKCHAIN_ENV_FILE" CHAIN_ID chain_id)
+    if [[ -z "$chain_id" ]]; then
+        error "CHAIN_ID (or chain_id) is not set in blockchain.env"
         ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -n "${rpc_bind_port:-}" ]]; then
-        validate_port "${rpc_bind_port:-}" "rpc_bind_port" || ERRORS=$((ERRORS + 1))
+    # bind ports — both spellings
+    local rpc_bind_port p2p_bind_port enable_block_production proposer_id
+    rpc_bind_port=$(_env_val "$BLOCKCHAIN_ENV_FILE" RPC_BIND_PORT rpc_bind_port)
+    if [[ -n "$rpc_bind_port" ]]; then
+        validate_port "$rpc_bind_port" "RPC_BIND_PORT" || ERRORS=$((ERRORS + 1))
     fi
 
-    if [[ -n "${p2p_bind_port:-}" ]]; then
-        validate_port "${p2p_bind_port:-}" "p2p_bind_port" || ERRORS=$((ERRORS + 1))
+    p2p_bind_port=$(_env_val "$BLOCKCHAIN_ENV_FILE" P2P_BIND_PORT p2p_bind_port)
+    if [[ -n "$p2p_bind_port" ]]; then
+        validate_port "$p2p_bind_port" "P2P_BIND_PORT" || ERRORS=$((ERRORS + 1))
     fi
 
-    # Validate boolean settings
-    if [[ -n "${enable_block_production:-}" ]]; then
-        validate_boolean "${enable_block_production:-}" "enable_block_production" || ERRORS=$((ERRORS + 1))
+    enable_block_production=$(_env_val "$BLOCKCHAIN_ENV_FILE" ENABLE_BLOCK_PRODUCTION enable_block_production)
+    if [[ -n "$enable_block_production" ]]; then
+        validate_boolean "$enable_block_production" "ENABLE_BLOCK_PRODUCTION" || ERRORS=$((ERRORS + 1))
+    fi
+
+    # aitbc-blockchain-node reads PROPOSER_ID from blockchain.env — that is
+    # the file this check must hit, not node.env.
+    proposer_id=$(_env_val "$BLOCKCHAIN_ENV_FILE" PROPOSER_ID proposer_id)
+    if [[ -z "$proposer_id" ]]; then
+        error "PROPOSER_ID is not set in blockchain.env (the file aitbc-blockchain-node reads)"
+        ERRORS=$((ERRORS + 1))
+    elif [[ "$proposer_id" == *"<unique"* ]]; then
+        error "PROPOSER_ID in blockchain.env still holds the placeholder value"
+        ERRORS=$((ERRORS + 1))
     fi
 
     if [[ $ERRORS -gt 0 ]]; then
@@ -226,47 +283,43 @@ validate_blockchain_env() {
 validate_node_env() {
     log "Validating node.env file..."
 
-    if [[ ! -f "$NODE_ENV_FILE" ]]; then
-        error "node.env not found at $NODE_ENV_FILE"
-        error "Please copy examples/node.env.example to /etc/aitbc/node.env"
+    _check_env_file "$NODE_ENV_FILE" "node.env" || {
+        error "Please copy examples/node.env.open-island to /etc/aitbc/node.env"
         return 1
-    fi
-
-    # Load environment variables
-    # shellcheck disable=SC1090
-    source "$NODE_ENV_FILE"
+    }
 
     ERRORS=0
 
-    # Check for placeholder UUIDs
-    if grep -q "node-<unique-uuid-here>" "$NODE_ENV_FILE"; then
-        error "NODE_ID contains placeholder UUID. Please set a unique value"
+    # Check for placeholder UUIDs in either file
+    for f in "$NODE_ENV_FILE" "$BLOCKCHAIN_ENV_FILE"; do
+        if grep -q "node-<unique-uuid-here>" "$f" 2>/dev/null; then
+            error "NODE_ID in $f contains a placeholder UUID. Please set a unique value"
+            ERRORS=$((ERRORS + 1))
+        fi
+        if grep -q "0x<unique-uuid-here>\|ait1<unique-proposer-id>" "$f" 2>/dev/null; then
+            error "PROPOSER_ID in $f contains a placeholder value. Please set a unique value"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+
+    # Required fields — read across both env files (either spelling); setup
+    # writes NODE_ID to node.env and P2P_NODE_ID may live in blockchain.env.
+    local node_id p2p_node_id p2p_peers
+    node_id=$(_env_val_any NODE_ID node_id)
+    if [[ -z "$node_id" ]]; then
+        error "NODE_ID is not set (checked node.env and blockchain.env)"
         ERRORS=$((ERRORS + 1))
     fi
 
-    if grep -q "0x<unique-uuid-here>" "$NODE_ENV_FILE"; then
-        error "PROPOSER_ID contains placeholder UUID. Please set a unique value"
+    p2p_node_id=$(_env_val_any P2P_NODE_ID p2p_node_id)
+    if [[ -z "$p2p_node_id" ]]; then
+        error "P2P_NODE_ID is not set (checked node.env and blockchain.env)"
         ERRORS=$((ERRORS + 1))
     fi
 
-    # Validate required fields
-    if [[ -z "${NODE_ID:-}" ]]; then
-        error "NODE_ID is not set"
-        ERRORS=$((ERRORS + 1))
-    fi
-
-    if [[ -z "${P2P_NODE_ID:-}" ]]; then
-        error "P2P_NODE_ID is not set"
-        ERRORS=$((ERRORS + 1))
-    fi
-
-    if [[ -z "${PROPOSER_ID:-}" ]]; then
-        error "PROPOSER_ID is not set"
-        ERRORS=$((ERRORS + 1))
-    fi
-
-    if [[ -z "${p2p_peers:-}" ]]; then
-        warning "p2p_peers is not set. This node may not connect to the network"
+    p2p_peers=$(_env_val_any P2P_PEERS p2p_peers)
+    if [[ -z "$p2p_peers" ]]; then
+        warning "P2P_PEERS is not set. This node may not connect to the network"
     fi
 
     if [[ $ERRORS -gt 0 ]]; then
@@ -323,6 +376,11 @@ main() {
     log "Starting AITBC environment validation..."
     echo ""
 
+    if [[ ! -x "$SYSTEMD_ENV_SCRIPT" && ! -f "$SYSTEMD_ENV_SCRIPT" ]]; then
+        error "EnvironmentFile parser not found at $SYSTEMD_ENV_SCRIPT (set REPO_ROOT or SYSTEMD_ENV_SCRIPT)"
+        return 1
+    fi
+
     TOTAL_ERRORS=0
 
     # Check system prerequisites
@@ -340,7 +398,7 @@ main() {
     if [[ $TOTAL_ERRORS -eq 0 ]]; then
         success "All environment validation checks passed!"
         echo ""
-        log "You can proceed with deployment using: scripts/deployment/deploy.sh"
+        log "You can proceed with deployment using: scripts/deployment/setup.sh"
         return 0
     else
         error "Environment validation failed with $TOTAL_ERRORS error(s)"
@@ -353,5 +411,7 @@ main() {
 # Handle script interruption
 trap 'error "Script interrupted"; exit 130' INT TERM
 
-# Run main function
-main "$@"
+# Run main function (skipped when sourced by tests)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
