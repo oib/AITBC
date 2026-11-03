@@ -200,21 +200,19 @@ run_check check-ports      "" ./venv/bin/python scripts/docs/check_ports.py
 run_check bind-policy      "" ./venv/bin/python scripts/docs/check_bind_policy.py
 run_check live-dry-run     "WALLET_URL=http://127.0.0.1:1 BLOCKCHAIN_RPC_URL=http://127.0.0.1:1" bash scripts/ci/live-scenario-dry-run.sh
 
-# Test suites — same targets as the workflow.
-run_pytest unit       "PYTHONPATH=apps/blockchain-node/src" tests/unit mcp-server/tests
-run_pytest apps       "PYTHONPATH=apps/blockchain-node/src" \
-  --deselect=apps/coordinator-api/tests/test_phase8_integration.py \
-  --deselect=apps/coordinator-api/tests/test_zk_receipt.py \
-  apps/coordinator-api/tests/test_*.py apps/coordinator-api/tests/integration \
-  apps/blockchain-node/tests
-run_pytest governance "" apps/governance/tests
-run_pytest critical   "" \
-  apps/exchange/tests apps/api-gateway/tests apps/wallet/tests apps/market/tests \
-  apps/trading/tests apps/agent-coordinator/tests apps/bridge-monitor/tests \
-  tests/security tests/core tests/property_tests tests/smoke \
-  tests/unit/test_env_protection.py
-run_pytest cli        "WALLET_URL=http://127.0.0.1:1 BLOCKCHAIN_RPC_URL=http://127.0.0.1:1" \
-  cli/tests tests/cli tests/test_cli_docs_sync.py tests/test_syspath_hygiene.py
+# The required gate — one pytest run over every `fast` suite, exactly what
+# `make test-required` runs in the workflow. The args come from
+# scripts/ci/test_suites.py itself, not a restated list: the hand-named lists
+# this replaced had silently dropped eight fast suites (ffmpeg, hermes_agent,
+# ipfs, monitoring-service, shared-core, shared-domain, whisper, ops-signer)
+# plus everything under coordinator-api/tests/services (#979).
+# API_KEY_STORAGE_PATH is exported above; PYTHONPATH reaches aitbc_chain the
+# same way the Make target does. The dead-endpoint URLs for the CLI tests
+# live in those suites' conftests — setting WALLET_URL globally would break
+# the coordinator/payment tests that expect the conftest defaults.
+# shellcheck disable=SC2046
+run_pytest required "PYTHONPATH=apps/blockchain-node/src" \
+  $(./venv/bin/python scripts/ci/test_suites.py fast)
 
 if [ "$WITH_CONTRACTS" = 1 ] && command -v npm >/dev/null 2>&1; then
   t0=$(date +%s)
