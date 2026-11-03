@@ -242,6 +242,11 @@ run_check master-index     "" ./venv/bin/python scripts/docs/gen_master_index.py
 run_check check-ports      "" ./venv/bin/python scripts/docs/check_ports.py
 run_check bind-policy      "" ./venv/bin/python scripts/docs/check_bind_policy.py
 run_check live-dry-run     "WALLET_URL=http://127.0.0.1:1 BLOCKCHAIN_RPC_URL=http://127.0.0.1:1" bash scripts/ci/live-scenario-dry-run.sh
+# Claimed gates that ran nowhere until #986: the deprecation/light-theme
+# scan docs/web/README.md says "fails the build", and the v0.23 change log
+# claims env-matches-lock --strict asserts env isolation.
+run_check deprecation      "" bash scripts/ci/check_deprecation_cleanup.sh
+run_check env-lock         "" ./venv/bin/python scripts/ci/check-env-matches-lock.py --strict
 
 # The required gate — one pytest run over every `fast` suite, exactly what
 # `make test-required` runs in the workflow. The args come from
