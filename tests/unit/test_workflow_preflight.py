@@ -243,3 +243,13 @@ def test_partition_never_default():
     assert '"--partition"' in src
     assert "REFUSING partition test" in src
     assert "sendTx" not in src
+
+
+SCRIPT06 = Path(__file__).resolve().parents[2] / "scripts/workflow/06_final_verification.sh"
+
+
+def test_unreachable_peer_is_failure():
+    """#972: no equal-height fallback when the peer cannot be reached."""
+    src = SCRIPT06.read_text()
+    assert "AITBC1_HEIGHT=$AITBC_HEIGHT" not in src
+    assert "cannot verify sync" in src
