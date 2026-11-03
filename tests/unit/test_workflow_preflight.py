@@ -110,3 +110,14 @@ def test_no_script_forges_block_fields():
         src = sh.read_text()
         assert "importBlock" not in src or "proposer" not in src, sh.name
     assert not (wf / "08_blockchain_sync_fix.sh").exists()
+
+
+SCRIPT03 = Path(__file__).resolve().parents[2] / "scripts/workflow/03_follower_node_setup.sh"
+
+
+def test_03_is_guarded_do_not_use():
+    """#961: the broken follower setup is a stub that exits before doing harm."""
+    src = SCRIPT03.read_text()
+    head = src.split("exit 1")[0]
+    assert "DO NOT USE" in head
+    assert "setup.sh --open-island" in head

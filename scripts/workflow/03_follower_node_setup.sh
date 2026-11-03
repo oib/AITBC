@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+# DO NOT USE — broken follower path (#961).
+# Writes settings to /etc/aitbc/.env, which the node never reads (it reads
+# /etc/aitbc/blockchain.env), pins a trusted_proposers address that is not
+# in the live validator set, and deletes the follower chain db without a
+# prompt when the node is stopped. Follower setup goes through
+# scripts/deployment/setup.sh --open-island.
+echo "do-not-use: broken follower setup path; use scripts/deployment/setup.sh --open-island (#961)" >&2
+exit 1
+
 # Follower Node Setup Script for AITBC Node (aitbc)
 # This script configures aitbc as a follower node
-
-set -euo pipefail
 
 
 # Source scenario configuration
