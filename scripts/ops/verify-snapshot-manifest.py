@@ -29,6 +29,7 @@ import os
 import sqlite3
 import sys
 import urllib.parse
+from typing import Any
 
 # The trusted manifest signer. This is the single repo location for the
 # operator's manifest-signing address (V-5, dedicated key generated
@@ -78,30 +79,101 @@ def _recompute_state_root(db_path: str, chain_id: str) -> str | None:
         return compute_state_root_full(session, chain_id)
 
 
-def _content_check(manifest: dict, db_path: str) -> list[str]:
-    """Recompute digests/state-root against db; return mismatch descriptions."""
+def _check_table_digests(problems: list[str], conn: Any, manifest: dict, probe: Any) -> None:
+    """Every table the generator digests must be attested, and every attested
+    digest must recompute to the same value."""
+    digests = manifest.get("table_digests", {})
+    for section, tables in (
+        ("candidates", probe.CANDIDATE_TABLES),
+        ("controls", probe.CONTROL_TABLES),
+    ):
+        have = digests.get(section, {})
+        if not isinstance(have, dict):
+            problems.append(f"table_digests.{section}: missing or not an object")
+            continue
+        for table in tables:
+            if table not in have:
+                problems.append(f"table_digests.{section}.{table}: missing from manifest")
+    for section, table_map in digests.items():
+        for table, expected in table_map.items():
+            got = probe.table_digest(conn, table)
+            if got != expected:
+                problems.append(f"table_digests.{section}.{table}: manifest {expected!r} != recomputed {got!r}")
+
+
+def _check_row_counts(problems: list[str], conn: Any, manifest: dict) -> None:
+    """Every manifest-listed table must match, and every db table must be
+    listed — an uncounted table is unaudited content."""
+    want_counts = manifest.get("row_counts")
+    if not isinstance(want_counts, dict) or not want_counts:
+        problems.append("row_counts: missing or empty in manifest")
+        return
+    actual = {
+        name: conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]  # nosec - name from sqlite_master
+        for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+    }
+    for table, expected in want_counts.items():
+        got = actual.get(table)
+        if got != expected:
+            problems.append(f"row_counts.{table}: manifest {expected!r} != db {got!r}")
+    for table in actual:
+        if table not in want_counts:
+            problems.append(f"row_counts.{table}: present in db but missing from manifest")
+
+
+def _check_state_root(problems: list[str], manifest: dict, db_path: str, sr: dict) -> None:
+    """The manifest's state_root must have been computed, must recompute to the
+    same value here, and must not itself attest a mismatch."""
+    if sr.get("skipped") or sr.get("recomputed") is None:
+        problems.append(
+            "state_root: manifest root was skipped/not recomputed (recomputed is null — pass --skip-state-root to waive)"
+        )
+    else:
+        recomputed = _recompute_state_root(db_path, manifest.get("chain_id", ""))
+        if recomputed is None:
+            problems.append("state_root: cannot recompute here (aitbc_chain unavailable); pass --skip-state-root to waive")
+        elif sr.get("recomputed") != recomputed:
+            problems.append(f"state_root.recomputed: manifest {sr.get('recomputed')!r} != recomputed {recomputed!r}")
+    if not sr.get("match"):
+        problems.append("state_root.match: manifest itself attests recorded != recomputed")
+
+
+def _check_head(problems: list[str], conn: Any, manifest: dict, sr: dict) -> None:
+    """The manifest's head must be the db's head row, and the recorded state
+    root must be that row's state_root."""
+    row = conn.execute(
+        "SELECT height, hash, state_root FROM block WHERE chain_id = ? ORDER BY height DESC LIMIT 1",
+        (manifest.get("chain_id"),),
+    ).fetchone()
+    if row is None:
+        problems.append(f"head: chain {manifest.get('chain_id')!r} has no block row in db")
+        return
+    head = manifest.get("head", {})
+    if row[0] != head.get("height") or row[1] != head.get("hash"):
+        problems.append(f"head: manifest {head} != db head ({row[0]}, {row[1]})")
+    if sr.get("recorded") != row[2]:
+        problems.append(f"state_root.recorded: manifest {sr.get('recorded')!r} != db head state_root {row[2]!r}")
+
+
+def _content_check(manifest: dict, db_path: str, *, skip_state_root: bool = False) -> list[str]:
+    """Recompute digests/row-counts/state-root against db; return mismatch descriptions.
+
+    Everything the manifest attests is checked, and everything the generator
+    is expected to attest must be present: an absent chain, a missing head
+    row, a row_counts mismatch, a skipped/unrecomputable/mismatched state
+    root, a recorded root that differs from the db head's, or a missing
+    candidate/control table is a problem — not a silent pass.
+    """
     problems: list[str] = []
     conn = _connect_ro(db_path)
     try:
         probe = _load_side_root_probe()
-        want = manifest.get("table_digests", {})
-        for section, table_map in want.items():
-            for table, expected in table_map.items():
-                got = probe.table_digest(conn, table)
-                if got != expected:
-                    problems.append(f"table_digests.{section}.{table}: manifest {expected!r} != recomputed {got!r}")
         sr = manifest.get("state_root", {})
-        if sr.get("recomputed") is not None:
-            recomputed = _recompute_state_root(db_path, manifest["chain_id"])
-            if recomputed is not None and sr.get("recomputed") != recomputed:
-                problems.append(f"state_root.recomputed: manifest {sr.get('recomputed')!r} != recomputed {recomputed!r}")
-        head = manifest.get("head", {})
-        row = conn.execute(
-            "SELECT height, hash FROM block WHERE chain_id = ? ORDER BY height DESC LIMIT 1",
-            (manifest["chain_id"],),
-        ).fetchone()
-        if row and (row[0] != head.get("height") or row[1] != head.get("hash")):
-            problems.append(f"head: manifest {head} != db head ({row[0]}, {row[1]})")
+        _check_table_digests(problems, conn, manifest, probe)
+        _check_row_counts(problems, conn, manifest)
+        if not skip_state_root:
+            _check_state_root(problems, manifest, db_path, sr)
+        _check_head(problems, conn, manifest, sr)
     finally:
         conn.close()
     return problems
@@ -114,6 +186,11 @@ def main(argv: list[str] | None = None) -> int:
         "--trusted-address", default=TRUSTED_MANIFEST_SIGNER, help="expected signer (default: the repo's trusted constant)"
     )
     ap.add_argument("--db", default=None, help="optional chain.db to re-check manifest content against (read-only)")
+    ap.add_argument(
+        "--skip-state-root",
+        action="store_true",
+        help="waive the state-root recompute checks (skipped/missing/unrecomputable root); printed loudly",
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -154,13 +231,16 @@ def main(argv: list[str] | None = None) -> int:
         ok = False
 
     if args.db:
+        if args.skip_state_root:
+            print("content-check NOTE (--skip-state-root: state-root recompute checks waived)")
         try:
-            for problem in _content_check(manifest, args.db):
+            problems = _content_check(manifest, args.db, skip_state_root=args.skip_state_root)
+            for problem in problems:
                 print(f"content-check FAIL ({problem})")
-                ok = False
+            if not problems:
+                print("content-check OK")
             else:
-                if ok:
-                    print("content-check OK")
+                ok = False
         except Exception as e:  # noqa: BLE001 - content-check failure reports FAIL
             print(f"content-check FAIL ({e})")
             ok = False
