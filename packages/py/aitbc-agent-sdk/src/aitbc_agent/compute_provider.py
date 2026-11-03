@@ -55,8 +55,9 @@ class ComputeProvider(Agent):
         identity: AgentIdentity,
         capabilities: AgentCapabilities,
         coordinator_url: str | None = None,
+        api_key: str | None = None,
     ) -> None:
-        super().__init__(identity, capabilities, coordinator_url)
+        super().__init__(identity, capabilities, coordinator_url, api_key=api_key)
         self.current_offers: list[ResourceOffer] = []
         self.active_jobs: list[JobExecution] = []
         self.earnings: Decimal = Decimal("0")
