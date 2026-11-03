@@ -173,3 +173,12 @@ def test_production_deploy_scripts_retired():
     wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
     assert not (wf / "26_production_deployment.sh").exists()
     assert not (wf / "42_production_deployment_workflow.sh").exists()
+
+
+def test_no_placeholder_sig_or_duplicate_send():
+    """#966: no workflow script posts a placeholder signature or a send fallback."""
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    for sh in wf.glob("*.sh"):
+        src = sh.read_text()
+        assert "0x1234567890" not in src, sh.name
+    assert not (wf / "09_transaction_manager.sh").exists()
