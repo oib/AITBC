@@ -5,6 +5,7 @@ compare, the 'nothing sealed' assertion, prior-run detection, env
 isolation, and the pinned default spawn command line.
 """
 
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -152,3 +153,97 @@ def test_cut_env_swap_roundtrip(tmp_path):
     assert "CHAIN_ID='bc-2'" in flipped
     assert rollback.OLD_CHAIN_ID not in flipped
     assert saved == original
+
+
+# ---------- #856: claim-before-teardown + atomic claim ----------
+
+
+class _UnitsFree:
+    """subprocess.run stub: no bc2 units live."""
+
+    stdout = ""
+
+    def __init__(self, *a, **k):
+        pass
+
+
+def _no_units(monkeypatch):
+    monkeypatch.setattr(rehearsal.subprocess, "run", lambda *a, **k: _UnitsFree())
+
+
+def test_refused_claim_writes_no_lock(tmp_path, monkeypatch):
+    """#856: the unit check runs before the lock write — a run refused for
+    live bc2 units must not leave its claim behind for another rehearsal."""
+    monkeypatch.setattr(
+        rehearsal.subprocess,
+        "run",
+        lambda *a, **k: type("R", (), {"stdout": "bc2-i0.service loaded active running\n"})(),
+    )
+    root = tmp_path / "scratch"
+    with pytest.raises(SystemExit):
+        rehearsal._claim_rehearsal(root)
+    assert not (root / ".lock").exists()
+
+
+def test_claim_then_reclaim_by_holder_is_reentrant(tmp_path, monkeypatch):
+    """`run` claims up front, then phase_stage claims again internally —
+    the second claim by the SAME pid must pass, not refuse."""
+    _no_units(monkeypatch)
+    root = tmp_path / "scratch"
+    rehearsal._claim_rehearsal(root)
+    rehearsal._claim_rehearsal(root)  # must not raise
+    assert (root / ".lock").read_text().strip() == str(os.getpid())
+
+
+def test_stale_lock_is_taken_over_atomically(tmp_path, monkeypatch):
+    _no_units(monkeypatch)
+    root = tmp_path / "scratch"
+    root.mkdir()
+    (root / ".lock").write_text("999999999")  # dead pid
+    rehearsal._claim_rehearsal(root)
+    assert (root / ".lock").read_text().strip() == str(os.getpid())
+
+
+def test_live_lock_still_refuses(tmp_path, monkeypatch):
+    _no_units(monkeypatch)
+    root = tmp_path / "scratch"
+    root.mkdir()
+    (root / ".lock").write_text(str(os.getpid() if os.getpid() != 1 else os.getpid() + 1))
+    # lock holds a live pid that is NOT ours: patch getpid so it looks foreign
+    monkeypatch.setattr(os, "getpid", lambda: 424242)
+    with pytest.raises(SystemExit):
+        rehearsal._claim_rehearsal(root)
+
+
+def test_takeover_race_loser_refuses(tmp_path, monkeypatch):
+    """After os.replace, verify our pid landed; if the winner wrote last,
+    the loser must refuse rather than proceed."""
+    _no_units(monkeypatch)
+    root = tmp_path / "scratch"
+    root.mkdir()
+    (root / ".lock").write_text("999999999")
+    real_replace = os.replace
+
+    def _winner_last(src, dst):
+        real_replace(src, dst)
+        Path(dst).write_text("31337")  # another racer overwrote us
+
+    monkeypatch.setattr(rehearsal.os, "replace", _winner_last)
+    with pytest.raises(SystemExit):
+        rehearsal._claim_rehearsal(root)
+
+
+def test_run_phase_does_not_teardown_when_claim_refused(tmp_path, monkeypatch):
+    """The done_when scenario: `run` on a root whose lock is held must NOT
+    call phase_teardown — that tore the other rehearsal's root down."""
+    monkeypatch.setattr(rollback, "_claim_rehearsal", lambda root: (_ for _ in ()).throw(SystemExit(1)))
+    calls = []
+    monkeypatch.setattr(rollback, "phase_teardown", lambda root: calls.append(root))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["rollback.py", "--scratch", str(tmp_path / "scratch"), "run"],
+    )
+    with pytest.raises(SystemExit):
+        rollback.main()
+    assert calls == []
