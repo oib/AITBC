@@ -860,11 +860,11 @@ ensure_consensus_env_defaults() {
         return
     fi
     if ! grep -q "^BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=" "$BLOCKCHAIN_ENV_FILE"; then
-        echo "BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true" >> "$BLOCKCHAIN_ENV_FILE"
+        "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true"
         log "Added BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true to $BLOCKCHAIN_ENV_FILE"
     fi
     if ! grep -q "^SYNC_STATE_ROOT_VALIDATION_ENABLED=" "$BLOCKCHAIN_ENV_FILE"; then
-        echo "SYNC_STATE_ROOT_VALIDATION_ENABLED=true" >> "$BLOCKCHAIN_ENV_FILE"
+        "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "SYNC_STATE_ROOT_VALIDATION_ENABLED=true"
         log "Added SYNC_STATE_ROOT_VALIDATION_ENABLED=true to $BLOCKCHAIN_ENV_FILE"
     fi
 }
@@ -878,11 +878,11 @@ ensure_gossip_defaults() {
     fi
 
     if ! grep -q "^subscription_enabled=" "$BLOCKCHAIN_ENV_FILE"; then
-        echo "subscription_enabled=true" >> "$BLOCKCHAIN_ENV_FILE"
+        "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "subscription_enabled=true"
         log "Added subscription_enabled=true to $BLOCKCHAIN_ENV_FILE"
     fi
     if ! grep -q "^subscription_transport=" "$BLOCKCHAIN_ENV_FILE"; then
-        echo "subscription_transport=websocket" >> "$BLOCKCHAIN_ENV_FILE"
+        "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "subscription_transport=websocket"
         log "Added subscription_transport=websocket to $BLOCKCHAIN_ENV_FILE"
     fi
 
@@ -894,16 +894,16 @@ ensure_gossip_defaults() {
 
     if [ "$blockchain_mode" = "hub" ]; then
         if ! grep -q "^GOSSIP_BACKEND=" "$BLOCKCHAIN_ENV_FILE"; then
-            echo "GOSSIP_BACKEND=redis" >> "$BLOCKCHAIN_ENV_FILE"
+            "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "GOSSIP_BACKEND=redis"
             log "Added gossip_backend=redis to $BLOCKCHAIN_ENV_FILE"
         fi
         if ! grep -q "^GOSSIP_BROADCAST_URL=" "$BLOCKCHAIN_ENV_FILE"; then
-            echo "GOSSIP_BROADCAST_URL=redis://localhost:6379" >> "$BLOCKCHAIN_ENV_FILE"
+            "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "GOSSIP_BROADCAST_URL=redis://localhost:6379"
             log "Added gossip_broadcast_url to $BLOCKCHAIN_ENV_FILE"
         fi
     else
         if ! grep -q "^GOSSIP_BACKEND=" "$BLOCKCHAIN_ENV_FILE"; then
-            echo "GOSSIP_BACKEND=websocket" >> "$BLOCKCHAIN_ENV_FILE"
+            "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "GOSSIP_BACKEND=websocket"
             log "Added gossip_backend=websocket to $BLOCKCHAIN_ENV_FILE"
         fi
         if ! grep -q "^GOSSIP_WEBSOCKET_URL=" "$BLOCKCHAIN_ENV_FILE"; then
@@ -914,7 +914,7 @@ ensure_gossip_defaults() {
             hub_url=$(grep "^DEFAULT_PEER_RPC_URL=" "$BLOCKCHAIN_ENV_FILE" | cut -d= -f2- | tr -d '[:space:]')
             if [ -n "$hub_url" ] && [ "$hub_url" != "http://127.0.0.1:8202" ]; then
                 hub_url="$(printf '%s' "$hub_url" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
-                echo "GOSSIP_WEBSOCKET_URL=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
+                "$SYSTEMD_ENV_SCRIPT" append "$BLOCKCHAIN_ENV_FILE" "GOSSIP_WEBSOCKET_URL=$hub_url"
                 log "Added gossip_websocket_url to $BLOCKCHAIN_ENV_FILE"
             else
                 warning "GOSSIP_WEBSOCKET_URL left unset — set it (or DEFAULT_PEER_RPC_URL) in $BLOCKCHAIN_ENV_FILE to the hub's URL"
