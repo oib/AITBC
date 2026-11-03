@@ -53,7 +53,19 @@ def check_gates(data: dict[str, Any]) -> list[tuple[str, str, bool]]:
         current = _to_decimal(gate.get("current"))
 
         if status == "passed":
-            results.append((str(name), "status is 'passed'", True))
+            # A numeric gate still has to meet its threshold — accepting
+            # 'passed' blindly lets a hand-edited status override the number
+            # the docstring says is required.
+            if threshold is not None and current is not None and current < threshold:
+                results.append(
+                    (
+                        str(name),
+                        f"status is 'passed' but current={current} below threshold={threshold} ({gate.get('unit', '')})",
+                        False,
+                    )
+                )
+            else:
+                results.append((str(name), "status is 'passed'", True))
             continue
 
         if current is None:
