@@ -141,19 +141,19 @@ class TestSecretLoading:
         # Rewrite hardcoded paths in temp script copy
         content = patched_script.read_text()
         content = content.replace(
-            'CREDENTIALS_DIR="/etc/aitbc/credentials"',
+            'CREDENTIALS_DIR="${AITBC_CREDENTIALS_DIR:-/etc/aitbc/credentials}"',
             f'CREDENTIALS_DIR="{fake_creds}"',
         )
         content = content.replace(
-            'RUN_DIR="/run/aitbc/secrets"',
+            'RUN_DIR="${AITBC_SECRETS_RUN_DIR:-/run/aitbc/secrets}"',
             f'RUN_DIR="{run_dir}"',
         )
         content = content.replace(
-            'AUDIT_LOG="/var/log/aitbc/secrets-audit.log"',
+            'AUDIT_LOG="${AITBC_SECRETS_AUDIT_LOG:-/var/log/aitbc/secrets-audit.log}"',
             f'AUDIT_LOG="{audit_log}"',
         )
         content = content.replace(
-            'ENCRYPTION_KEY_FILE="/etc/aitbc/credentials/encryption_key"',
+            'ENCRYPTION_KEY_FILE="$CREDENTIALS_DIR/encryption_key"',
             f'ENCRYPTION_KEY_FILE="{run_dir}/encryption_key"',
         )
         patched_script.write_text(content)
@@ -181,19 +181,19 @@ class TestSecretLoading:
 
         content = patched_script.read_text()
         content = content.replace(
-            'CREDENTIALS_DIR="/etc/aitbc/credentials"',
+            'CREDENTIALS_DIR="${AITBC_CREDENTIALS_DIR:-/etc/aitbc/credentials}"',
             f'CREDENTIALS_DIR="{fake_creds}"',
         )
         content = content.replace(
-            'RUN_DIR="/run/aitbc/secrets"',
+            'RUN_DIR="${AITBC_SECRETS_RUN_DIR:-/run/aitbc/secrets}"',
             f'RUN_DIR="{run_dir}"',
         )
         content = content.replace(
-            'AUDIT_LOG="/var/log/aitbc/secrets-audit.log"',
+            'AUDIT_LOG="${AITBC_SECRETS_AUDIT_LOG:-/var/log/aitbc/secrets-audit.log}"',
             f'AUDIT_LOG="{audit_log}"',
         )
         content = content.replace(
-            'ENCRYPTION_KEY_FILE="/etc/aitbc/credentials/encryption_key"',
+            'ENCRYPTION_KEY_FILE="$CREDENTIALS_DIR/encryption_key"',
             f'ENCRYPTION_KEY_FILE="{run_dir}/encryption_key"',
         )
         patched_script.write_text(content)
@@ -216,19 +216,19 @@ class TestSecretLoading:
 
         content = patched_script.read_text()
         content = content.replace(
-            'CREDENTIALS_DIR="/etc/aitbc/credentials"',
+            'CREDENTIALS_DIR="${AITBC_CREDENTIALS_DIR:-/etc/aitbc/credentials}"',
             f'CREDENTIALS_DIR="{fake_creds}"',
         )
         content = content.replace(
-            'RUN_DIR="/run/aitbc/secrets"',
+            'RUN_DIR="${AITBC_SECRETS_RUN_DIR:-/run/aitbc/secrets}"',
             f'RUN_DIR="{run_dir}"',
         )
         content = content.replace(
-            'AUDIT_LOG="/var/log/aitbc/secrets-audit.log"',
+            'AUDIT_LOG="${AITBC_SECRETS_AUDIT_LOG:-/var/log/aitbc/secrets-audit.log}"',
             f'AUDIT_LOG="{audit_log}"',
         )
         content = content.replace(
-            'ENCRYPTION_KEY_FILE="/etc/aitbc/credentials/encryption_key"',
+            'ENCRYPTION_KEY_FILE="$CREDENTIALS_DIR/encryption_key"',
             f'ENCRYPTION_KEY_FILE="{run_dir}/encryption_key"',
         )
         patched_script.write_text(content)
