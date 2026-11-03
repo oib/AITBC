@@ -432,9 +432,32 @@ print("STATUS|%s|%s|%s" % (code, port, detail))' | base64 -w0)
                 revive_bad=1
                 printf "  %-14s FAIL: HTTP 403 — signed probe rejected; the probe itself is broken (%s)\n" "$PROBE_HOST" "$sdet"
                 revive_detail="HTTP 403 signature rejected on $PROBE_HOST" ;;
-            *)
+            400|409|422)
+                # Armed-gate business rejections of the well-formed probe
+                # (validation / conflict) — the surface is live past the gate.
                 printf "  %-14s ok: HTTP %s on :%s — revived surface answering post-gate (%s)\n" "$PROBE_HOST" "$code" "$sport" "$sdet"
                 revive_detail="HTTP $code on $PROBE_HOST:$sport" ;;
+            404)
+                case "$sdet" in
+                    *"Not Found"*|*"not found"*"route"*|*"No route"*)
+                        # FastAPI route-miss — the staking surface is NOT
+                        # served on this node at all (#1005).
+                        revive_bad=1
+                        printf "  %-14s FAIL: HTTP 404 route-miss — /rpc/staking/stake not served (%s)\n" "$PROBE_HOST" "$sdet"
+                        revive_detail="HTTP 404 route-miss on $PROBE_HOST" ;;
+                    *)
+                        # The armed gate's expected answer for the ephemeral
+                        # probe: 'Account not found' — a business rejection
+                        # that only exists past the gate.
+                        printf "  %-14s ok: HTTP 404 on :%s — revived surface answering post-gate (%s)\n" "$PROBE_HOST" "$sport" "$sdet"
+                        revive_detail="HTTP 404 on $PROBE_HOST:$sport" ;;
+                esac ;;
+            *)
+                # Any other status (503 module-down, 500 crash, 200, …) is
+                # not a post-gate rejection — the probe verified nothing.
+                revive_bad=1
+                printf "  %-14s FAIL: HTTP %s on :%s — unexpected answer, not a gate rejection (%s)\n" "$PROBE_HOST" "$code" "$sport" "$sdet"
+                revive_detail="HTTP $code unexpected on $PROBE_HOST" ;;
         esac
     elif [ -n "$er" ]; then
         revive_bad=1
