@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-NETWORK="${1:-testnet}"
+NETWORK="${1:-mainnet}"
 # Resolved from this script rather than hardcoded (AITBC-138).
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO_DIR="$REPO_ROOT"
@@ -65,3 +65,31 @@ scrape_configs:
       - targets: ['localhost:9090']
     metrics_path: '/metrics/contracts'
 EOF
+
+# Alert rules the verifier requires — ship them with the same setup run.
+cat > "${MONITORING_DIR}/config/${NETWORK}/alert-rules.yml" << 'RULES'
+groups:
+  - name: aitbc-contracts
+    rules:
+      - alert: ContractFailedTransactions
+        expr: increase(contract_failed_transactions_total[5m]) > 5
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Failed contract transactions above threshold"}
+RULES
+
+# Alertmanager config at the path verify-monitoring.sh checks.
+cat > "${MONITORING_DIR}/config/alertmanager.yml" << 'AM'
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@aitbc'
+route:
+  receiver: 'default'
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://localhost:5001/alerts'
+AM
