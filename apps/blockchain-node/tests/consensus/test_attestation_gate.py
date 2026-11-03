@@ -33,6 +33,11 @@ def _proposer() -> PoAProposer:
     return PoAProposer(config=config, session_factory=lambda: None)  # type: ignore[arg-type,return-value]
 
 
+def _members(*senders: str) -> set[str]:
+    """The consensus participant set the certificate is counted against."""
+    return set(senders)
+
+
 def _commit(sender: str, block_hash: str) -> dict[str, Any]:
     return {
         "message_type": "commit",
@@ -61,15 +66,16 @@ class _FakeAttestationService:
 
 
 def test_certificate_commit_count_counts_distinct_senders() -> None:
-    certificate = [_commit(f"0x{i:040x}", "0xblock") for i in range(3)]
-    assert PoAProposer._certificate_commit_count(certificate, "0xblock") == 3
+    senders = [f"0x{i:040x}" for i in range(3)]
+    certificate = [_commit(a, "0xblock") for a in senders]
+    assert PoAProposer._certificate_commit_count(certificate, "0xblock", _members(*senders)) == 3
 
 
 def test_certificate_commit_count_is_case_insensitive_on_sender() -> None:
     """Two spellings of one validator are one commit, not two."""
     addr = "0x" + "AB" * 20
     certificate = [_commit(addr, "0xblock"), _commit(addr.lower(), "0xblock")]
-    assert PoAProposer._certificate_commit_count(certificate, "0xblock") == 1
+    assert PoAProposer._certificate_commit_count(certificate, "0xblock", _members(addr)) == 1
 
 
 def test_certificate_commit_count_ignores_other_blocks() -> None:
@@ -77,24 +83,24 @@ def test_certificate_commit_count_ignores_other_blocks() -> None:
         _commit("0x" + "1" * 40, "0xblock"),
         _commit("0x" + "2" * 40, "0xotherblock"),
     ]
-    assert PoAProposer._certificate_commit_count(certificate, "0xblock") == 1
+    assert PoAProposer._certificate_commit_count(certificate, "0xblock", _members("0x" + "1" * 40, "0x" + "2" * 40)) == 1
 
 
 def test_certificate_commit_count_ignores_non_commit_messages() -> None:
     prepare = _commit("0x" + "1" * 40, "0xblock")
     prepare["message_type"] = "prepare"
     certificate = [prepare, _commit("0x" + "2" * 40, "0xblock")]
-    assert PoAProposer._certificate_commit_count(certificate, "0xblock") == 1
+    assert PoAProposer._certificate_commit_count(certificate, "0xblock", _members("0x" + "1" * 40, "0x" + "2" * 40)) == 1
 
 
 def test_certificate_commit_count_ignores_malformed_entries() -> None:
     no_sender = _commit("", "0xblock")
     certificate: list[Any] = ["not-a-dict", no_sender, _commit("0x" + "3" * 40, "0xblock")]
-    assert PoAProposer._certificate_commit_count(certificate, "0xblock") == 1
+    assert PoAProposer._certificate_commit_count(certificate, "0xblock", _members("0x" + "3" * 40)) == 1
 
 
 def test_certificate_commit_count_empty_certificate() -> None:
-    assert PoAProposer._certificate_commit_count([], "0xblock") == 0
+    assert PoAProposer._certificate_commit_count([], "0xblock", _members("0x" + "3" * 40)) == 0
 
 
 def test_certificate_commit_count_matches_sync_validator_counting() -> None:
@@ -106,7 +112,21 @@ def test_certificate_commit_count_matches_sync_validator_counting() -> None:
     """
     commit = _commit("0x" + "4" * 40, "0xblock")
     del commit["block_hash"]
-    assert PoAProposer._certificate_commit_count([commit], "0xblock") == 1
+    assert PoAProposer._certificate_commit_count([commit], "0xblock", _members("0x" + "4" * 40)) == 1
+
+
+def test_certificate_commit_count_ignores_non_member_senders() -> None:
+    """A quorum of commits from addresses outside the consensus set counts as zero.
+
+    Pin for #843: the proposer must not let a certificate fabricated by
+    non-members cover the attestation minimum, or it would attach a
+    certificate no verifier should honour.
+    """
+    members = _members("0x" + "1" * 40, "0x" + "2" * 40)
+    outsiders = [_commit(f"0x{'f' * 39}{i:x}", "0xblock") for i in range(4)]
+    members_commits = [_commit("0x" + "1" * 40, "0xblock")]
+    assert PoAProposer._certificate_commit_count(outsiders, "0xblock", members) == 0
+    assert PoAProposer._certificate_commit_count(outsiders + members_commits, "0xblock", members) == 1
 
 
 # --- listener lifecycle ---------------------------------------------------
