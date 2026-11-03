@@ -93,9 +93,16 @@ setup_python_environment() {
     # Activate virtual environment
     source venv/bin/activate
 
-    # Install essential blockchain-node dependencies
-    log_info "Installing essential dependencies"
-    pip install pydantic pydantic-settings fastapi uvicorn sqlalchemy sqlmodel psycopg2-binary psycopg2 aiosqlite httpx redis prometheus-client alembic
+    # Install pinned dependencies only — bare package installs bypass the
+    # lockfile (#838, e.g. the old list pulled psycopg 3 while the repo pins
+    # psycopg2-binary).
+    if [ -f "requirements.txt" ]; then
+        pip install -r requirements.txt
+    else
+        log_error "requirements.txt not found — refusing unpinned installs"
+        deactivate
+        exit 1
+    fi
 
     # Install blockchain-node package in editable mode
     if [ -f "apps/blockchain-node/pyproject.toml" ]; then
