@@ -5,9 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .logger import get_logger
 from .metrics import metrics_registry
 
 from .config import settings
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -96,11 +99,16 @@ class ProposerSignatureValidator:
             from aitbc.crypto.signature_recovery import canonical_address
 
             proposer_canonical = canonical_address(proposer)
-            if any(canonical_address(v) == proposer_canonical for v in validator_set):
-                valid, reason = self._validate_attestations(block_data)
-                if not valid:
-                    metrics_registry.increment("sync_signature_rejected_total")
-                    return (False, reason)
+            if not any(canonical_address(v) == proposer_canonical for v in validator_set):
+                # #842: a proposer outside the set is not "no attestation
+                # needed" — multi-validator consensus is on, so the block is
+                # invalid on its face.
+                metrics_registry.increment("sync_signature_rejected_total")
+                return (False, "Block proposer is not in the configured validator set")
+            valid, reason = self._validate_attestations(block_data)
+            if not valid:
+                metrics_registry.increment("sync_signature_rejected_total")
+                return (False, reason)
 
         metrics_registry.increment("sync_signature_validated_total")
         return (True, "Valid")
@@ -114,7 +122,10 @@ class ProposerSignatureValidator:
             import json
 
             return {v.get("address", "").lower() for v in json.loads(validator_set) if v.get("address")}
-        except Exception:
+        except Exception as exc:
+            # #842: a VALIDATOR_SET that does not parse must not silently read
+            # as "no validators" — that turns attestation enforcement off.
+            logger.warning("VALIDATOR_SET failed to parse (%s) — treating as empty", exc)
             return set()
 
     def _effective_min_attestations(self) -> int:
@@ -174,7 +185,7 @@ class ProposerSignatureValidator:
             signature = att.get("signature", "")
             if not validator or not signature:
                 continue
-            if validator_canonical and canonical_address(validator) not in validator_canonical:
+            if canonical_address(validator) not in validator_canonical:
                 continue
             # Count each validator once: the PBFT path below already dedups via
             # ``seen``, and a duplicated entry must not count twice toward
@@ -228,7 +239,7 @@ class ProposerSignatureValidator:
             expected_digest = hashlib.sha256(f"{expected_block_hash}:{sequence_number}:{view_number}".encode()).hexdigest()
             if digest.lower() != expected_digest.lower():
                 continue
-            if validator_canonical and canonical_address(sender) not in validator_canonical:
+            if canonical_address(sender) not in validator_canonical:
                 continue
             sender_canonical = canonical_address(sender)
             if sender_canonical in seen:
