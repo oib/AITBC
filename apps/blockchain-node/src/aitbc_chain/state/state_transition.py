@@ -2230,7 +2230,11 @@ class StateTransition:
                 session.refresh(sender_account)
                 sender_account.balance += receipt.minted_amount  # type: ignore[union-attr]
                 receipt.status = "claimed"
-                receipt.claimed_at = datetime.now(UTC)
+                receipt.claimed_at = (
+                    block_time
+                    if (block_version is not None and block_version >= 18 and block_time is not None)
+                    else datetime.now(UTC)
+                )
                 receipt.claimed_by = sender_addr
                 logger.info(
                     "Claimed receipt %s: minted_amount=%s, claimed_by=%s", receipt_id, receipt.minted_amount, sender_addr
