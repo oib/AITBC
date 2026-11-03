@@ -91,8 +91,19 @@ def main() -> int:
         if not keep:
             result[table] = {"class": cls, "empty_cols": 1}
             continue
+        # Datetime normalization only for TEXT columns: a REAL/INTEGER run
+        # through strftime collapses distinct floats to one canonical text
+        # (0.5 vs 0.5000000001 digested identically — #927).
+        declared = {c[1]: (c[2] or "").upper() for c in info}
         sel = ", ".join(
-            f'lower("{n}")' if n in addr_cols else f'"{n}"' if n in jdrop or n in jfalsy else dtnorm.format(n, n) for n in keep
+            f'lower("{n}")'
+            if n in addr_cols
+            else f'"{n}"'
+            if n in jdrop or n in jfalsy
+            else dtnorm.format(n, n)
+            if "TEXT" in declared.get(n, "TEXT")
+            else f'"{n}"'
+            for n in keep
         )
         where, args = "", ()
         if "chain_id" in names:
