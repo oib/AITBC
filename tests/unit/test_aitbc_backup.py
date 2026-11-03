@@ -503,3 +503,41 @@ esac
     # good snapshot is pruned per the retention rules, not protected.
     assert "FAILED" in log or "ERROR" in log
     assert old_good.exists() or "no good snapshot" in log or "pruning skipped" in log
+
+
+def test_failed_keystore_tar_gives_nonzero_exit_and_no_archive(env):
+    """#895: a leg failure must flip the exit status and leave no half-written
+    archive under a good name. The tar stub fails on the keystore dir."""
+    fail_tar = """#!/bin/sh
+case "$*" in
+  *keystore*) exit 1;;
+  *) exec /usr/bin/tar "$@";;
+esac
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "tar").write_text(fail_tar)
+    (bin_dir / "tar").chmod(0o755)
+
+    r = _run(env)
+    log = _log(env)
+    assert r.returncode != 0
+    assert "Keystore backup FAILED" in log
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert not (today / "keystore.tar.gz").exists()
+
+
+def test_sqlite_leg_failure_also_gives_nonzero_exit(env):
+    """#895 follow-through: the error must survive the find|while subshell."""
+    fail_sqlite3 = """#!/bin/sh
+case "$2" in
+  *.dump*) exit 1;;
+  *) seq 1 50000;;
+esac
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "sqlite3").write_text(fail_sqlite3)
+    (bin_dir / "sqlite3").chmod(0o755)
+
+    r = _run(env)
+    assert r.returncode != 0
+    assert "FAILED" in _log(env)
