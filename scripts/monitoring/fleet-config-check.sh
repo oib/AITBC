@@ -225,7 +225,12 @@ for h in $HOSTS; do
     fset=""; rset=""
     [ -n "$val" ] && [ "$val" != "UNREACHABLE" ] && fset=1
     [ -n "$run" ] && [ "$run" != "UNREACHABLE" ] && [ "$run" != "NOTRUNNING" ] && rset=1
-    if [ -n "$fset" ] || [ -n "$rset" ]; then
+    # A host that cannot be asked is a flag, not an "unset" — the section
+    # exists to prove the switch is OFF (#1011).
+    if [ "$val" = "UNREACHABLE" ] || [ "$run" = "UNREACHABLE" ]; then
+        skip_flagged=1
+        printf "  %-14s UNREACHABLE — cannot verify the kill switch is unset\n" "$h"
+    elif [ -n "$fset" ] || [ -n "$rset" ]; then
         skip_flagged=1
         printf "  %-14s SET: file=%s running=%s <- signature validation disabled until then\n" \
             "$h" "${val:-<unset>}" "${run:-<unset>}"
@@ -250,7 +255,11 @@ for h in $HOSTS; do
     fset=""; rset=""
     [ -n "$val" ] && [ "$val" != "UNREACHABLE" ] && fset=1
     [ -n "$run" ] && [ "$run" != "UNREACHABLE" ] && [ "$run" != "NOTRUNNING" ] && rset=1
-    if [ -n "$fset" ] || [ -n "$rset" ]; then
+    # Unreadable host = flag, never reported as unset (#1011).
+    if [ "$val" = "UNREACHABLE" ] || [ "$run" = "UNREACHABLE" ]; then
+        mock_flagged=1
+        printf "  %-14s UNREACHABLE — cannot verify the mock flag is unset\n" "$h"
+    elif [ -n "$fset" ] || [ -n "$rset" ]; then
         mock_flagged=1
         printf "  %-14s SET: file=%s running=%s <- mock ZK verification enabled\n" \
             "$h" "${val:-<unset>}" "${run:-<unset>}"
