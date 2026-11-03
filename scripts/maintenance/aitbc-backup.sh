@@ -80,8 +80,11 @@ log()  { _log info    "$1"; }
 warn() { _log warning "WARN: $1"; }
 error(){ _log err     "ERROR: $1" >&2; echo 1 >> "$_BACKUP_ERR_FLAG"; }
 
+# Key archives must never exist group/world-readable — create them under a
+# tight umask rather than tightening at the end of the run (#897).
+umask 077
 log "Starting AITBC backup to ${BACKUP_DIR}"
-mkdir -p "${BACKUP_DIR}"
+mkdir -p -m 0700 "${BACKUP_DIR}"
 
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 # Back up AITBC PostgreSQL databases that actually exist.
@@ -475,7 +478,7 @@ log "Backup complete: ${BACKUP_DIR} (total: ${TOTAL})"
 
 # Ensure backup artifacts are not world-readable
 find "${BACKUP_DIR}" -type f -exec chmod 600 {} + 2>/dev/null || true
-chmod 750 "${BACKUP_DIR}" 2>/dev/null || true
+chmod 700 "${BACKUP_DIR}" 2>/dev/null || true
 
 # ── Prune old backups ─────────────────────────────────────────────────────────
 # Age is read from the directory NAME (YYYYMMDD_HHMMSS), never mtime — any
