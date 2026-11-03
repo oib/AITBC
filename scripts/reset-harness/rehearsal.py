@@ -679,6 +679,7 @@ def _claim_rehearsal(root: Path) -> None:
     (a crashed run) and taken over; a live pid refuses."""
     lock = root / ".lock"
     root.mkdir(parents=True, exist_ok=True)
+    reset_guard.claim_scratch_root(root)
     if lock.exists():
         alive = False
         try:
@@ -2187,7 +2188,9 @@ def phase_teardown(root: Path) -> None:
         print(json.dumps({"before": before, "after": after}, indent=2), file=sys.stderr)
     else:
         print("[+] live unit snapshot unchanged (ActiveEnterTimestamp + MainPID)")
-    # Delete the whole scratch tree and show it empty.
+    # Delete the whole scratch tree — only after proving it was claimed as
+    # scratch (#855: the path must still carry the claim sentinel).
+    reset_guard.require_scratch_sentinel(root)
     shutil.rmtree(root, ignore_errors=True)
     if root.exists():
         raise _fail(f"teardown incomplete — {root} still exists")
