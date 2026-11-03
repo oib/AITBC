@@ -2,7 +2,7 @@
 
 # Deploy blockchain node inside incus container aitbc
 
-set -e
+set -euo pipefail
 
 # shellcheck source=scripts/deployment/deploy/deploy-env.sh
 source "$(dirname "$0")/deploy-env.sh"
