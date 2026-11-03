@@ -72,7 +72,8 @@ print('transplanted:', row['transfer_id'][:20], 'pending')
 \""
 
 echo "==> step 3: explicit relay on ${RELAYER_HOST} (signed release, database mempool)"
-ssh "$RELAYER_HOST" 'cat > /tmp/bridge-relay-trigger.py' <<'PYEOF'
+RELAY_TMP=$(ssh "$RELAYER_HOST" 'mktemp /tmp/bridge-relay-trigger.XXXXXX.py')
+ssh "$RELAYER_HOST" "cat > ${RELAY_TMP}" <<'PYEOF'
 import os, sys, logging
 logging.basicConfig(level=logging.INFO)
 for f in ("/etc/aitbc/blockchain-island.env", "/etc/aitbc/node-island.env",
@@ -100,7 +101,11 @@ b = get_cross_chain_bridge()
 n = b._relay_pending_transfers(os.environ.get("SOURCE_CHAIN", "bc-2"))
 print("relayed:", n)
 PYEOF
-ssh "$RELAYER_HOST" "/opt/aitbc/venv/bin/python /tmp/bridge-relay-trigger.py"
+# The trigger used to live at a fixed /tmp path (persisted world-readable)
+# and ran with default chains regardless of the flags (#909): mktemp path,
+# the chosen chains are exported into the remote env, and the file is
+# removed while preserving the relay's exit status.
+ssh "$RELAYER_HOST" "SOURCE_CHAIN='${SOURCE_CHAIN}' CHAIN_ID='${TARGET_CHAIN}' /opt/aitbc/venv/bin/python ${RELAY_TMP}; rc=\$?; rm -f ${RELAY_TMP}; exit \$rc"
 
 echo "==> step 4: post-state"
 ssh "$RELAYER_HOST" "python3 -c \"
