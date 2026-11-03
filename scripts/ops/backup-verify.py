@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+from datetime import UTC, datetime
 import gzip
 import json
 import os
@@ -136,10 +137,28 @@ def row_counts(db: Path, tables: list[str]) -> dict[str, int]:
     return {t: int(_sqlite(db, f"SELECT COUNT(*) FROM {t};") or 0) for t in tables}  # nosec B608
 
 
-def verify_set(set_dir: Path, scratch: Path, baseline: dict | None) -> tuple[list[str], dict]:
+_SET_TS = re.compile(r"(\d{8})_(\d{6})")
+
+
+def _set_age_hours(set_dir: Path) -> float | None:
+    """Age of a generation dir from its YYYYMMDD_HHMMSS name; None if unnamed."""
+    m = _SET_TS.search(set_dir.name)
+    if not m:
+        return None
+    ts = datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S").replace(tzinfo=UTC)
+    return (datetime.now(UTC) - ts).total_seconds() / 3600
+
+
+def verify_set(
+    set_dir: Path, scratch: Path, baseline: dict | None, max_age_hours: float | None = 36
+) -> tuple[list[str], dict]:
     scratch.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
     report: dict = {"set": set_dir.name, "chain": [], "svc": [], "pg": {}}
+    age = _set_age_hours(set_dir)
+    report["age_hours"] = age
+    if max_age_hours is not None and age is not None and age > max_age_hours:
+        errors.append(f"{set_dir.name}: backup set is {age:.0f}h old (max {max_age_hours}h)")
     for gz in sorted(set_dir.glob("chain_*.db.gz")):
         errs = check_chain_dump(gz, scratch)
         db = scratch / gz.name.removesuffix(".gz")
@@ -164,6 +183,11 @@ def verify_set(set_dir: Path, scratch: Path, baseline: dict | None) -> tuple[lis
         errs, roles = check_pg_dump(gz)
         report["pg"][gz.name] = {"ok": not errs, "roles": roles}
         errors.extend(errs)
+    # An empty newest set must not read CLEAN: no chain dump means the backup
+    # run itself never produced one — that is a failure, not "nothing found"
+    # (#911).
+    if not report["chain"]:
+        errors.append(f"{set_dir.name}: no chain_*.db.gz artifacts in the newest set")
     return errors, report
 
 
@@ -176,6 +200,9 @@ def _write_textfile(path: Path, ok: int, report: dict) -> None:
         "# TYPE aitbc_backup_verify_artifacts gauge\n"
         f'aitbc_backup_verify_artifacts{{set="{report["set"]}"}} '
         f"{len(report['chain']) + len(report['svc']) + len(report['pg'])}\n"
+        "# TYPE aitbc_backup_verify_age_hours gauge\n"
+        f'aitbc_backup_verify_age_hours{{set="{report["set"]}"}} '
+        f"{report['age_hours'] if report.get('age_hours') is not None else 'nan'}\n"
     )
     os.replace(tmp, path)
 
@@ -186,6 +213,13 @@ def main() -> int:
     ap.add_argument("--base", type=Path, default=Path("/var/backups/aitbc"))
     ap.add_argument("--baseline", type=Path, help="JSON {artifact: {table: min_rows}}")
     ap.add_argument("--textfile", type=Path, help="node_exporter textfile output")
+    ap.add_argument(
+        "--max-age",
+        type=float,
+        default=36,
+        metavar="HOURS",
+        help="fail when the newest set's timestamp is older than this (default: 36)",
+    )
     ap.add_argument("--scratch", type=Path, help="scratch dir (default: /var/tmp/backup-verify-<pid>)")
     args = ap.parse_args()
 
@@ -203,7 +237,7 @@ def main() -> int:
     scratch = args.scratch or Path(scratch_ctx.name)  # type: ignore[union-attr]
     scratch.mkdir(parents=True, exist_ok=True)
     try:
-        errors, report = verify_set(set_dir, scratch, baseline)
+        errors, report = verify_set(set_dir, scratch, baseline, args.max_age)
     finally:
         if scratch_ctx is None and args.scratch and not os.environ.get("BV_KEEP_SCRATCH"):
             subprocess.run(["rm", "-rf", str(scratch)], check=False)
