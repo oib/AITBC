@@ -460,7 +460,6 @@
       5 scripts/training/agent_communication_training.py
       3 scripts/training/scenario_47_sdk_test.py
       1 scripts/utils/claim-task.py
-      2 scripts/utils/cleanup_fake_gpus.py
       1 scripts/utils/create_structured_issue.py
       5 scripts/utils/end_to_end_workflow.py
       2 scripts/utils/migrate_addresses_to_0x.py
