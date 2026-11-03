@@ -154,7 +154,7 @@ echo "=========================="
 
 run_test_verbose "AI service optimization" "
     echo 'Optimizing AI service performance...'
-    ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs'
+    ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs"
 "
 
 # 10. CROSS-NODE OPTIMIZATION
@@ -165,7 +165,7 @@ echo "============================"
 run_test_verbose "Cross-node optimization" "
     echo 'Optimizing cross-node synchronization...'
     LOCAL_HEIGHT=\$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
-    REMOTE_HEIGHT=\$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
+    REMOTE_HEIGHT=\$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height")
     SYNC_DIFF=\$((LOCAL_HEIGHT - REMOTE_HEIGHT))
     echo \"Local height: \$LOCAL_HEIGHT\"
     echo \"Remote height: \$REMOTE_HEIGHT\"
@@ -229,7 +229,7 @@ run_test_verbose "Comprehensive system test" "
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Coordinator API: \$(curl -fsS http://localhost:8203/health/live >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Market: \$(curl -s $BLOCKCHAIN_RPC/rpc/market/listings >/dev/null && echo 'Working' || echo 'Failed')\"
-    echo \"✅ AI Service: \$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'Working' || echo 'Failed')\"
+    echo \"✅ AI Service: \$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'Working' || echo 'Failed")\"
     echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'Working' || echo 'Failed')\"
 "
 

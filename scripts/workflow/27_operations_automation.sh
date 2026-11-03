@@ -98,8 +98,8 @@ check_blockchain_health() {
     fi
 
     # Check remote node
-    if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/info' >/dev/null 2>&1; then
-        local remote_height=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
+    if ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/info" >/dev/null 2>&1; then
+        local remote_height=$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height")
         echo "Remote node: Height=$remote_height"
         log_ops "Remote blockchain: height=$remote_height"
 
@@ -162,12 +162,12 @@ check_market_activity() {
     echo "🛒 MARKET ACTIVITY CHECK"
     echo "==========================="
 
-    if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/market/listings' >/dev/null 2>&1; then
-        local listings=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total')
+    if ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/market/listings" >/dev/null 2>&1; then
+        local listings=$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total")
         echo "Active listings: $listings"
 
         # Check AI activity
-        local ai_stats=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats 2>/dev/null || echo "{}"')
+        local ai_stats=$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats 2>/dev/null || echo '{}'")
         echo "AI service status: Available"
 
         log_ops "Market: listings=$listings"
@@ -248,7 +248,7 @@ BLOCKCHAIN STATUS
 ----------------
 Local Height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "N/A")
 Total Transactions: $(curl -s $BLOCKCHAIN_RPC/rpc/info | jq .total_transactions 2>/dev/null || echo "N/A")
-Remote Height: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height' 2>/dev/null || echo "N/A")
+Remote Height: $(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height" 2>/dev/null || echo "N/A")
 
 GPU STATUS
 ----------
@@ -256,7 +256,7 @@ $(ssh aitbc "nvidia-smi --query-gpu=name,utilization.gpu,temperature.gpu --forma
 
 MARKET STATUS
 ------------------
-Active Listings: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total' 2>/dev/null || echo "N/A")
+Active Listings: $(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total" 2>/dev/null || echo "N/A")
 
 SERVICES
 --------

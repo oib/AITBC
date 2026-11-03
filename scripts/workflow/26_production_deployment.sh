@@ -167,7 +167,13 @@ echo "Verifying cross-node synchronization..."
 
 # Get current heights
 LOCAL_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)
-REMOTE_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
+REMOTE_HEIGHT=$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height")
+# An empty/non-numeric height means the remote read failed — fail visibly,
+# never compare against an implicit zero (#962).
+if ! [[ "$LOCAL_HEIGHT" =~ ^[0-9]+$ ]] || ! [[ "$REMOTE_HEIGHT" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: height read failed (local='${LOCAL_HEIGHT:-empty}' remote='${REMOTE_HEIGHT:-empty}')" >&2
+    exit 1
+fi
 SYNC_DIFF=$((LOCAL_HEIGHT - REMOTE_HEIGHT))
 
 echo "Local height: $LOCAL_HEIGHT"
@@ -179,7 +185,7 @@ if [ "$SYNC_DIFF" -gt 100 ]; then
     ssh aitbc "/opt/aitbc/scripts/fast_bulk_sync.sh"
 
     # Re-check after bulk sync
-    NEW_REMOTE_HEIGHT=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height')
+    NEW_REMOTE_HEIGHT=$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height")
     NEW_SYNC_DIFF=$((LOCAL_HEIGHT - NEW_REMOTE_HEIGHT))
     echo "Post-sync difference: $NEW_SYNC_DIFF"
 fi

@@ -195,7 +195,7 @@ check_service_metrics() {
     echo "Checking service-specific metrics..."
 
     # AI Service metrics
-    local ai_stats=$(ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' 2>/dev/null)
+    local ai_stats=$(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats" 2>/dev/null)
     if [ -n "$ai_stats" ]; then
         local ai_jobs=$(echo "$ai_stats" | jq .total_jobs 2>/dev/null || echo "0")
         local ai_revenue=$(echo "$ai_stats" | jq .total_revenue 2>/dev/null || echo "0")
@@ -291,8 +291,8 @@ Cross-node Sync: $(( $(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .hei
 
 SERVICE METRICS
 ---------------
-AI Jobs: $(ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo "N/A")
-AI Revenue: $(ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_revenue' 2>/dev/null || echo "N/A") AIT
+AI Jobs: $(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs" 2>/dev/null || echo "N/A")
+AI Revenue: $(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_revenue" 2>/dev/null || echo "N/A") AIT
 Market Listings: $(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings | jq '.listings | length' 2>/dev/null || echo "N/A")
 Contract Files: $(find /opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/ -name "*.py" 2>/dev/null | wc -l)
 
@@ -350,7 +350,7 @@ run_continuous_monitoring() {
 
         # Service health checks
         check_service_health "Blockchain RPC" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
-        check_service_health "AI Service" "ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats'"
+        check_service_health "AI Service" "ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats""
         check_service_health "Coordinator API" "curl -s http://localhost:$COORDINATOR_PORT/health/live"
         echo ""
 
@@ -377,7 +377,7 @@ run_quick_health_check() {
 
     # Service health
     check_service_health "Blockchain RPC" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
-    check_service_health "AI Service" "ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats'"
+    check_service_health "AI Service" "ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats""
     check_service_health "Coordinator API" "curl -s http://localhost:$COORDINATOR_PORT/health/live"
     check_service_health "Market" "curl -s http://localhost:$GENESIS_PORT/rpc/market/listings"
     echo ""
