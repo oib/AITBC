@@ -21,8 +21,9 @@ def run_command(cmd, container=None):
     print(f"Running: {' '.join(argv)}")
     result = subprocess.run(argv, capture_output=True, text=True)
     if result.returncode != 0:
+        # #893: a failed deploy step is fatal — no silent success banner.
         print(f"Error: {result.stderr}")
-        return False
+        sys.exit(1)
     return True
 
 
@@ -46,42 +47,19 @@ def deploy_to_container():
 
     # Setup Python environment in container
     print("\n🐍 Setting up Python environment...")
-    ok = run_command("cd /opt/aitbc && python3 -m venv venv", container)
-    if not ok:
-        print("Error: deploy step failed — aborting")
-        sys.exit(1)
-    ok = run_command("cd /opt/aitbc && source venv/bin/activate && pip install fastapi uvicorn httpx sqlmodel", container)
-    if not ok:
-        print("Error: deploy step failed — aborting")
-        sys.exit(1)
+    run_command("cd /opt/aitbc && python3 -m venv venv", container)
+    run_command("cd /opt/aitbc && source venv/bin/activate && pip install fastapi uvicorn httpx sqlmodel", container)
 
     # Install dependencies
     print("\n📦 Installing dependencies...")
-    ok = run_command("cd /opt/aitbc/apps/coordinator-api && source ../../venv/bin/activate && pip install -e .", container)
-    if not ok:
-        print("Error: deploy step failed — aborting")
-        sys.exit(1)
-    ok = run_command("cd /opt/aitbc/apps/blockchain-node && source ../../venv/bin/activate && pip install -e .", container)
-    if not ok:
-        print("Error: deploy step failed — aborting")
-        sys.exit(1)
-    ok = run_command(
-        "cd /opt/aitbc && source venv/bin/activate && pip install -e apps/market apps/trading apps/wallet", container
-    )
-    if not ok:
-        print("Error: deploy step failed — aborting")
-        sys.exit(1)
+    run_command("cd /opt/aitbc/apps/coordinator-api && source ../../venv/bin/activate && pip install -e .", container)
+    run_command("cd /opt/aitbc/apps/blockchain-node && source ../../venv/bin/activate && pip install -e .", container)
+    run_command("cd /opt/aitbc && source venv/bin/activate && pip install -e apps/market apps/trading apps/wallet", container)
 
     # Install systemd service files from the repo
     print("\n⚙️ Installing systemd services...")
-    ok = run_command("find /opt/aitbc/apps -name 'aitbc-*.service' -exec cp {} /etc/systemd/system/ \\;", container)
-    if not ok:
-        print("Error: deploy step failed — aborting")
-        sys.exit(1)
-    ok = run_command("systemctl daemon-reload", container)
-    if not ok:
-        print("Error: deploy step failed — aborting")
-        sys.exit(1)
+    run_command("find /opt/aitbc/apps -name 'aitbc-*.service' -exec cp {} /etc/systemd/system/ \\;", container)
+    run_command("systemctl daemon-reload", container)
 
     # Enable and start services
     print("\n🚀 Starting AITBC services...")
@@ -95,13 +73,9 @@ def deploy_to_container():
         "aitbc-wallet",
     ]
     for svc in services:
-        if not run_command(f"systemctl enable {svc}", container):
-            print("Error: deploy step failed — aborting")
-            sys.exit(1)
+        run_command(f"systemctl enable {svc}", container)
     for svc in services:
-        if not run_command(f"systemctl start {svc}", container):
-            print("Error: deploy step failed — aborting")
-            sys.exit(1)
+        run_command(f"systemctl start {svc}", container)
 
     # Wait for services to start
     print("\n⏳ Waiting for services to start...")
