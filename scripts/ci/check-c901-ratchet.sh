@@ -31,8 +31,19 @@ fi
 
 current="$(mktemp)"
 trap 'rm -f "$current"' EXIT
-{ "$PYTHON" -m ruff check . --select C901 --output-format concise 2>/dev/null || true; } \
-    | grep -E ':[0-9]+:[0-9]+: C901 ' | cut -d: -f1 | sort | uniq -c > "$current"
+# A ruff failure must not masquerade as a clean scan: the old `|| true`
+# swallowed a missing/broken interpreter and produced an empty $current,
+# which reads as "zero violations" — a silent pass (#981).
+ruff_out="$(mktemp)"
+trap 'rm -f "$current" "$ruff_out"' EXIT
+ruff_rc=0
+"$PYTHON" -m ruff check . --select C901 --output-format concise > "$ruff_out" 2>/dev/null || ruff_rc=$?
+# ruff: 0 clean, 1 findings, >=2 couldn't run — only the last is a gate failure
+if [ "$ruff_rc" -ge 2 ]; then
+    echo "C901 ratchet: ruff exited $ruff_rc — refusing to score an empty scan as green" >&2
+    exit 1
+fi
+grep -E ':[0-9]+:[0-9]+: C901 ' "$ruff_out" | cut -d: -f1 | sort | uniq -c > "$current" || true
 
 if [ "${1:-}" = "--update" ]; then
     sort -k2 "$current" > "$BASELINE"
