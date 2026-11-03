@@ -1132,6 +1132,12 @@ ensure_consensus_env_defaults() {
 setup_credentials() {
     log "Setting up secure credentials..."
 
+    # #870: umask 077 is needed while writing secret files below, but it must
+    # not leak past this step -- the venv created next would end up 0700 and
+    # every service running as aitbc* would fail to read site-packages.
+    local _creds_umask
+    _creds_umask=$(umask)
+
     # Generate secure secrets if they don't exist
     if [ ! -f "/etc/aitbc/credentials/api_hash_secret" ]; then
         log "Generating API_KEY_HASH_SECRET..."
@@ -1328,6 +1334,10 @@ EOF
         warning "load-keystore-secrets.sh not found, skipping runtime secrets generation"
     fi
 
+    # Restore the caller's umask so secret-write scoping cannot leak into
+    # later steps (venv creation, package installs, env files).
+    umask "$_creds_umask"
+
     success "Secure credentials setup completed"
 }
 
@@ -1496,6 +1506,19 @@ setup_venvs() {
         log "AITBC CLI installed"
     else
         warning "CLI directory not found at /opt/aitbc/cli"
+    fi
+
+    # #870: verify the thing that used to break, rather than trusting the
+    # umask bookkeeping above -- a 077 leak left the venv 0700 and every
+    # aitbc* service failed on import.
+    if [ -x /opt/aitbc/venv/bin/python ]; then
+        if ! sudo -u aitbc test -r /opt/aitbc/venv/bin/python \
+            || ! sudo -u aitbc /opt/aitbc/venv/bin/python -c "import sys; sys.exit(0)" 2>/dev/null; then
+            warning "/opt/aitbc/venv is not readable by the aitbc service user (umask leak?)."
+            warning "Services run as aitbc-* users and cannot start from an unreadable venv."
+            error "Fix: chmod -R a+rX /opt/aitbc/venv"
+        fi
+        log "Verified /opt/aitbc/venv is readable by the aitbc user"
     fi
 
     success "Virtual environments setup completed"
