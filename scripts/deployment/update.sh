@@ -59,6 +59,7 @@ HEALTH_CHECK_SCRIPT="$AITBC_ROOT/scripts/monitoring/health_check.sh"
 LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
 INSTALL_PROFILES_SCRIPT="$AITBC_ROOT/scripts/deployment/install-profiles.sh"
 RUN_MIGRATIONS_SCRIPT="$AITBC_ROOT/scripts/deployment/run-migrations.sh"
+SYSTEMD_ENV_SCRIPT="$AITBC_ROOT/scripts/utils/systemd-env.sh"
 
 # Public mirror. The canonical Gitea URL is operator-private and is not
 # published in the repo: resolve it per run via --gitea <url>,
@@ -249,26 +250,40 @@ check_repo() {
 }
 
 # ----------------------------------------------------------------------------
+# Read one key from the node env files with systemd EnvironmentFile semantics.
+#
+# These files used to be `source`d, which executes them as shell — a value with
+# an unquoted space or `#` either errored (swallowed by 2>/dev/null, leaving the
+# variable unset) or ran whatever the file contained. systemd itself only parses
+# KEY=VALUE lines; systemd-env.sh implements that parse in a subprocess.
+#
+# Precedence matches the old source order: blockchain.env first, then node.env,
+# and an ambient environment value is used when no file sets the key.
+# Usage: _env_val KEY [lowercase_alias]
+# ----------------------------------------------------------------------------
+_env_val() {
+    local key="$1" alias="${2:-}" f v="" got=""
+    for f in "$BLOCKCHAIN_ENV_FILE" "$NODE_ENV_FILE"; do
+        [ -f "$f" ] || continue
+        if got=$("$SYSTEMD_ENV_SCRIPT" get "$f" "$key" 2>/dev/null); then
+            v="$got"
+        elif [ -n "$alias" ] && got=$("$SYSTEMD_ENV_SCRIPT" get "$f" "$alias" 2>/dev/null); then
+            v="$got"
+        fi
+    done
+    printf '%s' "${v:-${!key:-}}"
+}
+
+# ----------------------------------------------------------------------------
 # Load node role from env files (mirrors link-systemd.sh logic)
 # Returns: "blockchain_mode:market_role:hardware_profile"
 # ----------------------------------------------------------------------------
 get_node_role() {
-    local blockchain_mode="" market_role="" hardware_profile=""
-    if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
-        # shellcheck disable=SC1090
-        source "$BLOCKCHAIN_ENV_FILE" 2>/dev/null
-        # Support both UPPER_CASE and lower_case legacy env files.
-        blockchain_mode="${BLOCKCHAIN_MODE:-${blockchain_mode:-}}"
-        market_role="${MARKET_ROLE:-${market_role:-}}"
-        hardware_profile="${HARDWARE_PROFILE:-${hardware_profile:-}}"
-    fi
-    if [ -f "$NODE_ENV_FILE" ]; then
-        # shellcheck disable=SC1090
-        source "$NODE_ENV_FILE" 2>/dev/null
-        blockchain_mode="${BLOCKCHAIN_MODE:-${blockchain_mode:-}}"
-        market_role="${MARKET_ROLE:-${market_role:-}}"
-        hardware_profile="${HARDWARE_PROFILE:-${hardware_profile:-}}"
-    fi
+    local blockchain_mode market_role hardware_profile
+    # Support both UPPER_CASE and lower_case legacy env files.
+    blockchain_mode=$(_env_val BLOCKCHAIN_MODE blockchain_mode)
+    market_role=$(_env_val MARKET_ROLE market_role)
+    hardware_profile=$(_env_val HARDWARE_PROFILE hardware_profile)
 
     # Auto-detect GPU via nvidia-smi. If the env file is not set, default to
     # the detected profile. If it is explicitly set to 'nogpu' while a GPU is
@@ -1011,16 +1026,10 @@ run_health_check() {
 }
 
 verify_proposer() {
-    local blockchain_mode=""
-    if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
-        # shellcheck disable=SC1090
-        source "$BLOCKCHAIN_ENV_FILE" 2>/dev/null
-    fi
-    if [ -f "$NODE_ENV_FILE" ]; then
-        # shellcheck disable=SC1090
-        source "$NODE_ENV_FILE" 2>/dev/null
-    fi
-    blockchain_mode="${BLOCKCHAIN_MODE:-}"
+    # Parsed, not sourced — same systemd EnvironmentFile semantics as
+    # get_node_role (see _env_val above).
+    local blockchain_mode
+    blockchain_mode=$(_env_val BLOCKCHAIN_MODE blockchain_mode)
 
     if [ "$blockchain_mode" = "hub" ]; then
         log "Verifying hub proposer..."
@@ -1042,14 +1051,20 @@ verify_proposer() {
 
     log "Verifying follower/customer boarding..."
 
-    if [ -n "${HUB_PROPOSER_ID:-}" ] && [ -n "${HUB_BLOCKCHAIN_RPC_URL:-}" ]; then
-        success "Follower boarding configured: HUB_PROPOSER_ID=$HUB_PROPOSER_ID"
+    local hub_proposer_id hub_rpc_url hub_discovery_url default_peer_url
+    hub_proposer_id=$(_env_val HUB_PROPOSER_ID)
+    hub_rpc_url=$(_env_val HUB_BLOCKCHAIN_RPC_URL)
+    hub_discovery_url=$(_env_val HUB_DISCOVERY_URL)
+    default_peer_url=$(_env_val DEFAULT_PEER_RPC_URL)
+
+    if [ -n "$hub_proposer_id" ] && [ -n "$hub_rpc_url" ]; then
+        success "Follower boarding configured: HUB_PROPOSER_ID=$hub_proposer_id"
         return 0
     fi
 
-    local hub_base="${HUB_DISCOVERY_URL:-}"
-    if [ -z "$hub_base" ] && [ -n "${DEFAULT_PEER_RPC_URL:-}" ]; then
-        hub_base="$DEFAULT_PEER_RPC_URL"
+    local hub_base="$hub_discovery_url"
+    if [ -z "$hub_base" ] && [ -n "$default_peer_url" ]; then
+        hub_base="$default_peer_url"
     fi
     if [ -n "$hub_base" ]; then
         hub_base="${hub_base%/}"
