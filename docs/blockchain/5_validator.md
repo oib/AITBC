@@ -55,8 +55,8 @@ journalctl -u aitbc-blockchain-node -f
 
 Validators take turns producing blocks under `MultiValidatorPoA`:
 
-- Round-robin proposer selection over the active validator set, rotating on
-  `consensus_validator_set_epoch_blocks` (default 7200) epoch boundaries
+- Round-robin proposer selection over the active validator set — one slot per
+  height and round; the set itself does not rotate on a schedule (#848)
 - `block_time_seconds` block interval (default 10s)
 - If the scheduled proposer misses its slot, the round derived from the
   parent block's timestamp advances and the next validator takes over
