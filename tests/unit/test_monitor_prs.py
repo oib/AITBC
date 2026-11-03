@@ -35,3 +35,13 @@ def test_no_double_line_status():
     src = SCRIPT_PM.read_text()
     assert 'is-active "$service" 2>/dev/null || echo' not in src
     assert "status=${status:-failed}" in src
+
+
+SCRIPT_FCC = Path(__file__).resolve().parents[2] / "scripts" / "monitoring" / "fleet-config-check.sh"
+
+
+def test_no_eval_of_remote_text():
+    """#1010: remote output is parsed, never eval'd."""
+    src = SCRIPT_FCC.read_text()
+    assert 'eval "$res"' not in src
+    assert "while IFS='=' read -r" in src
