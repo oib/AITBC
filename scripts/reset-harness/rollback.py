@@ -560,6 +560,10 @@ def main() -> int:
         return 0
 
     if args.phase == "run":
+        # #856: claim up front — the finally-teardown below must only run when
+        # this run actually holds the claim, otherwise a refused run tears
+        # down another rehearsal's root.
+        _claim_rehearsal(root)
         try:
             phase_stage(root, args.python, args.max_load, args.min_avail_mib)
             phase_record(root, args.python)
