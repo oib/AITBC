@@ -35,6 +35,9 @@ set -euo pipefail
 
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="${VENV_DIR:-$AITBC_ROOT/venv}"
+AITBC_ETC_DIR="${AITBC_ETC_DIR:-/etc/aitbc}"
+AITBC_SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
+SYSTEMD_ENV_SCRIPT="$AITBC_ROOT/scripts/utils/systemd-env.sh"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -87,7 +90,7 @@ run_migrations() {
         local svc_dir svc_name unit_file
         svc_dir=$(dirname "$ini")
         svc_name=$(basename "$svc_dir")
-        unit_file="/etc/systemd/system/aitbc-${svc_name}.service"
+        unit_file="${AITBC_SYSTEMD_DIR}/aitbc-${svc_name}.service"
 
         # Skip services not linked for this node's role (e.g. pool-hub on hub)
         if [ ! -e "$unit_file" ]; then
@@ -107,7 +110,7 @@ run_migrations() {
         # under both names. The visible effect was coordinator-api migrating its *default*
         # sqlite path while its env file pointed DATABASE_URL at production Postgres.
         local env_file="" candidate
-        for candidate in "/etc/aitbc/aitbc-${svc_name}.env" "/etc/aitbc/${svc_name}.env"; do
+        for candidate in "${AITBC_ETC_DIR}/aitbc-${svc_name}.env" "${AITBC_ETC_DIR}/${svc_name}.env"; do
             if [ -f "$candidate" ]; then
                 env_file="$candidate"
                 log "    env: $env_file"
@@ -115,22 +118,24 @@ run_migrations() {
             fi
         done
 
-        # Read DATABASE_URL out in a subshell. It must NOT be sourced into this shell: these
-        # files export a per-service DATABASE_URL, and one leaking into the next iteration
-        # would point that service's `upgrade head` at another service's database. Sourcing
-        # coordinator-api's Postgres URL and then migrating edge, gpu, pool-hub and trading
-        # into it is a far worse failure than the missing-file bug this replaced.
-        local svc_db_url=""
+        # Read DATABASE_URL with systemd EnvironmentFile semantics, never by
+        # sourcing: these files export a per-service DATABASE_URL, and one
+        # leaking into the next iteration would point that service's
+        # `upgrade head` at another service's database. Sourcing
+        # coordinator-api's Postgres URL and then migrating edge, gpu,
+        # pool-hub and trading into it is a far worse failure than the
+        # missing-file bug this replaced — and sourcing also made a value
+        # with an unquoted space or inline '#' silently misread, which is
+        # why the parse now fails loudly instead of degrading to a default.
+        local svc_db_url="" db_url_rc=0
         if [ -n "$env_file" ]; then
-            svc_db_url=$(
-                unset DATABASE_URL SQLITE_URL
-                set +u
-                set -a
-                # shellcheck disable=SC1090
-                source "$env_file" 2>/dev/null || true
-                set +a
-                printf '%s' "${DATABASE_URL:-}"
-            )
+            svc_db_url=$("$SYSTEMD_ENV_SCRIPT" get "$env_file" DATABASE_URL) || db_url_rc=$?
+            if [ "$db_url_rc" -eq 2 ]; then
+                error "  $env_file has a malformed DATABASE_URL line — not migrating"
+                error "  against a guessed default database. Fix the file and re-run."
+                failed=$((failed + 1))
+                continue
+            fi
         fi
 
         local pythonpath="$AITBC_ROOT:${svc_dir}/src"
@@ -164,18 +169,16 @@ run_migrations() {
             systemctl stop "aitbc-${svc_name}" || true
         fi
 
-        # The env file is sourced *inside* this subshell, so nothing it sets outlives the
-        # service it belongs to.
+        # The env file is applied *inside* this subshell, so nothing it sets
+        # outlives the service it belongs to. Parsed via systemd-env.sh rather
+        # than sourced — same semantics systemd uses when the unit starts.
         if (
             set -o pipefail
             unset DATABASE_URL SQLITE_URL
             if [ -n "$env_file" ]; then
-                set +u
-                set -a
-                # shellcheck disable=SC1090
-                source "$env_file" 2>/dev/null || true
-                set +a
-                set -u
+                while IFS= read -r _kv; do
+                    export "${_kv?}"
+                done < <("$SYSTEMD_ENV_SCRIPT" parse "$env_file" || true)
             fi
             cd "$svc_dir" && PYTHONPATH="$pythonpath" "$alembic_bin" upgrade head 2>&1 | sed 's/^/    /' && {
                 case "${DATABASE_URL:-}" in
