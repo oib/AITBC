@@ -91,3 +91,15 @@ def test_unparsable_watch_entry_is_error(env_dir: Path) -> None:
     rc, text = run("Environment=AITBC_WATCH_ACCOUNTS=bad-entry\n", env_dir)
     assert rc == 1
     assert "ERROR" in text
+
+
+def test_read_env_var_last_assignment_wins(tmp_path):
+    """#914: systemd takes the LAST assignment — the drift check must too."""
+    (tmp_path / "k.env").write_text("PROPOSER_KEY=0xfirst\nPROPOSER_KEY=0xlast\n")
+    assert wdc.read_env_var(tmp_path, "k.env", "PROPOSER_KEY") == "0xlast"
+
+
+def test_read_env_var_strips_matching_quotes_and_export(tmp_path):
+    (tmp_path / "k.env").write_text('PROPOSER_KEY="0xquoted"\nexport OTHER_KEY=0xexp\n')
+    assert wdc.read_env_var(tmp_path, "k.env", "PROPOSER_KEY") == "0xquoted"
+    assert wdc.read_env_var(tmp_path, "k.env", "OTHER_KEY") == "0xexp"
