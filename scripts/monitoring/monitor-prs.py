@@ -125,7 +125,7 @@ def post_review(pr_number, state, body=""):
     return query_api(f"repos/{REPO}/pulls/{pr_number}/reviews", method="POST", data=data)
 
 
-def validate_pr_branch(pr):
+def validate_pr_branch(pr, changed_files=None):
     head = pr["head"]
     ref = head["ref"]
     repo = head.get("repo", {}).get("full_name", REPO)
@@ -137,12 +137,15 @@ def validate_pr_branch(pr):
         )
         if result.returncode != 0:
             return False, f"Clone failed: {result.stderr.strip()}"
-        py_files = subprocess.run(["find", tmpdir, "-name", "*.py"], capture_output=True, text=True)
-        if py_files.returncode == 0 and py_files.stdout.strip():
-            for f in py_files.stdout.strip().split("\n")[:20]:
+        # Compile the files the PR actually changed — the old code compiled
+        # the first 20 .py of the whole clone, checking nothing about the diff.
+        py_targets = changed_files if changed_files is not None else []
+        for rel in py_targets:
+            f = os.path.join(tmpdir, rel)
+            if os.path.isfile(f):
                 res = subprocess.run(["python3", "-m", "py_compile", f], capture_output=True, text=True, cwd=tmpdir)
                 if res.returncode != 0:
-                    return False, f"Syntax error in `{f}`: {res.stderr.strip()}"
+                    return False, f"Syntax error in `{rel}`: {res.stderr.strip()}"
         return True, "Automated validation passed."
     except Exception as e:
         return False, f"Validation error: {str(e)}"
@@ -198,20 +201,27 @@ def main():
             if not my_reviews:
                 files = get_pr_files(number)
                 rings = [detect_ring(f["filename"]) for f in files if f.get("status") != "removed"]
-                max_ring = max(rings) if rings else 2
-                if max_ring == 0:
-                    body = "Automated analysis: This PR modifies core (Ring 0) components. Manual review and a design specification are required before merge. No auto-approval."
+                # The most critical file wins: a PR touching a Ring 0 or Ring 1
+                # path is never auto-approved, no matter how many harmless
+                # files ride along (max() let a Ring 2 file mask a Ring 0
+                # change, #1008).
+                min_ring = min(rings) if rings else 2
+                if min_ring <= 1:
+                    body = f"Automated analysis: This PR modifies core (Ring {min_ring}) components. Manual review and a design specification are required before merge. No auto-approval."
                     post_review(number, "COMMENT", body=body)
-                    notifications.append(f"PR #{number} (Ring 0) flagged for manual review")
+                    notifications.append(f"PR #{number} (Ring {min_ring}) flagged for manual review")
                 else:
-                    passed, msg = validate_pr_branch(pr)
+                    changed_py = [
+                        f["filename"] for f in files if f["filename"].endswith(".py") and f.get("status") != "removed"
+                    ]
+                    passed, msg = validate_pr_branch(pr, changed_py)
                     if passed:
                         post_review(
                             number,
                             "APPROVED",
-                            body=f"Automated peer review: branch validated.\n\n✅ Syntax checks passed.\nRing {max_ring} change — auto-approved. CI must still pass.",
+                            body=f"Automated peer review: branch validated.\n\n✅ Syntax checks passed.\nRing {min_ring} change — auto-approved. CI must still pass.",
                         )
-                        notifications.append(f"Auto-approved PR #{number} from @{author} (Ring {max_ring})")
+                        notifications.append(f"Auto-approved PR #{number} from @{author} (Ring {min_ring})")
                     else:
                         post_review(
                             number,
