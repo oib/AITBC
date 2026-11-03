@@ -14,7 +14,7 @@ set -euo pipefail
 
 SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER (e.g. root@host.example.net) — there is no default target}"
 EXPLORER_DIR="${AITBC_EXPLORER_DIR:-/root/aitbc/apps/explorer-web}"
-NGINX_CONFIG="/etc/nginx/sites-available/aitbc"
+NGINX_CONFIG="${AITBC_NGINX_CONFIG:-/etc/nginx/sites-available/aitbc}"
 
 # Build from the checkout this script belongs to.
 REPO_ROOT="${AITBC_DEPLOY_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}"
@@ -55,20 +55,24 @@ scp -r dist "$SERVER:$EXPLORER_DIR/"
 # Update nginx config to include explorer
 print_status "Updating nginx configuration..."
 
-# Backup current config
-ssh "$SERVER" "cp $NGINX_CONFIG ${NGINX_CONFIG}.backup"
+# Backup current config — timestamped, so each run keeps its own copy
+# instead of overwriting the previous backup with the pre-run file (#891).
+ssh "$SERVER" "cp $NGINX_CONFIG ${NGINX_CONFIG}.backup.$(date +%Y%m%d-%H%M%S)"
 
-# Add explorer location to nginx config
-ssh "$SERVER" "sed -i '/# Health endpoint/i\\
+# Add explorer location to nginx config — idempotent: skip the insert when
+# the /explorer/ location already exists, so a second run cannot produce a
+# duplicate-location config that fails nginx -t (#891). The aliases derive
+# from AITBC_EXPLORER_DIR so the served path matches the scp destination.
+ssh "$SERVER" "grep -q 'location /explorer/' $NGINX_CONFIG || sed -i '/# Health endpoint/i\\
     # Explorer\\
     location /explorer/ {\\
-        alias /root/aitbc/apps/explorer-web/dist/;\\
+        alias ${EXPLORER_DIR}/dist/;\\
         try_files \$uri \$uri/ /explorer/index.html;\\
     }\\
 \\
     # Explorer mock data\\
     location /explorer/mock/ {\\
-        alias /root/aitbc/apps/explorer-web/public/mock/;\\
+        alias ${EXPLORER_DIR}/public/mock/;\\
     }\\
 ' $NGINX_CONFIG"
 
