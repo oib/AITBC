@@ -67,7 +67,7 @@ def test_profiles_step_seeds_template_for_followers():
 def test_identities_step_adds_missing_p2p_node_id_to_existing_env():
     body = _func(SETUP, "setup_node_identities")
     m = re.search(
-        r"Preserving existing /etc/aitbc/blockchain\.env(.*?)(?:elif|else)",
+        r"Preserving existing /etc/aitbc/blockchain\.env(.*?)(?:elif)",
         body,
         re.S,
     )
