@@ -263,3 +263,13 @@ def test_metrics_api_not_generated():
     src = SCRIPT22.read_text()
     assert "cat > /opt/aitbc/monitoring/metrics_api.py" not in src
     assert "flask_cors" not in src
+
+
+SCRIPT25 = Path(__file__).resolve().parents[2] / "scripts/workflow/25_comprehensive_testing.sh"
+
+
+def test_curls_fail_on_http_errors():
+    """#975: every curl probe must use -f so a 404 body fails the test."""
+    src = SCRIPT25.read_text()
+    assert "curl -s " not in src
+    assert "test -f /opt/aitbc" not in src and "test -f /etc/ssh" not in src
