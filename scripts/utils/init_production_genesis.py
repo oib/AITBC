@@ -11,7 +11,6 @@ This script:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import sys
 from datetime import datetime
@@ -24,10 +23,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps/blockchain-no
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from aitbc.utils.genesis_accounts import derive_address, derived_key_error, find_derived
-from aitbc_chain.database import init_db, session_scope
-from aitbc_chain.mempool import init_mempool
-from aitbc_chain.models import Account, Block
-from sqlmodel import select
 
 
 GENESIS_PROD_YAML = Path("/opt/aitbc/genesis_prod.yaml")
@@ -84,7 +79,7 @@ def load_allocations(allow_derived: bool = False) -> dict[str, int]:
             sys.exit(
                 f"[!] {GENESIS_PROD_YAML} not found, and the derived-address fallback is not a\n"
                 f"    production allocation set -- its private keys are public. Run\n"
-                f"    scripts/utils/setup_production.py to generate real keys, or pass\n"
+                f"    apps/blockchain-node/scripts/setup_production.py to generate real keys, or pass\n"
                 f"    {ALLOW_DERIVED_FLAG} for a disposable local chain."
             )
         print(f"[!] {GENESIS_PROD_YAML} not found; using derived addresses ({ALLOW_DERIVED_FLAG}).")
@@ -97,22 +92,24 @@ def load_allocations(allow_derived: bool = False) -> dict[str, int]:
     return allocations
 
 
-def compute_genesis_hash(chain_id: str, timestamp: datetime) -> str:
-    payload = f"{chain_id}|0|0x00|{timestamp.isoformat()}".encode()
-    return "0x" + hashlib.sha256(payload).hexdigest()
+def ensure_genesis_block(chain_id: str, proposer: str, allocations: dict[str, int]):
+    from aitbc_chain import genesis_builder
+    from aitbc_chain.database import session_scope
+    from aitbc_chain.models import Block
+    from sqlmodel import select
 
-
-def ensure_genesis_block(chain_id: str, proposer: str) -> Block:
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         # Check if any block exists for this chain
         head = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()
         if head is not None:
-            print(f"[*] Chain already has block at height {head.height}")
-            return head
+            sys.exit(f"[!] Chain {chain_id} already has block at height {head.height}; refusing to overwrite.")
 
-        # Create deterministic genesis timestamp
+        # Deterministic genesis timestamp; block 0 is built by the canonical
+        # builder so state_root/hash match what the loader recomputes.
         timestamp = datetime(2025, 1, 1, 0, 0, 0)
-        block_hash = compute_genesis_hash(chain_id, timestamp)
+        allocs = [{"address": addr, "balance": bal} for addr, bal in allocations.items()]
+        state_root = genesis_builder.allocations_state_root(allocs)
+        block_hash = genesis_builder.genesis_block_hash(chain_id, timestamp.isoformat(), state_root)
         genesis = Block(
             chain_id=chain_id,
             height=0,
@@ -121,7 +118,7 @@ def ensure_genesis_block(chain_id: str, proposer: str) -> Block:
             proposer=proposer,
             timestamp=timestamp,
             tx_count=0,
-            state_root=None,
+            state_root=state_root,
         )
         session.add(genesis)
         session.commit()
@@ -130,7 +127,10 @@ def ensure_genesis_block(chain_id: str, proposer: str) -> Block:
 
 
 def seed_accounts(chain_id: str, allocations: dict[str, int]) -> None:
-    with session_scope() as session:
+    from aitbc_chain.database import session_scope
+    from aitbc_chain.models import Account
+
+    with session_scope(chain_id) as session:
         for address, balance in allocations.items():
             account = session.get(Account, (chain_id, address))
             if account is None:
@@ -170,21 +170,29 @@ def main() -> None:
         print(f"refused: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    # Override environment for config
+    # Override environment for config. These must land BEFORE any
+    # aitbc_chain import: importing aitbc_chain.database builds the
+    # `settings` singleton from ambient env, so a later assignment would
+    # never reach it (#943).
     os.environ["CHAIN_ID"] = args.chain_id
     if args.db_path:
         os.environ["DB_PATH"] = str(args.db_path)
 
     from aitbc_chain.config import ChainSettings
+    from aitbc_chain.database import init_db
+    from aitbc_chain.mempool import init_mempool
 
     settings = ChainSettings()
 
-    print(f"[*] Initializing database at {settings.db_path}")
-    init_db()
+    # The chain store lives at the resolved per-chain path
+    # (DATA_DIR/data/<chain>/chain.db), not the raw DB_PATH env value.
+    db_path = settings.get_db_path(args.chain_id)
+    print(f"[*] Initializing database at {db_path}")
+    init_db(args.chain_id)
     print("[*] Database initialized")
 
     # Ensure mempool DB exists (though not needed for genesis)
-    mempool_path = settings.db_path.parent / "mempool.db"
+    mempool_path = db_path.parent / "mempool.db"
     mempool_url = f"sqlite:///{mempool_path}"
     init_mempool(backend="database", db_url=mempool_url, max_size=10000, min_fee=0)
     print(f"[*] Mempool initialized at {mempool_path}")
@@ -193,7 +201,7 @@ def main() -> None:
     proposer = next(iter(allocations))
 
     # Create genesis block
-    ensure_genesis_block(args.chain_id, proposer)
+    ensure_genesis_block(args.chain_id, proposer, allocations)
 
     # Seed accounts
     seed_accounts(args.chain_id, allocations)
