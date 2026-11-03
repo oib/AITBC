@@ -19,6 +19,9 @@ def _stub_config(monkeypatch):
         tee_attestation_enabled = True
 
     monkeypatch.setattr(tee_mod, "get_config", lambda: _Cfg())
+    from aitbc.network.client import set_trusted_api_key_hosts
+
+    set_trusted_api_key_hosts(frozenset({"coordinator.test", "localhost", "127.0.0.1"}))
     monkeypatch.setenv("COORDINATOR_API_URL", "http://coordinator.test")
     return _Cfg
 
@@ -72,5 +75,8 @@ def test_api_client_no_url_returns_none(monkeypatch):
         timeout = 5
 
     monkeypatch.setattr(tee_mod, "get_config", lambda: _Cfg())
+    from aitbc.network.client import set_trusted_api_key_hosts
+
+    set_trusted_api_key_hosts(frozenset({"coordinator.test", "localhost", "127.0.0.1"}))
     monkeypatch.delenv("COORDINATOR_API_URL", raising=False)
     assert tee_mod._api_client(ctx=None) is None
