@@ -790,24 +790,33 @@ ensure_logrotate_config() {
 # root-only validator-secrets.env, which only the blockchain units read.
 ensure_validator_secrets_scope() {
     log "Step 4e: Checking consensus-signing secret scope..."
-    local secrets_env="/etc/aitbc/blockchain-secrets.env"
-    local validator_env="/etc/aitbc/validator-secrets.env"
+    local secrets_env="${AITBC_SECRETS_ENV:-/etc/aitbc/blockchain-secrets.env}"
+    local validator_env="${AITBC_VALIDATOR_SECRETS_ENV:-/etc/aitbc/validator-secrets.env}"
     local var src moved=0
 
     for var in PROPOSER_KEY VALIDATOR_KEYS; do
         for src in "$secrets_env" "$BLOCKCHAIN_ENV_FILE" "$NODE_ENV_FILE"; do
             [ -f "$src" ] || continue
-            if grep -q "^${var}=" "$src" 2>/dev/null; then
-                umask 077
-                touch "$validator_env"
-                if ! grep -q "^${var}=" "$validator_env" 2>/dev/null; then
-                    grep -E "^${var}=" "$src" | head -n1 >> "$validator_env"
-                    log "Moved $var from $src -> $validator_env"
-                    moved=1
-                else
-                    log "Dropped duplicate $var from $src (already in $validator_env)"
-                fi
-                sed -i "/^${var}=/d" "$src"
+            local src_val="" get_rc=0 existing=""
+            src_val=$("$SYSTEMD_ENV_SCRIPT" get "$src" "$var" 2>/dev/null) || get_rc=$?
+            [ "$get_rc" -ne 0 ] && continue
+            # umask scoped to a subshell — it used to leak out of this function
+            # and silently change permissions for every later step's writes.
+            ( umask 077; touch "$validator_env" )
+            existing=$("$SYSTEMD_ENV_SCRIPT" get "$validator_env" "$var" 2>/dev/null || true)
+            if [ -z "$existing" ]; then
+                ( umask 077; "$SYSTEMD_ENV_SCRIPT" append "$validator_env" "${var}=${src_val}" )
+                log "Moved $var from $src -> $validator_env"
+                moved=1
+                sed -i -E "/^[[:space:]]*(export[[:space:]]+)?${var}[[:space:]]*=/d" "$src"
+            elif [ "$existing" = "$src_val" ]; then
+                log "Dropped duplicate $var from $src (identical to $validator_env)"
+                sed -i -E "/^[[:space:]]*(export[[:space:]]+)?${var}[[:space:]]*=/d" "$src"
+            else
+                # A DIFFERENT key value is never deleted: dropping the only
+                # copy of live key material is worse than leaving a duplicate.
+                warning "$var in $src DIFFERS from the value already in $validator_env"
+                warning "keeping both copies — resolve the mismatch manually ($validator_env wins at runtime)"
             fi
         done
     done
