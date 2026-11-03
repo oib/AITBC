@@ -1,0 +1,44 @@
+[Unit]
+Description=AITBC Ollama Shop Gate (per-job access token -> ollama backend)
+After=network.target
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc
+EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
+EnvironmentFile=/etc/aitbc/node.env
+Environment=OLLAMA_GATE_PORT=8271
+# Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
+Environment=OLLAMA_GATE_BIND_HOST=127.0.0.1
+EnvironmentFile=-/etc/aitbc/ollama-gate.env
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ollama_gate/main.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-ollama-gate
+MemoryHigh=512M
+MemoryMax=1G
+# Security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
