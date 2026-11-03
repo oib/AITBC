@@ -101,19 +101,12 @@ class MultiValidatorPoA:
 
         self._slashing_manager = SlashingManager()
 
-        # B5: validator rotation (imported here to avoid circular import at module load)
-        from .rotation import RotationConfig, RotationStrategy, ValidatorRotation
-
-        self._rotation = ValidatorRotation(
-            self,
-            RotationConfig(
-                strategy=RotationStrategy.ROUND_ROBIN,
-                rotation_interval=settings.consensus_validator_set_epoch_blocks,
-                min_stake=1000.0,
-                reputation_threshold=0.7,
-                max_validators=10,
-            ),
-        )
+        # B5: validator-set epoch rotation was removed (#848) — it was never
+        # invoked, and the strategies in rotation.py demoted validators beyond
+        # the top slots to STANDBY, so wiring it would have dropped part of the
+        # live set. Proposer selection stays per-height/round round-robin in
+        # select_proposer. _current_epoch remains as a persisted snapshot field
+        # (always 0 — no epoch transitions exist).
         self._current_epoch = 0
 
         # B11: PBFT view/sequence tracking (persisted)
@@ -409,19 +402,6 @@ class MultiValidatorPoA:
     def get_slashing_history(self):
         """Get slashing history (delegates to SlashingManager)"""
         return self._slashing_manager.get_slashing_history()
-
-    def maybe_rotate(self, current_height: int) -> bool:
-        """Rotate validator set at epoch boundaries (B5 / C3)"""
-        epoch_blocks = settings.consensus_validator_set_epoch_blocks
-        new_epoch = current_height // epoch_blocks
-        if new_epoch != self._current_epoch:
-            self._current_epoch = new_epoch
-            if self._rotation.should_rotate(current_height):
-                rotated = self._rotation.rotate_validators(current_height)
-                if rotated:
-                    self.save_state()
-                return rotated
-        return False
 
     def get_state_snapshot(self) -> dict[str, Any]:
         """Get a snapshot of the current blockchain state"""
