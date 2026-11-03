@@ -189,11 +189,12 @@ def test_the_sqlite_update_reports_rows_changed() -> None:
     assert con.execute("UPDATE t SET a = a + 1 WHERE a < 3").rowcount == 3
 
 
-def test_the_threshold_is_an_ait_units_boundary(engine, monkeypatch) -> None:
-    """#840: bridge_large_transfer_threshold is denominated in AIT units —
-    amount == threshold takes the full-finality path, one unit below takes
-    the minimum-confirmations path."""
-    monkeypatch.setattr(settings, "bridge_large_transfer_threshold", 10000)
+def test_the_threshold_is_a_whole_ait_boundary(engine, monkeypatch) -> None:
+    """#840: bridge_large_transfer_threshold is denominated in whole AIT and
+    converted to compute-units at the comparison — record amounts are in
+    units (1 AIT = 36,000,000), so a 2-AIT threshold splits at 72,000,000
+    units, not at 2."""
+    monkeypatch.setattr(settings, "bridge_large_transfer_threshold", 2)
     monkeypatch.setattr(settings, "bridge_min_confirmations", 3)
     monkeypatch.setattr(settings, "bridge_finality_blocks", 6)
     bridge = CrossChainBridge(lambda: Session(engine))
@@ -202,12 +203,15 @@ def test_the_threshold_is_an_ait_units_boundary(engine, monkeypatch) -> None:
     header = bridge._get_block_header(CHAIN_ID, 0)
     assert header is not None
 
+    just_below = 2 * 36_000_000 - 1  # 1 unit under 2 AIT
+    at_threshold = 2 * 36_000_000
+
     # confirmation_count 4: enough for a small transfer, short of full finality
     header.confirmation_count = 4
-    assert bridge._check_finality_for_transfer(header, 9999) is True  # below threshold: min path
-    assert bridge._check_finality_for_transfer(header, 10000) is False  # at threshold: full finality
-    assert bridge._check_finality_for_transfer(header, 10**9) is False  # large: same requirement
+    assert bridge._check_finality_for_transfer(header, just_below) is True  # min path
+    assert bridge._check_finality_for_transfer(header, at_threshold) is False  # full finality required
+    assert bridge._check_finality_for_transfer(header, 10**14) is False
 
     header.confirmation_count = 6
-    assert bridge._check_finality_for_transfer(header, 9999) is True
-    assert bridge._check_finality_for_transfer(header, 10000) is True
+    assert bridge._check_finality_for_transfer(header, just_below) is True
+    assert bridge._check_finality_for_transfer(header, at_threshold) is True

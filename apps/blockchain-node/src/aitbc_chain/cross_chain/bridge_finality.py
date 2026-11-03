@@ -10,6 +10,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlmodel import col, select
 
 from aitbc.bridge import BridgeBlockHeader as SDKHeader, validate_block_header
+from aitbc.utils import ait_to_units
 
 from ..config import settings
 from ..logger import get_logger
@@ -357,13 +358,17 @@ class BridgeFinalityMixin(BridgeBase):
     def _check_finality_for_transfer(self, header: BridgeBlockHeader, amount: int) -> bool:
         """Check if a block header has sufficient finality for a transfer (B5).
 
-        Large transfers (amount >= bridge_large_transfer_threshold, an AIT-
-        units value) require full finality (bridge_finality_blocks
-        confirmations). Small transfers require only bridge_min_confirmations.
+        Large transfers require full finality (bridge_finality_blocks
+        confirmations). Small transfers require only
+        bridge_min_confirmations. ``bridge_large_transfer_threshold`` is
+        denominated in whole AIT; ``record.amount`` is in compute-units
+        (1 AIT = 36,000,000), so the threshold is converted at the
+        comparison — before the conversion the bare value was read as
+        units, and every real transfer counted as large (#840).
         """
         min_confirmations = getattr(settings, "bridge_min_confirmations", 3)
         finality_blocks = getattr(settings, "bridge_finality_blocks", 6)
-        large_threshold = getattr(settings, "bridge_large_transfer_threshold", 10000)
+        large_threshold = ait_to_units(getattr(settings, "bridge_large_transfer_threshold", 10000))
 
         required = finality_blocks if amount >= large_threshold else min_confirmations
         if header.confirmation_count < required:
