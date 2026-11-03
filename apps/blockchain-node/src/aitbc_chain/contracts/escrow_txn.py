@@ -45,8 +45,8 @@ import os
 import time
 import weakref
 import zlib
-from collections.abc import AsyncIterator, Callable
-from contextlib import AbstractContextManager, asynccontextmanager
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -226,6 +226,70 @@ def _release_file_lock(fd: int) -> None:
         fcntl.flock(fd, fcntl.LOCK_UN)
     finally:
         os.close(fd)
+
+
+#: Timeout for the synchronous row lock below. The async mutation path waits
+#: up to LOCK_TIMEOUT_ENV seconds because its caller is a settlement route;
+#: the sweeper/backfill writers only skip a pass or a heal when busy, so a
+#: short budget keeps a read path from queueing behind a slow settlement.
+ROW_LOCK_TIMEOUT_ENV = "ESCROW_ROW_LOCK_TIMEOUT_SECONDS"
+DEFAULT_ROW_LOCK_TIMEOUT_SECONDS = 5
+
+
+def _row_lock_timeout_seconds() -> float:
+    raw = os.environ.get(ROW_LOCK_TIMEOUT_ENV, "")
+    try:
+        value = float(raw)
+    except ValueError:
+        return float(DEFAULT_ROW_LOCK_TIMEOUT_SECONDS)
+    return value if value > 0 else float(DEFAULT_ROW_LOCK_TIMEOUT_SECONDS)
+
+
+@contextmanager
+def escrow_row_lock(session: Session, job_id: str, timeout: float | None = None) -> Iterator[bool]:
+    """Synchronous per-job lock for non-route writers (#831).
+
+    The settlement-mark sweeper and ``backfill_settlement_legs`` commit
+    outside ``escrow_mutation`` — they run in worker threads, so the async
+    path does not fit. They take the same stripe-file flock the routes poll
+    (a second flock fd excludes even inside one process), which serialises
+    a sweeper/backfill write against any route's release/refund of the same
+    job in this worker or any other.
+
+    Yields True with the lock held — the caller MUST ``session.refresh``
+    the row inside: a route that committed before this lock was taken is
+    only visible on fresh attributes. Yields False on timeout or an
+    unavailable lock file, in which case the caller skips the write
+    (fail closed — the stale-write defect exists precisely because these
+    paths wrote unlocked). A fileless (in-memory) database has nothing to
+    lock beside and yields True ungated.
+    """
+    sqlite_path = _sqlite_file(session)
+    if sqlite_path is None:
+        yield True
+        return
+    path = _lock_file_path(sqlite_path, job_id)
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+    except OSError as exc:
+        logger.error("Escrow row lock file %s unavailable for job_id=%s: %s", path, job_id, exc)
+        yield False
+        return
+    try:
+        deadline = time.monotonic() + (timeout if timeout is not None else _row_lock_timeout_seconds())
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    yield False
+                    return
+                time.sleep(_FLOCK_POLL_SECONDS)
+        yield True
+    finally:
+        os.close(fd)  # closing releases the flock either way
 
 
 @asynccontextmanager
