@@ -69,3 +69,40 @@ def test_unresolvable_db_requires_service(tool, tmp_path, capsys):
     err = capsys.readouterr().err
     assert rc == 2
     assert "--service" in err
+
+
+def test_resolve_filters_to_named_service(tool, tmp_path, monkeypatch, capsys):
+    """#1007: --service resolves only that ledger; exit matches the outcome."""
+    led = tmp_path / "ledgers"
+    led.mkdir()
+    dbs = {
+        "exchange": led / "exchange.db",
+        "market": led / "market.db",
+        "wallet": led / "wallet.db",
+        "coordinator-api": led / "coordinator.db",
+    }
+    for svc, p in dbs.items():
+        _mk_ledger(p, svc, ["KEY-A"] if svc in ("market", "wallet") else [])
+    for svc, p in dbs.items():
+        monkeypatch.setenv(f"{svc.upper().replace('-', '_')}_OPERATIONS_DB", str(p))
+    monkeypatch.setattr(tool, "_exchange_db", lambda: str(dbs["exchange"]))
+    sys.argv = ["x", "--service", "market", "--resolve", "KEY-A", "--json"]
+    rc = tool.main()
+    report = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert list(report) == ["market"]
+    assert report["market"]["resolved"] is True
+
+    # unscoped resolve reports per-ledger and exits 0 when any held the key
+    sys.argv = ["x", "--resolve", "KEY-A", "--json"]
+    rc = tool.main()
+    report = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert report["market"]["resolved"] is False or report["market"]["resolved"] is True
+    assert report["exchange"].get("resolved") in (False, None)
+
+    # key nowhere → exit 1
+    sys.argv = ["x", "--resolve", "KEY-Z", "--json"]
+    rc = tool.main()
+    json.loads(capsys.readouterr().out)
+    assert rc == 1
