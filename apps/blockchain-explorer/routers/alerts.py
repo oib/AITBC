@@ -190,7 +190,7 @@ async def api_alerts() -> dict[str, Any]:
 
 
 @router.get("/api/alerts/history")
-async def api_alerts_history(
+def api_alerts_history(
     limit: int = 200,
     alertname: str | None = None,
     node: str | None = None,
