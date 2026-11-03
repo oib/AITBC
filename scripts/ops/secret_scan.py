@@ -71,7 +71,13 @@ PLACEHOLDER = re.compile(
     r"xxxx|<[^>]*>|\$\{|localhost|127\.0\.0\.1|todo|fixme|test[_-]?key|notakey|"
     r"deadbeef|aaaa|000000|111111)"
 )
-TESTPATH = re.compile(r"(?i)(test|fixture|conftest|example|sample|mock|docs/|\.md$|readme|changelog)")
+# Anchored to whole path components: 'test'/'fixture'/'docs' must be a
+# directory or file name, not a substring — 'attestation.py' and
+# 'contest.py' are not tests (#907). Doc files still count.
+TESTPATH = re.compile(
+    r"(?i)(^|/)(tests?|fixtures?|conftest|examples?|samples?|mocks?|testdata|__tests__|docs)(/|$)"
+    r"|\.md$|(^|/)(readme|changelog)[^/]*$"
+)
 ZEROES = re.compile(r"\b(0x)?(0{20,}|f{20,}|1{20,}|a{20,}|deadbeef[0-9a-f]*)\b", re.I)
 PUBNAME = re.compile(
     r"(?i)(public_?key|pubkey|_address|tx_?hash|block_?hash|chain_?id|contract|"
@@ -81,19 +87,48 @@ PUBNAME = re.compile(
 Row = tuple[str, str, str, str, str, str]
 
 
+# Classes whose matched value is itself the credential: for these, a bare
+# localhost/127.0.0.1 in the value is not enough to call it a placeholder —
+# a leaked URL to a real local service is still a leaked credential (#907).
+CREDENTIAL_CLASSES = {
+    "age-secret",
+    "jwt",
+    "cred-url",
+    "aws-akid",
+    "gh-token",
+    "gitea-token",
+    "slack-token",
+    "webhook-url",
+    "keystore-json",
+    "openssh-priv",
+    "hex64-keyname",
+    "bearer-auth",
+    "password-assign",
+    "mnemonic-line",
+}
+_PLACEHOLDER_HOSTS = re.compile(r"(?i)^(localhost|127\.0\.0\.1)$")
+
+
 def classify(line: str, path: str) -> tuple[str, str] | None:
     for cls, rx in VAL_RES:
-        if rx.search(line):
-            v = "REAL?"
-            if PLACEHOLDER.search(line):
-                v = "placeholder"
-            if ZEROES.search(line):
-                v = "test-fixture" if v == "REAL?" else v
-            if TESTPATH.search(path) and v == "REAL?":
-                v = "test-fixture?"
-            if PUBNAME.search(line) and cls in ("hex64-keyname", "bearer-auth"):
-                v = "public-by-design?"
-            return cls, v
+        m = rx.search(line)
+        if not m:
+            continue
+        # Placeholder/zero tests run on the matched secret value, not the
+        # whole line — 'localhost' elsewhere on the line used to downgrade a
+        # real credential to placeholder (#907).
+        value = m.group(0)
+        v = "REAL?"
+        ph = PLACEHOLDER.search(value)
+        if ph and not (cls in CREDENTIAL_CLASSES and _PLACEHOLDER_HOSTS.match(ph.group(0))):
+            v = "placeholder"
+        if ZEROES.search(value):
+            v = "test-fixture" if v == "REAL?" else v
+        if TESTPATH.search(path) and v == "REAL?":
+            v = "test-fixture?"
+        if PUBNAME.search(line) and cls in ("hex64-keyname", "bearer-auth"):
+            v = "public-by-design?"
+        return cls, v
     return None
 
 
