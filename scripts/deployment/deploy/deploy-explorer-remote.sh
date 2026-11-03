@@ -2,7 +2,7 @@
 
 # Deploy blockchain explorer directly on the deployment server
 
-set -e
+set -euo pipefail
 
 # shellcheck source=scripts/deployment/deploy/deploy-env.sh
 source "$(dirname "$0")/deploy-env.sh"
@@ -43,8 +43,8 @@ cat > index.html << 'EOF'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AITBC Blockchain Explorer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.16" integrity="sha384-mS5Uq7sE90lgbBDN8xgf34ibEgbZo4gB3tfLY40ZRle+M188BQw8onzNHg6GUZaA" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/lucide@0.544.0/dist/umd/lucide.min.js" integrity="sha384-hK2uiaqTSh/v1VqRxmuMQL4xmt5n0DdyBCOItx2fAs7Wv+WC8Tu0yDW1j12JooyM" crossorigin="anonymous"></script>
     <style>
         .fade-in { animation: fadeIn 0.3s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

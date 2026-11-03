@@ -152,8 +152,8 @@ cat > index.html << 'EOF'
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AITBC Blockchain Explorer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.16" integrity="sha384-mS5Uq7sE90lgbBDN8xgf34ibEgbZo4gB3tfLY40ZRle+M188BQw8onzNHg6GUZaA" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/lucide@0.544.0/dist/umd/lucide.min.js" integrity="sha384-hK2uiaqTSh/v1VqRxmuMQL4xmt5n0DdyBCOItx2fAs7Wv+WC8Tu0yDW1j12JooyM" crossorigin="anonymous"></script>
 </head>
 <body class="bg-gray-50">
     <header class="bg-blue-600 text-white shadow-lg">
@@ -234,7 +234,7 @@ cat > index.html << 'EOF'
     <script>
         lucide.createIcons();
 
-        const RPC_URL = 'http://localhost:8202';
+        const RPC_URL = '';  // same-origin — nginx proxies /rpc/ to the node (#890)
 
         async function refreshData() {
             try {
@@ -282,6 +282,12 @@ server {
     server_name _;
     root /opt/blockchain-explorer;
     index index.html;
+
+    location /rpc/ {
+        proxy_pass http://localhost:8202;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 
     location / {
         try_files \$uri \$uri/ =404;
