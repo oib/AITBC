@@ -76,3 +76,28 @@ def test_vacuum_failures_are_visible():
         for line in src.splitlines():
             if "VACUUM" in line:
                 assert "|| true" not in line, f"{s.name}: {line.strip()}"
+
+
+SCRIPT17 = Path(__file__).resolve().parents[2] / "scripts/workflow/17_security_hardening.sh"
+
+
+def test_keystore_keeps_service_owner():
+    """#959: keystore is never chowned to root."""
+    src = SCRIPT17.read_text()
+    assert "root:root /var/lib/aitbc/keystore" not in src
+
+
+def test_sshd_config_validated_before_restart():
+    src = SCRIPT17.read_text()
+    assert "sshd -t" in src
+
+
+def test_seds_are_idempotent():
+    src = SCRIPT17.read_text()
+    assert "^#?" in src or "grep -qE" in src
+
+
+def test_summary_is_not_static():
+    src = SCRIPT17.read_text()
+    assert "Basic configuration completed" not in src
+    assert "grep -E" in src or "stat -c" in src

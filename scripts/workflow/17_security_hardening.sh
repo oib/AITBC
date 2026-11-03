@@ -33,11 +33,15 @@ SSH_CONFIG="/etc/ssh/sshd_config"
 cp "$SSH_CONFIG" "$SSH_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
 
 # SSH security settings - allow root for development
-sed -i 's|#PermitRootLogin yes|PermitRootLogin yes|g' "$SSH_CONFIG"
-sed -i 's|#PasswordAuthentication yes|PasswordAuthentication no|g' "$SSH_CONFIG"
-sed -i 's|#PermitEmptyPasswords yes|PermitEmptyPasswords no|g' "$SSH_CONFIG"
-sed -i 's|#X11Forwarding yes|X11Forwarding no|g' "$SSH_CONFIG"
-sed -i 's|#MaxAuthTries 6|MaxAuthTries 3|g' "$SSH_CONFIG"
+for kv in "PermitRootLogin yes" "PasswordAuthentication no" \
+          "PermitEmptyPasswords no" "X11Forwarding no" "MaxAuthTries 3"; do
+    key="${kv%% *}"
+    if grep -qE "^#?${key}[[:space:]]" "$SSH_CONFIG"; then
+        sed -i -E "s|^#?${key}[[:space:]].*|${kv}|g" "$SSH_CONFIG"
+    else
+        echo "${kv}" >> "$SSH_CONFIG"
+    fi
+done
 
 # Add additional security settings
 cat >> "$SSH_CONFIG" << 'EOF'
@@ -65,7 +69,10 @@ echo "4. Securing file permissions..."
 
 # Secure keystore directory
 chmod 700 /var/lib/aitbc/keystore
-chown -R root:root /var/lib/aitbc/keystore
+# Keep the service owner — the node runs as User=aitbc and a root-owned
+# keystore locks it out (#959).
+SERVICE_USER="${SERVICE_USER:-aitbc}"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" /var/lib/aitbc/keystore
 
 # Secure configuration files
 chmod 600 /etc/aitbc/blockchain.env
@@ -131,7 +138,24 @@ chmod +x /opt/aitbc/scripts/security_monitor.sh
 # Deploy to aitbc node
 echo "6. Deploying security configuration to aitbc node..."
 scp /opt/aitbc/scripts/security_monitor.sh aitbc:/opt/aitbc/scripts/
-ssh aitbc 'chmod +x /opt/aitbc/scripts/security_monitor.sh'
+ssh aitbc '
+    cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+    for kv in "PermitRootLogin yes" "PasswordAuthentication no"; do
+        key="${kv%% *}"
+        if grep -qE "^#?${key}[[:space:]]" /etc/ssh/sshd_config; then
+            sed -i -E "s|^#?${key}[[:space:]].*|${kv}|g" /etc/ssh/sshd_config
+        else
+            echo "${kv}" >> /etc/ssh/sshd_config
+        fi
+    done
+    if sshd -t; then
+        systemctl restart ssh
+    else
+        echo "ERROR: sshd -t failed, keeping old config" >&2
+        cp /etc/ssh/sshd_config.backup /etc/ssh/sshd_config
+        exit 1
+    fi
+'
 
 # Apply SSH hardening on aitbc (allow root for development)
 ssh aitbc '
@@ -143,48 +167,17 @@ ssh aitbc '
 
 echo "   ✅ Security monitoring deployed"
 
-# Security Summary
-echo "7. Generating security summary..."
-cat > /opt/aitbc/security_summary.txt << EOF
-AITBC Security Configuration Summary
-Generated: $(date)
+# Security Summary — report only what was actually verified (#959:
+# the old block claimed results nobody checked).
+echo "7. Security summary..."
+{
+    echo "AITBC Security Configuration Summary"
+    echo "Generated: $(date)"
+    echo ""
+    echo "SSH settings now in effect:"
+    grep -E '^(PermitRootLogin|PasswordAuthentication|MaxAuthTries|X11Forwarding|PermitEmptyPasswords)' "$SSH_CONFIG" 2>/dev/null | sed 's/^/  /' || true
+    echo ""
+    echo "Keystore: mode $(stat -c %a /var/lib/aitbc/keystore 2>/dev/null || echo n/a), owner $(stat -c %U /var/lib/aitbc/keystore 2>/dev/null || echo n/a)"
+} > /opt/aitbc/security_summary.txt
 
-Network Security:
-- Firewall configuration: Skipped as requested
-- Network security: Basic configuration completed
-
-SSH Hardening:
-- Root login: Enabled (development mode)
-- Password authentication disabled
-- Max authentication attempts: 3
-- Session timeout: 5 minutes
-
-Access Control:
-- User creation: Skipped as requested
-- Sudo configuration: Skipped as requested
-- Basic access control: Completed
-
-Monitoring:
-- Security monitoring script created
-- Hourly security checks scheduled
-- Logs stored in /var/log/aitbc/security.log
-
-Recommendations:
-1. Use SSH key authentication only
-2. Monitor security logs regularly
-3. Keep systems updated
-4. Review access controls regularly
-5. Implement intrusion detection system
-6. Configure firewall according to your security policy
-EOF
-
-echo "✅ Security hardening completed successfully!"
-echo "   • SSH access configured (root allowed for development)"
-echo "   • File permissions secured"
-echo "   • Security monitoring active"
-echo "   • Configuration deployed to both nodes"
-echo "   • Firewall configuration skipped as requested"
-echo "   • Sudo configuration skipped as requested"
-echo "   • User creation skipped (using root)"
-echo ""
-echo "📋 Security summary saved to /opt/aitbc/security_summary.txt"
+echo "✅ Security hardening completed (see summary above for verified state)"
