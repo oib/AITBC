@@ -9,6 +9,7 @@ import click
 
 from ...utils import error, output, success
 from ...utils.error_handling import abort
+from ...utils.wallet_loader import validate_wallet_name
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.wallet_paths import (
     find_wallet_file_report,
@@ -266,8 +267,25 @@ def import_wallet(ctx, file_path: str, name: str | None):
         with open(import_path) as f:
             wallet_data = json.load(f)
 
-        # Determine wallet name
-        wallet_name = name or wallet_data.get("name", import_path.stem)
+        # Determine wallet name. --name is explicit and must validate; the
+        # file's own "name" is used only when --name is absent AND it
+        # validates — a hostile import file can't steer the write path
+        # (CLI-WALLET-IMPORT-NAME-TRAVERSAL-1, #846).
+        if name is not None:
+            try:
+                wallet_name = validate_wallet_name(name)
+            except ValueError as e:
+                abort(None, str(e))
+                return
+        else:
+            try:
+                wallet_name = validate_wallet_name(wallet_data.get("name"))
+            except ValueError:
+                try:
+                    wallet_name = validate_wallet_name(import_path.stem)
+                except ValueError:
+                    abort(None, "import file carries no valid wallet name; pass --name explicitly")
+                    return
         wallet_path = wallet_dir / f"{wallet_name}.json"
 
         if wallet_path.exists():
