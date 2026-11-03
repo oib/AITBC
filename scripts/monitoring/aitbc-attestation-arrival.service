@@ -15,6 +15,9 @@ Type=oneshot
 # chain-id automatically (data/bc-2/chain.db after the reset).
 Environment=AITBC_DATA_DIR=/var/lib/aitbc
 Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+# VALIDATOR_SET pins the authoritative set — a validator silent past the
+# 200-block window must keep a consecutive_missed series, not drop out.
+EnvironmentFile=-/etc/aitbc/blockchain.env
 ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/attestation-arrival-textfile.py
 # Exits 1 when a chain.db could not be read (scrape_success reports which).
 SyslogIdentifier=aitbc-attestation-arrival
