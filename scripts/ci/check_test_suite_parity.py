@@ -19,11 +19,41 @@ Run: python3 scripts/ci/check_test_suite_parity.py
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_suites import FAST_SUITES, MANUAL_SUITES, NIGHTLY_SUITES, REPO_ROOT, testpaths
+
+# Directories the disk walk must not descend into: dependency trees and
+# non-pytest suites (contracts uses .t.sol, the website ships no pytest).
+_WALK_SKIP = {".git", ".venv", "venv", "node_modules", "__pycache__", "contracts", "website"}
+
+
+def uncovered_test_dirs(root: Path | None = None, paths: list[str] | None = None) -> list[str]:
+    """``tests`` directories holding pytest files that no testpaths entry covers.
+
+    The testpaths↔classification comparison cannot see a suite nobody ever
+    listed — apps/ollama_gate/tests ran in no gate for a day while the check
+    printed "parity ok" (#980). A directory named ``tests`` that contains a
+    ``test_*.py`` anywhere below it is a pytest suite; it is covered only when
+    it is, or sits inside, a testpaths entry.
+    """
+    root = Path(root) if root is not None else REPO_ROOT
+    entries = [Path(p) for p in (testpaths() if paths is None else paths)]
+    uncovered: list[str] = []
+    for dirpath, dirnames, _filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _WALK_SKIP]
+        d = Path(dirpath)
+        if d.name != "tests":
+            continue
+        rel = d.relative_to(root)
+        if any(rel == e or e in rel.parents for e in entries):
+            continue
+        if any(d.rglob("test_*.py")):
+            uncovered.append(str(rel))
+    return sorted(uncovered)
 
 
 def main() -> int:
@@ -42,6 +72,9 @@ def main() -> int:
     dup = set(FAST_SUITES) & set(NIGHTLY_SUITES)
     if dup:
         failures.append(f"classified as both fast and nightly: {sorted(dup)}")
+
+    for d in uncovered_test_dirs():
+        failures.append(f"{d}: tests directory on disk but outside every testpaths entry — it runs in no gate")
 
     if failures:
         print("test suite parity violations:")
