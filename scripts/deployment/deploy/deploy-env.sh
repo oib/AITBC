@@ -1,5 +1,8 @@
 #!/bin/bash
 # Shared deployment target configuration.
+# Sourced by the deploy/*.sh callers; set -euo pipefail here carries to the
+# sourcing shell — every caller already runs set -e, this adds -u/-o pipefail.
+set -euo pipefail
 #
 # These scripts used to hardcode one server's ssh alias and public hostname.
 # That tied them to a single deployment and put infrastructure identifiers in a
@@ -97,4 +100,12 @@ persist_dnat() {
     else
         echo "NOTE: /etc/iptables is absent -- DNAT rules will not survive a reboot." >&2
     fi
+}
+
+# #886: five deploy scripts call print_success after a run completes; it was
+# defined nowhere, so `set -e` killed each script with exit 127 after a good
+# deploy. Defined once here and sourced everywhere it is used.
+print_success() {
+    GREEN='\033[0;32m'; NC='\033[0m'
+    echo -e "${GREEN}[OK]${NC} $1"
 }
