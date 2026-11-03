@@ -47,6 +47,11 @@ BACKUP_PRUNE_DRYRUN="${BACKUP_PRUNE_DRYRUN:-}"
 LOG_TAG="aitbc-backup"
 # Exit status of the run; legs that leave no usable snapshot set it nonzero.
 _BACKUP_RC=0
+# error() runs inside `find | while read` subshells — a variable would die
+# with the subshell, so the flag is a file: any error anywhere flips the
+# final exit status (#895).
+_BACKUP_ERR_FLAG="$(mktemp)"
+trap 'rm -f "$_BACKUP_ERR_FLAG"' EXIT
 
 # Use the active project Python if available, falling back to whatever is on PATH.
 # This keeps the backup compatible with both Poetry `.venv` and `venv` layouts.
@@ -73,7 +78,7 @@ BACKUP_GPG_ARTIFACTS="${BACKUP_GPG_ARTIFACTS:-keystore.tar.gz wallets.tar.gz etc
 _log() { local pri="$1" msg="$2"; systemd-cat -t "$LOG_TAG" -p "$pri" <<< "$msg"; [[ -t 1 ]] && echo "$msg" || true; }
 log()  { _log info    "$1"; }
 warn() { _log warning "WARN: $1"; }
-error(){ _log err     "ERROR: $1" >&2; }
+error(){ _log err     "ERROR: $1" >&2; echo 1 >> "$_BACKUP_ERR_FLAG"; }
 
 log "Starting AITBC backup to ${BACKUP_DIR}"
 mkdir -p "${BACKUP_DIR}"
@@ -240,7 +245,7 @@ if [ -d "$KEYSTORE_DIR" ]; then
     log "Backing up keystore..."
     tar czf "${BACKUP_DIR}/keystore.tar.gz" -C "$(dirname "$KEYSTORE_DIR")" "$(basename "$KEYSTORE_DIR")" \
         && log "Keystore backup: OK ($(du -sh "${BACKUP_DIR}/keystore.tar.gz" | cut -f1))" \
-        || error "Keystore backup FAILED"
+        || { rm -f "${BACKUP_DIR}/keystore.tar.gz"; error "Keystore backup FAILED"; }
 fi
 
 # ── Wallet files ──────────────────────────────────────────────────────────────
@@ -249,7 +254,7 @@ if [ -d "$WALLETS_DIR" ]; then
     log "Backing up wallet files..."
     tar czf "${BACKUP_DIR}/wallets.tar.gz" -C "$(dirname "$WALLETS_DIR")" "$(basename "$WALLETS_DIR")" \
         && log "Wallets backup: OK ($(du -sh "${BACKUP_DIR}/wallets.tar.gz" | cut -f1))" \
-        || error "Wallets backup FAILED"
+        || { rm -f "${BACKUP_DIR}/wallets.tar.gz"; error "Wallets backup FAILED"; }
 fi
 
 # ── Legacy wallet directories (pre-standard) ──────────────────────────────────
@@ -267,7 +272,7 @@ for LEGACY_WALLET_DIR in "${LEGACY_WALLET_DIRS[@]}"; do
         _legacy_suffix=$(echo "$LEGACY_WALLET_DIR" | tr '/' '_')
         tar czf "${BACKUP_DIR}/wallets-legacy${_legacy_suffix}.tar.gz" -C "${_legacy_parent}" "${_legacy_name}" \
             && log "Legacy wallets ${LEGACY_WALLET_DIR}: OK" \
-            || error "Legacy wallets ${LEGACY_WALLET_DIR} backup FAILED"
+            || { rm -f "${BACKUP_DIR}/wallets-legacy${_legacy_suffix}.tar.gz"; error "Legacy wallets ${LEGACY_WALLET_DIR} backup FAILED"; }
     fi
 done
 
@@ -321,11 +326,11 @@ ETC_AITBC_DIR="${ETC_AITBC_DIR:-/etc/aitbc}"
 ETC_PROMETHEUS_DIR="${ETC_PROMETHEUS_DIR:-/etc/prometheus}"
 log "Backing up service configurations..."
 tar czf "${BACKUP_DIR}/etc-aitbc.tar.gz" "${ETC_AITBC_DIR}" 2>/dev/null \
-    && log "/etc/aitbc: OK" || error "/etc/aitbc backup FAILED"
+    && log "/etc/aitbc: OK" || { rm -f "${BACKUP_DIR}/etc-aitbc.tar.gz"; error "/etc/aitbc backup FAILED"; }
 
 if [ -d "${ETC_PROMETHEUS_DIR}" ]; then
     tar czf "${BACKUP_DIR}/prometheus-config.tar.gz" "${ETC_PROMETHEUS_DIR}" 2>/dev/null \
-        && log "/etc/prometheus: OK" || error "Prometheus config backup FAILED"
+        && log "/etc/prometheus: OK" || { rm -f "${BACKUP_DIR}/prometheus-config.tar.gz"; error "Prometheus config backup FAILED"; }
 else
     warn "${ETC_PROMETHEUS_DIR} not found, skipping"
 fi
@@ -343,6 +348,7 @@ if [ -d "$SYSTEMD_DIR" ]; then
             chmod 600 "${BACKUP_DIR}/systemd-aitbc.tar.gz"
             log "systemd aitbc units: OK ($(du -sh "${BACKUP_DIR}/systemd-aitbc.tar.gz" | cut -f1))"
         else
+            rm -f "${BACKUP_DIR}/systemd-aitbc.tar.gz"
             rm -f "${BACKUP_DIR}/systemd-aitbc.tar.gz"
             error "systemd aitbc units backup FAILED"
         fi
@@ -533,4 +539,5 @@ fi
 KEPT=$(find "${BACKUP_BASE}" -maxdepth 1 -type d | grep -c "^${BACKUP_BASE}/[0-9]" || echo 0)
 log "Retained backup snapshots: ${KEPT}"
 
+[ -s "$_BACKUP_ERR_FLAG" ] && _BACKUP_RC=1
 exit "${_BACKUP_RC}"
