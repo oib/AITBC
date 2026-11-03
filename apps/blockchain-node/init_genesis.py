@@ -17,6 +17,14 @@ logger = get_logger(__name__)
 
 def init_genesis():
     """Initialize the genesis block"""
+    # #290/#861 hard stop: writes the chain DB via session_scope — scratch only.
+    from aitbc.utils import reset_guard
+
+    try:
+        reset_guard.assert_data_dir_env()
+    except reset_guard.ResetGuardError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        sys.exit(1)
     logger.info("Initializing genesis block...")
 
     # Check if genesis already exists
