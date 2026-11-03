@@ -37,7 +37,7 @@ OLD_ROWS = 2000
 OLD_WAL_ONLY_ROWS = 500
 
 STUBS = {
-    "systemctl": "#!/bin/bash\nexit 0\n",
+    "systemctl": '#!/bin/bash\nif [ -n "${STUB_UNIT_LOG:-}" ]; then echo "$@" >> "$STUB_UNIT_LOG"; fi\nexit 0\n',
     "chown": "#!/bin/bash\nexit 0\n",
     # ssh <user@host> <command>: run the command locally, with the hub's data dir redirected.
     "ssh": '#!/bin/bash\nshift\ncmd="$1"\ncmd="${cmd//\\/var\\/lib\\/aitbc\\/data/$STUB_HUB_DATA}"\nexec bash -c "$cmd"\n',
@@ -196,3 +196,63 @@ def test_genesis_reset_keeps_a_whole_safety_copy_and_installs_cleanly(sandbox) -
 @pytest.mark.parametrize("script", [SNAPSHOT_SCRIPT, GENESIS_SCRIPT], ids=lambda p: p.name)
 def test_scripts_are_valid_bash(script: Path) -> None:
     subprocess.run(["bash", "-n", str(script)], check=True)
+
+
+# ---------- #853: restart trap, mktemp snapshot, manifest check ----------
+
+
+def test_snapshot_reset_restarts_units_after_a_failed_run(sandbox) -> None:
+    """#853: an exit mid-run (here: a snapshot with no blocks for the chain)
+    left both blockchain units stopped on the follower. The EXIT trap must
+    start them again."""
+    chain_id, db, hub_data, _tmp, env = sandbox
+    hub_db = hub_data / chain_id / "chain.db"
+    hub_db.parent.mkdir(parents=True)
+    _make_db(hub_db, 3000, "hub", "other-chain")  # snapshot has no rows for our chain
+    unit_log = _tmp / "units.log"
+    env["STUB_UNIT_LOG"] = str(unit_log)
+
+    result = subprocess.run(["bash", str(SNAPSHOT_SCRIPT)], env=env, capture_output=True, text=True, timeout=120)
+    assert result.returncode != 0
+
+    calls = unit_log.read_text().splitlines()
+    assert "stop aitbc-blockchain-node" in calls and "stop aitbc-blockchain-rpc" in calls
+    assert calls.count("start aitbc-blockchain-node") >= 1 and calls.count("start aitbc-blockchain-rpc") >= 1
+    # the original DB is untouched and nothing temp lingers in /tmp
+    assert not Path(f"{db}.tmp").exists()
+    assert not list(Path("/tmp").glob(f"aitbc-follower-snapshot-{chain_id}.*"))
+
+
+def test_snapshot_remote_path_is_mktemp_and_removed(sandbox) -> None:
+    """#853: the hub-side path comes from mktemp, not a fixed predictable
+    name, and nothing is left behind after a successful run."""
+    src = SNAPSHOT_SCRIPT.read_text()
+    assert "mktemp" in src
+    assert 'SNAPSHOT_REMOTE="/tmp/aitbc-follower-snapshot-${CHAIN_ID}.db"' not in src
+
+    chain_id, db, hub_data, _tmp, env = sandbox
+    hub_db = hub_data / chain_id / "chain.db"
+    hub_db.parent.mkdir(parents=True)
+    _make_db(hub_db, 3000, "hub", chain_id)
+    result = subprocess.run(["bash", str(SNAPSHOT_SCRIPT)], env=env, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not list(Path("/tmp").glob(f"aitbc-follower-snapshot-{chain_id}.*"))
+
+
+def test_manifest_check_runs_before_the_install_mv_and_skip_is_printed() -> None:
+    """#853: a signed manifest is verified against the copied db before the
+    mv that installs it; without MANIFEST the script says the check was skipped."""
+    src = SNAPSHOT_SCRIPT.read_text()
+    verify_at = src.index("verify-snapshot-manifest.py")
+    mv_at = src.index('mv -f "${DB}.tmp" "$DB"')
+    assert verify_at < mv_at
+    assert "manifest check skipped" in src.lower() or "signed-manifest check skipped" in src.lower()
+
+
+def test_success_path_clears_the_exit_trap() -> None:
+    src = SNAPSHOT_SCRIPT.read_text()
+    arm = src.index("trap cleanup EXIT")
+    clear = src.index("trap - EXIT")
+    stop_loop = src.index('systemctl stop "$unit"')
+    start_loop = src.index('systemctl start "$unit" || true')
+    assert stop_loop < arm < start_loop < clear
