@@ -464,3 +464,42 @@ def test_rollback_old_chain_only_under_bc2_glob_skips_prune(env):
     assert {f.name for f in gen2.iterdir() if f.name.startswith("chain_")} == {"chain_ait-hub.aitbc.bubuit.net_chain.db.gz"}
     assert "pruning skipped entirely" in _log(env)
     assert old.exists() and gen1.exists()
+
+
+def test_aborted_dump_is_not_ok_and_leaves_no_artifact(env):
+    """#894: a .dump that sqlite3 aborted writes 'ROLLBACK; -- due to errors'
+    at the end and still exits 0. The run must not log OK, must not leave the
+    truncated gzip behind to satisfy the good-snapshot check, and the older
+    good snapshot must survive."""
+    # sqlite3 stub: for the damaged db emit a dump that ends in the abort
+    # marker; healthy dbs keep the 50k-line clean dump.
+    corrupt_sqlite3 = """#!/bin/sh
+case "$1" in
+  *damaged*)
+    seq 1 200
+    echo 'ROLLBACK; -- due to errors'
+    exit 0;;
+  *) seq 1 50000;;
+esac
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "sqlite3").write_text(corrupt_sqlite3)
+    (bin_dir / "sqlite3").chmod(0o755)
+
+    # A damaged db file alongside the healthy one — the script sweeps every *.db.
+    damaged = env.tmp / "chaindata" / "ait-hub.aitbc.bubuit.net" / "damaged.db"
+    damaged.write_bytes(b"not-a-real-db")
+
+    old_good = _make_snapshot(env.base, _snap_name(40))
+    _run(env)
+    log = _log(env)
+
+    # No OK line, no artifact for the damaged db.
+    assert "damaged.db): OK" not in log
+    today = next(d for d in env.base.iterdir() if d.is_dir() and d.name != old_good.name)
+    assert not list(today.glob("chain_*damaged*"))
+
+    # The damaged dump must not satisfy the good-snapshot check → the older
+    # good snapshot is pruned per the retention rules, not protected.
+    assert "FAILED" in log or "ERROR" in log
+    assert old_good.exists() or "no good snapshot" in log or "pruning skipped" in log
