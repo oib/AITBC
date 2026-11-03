@@ -4,8 +4,11 @@
 
 set -euo pipefail
 
-DATA_DIR="/var/lib/aitbc/data"
-LOG_FILE="/var/log/aitbc/chain-isolation-verification.log"
+DATA_DIR="${AITBC_DATA_DIR:-/var/lib/aitbc/data}"
+LOG_FILE="${AITBC_CHAIN_ISO_LOG:-/var/log/aitbc/chain-isolation-verification.log}"
+# #917/#918: overridable so tests and operators can point the checks at
+# scratch copies instead of the live env/db.
+BLOCKCHAIN_ENV="${AITBC_BLOCKCHAIN_ENV:-/etc/aitbc/blockchain.env}"
 VIOLATION_COUNT=0
 
 # Colors for output
@@ -30,6 +33,18 @@ log_warning() {
     echo -e "${YELLOW}[WARN] $1${NC}" | tee -a "$LOG_FILE"
 }
 
+# #918: run a sqlite3 query fail-closed — a locked/corrupt/missing-table
+# error used to be swallowed by `2>/dev/null || echo ""` and reported as
+# "no cross-chain rows". The result goes to QUERY_RESULT so the counter
+# stays in this shell (no pipe subshell).
+run_query() {
+    if ! QUERY_RESULT=$(sqlite3 "$chain_db" "$1" 2>&1); then
+        log_error "sqlite3 query failed on $chain_db: $QUERY_RESULT"
+        return 1
+    fi
+    return 0
+}
+
 # Check database for cross-chain blocks
 check_database_isolation() {
     local chain_db="$1"
@@ -43,9 +58,16 @@ check_database_isolation() {
     fi
 
     # Check for blocks from other chains
-    cross_chain_blocks=$(sqlite3 "$chain_db" "SELECT chain_id, COUNT(*) FROM block GROUP BY chain_id HAVING chain_id != '$expected_chain';" 2>/dev/null || echo "")
+    if run_query "SELECT chain_id, COUNT(*) FROM block GROUP BY chain_id HAVING chain_id != '$expected_chain';"; then
+        cross_chain_blocks="$QUERY_RESULT"
+    else
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
+        cross_chain_blocks="FAILED"
+    fi
 
-    if [ -n "$cross_chain_blocks" ]; then
+    if [ "$cross_chain_blocks" = "FAILED" ]; then
+        : # query already logged + counted above — no clean verdict
+    elif [ -n "$cross_chain_blocks" ]; then
         log_error "Cross-chain blocks found in $chain_db:"
         echo "$cross_chain_blocks" | while read -r line; do
             log_error "  $line"
@@ -56,9 +78,16 @@ check_database_isolation() {
     fi
 
     # Check for accounts from other chains
-    cross_chain_accounts=$(sqlite3 "$chain_db" "SELECT chain_id, COUNT(*) FROM account GROUP BY chain_id HAVING chain_id != '$expected_chain';" 2>/dev/null || echo "")
+    if run_query "SELECT chain_id, COUNT(*) FROM account GROUP BY chain_id HAVING chain_id != '$expected_chain';"; then
+        cross_chain_accounts="$QUERY_RESULT"
+    else
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
+        cross_chain_accounts="FAILED"
+    fi
 
-    if [ -n "$cross_chain_accounts" ]; then
+    if [ "$cross_chain_accounts" = "FAILED" ]; then
+        : # query already logged + counted above — no clean verdict
+    elif [ -n "$cross_chain_accounts" ]; then
         log_error "Cross-chain accounts found in $chain_db:"
         echo "$cross_chain_accounts" | while read -r line; do
             log_error "  $line"
@@ -69,9 +98,16 @@ check_database_isolation() {
     fi
 
     # Check for transactions from other chains
-    cross_chain_txs=$(sqlite3 "$chain_db" "SELECT chain_id, COUNT(*) FROM \"transaction\" GROUP BY chain_id HAVING chain_id != '$expected_chain';" 2>/dev/null || echo "")
+    if run_query "SELECT chain_id, COUNT(*) FROM \"transaction\" GROUP BY chain_id HAVING chain_id != '$expected_chain';"; then
+        cross_chain_txs="$QUERY_RESULT"
+    else
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
+        cross_chain_txs="FAILED"
+    fi
 
-    if [ -n "$cross_chain_txs" ]; then
+    if [ "$cross_chain_txs" = "FAILED" ]; then
+        : # query already logged + counted above — no clean verdict
+    elif [ -n "$cross_chain_txs" ]; then
         log_error "Cross-chain transactions found in $chain_db:"
         echo "$cross_chain_txs" | while read -r line; do
             log_error "  $line"
@@ -100,7 +136,7 @@ check_node_configuration() {
     # neither (only CHAIN_ID). Accept either, and treat "not declared" as
     # unknown rather than as a violation -- a missing key is a config gap, not
     # evidence that this node is serving someone else's chain.
-    supported_chains=$(grep -iE "^supported_chains=" "$blockchain_env" | head -1 | cut -d'=' -f2- | tr -d '"'"'"'"')
+    supported_chains=$(grep -iE "^supported_chains=" "$blockchain_env" | head -1 | cut -d'=' -f2- | tr -d '"'"'"'"' || true)
 
     if [ -z "$supported_chains" ]; then
         log_warning "$node_name declares no supported_chains/SUPPORTED_CHAINS in $blockchain_env; skipping list check"
@@ -128,7 +164,7 @@ main() {
     # checked against a chain it does not serve, reporting a violation every run.
     local hostname=$(hostname)
     local expected_chain=""
-    expected_chain=$(grep -iE "^chain_id=" /etc/aitbc/blockchain.env 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"'"'"'"')
+    expected_chain=$(grep -iE "^chain_id=" "$BLOCKCHAIN_ENV" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"'"'"'"' || true)
 
     if [ -z "$expected_chain" ]; then
         log_error "No CHAIN_ID in /etc/aitbc/blockchain.env; cannot determine which chain $hostname should serve"
@@ -138,7 +174,7 @@ main() {
     log "Running on node: $hostname (expected chain: $expected_chain)"
 
     # Check local node configuration
-    check_node_configuration "$hostname" "/etc/aitbc/blockchain.env" "$expected_chain"
+    check_node_configuration "$hostname" "$BLOCKCHAIN_ENV" "$expected_chain"
     check_database_isolation "$DATA_DIR/$expected_chain/chain.db" "$expected_chain"
 
     # The cross-node checks that used to live here shelled out to other nodes
