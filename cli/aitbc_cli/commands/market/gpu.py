@@ -17,7 +17,7 @@ from typing import Any
 import click
 from eth_utils import is_address
 
-from ...config import get_config
+from ...config import _resolve_market_api_key, get_config
 from ...utils.wallet_secret import wallet_password_options
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
@@ -595,7 +595,11 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_s
 
     # The coordinator has no /v1/market/gpu/refund route; refunds are
     # served by the market service's job endpoint.
-    client = AITBCHTTPClient(base_url=get_config().market_service_url, timeout=30)
+    client = AITBCHTTPClient(
+        base_url=get_config().market_service_url,
+        timeout=30,
+        api_key=_resolve_market_api_key(get_config()),
+    )
     payload: dict[str, Any] = {"buyer_address": buyer_address, "reason": reason}
     try:
         result = client.post(f"/v1/market/jobs/{job_id}/refund", json=payload)
