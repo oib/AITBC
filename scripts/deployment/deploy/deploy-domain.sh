@@ -1,13 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-# Deploy AITBC services to domain https://aitbc.bubuit.net
+# Deploy AITBC services to the configured domain.
 # Uses systemd services and nginx reverse proxy
 
-set -e
-
-DOMAIN="aitbc.bubuit.net"
-CONTAINER="aitbc"
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+require_deploy_var AITBC_DOMAIN "Set it to the public domain this deploy serves."
+require_deploy_var AITBC_CONTAINER "Set it to the incus container to deploy into."
+DOMAIN="${AITBC_DOMAIN}"
+CONTAINER="${AITBC_CONTAINER}"
 
 echo "🚀 Deploying AITBC services to https://$DOMAIN"
 echo ""
@@ -25,14 +27,11 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Stop local services
-print_status "Stopping local services..."
-sudo systemctl stop aitbc-exchange aitbc-market aitbc-trading aitbc-wallet 2>/dev/null || true
-sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true
-
+# #893: a deploy INTO a container must not stop the host's own units —
+# the old stop pair left the host's rpc/market/wallet down permanently.
 # Deploy to container
 print_status "Deploying to container..."
-python /opt/aitbc/scripts/deployment/deploy/container-deploy.py
+python3 /opt/aitbc/scripts/deployment/deploy/container-deploy.py
 
 # Copy nginx config to container
 print_status "Configuring nginx for domain..."
