@@ -426,8 +426,15 @@ do_git_pull() {
         if git stash pop; then
             success "Stashed changes restored"
         else
-            error "Conflict restoring stash — resolve manually: git stash pop"
-            error "Stash preserved: git stash list"
+            # A conflicting pop leaves conflict markers in the working tree.
+            # Restarting services into marker-laden code is worse than
+            # stopping here, so this is fatal: reset the tree back to the
+            # just-pulled HEAD (the stash is NOT dropped by a conflicting
+            # pop — it stays in `git stash list`) and abort the update.
+            error "Conflict restoring stash — aborting update before any restart"
+            error "Resolve manually later: git stash pop  (stash preserved: git stash list)"
+            git reset --hard HEAD
+            return 1
         fi
     fi
 }
