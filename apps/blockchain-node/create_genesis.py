@@ -21,6 +21,16 @@ def compute_block_hash(height: int, parent_hash: str, timestamp: datetime) -> st
 
 def create_genesis():
     """Create the genesis block"""
+    # #290/#861 hard stop: writes the chain DB via session_scope — scratch only.
+    import sys
+
+    from aitbc.utils import reset_guard
+
+    try:
+        reset_guard.assert_data_dir_env()
+    except reset_guard.ResetGuardError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        sys.exit(1)
     logger.info("Creating genesis block...")
 
     # Initialize database
