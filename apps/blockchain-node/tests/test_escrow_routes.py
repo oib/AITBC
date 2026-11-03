@@ -1003,7 +1003,11 @@ async def test_release_retry_at_lock_cannot_reenter_submission(release_key, monk
             await escrow_routes.release_escrow("job-1", {"amount": "0.6"})
         assert exc.value.status_code == 400
         escrow_routes._submit_payment_tx.assert_not_awaited()
-        mgr.evict_contract.assert_not_called()
+        # #833: refusal now evicts the cached contract on the way out — every
+        # raise after release_payment passes through evict_contract so a
+        # stale mark can never outlive the row. Rebuild reads the same
+        # released state back, so the re-entry semantics are unchanged.
+        mgr.evict_contract.assert_called_once_with("c1")
 
 
 @pytest.mark.asyncio
