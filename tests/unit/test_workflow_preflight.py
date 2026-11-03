@@ -273,3 +273,18 @@ def test_curls_fail_on_http_errors():
     src = SCRIPT25.read_text()
     assert "curl -s " not in src
     assert "test -f /opt/aitbc" not in src and "test -f /etc/ssh" not in src
+
+
+def test_dead_route_contract_suites_retired():
+    """#976: suites posting to /rpc/contract/* and fabricated passes — retired."""
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    for sh in wf.glob("*.sh"):
+        src = sh.read_text()
+        for dead in (
+            "/rpc/contract/deploy",
+            "/rpc/contract/call",
+            "/rpc/contracts/create",
+            "/rpc/market/transaction",
+            "/rpc/messaging/topics/create",
+        ):
+            assert dead not in src, f"{sh.name}: {dead}"
