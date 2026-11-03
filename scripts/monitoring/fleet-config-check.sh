@@ -1180,6 +1180,7 @@ PYEOF" \
     }
 
     dig_hosts=0
+    dig_dropped=""
     min_height=""
     for h in $HOSTS; do
         out=$(digest_probe "$h" "$EMPTY_SPEC_B64" -1)
@@ -1192,8 +1193,8 @@ PYEOF" \
                 if [ -n "$mh" ] && { [ -z "$min_height" ] || [ "$mh" -lt "$min_height" ]; }; then
                     min_height=$mh
                 fi ;;
-            NODB) printf '  %-14s no chain.db under /var/lib/aitbc/data\n' "$h" ;;
-            *)    printf '  %-14s height probe failed (%s)\n' "$h" "$(echo "$out" | head -c 120)" ;;
+            NODB) dig_dropped="$dig_dropped $h"; printf '  %-14s no chain.db under /var/lib/aitbc/data\n' "$h" ;;
+            *)    dig_dropped="$dig_dropped $h"; printf '  %-14s height probe failed (%s)\n' "$h" "$(echo "$out" | head -c 120)" ;;
         esac
     done
     if [ -n "$min_height" ]; then
@@ -1203,8 +1204,8 @@ PYEOF" \
         out=$(digest_probe "$h" "$SPEC_B64" "${min_height:--1}")
         case "$out" in
             *'"tables"'*) printf '%s' "$out" > "$DIGEST_WORK/$h.json"; dig_hosts=$((dig_hosts + 1)) ;;
-            NODB) : ;;  # already reported in the height pass
-            *)    printf '  %-14s digest probe failed (%s)\n' "$h" "$(echo "$out" | head -c 120)" ;;
+            NODB) : ;;  # already counted in the height pass
+            *)    dig_dropped="$dig_dropped $h"; printf '  %-14s digest probe failed (%s)\n' "$h" "$(echo "$out" | head -c 120)" ;;
         esac
     done
     if [ "$dig_hosts" -lt 2 ]; then
@@ -1257,8 +1258,14 @@ for h in hosts:
 if fails:
     sys.exit(1)
 CMPEOF
-        if [ "$dig_bad" -eq 0 ]; then
-            echo "  ok: consensus + aux tables identical on $dig_hosts hosts"
+        # A host that never produced a digest was dropped from the
+        # comparison — that is a failed probe, not agreement (#1012).
+        if [ -n "${dig_dropped// /}" ]; then
+            dig_bad=1
+            echo "  FAIL: no digest from:${dig_dropped}"
+        elif [ "$dig_bad" -eq 0 ]; then
+            _names=$(cd "$DIGEST_WORK" && ls *.json 2>/dev/null | sed 's/\.json$//' | tr "\n" " ")
+            echo "  ok: consensus + aux tables identical on $dig_hosts hosts:$_names"
         fi
     fi
 fi
