@@ -152,7 +152,7 @@ def printable(row: dict[str, Any]) -> bool:
 # Inputs
 # ---------------------------------------------------------------------------
 
-_ASSIGNMENT = re.compile(r"^([A-Z_][A-Z0-9_]*)=(.*)$")
+_ASSIGNMENT = re.compile(r"^(?:export\s+)?([A-Z_][A-Z0-9_]*)=(.*)$")
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -163,7 +163,11 @@ def read_env_file(path: Path) -> dict[str, str]:
             for line in f:
                 m = _ASSIGNMENT.match(line.rstrip("\n"))
                 if m:
-                    out[m.group(1)] = m.group(2)
+                    v = m.group(2).strip()
+                    # systemd strips matching surrounding quotes (#914)
+                    if len(v) >= 2 and v[0] == v[-1] and v[0] in ("'", '"'):
+                        v = v[1:-1]
+                    out[m.group(1)] = v
     except OSError:
         pass
     return out
