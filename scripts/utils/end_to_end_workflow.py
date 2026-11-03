@@ -24,7 +24,7 @@ class MarketWorkflow:
         """Log workflow step"""
         timestamp = time.strftime("%H:%M:%S")
         self.workflow_steps.append({"timestamp": timestamp, "step": step, "status": status, "details": details})
-        status_icon = "✅" if status == "success" else "❌" if status == "error" else "🔄"
+        status_icon = "✅" if status == "success" else "❌" if status == "error" else "🧪" if status == "simulated" else "🔄"
         print(f"{timestamp} {status_icon} {step}")
         if details:
             print(f"    {details}")
@@ -86,7 +86,7 @@ class MarketWorkflow:
             task_id = f"task_{int(time.time())}"
             print(f"🔍 DEBUG: Generated task ID: {task_id}")
 
-            self.log_step("Submit Ollama Task", "success", f"Task {task_id} submitted to GPU {gpu_id}")
+            self.log_step("Submit Ollama Task", "simulated", f"Task {task_id} submitted to GPU {gpu_id}")
 
             return {"task_id": task_id, "gpu_id": gpu_id, "status": "submitted", "model": task_payload["model"]}
         except Exception as e:
@@ -122,7 +122,9 @@ class MarketWorkflow:
             print(f"🔍 DEBUG: Generated transaction ID: {transaction_id}")
 
             self.log_step(
-                "Process Blockchain Payment", "success", f"Payment {payment_amount} AITBC processed (TX: {transaction_id})"
+                "Process Blockchain Payment",
+                "simulated",
+                f"Payment {payment_amount} AITBC processed (TX: {transaction_id})",
             )
 
             return {
@@ -214,19 +216,32 @@ class MarketWorkflow:
         print("=" * 60)
 
         successful_steps = sum(1 for step in self.workflow_steps if step["status"] == "success")
+        failed_steps = sum(1 for step in self.workflow_steps if step["status"] == "error")
+        simulated_steps = sum(1 for step in self.workflow_steps if step["status"] == "simulated")
+        info_steps = sum(1 for step in self.workflow_steps if step["status"] == "info")
         total_steps = len(self.workflow_steps)
+        counted = total_steps - info_steps
 
-        print(f"✅ Successful Steps: {successful_steps}/{total_steps}")
-        print(f"📈 Success Rate: {successful_steps / total_steps * 100:.1f}%")
+        print(f"✅ Successful Steps: {successful_steps}/{counted} (info steps not counted)")
+        print(f"🧪 Simulated Steps: {simulated_steps}  ℹ️ Info Steps: {info_steps}")
+        print(f"📈 Success Rate: {successful_steps / counted * 100:.1f}%" if counted else "📈 Success Rate: n/a")
 
         print("\n📋 Step-by-Step Details:")
         for step in self.workflow_steps:
-            status_icon = "✅" if step["status"] == "success" else "❌" if step["status"] == "error" else "🔄"
+            status_icon = (
+                "✅"
+                if step["status"] == "success"
+                else "❌"
+                if step["status"] == "error"
+                else "🧪"
+                if step["status"] == "simulated"
+                else "🔄"
+            )
             print(f"  {step['timestamp']} {status_icon} {step['step']}")
             if step["details"]:
                 print(f"    {step['details']}")
 
-        print(f"\n🎉 Workflow Status: {'✅ COMPLETED' if successful_steps == total_steps else '❌ FAILED'}")
+        print(f"\n🎉 Workflow Status: {'✅ COMPLETED' if failed_steps == 0 else '❌ FAILED'}")
 
 
 def main():
