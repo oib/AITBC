@@ -105,6 +105,70 @@ def auto_budget_per_day() -> int:
     return _env_ait("COIN_REQUEST_AUTO_BUDGET_PER_DAY", DEFAULT_AUTO_BUDGET_PER_DAY)
 
 
+def agent_db_granted_since(db_path: str, since_iso: str) -> int:
+    """Same rolling-window sum against the websocket handler's agent SQLite DB.
+
+    The /register budget reads CoinRequest rows; REQUEST_COINS grants write
+    ``agent_coin_requests.db`` through raw sqlite3, so the main-DB window never
+    saw them — the bypass this closes (#837). Rows created before the fix count
+    too (same table, same approval_mode='automatic'). Missing DB or unreadable
+    file fails OPEN with 0: the pre-fix behaviour was no check at all, and a
+    vanished store must not block the grant path outright.
+    """
+    import sqlite3
+
+    if not os.path.exists(db_path):
+        return 0
+    try:
+        conn = sqlite3.connect(db_path)
+        total = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) FROM coin_requests WHERE status = 'APPROVED' "
+            "AND approval_mode = 'automatic' AND created_at >= ?",  # nosec B608 - static SQL, param tuple
+            (since_iso,),
+        ).fetchone()[0]
+        conn.close()
+        return int(total or 0)
+    except Exception:
+        return 0
+
+
+def ws_budget_allows(db_path: str, amount: int) -> tuple[bool, str]:
+    """The hourly/daily auto-grant budgets applied to the websocket grant path.
+
+    Same env knobs and trip metric as the /register check; on a trip the caller
+    parks the request for manual review instead of signing.
+    """
+    now = datetime.now(UTC).replace(tzinfo=None)
+    hour_spent = agent_db_granted_since(db_path, (now - timedelta(hours=1)).isoformat())
+    day_spent = agent_db_granted_since(db_path, (now - timedelta(hours=24)).isoformat())
+    metrics_registry.gauge("coin_request_auto_granted_window", "Automatic coin grants in the rolling window", ["window"]).set(
+        float(hour_spent), window="hourly"
+    )
+    metrics_registry.gauge("coin_request_auto_granted_window", "Automatic coin grants in the rolling window", ["window"]).set(
+        float(day_spent), window="daily"
+    )
+    if hour_spent + amount > auto_budget_per_hour():
+        metrics_registry.counter(
+            "coin_request_auto_budget_trips_total", "Requests parked by an exhausted automatic budget", ["window"]
+        ).inc(window="hourly")
+        logger.warning(
+            "WS coin-request hourly budget exceeded: %s + %s > %s — parked for review",
+            hour_spent,
+            amount,
+            auto_budget_per_hour(),
+        )
+        return False, "the automatic hourly budget is exhausted"
+    if day_spent + amount > auto_budget_per_day():
+        metrics_registry.counter(
+            "coin_request_auto_budget_trips_total", "Requests parked by an exhausted automatic budget", ["window"]
+        ).inc(window="daily")
+        logger.warning(
+            "WS coin-request daily budget exceeded: %s + %s > %s — parked for review", day_spent, amount, auto_budget_per_day()
+        )
+        return False, "the automatic daily budget is exhausted"
+    return True, "within the automatic budget"
+
+
 def _auto_granted_since(session: Session, since: datetime) -> int:
     """Total amount auto-approved since `since` (created_at is stored naive-UTC)."""
     total = (
