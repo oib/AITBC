@@ -189,18 +189,30 @@ def test_a_successful_execution_is_recorded_against_the_request(client) -> None:
 
 
 def test_a_failed_submission_leaves_the_request_executable(client, monkeypatch) -> None:
-    """A claim that does not result in a payment must be released, or a blip strands the request."""
+    """A signed-but-failed submission keeps its claim (#851) — the tx may be
+    in the mempool — and the RETRY's chain check is what releases it, once it
+    has confirmed nothing landed."""
 
     class _RejectingHttpClient(FakeHttpClient):
         def post(self, _path: str, json: dict) -> dict:  # noqa: A002
             raise RuntimeError("blockchain unreachable")
+
+        def get_json(self, path, params=None):
+            # Chain check: mempool and history both empty — nothing landed.
+            return {"transactions": []} if path == "/rpc/mempool" else []
 
     monkeypatch.setattr("aitbc.network.AITBCHTTPClient", _RejectingHttpClient, raising=False)
     assert _execute(client).status_code == 502
 
     stored = stored_request(APPROVED["id"])
     assert stored is not None
-    assert stored.transaction_hash is None
+    assert stored.transaction_hash is not None
+    assert stored.transaction_hash.startswith("claiming:")
+
+    # The retry reconciles: empty chain → claim released, a 409 tells the
+    # caller the way is clear; the call after it executes fresh and succeeds.
+    assert _execute(client).status_code == 409
+    assert stored_request(APPROVED["id"]).transaction_hash is None
 
     monkeypatch.setattr("aitbc.network.AITBCHTTPClient", FakeHttpClient, raising=False)
     assert _execute(client).status_code == 200

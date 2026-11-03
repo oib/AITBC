@@ -234,6 +234,21 @@ def remote_execute_coin_request(
     # the caller can reconcile instead of being left unsure whether the first call landed.
     if existing_hash:
         if str(existing_hash).startswith(EXECUTION_CLAIM_PREFIX):
+            # An earlier attempt may have been accepted by the node after its
+            # response was lost (#851): the claim carries that attempt's
+            # signed nonce, so check the chain before deciding — a retry that
+            # finds it returns the first tx instead of paying twice.
+            recovered = _recover_claimed_attempt(req.request_id, existing_hash, amount, recipient)
+            if recovered is not None:
+                logger.info("Execute request %s recovered the first attempt's tx", req.request_id)
+                return {
+                    "success": True,
+                    "already_executed": True,
+                    "request_id": req.request_id,
+                    "tx_hash": recovered,
+                    "amount": amount,
+                    "recipient": recipient,
+                }
             raise HTTPException(
                 status_code=409,
                 detail=f"Coin request {req.request_id} is already being executed",
@@ -293,6 +308,16 @@ def remote_execute_coin_request(
         if not signed_tx:
             raise HTTPException(status_code=500, detail="Failed to generate signed transaction")
 
+        # Fold the attempt's nonce into the claim (CAS on the marker we wrote):
+        # if the submit below dies ambiguously the row keeps this nonce, and a
+        # retry can find the accepted tx on-chain instead of paying twice (#851).
+        nonce_claim = f"{claim}:nonce={signed_tx.get('nonce')}"
+        with get_db_session() as session:
+            session.query(CoinRequest).filter(CoinRequest.id == req.request_id, CoinRequest.transaction_hash == claim).update(
+                {"transaction_hash": nonce_claim}, synchronize_session=False
+            )
+        claim = nonce_claim
+
         from aitbc.network import AITBCHTTPClient
 
         http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
@@ -301,11 +326,15 @@ def remote_execute_coin_request(
         if not tx_hash:
             raise HTTPException(status_code=502, detail="Blockchain did not return a transaction hash")
     except HTTPException:
-        _release_claim(req.request_id, claim)
+        # Only pre-submit failures may release the claim: signing failure and
+        # the missing-tx-hash 502 mean nothing reached the node. Anything raised
+        # by the POST itself is ambiguous — the node may have accepted it — so
+        # the claim (with the nonce) stays and the retry reconciles.
+        _release_claim_for_safe_exit(req.request_id, claim)
         raise
     except Exception as e:
         logger.exception("Unhandled exception")
-        _release_claim(req.request_id, claim)
+        _release_claim_for_safe_exit(req.request_id, claim)
 
         raise HTTPException(status_code=502, detail="Internal server error") from e
 
@@ -333,6 +362,81 @@ def remote_execute_coin_request(
         "amount": amount,
         "recipient": recipient,
     }
+
+
+def _release_claim_for_safe_exit(request_id: str, claim: str) -> None:
+    """Release a claim only when the failure cannot have reached the node.
+
+    An HTTPException from before the submit POST is safe to unwind; once the
+    POST has been attempted, an exception is ambiguous and the claim must
+    stay (#851). We distinguish by the claim marker: a plain ``claiming:<ts>``
+    never got past signing, while ``claiming:<ts>:nonce=N`` proves a signed
+    transaction existed when the POST was tried.
+    """
+    if ":nonce=" in claim:
+        logger.error(
+            "Keeping the execution claim on %s: the submit may have landed (%s); a retry will reconcile against the chain",
+            request_id,
+            claim,
+        )
+        return
+    _release_claim(request_id, claim)
+
+
+def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient: str) -> str | None:
+    """Reconcile a nonce-marked claim against the chain.
+
+    Returns the accepted transaction's hash when the first attempt's tx is
+    found (mempool or sealed); None when the chain shows nothing — the claim
+    is then released and the caller may safely retry.
+    """
+    marker = ":nonce="
+    if marker not in claim:
+        # A bare claim (pre-signing crash) carries no nonce — release and let
+        # the retry proceed; nothing signed ever existed.
+        _release_claim(request_id, claim)
+        return None
+    try:
+        nonce = int(claim.rsplit(marker, 1)[1])
+    except ValueError:
+        _release_claim(request_id, claim)
+        return None
+
+    try:
+        tx_service = TransactionService()
+        from aitbc.network import AITBCHTTPClient
+
+        client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=15)
+        genesis = tx_service.genesis_address
+        mempool_resp = client.get_json("/rpc/mempool")
+        pending = mempool_resp.get("transactions", []) if isinstance(mempool_resp, dict) else []
+        found: str | None = None
+        for entry in pending:
+            if entry.get("nonce") == nonce and entry.get("from") == genesis and entry.get("to") == recipient:
+                found = entry.get("tx_hash") or entry.get("transaction_hash")
+                break
+        if found is None:
+            sealed = client.get_json("/rpc/transactions", params={"sender": genesis, "recipient": recipient})
+            for entry in sealed if isinstance(sealed, list) else []:
+                if entry.get("nonce") == nonce:
+                    found = entry.get("tx_hash") or entry.get("transaction_hash")
+                    break
+        if found:
+            # Finalize the row to the recovered hash so later calls take the
+            # fast already-executed path instead of reconciling again.
+            with get_db_session() as session:
+                session.query(CoinRequest).filter(CoinRequest.id == request_id, CoinRequest.transaction_hash == claim).update(
+                    {"transaction_hash": found}, synchronize_session=False
+                )
+            return found
+    except Exception:
+        logger.exception("Chain check for claimed attempt on %s failed; keeping the claim", request_id)
+        return None
+
+    # Checked the chain and the first attempt left no trace — release so the
+    # next call is a fresh execution.
+    _release_claim(request_id, claim)
+    return None
 
 
 def _release_claim(request_id: str, claim: str) -> None:
