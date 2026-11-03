@@ -101,3 +101,12 @@ def test_summary_is_not_static():
     src = SCRIPT17.read_text()
     assert "Basic configuration completed" not in src
     assert "grep -E" in src or "stat -c" in src
+
+
+def test_no_script_forges_block_fields():
+    """#960: no workflow script rewrites proposer/genesis fields for importBlock."""
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    for sh in wf.glob("*.sh"):
+        src = sh.read_text()
+        assert "importBlock" not in src or "proposer" not in src, sh.name
+    assert not (wf / "08_blockchain_sync_fix.sh").exists()
