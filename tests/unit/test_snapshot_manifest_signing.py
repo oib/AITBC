@@ -160,6 +160,7 @@ def test_db_content_check_match(signer, verifier, gen, tmp_path, capsys):
             Account.from_key("0x" + key.read_text().strip()).address,
             "--db",
             str(tmp_path / "m.db"),
+            "--skip-state-root",  # fixture manifest has skipped: true
         ]
     )
     out = capsys.readouterr().out
@@ -183,6 +184,7 @@ def test_db_content_check_mismatch(signer, verifier, gen, tmp_path, capsys):
             Account.from_key("0x" + key.read_text().strip()).address,
             "--db",
             str(tmp_path / "m.db"),
+            "--skip-state-root",
         ]
     )
     out = capsys.readouterr().out
