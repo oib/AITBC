@@ -1154,7 +1154,10 @@ main() {
         NO_CHANGES=false
     fi
 
-    sync_venv
+    # sync_venv is a gating step: a failed venv sync (missing packages, broken
+    # interpreter) must stop the update here — relinking units and restarting
+    # services into a broken venv is how a routine pull takes a node down.
+    sync_venv || exit 1
     # relink_systemd aborts the update when a previously-linked aitbc-* unit
     # vanished — continuing into restarts with units dropped is worse than
     # stopping here.
