@@ -1352,7 +1352,7 @@ def apply_deltas_to_db(
                 receipt.claimed_by = delta.sender
                 from datetime import UTC, datetime
 
-                receipt.claimed_at = datetime.now(UTC)
+                receipt.claimed_at = block_time or datetime.now(UTC)
 
     # Handle IPFS_SUBSCRIPTION deltas
     for delta in successful:
