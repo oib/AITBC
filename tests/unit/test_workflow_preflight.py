@@ -54,3 +54,25 @@ def test_restart_is_conditional_on_real_change():
     src = SCRIPT13.read_text()
     assert "_before=$(git rev-parse HEAD)" in src
     assert '!= "$_before"' in src
+
+
+SCRIPT27 = Path(__file__).resolve().parents[2] / "scripts/workflow/27_operations_automation.sh"
+SCRIPT21 = Path(__file__).resolve().parents[2] / "scripts/workflow/21_maintenance_automation.sh"
+
+
+def test_no_blanket_tmp_delete():
+    """#958: no unfiltered find -delete over /tmp or /var/tmp."""
+    src = SCRIPT27.read_text()
+    assert "find /tmp -mtime" not in src
+    assert "find /var/tmp -mtime" not in src
+    # the dedicated dir + name filter is required
+    assert "-name 'aitbc-*' -delete" in src
+
+
+def test_vacuum_failures_are_visible():
+    """#958: no || true on VACUUM — a failed vacuum must error."""
+    for s in (SCRIPT21, SCRIPT27):
+        src = s.read_text()
+        for line in src.splitlines():
+            if "VACUUM" in line:
+                assert "|| true" not in line, f"{s.name}: {line.strip()}"
