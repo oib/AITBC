@@ -288,9 +288,10 @@ def _start_mempool_sweeper() -> asyncio.Task[None] | None:
     """Start the staleness sweeper, unless the TTL disables it.
 
     Owned by the RPC app rather than main.py: aitbc-blockchain-rpc runs with
-    --workers 1, so exactly one sweeper exists per host, and both processes
-    share the same mempool store -- a second sweeper would only double-count
-    the eviction metrics.
+    --workers N, so the caller starts this only on the worker holding the
+    per-host sweeper leader lock (rpc/sweeper_leader.py) — exactly one
+    sweeper exists per host. A second sweeper would only double-count the
+    eviction metrics anyway: both processes share the same mempool store.
     """
     if settings.mempool_entry_ttl <= 0:
         _app_logger.info("Mempool staleness sweeper disabled (mempool_entry_ttl <= 0)")
@@ -448,10 +449,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         _app_logger.error("Failed to start lease tracker in RPC service: %s", e)
 
-    mempool_sweeper = _start_mempool_sweeper()
+    # Per-host sweeper leadership (#832): under --workers N every worker runs
+    # this lifespan, so exactly one leads via a flock beside chain.db and
+    # starts the sweepers; the rest skip.
+    from .rpc.sweeper_leader import release_sweeper_leadership, try_acquire_sweeper_leadership
     from .rpc.escrow_settlement_sweeper import start_settlement_sweeper
 
-    settlement_sweeper = start_settlement_sweeper()
+    sweeper_leader_fd = try_acquire_sweeper_leadership()
+    if sweeper_leader_fd is None:
+        _app_logger.info("Sweeper leadership held by another RPC worker: mempool and settlement sweepers not started here")
+        mempool_sweeper = settlement_sweeper = None
+    else:
+        mempool_sweeper = _start_mempool_sweeper()
+        settlement_sweeper = start_settlement_sweeper()
 
     try:
         yield
@@ -460,6 +470,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # The backends are responsible for fast cleanup; the waits here are a
         # safety net for any component that still blocks.
         async def _shutdown() -> None:
+            release_sweeper_leadership(sweeper_leader_fd)
             for sweeper in (mempool_sweeper, settlement_sweeper):
                 if sweeper is not None:
                     sweeper.cancel()
