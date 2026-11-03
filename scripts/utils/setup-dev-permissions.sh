@@ -204,27 +204,32 @@ EOF
     # Permission fix script
     cat > "$PROJECT_DIR/scripts/fix-permissions.sh" << 'EOF'
 #!/bin/bash
-# AITBC Permission Fix Script - No sudo required
+# AITBC Permission Fix — scoped to source files only (see scripts/utils/fix-permissions.sh).
 
-echo "Fixing AITBC project permissions..."
+set -euo pipefail
 
-# Fix ownership
-sudo chown -R oib:aitbc /opt/aitbc
+TARGET_DIR="${AITBC_PERM_TARGET:-/opt/aitbc}"
 
-# Fix directory permissions
-sudo find /opt/aitbc -type d -exec chmod 2775 {} \;
+echo "Fixing AITBC source permissions under $TARGET_DIR ..."
 
-# Fix file permissions
-sudo find /opt/aitbc -type f -exec chmod 664 {} \;
+# Prune everything that is not source or can hold secrets.
+PRUNE=( '(' \
+    -name venv -o -name .venv -o -name .git -o -name node_modules \
+    -o -name data -o -name credentials -o -name keystore \
+    -o -name '.env*' -o -name '*.key' -o -name '*.pem' -o -name '*.secret' \
+    ')' -prune )
 
-# Make scripts executable
-sudo find /opt/aitbc -name "*.sh" -exec chmod +x {} \;
-sudo find /opt/aitbc -name "*.py" -exec chmod +x {} \;
+sudo find "$TARGET_DIR" "${PRUNE[@]}" -o -type d -exec chmod 2775 {} +
+sudo find "$TARGET_DIR" "${PRUNE[@]}" -o -type f \
+    '(' -name '*.sh' -o -name '*.bash' ')' -exec chmod 775 {} +
+sudo find "$TARGET_DIR" "${PRUNE[@]}" -o -type f \
+    '(' -name '*.py' -o -name '*.pyi' -o -name '*.md' -o -name '*.txt' \
+       -o -name '*.toml' -o -name '*.cfg' -o -name '*.ini' -o -name '*.yaml' \
+       -o -name '*.yml' -o -name '*.json' -o -name '*.sol' -o -name '*.rs' \
+       -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \
+       -o -name '*.html' -o -name '*.css' ')' -exec chmod 664 {} +
 
-# Set SGID bit for directories
-sudo find /opt/aitbc -type d -exec chmod g+s {} \;
-
-echo "Permissions fixed!"
+echo "Permissions fixed (source files only)."
 EOF
 
     # Make scripts executable
