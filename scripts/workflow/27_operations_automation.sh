@@ -4,7 +4,7 @@ set -euo pipefail
 # AITBC Operations Automation Script
 # Handles routine operations, monitoring, and maintenance
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -191,22 +191,32 @@ perform_maintenance() {
     echo "Cleaned old log files"
 
     # Optimize database
-    if [ -f "/var/lib/aitbc/data/ait-mainnet/chain.db" ]; then
-        sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db "VACUUM;" 2>/dev/null || true
-        echo "Optimized blockchain database"
+    CHAIN_ID="${CHAIN_ID:-$(grep -s '^CHAIN_ID=' /etc/aitbc/blockchain.env | tail -1 | cut -d= -f2)}"
+    CHAIN_ID="${CHAIN_ID:-ait-mainnet}"
+    if [ -f "/var/lib/aitbc/data/${CHAIN_ID}/chain.db" ]; then
+        if sqlite3 "/var/lib/aitbc/data/${CHAIN_ID}/chain.db" "VACUUM;" 2>/dev/null; then
+            echo "Optimized blockchain database"
+        else
+            echo "ERROR: VACUUM on chain.db failed" >&2
+        fi
     fi
 
     if [ -f "/var/lib/aitbc/data/mempool.db" ]; then
-        sqlite3 /var/lib/aitbc/data/mempool.db "VACUUM;" 2>/dev/null || true
-        echo "Optimized mempool database"
+        if sqlite3 /var/lib/aitbc/data/mempool.db "VACUUM;" 2>/dev/null; then
+            echo "Optimized mempool database"
+        else
+            echo "ERROR: VACUUM on mempool.db failed" >&2
+        fi
     fi
 
     # Check disk space
     local disk_usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
     if [ "$disk_usage" -gt 80 ]; then
-        echo "Cleaning temporary files..."
-        find /tmp -mtime +1 -delete 2>/dev/null || true
-        find /var/tmp -mtime +1 -delete 2>/dev/null || true
+        # Only files this stack created — never a blanket sweep of /tmp or
+        # /var/tmp: other services keep state there (#958).
+        echo "Cleaning AITBC temporary files..."
+        find /tmp/aitbc-ops -mtime +1 -name 'aitbc-*' -delete 2>/dev/null || true
+        find /var/tmp/aitbc-ops -mtime +1 -name 'aitbc-*' -delete 2>/dev/null || true
     fi
 
     echo "Maintenance completed"
