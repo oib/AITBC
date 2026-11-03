@@ -206,3 +206,14 @@ def test_generated_health_check_reads_env():
 def test_cron_line_is_deduped():
     src = SCRIPT16.read_text()
     assert "grep -vF '/opt/aitbc/scripts/health_check.sh'" in src
+
+
+SCRIPT36 = Path(__file__).resolve().parents[2] / "scripts/workflow/36_contract_security_testing.sh"
+
+
+def test_findings_reach_the_verdict():
+    """#969: the helper is exported for bash -c and findings gate the verdict."""
+    src = SCRIPT36.read_text()
+    assert "export -f log_security_finding" in src
+    assert "FINDINGS_COUNT" in src
+    assert "sendTx" not in src
