@@ -29,7 +29,7 @@ fi
 # Check current network status
 echo "1. Current network status:"
 echo "   aitbc1 height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)"
-echo "   aitbc height: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')"
+echo "   aitbc height: $(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo '0'")"
 echo "   Network latency: $(ping -c 1 ${NODE0_HOST} | grep "time=" | cut -d= -f2)"
 
 # Optimize Redis configuration
@@ -59,7 +59,7 @@ sleep 5
 # Verify optimization
 echo "5. Verifying optimization results..."
 echo "   aitbc1 RPC response time: $(curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head) seconds"
-echo "   aitbc RPC response time: $(ssh aitbc 'curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head') seconds"
+echo "   aitbc RPC response time: $(ssh aitbc "curl -w '%{time_total}' -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head") seconds"
 
 # Check system resources
 echo "6. System resource optimization..."
@@ -85,7 +85,7 @@ cat > /opt/aitbc/scripts/network_monitor.sh << EOF
 echo "=== Network Monitor ==="
 echo "Time: \$(date)"
 echo "aitbc1 height: \$(curl -s \$BLOCKCHAIN_RPC/rpc/head | jq .height)"
-echo "aitbc height: \$(ssh aitbc 'curl -s \$BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')"
+echo "aitbc height: \$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo '0'")"
 echo "Redis status: \$(redis-cli ping)"
 echo "Network latency: \$(ping -c 1 ${NODE0_HOST} | grep "time=" | cut -d= -f2)"
 echo "Memory usage: \$(free -h | grep Mem)"

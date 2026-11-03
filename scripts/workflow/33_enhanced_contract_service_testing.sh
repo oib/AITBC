@@ -354,7 +354,7 @@ else
 fi
 
 # AI service health
-AI_HEALTH=$(ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats')
+AI_HEALTH=$(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats")
 if [ -n "$AI_HEALTH" ]; then
     echo -e "${GREEN}✅${NC} AI Service: Healthy"
     SERVICES_STATUS="$SERVICES_STATUS ai:healthy"
