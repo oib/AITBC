@@ -49,13 +49,39 @@ if command -v curl &> /dev/null; then
   fi
 fi
 
-# Test alert configuration
+# Test alert configuration — a present-but-broken file is a failure,
+# not a pass (#922).
 echo "🔍 Testing alert configuration..."
-if [[ -f "${MONITORING_DIR}/config/alertmanager.yml" ]]; then
-  echo "✅ Alertmanager configuration is valid"
-else
+AM_YML="${MONITORING_DIR}/config/alertmanager.yml"
+if [[ ! -f "$AM_YML" ]]; then
   echo "❌ Alertmanager configuration not found"
   exit 1
+fi
+if command -v amtool &> /dev/null; then
+  if amtool check-config "$AM_YML" &> /dev/null; then
+    echo "✅ Alertmanager configuration is valid"
+  else
+    echo "❌ Alertmanager configuration is invalid"
+    exit 1
+  fi
+else
+  # No amtool — require the file to at least parse as YAML with a route
+  # and a receivers list (system python3, PyYAML where available).
+  if python3 - "$AM_YML" << 'YAMLCHK' 2>/dev/null
+import sys
+try:
+    import yaml
+    doc = yaml.safe_load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)
+sys.exit(0 if isinstance(doc, dict) and doc.get("route") and doc.get("receivers") else 1)
+YAMLCHK
+  then
+    echo "✅ Alertmanager configuration is valid"
+  else
+    echo "❌ Alertmanager configuration is invalid (does not parse or lacks route/receivers)"
+    exit 1
+  fi
 fi
 
 echo "=== Monitoring verification complete for ${NETWORK} ==="
