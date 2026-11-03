@@ -234,8 +234,14 @@ def main() -> int:
         if args.scratch is None
         else None
     )
-    scratch = args.scratch or Path(scratch_ctx.name)  # type: ignore[union-attr]
-    scratch.mkdir(parents=True, exist_ok=True)
+    if args.scratch is not None:
+        # A user-supplied dir may hold other files — rebuild inside an
+        # mkdtemp child and delete only that child, never the dir itself
+        # (#912). The old code rm -rf'd the whole --scratch dir.
+        args.scratch.mkdir(parents=True, exist_ok=True)
+        scratch = Path(tempfile.mkdtemp(prefix="backup-verify-", dir=args.scratch))
+    else:
+        scratch = Path(scratch_ctx.name)  # type: ignore[union-attr]
     try:
         errors, report = verify_set(set_dir, scratch, baseline, args.max_age)
     finally:
