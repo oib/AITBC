@@ -116,7 +116,7 @@ def find_chain_dbs(data_dir: str) -> list[str]:
 
 def stale_residues(
     conn: sqlite3.Connection, now: float, max_age_seconds: float, v3_height: int, dust: int
-) -> list[ResidueRow]:
+) -> tuple[list[ResidueRow], int]:
     rows = conn.execute(
         """SELECT job_id, amount,
                   amount - COALESCE(released_amount, 0) - COALESCE(refunded_amount, 0) AS residue,
@@ -127,10 +127,14 @@ def stale_residues(
         TERMINAL_STATES,
     ).fetchall()
     out = []
+    unparsed = 0
     for job_id, amount, residue, terminal_at in rows:
         ts = parse_ts(terminal_at)
         if ts is None:
-            continue  # unparseable timestamp: not stale-countable, not hidden
+            # unparseable timestamp: not stale-countable — but counted on its
+            # own gauge, not silently dropped (#929).
+            unparsed += 1
+            continue
         age = now - ts.timestamp()
         if age < max_age_seconds:
             continue
@@ -143,10 +147,10 @@ def stale_residues(
                 cls=classify(int(residue), int(amount), lock_height, sealed_outflow, swept, v3_height, dust),
             )
         )
-    return out
+    return out, unparsed
 
 
-def read_db(path: str, now: float, max_age_seconds: float, v3_height: int, dust: int) -> list[ResidueRow] | None:
+def read_db(path: str, now: float, max_age_seconds: float, v3_height: int, dust: int) -> tuple[list[ResidueRow], int] | None:
     """None on failure — a broken check must not mask the disease it watches."""
     try:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
@@ -162,8 +166,8 @@ def _label(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
-def render(results: dict[str, list[ResidueRow] | None], now: float) -> str:
-    """results maps db path → classified residue rows, or None when the read failed."""
+def render(results: dict[str, tuple[list[ResidueRow], int] | None], now: float) -> str:
+    """results maps db path → (classified residue rows, unparsed count), or None when the read failed."""
     lines = [
         "# HELP aitbc_escrow_residue_accounts Stale escrow residue rows of class fee leg (sweepable).",
         "# TYPE aitbc_escrow_residue_accounts gauge",
@@ -177,6 +181,8 @@ def render(results: dict[str, list[ResidueRow] | None], now: float) -> str:
         "# TYPE aitbc_escrow_residue_scrape_success gauge",
         "# HELP aitbc_escrow_residue_scrape_timestamp_seconds Unix time of this scrape.",
         "# TYPE aitbc_escrow_residue_scrape_timestamp_seconds gauge",
+        "# HELP aitbc_escrow_residue_unparsed_total Terminal-state residue rows whose terminal_at did not parse (counted, never silently dropped).",
+        "# TYPE aitbc_escrow_residue_unparsed_total gauge",
     ]
     fee_legs = 0
     oldest = 0.0
@@ -186,6 +192,8 @@ def render(results: dict[str, list[ResidueRow] | None], now: float) -> str:
         lines.append(f'aitbc_escrow_residue_scrape_success{{db="{_label(db)}"}} {1 if ok else 0}')
         if not ok:
             continue
+        rows, unparsed = rows
+        lines.append(f'aitbc_escrow_residue_unparsed_total{{db="{_label(db)}"}} {unparsed}')
         for r in rows:
             if r.cls == FEE_LEG:
                 fee_legs += 1
@@ -231,7 +239,7 @@ def main() -> int:
     dust = int(os.getenv("AITBC_ESCROW_RESIDUE_DUST", "0"))
     now = time.time()
     dbs = resolve_dbs()
-    results: dict[str, list[ResidueRow] | None] = {}
+    results: dict[str, tuple[list[ResidueRow], int] | None] = {}
     rc = 0
     for db in dbs or ["<none>"]:
         if db == "<none>":
