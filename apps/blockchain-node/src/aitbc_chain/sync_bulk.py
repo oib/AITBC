@@ -367,9 +367,9 @@ class BulkSyncMixin(SyncBase):
 
         # Fetch the rest of the peer's segment beyond our head so the distinct
         # proposer count sees more than the overlap. Capped at max_reorg_depth
-        # blocks past the ancestor — the true length is known exactly from the
-        # peer's head, so the cap only bounds the proposer count (a lower
-        # bound, which is the conservative direction).
+        # blocks past the ancestor — the peer's claimed head height only bounds
+        # the fetch; the branch length below is derived from the blocks actually
+        # returned and validated, never from the claim.
         fetch_to = min(remote_height, ancestor_height + self._max_reorg_depth)
         for fh in range(local_height + 1, fetch_to + 1):
             fetched = await self.fetch_blocks_range(fh, fh, source_url)
@@ -393,9 +393,13 @@ class BulkSyncMixin(SyncBase):
 
             # Validate every fetched peer-segment block BEFORE deleting our
             # rows. Parent timestamps chain through the peer's own segment —
-            # exactly what a reimport would face.
+            # exactly what a reimport would face. So do parent hashes: a
+            # "segment" whose blocks do not link parent→child back to the
+            # common ancestor is a spliced bundle of headers, not a branch,
+            # and must never win a reorg no matter what it claims.
             peer_ts_map: dict[int, Any] = {}
             seg_parent_ts = parent_ts
+            expected_parent_hash = ancestor.hash if ancestor else None
             for fh in sorted(peer_seg):
                 bd = peer_seg[fh]
                 if bd.get("height") != fh:
@@ -405,6 +409,17 @@ class BulkSyncMixin(SyncBase):
                         bd.get("height"),
                         fh,
                     )
+                    return False
+                if expected_parent_hash is None or bd.get("parent_hash") != expected_parent_hash:
+                    self._logger.warning(
+                        "Peer %s fork segment is unlinked at height %s (parent_hash %s, expected %s) — "
+                        "refusing to reorg onto a spliced segment",
+                        source_url,
+                        fh,
+                        bd.get("parent_hash"),
+                        expected_parent_hash,
+                    )
+                    metrics_registry.increment("sync_fork_invalid_rival_total")
                     return False
                 if self._validate_signatures:
                     sig_ok, sig_reason = self._validator.validate_block_signature(bd)
@@ -424,11 +439,15 @@ class BulkSyncMixin(SyncBase):
                     metrics_registry.increment("sync_fork_invalid_rival_total")
                     return False
                 peer_ts_map[fh] = seg_parent_ts
+                expected_parent_hash = str(bd.get("hash") or "")
 
             our_proposers = {str(b.proposer) for b in our_segment}
             peer_proposers = {str(peer_seg[fh].get("proposer")) for fh in peer_seg}
             our_len = local_height - ancestor_height
-            peer_len = remote_height - ancestor_height
+            # The peer's branch length is the number of fetched-and-validated
+            # blocks past the ancestor — not remote_height minus the ancestor,
+            # which would let an inflated head claim outrun every real branch.
+            peer_len = len(peer_seg)
             fork_h = ancestor_height + 1
             our_child = next(b for b in our_segment if b.height == fork_h)
             peer_child = peer_seg[fork_h]
