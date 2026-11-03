@@ -48,7 +48,9 @@ def _mk_pg(dest: Path) -> None:
 
 @pytest.fixture
 def good_set(tmp_path):
-    gen = tmp_path / "20260101_010000"
+    import datetime
+
+    gen = tmp_path / datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
     gen.mkdir()
     _mk_chain_dump(gen / "chain_ait-hub_chain.db.gz")
     _mk_svc(gen / "svc_hermes_state.db.gz")
@@ -110,3 +112,22 @@ def test_commitless_chain_dump_fails(good_set, tmp_path):
     )
     errs, _ = bv.verify_set(good_set, tmp_path / "sc", None)
     assert any("chain_trunc" in e for e in errs)
+
+
+def test_stale_newest_set_fails(good_set, tmp_path):
+    """#911: an old-named set must not read CLEAN."""
+    stale = tmp_path / "20200102_000000"
+    stale.mkdir()
+    (stale / "chain_x_chain.db.gz").write_bytes(
+        gzip.compress(b"BEGIN TRANSACTION;\nCREATE TABLE blocks (id INTEGER);\nINSERT INTO blocks VALUES (1);\nCOMMIT;\n")
+    )
+    errs, rep = bv.verify_set(stale, tmp_path / "sc", None)
+    assert any("old" in e for e in errs)
+
+
+def test_empty_newest_set_fails(tmp_path):
+    """#911: a newest dir with zero artifacts is an error, not CLEAN."""
+    empty = tmp_path / "20200102_000000"
+    empty.mkdir()
+    errs, rep = bv.verify_set(empty, tmp_path / "sc", None)
+    assert any("no chain" in e for e in errs)
