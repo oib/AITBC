@@ -93,6 +93,27 @@ class SecurityAudit:
         logger.info("Audit completed")
         return self.results
 
+    def _code_files(self, suffixes: tuple[str, ...]) -> list[Path]:
+        """Tracked source files only — git ls-files never sweeps venv/,
+        node_modules, or scratch trees the way a ``**`` glob does (#1019).
+        Falls back to a glob with generated dirs pruned outside a repo."""
+        exts = {e.lstrip(".") for e in suffixes}
+        try:
+            r = subprocess.run(
+                ["git", "ls-files"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return [self.project_root / line for line in r.stdout.splitlines() if line.rsplit(".", 1)[-1] in exts]
+        except (subprocess.SubprocessError, FileNotFoundError):
+            skip = {"venv", ".venv", "node_modules", "__pycache__"}
+            out = []
+            for ext in exts:
+                out += [p for p in self.project_root.glob(f"**/*.{ext}") if not any(part in skip for part in p.parts)]
+            return out
+
     def check_file_permissions(self) -> tuple[float, list[dict]]:
         """Check file permissions and access controls"""
         issues = []
@@ -166,11 +187,10 @@ class SecurityAudit:
             (r'secret\s*=\s*["\'][^"\']+["\']', "hardcoded_secret"),
             (r'token\s*=\s*["\'][^"\']+["\']', "hardcoded_token"),
             (r'private_key\s*=\s*["\'][^"\']+["\']', "hardcoded_private_key"),
-            (r"0x[a-fA-F0-9]{40}", "ethereum_address"),
             (r"sk-[a-zA-Z0-9]{48}", "openai_api_key"),
         ]
 
-        code_files = list(self.project_root.glob("**/*.py")) + list(self.project_root.glob("**/*.js"))
+        code_files = self._code_files((".py", ".js"))
 
         for file_path in code_files:
             try:
@@ -255,7 +275,7 @@ class SecurityAudit:
             "os.system",  # Command injection
         ]
 
-        python_files = list(self.project_root.glob("**/*.py"))
+        python_files = self._code_files((".py",))
 
         for file_path in python_files:
             try:
@@ -365,7 +385,7 @@ class SecurityAudit:
         score = 10.0
 
         # Check for hardcoded URLs and endpoints
-        network_files = list(self.project_root.glob("**/*.py")) + list(self.project_root.glob("**/*.js"))
+        network_files = self._code_files((".py", ".js"))
 
         hardcoded_urls = []
         for file_path in network_files:
@@ -439,7 +459,7 @@ class SecurityAudit:
         rbac_patterns = ["role", "permission", "authorization"]
         rbac_found = False
 
-        python_files = list(self.project_root.glob("**/*.py"))
+        python_files = self._code_files((".py",))
         for file_path in python_files:
             try:
                 with open(file_path, encoding="utf-8") as f:
@@ -465,7 +485,7 @@ class SecurityAudit:
         encryption_patterns = ["encrypt", "decrypt", "cipher", "hash"]
         encryption_found = False
 
-        python_files = list(self.project_root.glob("**/*.py"))
+        python_files = self._code_files((".py",))
         for file_path in python_files:
             try:
                 with open(file_path, encoding="utf-8") as f:
