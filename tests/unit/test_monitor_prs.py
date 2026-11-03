@@ -25,3 +25,13 @@ def test_changed_files_compiled_not_first20():
     src = SCRIPT.read_text()
     assert '["find", tmpdir' not in src
     assert "changed_files" in src
+
+
+SCRIPT_PM = Path(__file__).resolve().parents[2] / "scripts" / "monitoring" / "production_monitoring.sh"
+
+
+def test_no_double_line_status():
+    """#1009: is-active || echo produced a two-line status = phantom alert."""
+    src = SCRIPT_PM.read_text()
+    assert 'is-active "$service" 2>/dev/null || echo' not in src
+    assert "status=${status:-failed}" in src

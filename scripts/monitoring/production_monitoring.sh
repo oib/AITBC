@@ -172,7 +172,10 @@ check_service() {
     fi
 
     local status
-    status=$(systemctl is-active "$service" 2>/dev/null || echo "failed")
+    # is-active prints 'inactive' AND exits non-zero — `|| echo failed`
+    # produced a two-line status that logged a phantom second alert (#1009).
+    status=$(systemctl is-active "$service" 2>/dev/null)
+    status=${status:-failed}
 
     if [[ "$status" != "active" ]]; then
         echo "$TIMESTAMP,SERVICE,$service is $status" >> "$ALERT_LOG"
