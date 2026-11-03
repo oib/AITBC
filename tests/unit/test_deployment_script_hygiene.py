@@ -41,3 +41,18 @@ def test_no_bare_pip_install_in_deployment_scripts():
 def test_provision_node_is_gone():
     """The env-copying provisioner was deleted (#838), not patched around."""
     assert not (DEPLOY_DIR / "provision_node.sh").exists()
+
+
+def test_integrated_deployer_is_gone():
+    """#879: the integrated deployer was retired — it funded a wallet by writing
+    chain.db directly before genesis existed and minted a 'keypair' from three
+    independent random hex strings. Deployment goes through setup.sh."""
+    assert not (DEPLOY_DIR / "deploy-integrated-blockchain-node.sh").exists()
+
+
+def test_no_script_funds_accounts_via_chain_db():
+    """No deployment script may open chain.db and write account balances."""
+    for name, text in _scripts().items():
+        for i, line in enumerate(text.splitlines(), 1):
+            if "session_scope" in line or re.search(r"Account\(", line):
+                raise AssertionError(f"{name}:{i} funds accounts via chain.db directly: {line.strip()}")
