@@ -258,15 +258,21 @@ def _cmp_chain(a: HostData, b: HostData, out: list[str]) -> None:
     for ra in ca:
         twin = next((r for r in cb if _chain_db_tail(r["db"]) == _chain_db_tail(ra["db"])), None)
         if twin:
-            delta = ra["height"] - twin["height"]
-            match = (
-                "MATCH"
-                if ra["hash"] == twin["hash"] and delta == 0
-                else f"delta={delta:+d} hashA={ra['hash']} hashB={twin['hash']}"
-            )
+            # A host with an empty/half-restored db reports height=None —
+            # that IS the difference the tool exists to show; don't crash on
+            # the None - int (#913).
+            if ra["height"] is None or twin["height"] is None:
+                match = "DIFF (height n/a on " + (a.name if ra["height"] is None else b.name) + ")"
+            else:
+                delta = ra["height"] - twin["height"]
+                match = (
+                    "MATCH"
+                    if ra["hash"] == twin["hash"] and delta == 0
+                    else f"delta={delta:+d} hashA={ra['hash']} hashB={twin['hash']}"
+                )
             out.append(
-                f"  {ra['db']}: {a.name} h={ra['height']} {ra['hash']} {ra['ts']} | "
-                f"{b.name} h={twin['height']} {twin['hash']} {twin['ts']} -> {match}"
+                f"  {ra['db']}: {a.name} h={ra['height'] if ra['height'] is not None else 'n/a'} {ra['hash']} {ra['ts']} | "
+                f"{b.name} h={twin['height'] if twin['height'] is not None else 'n/a'} {twin['hash']} {twin['ts']} -> {match}"
             )
         else:
             out.append(f"  {ra['db']}: only on {a.name} (h={ra['height']})")
