@@ -288,3 +288,12 @@ def test_dead_route_contract_suites_retired():
             "/rpc/messaging/topics/create",
         ):
             assert dead not in src, f"{sh.name}: {dead}"
+
+
+def test_no_constant_deploy_flags():
+    """#977: no script may report a deployment that did not happen."""
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    for sh in wf.glob("*.sh"):
+        src = sh.read_text()
+        assert "CONTRACT_DEPLOYED=true" not in src or "Simulate" not in src
+    assert not list(wf.glob("40_*"))
