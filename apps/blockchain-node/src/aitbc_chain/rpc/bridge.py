@@ -649,13 +649,14 @@ def register_validator(request: Request, reg_data: dict[str, Any]) -> dict[str, 
         if not verify_request_signature(cast(str, address), signature, sign_data):  # type: ignore[arg-type]
             raise HTTPException(status_code=403, detail="Invalid validator signature")
 
-        # v0.10.16: Validator registration on a production release path requires
-        # an authorized bridge admin signature in addition to the validator's
-        # self-signature. Self-signing alone is not sufficient authorization.
-        if getattr(settings, "bridge_release_enabled", False):
-            admin_address = reg_data.get("admin_address")
-            admin_signature = reg_data.get("admin_signature")
-            require_admin_signature(reg_data, admin_address, admin_signature)
+        # v0.10.16: Validator registration requires an authorized bridge admin
+        # signature in addition to the validator's self-signature. Self-signing
+        # alone is not sufficient authorization — and the check is unconditional:
+        # gating it on bridge_release_enabled left the route open with the flag
+        # unset (BRIDGE-ADMIN-GATE-DEFAULT-OPEN-1, #836).
+        admin_address = reg_data.get("admin_address")
+        admin_signature = reg_data.get("admin_signature")
+        require_admin_signature(reg_data, admin_address, admin_signature)
 
         bridge.register_validator(
             chain_id=cast(str, chain_id),
@@ -835,12 +836,12 @@ def store_block_header(request: Request, header_data: dict[str, Any]) -> dict[st
             if field not in header_data:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
-        # v0.10.16: Remote block-header ingestion on a production release path
-        # requires an authorized bridge admin signature.
-        if getattr(settings, "bridge_release_enabled", False):
-            admin_address = header_data.get("admin_address")
-            admin_signature = header_data.get("admin_signature")
-            require_admin_signature(header_data, admin_address, admin_signature)
+        # v0.10.16: Remote block-header ingestion requires an authorized bridge
+        # admin signature — unconditionally; with bridge_release_enabled unset
+        # this used to store anything a caller posted (#836).
+        admin_address = header_data.get("admin_address")
+        admin_signature = header_data.get("admin_signature")
+        require_admin_signature(header_data, admin_address, admin_signature)
 
         header = bridge.store_block_header(header_data)
         return {
