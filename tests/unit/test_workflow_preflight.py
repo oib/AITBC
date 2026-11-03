@@ -137,8 +137,10 @@ def test_no_single_quoted_rpc_vars_in_ssh():
 
 
 def test_26_fails_on_empty_height():
-    src = (Path(__file__).resolve().parents[2] / "scripts/workflow/26_production_deployment.sh").read_text()
-    assert "height read failed" in src
+    f = Path(__file__).resolve().parents[2] / "scripts/workflow/26_production_deployment.sh"
+    if not f.exists():
+        return  # retired under #965
+    assert "height read failed" in f.read_text()
 
 
 def test_no_script_scps_whole_env_between_hosts():
@@ -151,3 +153,23 @@ def test_no_script_scps_whole_env_between_hosts():
             if re.search(r"scp.*blockchain\.env\s+\S+:", line):
                 raise AssertionError(f"{sh.name}:{i}: scp of whole env")
     assert not (wf / "11_network_optimizer.sh").exists()
+
+
+def test_no_lowercase_env_seds_or_append_tuning():
+    """#964: no workflow script seds lower-case keys or appends env/sysctl/fstab lines."""
+    import re
+
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    for sh in wf.glob("*.sh"):
+        src = sh.read_text()
+        assert not re.search(r"sed -i 's/[a-z_]+=[0-9]+/", src), sh.name
+        assert not re.search(r"echo '.*=' >> /etc/aitbc/blockchain\.env", src), sh.name
+        assert ">> /etc/fstab" not in src, sh.name
+    assert not (wf / "20_performance_tuning.sh").exists()
+
+
+def test_production_deploy_scripts_retired():
+    """#965: 26/42 report unchecked success — retired for setup.sh/update.sh."""
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    assert not (wf / "26_production_deployment.sh").exists()
+    assert not (wf / "42_production_deployment_workflow.sh").exists()
