@@ -18,6 +18,7 @@ from ...utils.error_handling import abort
 from ...utils.wallet_secret import resolve_new_wallet_password, resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
+from ...utils.wallet_loader import validate_wallet_name
 from ...utils.wallet_paths import (
     find_wallet_file,
     find_wallet_file_report,
@@ -60,6 +61,12 @@ def create(
     also stores it in the keyring. ``--no-encrypt`` skips resolution
     entirely and cannot be combined with a password flag.
     """
+    try:
+        validate_wallet_name(name)
+    except ValueError as e:
+        abort(ctx, str(e))
+        return
+
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -181,6 +188,11 @@ def list(ctx):
 @wallet_password_options
 def switch(ctx, name: str, password: str | None, password_file: str | None, password_stdin: bool):
     """Switch the active wallet context to a different locally stored wallet."""
+    try:
+        validate_wallet_name(name)
+    except ValueError as e:
+        abort(ctx, str(e))
+        return
     wallet_dir = ctx.obj["wallet_dir"]
     report = find_wallet_file_report(name)
     wallet_path = report.path or wallet_dir / f"{name}.json"
@@ -235,6 +247,11 @@ def switch(ctx, name: str, password: str | None, password_file: str | None, pass
 @click.pass_context
 def delete(ctx, name: str, confirm: bool):
     """Delete a locally stored wallet with an optional confirmation prompt."""
+    try:
+        validate_wallet_name(name)
+    except ValueError as e:
+        abort(ctx, str(e))
+        return
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -273,6 +290,11 @@ def delete(ctx, name: str, confirm: bool):
 @click.pass_context
 def backup(ctx, name: str, destination: str | None):
     """Export a wallet to a password-encrypted backup file at the given path."""
+    try:
+        validate_wallet_name(name)
+    except ValueError as e:
+        abort(ctx, str(e))
+        return
     wallet_dir = ctx.obj["wallet_dir"]
     # Export is deliberately narrow (CLI-6 ASK): backup/restore/import/delete
     # resolve only in the configured wallet dir — the shared search is for
@@ -332,6 +354,12 @@ def restore(ctx, backup_path: str, name: str, force: bool, password_file: str | 
     a password flag on an already-encrypted backup is an explicit error,
     never a silent ignore; nothing is written in that case.
     """
+    try:
+        validate_wallet_name(name)
+    except ValueError as e:
+        abort(ctx, str(e))
+        return
+
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
 
@@ -461,6 +489,11 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
     """Show detailed information about the active or named wallet."""
     wallet_name = name or ctx.obj["wallet_name"]
     if name:
+        try:
+            validate_wallet_name(name)
+        except ValueError as e:
+            abort(ctx, str(e))
+            return
         wallet_dir = ctx.obj["wallet_dir"]
         wallet_path = wallet_dir / f"{name}.json"
         if not wallet_path.exists():

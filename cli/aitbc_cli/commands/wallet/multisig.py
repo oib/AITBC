@@ -11,6 +11,7 @@ from eth_utils import to_checksum_address
 from ...utils import DECIMAL, error, output, success
 from ...utils.error_handling import abort
 from ...utils.money import wallet_amount as _wallet_amount
+from ...utils.wallet_loader import validate_wallet_name
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import wallet
 
@@ -27,6 +28,11 @@ from . import wallet
 @click.pass_context
 def multisig_create(ctx, signers: tuple, threshold: int, name: str):
     """Create a multi-signature wallet with a threshold and a list of signers."""
+    try:
+        validate_wallet_name(name)
+    except ValueError as e:
+        abort(None, str(e))
+        return
     wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     wallet_dir.mkdir(parents=True, exist_ok=True)
     multisig_path = wallet_dir / f"{name}_multisig.json"
@@ -79,6 +85,12 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 @click.pass_context
 def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, description: str | None):
     """Propose a multi-signature payment to a destination address."""
+    try:
+        validate_wallet_name(wallet_name)
+    except ValueError as e:
+        abort(None, str(e))
+        return
+
     wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
@@ -136,6 +148,12 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, de
 @click.pass_context
 def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
     """Sign a pending multi-signature transaction with the given signer address."""
+    try:
+        validate_wallet_name(wallet_name)
+    except ValueError as e:
+        abort(None, str(e))
+        return
+
     wallet_dir = ctx.obj.get("wallet_dir") or resolve_wallet_dir()
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
