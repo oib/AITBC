@@ -140,7 +140,9 @@ while [ "$current_start" -le "$end_height" ]; do
     batch_failed=0
 
     # Extract blocks and import them
-    echo "$blocks_json" | jq -c '.blocks[]' 2>/dev/null | while read -r block; do
+    # #898: process substitution — the loop body must run in THIS shell or
+    # the counters die in the pipe subshell and every run reports 0/0.
+    while read -r block; do
         if [ -n "$block" ] && [ "$block" != "null" ]; then
             # Extract block data for import
             block_height=$(echo "$block" | jq -r .height)
@@ -174,7 +176,7 @@ EOF
                 batch_failed=$((batch_failed + 1))
             fi
         fi
-    done
+    done < <(echo "$blocks_json" | jq -c '.blocks[]' 2>/dev/null)
 
     # Update counters
     total_imported=$((total_imported + batch_imported))
@@ -202,13 +204,19 @@ echo "Final difference: $final_diff blocks"
 echo "Blocks imported: $total_imported"
 echo "Blocks failed: $total_failed"
 
-# Determine success
-if [ "$final_diff" -le $MAX_SYNC_DIFF ]; then
+# Determine success — #898: a run that failed imports is not a success,
+# and neither is ending above the diff threshold.
+if [ "$total_failed" -gt 0 ]; then
+    echo -e "${RED}❌ BULK SYNC FAILED${NC}"
+    echo "$total_failed block(s) failed to import."
+    exit 1
+elif [ "$final_diff" -le $MAX_SYNC_DIFF ]; then
     echo -e "${GREEN}✅ BULK SYNC SUCCESSFUL${NC}"
     echo "Sync difference is now within normal range."
 else
     echo -e "${YELLOW}⚠️  PARTIAL SYNC${NC}"
     echo "Some blocks may still need to sync normally."
+    exit 1
 fi
 
 echo ""
