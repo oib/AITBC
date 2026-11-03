@@ -15,7 +15,11 @@ set -euo pipefail
 SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-market" "aitbc-exchange" "aitbc-gpu")
 ENV_DIR="${AITBC_ENV_DIR:-/etc/aitbc}"
 LOG_DIR="${AITBC_LOG_DIR:-/var/log/aitbc}"
-ROLLBACK_FILE="/tmp/api_key_rotation_rollback_$(date +%Y%m%d_%H%M%S).sh"
+# Backups and the generated rollback script live in a per-run directory under a
+# root-private tree — never a fixed /tmp path, and a concurrent run's backups
+# can never be eaten by this run's rollback or cleanup.
+BACKUP_ROOT="${AITBC_BACKUP_DIR:-/var/lib/aitbc/secret-rotation}"
+ROLLBACK_FILE=""
 LOG_FILE="${LOG_DIR}/api_key_rotation_$(date +%Y%m%d_%H%M%S).log"
 mkdir -p "$LOG_DIR"
 
@@ -33,7 +37,9 @@ log() {
 # Error handling
 error_exit() {
     log "${RED}ERROR: $1${NC}"
-    log "Rollback script saved to: $ROLLBACK_FILE"
+    if [ -n "$ROLLBACK_FILE" ] && [ -f "$ROLLBACK_FILE" ]; then
+        log "Rollback script saved to: $ROLLBACK_FILE"
+    fi
     exit 1
 }
 
@@ -118,34 +124,39 @@ fi
 log "Starting API_KEY_HASH_SECRET rotation for rolling release"
 log "New secret length: ${#NEW_SECRET} characters"
 
-# Backup current secrets
-log "Backing up current secrets..."
+# Backup current secrets into this run's private directory. The backups hold
+# plaintext secrets, so the tree is 0700 throughout.
+mkdir -p "$BACKUP_ROOT"
+chmod 700 "$BACKUP_ROOT"
+RUN_DIR="$(mktemp -d "$BACKUP_ROOT/run.XXXXXXXX")"
+chmod 700 "$RUN_DIR"
+ROLLBACK_FILE="$RUN_DIR/rollback.sh"
+log "Backing up current secrets to $RUN_DIR..."
 for service in "${SERVICES[@]}"; do
     if [ -f "$ENV_DIR/${service}.env" ]; then
-        cp "$ENV_DIR/${service}.env" "$ENV_DIR/${service}.env.backup_$(date +%Y%m%d_%H%M%S)"
+        cp "$ENV_DIR/${service}.env" "$RUN_DIR/${service}.env"
         log "Backed up ${service}.env"
     fi
 done
 
-# Create rollback script
+# Create rollback script — restores only this run's backups and nothing else.
 cat > "$ROLLBACK_FILE" << ROLLBACK_EOF
 #!/bin/bash
 # Auto-generated rollback script for API key secret rotation
 set -e
 echo "Rolling back API key secret rotation..."
-# Restore backups
-for backup in $ENV_DIR/*.env.backup_*; do
+# Restore this run's backups only
+for backup in $RUN_DIR/*.env; do
     if [ -f "\$backup" ]; then
-        original="\${backup%.backup_*}"
-        cp "\$backup" "\$original"
-        echo "Restored \$original"
+        cp "\$backup" "$ENV_DIR/\$(basename "\$backup")"
+        echo "Restored \$backup"
     fi
 done
 # Restart all services
-systemctl restart aitbc-coordinator-api aitbc-blockchain-node aitbc-market aitbc-exchange aitbc-gpu
+systemctl restart ${SERVICES[@]}
 echo "Rollback complete"
 ROLLBACK_EOF
-chmod +x "$ROLLBACK_FILE"
+chmod 700 "$ROLLBACK_FILE"
 log "Rollback script created: $ROLLBACK_FILE"
 
 # Phase 1: Add new secret alongside old secret (dual-secret overlap)
@@ -249,13 +260,12 @@ for service in "${SERVICES[@]}"; do
 done
 
 # Cleanup
-log "Cleaning up backup files..."
+log "Cleaning up this run's backup files..."
 # Backups contain the OLD PLAINTEXT SECRET. Rotation has completed and every
-# service has been verified healthy, so they are removed now rather than left on
-# disk for a week (-mtime +7 never even matched the backups this run created).
-find "$ENV_DIR" -name "*.env.backup_*" -delete
-rm "$ROLLBACK_FILE"
-log "Rollback script removed"
+# service has been verified healthy, so this run's directory is removed now —
+# only this run's; any other run's backups under $BACKUP_ROOT are untouched.
+rm -rf "$RUN_DIR"
+log "Rollback script and run backups removed"
 
 log "${GREEN}API_KEY_HASH_SECRET rotation completed successfully${NC}"
 log "Rotation log saved to: $LOG_FILE"
