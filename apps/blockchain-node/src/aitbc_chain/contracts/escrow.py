@@ -393,14 +393,27 @@ def backfill_settlement_legs(session: Any, record: Escrow) -> bool:
 
     Returns True when the row was changed.
     """
-    if record.released_amount is not None or record.refunded_amount is not None:
-        return False
-    if record.released_at is None and record.refunded_at is None:
-        return False
-    legs = settlement_legs_from_chain(session, record.job_id)
-    if legs is None:
-        return False
+    # Serialise with the release/refund routes (#831): same stripe flock,
+    # then refresh — a settlement that landed after the caller's read is
+    # only visible on fresh attributes. Busy/unavailable lock skips the
+    # heal (fail closed); a fileless db runs ungated.
+    from .escrow_txn import escrow_row_lock
 
+    with escrow_row_lock(session, record.job_id) as locked:
+        if not locked:
+            return False
+        session.refresh(record)
+        if record.released_amount is not None or record.refunded_amount is not None:
+            return False
+        if record.released_at is None and record.refunded_at is None:
+            return False
+        legs = settlement_legs_from_chain(session, record.job_id)
+        if legs is None:
+            return False
+        return _apply_backfilled_legs(session, record, legs)
+
+
+def _apply_backfilled_legs(session: Any, record: Escrow, legs: dict[str, Any]) -> bool:
     record.released_amount = legs["released_amount"]
     record.refunded_amount = legs["refunded_amount"]
     if not record.release_tx_hash and legs["release_tx_hash"]:
@@ -691,7 +704,7 @@ class EscrowManager:
                 ),
             )
             session.add(record)
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync Session, runs in a worker thread
             logger.info("Reconstructed escrow record for job %s from lock tx %s", job_id, lock_tx.tx_hash)
             return record
         except Exception as e:
