@@ -2,7 +2,7 @@
 #
 # Blockchain Communication Test Script
 # Tests communication between aitbc (genesis), ${NODE1_HOST} (follower), and node3 (CI runner) nodes
-# All nodes run on port 8006 on different physical machines  # check-ports: ignore
+# All nodes serve the blockchain RPC on port 8202 (override: AITBC_RPC_PORT)  # check-ports: ignore
 #
 
 set -euo pipefail
@@ -24,9 +24,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 GENESIS_IP="${NODE0_HOST}"
 FOLLOWER_IP="${NODE1_HOST}"
 FOLLOWER2_IP="${NODE3_HOST}"  # node3, the CI runner
-PORT=8006
+PORT="${AITBC_RPC_PORT:-8202}"
 CLI_PATH="${CLI_PATH:-aitbc}"
-LOG_DIR="/var/log/aitbc"
+LOG_DIR="${AITBC_LOG_DIR:-/var/log/aitbc}"
 LOG_FILE="${LOG_DIR}/blockchain-communication-test.log"
 MONITOR_LOG="${LOG_DIR}/blockchain-monitor.log"
 ERROR_LOG="${LOG_DIR}/blockchain-test-errors.log"
@@ -104,7 +104,12 @@ log_success() {
 log_error() {
     log "ERROR" "$@"
     echo -e "${RED}$@${NC}" >&2
-    echo "[${timestamp}] [ERROR] $@" >> "${ERROR_LOG}"
+    # timestamp is local to log(); capture it here — under set -u the old
+    # out-of-scope ${timestamp} aborted the whole suite at the first error
+    # instead of letting run_test count it.
+    local error_timestamp
+    error_timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[${error_timestamp}] [ERROR] $@" >> "${ERROR_LOG}"
 }
 
 log_warning() {
@@ -437,5 +442,8 @@ main() {
     fi
 }
 
-# Run main function
-main
+# Run main function (skipped when sourced, e.g. by tests exercising single
+# functions such as log_error)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
