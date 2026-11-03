@@ -898,8 +898,14 @@ _KNOWN_READ_SIGNAL_PATHS = {
     "agent-comm discover",
     "agent-comm list",
     "agent-comm network",
+    # agent-staking status is a GET for the stake position; the source scan
+    # trips on the shared post_signed helper the mutating verbs use.
+    "agent-staking status",
     "agent-task result",
     "analytics dashboard",
+    # bounty status is a read of the bounty ledger; the shared submit/post
+    # helper trips the source scan the same way agent-staking's does.
+    "bounty status",
     "blockchain monitor",
     # subprocess.run is the read vector, not a mutation: it shells the monitor's
     # own `list`/`status` admin verbs and hardcodes them — no write verb (write-off,
