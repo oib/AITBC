@@ -277,10 +277,22 @@ def resolve_dbs() -> list[str]:
 
 
 def _env_validators() -> list[str] | None:
+    # An explicit comma list wins. Otherwise VALIDATOR_SET — the JSON
+    # [{address, stake}, ...] the node's blockchain.env carries, made
+    # visible here via the unit's EnvironmentFile — is the authoritative
+    # set: a validator silent past the window must stay in it and rack up
+    # consecutive_missed, not silently drop out of the series (#926).
     raw = os.getenv("AITBC_ATTESTATION_VALIDATORS", "").strip()
-    if not raw:
-        return None
-    return [v.strip() for v in raw.split(",") if v.strip()]
+    if raw:
+        return [v.strip() for v in raw.split(",") if v.strip()]
+    raw_set = os.getenv("VALIDATOR_SET", "").strip()
+    if raw_set:
+        try:
+            parsed = json.loads(raw_set)
+            return [str(e.get("address")) for e in parsed if isinstance(e, dict) and e.get("address")]
+        except (json.JSONDecodeError, TypeError):
+            return None
+    return None
 
 
 def main() -> int:
