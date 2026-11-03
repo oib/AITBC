@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -53,6 +54,48 @@ def default_ledgers() -> dict[str, str]:
     }
 
 
+def _derive_service(db: str, path_map: dict[str, str]) -> str | None:
+    """Service name for a --db path: known ledger path, else the ledger's own
+    service column (#1006)."""
+    svc = path_map.get(str(Path(db).resolve()))
+    if svc is None and Path(db).exists():
+        try:
+            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+            rows = {r[0] for r in conn.execute("SELECT DISTINCT service FROM operations")}
+            conn.close()
+            if len(rows) == 1:
+                svc = rows.pop()
+        except Exception:
+            pass
+    return svc
+
+
+def _resolve_targets(args: argparse.Namespace) -> tuple[list[tuple[str, str]], str | None]:
+    """--db without --service used to name the ledger after the file stem —
+    "market_operations" is a service with no rows, so the run reported
+    all-clear over the very uncertainty it was asked to list (#1006)."""
+    if not args.db:
+        targets = list(default_ledgers().items())
+        if args.service:
+            # --service on the default set resolves/lists only that ledger —
+            # a bare --resolve must not touch every service that holds the
+            # key (#1007).
+            targets = [(svc, db) for svc, db in targets if svc == args.service]
+            if not targets:
+                return [], f"error: --service {args.service} is not a known ledger"
+        return targets, None
+    if args.service:
+        return [(args.service, db) for db in args.db], None
+    path_map = {str(Path(p).resolve()): svc for svc, p in default_ledgers().items()}
+    targets = []
+    for db in args.db:
+        svc = _derive_service(db, path_map)
+        if svc is None:
+            return [], f"error: cannot derive service for --db {db} — pass --service"
+        targets.append((svc, db))
+    return targets, None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
@@ -65,10 +108,11 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="Emit the report as JSON")
     args = parser.parse_args()
 
-    if args.db:
-        targets = [(args.service or Path(db).stem, db) for db in args.db]
-    else:
-        targets = list(default_ledgers().items())
+
+    targets, err = _resolve_targets(args)
+    if err:
+        print(err, file=sys.stderr)
+        return 2
 
     report: dict[str, dict] = {}
     exit_code = 0
