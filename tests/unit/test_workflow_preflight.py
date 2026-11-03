@@ -253,3 +253,13 @@ def test_unreachable_peer_is_failure():
     src = SCRIPT06.read_text()
     assert "AITBC1_HEIGHT=$AITBC_HEIGHT" not in src
     assert "cannot verify sync" in src
+
+
+SCRIPT22 = Path(__file__).resolve().parents[2] / "scripts/workflow/22_advanced_monitoring.sh"
+
+
+def test_metrics_api_not_generated():
+    """#973: the syntax-broken, unauthenticated Flask metrics file is gone."""
+    src = SCRIPT22.read_text()
+    assert "cat > /opt/aitbc/monitoring/metrics_api.py" not in src
+    assert "flask_cors" not in src

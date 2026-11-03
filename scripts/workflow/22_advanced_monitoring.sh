@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # AITBC Basic Monitoring Setup
 # Creates simple monitoring without Prometheus
@@ -151,48 +152,12 @@ echo ""
 echo "3. � MONITORING AUTOMATION"
 echo "=========================="
 
-# Create metrics API endpoint
-cat > /opt/aitbc/monitoring/metrics_api.py << 'EOF'
-#!/usr/bin/env python3
+# The generated metrics_api.py was removed (#973): it carried a
+# SyntaxError (if-expression with no else) so it never started, and it
+# bound Flask+CORS to 0.0.0.0 serving host metrics unauthenticated. The
+# node already exposes metrics on its own RPC port.
 
-import json
-import subprocess
-import requests
-from flask import Flask, jsonify
-from flask_cors import CORS
 
-app = Flask(__name__)
-CORS(app)
-
-@app.route('/metrics')
-def get_metrics():
-    try:
-        # Get blockchain height
-        height = subprocess.getoutput("curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height 2>/dev/null || echo 0")
-
-        # Check blockchain health
-        health = "healthy" if subprocess.getoutput("curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null 2>&1 && echo healthy || echo unhealthy").strip() == "healthy"
-
-        # Get system metrics
-        cpu = subprocess.getoutput("top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | sed 's/%us,//'")
-        memory = subprocess.getoutput("free | grep Mem | awk '{printf \"%.1f\", $3/$2 * 100.0}'")
-        disk = subprocess.getoutput("df / | awk 'NR==2 {print $5}' | sed 's/%//'")
-
-        return jsonify({
-            'height': int(height),
-            'health': health,
-            'cpu': cpu,
-            'memory': memory,
-            'disk': int(disk)
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
-EOF
-
-chmod +x /opt/aitbc/monitoring/metrics_api.py
 
 echo -e "   ${GREEN}✅${NC} Metrics API created"
 
@@ -229,11 +194,11 @@ echo "===================="
 echo "Basic monitoring components deployed:"
 echo "• Health monitor script: /opt/aitbc/monitoring/health_monitor.sh"
 echo "• Dashboard: /opt/aitbc/monitoring/dashboard.html"
-echo "• Metrics API: /opt/aitbc/monitoring/metrics_api.py"
+echo "• Metrics API: retired (#973) — the node's own RPC serves metrics"
 echo "• Health logs: /var/log/aitbc/monitoring/health.log"
 echo ""
 echo "To start metrics API:"
-echo "  python3 /opt/aitbc/monitoring/metrics_api.py"
+echo "  (metrics api retired — the node serves metrics on its RPC port)"
 echo ""
 echo "Then access dashboard at:"
 echo "  http://$(hostname -I | awk '{print $1}'):8080"
