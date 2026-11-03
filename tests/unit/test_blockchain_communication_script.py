@@ -75,3 +75,11 @@ def test_suite_counts_a_failure_instead_of_aborting(tmp_path):
     assert "FAILED" in proc.stdout + proc.stderr, "suite aborted before run_test could count the failure"
     error_log = tmp_path / "blockchain-test-errors.log"
     assert error_log.exists() and "[ERROR]" in error_log.read_text()
+
+
+def test_sync_never_pulls():
+    """#876: a test must not mutate node checkouts — fetch + compare only."""
+    text = SCRIPT.read_text()
+    assert "git pull" not in text, "test_sync still runs git pull on the nodes"
+    assert "git fetch" in text
+    assert "rev-list" in text

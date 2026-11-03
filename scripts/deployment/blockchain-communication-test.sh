@@ -334,14 +334,44 @@ test_sync() {
         log_warning "Follower node (node3) has uncommitted changes"
     fi
 
-    # Test git pull
-    log_debug "Testing git pull from Gitea"
-    git pull origin main --verbose >> "${LOG_FILE}" 2>&1
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
-    ssh "${NODE3_SSH}" 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
+    # Compare each checkout against the remote — read-only. A test must
+    # never update a node's worktree: it fetches refs and counts how far
+    # HEAD is behind origin/main, leaving the checkout untouched.
+    log_debug "Fetching refs and comparing with origin/main (read-only)"
 
-    log_success "Git synchronization test completed"
-    return 0
+    local rc=0
+    if ! git fetch origin >> "${LOG_FILE}" 2>&1; then
+        log_error "git fetch failed on genesis node"
+        rc=1
+    fi
+    if ! ssh ${NODE1_HOST} 'cd /opt/aitbc && git fetch origin' >> "${LOG_FILE}" 2>&1; then
+        log_error "git fetch failed on follower node (${NODE1_HOST})"
+        rc=1
+    fi
+    if ! ssh "${NODE3_SSH}" 'cd /opt/aitbc && git fetch origin' >> "${LOG_FILE}" 2>&1; then
+        log_error "git fetch failed on follower node (node3)"
+        rc=1
+    fi
+
+    local genesis_behind follower_behind follower2_behind
+    genesis_behind=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo "unknown")
+    follower_behind=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && git rev-list --count HEAD..origin/main 2>/dev/null' || echo "unknown")
+    follower2_behind=$(ssh "${NODE3_SSH}" 'cd /opt/aitbc && git rev-list --count HEAD..origin/main 2>/dev/null' || echo "unknown")
+
+    log_info "Commits behind origin/main — genesis: ${genesis_behind}, ${NODE1_HOST}: ${follower_behind}, node3: ${follower2_behind}"
+    for behind in "${genesis_behind}" "${follower_behind}" "${follower2_behind}"; do
+        if [ "${behind}" = "unknown" ]; then
+            log_warning "Could not determine how far a checkout is behind origin/main"
+            rc=1
+        elif [ "${behind}" -gt 0 ] 2>/dev/null; then
+            log_warning "A checkout is ${behind} commit(s) behind origin/main"
+        fi
+    done
+
+    if [ ${rc} -eq 0 ]; then
+        log_success "Git synchronization check completed (no pulls performed)"
+    fi
+    return ${rc}
 }
 
 # Main test runner
