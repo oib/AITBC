@@ -76,14 +76,15 @@ echo "   Current git status on aitbc1:"
 cd /opt/aitbc
 git status --porcelain
 
-# Push any local changes to remote
+# Never commit or push from a maintenance run (#957): a dirty tree gets a
+# loud report, not an automated "git add -A" that sweeps stray files onto
+# main.
 if [ -n "$(git status --porcelain)" ]; then
-  echo "   Pushing local changes to remote..."
-  git add -A
-  git commit -m "Automated maintenance update - $(date)"
-  git push origin main
+  echo "   WARNING: dirty tree on this node — refusing to touch it:" >&2
+  git status --porcelain | head -20
+  echo "   (maintenance does not commit or push; clean it deliberately)" >&2
 else
-  echo "   No local changes to push"
+  echo "   Tree is clean"
 fi
 
 # Sync code to aitbc
@@ -95,9 +96,17 @@ ssh aitbc '
   git pull origin main
   echo "   Latest commit: $(git log --oneline -1)"
 
-  # Restart services if code changed
-  echo "   Restarting services to apply code changes..."
-  systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
+  # Restart only when the pull actually changed files (#957)
+  _before=$(git rev-parse HEAD)
+  git pull origin main
+  if [ "$(git rev-parse HEAD)" != "$_before" ]; then
+    echo "   Code changed ($_before -> $(git rev-parse --short HEAD)); restarting..."
+    systemctl restart aitbc-blockchain-node
+    systemctl is-active --quiet aitbc-blockchain-node
+    systemctl restart aitbc-blockchain-rpc
+  else
+    echo "   No change; leaving services alone"
+  fi
 
   # Verify services are running
   echo "   Verifying services..."
