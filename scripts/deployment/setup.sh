@@ -787,6 +787,21 @@ generate_uuid() {
 setup_node_profiles() {
     log "Setting up node profiles..."
 
+    # #871: this step runs before the identities step. If it creates
+    # blockchain.env first (by appending the profile keys), step 8 sees an
+    # existing file and the open-island template -- gossip, sync and bridge
+    # defaults -- is never seeded. Seed it here for follower mode so the
+    # profile keys land inside the template. A hub must not inherit follower
+    # template keys (websocket gossip, ENABLE_BLOCK_PRODUCTION=false).
+    seed_blockchain_template() {
+        if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ] \
+            && [ ! -f "/etc/aitbc/blockchain.env" ] \
+            && [ -f "/opt/aitbc/examples/blockchain.env.open-island" ]; then
+            cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
+            log "Seeded /etc/aitbc/blockchain.env from open-island template"
+        fi
+    }
+
     # Skip interactive prompts if blockchain.env already exists or --open-island was used
     if [ "$SKIP_INTERACTIVE" = true ] || [ -f "/etc/aitbc/blockchain.env" ]; then
         log "Skipping interactive prompts (configuration already exists or --open-island mode)"
@@ -813,6 +828,7 @@ setup_node_profiles() {
                 fi
             }
 
+            seed_blockchain_template
             set_env_blockchain "BLOCKCHAIN_MODE" "$BLOCKCHAIN_MODE"
             set_env_blockchain "MARKET_ROLE" "$MARKET_ROLE"
             set_env_blockchain "HARDWARE_PROFILE" "$HARDWARE_PROFILE"
@@ -910,6 +926,7 @@ setup_node_profiles() {
         fi
     }
 
+    seed_blockchain_template
     set_env_blockchain "BLOCKCHAIN_MODE" "$BLOCKCHAIN_MODE"
     set_env_blockchain "MARKET_ROLE" "$MARKET_ROLE"
     set_env_blockchain "HARDWARE_PROFILE" "$HARDWARE_PROFILE"
@@ -966,6 +983,12 @@ setup_node_identities() {
             log "Added unique proposer_id to /etc/aitbc/blockchain.env"
         else
             log "proposer_id already exists in /etc/aitbc/blockchain.env"
+        fi
+        # #871: a file created by the profiles step holds only the profile
+        # keys -- the identity keys still have to be added.
+        if ! grep -q "^P2P_NODE_ID=" /etc/aitbc/blockchain.env; then
+            set_env P2P_NODE_ID "$P2P_NODE_ID"
+            log "Added unique p2p_node_id to /etc/aitbc/blockchain.env"
         fi
     elif [ -f "/opt/aitbc/examples/blockchain.env.open-island" ]; then
         log "Using pre-configured open-island example as base..."
