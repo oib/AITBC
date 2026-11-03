@@ -90,11 +90,35 @@ def ensure_main_uptodate():
 
 
 def claim_issue(issue_number):
-    """Atomically create a claim branch on the remote."""
+    """Atomically create a claim branch on the remote.
+
+    The claim ref must point at a commit unique to THIS claim. Two agents
+    pushing ``claim/<n>`` at the same ``origin/main`` sha used to both
+    "succeed" — re-pushing an identical ref is a no-op, not a collision —
+    so both believed they held the lock (#945). Minting a fresh empty
+    commit per claim makes the second push a non-fast-forward update the
+    remote rejects.
+    """
     ensure_main_uptodate()
     branch_name = f"claim/{issue_number}"
-    subprocess.run(["git", "branch", "-f", branch_name, "origin/main"], capture_output=True, cwd=REPO_DIR)
-    result = subprocess.run(["git", "push", "origin", branch_name], capture_output=True, text=True, cwd=REPO_DIR)
+    tree = subprocess.run(["git", "rev-parse", "origin/main^{tree}"], capture_output=True, text=True, cwd=REPO_DIR)
+    if tree.returncode != 0:
+        return False
+    stamp = datetime.now(UTC).isoformat()
+    commit = subprocess.run(
+        ["git", "commit-tree", tree.stdout.strip(), "-m", f"claim #{issue_number} by {MY_AGENT} at {stamp}"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_DIR,
+    )
+    if commit.returncode != 0:
+        return False
+    result = subprocess.run(
+        ["git", "push", "origin", f"{commit.stdout.strip()}:refs/heads/{branch_name}"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_DIR,
+    )
     return result.returncode == 0
 
 
