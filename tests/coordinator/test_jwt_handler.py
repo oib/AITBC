@@ -330,6 +330,60 @@ class TestJWTTypeSeparation:
         assert exc_info.value.status_code == 401
 
 
+class TestJWTRotationOverlap:
+    """ROTATE-SECRET-SCRIPTS-BROKEN-1 (#852): rotate_jwt_secret.sh performs a
+    real dual-secret overlap — JWT_SECRET_NEW and JWT_SECRET_PREVIOUS verify
+    tokens but never sign them."""
+
+    OLD = "old_secret_for_rotation_testing_at_least_32_chars"
+    NEW = "new_secret_for_rotation_testing_at_least_32_chars"
+
+    def test_new_env_secret_verifies_during_overlap(self, monkeypatch):
+        """Phase 1 of the script: JWT_SECRET old + JWT_SECRET_NEW new."""
+        monkeypatch.setenv("JWT_SECRET_NEW", self.NEW)
+        handler = JWTHandler(secret_key=self.OLD)
+
+        token = jwt.encode({"sub": "u1", "type": "access"}, self.NEW, algorithm="HS256")
+        assert handler.validate_token(token)["valid"] is True
+
+        auth = JWTAuth(secret=self.OLD)
+        assert auth.decode_token(token)["sub"] == "u1"
+
+    def test_previous_env_secret_verifies_after_flip(self, monkeypatch):
+        """Phase 4+: JWT_SECRET new, retired secret in JWT_SECRET_PREVIOUS."""
+        monkeypatch.setenv("JWT_SECRET_PREVIOUS", self.OLD)
+        handler = JWTHandler(secret_key=self.NEW)
+
+        old_token = jwt.encode({"sub": "u1", "type": "access"}, self.OLD, algorithm="HS256")
+        assert handler.validate_token(old_token)["valid"] is True
+        assert JWTAuth(secret=self.NEW).decode_token(old_token)["sub"] == "u1"
+
+    def test_previous_accepts_comma_separated_list(self, monkeypatch):
+        older = "older_secret_for_rotation_testing_at_least_32ch"
+        monkeypatch.setenv("JWT_SECRET_PREVIOUS", f"  {self.OLD} , {older} ")
+        handler = JWTHandler(secret_key=self.NEW)
+        for secret in (self.OLD, older):
+            token = jwt.encode({"sub": "u1", "type": "access"}, secret, algorithm="HS256")
+            assert handler.validate_token(token)["valid"] is True
+
+    def test_extras_never_sign(self, monkeypatch):
+        """Tokens are always signed with the primary secret."""
+        monkeypatch.setenv("JWT_SECRET_PREVIOUS", self.OLD)
+        handler = JWTHandler(secret_key=self.NEW)
+        token = handler.generate_token({"user_id": "u1"})["token"]
+        assert jwt.decode(token, self.NEW, algorithms=["HS256"])["sub"] == "u1"
+        with pytest.raises(jwt.InvalidSignatureError):
+            jwt.decode(token, self.OLD, algorithms=["HS256"])
+
+    def test_unknown_secret_still_rejected(self, monkeypatch):
+        monkeypatch.setenv("JWT_SECRET_PREVIOUS", self.OLD)
+        handler = JWTHandler(secret_key=self.NEW)
+        foreign = jwt.encode({"sub": "u1", "type": "access"}, "foreign_secret_at_least_32_chars_xx", algorithm="HS256")
+        assert handler.validate_token(foreign)["valid"] is False
+        with pytest.raises(HTTPException):
+            JWTAuth(secret=self.NEW).decode_token(foreign)
+
+
 class TestAPIKeyManager:
     """Test APIKeyManager class"""
 
