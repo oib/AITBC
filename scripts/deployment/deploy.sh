@@ -14,7 +14,11 @@ source "$SCRIPT_DIR/../utils/deploy_common.sh"
 REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
 VENV_DIR="$REPO_ROOT/venv"
 PYTHON_VERSION="3.13"
-BACKUP_DIR="$REPO_ROOT/.backup"
+# Backups live outside the repo: under $REPO_ROOT/.backup the `cp -r` below
+# copied the repo into its own subdirectory, and rollback then looked for a
+# file (-type f) that the dir-named backups never matched. Deliberately NOT
+# /var/backups/aitbc — that is aitbc-backup.service's retention-managed tree.
+BACKUP_DIR="${AITBC_DEPLOY_BACKUP_DIR:-/var/backups/aitbc-deploy}"
 
 # Check prerequisites
 check_prerequisites() {
@@ -97,7 +101,7 @@ setup_repository() {
         BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
         BACKUP_PATH="$BACKUP_DIR/backup_$BACKUP_TIMESTAMP"
         mkdir -p "$BACKUP_DIR"
-        cp -r "$REPO_ROOT" "$BACKUP_PATH" || warning "Backup failed, continuing anyway"
+        cp -r "$REPO_ROOT" "$BACKUP_PATH" || error "Backup failed — refusing to deploy without a rollback path"
         log "Backup created at: $BACKUP_PATH"
     fi
 
@@ -423,7 +427,7 @@ rollback_deployment() {
     log "Rolling back deployment..."
 
     # Find latest backup
-    LATEST_BACKUP=$(find "$BACKUP_DIR" -maxdepth 1 -type f -name 'backup_*' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -n 1 | cut -d' ' -f2-)
+    LATEST_BACKUP=$(find "$BACKUP_DIR" -maxdepth 1 -type d -name 'backup_*' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -n 1 | cut -d' ' -f2-)
 
     if [[ -z "$LATEST_BACKUP" ]]; then
         error "No backup found for rollback"
@@ -538,5 +542,8 @@ main() {
 # Handle script interruption
 trap 'error "Script interrupted"; exit 130' INT TERM
 
-# Run main function
-main "$@"
+# Run main only when executed directly; sourcing the file exposes its
+# functions for tests without triggering a deploy (same guard as update.sh).
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
+    main "$@"
+fi
