@@ -28,20 +28,23 @@ ROOT_FORBIDDEN_DIRS=(
     ".vscode"
 )
 
-# Check for forbidden files at root
+# Check for forbidden files at root. Only tracked/staged files count:
+# ignored tool caches and scratch files exist on every developer machine
+# and are exactly what .gitignore is for.
 for pattern in "${ROOT_FORBIDDEN_PATTERNS[@]}"; do
-    if ls $pattern 1> /dev/null 2>&1; then
-        echo "❌ ERROR: Found files matching '$pattern' at root level"
+    if git ls-files -- "$pattern" | grep -q .; then
+        echo "❌ ERROR: Found tracked files matching '$pattern' at root level"
         echo "💡 Move it under a proper directory before committing."
         exit 1
     fi
 done
 
-# Check for forbidden directories at root
+# Check for forbidden directories at root — same rule: only when git
+# actually tracks or stages content inside them.
 for dir in "${ROOT_FORBIDDEN_DIRS[@]}"; do
-    if [[ -d "$dir" && "$dir" != "." && "$dir" != ".." && ! "$dir" =~ ^\.git ]]; then
-        echo "❌ ERROR: Found directory '$dir' at root level"
-        echo "💡 Remove or ignore it before committing."
+    if git ls-files -- "$dir" | grep -q .; then
+        echo "❌ ERROR: Found tracked content in '$dir' at root level"
+        echo "💡 Remove it from the index or ignore it before committing."
         exit 1
     fi
 done
