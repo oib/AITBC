@@ -152,7 +152,7 @@ def test_rounding_dust_class(tmp_path):
 def test_exporter_classifies_stale_rows(tmp_path):
     db = _db(tmp_path)
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    rows = exporter.stale_residues(con, now=NOW, max_age_seconds=604800, v3_height=V3, dust=0)
+    rows, _ = exporter.stale_residues(con, now=NOW, max_age_seconds=604800, v3_height=V3, dust=0)
     con.close()
     by_id = {r.job_id: r.cls for r in rows}
     assert by_id == {
@@ -168,9 +168,9 @@ def test_exporter_classifies_stale_rows(tmp_path):
 def test_exporter_render_counts_fee_legs_only(tmp_path):
     db = _db(tmp_path)
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    rows = exporter.stale_residues(con, now=NOW, max_age_seconds=604800, v3_height=V3, dust=0)
+    rows, _ = exporter.stale_residues(con, now=NOW, max_age_seconds=604800, v3_height=V3, dust=0)
     con.close()
-    text = exporter.render({"/db/chain.db": rows}, now=NOW)
+    text = exporter.render({"/db/chain.db": (rows, 0)}, now=NOW)
     assert "\naitbc_escrow_residue_accounts 1\n" in text  # only fee-job alerts
     assert 'aitbc_escrow_residue_account{db="/db/chain.db",job_id="fee-job"} 1' in text
     assert 'aitbc_escrow_residue_stale_ledger_rows{class="v2 authority-retained"} 1' in text
@@ -181,7 +181,7 @@ def test_exporter_render_counts_fee_legs_only(tmp_path):
 
 
 def test_exporter_render_marks_failed_db(tmp_path):
-    text = exporter.render({"/good/chain.db": [], "/bad/chain.db": None}, now=NOW)
+    text = exporter.render({"/good/chain.db": ([], 0), "/bad/chain.db": None}, now=NOW)
     assert 'aitbc_escrow_residue_scrape_success{db="/good/chain.db"} 1' in text
     assert 'aitbc_escrow_residue_scrape_success{db="/bad/chain.db"} 0' in text
     assert "aitbc_escrow_residue_accounts 0" in text
@@ -192,7 +192,7 @@ def test_exporter_render_oldest_is_fee_leg_only(tmp_path):
         exporter.ResidueRow(job_id="fee-x", residue=25, age_seconds=1000, cls="fee leg"),
         exporter.ResidueRow(job_id="old-void", residue=999, age_seconds=9999999, cls="void — never locked"),
     ]
-    text = exporter.render({"/db/chain.db": rows}, now=NOW)
+    text = exporter.render({"/db/chain.db": (rows, 0)}, now=NOW)
     assert "aitbc_escrow_residue_accounts 1" in text
     assert "aitbc_escrow_residue_oldest_seconds 1000" in text  # void's greater age ignored
 
