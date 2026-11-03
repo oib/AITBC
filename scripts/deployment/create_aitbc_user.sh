@@ -2,7 +2,14 @@
 # Create unified aitbc user for all AITBC services
 # This script should be run during deployment as part of the setup process
 
-set -e
+set -euo pipefail
+
+# Paths are env-overridable so non-standard layouts — and tests — never
+# touch the real /var, /etc or /run (#882).
+LIB_DIR="${AITBC_LIB_DIR:-/var/lib/aitbc}"
+LOG_DIR="${AITBC_LOG_DIR:-/var/log/aitbc}"
+RUN_DIR="${AITBC_RUN_DIR:-/run/aitbc}"
+ETC_DIR="${AITBC_ETC_DIR:-/etc/aitbc}"
 
 echo "Creating unified aitbc user for AITBC services..."
 
@@ -24,7 +31,7 @@ fi
 if ! id aitbc > /dev/null 2>&1; then
     echo "Creating aitbc user..."
     useradd --system \
-        --home-dir /var/lib/aitbc \
+        --home-dir "$LIB_DIR" \
         --create-home \
         --shell /usr/sbin/nologin \
         --gid aitbc \
@@ -39,18 +46,33 @@ usermod -aG aitbc-services aitbc 2>/dev/null || true
 usermod -aG video aitbc 2>/dev/null || true  # For GPU access
 usermod -aG render aitbc 2>/dev/null || true  # For GPU access
 
-# Set up proper permissions
+# Set up proper permissions.
+#
+# Non-recursive everywhere (#882): on an installed node /var/lib/aitbc
+# already holds chain databases and the keystore — chowning the directory
+# itself fixes service access without rewriting the owner of every byte of
+# existing data. The keystore stays root-owned.
 echo "Setting up directory permissions..."
-mkdir -p /var/lib/aitbc /var/log/aitbc /run/aitbc /etc/aitbc
-chown -R aitbc:aitbc /var/lib/aitbc
-chown -R aitbc:aitbc /var/log/aitbc
-chown -R aitbc:aitbc /run/aitbc
-chmod 755 /var/lib/aitbc /var/log/aitbc /run/aitbc
+mkdir -p "$LIB_DIR" "$LOG_DIR" "$RUN_DIR"
+chown aitbc:aitbc "$LIB_DIR" "$LOG_DIR" "$RUN_DIR"
+chmod 755 "$LIB_DIR" "$LOG_DIR" "$RUN_DIR"
 
-# Ensure secrets directory has restricted permissions
-mkdir -p /etc/aitbc
-chmod 750 /etc/aitbc
-chown root:aitbc /etc/aitbc
+# Keystore exists (or is created) root-owned; aitbc services read it through
+# load-keystore-secrets, they do not own it.
+mkdir -p "$LIB_DIR/keystore"
+chown root:root "$LIB_DIR/keystore"
+chmod 700 "$LIB_DIR/keystore"
+
+# /etc/aitbc: restrict only when this script creates it. On an installed
+# node the directory — and its deliberately chosen mode/owner — predates
+# us; leave both alone.
+if [ ! -d "$ETC_DIR" ]; then
+    mkdir -p "$ETC_DIR"
+    chmod 750 "$ETC_DIR"
+    chown root:aitbc "$ETC_DIR"
+else
+    echo "$ETC_DIR already exists — leaving mode and ownership untouched"
+fi
 
 echo "aitbc user and group setup complete"
 echo "User: aitbc (UID: $(id -u aitbc))"
