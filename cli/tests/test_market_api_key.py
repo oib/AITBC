@@ -5,7 +5,17 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from aitbc_cli.commands.ipfs import _hub_market_client
+import pytest
+
+from aitbc.network.client import set_trusted_api_key_hosts
 from aitbc_cli.config import CLIConfig, _resolve_market_api_key
+
+
+@pytest.fixture(autouse=True)
+def _trusted_hosts():
+    set_trusted_api_key_hosts(frozenset({"market.example", "localhost", "127.0.0.1", "hub.aitbc.invalid"}))
+    yield
+    set_trusted_api_key_hosts(None)
 
 
 def _cfg(api_key: str | None = None) -> CLIConfig:
