@@ -584,3 +584,35 @@ def test_shred_runs_when_encrypt_and_upload_succeed(env):
     today = next(d for d in env.base.iterdir() if d.is_dir())
     assert not (today / "keystore.tar.gz").exists()
     assert not (today / "wallets.tar.gz").exists()
+
+
+def test_archives_are_never_group_readable(env):
+    """#897: a mid-run stat via the redis-cli stub must see mode <= 0600 on
+    key archives; the snapshot dir itself must be 0700."""
+    stat_redis = """#!/bin/sh
+case "$1" in
+  BGSAVE)
+    for f in "$BACKUP_DIR"/*.tar.gz; do
+      [ -e "$f" ] || continue
+      stat -c '%a %n' "$f" >> "$STAT_LOG"
+    done
+    printf 'Background saving started\\n';;
+  CONFIG)
+    case "$3" in
+      dir) printf 'dir\\n%s\\n' "$REDIS_STUB_DIR";;
+      dbfilename) printf 'dbfilename\\n%s\\n' "${REDIS_STUB_DBF:-dump.rdb}";;
+    esac;;
+esac
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "redis-cli").write_text(stat_redis)
+    (bin_dir / "redis-cli").chmod(0o755)
+    stat_log = env.tmp / "stats"
+    r = _run(env, STAT_LOG=str(stat_log), REDIS_STUB_BGSAVE_RC="0")
+    assert r.returncode == 0
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert oct(today.stat().st_mode & 0o777) == "0o700"
+    if stat_log.exists():
+        for line in stat_log.read_text().splitlines():
+            mode, _name = line.split(None, 1)
+            assert int(mode, 8) & 0o077 == 0, f"world/group-readable mid-run: {line}"
