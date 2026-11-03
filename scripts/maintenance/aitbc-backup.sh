@@ -184,10 +184,20 @@ if [ -d "$CHAIN_DB_DIR" ]; then
     find "$CHAIN_DB_DIR" -name "*.db" -not -path "*/.pre-*" | while read -r dbfile; do
         rel=$(echo "$dbfile" | sed "s|${CHAIN_DB_DIR}/||")
         dest="${BACKUP_DIR}/chain_$(echo "$rel" | tr '/' '_').gz"
-        # Use SQLite online backup via .dump to get consistent snapshot
-        sqlite3 "$dbfile" ".dump" 2>/dev/null | gzip > "$dest" \
-            && log "SQLite $(basename "$dbfile"): OK" \
-            || error "SQLite $(basename "$dbfile") FAILED"
+        # Use SQLite online backup via .dump to get consistent snapshot.
+        # sqlite3 exits 0 even when .dump aborts on a corrupt page: it writes
+        # the rows it could read and finishes with "ROLLBACK; -- due to
+        # errors" (stderr is discarded above). A dump carrying that marker is
+        # not a valid snapshot — delete it so the prune step can't take it
+        # for a good one and throw away older good dumps (#894).
+        if sqlite3 "$dbfile" ".dump" 2>/dev/null | gzip > "$dest" \
+            && ! zcat "$dest" | grep -qE '^ROLLBACK; -- due to errors$'; then
+            chmod 600 "$dest"
+            log "SQLite $(basename "$dbfile"): OK"
+        else
+            rm -f "$dest"
+            error "SQLite $(basename "$dbfile") FAILED (dump aborted or unreadable — artifact deleted)"
+        fi
     done
 else
     warn "Chain DB dir not found at ${CHAIN_DB_DIR}, skipping"
