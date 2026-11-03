@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL
-from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -579,6 +579,15 @@ async def request_coins_handler(
             amount = INITIAL_COIN_AMOUNT
             wallet_address = sender
 
+        # #837: the amount is caller-supplied JSON — it must be a positive int
+        # inside the automatic ceiling before anything signs with it.
+        from ..services.coin_request_policy import auto_approve_ceiling, ws_budget_allows
+
+        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
+            return {"action": "coin_request_failed", "error": "amount must be a positive integer of compute-units"}
+        if amount > auto_approve_ceiling():
+            return {"action": "coin_request_failed", "error": "amount is above the automatic ceiling"}
+
         if not wallet_address or wallet_address == "unknown":
             return {"action": "coin_request_failed", "error": "No wallet address provided"}
 
@@ -622,6 +631,19 @@ async def request_coins_handler(
             }
             approval_decision = strategy.approve(approval_request)
             if approval_decision["approved"]:
+                db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
+                ok, why = ws_budget_allows(db_path, amount)
+                if not ok:
+                    request_id = _record_pending_coin_request(sender, amount, wallet_address)
+                    return {
+                        "action": "coin_request_received",
+                        "request_id": request_id,
+                        "amount": amount,
+                        "wallet_address": wallet_address,
+                        "status": "pending_approval",
+                        "reason": why,
+                        "message": f"Coin request requires approval. Reason: {why}.",
+                    }
                 # Strategy approved — sign and submit the transaction
                 signed_tx = TransactionService().generate_signed_transaction(wallet_address, amount)
                 if not signed_tx:
@@ -639,7 +661,7 @@ async def request_coins_handler(
                     "type": "COINS_TRANSFERRED",
                     "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
                     "recipient": sender,
-                    "content": f"Coin request approved: {amount} AIT to {wallet_address}. Transaction: {tx_hash}",
+                    "content": f"Coin request approved: {units_to_ait(amount)} AIT to {wallet_address}. Transaction: {tx_hash}",
                     "amount": amount,
                     "wallet_address": wallet_address,
                     "transaction_hash": tx_hash,
@@ -670,7 +692,21 @@ async def request_coins_handler(
                     ),
                 }
 
-        # First-time request: auto-transfer initial coins
+        # First-time request: auto-transfer initial coins — through the same
+        # rolling hourly/daily budget the /register route enforces (#837).
+        db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
+        ok, why = ws_budget_allows(db_path, INITIAL_COIN_AMOUNT)
+        if not ok:
+            request_id = _record_pending_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address)
+            return {
+                "action": "coin_request_received",
+                "request_id": request_id,
+                "amount": INITIAL_COIN_AMOUNT,
+                "wallet_address": wallet_address,
+                "status": "pending_approval",
+                "reason": why,
+                "message": f"Coin request requires approval. Reason: {why}.",
+            }
         grant_amount = INITIAL_COIN_AMOUNT
         logger.info("First-time coin request from %s — auto-transferring %s AIT to %s", sender, grant_amount, wallet_address)
 
@@ -690,7 +726,7 @@ async def request_coins_handler(
             "type": "COINS_TRANSFERRED",
             "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
             "recipient": sender,
-            "content": f"Transferred {grant_amount} AIT to {wallet_address}",
+            "content": f"Transferred {units_to_ait(grant_amount)} AIT to {wallet_address}",
             "amount": grant_amount,
             "wallet_address": wallet_address,
             "transaction_hash": tx_hash,
