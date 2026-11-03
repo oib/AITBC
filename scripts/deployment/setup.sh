@@ -970,7 +970,11 @@ setup_node_identities() {
         fi
     }
 
-    # Generate unique IDs
+    # Generate unique IDs. #872: in hub mode PROPOSER_ID must NOT be written
+    # here -- init_proposer.py (step 10.5) derives it from the proposer wallet
+    # it generates, and a random id in the file makes it refuse to run (an id
+    # with no keystore looks like a lost key), so a fresh hub would never get
+    # its proposer key.
     PROPOSER_ID="0x$(python3 -c 'import secrets; print(secrets.token_hex(20))')"
     P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
 
@@ -979,8 +983,12 @@ setup_node_identities() {
         # Existing config — preserve it, only add missing IDs
         log "Preserving existing /etc/aitbc/blockchain.env"
         if ! grep -q "^PROPOSER_ID=" /etc/aitbc/blockchain.env; then
-            set_env PROPOSER_ID "$PROPOSER_ID"
-            log "Added unique proposer_id to /etc/aitbc/blockchain.env"
+            if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
+                set_env PROPOSER_ID "$PROPOSER_ID"
+                log "Added unique proposer_id to /etc/aitbc/blockchain.env"
+            else
+                log "Hub mode: leaving PROPOSER_ID for init_proposer.py"
+            fi
         else
             log "proposer_id already exists in /etc/aitbc/blockchain.env"
         fi
@@ -994,7 +1002,9 @@ setup_node_identities() {
         log "Using pre-configured open-island example as base..."
         cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
         # Override with unique IDs
-        set_env PROPOSER_ID "$PROPOSER_ID"
+        if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
+            set_env PROPOSER_ID "$PROPOSER_ID"
+        fi
         set_env P2P_NODE_ID "$P2P_NODE_ID"
         log "Configured blockchain.env from open-island example with unique IDs"
     else
@@ -1002,7 +1012,6 @@ setup_node_identities() {
         cat > /etc/aitbc/blockchain.env << EOF
 # AITBC Blockchain Configuration (public bootstrap safe)
 # Auto-generated unique node identities
-PROPOSER_ID=$PROPOSER_ID
 P2P_NODE_ID=$P2P_NODE_ID
 GOSSIP_BACKEND=broadcast
 DEFAULT_PEER_RPC_URL=http://127.0.0.1:8202
@@ -1013,6 +1022,9 @@ SYNC_STATE_ROOT_VALIDATION_ENABLED=true
 BRIDGE_LOCKS_PAUSED=false
 BRIDGE_MAX_LOCK_AMOUNT=36000000000
 EOF
+        if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
+            set_env PROPOSER_ID "$PROPOSER_ID"
+        fi
         log "Created /etc/aitbc/blockchain.env with unique IDs"
     fi
 
