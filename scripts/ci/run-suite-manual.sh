@@ -89,7 +89,8 @@ scp -q "$BUNDLE_LOCAL" "$HOST:$BUNDLE_REMOTE"
 # the workflow does, then run every suite/check under `timeout` and emit one
 # junit XML + one log per suite into the remote out dir.
 # ---------------------------------------------------------------------------
-ssh "$HOST" bash -s -- "$SHA" "$BUNDLE_REMOTE" "$SCRATCH_NAME" "$TIMEOUT" "$WITH_CONTRACTS" "$TMP_REF" <<'REMOTE'
+rc_remote=0
+ssh "$HOST" bash -s -- "$SHA" "$BUNDLE_REMOTE" "$SCRATCH_NAME" "$TIMEOUT" "$WITH_CONTRACTS" "$TMP_REF" <<'REMOTE' || rc_remote=$?
 set -euo pipefail
 SHA="$1"; BUNDLE="$2"; SCRATCH_NAME="$3"; TIMEOUT="$4"; WITH_CONTRACTS="$5"; BUNDLE_REF="$6"
 SCRATCH="/tmp/$SCRATCH_NAME"
@@ -181,12 +182,54 @@ run_check() {  # name, env, command...
   printf '%s\t%s\t%s\n' "$name" "$rc" "$(( $(date +%s) - t0 ))" >> "$OUT/results.tsv"
 }
 
+# Ratchet checks fail per *file*, not per check — tolerating check::name would
+# mask every future regression in the same ratchet (#978). On failure this
+# emits one failing testcase per regressed path, so the known-red list keys on
+# `check::<ratchet>::<file>` and a regression in any unlisted file turns red.
+junit_fail_items() {  # name, xml — failing item ids on stdin
+  python3 - "$1" "$2" <<'PY'
+import html, sys
+name, out = sys.argv[1], sys.argv[2]
+items = [line.strip() for line in sys.stdin if line.strip()]
+cases = "".join(
+    f'<testcase classname="check" name="{html.escape(name)}::{html.escape(i)}" time="0">'
+    f'<failure message="see {name}.log"/></testcase>'
+    for i in items
+)
+print(f'<?xml version="1.0"?><testsuite name="{name}" tests="{len(items)}" failures="{len(items)}" '
+      f'skipped="0" errors="0">{cases}</testsuite>', file=open(out, "w"))
+PY
+}
+
+run_ratchet() {  # name, script — regression lines carry "<file> has N violations"
+  local name="$1" script="$2"
+  local t0 rc items
+  t0=$(date +%s)
+  set +e
+  timeout "$TIMEOUT" bash "$script" > "$OUT/$name.log" 2>&1
+  rc=$?
+  set -e
+  if [ "$rc" -eq 0 ]; then
+    printf '<?xml version="1.0"?><testsuite name="%s" tests="1" failures="0" skipped="0" errors="0"><testcase classname="check" name="%s" time="0"/></testsuite>\n' "$name" "$name" > "$OUT/$name.xml"
+  else
+    items="$(sed -n 's/.*regression: \([^ ]*\) has.*/\1/p' "$OUT/$name.log" | sort -u)"
+    if [ -n "$items" ]; then
+      printf '%s\n' "$items" | junit_fail_items "$name" "$OUT/$name.xml"
+    elif [ "$rc" -eq 124 ]; then
+      junit_fail "$name" "timeout after ${TIMEOUT}s" "$OUT/$name.xml"
+    else
+      junit_fail "$name" "exit code $rc" "$OUT/$name.xml"
+    fi
+  fi
+  printf '%s\t%s\t%s\n' "$name" "$rc" "$(( $(date +%s) - t0 ))" >> "$OUT/results.tsv"
+}
+
 : > "$OUT/results.tsv"
 
 # Checks first — fast fail-fast signal before the expensive test suites.
 run_check lint-strict      "" ./venv/bin/python -m ruff check .
-run_check c901-ratchet     "" bash scripts/ci/check-c901-ratchet.sh
-run_check except-ratchet   "" bash scripts/ci/check-except-ratchet.sh
+run_ratchet c901-ratchet   scripts/ci/check-c901-ratchet.sh
+run_ratchet except-ratchet scripts/ci/check-except-ratchet.sh
 run_check unawaited-async  "" python3 scripts/ci/check-unawaited-async.py --all
 run_check no-float-money   "" ./venv/bin/python scripts/lint/no_float_money.py
 run_check typecheck        "" bash scripts/ci/mypy-precommit.sh
@@ -237,7 +280,6 @@ else
   printf 'hardhat\t0\t0\n' >> "$OUT/results.tsv"
 fi
 REMOTE
-rc_remote=$?
 [ "$rc_remote" -eq 0 ] || { echo "remote driver failed rc=$rc_remote" >&2; exit 2; }
 
 scp -qr "$HOST:/tmp/$SCRATCH_NAME-out/." "$OUT_DIR/"
@@ -315,7 +357,12 @@ if new_red:
     total = sum(len(n) for _, n in new_red)
     print(f"RESULT: FAIL — {total} new red across {len(new_red)} suite(s); tolerated {sum(len(t) for _, t in tolerated)}")
     sys.exit(1)
-print(f"RESULT: OK — 0 new red; {sum(len(t) for _, t in tolerated)} tolerated failure(s); {len(stale_tol)} stale tolerance(s)")
+if stale_tol:
+    # A tolerance that never fired masks nothing today and would hide a
+    # renamed/returning failure tomorrow — the list must shrink with the debt.
+    print(f"RESULT: FAIL — {len(stale_tol)} stale tolerance(s) in {known_path.name}; remove the dead entries and re-run")
+    sys.exit(1)
+print(f"RESULT: OK — 0 new red; {sum(len(t) for _, t in tolerated)} tolerated failure(s)")
 sys.exit(0)
 PY
 rc_verdict=$?
