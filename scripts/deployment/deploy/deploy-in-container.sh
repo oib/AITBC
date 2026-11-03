@@ -13,7 +13,11 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # shellcheck source=scripts/deployment/deploy/deploy-env.sh
+<<<<<<< HEAD
 source "$(dirname "$0")/deploy-env.sh"  # #886: print_success lives here
+=======
+source "$(dirname "$0")/deploy-env.sh"  # write_blockchain_env lives here
+>>>>>>> a29270bde (fix(deploy): node scripts write /etc/aitbc/blockchain.env via shared helper — real proposer identity, no placeholder key)
 
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -64,18 +68,7 @@ fi
 
 # Create configuration
 print_status "Creating configuration..."
-cat > .env << EOL
-CHAIN_ID=ait-devnet
-DB_PATH=./data/chain.db
-RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8202
-P2P_BIND_HOST=0.0.0.0
-P2P_BIND_PORT=7070
-PROPOSER_KEY=proposer_key_$(date +%s)
-MINT_PER_UNIT=1000
-COORDINATOR_RATIO=0.05
-GOSSIP_BACKEND=memory
-EOL
+write_blockchain_env "./data/chain.db" "0.0.0.0" 8202 "0.0.0.0" 7070 memory
 
 # Create fresh data directory
 rm -rf data
