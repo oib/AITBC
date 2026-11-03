@@ -51,6 +51,7 @@ def default_ledgers() -> dict[str, str]:
         or os.getenv("MARKETPLACE_OPERATIONS_DB")
         or str(DATA_DIR / "data" / "market_operations.db"),
         "wallet": os.getenv("WALLET_OPERATIONS_DB") or str(DATA_DIR / "data" / "wallet_operations.db"),
+        "coordinator-api": os.getenv("COORDINATOR_OPERATIONS_DB") or str(DATA_DIR / "data" / "coordinator_operations.db"),
     }
 
 
@@ -116,6 +117,7 @@ def main() -> int:
 
     report: dict[str, dict] = {}
     exit_code = 0
+    resolved_any = False
     for service, db in targets:
         if not Path(db).exists():
             report[service] = {"db": db, "skipped": "no ledger file"}
@@ -127,8 +129,7 @@ def main() -> int:
             entry["purged"] = ledger.purge(args.purge_seconds)
         if args.resolve:
             entry["resolved"] = ledger.resolve(args.resolve)
-            if not entry["resolved"]:
-                exit_code = 1
+            resolved_any = resolved_any or bool(entry["resolved"])
         if args.list_uncertain:
             uncertain = ledger.list_uncertain()
             entry["uncertain"] = [
@@ -144,6 +145,10 @@ def main() -> int:
         report[service] = entry
 
     print(json.dumps(report, indent=2, default=str) if args.json else _human(report))
+    # exit 1 only when no ledger held the key — a resolve that succeeded in
+    # one ledger is a success even where others report not-found (#1007).
+    if args.resolve and not resolved_any:
+        exit_code = 1
     return exit_code
 
 
