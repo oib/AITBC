@@ -16,6 +16,8 @@ from typing import cast
 from .address import to_canonical
 from .error_handling import abort
 from .output import info
+import re
+
 from .wallet_paths import (
     find_wallet_file,
     find_wallet_file_report,
@@ -25,6 +27,21 @@ from .wallet_paths import (
     wallet_not_found_message,
     wallet_search_dirs,
 )
+
+_WALLET_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def validate_wallet_name(name: object) -> str:
+    """Return the wallet name if it is safe to join into the wallet dir.
+
+    Letters, digits, ``-``, ``_`` and ``.`` only, never starting with a dot
+    and never a path separator — a name that escapes ``wallet_dir`` (``..``,
+    ``/``, absolute paths, ``.hidden``) is a traversal, not a wallet
+    (CLI-WALLET-IMPORT-NAME-TRAVERSAL-1, #846).
+    """
+    if not isinstance(name, str) or not _WALLET_NAME_RE.fullmatch(name):
+        raise ValueError(f"invalid wallet name {name!r}: letters, digits, '-', '_' and '.' only, not starting with a dot")
+    return name
 
 
 def _resolve_wallet_name_and_path(
