@@ -38,6 +38,13 @@ from pathlib import Path
 
 SCRATCH_ENV = "AITBC_RESET_SCRATCH"
 
+# Written into the scratch root the moment it is claimed. Any rmtree of the
+# root must find it first — a missing sentinel means the directory was never
+# claimed as scratch (a wrong path, or an old layout) and must not be deleted
+# (#855).
+SCRATCH_SENTINEL = ".aitbc-scratch-root"
+
+
 LIVE_ETC_DIR = Path("/etc/aitbc")
 LIVE_DATA_DIR = Path("/var/lib/aitbc")
 LIVE_ROOT_DIR = Path("/root")
@@ -76,7 +83,30 @@ def scratch_root(environ: dict[str, str] | None = None) -> Path:
                 "the scratch root must be a fresh directory away from the "
                 "live layout."
             )
+        # #855: the inverse case — a scratch root that CONTAINS a live
+        # prefix (e.g. /var/lib, /etc) would let teardown rmtree live state.
+        if resolved in prefix.parents:
+            raise ResetGuardError(
+                f"{SCRATCH_ENV}={resolved} contains live path {prefix} — "
+                "the scratch root must not be an ancestor of a live "
+                "directory."
+            )
     return resolved
+
+
+def claim_scratch_root(root: Path) -> Path:
+    """Write the scratch sentinel into `root` — the claim half of #855."""
+    sentinel = root / SCRATCH_SENTINEL
+    sentinel.touch(exist_ok=True)
+    return root
+
+
+def require_scratch_sentinel(root: Path) -> None:
+    """Refuse an rmtree of `root` unless it was claimed as scratch."""
+    if not (root / SCRATCH_SENTINEL).is_file():
+        raise ResetGuardError(
+            f"{root} has no {SCRATCH_SENTINEL} sentinel — it was never claimed as a scratch root, refusing to delete it."
+        )
 
 
 def _resolve(path: Path | str) -> Path:
