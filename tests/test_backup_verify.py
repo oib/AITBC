@@ -154,3 +154,28 @@ def test_user_scratch_dir_survives(tmp_path, good_set):
         text=True,
     )
     assert keep.exists(), "the run deleted the operator's scratch dir"
+
+
+def test_no_maintenance_script_pulls_into_live_checkout():
+    """#903: scripts must not `git pull` a live checkout or install a missing
+    requirements.txt (weekly_maintenance.sh is retired)."""
+    import re
+
+    bad = []
+    # deployment/update scripts pull on purpose — the card is about
+    # maintenance/ops scripts silently mutating the live checkout.
+    globs = [
+        p
+        for p in Path(__file__).parents[1].glob("scripts/**/*.sh")
+        if "/deployment/" not in str(p) and "workflow-agent/" not in str(p)
+    ]
+    for sh in globs:
+        for line in sh.read_text(errors="replace").splitlines():
+            ls = line.strip()
+            if ls.startswith(("#", "echo", "printf")) or '"' in ls.split("git")[0]:
+                continue
+            if re.search(r"git\s+pull", ls) and "/opt/aitbc" in ls:
+                bad.append(f"{sh}: {ls[:60]}")
+            if "pip install -r requirements.txt" in ls:
+                bad.append(f"{sh}: installs missing requirements.txt")
+    assert bad == []
