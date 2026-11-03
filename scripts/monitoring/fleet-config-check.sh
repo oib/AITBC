@@ -548,7 +548,16 @@ for h in $VALIDATORS node0; do
         UNREACHABLE*|NOTRUNNING*|DERIVEFAIL*|"")
             val_bad=1; printf "  %-6s %s\n" "$h" "${res:-NO OUTPUT}"; continue ;;
     esac
-    eval "$res"
+    # Remote text is data, not code — eval executed whatever the host printed
+    # back, including $(...) payloads (#1010). Parse the key=value lines with
+    # a whitelist instead.
+    prod=""; map_addrs=""; all_derive=""; propid=""; propid_in_set=""; keys_in_set=""; window=""; bcenv_keys=0
+    while IFS='=' read -r _k _v; do
+        case "$_k" in
+            prod|map_addrs|all_derive|propid|propid_in_set|keys_in_set|window|bcenv_keys)
+                printf -v "$_k" '%s' "$_v" ;;
+        esac
+    done <<< "$res"
     n_keys=$(echo "$map_addrs" | tr "," "\n" | grep -c . || true)
     problems=""
     case $h in
