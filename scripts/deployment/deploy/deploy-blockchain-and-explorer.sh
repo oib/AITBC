@@ -2,7 +2,7 @@
 
 # Deploy blockchain node and explorer to incus container
 
-set -e
+set -euo pipefail
 
 # shellcheck source=scripts/deployment/deploy/deploy-env.sh
 source "$(dirname "$0")/deploy-env.sh"
@@ -37,18 +37,7 @@ ssh "$AITBC_SSH_TARGET" << 'EOF'
 cd /opt/blockchain-node
 
 # Create configuration
-cat > .env << EOL
-CHAIN_ID=ait-devnet
-DB_PATH=./data/chain.db
-RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8202
-P2P_BIND_HOST=0.0.0.0
-P2P_BIND_PORT=7070
-PROPOSER_KEY=proposer_key_$(date +%s)
-MINT_PER_UNIT=1000
-COORDINATOR_RATIO=0.05
-GOSSIP_BACKEND=memory
-EOL
+write_blockchain_env "./data/chain.db" "0.0.0.0" 8202 "0.0.0.0" 7070 memory
 
 # Create data directory
 mkdir -p data/devnet
@@ -178,7 +167,7 @@ sleep 3
 if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
     print_status "Setting up port forwarding..."
     ssh "$AITBC_SSH_TARGET" "AITBC_DNAT_TARGET='${AITBC_DNAT_TARGET}' bash -s" << 'EOF'
-set -e
+set -euo pipefail
 iptables -t nat -F PREROUTING 2>/dev/null || true
 iptables -t nat -F POSTROUTING 2>/dev/null || true
 
