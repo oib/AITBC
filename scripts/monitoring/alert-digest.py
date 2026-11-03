@@ -165,9 +165,10 @@ def _post(
             failures += 1
             continue
         headers: dict[str, str] = {}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
         if notify_format == "ntfy":
+            # The bearer token is the ntfy write credential — attach it only
+            # here so generic webhook receivers never see it (#924).
+            headers["Authorization"] = f"Bearer {token}"
             payload = json.dumps(
                 {"topic": topic, "title": "AITBC daily digest", "message": body, "priority": 2, "click": click_url}
             ).encode()
