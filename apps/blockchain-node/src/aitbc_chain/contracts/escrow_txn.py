@@ -21,7 +21,7 @@ lock file beside ``chain.db`` excludes the other workers (#827). The in-process 
 alone is not enough: the RPC runs ``--workers N`` processes against one ``chain.db``,
 and a second process never sees the first one's ``asyncio.Lock``.
 
-The file lock is striped (``LOCK_STRIPES`` files, the stripe taken from a CRC of the
+The file lock is per-job (one file per ``sha256(job_id)`` under
 job id), so the lock directory stays a fixed size and no file is ever unlinked while
 another process may be opening it. The stripe must be a stable hash: Python's own
 ``hash()`` is randomised per process, which would give each worker a different stripe
@@ -44,7 +44,7 @@ import fcntl
 import os
 import time
 import weakref
-import zlib
+import hashlib
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
 from pathlib import Path
@@ -72,10 +72,15 @@ DEFAULT_LOCK_TIMEOUT_SECONDS = 30
 
 _PG_LOCK_NOT_AVAILABLE = "55P03"
 
-# Cross-process lock for a file-backed sqlite chain.db (#827): LOCK_STRIPES lock files in
-# LOCK_DIR_NAME beside the database, polled without blocking a thread.
+# Cross-process lock for a file-backed sqlite chain.db (#827, keyed per-job in
+# #834): one lock file per job hash in LOCK_DIR_NAME beside the database,
+# polled without blocking a thread. Stripe files (a fixed modulo key space)
+# let two unrelated escrows collide — the loser polled the whole timeout for
+# a busy it had nothing to do with. Per-job files remove the collision class;
+# they are never unlinked while held (an unlinked inode and a fresh open at
+# the same path are different locks), so the directory just grows one tiny
+# file per escrow ever settled.
 LOCK_DIR_NAME = "escrow-locks"
-LOCK_STRIPES = 256
 _FLOCK_POLL_SECONDS = 0.05
 
 # In-process fallback (non-Postgres). Weak values: a lock nobody holds or waits on is
@@ -188,13 +193,18 @@ def _close(scope: Any, session: Session, *, commit: bool) -> None:
         scope.__exit__(None, None, None)
 
 
-def lock_stripe(job_id: str) -> int:
-    """The lock-file stripe of a job: stable across processes (not ``hash()``)."""
-    return zlib.crc32(job_id.encode()) % LOCK_STRIPES
+def lock_file_name(job_id: str) -> str:
+    """The job's lock file name: stable across processes, one file per job.
+
+    ``sha256`` not ``hash()`` (randomised per process) and not a modulo
+    stripe (two jobs on one stripe queue against each other, #834). The
+    hash also keeps any character a job_id may carry out of the filename.
+    """
+    return f"job-{hashlib.sha256(job_id.encode()).hexdigest()[:32]}.lock"
 
 
 def _lock_file_path(sqlite_path: str, job_id: str) -> Path:
-    return Path(sqlite_path).parent / LOCK_DIR_NAME / f"stripe-{lock_stripe(job_id):03d}.lock"
+    return Path(sqlite_path).parent / LOCK_DIR_NAME / lock_file_name(job_id)
 
 
 async def _acquire_file_lock(sqlite_path: str, job_id: str, timeout: float) -> int:
@@ -214,6 +224,12 @@ async def _acquire_file_lock(sqlite_path: str, job_id: str, timeout: float) -> i
                 return fd
             except BlockingIOError:
                 if time.monotonic() >= deadline:
+                    logger.warning(
+                        "escrow mutation busy: job_id=%s lock_file=%s waited %.1fs",
+                        job_id,
+                        path.name,
+                        timeout,
+                    )
                     raise EscrowBusy(job_id) from None
             await asyncio.sleep(_FLOCK_POLL_SECONDS)
     except BaseException:

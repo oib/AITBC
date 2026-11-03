@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 from aitbc_chain.contracts import escrow_txn
-from aitbc_chain.contracts.escrow_txn import LOCK_DIR_NAME, LOCK_STRIPES, EscrowBusy, escrow_mutation, lock_stripe
+from aitbc_chain.contracts.escrow_txn import LOCK_DIR_NAME, EscrowBusy, escrow_mutation, lock_file_name
 from sqlalchemy import create_engine
 from sqlmodel import Session
 
@@ -125,23 +125,25 @@ def _finish(proc: subprocess.Popen) -> None:
 # ---- the stripe -----------------------------------------------------------------------
 
 
-def test_stripe_is_stable_across_processes_and_hash_seeds():
-    """hash() is randomised per process; a stripe taken from it would exclude nothing."""
+def test_lock_file_name_is_stable_across_processes_and_hash_seeds():
+    """hash() is randomised per process; a file name taken from it would exclude nothing."""
     jobs = ["job-1", "job-2", "0xabc", "x" * 200]
-    code = f"from aitbc_chain.contracts.escrow_txn import lock_stripe; print(*(lock_stripe(j) for j in {jobs!r}))"
+    code = f"from aitbc_chain.contracts.escrow_txn import lock_file_name; print(*(lock_file_name(j) for j in {jobs!r}))"
     seen = set()
     for seed in ("1", "2", "random"):
         out = subprocess.run(
             [sys.executable, "-c", code], env={**_env(), "PYTHONHASHSEED": seed}, capture_output=True, text=True, check=True
         )
         seen.add(out.stdout.strip())
-    assert seen == {" ".join(str(lock_stripe(j)) for j in jobs)}
+    assert seen == {" ".join(lock_file_name(j) for j in jobs)}
 
 
-def test_stripe_is_in_range_and_spreads_jobs():
-    stripes = {lock_stripe(f"job-{i}") for i in range(2000)}
-    assert all(0 <= s < LOCK_STRIPES for s in stripes)
-    assert len(stripes) > LOCK_STRIPES * 0.9
+def test_lock_file_name_never_collides_for_different_jobs():
+    """Per-job files (#834): distinct job ids always get distinct lock files —
+    the modulo-stripe collision class is gone."""
+    names = {lock_file_name(f"job-{i}") for i in range(5000)}
+    assert len(names) == 5000
+    assert all(n.startswith("job-") and n.endswith(".lock") and "/" not in n for n in names)
 
 
 # ---- two real processes ---------------------------------------------------------------
@@ -180,15 +182,15 @@ def test_a_killed_holder_does_not_leave_the_escrow_locked(procs):
     assert procs.at("enter", second.pid) - killed_at < 15
 
 
-def test_jobs_on_different_stripes_do_not_wait_for_each_other(procs):
+def test_jobs_on_different_lock_files_do_not_wait_for_each_other(procs):
     job_a = "job-a"
-    job_b = next(f"job-b{i}" for i in range(100) if lock_stripe(f"job-b{i}") != lock_stripe(job_a))
+    job_b = "job-b"
     first = procs.start(job_a, hold=60.0)
     _wait(lambda: procs.at("enter", first.pid) is not None, what="first process to take the lock")
     second = procs.start(job_b, hold=0.1)
     _finish(second)
 
-    assert procs.at("exit", second.pid) is not None, "a job on another stripe was held up by the first"
+    assert procs.at("exit", second.pid) is not None, "a different job was held up by the first"
     assert procs.at("exit", first.pid) is None, "the first holder is still inside its hold"
 
 
@@ -212,7 +214,7 @@ async def test_lock_files_are_created_beside_the_database(file_scope):
     scope, tmp_path = file_scope
     async with escrow_mutation("job-1", scope):
         files = list((tmp_path / LOCK_DIR_NAME).iterdir())
-    assert [f.name for f in files] == [f"stripe-{lock_stripe('job-1'):03d}.lock"]
+    assert [f.name for f in files] == [lock_file_name("job-1")]
     assert (tmp_path / LOCK_DIR_NAME).stat().st_mode & 0o777 == 0o700
     assert files[0].stat().st_mode & 0o777 == 0o600
 
@@ -252,7 +254,7 @@ async def test_no_file_descriptor_leaks_when_the_file_lock_times_out(file_scope,
     monkeypatch.setattr(escrow_txn, "lock_timeout_seconds", lambda: 0.05)
     async with escrow_mutation("job-1", scope):
         pass
-    stripe = tmp_path / LOCK_DIR_NAME / f"stripe-{lock_stripe('job-1'):03d}.lock"
+    stripe = tmp_path / LOCK_DIR_NAME / lock_file_name("job-1")
     with _flock_held(stripe):
         before = len(os.listdir("/proc/self/fd"))
         for _ in range(10):
