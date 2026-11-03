@@ -28,6 +28,7 @@ PAID_ROUTES = [
     ("apps/ffmpeg", "ffmpeg_main", "/process"),
     ("apps/whisper", "whisper_main", "/transcribe"),
     ("apps/hermes_agent", "hermes_main", "/run"),
+    ("apps/ollama_gate", "ollama_gate_main", "/api/generate"),
 ]
 
 
