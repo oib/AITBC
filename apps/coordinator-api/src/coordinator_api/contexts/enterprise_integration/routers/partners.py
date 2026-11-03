@@ -4,13 +4,14 @@ Partner Router - Third-party integration management
 
 import hashlib
 import hmac
+import os
 import secrets
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from aitbc.rate_limiting import rate_limit
 
@@ -76,8 +77,45 @@ VALID_EVENTS = [
 ]
 
 
+def _hmac_digest(secret: str, value: str) -> str:
+    return hmac.new(secret.encode(), value.encode(), hashlib.sha256).hexdigest()
+
+
 def _hash(value: str) -> str:
+    """Digest stored for a newly issued credential.
+
+    ``API_KEY_HASH_SECRET`` (written to the coordinator-api env by setup.sh) is
+    the documented HMAC secret for API-key hash derivation; when it is unset we
+    keep the historical plain SHA-256 so existing behaviour is unchanged.
+    """
+    secret = (os.getenv("API_KEY_HASH_SECRET") or "").strip()
+    if secret:
+        return _hmac_digest(secret, value)
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _hash_candidates(value: str) -> list[str]:
+    """Every digest a presented credential may legitimately match.
+
+    ``rotate_api_key_secret.sh`` rotates ``API_KEY_HASH_SECRET`` with overlap:
+    ``API_KEY_HASH_SECRET_NEW`` is live while the rotation is in flight, and
+    retired secrets are retained comma-separated in
+    ``API_KEY_HASH_SECRET_PREVIOUS`` so already-issued keys keep working — the
+    stored digest can never be re-keyed. Plain SHA-256 stays a candidate for
+    rows written before the secret was read.
+    """
+    candidates: list[str] = []
+    for env in ("API_KEY_HASH_SECRET", "API_KEY_HASH_SECRET_NEW"):
+        secret = (os.getenv(env) or "").strip()
+        if secret:
+            candidates.append(_hmac_digest(secret, value))
+    previous = os.getenv("API_KEY_HASH_SECRET_PREVIOUS") or ""
+    for secret in previous.split(","):
+        secret = secret.strip()
+        if secret:
+            candidates.append(_hmac_digest(secret, value))
+    candidates.append(hashlib.sha256(value.encode()).hexdigest())
+    return candidates
 
 
 @router.post("/partners/register", response_model=PartnerResponse)
@@ -274,8 +312,9 @@ def verify_partner_api_key(session: Session, partner_id: str, api_key: str) -> P
     if not partner:
         return None
 
-    # Check API key
-    if not hmac.compare_digest(partner.api_key_hash, _hash(api_key)):
+    # Check API key — accept the current secret, an in-flight rotation
+    # secret, any retired secret, and the legacy unsalted digest.
+    if not any(hmac.compare_digest(partner.api_key_hash, candidate) for candidate in _hash_candidates(api_key)):
         return None
 
     return partner
@@ -283,7 +322,8 @@ def verify_partner_api_key(session: Session, partner_id: str, api_key: str) -> P
 
 def find_partner_by_api_key(session: Session, api_key: str) -> Partner | None:
     """Find partner by API key"""
-    return session.exec(select(Partner).where(Partner.api_key_hash == _hash(api_key))).first()
+    candidates = _hash_candidates(api_key)
+    return session.exec(select(Partner).where(col(Partner.api_key_hash).in_(candidates))).first()
 
 
 # Export the router

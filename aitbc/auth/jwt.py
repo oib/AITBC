@@ -78,6 +78,28 @@ def _resolve_secret() -> str:
     return value
 
 
+def _extra_verify_secrets() -> list[str]:
+    """Additional secrets accepted for verification only, never for signing.
+
+    ``rotate_jwt_secret.sh`` performs a dual-secret overlap rotation:
+
+    * ``JWT_SECRET_NEW`` — set alongside the still-active ``JWT_SECRET`` while a
+      rotation is in flight (before the primary is flipped);
+    * ``JWT_SECRET_PREVIOUS`` — comma-separated retired secrets kept so tokens
+      minted under an older secret stay valid until they expire.
+
+    Signing always uses the primary ``JWT_SECRET``; these extras only widen the
+    verification set.
+    """
+    extras: list[str] = []
+    new = (os.getenv("JWT_SECRET_NEW") or "").strip()
+    if new:
+        extras.append(new)
+    previous = os.getenv("JWT_SECRET_PREVIOUS") or ""
+    extras.extend(part.strip() for part in previous.split(",") if part.strip())
+    return extras
+
+
 def _validate_secret(value: str) -> None:
     """Validate a supplied JWT secret meets minimum strength requirements."""
     if value.lower() in _KNOWN_JWT_DEFAULTS:
@@ -171,6 +193,7 @@ class JWTAuth:
         self.secret = secret or _resolve_secret()
         if secret:
             _validate_secret(self.secret)
+        self.extra_secrets = _extra_verify_secrets()
         self.algorithm = algorithm or _get_algorithm()
         self.expiration_hours = max(0, _get_expiry_hours() if expiration_hours is None else expiration_hours)
 
@@ -201,14 +224,20 @@ class JWTAuth:
         Raises:
             HTTPException: If token is invalid.
         """
-        try:
-            payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
-        except jwt.PyJWTError as e:
+        payload: dict[str, Any] | None = None
+        last_error: jwt.PyJWTError | None = None
+        for candidate in [self.secret, *self.extra_secrets]:
+            try:
+                payload = jwt.decode(token, candidate, algorithms=[self.algorithm])
+                break
+            except jwt.PyJWTError as e:
+                last_error = e
+        if payload is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
-            ) from e
+            ) from last_error
         # Fail closed on the `type` claim: this class only issues access
         # tokens, and a 7-day refresh token must not authenticate where an
         # access token is required (AUTH-JWT-TYPE-CONFUSION-1). A token with
@@ -307,6 +336,7 @@ class JWTHandler:
         self.secret_key = secret_key or _resolve_secret()
         if secret_key:
             _validate_secret(self.secret_key)
+        self.extra_secrets = _extra_verify_secrets()
         self.algorithm = _get_algorithm()
         self.token_expiry = timedelta(hours=_get_expiry_hours())
         self.refresh_expiry = timedelta(days=_get_refresh_expiry_days())
@@ -358,15 +388,26 @@ class JWTHandler:
         ``None`` disables the check for a caller that genuinely wants any
         type.
         """
+        payload: dict[str, Any] | None = None
+        expired = False
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": True})
-        except jwt.ExpiredSignatureError:
-            return {"status": "error", "valid": False, "message": "Token has expired"}
-        except jwt.InvalidTokenError:
-            return {"status": "error", "valid": False, "message": "Invalid token"}
+            for candidate in [self.secret_key, *self.extra_secrets]:
+                try:
+                    payload = jwt.decode(token, candidate, algorithms=[self.algorithm], options={"verify_exp": True})
+                    break
+                except jwt.ExpiredSignatureError:
+                    # The signature was valid under this secret; the token is
+                    # genuinely expired regardless of which secret signed it.
+                    expired = True
+                except jwt.InvalidTokenError:
+                    continue
         except Exception as e:
             logger.error("Error validating token: %s", e)
             return {"status": "error", "valid": False, "message": "Token validation failed"}
+        if payload is None:
+            if expired:
+                return {"status": "error", "valid": False, "message": "Token has expired"}
+            return {"status": "error", "valid": False, "message": "Invalid token"}
         if expected_type is not None and payload.get("type") != expected_type:
             return {"status": "error", "valid": False, "message": "Invalid token type"}
         return {"status": "success", "valid": True, "payload": payload}
@@ -392,11 +433,13 @@ class JWTHandler:
 
     def decode_token_without_validation(self, token: str) -> dict[str, Any]:
         """Decode token without expiration validation (for debugging)."""
-        try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": False})
-            return {"status": "success", "payload": payload}
-        except Exception:
-            return {"status": "error", "message": "Error decoding token"}
+        for candidate in [self.secret_key, *self.extra_secrets]:
+            try:
+                payload = jwt.decode(token, candidate, algorithms=[self.algorithm], options={"verify_exp": False})
+                return {"status": "success", "payload": payload}
+            except Exception:
+                continue
+        return {"status": "error", "message": "Error decoding token"}
 
 
 # ---------------------------------------------------------------------------
