@@ -20,14 +20,29 @@ from pathlib import Path
 
 ROUTE_DIRS = ("/routers/", "/routes/", "/rpc/")
 
-# Calls that mark a body as legitimately async even without an await
-# (task scheduling must run on the loop, not a worker thread).
-LOOP_CALLS = ("create_task", "ensure_future", "get_event_loop", "get_running_loop", "asyncio")
+# Task-scheduling calls mark a body as legitimately async even without an
+# await (scheduling must run on the loop, not a worker thread). The match is
+# on the called name — the old version exempted any call that mentioned
+# "asyncio" anywhere, so e.g. asyncio.iscoroutinefunction(...) hid a blocking
+# handler (#985).
+LOOP_CALL_NAMES = {"create_task", "ensure_future", "get_event_loop", "get_running_loop"}
 
 
 def _route_file(path: str) -> bool:
     p = "/" + path.replace("\\", "/")
-    return "/apps/" in p and "/src/" in p and any(d in p for d in ROUTE_DIRS)
+    # Any route file in the repo — not only apps/*/src: the explorer keeps its
+    # routers at the app root and was never checked (#985). Test trees are
+    # excluded; their async defs serve no requests.
+    return "/tests/" not in p and any(d in p for d in ROUTE_DIRS)
+
+
+def _schedules_on_loop(call: ast.Call) -> bool:
+    func = call.func
+    if isinstance(func, ast.Attribute):
+        return func.attr in LOOP_CALL_NAMES
+    if isinstance(func, ast.Name):
+        return func.id in LOOP_CALL_NAMES
+    return False
 
 
 def _is_async(node: ast.AST) -> bool:
@@ -46,7 +61,7 @@ def violations(path: Path) -> list[tuple[int, str]]:
             continue
         if any(_is_async(x) for x in ast.walk(node)):
             continue
-        if any(isinstance(x, ast.Call) and any(m in ast.dump(x.func) for m in LOOP_CALLS) for x in ast.walk(node)):
+        if any(isinstance(x, ast.Call) and _schedules_on_loop(x) for x in ast.walk(node)):
             continue
         defline = lines[node.lineno - 1] if node.lineno - 1 < len(lines) else ""
         if "# noqa: fake-async" in defline:
