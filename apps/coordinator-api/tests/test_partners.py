@@ -149,6 +149,85 @@ def test_usage_analytics_requires_valid_key(client) -> None:
     assert bad.status_code == 401
 
 
+# --- API_KEY_HASH_SECRET reader / rotation overlap (#852) ---------------------
+# These exercise the hash helpers directly: /partners/register is rate-limited
+# to 10/min and the suite's HTTP registrations already sit near the cap.
+
+
+def _hmac(secret: str, value: str) -> str:
+    import hmac as hmac_mod
+
+    return hmac_mod.new(secret.encode(), value.encode(), hashlib.sha256).hexdigest()
+
+
+def _partner_row(db_session: Session, partner_id: str, api_key_hash: str) -> Partner:
+    row = Partner(
+        id=partner_id,
+        name="Hash Test",
+        description="partner row for hash tests",
+        website="https://example.com",
+        contact="hash@example.com",
+        integration_type="other",
+        api_key_hash=api_key_hash,
+        api_secret_hash="x",
+    )
+    db_session.add(row)
+    db_session.commit()
+    return row
+
+
+def test_hmac_secret_used_when_set(monkeypatch) -> None:
+    """ROTATE-SECRET-SCRIPTS-BROKEN-1 (#852): API_KEY_HASH_SECRET is the reader
+    the rotation script rotates — digests are HMAC-derived when it is set."""
+    from coordinator_api.contexts.enterprise_integration.routers.partners import _hash
+
+    monkeypatch.delenv("API_KEY_HASH_SECRET_NEW", raising=False)
+    monkeypatch.delenv("API_KEY_HASH_SECRET_PREVIOUS", raising=False)
+    monkeypatch.setenv("API_KEY_HASH_SECRET", "hash-secret-one-0123456789abcdef0123456789")
+    api_key = "aitbc_key123"
+
+    assert _hash(api_key) == _hmac("hash-secret-one-0123456789abcdef0123456789", api_key)
+
+
+def test_rotation_overlap_accepts_new_and_previous(db_session: Session, monkeypatch) -> None:
+    """A key issued under the retired secret keeps working after the flip, and
+    digests under API_KEY_HASH_SECRET_NEW verify during the overlap window."""
+    from coordinator_api.contexts.enterprise_integration.routers.partners import (
+        _hash_candidates,
+        find_partner_by_api_key,
+        verify_partner_api_key,
+    )
+
+    api_key = "aitbc_rotated"
+    _partner_row(db_session, "p-old", _hmac("old-hash-secret-0123456789abcdef0123456", api_key))
+    _partner_row(db_session, "p-new", _hmac("new-hash-secret-0123456789abcdef0123456", api_key + "2"))
+
+    # Post-flip env: new primary, retired secret in *_PREVIOUS.
+    monkeypatch.setenv("API_KEY_HASH_SECRET", "new-hash-secret-0123456789abcdef0123456")
+    monkeypatch.setenv("API_KEY_HASH_SECRET_PREVIOUS", "old-hash-secret-0123456789abcdef0123456")
+    monkeypatch.delenv("API_KEY_HASH_SECRET_NEW", raising=False)
+
+    assert verify_partner_api_key(db_session, "p-old", api_key) is not None
+    assert verify_partner_api_key(db_session, "p-new", api_key + "2") is not None
+    assert find_partner_by_api_key(db_session, api_key).id == "p-old"
+    # Wrong key still fails under every candidate.
+    assert verify_partner_api_key(db_session, "p-old", "aitbc_wrong") is None
+
+    # During the window, *_NEW digests are also acceptable candidates.
+    monkeypatch.setenv("API_KEY_HASH_SECRET_NEW", "inflight-secret-0123456789abcdef0123456")
+    assert _hmac("inflight-secret-0123456789abcdef0123456", api_key) in _hash_candidates(api_key)
+
+
+def test_legacy_sha256_rows_still_verify(db_session: Session, monkeypatch) -> None:
+    """Rows written before the secret was read (plain SHA-256) stay valid."""
+    from coordinator_api.contexts.enterprise_integration.routers.partners import verify_partner_api_key
+
+    api_key = "aitbc_legacy"
+    _partner_row(db_session, "p-legacy", hashlib.sha256(api_key.encode()).hexdigest())
+    monkeypatch.setenv("API_KEY_HASH_SECRET", "hash-secret-one-0123456789abcdef0123456789")
+    assert verify_partner_api_key(db_session, "p-legacy", api_key) is not None
+
+
 def test_webhook_row_persisted_with_foreign_key(client, db_session: Session) -> None:
     data = _register(client)
     client.post(
