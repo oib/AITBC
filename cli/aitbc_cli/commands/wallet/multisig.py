@@ -11,7 +11,7 @@ from eth_utils import to_checksum_address
 from ...utils import DECIMAL, error, output, success
 from ...utils.error_handling import abort
 from ...utils.money import wallet_amount as _wallet_amount
-from ...utils.wallet_loader import validate_wallet_name
+from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from . import wallet
 
@@ -57,8 +57,7 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
         "pending_transactions": [],
     }
 
-    with open(multisig_path, "w") as f:
-        json.dump(multisig_data, f, indent=2)
+    write_json_0600(multisig_path, multisig_data)
 
     success(f"Multisig wallet '{name}' created ({threshold}-of-{len(signers)})")
     output(
@@ -120,8 +119,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, de
     }
 
     ms_data.setdefault("pending_transactions", []).append(pending_tx)
-    with open(multisig_path, "w") as f:
-        json.dump(ms_data, f, indent=2)
+    write_json_0600(multisig_path, ms_data)
 
     success(f"Transaction proposed: {tx_id}")
     output(
@@ -200,8 +198,7 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
     else:
         success(f"Signed. {len(tx['signatures'])}/{ms_data['threshold']} signatures collected")
 
-    with open(multisig_path, "w") as f:
-        json.dump(ms_data, f, indent=2)
+    write_json_0600(multisig_path, ms_data)
 
     output(
         {

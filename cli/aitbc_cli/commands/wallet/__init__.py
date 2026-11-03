@@ -65,8 +65,9 @@ def _save_wallet(wallet_path: Path, wallet_data: dict[str, Any], password: str |
         wallet_data["encrypted"] = True
 
     # Save wallet
-    with open(wallet_path, "w") as f:
-        json.dump(wallet_data, f, indent=2)
+    from ...utils.wallet_loader import write_json_0600
+
+    write_json_0600(wallet_path, wallet_data)
 
 
 def _resave_wallet(ctx: click.Context, wallet_path: Path, wallet_data: dict[str, Any], resolved_password: str | None) -> None:
@@ -140,8 +141,9 @@ def _load_wallet(
                 warning(f"Not re-encrypting service wallet file in place: {wallet_path}")
             else:
                 try:
-                    with open(wallet_path, "w") as f:
-                        json.dump(wallet_data, f, indent=2)
+                    from ...utils.wallet_loader import write_json_0600
+
+                    write_json_0600(wallet_path, wallet_data)
                 except OSError as e:
                     error(f"Failed to re-save wallet with encryption: {e}")
                     raise click.Abort() from e

@@ -18,7 +18,7 @@ from ...utils.error_handling import abort
 from ...utils.wallet_secret import resolve_new_wallet_password, resolve_wallet_password, wallet_password_options
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
-from ...utils.wallet_loader import validate_wallet_name
+from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import (
     find_wallet_file,
     find_wallet_file_report,
@@ -408,8 +408,7 @@ def restore(ctx, backup_path: str, name: str, force: bool, password_file: str | 
     else:
         # Save restored wallet (preserve encryption state)
         # If wallet was encrypted, we save it as-is (still encrypted with original password)
-        with open(wallet_path, "w") as f:
-            json.dump(wallet_data, f, indent=2)
+        write_json_0600(wallet_path, wallet_data)
 
     success(f"Wallet '{name}' restored from backup")
     output(
@@ -430,11 +429,10 @@ def _write_wallet_atomic(wallet_path: Path, wallet_data: dict[str, Any], mode: i
     """
     tmp_path = wallet_path.parent / f".{wallet_path.name}.tmp"
     try:
-        with open(tmp_path, "w") as f:
-            json.dump(wallet_data, f, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp_path, mode)
+        tmp_path.unlink(missing_ok=True)  # stale tmp from a crashed write
+        write_json_0600(tmp_path, wallet_data, fsync=True)
+        if mode != 0o600:
+            os.chmod(tmp_path, mode)
         os.replace(tmp_path, wallet_path)
     except BaseException:
         try:
