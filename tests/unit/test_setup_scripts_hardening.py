@@ -114,9 +114,13 @@ def test_pg_setup_merges_env_keys_instead_of_clobbering():
 
 
 def test_listen_addresses_change_restarts_postgresql():
+    # listen_addresses is a postmaster-startup parameter: reload is not
+    # enough. Both call sites must go through a helper that restarts and
+    # verifies pg_settings.pending_restart / SHOW listen_addresses.
+    helper = _func(PG, "pg_ensure_listen_addresses")
+    assert "systemctl restart" in helper
+    assert "pending_restart" in helper
     for name in ("enforce_local_only", "configure_remote_connections"):
         body = _func(PG, name)
-        assert "restart postgresql" in body or "systemctl restart" in body, (
-            f"{name}: listen_addresses needs a restart, reload is not enough"
-        )
-        assert "pending_restart" in body, f"{name}: must check pg_settings.pending_restart and report real state"
+        assert "pg_ensure_listen_addresses" in body, f"{name}: must restart-and-verify via pg_ensure_listen_addresses"
+        assert "systemctl reload" not in body, f"{name}: a reload cannot apply listen_addresses"
