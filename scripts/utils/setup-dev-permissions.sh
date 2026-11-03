@@ -6,6 +6,8 @@
 # Usage: sudo ./setup-dev-permissions.sh
 #
 
+set -euo pipefail
+
 set -e
 
 # Colors for output
@@ -72,14 +74,23 @@ setup_directory_permissions() {
     print_status "Setting project directory ownership"
     chown -R $DEV_USER:$SERVICE_USER $PROJECT_DIR
 
-    # Set proper permissions
-    print_status "Setting directory permissions (2775 for directories, 664 for files)"
-    find $PROJECT_DIR -type d -exec chmod 2775 {} \;
-    find $PROJECT_DIR -type f -exec chmod 664 {} \;
-
-    # Make executable files executable
-    find $PROJECT_DIR -name "*.py" -exec chmod +x {} \;
-    find $PROJECT_DIR -name "*.sh" -exec chmod +x {} \;
+    # Set proper permissions — source files only; never venv/.git/.env*/key
+    # material (the old blanket 664 stripped exec bits and opened secrets).
+    print_status "Setting directory permissions (2775 for directories, source files only)"
+    PRUNE=( \( \
+        -name venv -o -name .venv -o -name .git -o -name node_modules \
+        -o -name data -o -name credentials -o -name keystore \
+        -o -name '.env*' -o -name '*.key' -o -name '*.pem' -o -name '*.secret' \
+        \) -prune )
+    find $PROJECT_DIR "${PRUNE[@]}" -o -type d -exec chmod 2775 {} +
+    find $PROJECT_DIR "${PRUNE[@]}" -o -type f \
+        \( -name '*.sh' -o -name '*.bash' \) -exec chmod 775 {} +
+    find $PROJECT_DIR "${PRUNE[@]}" -o -type f \
+        \( -name '*.py' -o -name '*.pyi' -o -name '*.md' -o -name '*.txt' \
+           -o -name '*.toml' -o -name '*.cfg' -o -name '*.ini' -o -name '*.yaml' \
+           -o -name '*.yml' -o -name '*.json' -o -name '*.sol' -o -name '*.rs' \
+           -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \
+           -o -name '*.html' -o -name '*.css' \) -exec chmod 664 {} +
 
     # Set special permissions for critical directories
     print_status "Setting special permissions for logs and data"
@@ -97,8 +108,9 @@ setup_sudoers() {
 
     # Create sudoers file for AITBC development
     sudoers_file="/etc/sudoers.d/aitbc-dev"
+    tmp_sudoers="$(mktemp)"
 
-    cat > "$sudoers_file" << EOF
+    cat > "$tmp_sudoers" << EOF
 # AITBC Development Sudoers Configuration
 # Allows development user to manage AITBC services without password
 
@@ -112,29 +124,22 @@ $DEV_USER ALL=(root) NOPASSWD: /usr/bin/systemctl status aitbc-*
 $DEV_USER ALL=(root) NOPASSWD: /usr/bin/tail -f /opt/aitbc/logs/*
 $DEV_USER ALL=(root) NOPASSWD: /usr/bin/journalctl -u aitbc-*
 
-# File permissions (no password)
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/chown -R *$SERVICE_USER* /opt/aitbc/*
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/chmod -R * /opt/aitbc/*
-
-# Development tools (no password)
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/git *
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/make *
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/cmake *
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/gcc *
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/g++ *
-
-# Virtual environment operations (no password)
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/python3 -m venv /opt/aitbc/cli/venv
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/pip3 install poetry
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/poetry install
+# File permissions — argument-pinned (no wildcard grants: sudoers * matches
+# spaces and slashes, so the old recursive-wildcard grants were root-equivalent)
+$DEV_USER ALL=(root) NOPASSWD: /usr/bin/chown -R $DEV_USER\:$SERVICE_USER /opt/aitbc
 
 # Process management (no password)
-$DEV_USER ALL=(root) NOPASSWD: /usr/bin/kill -HUP *aitbc*
 $DEV_USER ALL=(root) NOPASSWD: /usr/bin/pkill -f aitbc
 EOF
 
-    # Set proper permissions on sudoers file
-    chmod 440 "$sudoers_file"
+    # Validate the candidate before it is installed.
+    if ! visudo -c -f "$tmp_sudoers" > /dev/null; then
+        rm -f "$tmp_sudoers"
+        print_error "candidate sudoers failed visudo -c — not installing"
+        return 1
+    fi
+    install -m 0440 "$tmp_sudoers" "$sudoers_file"
+    rm -f "$tmp_sudoers"
 
     print_status "Sudoers configuration created: $sudoers_file"
 }
