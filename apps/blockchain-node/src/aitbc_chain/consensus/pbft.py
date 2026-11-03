@@ -19,6 +19,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
+from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
 from .multi_validator_poa import MultiValidatorPoA
@@ -619,6 +620,25 @@ class PBFTConsensus:
         # B6: verify the signature before processing
         if not self._verify_message_signature(message):
             return
+
+        # Membership gate: a prepare or commit only carries weight when its
+        # sender is in the active consensus set. A valid signature from an
+        # address outside the set is still not a vote — without this check any
+        # key could inject a quorum and drive commit quorum to execute_phase.
+        # An empty participant view stays permissive so single-proposer or
+        # not-yet-configured deployments are unaffected (same policy as
+        # _is_scheduled_proposer).
+        if message.message_type in (PBFTMessageType.PREPARE, PBFTMessageType.COMMIT):
+            participants = {canonical_address(a) for a in self.consensus.get_consensus_participants()}
+            if participants and canonical_address(message.sender) not in participants:
+                logger.warning(
+                    "PBFT dropping %s for height %s round %s from %s: sender is not a consensus participant",
+                    message.message_type.value,
+                    message.sequence_number,
+                    message.view_number,
+                    message.sender,
+                )
+                return
 
         key = f"{message.sequence_number}:{message.view_number}"
 

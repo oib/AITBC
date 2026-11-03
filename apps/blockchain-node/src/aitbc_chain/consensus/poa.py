@@ -373,15 +373,21 @@ class PoAProposer:
             return ""
 
     @staticmethod
-    def _certificate_commit_count(certificate: list[dict[str, Any]], block_hash: str) -> int:
-        """Count distinct validators that committed to ``block_hash`` in a PBFT certificate.
+    def _certificate_commit_count(
+        certificate: list[dict[str, Any]], block_hash: str, members: set[str] | frozenset[str] | list[str]
+    ) -> int:
+        """Count distinct set members that committed to ``block_hash`` in a PBFT certificate.
 
         Counted the same way ``sync_validator._validate_pbft_certificate`` counts
         them -- distinct senders of commit messages bound to this block hash,
         proposer included -- so the proposer never rejects a block that every
-        follower would accept. Signatures are not re-verified here: these commits
-        were verified by the local PBFT engine before it accepted them.
+        follower would accept. Only senders in ``members`` (the active consensus
+        participant set, any address spelling) count: a commit from an address
+        outside the set is not a vote no matter how valid its signature.
+        Signatures are not re-verified here: these commits were verified by the
+        local PBFT engine before it accepted them.
         """
+        member_set = {canonical_address(a) for a in members}
         seen: set[str] = set()
         for commit in certificate:
             if not isinstance(commit, dict) or commit.get("message_type") != "commit":
@@ -392,7 +398,10 @@ class PoAProposer:
             commit_block_hash = commit.get("block_hash", "")
             if commit_block_hash and commit_block_hash != block_hash:
                 continue
-            seen.add(canonical_address(sender))
+            sender_c = canonical_address(sender)
+            if sender_c not in member_set:
+                continue
+            seen.add(sender_c)
         return len(seen)
 
     def _consensus_participants_anomaly_checked(self) -> list[str]:
@@ -2100,7 +2109,9 @@ class PoAProposer:
             if attestations:
                 metadata_dict["attestations"] = attestations
             if effective_min and len(attestations) < effective_min:
-                commit_count = self._certificate_commit_count(pbft_certificate, block_hash)
+                commit_count = self._certificate_commit_count(
+                    pbft_certificate, block_hash, self._multi_validator.get_consensus_participants()
+                )
                 if commit_count < effective_min:
                     self._logger.warning(
                         "Not enough attestations for multi-validator block %s: got %d attestation(s) "
