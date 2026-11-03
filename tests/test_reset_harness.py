@@ -342,6 +342,87 @@ def test_untrusted_env_drops_only_the_named_address():
     assert rh._untrusted_env(original, "0x" + "ff" * 20) == original
 
 
+# ---------- authority custody key derivation (REHEARSAL-CUSTODY-KEY-NOT-DERIVED-1) ----------
+
+
+def _custody_scratch(root: Path, entries: dict, parameters: dict) -> None:
+    """Fabricate keystore/keys.json + a built genesis.json under a scratch
+    root — the two files ``_check_authority_custody`` reads."""
+    kdir = root / "keystore"
+    kdir.mkdir(parents=True)
+    (kdir / "keys.json").write_text(json.dumps(entries))
+    gdir = root / "genesis-build" / "out" / "data" / "bc-2"
+    gdir.mkdir(parents=True)
+    (gdir / "genesis.json").write_text(json.dumps({"parameters": parameters}))
+
+
+def _authority_parameters(keys: dict) -> dict:
+    return {
+        "governance_executors": keys["executors"][0]["address"],
+        "bond_slash_authority": keys["authorities"]["bond_slash"]["address"],
+        "bridge_release_authority": keys["authorities"]["bridge_release"]["address"],
+        "escrow_settlement_authority": keys["authorities"]["escrow_settlement"]["address"],
+    }
+
+
+def _real_keys() -> dict:
+    """Keystore whose authority entries are real minted keypairs — the
+    no-mock fixture: every private_key actually derives its address."""
+    pytest.importorskip("eth_account")
+    return {
+        "executors": [rh._mint_key()],
+        "authorities": {
+            "bond_slash": rh._mint_key(),
+            "bridge_release": rh._mint_key(),
+            "escrow_settlement": rh._mint_key(),
+        },
+    }
+
+
+def test_custody_accepts_valid_keypairs(tmp_path, capsys):
+    keys = _real_keys()
+    _custody_scratch(tmp_path, keys, _authority_parameters(keys))
+    rh._check_authority_custody(tmp_path)
+    assert "4 genesis authority addresses" in capsys.readouterr().out
+
+
+def test_custody_refuses_malformed_key(tmp_path):
+    """REHEARSAL-CUSTODY-KEY-NOT-DERIVED-1 defect repro: a non-key string
+    next to a baked authority address used to print 'custody OK'."""
+    keys = _real_keys()
+    keys["authorities"]["bond_slash"]["private_key"] = "not-a-real-key"
+    _custody_scratch(tmp_path, keys, _authority_parameters(keys))
+    with pytest.raises(SystemExit):
+        rh._check_authority_custody(tmp_path)
+
+
+def test_custody_refuses_swapped_key(tmp_path):
+    """A well-formed private_key that derives a *different* address —
+    the hand-assembled-keystore typo — must fail the gate."""
+    keys = _real_keys()
+    other = rh._mint_key()
+    keys["authorities"]["bridge_release"]["private_key"] = other["private_key"]
+    _custody_scratch(tmp_path, keys, _authority_parameters(keys))
+    with pytest.raises(SystemExit):
+        rh._check_authority_custody(tmp_path)
+
+
+def test_custody_refuses_short_hex_key(tmp_path):
+    """'0x00' parses as hex but is not a 32-byte secret — still a refusal."""
+    keys = _real_keys()
+    keys["executors"][0]["private_key"] = "0x00"
+    _custody_scratch(tmp_path, keys, _authority_parameters(keys))
+    with pytest.raises(SystemExit):
+        rh._check_authority_custody(tmp_path)
+
+
+def test_custody_still_refuses_missing_entry(tmp_path):
+    keys = _real_keys()
+    _custody_scratch(tmp_path, keys, _authority_parameters(keys) | {"bond_slash_authority": "0x" + "99" * 20})
+    with pytest.raises(SystemExit):
+        rh._check_authority_custody(tmp_path)
+
+
 # ---------- pause fence + timing helpers ----------
 
 
