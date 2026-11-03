@@ -5,7 +5,9 @@
 
 set -euo pipefail
 
-REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
+# The checkout this script lives in — a hardcoded /opt/aitbc scans the
+# reference clone and never the change being committed (#986).
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # shellcheck source=/dev/null
 source "${REPO_ROOT}/scripts/ci/setup-job-logging.sh" 2>/dev/null || true
 
@@ -20,6 +22,8 @@ check_grep() {
     local pattern="$2"
     local matches
 
+    local grc=0
+    set +e
     matches=$(
         grep -RInE \
             --exclude-dir=.git \
@@ -38,8 +42,20 @@ check_grep() {
             "$REPO_ROOT/apps" \
             "$REPO_ROOT/cli" \
             "$REPO_ROOT/scripts" \
-            2>/dev/null || true
+            "$REPO_ROOT/website" \
+            2>&1
     )
+    grc=$?
+    set -e
+
+    if [[ "$grc" -gt 1 ]]; then
+        # grep rc 2 is a real error (unreadable/missing tree) — the old
+        # `|| true` folded it into "no matches" and hid a broken scan.
+        echo "grep failed (rc=$grc) scanning for $name:"
+        echo "$matches"
+        fail=1
+        return
+    fi
 
     if [[ -n "$matches" ]]; then
         echo "Found deprecated $name references:"
@@ -48,8 +64,12 @@ check_grep() {
     fi
 }
 
-echo "Checking for deprecated AIPowerRental references..."
-check_grep "AIPowerRental" "AIPowerRental"
+# The deprecated *branding* is the spaced/dashed product name and the old
+# domain — the single-token AIPowerRental is a live contract
+# (contracts/contracts/AIPowerRental.sol) and legitimately referenced in
+# code, so it is deliberately not the pattern (#986).
+echo "Checking for deprecated AIPowerRental branding..."
+check_grep "AIPowerRental branding" "AI[ -]Power[ -]Rental|aipowerrental"
 
 echo "Checking for light-theme references..."
 check_grep "light-theme" "(light[-_]?theme|theme[^\n]{0,20}light|light[-_]?mode|light[-_]?css)"
