@@ -38,6 +38,9 @@ log_error() {
     log_to_file "ERROR" "$1"
 }
 
+# Off by default; a sourcing script may export DEBUG_MODE=true.
+: "${DEBUG_MODE:=false}"
+
 log_debug() {
     if [[ "${DEBUG_MODE}" == "true" ]]; then
         echo -e "${BLUE}[DEBUG]${NC} $1"
