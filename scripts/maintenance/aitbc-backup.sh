@@ -455,8 +455,17 @@ if [ "$BACKUP_SHRED_PLAINTEXT" = "yes" ] && [ -n "$BACKUP_GPG_RECIPIENT" ] && [ 
     log "Removing plaintext key archives after successful off-site upload..."
     # Deliberately a fixed list, not BACKUP_GPG_ARTIFACTS: shredding covers only
     # the key-material archives; config artifacts stay plaintext for restore.
+    # Per-artifact gate (#896): shred an archive only when THIS archive's
+    # encrypted copy was written this run and the upload above succeeded —
+    # a failed/skipped encrypt (or missing gpg) must never remove the only
+    # copy of the keys.
     for artifact in keystore.tar.gz wallets.tar.gz; do
-        [ -f "${BACKUP_DIR}/${artifact}" ] && shred -u "${BACKUP_DIR}/${artifact}" 2>/dev/null || rm -f "${BACKUP_DIR}/${artifact}"
+        src="${BACKUP_DIR}/${artifact}"
+        if [ -f "$src" ] && [ -s "${src}.gpg" ]; then
+            shred -u "$src" 2>/dev/null || rm -f "$src"
+        elif [ -f "$src" ]; then
+            warn "Not shredding ${artifact}: ${src}.gpg missing or empty — keeping the plaintext copy"
+        fi
     done
 fi
 
