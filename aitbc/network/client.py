@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 import requests
+from urllib.parse import urlparse
 
 from ..aitbc_logging import get_logger
 from ..exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError, RetryError
@@ -67,6 +68,29 @@ def _detail_suffix_inner(exc: BaseException) -> str:
     return ""
 
 
+# Hosts a configured API key may be sent to. The CLI registers its
+# configured service URLs here at config load (#850); ``None`` means no
+# restriction — service processes that never register behave exactly as
+# before. A caller-supplied URL to a foreign host then cannot carry the
+# node's stored credential to whoever controls it.
+_trusted_api_key_hosts: frozenset[str] | None = None
+
+
+def set_trusted_api_key_hosts(hosts: frozenset[str] | None) -> None:
+    global _trusted_api_key_hosts
+    _trusted_api_key_hosts = hosts
+
+
+def _check_api_key_target(base_url: str, api_key: str | None) -> None:
+    if api_key and _trusted_api_key_hosts is not None:
+        host = urlparse(base_url).hostname or ""
+        if host not in _trusted_api_key_hosts:
+            raise ValueError(
+                f"refusing to send the configured API key to unconfigured host {host!r} "
+                f"(url {base_url!r}); add the service URL to the CLI config to trust it"
+            )
+
+
 class AITBCHTTPClient:
     """
     Base HTTP client for AITBC applications.
@@ -109,6 +133,7 @@ class AITBCHTTPClient:
                 the only JWT-authed release path; an open breaker there once
                 rejected the release outright and stranded a locked escrow.
         """
+        _check_api_key_target(base_url, api_key)
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.headers = headers or {}
@@ -521,6 +546,7 @@ class AsyncAITBCHTTPClient:
                 never be rejected by accrued failure state (see the sync
                 client's docstring).
         """
+        _check_api_key_target(base_url, api_key)
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.headers = headers or {}
@@ -641,7 +667,7 @@ class AsyncAITBCHTTPClient:
         try:
             response = await self.retry_policy.execute_async(_make_request, method="GET")
             result: JSONResponse = response.json()
-            self.cache.set(cache_key, result)
+            self.cache.set(cache_key, result)  # noqa: unawaited-async — CacheLayer.set is synchronous
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:

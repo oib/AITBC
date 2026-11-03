@@ -81,8 +81,10 @@ def test_agent_client_honours_global_url_flag():
     """--url is documented as "overrides config"; agent-comm must not ignore it."""
     from types import SimpleNamespace
 
+    from aitbc.network.client import set_trusted_api_key_hosts
     from aitbc_cli.commands import agent_comm as ac
 
+    set_trusted_api_key_hosts(None)  # URL plumbing only — not the #850 guard
     cfg = SimpleNamespace(agent_coordinator_url="http://configured:8107", coordinator_api_url="", api_key=None)
     ctx = MagicMock()
     ctx.obj = {"url": "http://flag:9999", "config": cfg, "api_key": None}
