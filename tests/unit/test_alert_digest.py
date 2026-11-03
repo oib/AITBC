@@ -245,28 +245,24 @@ def test_unreadable_log_exits_nonzero(tmp_path):
     assert "cannot read alert log" in (r.stderr + r.stdout)
 
 
-def test_log_in_mode000_dir_exits_nonzero(tmp_path):
-    """#925: a path inside an unreadable directory also fails loud."""
+def test_alert_log_directory_exits_nonzero(tmp_path):
+    """#925: a directory as --alert-log fails loud — deterministic on any
+    user (mode-000 dirs are still readable to root, which the archive runs
+    as)."""
     import subprocess
     import sys as _sys
-    import os
 
-    d = tmp_path / "closed"
+    d = tmp_path / "notalog"
     d.mkdir()
-    (d / "alerts.log").write_text("{}")
-    os.chmod(d, 0o000)
-    try:
-        r = subprocess.run(
-            [
-                _sys.executable,
-                str(Path(__file__).parents[2] / "scripts/monitoring/alert-digest.py"),
-                "--alert-log",
-                str(d / "alerts.log"),
-                "--dry-run",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        assert r.returncode != 0
-    finally:
-        os.chmod(d, 0o700)
+    r = subprocess.run(
+        [
+            _sys.executable,
+            str(Path(__file__).parents[2] / "scripts/monitoring/alert-digest.py"),
+            "--alert-log",
+            str(d),
+            "--dry-run",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode != 0
