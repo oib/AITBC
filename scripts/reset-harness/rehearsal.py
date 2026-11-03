@@ -712,20 +712,8 @@ def _claim_rehearsal(root: Path) -> None:
     lock = root / ".lock"
     root.mkdir(parents=True, exist_ok=True)
     reset_guard.claim_scratch_root(root)
-    if lock.exists():
-        alive = False
-        try:
-            pid = int(lock.read_text().strip() or "0")
-            os.kill(pid, 0)
-            alive = True
-        except (ValueError, ProcessLookupError):
-            alive = False
-        except PermissionError:
-            alive = True  # someone else's process — refuse to be safe
-        if alive:
-            raise _fail(f"{lock} held by live pid — another rehearsal is running. One at a time.")
-        print("[*] stale rehearsal lock taken over (recorded pid is gone)")
-    lock.write_text(str(os.getpid()))
+    # #856: the unit check runs BEFORE the lock is written — a refusing run
+    # must not leave a claim behind for another rehearsal to trip over.
     out = subprocess.run(
         ["systemctl", "list-units", "bc2-i*", "--no-legend", "--plain"],
         capture_output=True,
@@ -735,6 +723,37 @@ def _claim_rehearsal(root: Path) -> None:
     live = [line for line in out.stdout.splitlines() if line.strip()]
     if live:
         raise _fail("rehearsal units still active: " + "; ".join(u.split()[0] for u in live))
+    # #856: atomic claim — O_EXCL create means two racers cannot both think
+    # they won the lock; exists() + write_text() raced on exactly that.
+    try:
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return
+    except FileExistsError:
+        pass
+    alive = False
+    pid = 0
+    try:
+        pid = int(lock.read_text().strip() or "0")
+        os.kill(pid, 0)
+        alive = True
+    except (ValueError, ProcessLookupError):
+        alive = False
+    except PermissionError:
+        alive = True  # someone else's process — refuse to be safe
+    if pid == os.getpid():
+        return  # re-entrant claim by the holder itself (e.g. run → stage)
+    if alive:
+        raise _fail(f"{lock} held by live pid — another rehearsal is running. One at a time.")
+    # Stale lock — atomic takeover: atomically replace, then prove our pid
+    # landed; the loser of the race sees the winner's pid and refuses.
+    tmp = root / f".lock.takeover.{os.getpid()}"
+    tmp.write_text(str(os.getpid()))
+    os.replace(tmp, lock)
+    if lock.read_text().strip() != str(os.getpid()):
+        raise _fail("lost the stale-lock takeover race — another rehearsal claimed it")
+    print("[*] stale rehearsal lock taken over (recorded pid is gone)")
 
 
 def _prelude(inst: Instance, repo_root: Path = REPO_ROOT) -> str:
