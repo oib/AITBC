@@ -236,8 +236,8 @@ def job_states(db: Source | None, job_ids: list[str]) -> dict[str, str]:
     for jid in job_ids:
         try:
             rows = db.query(f"SELECT {state_col} AS s FROM {table} WHERE {id_col} = ?", (jid,))  # nosec B608 — table/column names are whitelisted constants, not user input
-        except Exception:
-            continue
+        except Exception as e:
+            raise RuntimeError(f"{db.label()}: job query failed: {e}") from e
         if rows and rows[0].get("s"):
             out[jid] = str(rows[0]["s"])
     return out
@@ -251,8 +251,8 @@ def payment_states(coord: Source | None, job_ids: list[str]) -> dict[str, str]:
     for jid in job_ids:
         try:
             rows = coord.query("SELECT status AS s FROM job_payments WHERE job_id = ?", (jid,))
-        except Exception:
-            continue
+        except Exception as e:
+            raise RuntimeError(f"{coord.label()}: job_payments query failed: {e}") from e
         if rows and rows[0].get("s"):
             out[jid] = str(rows[0]["s"])
     return out
@@ -321,7 +321,13 @@ def _print_table(title: str, rows: list[dict[str, Any]]) -> None:
         print(f"{r['job_id']:<40} {r['amount']:>12} {age:>10} {r['job_status']:<22} {r['terminal_source']}")
 
 
-def _write_textfile(path: Path, stuck: list[dict[str, Any]], ok_dbs: list[str], now: datetime) -> None:
+def _write_textfile(
+    path: Path,
+    stuck: list[dict[str, Any]],
+    ok_dbs: list[str],
+    now: datetime,
+    failed: list[str] | None = None,
+) -> None:
     def esc(s: str) -> str:
         return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
@@ -337,10 +343,52 @@ def _write_textfile(path: Path, stuck: list[dict[str, Any]], ok_dbs: list[str], 
         lines.append(f"aitbc_escrow_stuck_lock_oldest_seconds {oldest:.0f}")
     for db in ok_dbs:
         lines.append(f'aitbc_escrow_stuck_scrape_success{{db="{esc(db)}"}} 1')
+    for db in failed or []:
+        lines.append(f'aitbc_escrow_stuck_scrape_success{{db="{esc(db)}"}} 0')
     lines.append(f"aitbc_escrow_stuck_scrape_timestamp_seconds {int(now.timestamp())}")
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text("\n".join(lines) + "\n")
     os.replace(tmp, path)
+
+
+def _probe_job_sources(coord: Source | None, market: Source | None) -> list[str]:
+    """Return the labels of present-but-unreadable or schema-drifted job
+    sources — a scrape failure each, reported on stderr (#1002)."""
+    failed: list[str] = []
+    for label, src in (("coordinator", coord), ("marketplace", market)):
+        if src is None:
+            continue
+        known = [t for t in ("job", "marketplace_jobs", "job_payments") if src.table_cols(t)]
+        if not known:
+            failed.append(label)
+            print(
+                f"error: {label} source unreadable or schema-drifted (no job/job_payments table): {src.label()}",
+                file=sys.stderr,
+            )
+    return failed
+
+
+def _read_job_state(
+    coord: Source | None,
+    market: Source | None,
+    job_ids: list[str],
+    failed_sources: list[str],
+) -> tuple[dict[str, str], dict[str, str], bool]:
+    """Read job + payment state from the healthy sources. Returns
+    (jobs, payments, read_failed) — read_failed marks a mid-read error
+    (a scrape failure, not empty results, #1002)."""
+    jobs: dict[str, str] = {}
+    payments: dict[str, str] = {}
+    try:
+        if "coordinator" not in failed_sources:
+            jobs = job_states(coord, job_ids)
+            payments = payment_states(coord, job_ids)
+        if "marketplace" not in failed_sources:
+            jobs.update({k: v for k, v in job_states(market, job_ids).items() if k not in jobs})
+    except Exception as e:
+        print(f"error: job/payment read failed: {e}", file=sys.stderr)
+        return jobs, payments, True
+    return jobs, payments, False
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -467,9 +515,16 @@ def main(argv: list[str] | None = None) -> int:
     escrows_all, settled_all, ok_dbs, failures = _sweep_chains(chain_dbs, ssh_host)
 
     job_ids = [str(r["job_id"]) for r in escrows_all]
-    jobs = job_states(coord, job_ids)
-    jobs.update({k: v for k, v in job_states(market, job_ids).items() if k not in jobs})
-    payments = payment_states(coord, job_ids)
+    # A source that exists but cannot be read — or whose expected tables are
+    # gone — is a scrape failure, not an empty result (#1002). Reading "clean"
+    # here is what makes stuck escrows invisible exactly when the sweep is
+    # needed.
+    failed_sources = _probe_job_sources(coord, market)
+    failures += len(failed_sources)
+    jobs, payments, read_failed = _read_job_state(coord, market, job_ids, failed_sources)
+    if read_failed:
+        failures += 1
+        failed_sources.append("coordinator")
 
     stuck, other = classify(
         escrows_all,
@@ -504,7 +559,7 @@ def main(argv: list[str] | None = None) -> int:
         out = Path(args.textfile)
         if out.is_dir() or str(args.textfile).endswith("/"):
             out = out / "aitbc_escrow_stuck.prom"
-        _write_textfile(out, all_stuck, ok_dbs, now)
+        _write_textfile(out, all_stuck, ok_dbs, now, failed=failed_sources)
         print(f"textfile written: {out}")
 
     if failures:
