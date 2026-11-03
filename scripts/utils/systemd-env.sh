@@ -25,8 +25,10 @@
 #   - KEY matches [A-Za-z_][A-Za-z0-9_]*; whitespace around '=' is ignored
 #   - a value wrapped in matching single or double quotes is unquoted
 #     (unbalanced quotes are malformed)
-#   - an unquoted value runs to end of line; a '#' preceded by whitespace
-#     starts an inline comment; surrounding whitespace is trimmed
+#   - an unquoted value runs to end of line — '#' does NOT start a comment
+#     (systemd keeps ' # comment' inside the value; only a line whose first
+#     non-blank char is '#' is a comment). Comments belong on their own
+#     lines. Surrounding whitespace is trimmed
 #   - no variable expansion, no command execution, ever
 # ============================================================================
 
@@ -67,8 +69,8 @@ _systemd_env_parse_line() {
             return 2
         fi
     else
-        # unquoted: '#' after whitespace opens an inline comment
-        value="${value%%[[:space:]]\#*}"
+        # unquoted: the value runs to end of line. systemd does not strip
+        # ' # comment' — it is part of the value, so we keep it too.
         # trim trailing whitespace
         value="${value%"${value##*[![:space:]]}"}"
     fi

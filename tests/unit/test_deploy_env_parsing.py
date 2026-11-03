@@ -52,7 +52,9 @@ def test_get_handles_the_forms_systemd_accepts(tmp_path):
         )
     )
 
-    assert _get(env_file, "DATABASE_URL").stdout.strip() == "sqlite:////var/lib/aitbc/data/x.db"
+    # systemd keeps an inline ' # comment' inside an unquoted value — the
+    # helper must deliver the same text a service would get.
+    assert _get(env_file, "DATABASE_URL").stdout.strip() == "sqlite:////var/lib/aitbc/data/x.db # the live db"
     assert _get(env_file, "QUOTED").stdout.strip() == "double quoted"
     assert _get(env_file, "SINGLE").stdout.strip() == "single quoted"
     assert _get(env_file, "EXPORTED").stdout.strip() == "yes"
@@ -99,7 +101,8 @@ def test_get_node_role_parses_values_sourcing_would_break(tmp_path):
     blockchain_env.write_text(
         "\n".join(
             [
-                "BLOCKCHAIN_MODE=follower # keep it a follower",
+                "BLOCKCHAIN_MODE=follower",
+                "# keep it a follower",
                 "MARKET_ROLE=shop",
                 f"PAYLOAD=$(touch {sentinel})",
             ]
@@ -193,8 +196,9 @@ def test_malformed_database_url_fails_the_service(tmp_path):
     assert "STUB_ALEMBIC" not in result.stdout
 
 
-def test_env_value_with_inline_comment_reaches_alembic_cleanly(tmp_path):
-    """The value that made `source` misread must arrive as systemd would deliver it."""
+def test_env_value_with_inline_comment_reaches_alembic_verbatim(tmp_path):
+    """systemd keeps ' # comment' inside an unquoted value, so the helper must
+    deliver it verbatim — the only safe fix is comments on their own lines."""
     scratch = _migration_scratch(
         tmp_path,
         "zzmig-test",
@@ -204,7 +208,7 @@ def test_env_value_with_inline_comment_reaches_alembic_cleanly(tmp_path):
     result = _run_migrations(scratch)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "STUB_ALEMBIC DATABASE_URL=sqlite:////var/tmp/ok.db" in result.stdout
+    assert "STUB_ALEMBIC DATABASE_URL=sqlite:////var/tmp/ok.db # the live trading db" in result.stdout
 
 
 def test_absent_database_url_keeps_the_existing_skip_semantics(tmp_path):
