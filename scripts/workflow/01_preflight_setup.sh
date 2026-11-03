@@ -19,14 +19,23 @@ else
     echo "⚠️  Using default configuration (env file not found)"
 fi
 
+# --wipe is the non-interactive form of consent: without it a live-looking
+# setup always prompts, whether or not the service happens to be running
+# right now (#956 — the old check only prompted when the node was ACTIVE,
+# so a stopped node got its keystore wiped with no prompt at all).
+WIPE=0
+for a in "$@"; do
+    [ "$a" = "--wipe" ] && WIPE=1
+done
+
 # Check if already setup
 ALREADY_SETUP=false
 if [ -f "/etc/aitbc/blockchain.env" ] && [ -f "/var/lib/aitbc/keystore/.password" ]; then
-    if systemctl is-active --quiet aitbc-blockchain-node; then
-        echo "⚠️  System appears to be already set up and running."
+    ALREADY_SETUP=true
+    if [ "$WIPE" != 1 ]; then
+        echo "⚠️  System appears to be already set up."
         echo "   - blockchain.env exists"
         echo "   - keystore password file exists"
-        echo "   - aitbc-blockchain-node is active"
         echo ""
         read -p "Force re-setup? This will stop services and clean data. [y/N] " -n 1 -r
         echo
@@ -34,7 +43,6 @@ if [ -f "/etc/aitbc/blockchain.env" ] && [ -f "/var/lib/aitbc/keystore/.password
             echo "Skipping setup. System already configured."
             exit 0
         fi
-        ALREADY_SETUP=true
     fi
 fi
 
@@ -89,15 +97,23 @@ pip install -e /opt/aitbc/cli/ 2>/dev/null || true
 echo 'alias aitbc="source /opt/aitbc/venv/bin/activate && aitbc"' >> ~/.bashrc
 source ~/.bashrc
 
-# 5. Clean old data (optional but recommended)
+# 5. Clean old data — only an explicit re-setup reaches here, and the old
+# contents are backed up first (#956).
 echo "5. Cleaning old data..."
+if [ "$ALREADY_SETUP" = true ]; then
+    BACKUP_DIR="/var/lib/aitbc/backup-preflight-$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$BACKUP_DIR"
+    cp -a /var/lib/aitbc/data/ait-mainnet "$BACKUP_DIR/" 2>/dev/null || true
+    cp -a /var/lib/aitbc/keystore "$BACKUP_DIR/" 2>/dev/null || true
+    echo "Backed up previous data to $BACKUP_DIR"
+fi
 rm -rf /var/lib/aitbc/data/ait-mainnet/*
 rm -rf /var/lib/aitbc/keystore/*
 
-# 6. Create keystore password file
+# 6. Create keystore password file — a random password, never a fixed one.
 echo "6. Creating keystore password file..."
 mkdir -p /var/lib/aitbc/keystore
-echo 'aitbc123' > /var/lib/aitbc/keystore/.password
+head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n' > /var/lib/aitbc/keystore/.password
 chmod 600 /var/lib/aitbc/keystore/.password
 
 # 7. Verify setup
