@@ -1,199 +1,152 @@
 # unawaited-async findings baseline — regenerate: check-unawaited-async.py --update
-aitbc/auth/middleware.py:279
-aitbc/auth/middleware.py:280
-aitbc/network/client.py:644
-apps/agent-coordinator/src/agent_app/lifespan.py:182
-apps/agent-coordinator/src/agent_app/routers/messages.py:528
-apps/agent-coordinator/src/agent_app/routers/messages.py:566
-apps/agent-coordinator/src/agent_app/routers/tasks.py:487
-apps/agent-coordinator/src/agent_app/websocket/agent_stream.py:114
-apps/agent-coordinator/src/agent_app/websocket/agent_stream.py:263
-apps/agent-coordinator/src/agent_app/websocket/agent_stream.py:270
-apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py:33
-apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py:34
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py:54
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py:66
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py:89
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py:92
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py:70
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py:93
-apps/blockchain-node/scripts/ws_load_test.py:165
-apps/blockchain-node/src/aitbc_chain/chain_sync.py:152
-apps/blockchain-node/src/aitbc_chain/chain_sync.py:78
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py:164
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py:360
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py:405
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py:660
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py:670
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py:679
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1462
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1478
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1485
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1489
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1716
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1787
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1858
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:1872
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py:538
-apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:123
-apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:548
-apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:636
-apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py:97
-apps/blockchain-node/src/aitbc_chain/contracts/escrow.py:694
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:347
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:348
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:437
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:438
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:439
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:514
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:515
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:586
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:587
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:592
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:593
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:715
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:716
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:717
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:818
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:820
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:940
-apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py:941
-apps/blockchain-node/src/aitbc_chain/gossip/backends/base.py:26
-apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py:134
-apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py:134
-apps/blockchain-node/src/aitbc_chain/gossip/backends/mesh.py:275
-apps/blockchain-node/src/aitbc_chain/gossip/backends/websocket.py:109
-apps/blockchain-node/src/aitbc_chain/gossip/broker.py:145
-apps/blockchain-node/src/aitbc_chain/main.py:662
-apps/blockchain-node/src/aitbc_chain/network/discovery.py:210
-apps/blockchain-node/src/aitbc_chain/network/discovery.py:352
-apps/blockchain-node/src/aitbc_chain/network/discovery.py:361
-apps/blockchain-node/src/aitbc_chain/network/health.py:178
-apps/blockchain-node/src/aitbc_chain/network/health.py:216
-apps/blockchain-node/src/aitbc_chain/network/nat_traversal.py:87
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:157
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:166
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:308
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:313
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:321
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:325
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:329
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:334
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:336
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:345
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:351
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:366
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:385
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:439
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:442
-apps/blockchain-node/src/aitbc_chain/p2p_network.py:642
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1467
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1468
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1764
-apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py:1890
-apps/blockchain-node/src/aitbc_chain/rpc/websocket.py:247
-apps/blockchain-node/src/aitbc_chain/rpc/websocket.py:86
-apps/blockchain-node/src/aitbc_chain/sync_bulk.py:567
-apps/blockchain-node/src/aitbc_chain/sync_bulk.py:568
-apps/blockchain-node/src/aitbc_chain/sync_bulk.py:569
-apps/blockchain-node/src/aitbc_chain/sync_manager.py:213
-apps/blockchain-node/src/aitbc_chain/sync_manager.py:600
-apps/blockchain-node/src/aitbc_chain/sync_manager.py:648
-apps/blockchain-node/src/aitbc_chain/sync_manager.py:660
-apps/blockchain-node/src/aitbc_chain/sync_manager.py:664
-apps/blockchain-node/src/aitbc_chain/sync_manager.py:668
-apps/blockchain-node/src/aitbc_chain/sync_state.py:230
-apps/blockchain-node/src/aitbc_chain/sync_state.py:235
-apps/blockchain-node/src/aitbc_chain/sync_state.py:243
-apps/blockchain-node/src/aitbc_chain/sync_state.py:401
-apps/blockchain-node/src/aitbc_chain/sync_state.py:411
-apps/blockchain-node/src/aitbc_chain/sync_state.py:416
-apps/blockchain-node/src/aitbc_chain/sync_state.py:424
-apps/coordinator-api/migrations/003_data_migration.py:105
-apps/coordinator-api/migrations/003_data_migration.py:81
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:115
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:116
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:120
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:166
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:167
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:171
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:177
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:214
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:215
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:229
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:242
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:259
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:281
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:282
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:56
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:57
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:87
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py:88
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:127
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:166
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:167
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:171
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:176
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:194
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:373
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:377
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:60
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:61
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py:85
-apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/services/advanced_rl/engine.py:292
-apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/oracle_service.py:213
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:404
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:413
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:487
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:524
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:527
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:549
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:550
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:557
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py:566
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/redis_state.py:198
-apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py:667
-apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py:708
-apps/coordinator-api/src/coordinator_api/contexts/multimodal/services/multi_modal_fusion/fusion_engine.py:184
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/acceptance_sweeper.py:106
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/settlement_reconciler.py:110
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py:290
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py:155
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py:170
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py:199
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py:224
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py:249
-apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py:420
-apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py:422
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py:118
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py:171
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py:175
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py:202
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py:279
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py:299
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py:90
-apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py:412
-apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py:743
-apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py:156
-apps/coordinator-api/src/coordinator_api/main.py:788
-apps/coordinator-api/src/coordinator_api/routers/media.py:72
-apps/coordinator-api/src/coordinator_api/settlement/hooks.py:115
-apps/coordinator-api/src/coordinator_api/settlement/hooks.py:65
-apps/coordinator-api/src/coordinator_api/utils/cache.py:130
-apps/coordinator-api/src/coordinator_api/utils/cache.py:188
-apps/coordinator-api/src/coordinator_api/utils/cache.py:197
-apps/ffmpeg/main.py:166
-apps/ffmpeg/main.py:170
-apps/gpu/src/gpu_service/main.py:591
-apps/hermes_agent/main.py:209
-apps/market/src/market_service/services/ipfs_rental_sweeper.py:81
-apps/market/src/market_service/services/market_job_sweeper.py:95
-apps/pool-hub/src/poolhub/app/routers/health.py:64
-apps/trading/src/trading_service/services/gossip_client.py:225
-apps/trading/src/trading_service/services/offer_subscription_service.py:163
-apps/trading/src/trading_service/services/offer_subscription_service.py:269
-apps/trading/src/trading_service/services/offer_subscription_service.py:363
-apps/wallet/simple_daemon.py:147
-apps/wallet/src/wallet_app/bridge/exchange_settlement_monitor.py:1250
-apps/whisper/main.py:145
-apps/whisper/main.py:149
+aitbc/auth/middleware.py	is_allowed	self.redis_client.expire(key, window_seconds)	1
+aitbc/auth/middleware.py	is_allowed	self.redis_client.zadd(key, {str(current_time): current_time})	1
+apps/agent-coordinator/src/agent_app/lifespan.py	lifespan	state.escrow_rpc.close()	1
+apps/agent-coordinator/src/agent_app/routers/messages.py	subscribe_to_topic	connection_manager.subscribe(req.agent_id, req.topic)	1
+apps/agent-coordinator/src/agent_app/routers/messages.py	unsubscribe_from_topic	connection_manager.unsubscribe(req.agent_id, req.topic)	1
+apps/agent-coordinator/src/agent_app/routers/tasks.py	complete_task	state.payment_escrow.release(entry.escrow_id, submitter=submitter)	1
+apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_dispatch_stream_message	self.connection_manager.subscribe(agent_id, topic)	1
+apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_dispatch_stream_message	self.connection_manager.unsubscribe(agent_id, topic)	1
+apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_load_subscriptions	self.subscribe(agent_id, topic)	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py	handle_transaction	tx_data.get("to")	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py	handle_transaction	tx_data.get("type", "unknown")	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	run	event_queue_size.labels(topic="blocks").set(self._subscription.queue.qsize())	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	run	gossip_subscribers_total.set(1)	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	stop	gossip_subscribers_total.set(0)	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	stop	self._subscription.close()	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py	run	event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())	1
+apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py	stop	self._subscription.close()	1
+apps/blockchain-node/scripts/ws_load_test.py	run_load	stop_event.set()	1
+apps/blockchain-node/src/aitbc_chain/chain_sync.py	_receive_blocks	self._receiver_ready.set()	1
+apps/blockchain-node/src/aitbc_chain/chain_sync.py	stop	self._stop_event.set()	1
+apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	commit_phase	self._message_event.set()	1
+apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	handle_incoming_message	self._message_event.set()	3
+apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	pre_prepare_phase	self._message_event.set()	1
+apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	prepare_phase	self._message_event.set()	1
+apps/blockchain-node/src/aitbc_chain/consensus/poa.py	_broadcast_block	poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(subscriber_count)	1
+apps/blockchain-node/src/aitbc_chain/consensus/poa.py	_ensure_genesis_block	session.commit()	2
+apps/blockchain-node/src/aitbc_chain/consensus/poa.py	_ensure_genesis_block	session.rollback()	1
+apps/blockchain-node/src/aitbc_chain/consensus/poa.py	_run_consensus_gates	session.rollback()	4
+apps/blockchain-node/src/aitbc_chain/consensus/poa.py	stop	self._stop_event.set()	1
+apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py	_listen	sub.close()	1
+apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py	collect_attestations	sub.close()	2
+apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py	stop	self._stop_event.set()	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	create_escrow	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	create_escrow	session.refresh(record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	execute_trade	session.commit()	2
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	execute_trade	session.refresh(proof_record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	execute_trade	session.refresh(record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	extend_timeout	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	extend_timeout	session.refresh(record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	lock_escrow	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	lock_escrow	session.refresh(proof_record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	lock_escrow	session.refresh(record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	refund	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	refund	session.refresh(proof_record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	settle	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	settle	session.refresh(record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	settle	session.refresh(settlement_record)	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	verify_lock	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py	verify_lock	session.refresh(proof_record)	1
+apps/blockchain-node/src/aitbc_chain/gossip/backends/base.py	__aiter__	self.close()	1
+apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py	_stop	stop_event.set()	1
+apps/blockchain-node/src/aitbc_chain/gossip/backends/mesh.py	close	source.close()	1
+apps/blockchain-node/src/aitbc_chain/gossip/backends/websocket.py	_is_echo	ack_event.set()	1
+apps/blockchain-node/src/aitbc_chain/gossip/broker.py	publish	self._priority_queue.put(topic, message, priority)	1
+apps/blockchain-node/src/aitbc_chain/main.py	stop	self._stop_event.set()	1
+apps/blockchain-node/src/aitbc_chain/network/discovery.py	_handle_discovery_connection	writer.close()	1
+apps/blockchain-node/src/aitbc_chain/network/discovery.py	_process_discovery_message	message.get("node_id")	1
+apps/blockchain-node/src/aitbc_chain/network/discovery.py	_send_discovery_message	writer.close()	1
+apps/blockchain-node/src/aitbc_chain/network/health.py	_check_availability	writer.close()	1
+apps/blockchain-node/src/aitbc_chain/network/health.py	_measure_throughput	writer.close()	1
+apps/blockchain-node/src/aitbc_chain/network/nat_traversal.py	_stun_request	sock.close()	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection	message.get("island_chain_id", "")	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection	message.get("island_name", "")	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection	writer.close()	11
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_listen_to_stream	writer.close()	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	stop	self._server.close()	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	stop	writer.close()	1
+apps/blockchain-node/src/aitbc_chain/rpc/websocket.py	_stream_topic	subscription.close()	1
+apps/blockchain-node/src/aitbc_chain/rpc/websocket.py	gossip_websocket	subscription.close()	1
+apps/blockchain-node/src/aitbc_chain/sync_bulk.py	_resolve_fork_with_peer	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/sync_bulk.py	_resolve_fork_with_peer	session.delete(old_block)	1
+apps/blockchain-node/src/aitbc_chain/sync_bulk.py	_resolve_fork_with_peer	session.delete(tx)	1
+apps/blockchain-node/src/aitbc_chain/sync_manager.py	_gossip_consumer	state.gossip_sub.close()	1
+apps/blockchain-node/src/aitbc_chain/sync_manager.py	_tick	sync_lag_blocks.labels(chain_id=chain_id).set(float(gap))	1
+apps/blockchain-node/src/aitbc_chain/sync_manager.py	_tick	sync_peer_reachable.labels(chain_id=chain_id).set(0.0)	2
+apps/blockchain-node/src/aitbc_chain/sync_manager.py	_tick	sync_peer_reachable.labels(chain_id=chain_id).set(1.0)	1
+apps/blockchain-node/src/aitbc_chain/sync_manager.py	stop	self._stop_event.set()	1
+apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.delete(db_acc)	1
+apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.flush()	1
+apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.rollback()	1
+apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.commit()	1
+apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.flush()	1
+apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.rollback()	1
+apps/coordinator-api/migrations/003_data_migration.py	migrate_jobs_from_sqlite	cursor.execute("SELECT * FROM jobs")	1
+apps/coordinator-api/migrations/003_data_migration.py	migrate_jobs_from_sqlite	sqlite_conn.close()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	activate_identity	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	create_identity	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	create_identity	self.session.refresh(identity)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	register_cross_chain_identity	self.session.commit()	2
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	register_cross_chain_identity	self.session.refresh(mapping)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	revoke_identity	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	suspend_identity	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_cross_chain_mapping	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_cross_chain_mapping	self.session.refresh(mapping)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_identity	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_identity	self.session.refresh(identity)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_reputation	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_reputation	self.session.refresh(identity)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	verify_cross_chain_identity	self.session.commit()	3
+apps/coordinator-api/src/coordinator_api/agent_identity/core.py	verify_cross_chain_identity	self.session.refresh(verification)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	cleanup_expired_verifications	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	cleanup_expired_verifications	self.session.delete(verification)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	register_cross_chain_identity	self.session.commit()	2
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	register_cross_chain_identity	self.session.refresh(mapping)	1
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	revoke_verification	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	update_identity_mapping	self.session.commit()	1
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	verify_cross_chain_identity	self.session.commit()	3
+apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	verify_cross_chain_identity	self.session.refresh(verification)	1
+apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/services/advanced_rl/engine.py	load_trained_agent	agent.eval()	1
+apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/oracle_service.py	_fetch_from_api	price_data.get("usd_24h_change", 0.0)	1
+apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	_settle_completed_job	session.commit()	2
+apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	submit_result	session.commit()	5
+apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	submit_result	session.execute( update(Job).where(col(Job.id) == job_id).values(state=JobState.failed.value, error=error_message) )	1
+apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	submit_result	session.execute(update(Job).where(col(Job.id) == job_id).values(payment_status="refunded"))	1
+apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/redis_state.py	lpush	self._memory[mem_key].insert(0, value)	1
+apps/coordinator-api/src/coordinator_api/contexts/multimodal/services/multi_modal_fusion/fusion_engine.py	evaluate_fusion_performance	fusion_model.eval()	1
+apps/coordinator-api/src/coordinator_api/contexts/payments/services/acceptance_sweeper.py	run_once	session.commit()	1
+apps/coordinator-api/src/coordinator_api/contexts/payments/services/settlement_reconciler.py	run_once	session.commit()	1
+apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py	_handle_unsealed_lock	session.commit()	1
+apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py	_run_sweep	session.commit()	3
+apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py	run_once	self._sweep_lock.acquire(timeout=0.05)	1
+apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py	run_once	self._sweep_lock.release()	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py	revoke_keys	os.rename(file_path, os.path.join(revoked_path, f"{participant_id}.json"))	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py	revoke_keys	os.rename(private_path, os.path.join(revoked_path, f"{participant_id}.priv"))	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	_get_current_quota	self.redis.setex(cache_key, self._cache_ttl, json.dumps(quota_data))	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	_get_current_usage	self.redis.setex(cache_key, self._cache_ttl, str(usage))	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	consume_quota	self.redis.expire(cache_key, self._cache_ttl)	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	quota_reservation	self.redis.delete(f"reservation:{reservation_id}")	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	quota_reservation	self.redis.setex(f"reservation:{reservation_id}", timeout, json.dumps(reservation_data))	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	release_quota	self.redis.expire(cache_key, self._cache_ttl)	1
+apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	reset_quota_period	self.redis.delete(cache_key)	1
+apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py	optimize_resource_allocation	job_requirements.get("max_latency_ms", 1000)	1
+apps/coordinator-api/src/coordinator_api/main.py	readiness	session.execute(text("SELECT 1"))	1
+apps/coordinator-api/src/coordinator_api/routers/media.py	upload_media	f.close()	1
+apps/coordinator-api/src/coordinator_api/settlement/hooks.py	_save_job	session.commit()	1
+apps/coordinator-api/src/coordinator_api/settlement/hooks.py	initiate_manual_settlement	session.commit()	1
+apps/coordinator-api/src/coordinator_api/utils/cache.py	async_wrapper	cache_manager.set(cache_key, result, ttl_seconds)	1
+apps/coordinator-api/src/coordinator_api/utils/cache.py	warm_exchange_rates	cache_manager.set("exchange_rates_current", rates, ttl_seconds=600)	1
+apps/coordinator-api/src/coordinator_api/utils/cache.py	warm_market_stats	cache_manager.set("market_stats_overview", stats, ttl_seconds=300)	1
+apps/ffmpeg/main.py	_spool_upload	tmp.close()	2
+apps/gpu/src/gpu_service/main.py	register_gpu	gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")	1
+apps/market/src/market_service/services/ipfs_rental_sweeper.py	stop	self._stop_event.set()	1
+apps/market/src/market_service/services/market_job_sweeper.py	stop	self._stop_event.set()	1
+apps/pool-hub/src/poolhub/app/routers/health.py	health_endpoint	miners_online_gauge.set(miners_online)	1
+apps/trading/src/trading_service/services/offer_subscription_service.py	_attempt_reconnect	old.close()	1
+apps/trading/src/trading_service/services/offer_subscription_service.py	_subscribe_loop	subscription.close()	1
+apps/trading/src/trading_service/services/offer_subscription_service.py	stop_chain	sub.close()	1
+apps/wallet/simple_daemon.py	create_chain	request.get("coordinator_api_key")	1
+apps/wallet/src/wallet_app/bridge/exchange_settlement_monitor.py	_mirror_pass	conn.close()	1
+apps/whisper/main.py	_spool_upload	tmp.close()	2
