@@ -217,3 +217,18 @@ def test_findings_reach_the_verdict():
     assert "export -f log_security_finding" in src
     assert "FINDINGS_COUNT" in src
     assert "sendTx" not in src
+
+
+SCRIPT37 = Path(__file__).resolve().parents[2] / "scripts/workflow/37_contract_event_monitoring.sh"
+SCRIPT38 = Path(__file__).resolve().parents[2] / "scripts/workflow/38_contract_data_analytics.sh"
+
+
+def test_37_helpers_exported_and_no_self_contradicting_test():
+    src = SCRIPT37.read_text()
+    assert "export -f log_contract_event log_service_event" in src
+    assert "aitbc-events ]; then" not in src
+
+
+def test_38_installs_no_cron_d_line():
+    src = SCRIPT38.read_text()
+    assert "cat > /etc/cron.d/aitbc-analytics" not in src
