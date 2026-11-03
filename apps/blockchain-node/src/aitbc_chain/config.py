@@ -357,6 +357,12 @@ class ChainSettings(BaseSettings):
         return v
 
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
+    # eth_getLogs budgets (RPC-GETLOGS-UNBOUNDED-1): the route is public, so the
+    # scan is bounded whatever the request holds — span in blocks, receipt rows
+    # bound in SQL, returned log entries. Deeper windows paginate by range.
+    getlogs_max_block_span: int = 2000
+    getlogs_max_receipts: int = 5000
+    getlogs_max_logs: int = 1000
     sync_validate_signatures: bool = True  # validate proposer signatures on import
     # ISO-8601 timestamp; if in the future, signature validation is temporarily disabled.
     sync_validate_signatures_skip_until: str = ""
