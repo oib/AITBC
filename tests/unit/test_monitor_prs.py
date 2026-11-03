@@ -45,3 +45,12 @@ def test_no_eval_of_remote_text():
     src = SCRIPT_FCC.read_text()
     assert 'eval "$res"' not in src
     assert "while IFS='=' read -r" in src
+
+
+def test_unreachable_is_flag_not_unset():
+    """#1011: an unreadable host counts as a flag in both sections."""
+    src = SCRIPT_FCC.read_text()
+    assert "UNREACHABLE — cannot verify the kill switch is unset" in src
+    assert "UNREACHABLE — cannot verify the mock flag is unset" in src
+    # the all-clear lines only print when no flag was raised
+    assert src.count("UNREACHABLE") >= 6
