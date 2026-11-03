@@ -243,10 +243,12 @@ async def test_gossip_transport_receives():
     consensus = _make_consensus(4)
     pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
 
-    # Simulate an incoming prepare message
+    # Simulate an incoming prepare message. The sender has to be a consensus
+    # participant — non-member prepares/commits are dropped at intake (#843).
+    member = list(consensus.validators.keys())[1]
     msg_data = {
         "message_type": "prepare",
-        "sender": "0xabc",
+        "sender": member,
         "view_number": 0,
         "sequence_number": 1,
         "digest": "0xdigest",
@@ -276,7 +278,7 @@ async def test_gossip_transport_receives():
     # Simulate an incoming commit message
     commit_data = {
         "message_type": "commit",
-        "sender": "0xghi",
+        "sender": member,
         "view_number": 0,
         "sequence_number": 1,
         "digest": "0xdigest",
@@ -288,8 +290,77 @@ async def test_gossip_transport_receives():
     assert len(pbft.state.committed_messages[key]) == 1
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+@pytest.mark.asyncio
+async def test_non_member_prepare_and_commit_dropped():
+    """Pin for #843: a quorum of non-member votes never reaches execute_phase.
+
+    Prepares and commits from addresses outside the consensus participant set
+    are dropped at intake, so a fabricated quorum can neither trigger
+    execute_phase nor leave material behind for a certificate the proposer
+    would attach.
+    """
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    outsiders = [f"0x{'e' * 39}{i:x}" for i in range(4)]
+    assert not any(a in consensus.validators for a in outsiders)
+
+    executed: list[str] = []
+
+    async def on_execute(block_hash, commits):
+        executed.append(block_hash)
+
+    pbft.set_on_execute(on_execute)
+    # enough outsider commits to exceed any quorum the engine could compute
+    for sender in outsiders:
+        await pbft.handle_incoming_message(
+            {
+                "message_type": "commit",
+                "sender": sender,
+                "view_number": 0,
+                "sequence_number": 1,
+                "digest": "0xdigest",
+                "signature": "",
+                "timestamp": 0.0,
+                "block_hash": "0xblock",
+            }
+        )
+        await pbft.handle_incoming_message(
+            {
+                "message_type": "prepare",
+                "sender": sender,
+                "view_number": 0,
+                "sequence_number": 1,
+                "digest": "0xdigest",
+                "signature": "",
+                "timestamp": 0.0,
+                "block_hash": "0xblock",
+            }
+        )
+
+    assert pbft.state.committed_messages == {}
+    assert pbft.state.prepared_messages == {}
+    assert executed == []
+
+
+@pytest.mark.asyncio
+async def test_member_votes_still_count_after_membership_gate():
+    """The gate drops outsiders only — a member commit is still accepted."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    member = list(consensus.validators.keys())[2]
+    await pbft.handle_incoming_message(
+        {
+            "message_type": "commit",
+            "sender": member,
+            "view_number": 0,
+            "sequence_number": 1,
+            "digest": "0xdigest",
+            "signature": "",
+            "timestamp": 0.0,
+            "block_hash": "0xblock",
+        }
+    )
+    assert len(pbft.state.committed_messages["1:0"]) == 1
 
 
 @pytest.mark.asyncio
