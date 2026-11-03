@@ -322,6 +322,8 @@ check_resource_usage() {
         return 0
     fi
 
+    local breach=0
+
     # Check CPU usage
     if [[ -f "/proc/$pid/stat" ]]; then
         local cpu_usage
@@ -329,6 +331,7 @@ check_resource_usage() {
         local cpu_int=${cpu_usage%.*}
         if [[ $cpu_int -gt $ALERT_THRESHOLD_CPU ]]; then
             error "$service CPU usage high: ${cpu_usage}%"
+            breach=1
         else
             log "$service CPU usage: ${cpu_usage}%"
         fi
@@ -340,9 +343,11 @@ check_resource_usage() {
     local mem_int=${mem_usage%.*}
     if [[ $mem_int -gt $ALERT_THRESHOLD_MEM ]]; then
         error "$service memory usage high: ${mem_usage}%"
+        breach=1
     else
         log "$service memory usage: ${mem_usage}%"
     fi
+    return $breach
 }
 
 # Check disk usage
@@ -360,6 +365,7 @@ check_disk_usage() {
 
     if [[ $disk_int -gt $ALERT_THRESHOLD_DISK ]]; then
         error "Disk usage high for $path: ${disk_usage}%"
+        return 1
     else
         log "Disk usage for $path: ${disk_usage}%"
     fi
@@ -381,6 +387,7 @@ check_system_memory() {
 
     if [[ $percent -gt $ALERT_THRESHOLD_MEM ]]; then
         error "System memory usage high: ${percent}%"
+        return 1
     else
         log "System memory usage: ${percent}%"
     fi
@@ -504,7 +511,7 @@ main() {
 
             for service in "${ROLE_SERVICES[@]}"; do
                 check_installed_service "$service" || continue
-                check_resource_usage "$service"
+                check_resource_usage "$service" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             done
             check_failed_units
             ;;
@@ -520,8 +527,8 @@ main() {
             log "Checking resource usage..."
             echo ""
 
-            check_disk_usage "/var/lib/aitbc"
-            check_system_memory
+            check_disk_usage "/var/lib/aitbc" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+            check_system_memory || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             ;;
         "blockchain")
             log "Checking blockchain status..."
@@ -545,7 +552,7 @@ main() {
             log "--- Service Status ---"
             for service in "${ROLE_SERVICES[@]}"; do
                 check_installed_service "$service" || continue
-                check_resource_usage "$service"
+                check_resource_usage "$service" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             done
             check_failed_units
             echo ""
@@ -559,8 +566,8 @@ main() {
 
             # Check resources
             log "--- Resource Usage ---"
-            check_disk_usage "/var/lib/aitbc"
-            check_system_memory
+            check_disk_usage "/var/lib/aitbc" || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+            check_system_memory || TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             echo ""
 
             # Check blockchain
