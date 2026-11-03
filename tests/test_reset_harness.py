@@ -464,6 +464,154 @@ def test_node_log_reads_only_scratch_log(tmp_path):
     assert rh.STALL_MARK.search(rh._node_log(inst))
 
 
+# ---------- non-vacuous proofs (REHEARSAL-PROOFS-VACUOUS-1) ----------
+
+
+def _append_node_log(inst, text: str) -> None:
+    log = inst.dir / "logs" / "node.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a") as f:
+        f.write(text)
+
+
+STALL_LINE = "Not enough attestations for multi-validator block 3: got 0 attestation(s) and 0 PBFT commit(s), need 2\n"
+
+
+def test_log_since_returns_only_new_bytes(tmp_path):
+    """node.log is append-only across phases — a whole-log scan can 'prove'
+    a fault with a line written before the fault existed."""
+    inst = rh.instances(tmp_path)[0]
+    _append_node_log(inst, "old line\n")
+    off = len(rh._node_log(inst))
+    assert rh._log_since(inst, off) == ""
+    _append_node_log(inst, "new line\n")
+    assert rh._log_since(inst, off) == "new line\n"
+
+
+def test_stall_refusal_must_postdate_the_fault(tmp_path):
+    """A STALL_MARK left over from an earlier phase must not satisfy the
+    liveness proof — the scan covers only bytes appended after the offset."""
+    inst = rh.instances(tmp_path)[0]
+    _append_node_log(inst, STALL_LINE)
+    off = len(rh._node_log(inst))
+    assert not rh.STALL_MARK.search(rh._log_since(inst, off)), "pre-fault refusal must not count"
+    _append_node_log(inst, STALL_LINE)
+    assert rh.STALL_MARK.search(rh._log_since(inst, off))
+
+
+def test_untrusted_refusal_must_postdate_the_restart(tmp_path):
+    inst = rh.instances(tmp_path)[0]
+    mark = "not in trusted set"
+    _append_node_log(inst, f"earlier phase: {mark}\n")
+    off = len(rh._node_log(inst))
+    assert mark not in rh._log_since(inst, off), "pre-restart refusal must not count"
+    _append_node_log(inst, f"refused block: {mark}\n")
+    assert mark in rh._log_since(inst, off)
+
+
+def test_resync_marks_drop_bare_sqlite_and_need_new_bytes(tmp_path):
+    """The bare 'sqlite3.' substring matched routine driver text on the
+    append-only log; detection keys on the real failure shapes only, and
+    only on bytes appended after the corrupt restart."""
+    assert "sqlite3." not in rh.CORRUPT_STORE_MARKS
+    inst = rh.instances(tmp_path)[0]
+    _append_node_log(inst, "file is not a database\nsqlite3.OperationalError\n")
+    off = len(rh._node_log(inst))
+    new = rh._log_since(inst, off)
+    assert not any(m in new for m in rh.CORRUPT_STORE_MARKS), "pre-restart marks must not count"
+    _append_node_log(inst, "sqlite3.DatabaseError: file is not a database\n")
+    new = rh._log_since(inst, off)
+    assert any(m in new for m in rh.CORRUPT_STORE_MARKS)
+
+
+def test_wait_head_retries_until_rpc_answers(tmp_path, monkeypatch):
+    """The stall phase's reference height must not silently be None — a
+    later real head then reads as a false 'head moved None -> N'."""
+    inst = rh.instances(tmp_path)[0]
+    answers = iter([None, None, 7])
+    monkeypatch.setattr(rh, "_head", lambda i: next(answers, 7))
+    assert rh._wait_head(inst, timeout=5, poll=0.01) == 7
+
+
+def test_wait_head_fails_when_rpc_never_answers(tmp_path, monkeypatch):
+    inst = rh.instances(tmp_path)[0]
+    monkeypatch.setattr(rh, "_head", lambda i: None)
+    with pytest.raises(SystemExit):
+        rh._wait_head(inst, timeout=0.05, poll=0.01)
+
+
+def test_phase_skip_requires_advance_past_stop_head(tmp_path, monkeypatch):
+    """phase_skip's proof is relative to the head at stop — a static
+    threshold passed vacuously because check/rejoin already pushed the
+    head far past it before the unit was stopped."""
+    insts = rh.instances(tmp_path)
+    monkeypatch.setattr(rh, "instances", lambda root: insts)
+    monkeypatch.setattr(rh, "_stop_instance", lambda inst: None)
+    monkeypatch.setattr(rh, "_check_host_budget", lambda *a: None)
+    monkeypatch.setattr(rh.time, "sleep", lambda s: None)
+    monkeypatch.setattr(rh, "_head", lambda inst: 50)  # high but frozen
+    with pytest.raises(SystemExit):
+        rh.phase_skip(tmp_path, timeout=1, max_load=999, min_avail_mib=0)
+
+
+def test_phase_skip_passes_on_two_new_seals(tmp_path, monkeypatch):
+    insts = rh.instances(tmp_path)
+    monkeypatch.setattr(rh, "instances", lambda root: insts)
+    monkeypatch.setattr(rh, "_stop_instance", lambda inst: None)
+    monkeypatch.setattr(rh, "_check_host_budget", lambda *a: None)
+    monkeypatch.setattr(rh.time, "sleep", lambda s: None)
+    heads = iter([50, 50, 51, 52])
+    monkeypatch.setattr(rh, "_head", lambda inst: next(heads, 52))
+    rh.phase_skip(tmp_path, timeout=30, max_load=999, min_avail_mib=0)
+
+
+def _keystore_with_proposers(root: Path, proposers: list[str]) -> None:
+    kdir = root / "keystore"
+    kdir.mkdir(parents=True)
+    (kdir / "keys.json").write_text(json.dumps({"proposers": [{"address": p} for p in proposers]}))
+
+
+def _rows(proposers: list[str], attested: set[int]) -> list[tuple]:
+    meta_full = json.dumps({"attestations": [{"validator": "0xaa"}, {"validator": "0xbb"}]})
+    meta_empty = json.dumps({"attestations": []})
+    return [
+        (h, proposers[h % len(proposers)], meta_full if h in attested else meta_empty)
+        for h in range(1, len(proposers) * 2 + 1)
+    ]
+
+
+def test_quorum_requires_every_produced_block(tmp_path):
+    """One well-attested block among N must not pass — fleet mode stamps
+    MIN_ATTESTATIONS=2 on every seal."""
+    proposers = [f"0x{p * 40}" for p in ("a", "b", "e", "f")]
+    _keystore_with_proposers(tmp_path, proposers)
+    failures: list[str] = []
+    rows = _rows(proposers, attested={1, 2, 3, 4, 5, 6, 7})  # h8 unattested
+    rh._check_certificates_and_rotation(tmp_path, tmp_path / "x.db", rows, failures)
+    assert any("quorum" in f and "8" in f for f in failures)
+
+
+def test_quorum_passes_when_every_block_attested(tmp_path):
+    proposers = [f"0x{p * 40}" for p in ("a", "b", "e", "f")]
+    _keystore_with_proposers(tmp_path, proposers)
+    failures: list[str] = []
+    rows = _rows(proposers, attested=set(range(1, 9)))
+    rh._check_certificates_and_rotation(tmp_path, tmp_path / "x.db", rows, failures)
+    assert not any("quorum" in f or "attestation" in f for f in failures)
+
+
+def test_quorum_fails_on_zero_rows(tmp_path, monkeypatch):
+    """Zero block rows must not print the success line — the check had
+    nothing to prove."""
+    proposers = [f"0x{p * 40}" for p in ("a", "b", "e", "f")]
+    _keystore_with_proposers(tmp_path, proposers)
+    monkeypatch.setattr(rh.time, "sleep", lambda s: None)
+    monkeypatch.setattr(rh, "_block_rows", lambda db: _rows(proposers, set(range(1, 9))))
+    failures: list[str] = []
+    rh._check_certificates_and_rotation(tmp_path, tmp_path / "x.db", [], failures)
+    assert any("quorum" in f or "produced" in f for f in failures)
+
+
 def test_corrupt_store_breaks_sqlite_header(tmp_path):
     inst = rh.instances(tmp_path)[0]
     db_dir = inst.dir / "data" / "bc-2"

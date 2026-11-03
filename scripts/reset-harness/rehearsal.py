@@ -1034,20 +1034,30 @@ def _block_rows(db: Path) -> list[tuple]:
 
 def _check_certificates_and_rotation(root: Path, db: Path, rows: list[tuple], failures: list[str]) -> None:
     attested_heights = 0
+    unattested: list[int] = []
     proposers_seen: set[str] = set()
-    for _height, proposer, meta in rows:
+    for height, proposer, meta in rows:
         m = json.loads(meta or "{}")
         # Fleet mode: no pbft_certificate exists; the quorum evidence is the
         # ``attestations`` list the proposer stamps at MIN_ATTESTATIONS (2).
         attestations = m.get("attestations") or []
         if len(attestations) >= 2:
             attested_heights += 1
+        else:
+            unattested.append(height)
         if proposer:
             proposers_seen.add(proposer.lower())
-    if rows and attested_heights == 0:
-        failures.append("no attestation quorum (>=2 signatures) found on any produced block")
+    if not rows:
+        failures.append("no produced blocks (height>0) — attestation quorum has nothing to prove")
+    elif unattested:
+        preview = ",".join(str(h) for h in unattested[:8])
+        more = f" +{len(unattested) - 8} more" if len(unattested) > 8 else ""
+        failures.append(
+            f"attestation quorum <2 on {len(unattested)}/{len(rows)} produced blocks "
+            f"(heights {preview}{more}) — fleet mode requires MIN_ATTESTATIONS=2 on every seal"
+        )
     else:
-        print(f"[+] attestation quorum >=2 on {attested_heights}/{len(rows)} produced blocks")
+        print(f"[+] attestation quorum >=2 on all {attested_heights} produced blocks")
 
     key_file = root / "keystore" / "keys.json"
     want = {k["address"].lower() for k in json.loads(key_file.read_text())["proposers"]}
@@ -1171,13 +1181,16 @@ def phase_untrusted(root: Path, python: str, timeout: int) -> None:
     env_file = inst.dir / "instance.env"
     original = env_file.read_text()
     env_file.write_text(_untrusted_env(original, victim))
+    # Offset before the fault: a 'not in trusted set' line left over from an
+    # earlier phase must not satisfy the refusal proof.
+    log_len = len(_node_log(inst))
     _restart_node(inst, python)
     try:
         log = inst.dir / "logs" / "node.log"
         mark = "not in trusted set"
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if log.exists() and mark in log.read_text():
+            if log.exists() and mark in _log_since(inst, log_len):
                 print(f"[+] {inst.name} refused a block from an unlisted proposer — TRUSTED_PROPOSERS membership check live")
                 break
             time.sleep(2)
@@ -1204,10 +1217,38 @@ STALL_MARK = re.compile(
     r" got \d+ attestation\(s\) and \d+ PBFT commit\(s\), need \d+"
 )
 
+# Detection marks for the M7 corrupt store. The bare "sqlite3." substring is
+# deliberately absent: on an append-only log it matched routine driver text
+# from earlier phases.
+CORRUPT_STORE_MARKS = ("file is not a database", "DatabaseError")
+
 
 def _node_log(inst: Instance) -> str:
     log = inst.dir / "logs" / "node.log"
     return log.read_text() if log.exists() else ""
+
+
+def _log_since(inst: Instance, offset: int) -> str:
+    """Only the bytes appended since ``offset``. node.log is append-only
+    across phases (opened with ``>>``, never truncated), so a whole-log
+    scan can 'prove' a fault with a line written before the fault
+    existed. Record the offset before injecting the fault — the same
+    pattern ``phase_gossip`` already uses."""
+    return _node_log(inst)[offset:]
+
+
+def _wait_head(inst: Instance, timeout: float = 30.0, poll: float = 2.0) -> int:
+    """Head height once the rpc answers. A reference height taken while
+    the rpc is down must not silently be None — a later real head then
+    reads as a false 'head moved None -> N' failure."""
+    deadline = time.time() + timeout
+    h = _head(inst)
+    while h is None and time.time() < deadline:
+        time.sleep(poll)
+        h = _head(inst)
+    if h is None:
+        raise _fail(f"{inst.name} rpc did not answer /rpc/head within {timeout:.0f}s — no reference height")
+    return h
 
 
 def phase_stall(root: Path, python: str, timeout: int, max_load: float, min_avail_mib: int) -> None:
@@ -1223,9 +1264,13 @@ def phase_stall(root: Path, python: str, timeout: int, max_load: float, min_avai
     insts = instances(root)
     down = [insts[2], insts[3]]
     live = [insts[0], insts[1], insts[4]]
+    # Offsets + reference heads BEFORE the fault: the seal-refusal proof
+    # must see new log bytes, and the frozen-head comparison needs a real
+    # height — a None reference reads a later head as a false 'moved'.
+    log_off = {inst.idx: len(_node_log(inst)) for inst in live[:2]}
+    frozen = {inst.idx: _wait_head(inst) for inst in live}
     for inst in down:
         _stop_instance(inst)
-    frozen = {inst.idx: _head(inst) for inst in live}
     print(f"[*] stopped {[i.name for i in down]}; live heads {frozen} — watching two empty-block intervals")
     # MAX_EMPTY_BLOCK_INTERVAL is 60s: two intervals of identical heads is
     # the strongest "not advancing" signal an empty chain can give.
@@ -1241,7 +1286,7 @@ def phase_stall(root: Path, python: str, timeout: int, max_load: float, min_avai
                     " — that is a fork or uncontrolled seal, not an M2 stall"
                 )
         time.sleep(5)
-    if not any(STALL_MARK.search(_node_log(inst)) for inst in live[:2]):
+    if not any(STALL_MARK.search(_log_since(inst, log_off[inst.idx])) for inst in live[:2]):
         raise _fail("no 'Not enough attestations' refusal on bc2-i0/bc2-i1 — the freeze is not proven a liveness stall")
     print(f"[+] heads frozen and equal for {observe_s}s; seal refusal logged — M2 stall proven")
     for inst in down:
@@ -1299,8 +1344,10 @@ def phase_resync(root: Path, python: str, timeout: int, max_load: float, min_ava
     _stop_instance(victim)
     db = _corrupt_store(victim)
     print(f"[*] corrupted {db} (sqlite header overwritten); restarting {victim.name} node")
+    # Offset before the restart: only post-fault bytes may count as the
+    # detection proof, and only the real failure shapes (no bare 'sqlite3.').
+    log_len = len(_node_log(victim))
     _restart_node(victim, python)
-    marks = ("file is not a database", "DatabaseError", "sqlite3.")
     deadline = time.time() + 90
     detected = ""
     while time.time() < deadline and not detected:
@@ -1308,8 +1355,8 @@ def phase_resync(root: Path, python: str, timeout: int, max_load: float, min_ava
         if _unit_pid(victim.name) is None:
             detected = f"{victim.name} node unit is dead on the corrupt store"
         else:
-            log = _node_log(victim)
-            hit = next((m for m in marks if m in log), None)
+            log = _log_since(victim, log_len)
+            hit = next((m for m in CORRUPT_STORE_MARKS if m in log), None)
             if hit:
                 detected = f"{victim.name} node.log reports {hit!r}"
         if not detected:
@@ -2082,17 +2129,22 @@ def phase_rejoin(root: Path, python: str, timeout: int, max_load: float, min_ava
 def phase_skip(root: Path, timeout: int, max_load: float, min_avail_mib: int) -> None:
     inst = instances(root)[2]
     peer = instances(root)[0]
+    # Reference BEFORE the stop: the proof is relative — the head must seal
+    # two new blocks past where it stood when the unit went down. A static
+    # threshold passes vacuously because check/rejoin already pushed the
+    # head far past it before this phase runs.
+    h0 = _wait_head(peer)
     _stop_instance(inst)
-    print(f"[*] stopped {inst.name}; watching whether the rotation skips it")
+    print(f"[*] stopped {inst.name} at peer head {h0}; waiting for two new seals — the rotation must skip it")
     deadline = time.time() + timeout
     while time.time() < deadline:
         _check_host_budget(max_load, min_avail_mib)
         h = _head(peer)
-        if h is not None and h >= 6:
-            print(f"[+] peer head {h} keeps advancing with {inst.name} down")
+        if h is not None and h > h0 + 1:
+            print(f"[+] peer head advanced {h0} -> {h} with {inst.name} down — the rotation skipped it")
             return
         time.sleep(3)
-    raise _fail(f"head did not advance past 6 with {inst.name} stopped")
+    raise _fail(f"peer head did not seal two blocks past {h0} with {inst.name} stopped — the skip is unproven")
 
 
 def phase_stores(root: Path, python: str) -> None:
