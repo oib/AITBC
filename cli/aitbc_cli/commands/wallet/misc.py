@@ -9,7 +9,7 @@ import click
 
 from ...utils import error, output, success
 from ...utils.error_handling import abort
-from ...utils.wallet_loader import validate_wallet_name
+from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.wallet_paths import (
     find_wallet_file_report,
@@ -228,8 +228,7 @@ def export(ctx, destination: str | None):
         export_path = Path(destination)
 
         # Write export file
-        with open(export_path, "w") as f:
-            json.dump(wallet_data, f, indent=2)
+        write_json_0600(export_path, wallet_data)
 
         success(f"Wallet exported to {export_path}")
         output(
@@ -293,8 +292,7 @@ def import_wallet(ctx, file_path: str, name: str | None):
                 return
 
         # Save imported wallet
-        with open(wallet_path, "w") as f:
-            json.dump(wallet_data, f, indent=2)
+        write_json_0600(wallet_path, wallet_data)
 
         success(f"Wallet imported as '{wallet_name}'")
         output(
