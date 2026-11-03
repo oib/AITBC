@@ -386,9 +386,29 @@ def _check_authority_custody(root: Path, genesis: Path | None = None) -> None:
                 missing.append(f"{name} {addr}: no entry in keystore")
             elif not pk:
                 missing.append(f"{name} {addr}: keystore entry has no private_key")
+            else:
+                derived = _derive_key_address(pk)
+                if derived is None:
+                    missing.append(f"{name} {addr}: keystore private_key is malformed (not a valid secret)")
+                elif derived != addr.lower():
+                    missing.append(f"{name} {addr}: keystore private_key derives {derived} — custody of a different address")
     if missing:
         raise _fail(f"genesis authority custody missing from {key_file}:\n  - " + "\n  - ".join(missing))
-    print(f"[+] authority custody: {n} genesis authority addresses have private keys in keystore/keys.json")
+    print(f"[+] authority custody: {n} genesis authority addresses have verified private keys in keystore/keys.json")
+
+
+def _derive_key_address(private_key: str) -> str | None:
+    """The lowercased address ``private_key`` controls, or None when the
+    string is not a parseable secp256k1 secret. The custody gate's proof:
+    a recorded key that does not derive the baked address is no custody —
+    the bc-2 executors had *no* recorded keys; a hand-assembled keystore
+    can instead hold the *wrong* key and read identically."""
+    from eth_account import Account
+
+    try:
+        return Account.from_key(private_key).address.lower()
+    except Exception:
+        return None
 
 
 def phase_genesis(root: Path, *, force: bool = False) -> Path:
