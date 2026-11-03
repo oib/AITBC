@@ -544,6 +544,10 @@ testpaths = [
     "apps/shared-core/tests",
     "apps/shared-domain/tests",
     "apps/whisper/tests",
+    # The ollama shop gate (OLLAMA-PROXY-GATE-1, #841): landed with a suite no
+    # testpaths entry named, so it ran in no gate until the parity check grew
+    # its disk walk (#980).
+    "apps/ollama_gate/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

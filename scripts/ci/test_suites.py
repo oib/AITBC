@@ -60,6 +60,8 @@ FAST_SUITES: tuple[str, ...] = (
     "apps/whisper/tests",
     # flag-gated unix-socket service (SEC-2): tmp-path fixtures, no network
     "apps/ops-signer/tests",
+    # ollama shop gate: TestClient + mocked httpx, offline-safe (#980)
+    "apps/ollama_gate/tests",
     "tests/security",
     "tests/core",
     "tests/property_tests",
