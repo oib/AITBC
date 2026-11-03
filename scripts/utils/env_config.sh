@@ -67,10 +67,8 @@ fi
 # ============================================================================
 
 load_env_file() {
-    """
-    Load environment variables from .env file
-    Usage: load_env_file [env_file_path]
-    """
+    # Load environment variables from .env file
+    # Usage: load_env_file [env_file_path]
     local env_file="${1:-${AITBC_ROOT}/.env}"
 
     if [[ -f "$env_file" ]]; then
@@ -84,10 +82,8 @@ load_env_file() {
 }
 
 save_env_file() {
-    """
-    Save current environment configuration to .env file
-    Usage: save_env_file [env_file_path]
-    """
+    # Save current environment configuration to .env file
+    # Usage: save_env_file [env_file_path]
     local env_file="${1:-${AITBC_ROOT}/.env}"
 
     log_info "Saving environment configuration to ${env_file}"
@@ -120,16 +116,14 @@ EOF
 }
 
 get_config_value() {
-    """
-    Get configuration value with fallback to default
-    Usage: get_config_value key [default_value]
-    """
+    # Get configuration value with fallback to default
+    # Usage: get_config_value key [default_value]
     local key="$1"
     local default_value="${2:-}"
     local value
 
     # Try environment variable first
-    value="${!key}"
+    value="${!key:-}"
 
     # If not set, try config file
     if [[ -z "$value" && -f "${CONFIG_DIR}/env_config.json" ]]; then
@@ -145,10 +139,8 @@ get_config_value() {
 }
 
 set_config_value() {
-    """
-    Set configuration value in environment and config file
-    Usage: set_config_value key value
-    """
+    # Set configuration value in environment and config file
+    # Usage: set_config_value key value
     local key="$1"
     local value="$2"
 
@@ -175,11 +167,9 @@ set_config_value() {
 # ============================================================================
 
 detect_environment() {
-    """
-    Detect current environment based on hostname, user, or other factors
-    Usage: detect_environment
-    Returns: environment_name
-    """
+    # Detect current environment based on hostname, user, or other factors
+    # Usage: detect_environment
+    # Returns: environment_name
     local hostname=$(hostname)
     local user=$(whoami)
 
@@ -196,11 +186,9 @@ detect_environment() {
 }
 
 validate_environment() {
-    """
-    Validate that current environment is supported
-    Usage: validate_environment
-    Returns: 0 if valid, 1 if invalid
-    """
+    # Validate that current environment is supported
+    # Usage: validate_environment
+    # Returns: 0 if valid, 1 if invalid
     local valid_envs=("development" "staging" "production" "testing")
     local current_env=$(detect_environment)
 
@@ -220,10 +208,8 @@ validate_environment() {
 # ============================================================================
 
 load_environment_config() {
-    """
-    Load environment-specific configuration
-    Usage: load_environment_config [environment]
-    """
+    # Load environment-specific configuration
+    # Usage: load_environment_config [environment]
     local env="${1:-$(detect_environment)}"
     local config_file="${CONFIG_DIR}/env.${env}.json"
 
@@ -245,10 +231,8 @@ load_environment_config() {
 }
 
 create_environment_config() {
-    """
-    Create environment-specific configuration file
-    Usage: create_environment_config environment
-    """
+    # Create environment-specific configuration file
+    # Usage: create_environment_config environment
     local env="$1"
     local config_file="${CONFIG_DIR}/env.${env}.json"
 
@@ -305,10 +289,8 @@ EOF
 # ============================================================================
 
 validate_required_vars() {
-    """
-    Validate that required environment variables are set
-    Usage: validate_required_vars var1 var2 var3 ...
-    """
+    # Validate that required environment variables are set
+    # Usage: validate_required_vars var1 var2 var3 ...
     local missing_vars=()
 
     for var in "$@"; do
@@ -329,10 +311,8 @@ validate_required_vars() {
 }
 
 validate_paths() {
-    """
-    Validate that required paths exist
-    Usage: validate_paths
-    """
+    # Validate that required paths exist
+    # Usage: validate_paths
     local required_paths=(
         "$AITBC_ROOT"
         "$CONFIG_DIR"
@@ -386,10 +366,8 @@ log_debug() {
 # ============================================================================
 
 print_environment() {
-    """
-    Print current environment configuration
-    Usage: print_environment
-    """
+    # Print current environment configuration
+    # Usage: print_environment
     echo ""
     echo "============================================"
     echo "AITBC Environment Configuration"
@@ -415,20 +393,16 @@ print_environment() {
 }
 
 is_dry_run() {
-    """
-    Check if running in dry-run mode
-    Usage: is_dry_run
-    Returns: 0 if dry-run, 1 otherwise
-    """
+    # Check if running in dry-run mode
+    # Usage: is_dry_run
+    # Returns: 0 if dry-run, 1 otherwise
     [[ "${DRY_RUN}" == "true" ]]
 }
 
 is_debug() {
-    """
-    Check if running in debug mode
-    Usage: is_debug
-    Returns: 0 if debug, 1 otherwise
-    """
+    # Check if running in debug mode
+    # Usage: is_debug
+    # Returns: 0 if debug, 1 otherwise
     [[ "${DEBUG_MODE}" == "true" ]]
 }
 
@@ -437,10 +411,8 @@ is_debug() {
 # ============================================================================
 
 init_env_config() {
-    """
-    Initialize environment configuration
-    Usage: init_env_config
-    """
+    # Initialize environment configuration
+    # Usage: init_env_config
     # Load .env file if it exists
     load_env_file
 
@@ -461,7 +433,7 @@ init_env_config() {
     log_info "Environment: ${AITBC_ENV}"
 
     # Print configuration if debug mode
-    is_debug && print_environment
+    is_debug && print_environment || true
 }
 
 # Initialize if this script is sourced
