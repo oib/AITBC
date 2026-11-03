@@ -182,3 +182,12 @@ def test_no_placeholder_sig_or_duplicate_send():
         src = sh.read_text()
         assert "0x1234567890" not in src, sh.name
     assert not (wf / "09_transaction_manager.sh").exists()
+
+
+def test_no_dead_rpc_routes_in_scenarios():
+    """#967: /rpc/getBalance and /rpc/mineBlock are not served — no script may call them."""
+    wf = Path(__file__).resolve().parents[2] / "scripts" / "workflow"
+    for sh in wf.glob("*.sh"):
+        src = sh.read_text()
+        for dead in ("getBalance", "mineBlock"):
+            assert dead not in src, f"{sh.name}: calls {dead}"
