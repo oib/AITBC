@@ -50,8 +50,9 @@ echo "=== ${NODE1_HOST} height (remote) ==="
 if command -v ssh >/dev/null 2>&1 && ssh -o ConnectTimeout=5 ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head' >/dev/null 2>&1; then
   AITBC1_HEIGHT=$(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq -r ".height"')
 else
-  echo "SSH to ${NODE1_HOST} not available - skipping remote check"
-  AITBC1_HEIGHT=$AITBC_HEIGHT
+  # An unreachable peer is a failed check, never a disguised "0 diff" (#972).
+  echo "ERROR: cannot reach ${NODE1_HOST} — cannot verify sync" >&2
+  exit 1
 fi
 echo $AITBC1_HEIGHT
 
