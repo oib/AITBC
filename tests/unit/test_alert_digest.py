@@ -186,3 +186,40 @@ def test_json_digest_keeps_the_plaintext_body(monkeypatch):
     req = calls[0]
     assert req.get_header("Content-type") == "text/plain"
     assert req.data == b"ServiceDown [node0:9100]: 2 firing"
+
+
+def test_json_mode_sends_no_authorization_header(monkeypatch):
+    """#924: the ntfy write token must never reach generic webhook URLs."""
+    calls = []
+
+    def fake_urlopen(req, timeout=0):
+        calls.append(req)
+
+        class R:
+            def read(self):
+                return b""
+
+        return R()
+
+    monkeypatch.setattr(digest.urllib.request, "urlopen", fake_urlopen)
+    digest._post(["http://a/t", "http://b/t"], "body", notify_format="json", token="secret")
+    assert len(calls) == 2
+    for req in calls:
+        assert not req.has_header("Authorization")
+
+
+def test_ntfy_mode_attaches_bearer(monkeypatch):
+    calls = []
+
+    def fake_urlopen(req, timeout=0):
+        calls.append(req)
+
+        class R:
+            def read(self):
+                return b""
+
+        return R()
+
+    monkeypatch.setattr(digest.urllib.request, "urlopen", fake_urlopen)
+    digest._post(["https://ntfy.example/x"], "body", notify_format="ntfy", token="secret")
+    assert calls[0].get_header("Authorization") == "Bearer secret"
