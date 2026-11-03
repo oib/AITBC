@@ -76,6 +76,7 @@ drift apart.
 | `BRIDGE_SUPPORTED_CHAINS` | `bc-2` | admission list |
 | `BRIDGE_REQUIRE_MERKLE_PROOF` | `true` | fleet value |
 | `BRIDGE_MIN_CONFIRMATIONS` / `BRIDGE_FINALITY_BLOCKS` | unset → `3` / `6` | code defaults |
+| `BRIDGE_LARGE_TRANSFER_THRESHOLD` | unset → `10000` | **AIT units** (1 AIT = 36,000,000 units): a transfer with `amount >=` the threshold takes the `BRIDGE_FINALITY_BLOCKS` path, below it `BRIDGE_MIN_CONFIRMATIONS` |
 | `BRIDGE_BLOCK_SIGNATURE_REQUIRED` | unset → `true` | code default |
 | `BRIDGE_VERIFICATION_MODE` | unset → `in_process` | code default |
 | `BRIDGE_LOCK_REQUIRE_REPLAY_GUARD` | `true` | fleet value |

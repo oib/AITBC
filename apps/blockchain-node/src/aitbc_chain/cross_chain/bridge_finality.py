@@ -357,9 +357,9 @@ class BridgeFinalityMixin(BridgeBase):
     def _check_finality_for_transfer(self, header: BridgeBlockHeader, amount: int) -> bool:
         """Check if a block header has sufficient finality for a transfer (B5).
 
-        Large transfers (>= bridge_large_transfer_threshold) require full
-        finality (bridge_finality_blocks confirmations). Small transfers
-        require only bridge_min_confirmations.
+        Large transfers (amount >= bridge_large_transfer_threshold, an AIT-
+        units value) require full finality (bridge_finality_blocks
+        confirmations). Small transfers require only bridge_min_confirmations.
         """
         min_confirmations = getattr(settings, "bridge_min_confirmations", 3)
         finality_blocks = getattr(settings, "bridge_finality_blocks", 6)
