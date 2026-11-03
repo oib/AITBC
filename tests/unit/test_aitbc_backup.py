@@ -541,3 +541,46 @@ esac
     r = _run(env)
     assert r.returncode != 0
     assert "FAILED" in _log(env)
+
+
+def test_no_shred_when_encryption_failed_but_upload_ok(env):
+    """#896: with SHRED=yes, a failed encrypt must NOT remove the plaintext key
+    archive even when the off-site upload reports success."""
+    fail_gpg = """#!/bin/sh
+exit 1
+"""
+    true_offsite = env.tmp / "offsite.sh"
+    true_offsite.write_text("#!/bin/sh\nexit 0\n")
+    true_offsite.chmod(0o755)
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "gpg").write_text(fail_gpg)
+    (bin_dir / "gpg").chmod(0o755)
+
+    r = _run(
+        env,
+        BACKUP_GPG_RECIPIENT="nobody@example",
+        BACKUP_OFFSITE_SCRIPT=str(true_offsite),
+        BACKUP_SHRED_PLAINTEXT="yes",
+    )
+    log = _log(env)
+    assert r.returncode != 0
+    assert "Encryption FAILED" in log
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert (today / "keystore.tar.gz").exists()
+    assert (today / "wallets.tar.gz").exists()
+
+
+def test_shred_runs_when_encrypt_and_upload_succeed(env):
+    """#896 control: encrypted copy present + upload OK → plaintext shredded."""
+    true_offsite = env.tmp / "offsite2.sh"
+    true_offsite.write_text("#!/bin/sh\nexit 0\n")
+    true_offsite.chmod(0o755)
+    _run(
+        env,
+        BACKUP_GPG_RECIPIENT="someone@example",
+        BACKUP_OFFSITE_SCRIPT=str(true_offsite),
+        BACKUP_SHRED_PLAINTEXT="yes",
+    )
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert not (today / "keystore.tar.gz").exists()
+    assert not (today / "wallets.tar.gz").exists()
