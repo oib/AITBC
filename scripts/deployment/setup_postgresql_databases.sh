@@ -147,15 +147,52 @@ write_env_database_url() {
 # database, so there is no reason for the postmaster to be listening on the
 # container bridge -- and on a flat bridge, listening there means every other
 # container can reach 5432 with only pg_hba standing in the way.
+# listen_addresses is a postmaster-startup parameter: a reload does NOT
+# apply it (#874). Change it -> restart, then report what PostgreSQL
+# actually reports, including pg_settings.pending_restart.
+pg_listen_addresses() {
+    sudo -u postgres psql -tAc "SHOW listen_addresses" 2>/dev/null | tr -d '[:space:]'
+}
+
+pg_listen_pending_restart() {
+    sudo -u postgres psql -tAc \
+        "SELECT pending_restart FROM pg_settings WHERE name = 'listen_addresses'" \
+        2>/dev/null | tr -d '[:space:]'
+}
+
+# Restart only when the live value differs from the target, then verify the
+# post-restart state. Fails (returns 1) when PostgreSQL still reports a
+# different listen_addresses or a pending_restart flag.
+pg_ensure_listen_addresses() {
+    local target="$1"
+    local current pending
+
+    current=$(pg_listen_addresses)
+    if [ "$current" = "$target" ] && [ "$(pg_listen_pending_restart)" != "t" ]; then
+        echo -e "${GREEN}✅ PostgreSQL already listening on ${target}${NC}"
+        return 0
+    fi
+
+    echo -e "${BLUE}listen_addresses changed (live: '${current:-?}' -> '${target}'); restarting PostgreSQL...${NC}"
+    sudo systemctl restart postgresql.service
+
+    current=$(pg_listen_addresses)
+    pending=$(pg_listen_pending_restart)
+    if [ "$current" != "$target" ] || [ "$pending" = "t" ]; then
+        echo -e "${RED}PostgreSQL still reports listen_addresses='${current:-?}' (pending_restart=${pending:-?})${NC}" >&2
+        echo -e "${RED}Check postgresql.conf for a later overriding listen_addresses line.${NC}" >&2
+        return 1
+    fi
+    echo -e "${GREEN}✅ PostgreSQL listening on ${target}${NC}"
+}
+
 enforce_local_only() {
     echo -e "${BLUE}Pinning PostgreSQL to localhost...${NC}"
 
     sudo sed -i -E "s/^[[:space:]]*#?[[:space:]]*listen_addresses[[:space:]]*=.*/listen_addresses = 'localhost'/" \
         /etc/postgresql/*/main/postgresql.conf
 
-    sudo systemctl reload postgresql.service 2>/dev/null || sudo systemctl restart postgresql.service
-
-    echo -e "${GREEN}✅ PostgreSQL listening on localhost only${NC}"
+    pg_ensure_listen_addresses "localhost"
 }
 
 # Function to configure PostgreSQL for remote connections
@@ -189,8 +226,9 @@ configure_remote_connections() {
         echo -e "${YELLOW}⚠️  pg_hba.conf rule already exists for ${network_cidr}${NC}"
     fi
 
-    # Reload PostgreSQL
-    sudo systemctl reload postgresql.service 2>/dev/null || sudo systemctl restart postgresql.service
+    # listen_addresses needs a restart, not a reload (pg_hba alone would have
+    # been fine with one, but both change here).
+    pg_ensure_listen_addresses "localhost,${bind_addr}"
 
     echo -e "${GREEN}✅ PostgreSQL remote connections configured${NC}"
 }
