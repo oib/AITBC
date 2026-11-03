@@ -486,3 +486,59 @@ class TestPullPathForkChoice:
         assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
         assert metrics_registry._counters.get("sync_fork_invalid_rival_total") == 1.0
+
+    @pytest.mark.asyncio
+    async def test_unlinked_peer_segment_no_reorg(self, session_factory, monkeypatch):
+        # Pin for #847: the peer's segment is spliced — block 5' carries a
+        # parent_hash that is not block 4''s hash. Individually every header
+        # passes signature/timestamp checks, but as a chain it is unlinked and
+        # must never win a reorg.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        ours5 = _mk_block(5, ours4["hash"], T0 + timedelta(seconds=190))
+        _store(session_factory, ours4)
+        _store(session_factory, ours5)
+        peer: dict[int, dict[str, Any]] = {b["height"]: b for b in blocks}
+        peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="p4")
+        # 5' claims a parent that is NOT 4's hash — spliced
+        peer[5] = _mk_block(5, "0xdeadbeef" + "0" * 56, T0 + timedelta(seconds=125), hash_salt="p5")
+        peer[6] = _mk_block(6, peer[5]["hash"], T0 + timedelta(seconds=155), hash_salt="p6")
+
+        sync = _sync(session_factory)
+
+        async def fake_fetch(start, end, source_url):
+            return [peer[start]] if start in peer else []
+
+        monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=5, remote_height=6) is False
+        assert _heights(session_factory)[-1] == (5, ours5["hash"])
+        assert metrics_registry._counters.get("sync_fork_invalid_rival_total") == 1.0
+        assert metrics_registry._counters.get("sync_reorgs_total") is None
+
+    @pytest.mark.asyncio
+    async def test_claimed_remote_height_does_not_inflate_peer_length(self, session_factory, monkeypatch):
+        # Pin for #847: the peer claims a head at height 10 but only returns a
+        # 2-block segment — same length as ours, one proposer each. With the
+        # claimed height trusted this would be an instant 8-vs-2 loss; with
+        # the validated length it is a full tie, which defers instead of
+        # reorging.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        ours5 = _mk_block(5, ours4["hash"], T0 + timedelta(seconds=190))
+        _store(session_factory, ours4)
+        _store(session_factory, ours5)
+        peer: dict[int, dict[str, Any]] = {b["height"]: b for b in blocks}
+        peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="p4")
+        peer[5] = _mk_block(5, peer[4]["hash"], T0 + timedelta(seconds=125), hash_salt="p5")
+        # peer stops answering above height 5 — its claimed head of 10 is a lie
+
+        sync = _sync(session_factory)
+
+        async def fake_fetch(start, end, source_url):
+            return [peer[start]] if start in peer else []
+
+        monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=5, remote_height=10) is False
+        assert _heights(session_factory)[-1] == (5, ours5["hash"])
+        assert metrics_registry._counters.get("sync_fork_choice_deferred_total") == 1.0
+        assert metrics_registry._counters.get("sync_reorgs_total") is None
