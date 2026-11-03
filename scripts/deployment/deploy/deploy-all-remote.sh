@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Deploy blockchain node and explorer by building directly on the deployment server
 
@@ -14,10 +15,14 @@ echo "This will build the blockchain node directly on the deployment server"
 echo "to utilize the gigabit connection instead of uploading."
 echo ""
 
-# Copy deployment scripts to server
+# Copy deployment scripts to server — #887: real paths under deploy/, and
+# deploy-env.sh travels WITH them (each remote script sources
+# "$(dirname "$0")/deploy-env.sh"; /opt/deploy-env.sh must exist or they
+# die at line 8). deploy-in-container.sh is staged too — the container
+# deploy script pushes /opt/deploy-in-container.sh.
 echo "Copying deployment scripts to the deployment server..."
-scp scripts/deployment/deploy-blockchain-remote.sh ${AITBC_SSH_TARGET}:/opt/
-scp scripts/deployment/deploy-explorer-remote.sh ${AITBC_SSH_TARGET}:/opt/
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+scp "${SCRIPT_DIR}/deploy-blockchain-remote.sh" "${SCRIPT_DIR}/deploy-explorer-remote.sh" "${SCRIPT_DIR}/deploy-env.sh" "${SCRIPT_DIR}/deploy-in-container.sh" ${AITBC_SSH_TARGET}:/opt/
 
 # Create directories on server first
 echo "Creating directories on the deployment server..."
