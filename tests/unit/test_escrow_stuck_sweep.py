@@ -181,3 +181,39 @@ def test_readonly_connection_refuses_writes(tool, dbs):
     src = tool.Source(str(chain))
     with pytest.raises(sqlite3.OperationalError):
         src.query("INSERT INTO escrow (job_id) VALUES ('x')")
+
+
+def test_garbage_coordinator_db_fails(tool, dbs, tmp_path, capsys):
+    """#1002: an unreadable coordinator.db is a scrape failure, not 'clean'."""
+    chain, _ = dbs
+    bad = tmp_path / "coordinator.db"
+    bad.write_bytes(b"\x00garbage-not-sqlite\x00" * 64)
+    prom = tmp_path / "out.prom"
+    rc = _run(
+        tool,
+        "--chain-db",
+        str(chain),
+        "--coordinator-db",
+        str(bad),
+        "--marketplace-db",
+        "/nonexistent",
+        "--textfile",
+        str(prom),
+    )
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "coordinator" in err.lower()
+    assert 'scrape_success{db="coordinator"} 0' in prom.read_text()
+
+
+def test_drifted_coordinator_schema_fails(tool, dbs, tmp_path, capsys):
+    """#1002: a coordinator.db missing the job tables is drifted, not empty."""
+    chain, _ = dbs
+    drift = tmp_path / "coordinator_drifted.db"
+    conn = sqlite3.connect(drift)
+    conn.execute("CREATE TABLE renamed_jobs (id VARCHAR PRIMARY KEY, state VARCHAR(20))")
+    conn.commit()
+    conn.close()
+    rc = _run(tool, "--chain-db", str(chain), "--coordinator-db", str(drift), "--marketplace-db", "/nonexistent")
+    assert rc == 2
+    assert "coordinator" in capsys.readouterr().err.lower()
