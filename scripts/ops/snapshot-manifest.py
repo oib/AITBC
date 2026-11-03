@@ -115,16 +115,34 @@ def _recompute_state_root(db_path: str, chain_id: str) -> str | None:
 
 
 def build_manifest(conn: sqlite3.Connection, db_path: str, chain_id: str, *, with_state_root: bool = True) -> dict[str, Any]:
-    head = _head(conn, chain_id)
+    """Build the manifest reading head, digests and row counts inside ONE
+    deferred read transaction — a single consistent snapshot even while a
+    live node keeps sealing blocks (WAL readers hold their snapshot).
+
+    The state-root recompute runs through its own mode=ro engine (it needs
+    SQLModel), so it is inherently a second snapshot; on a moving database
+    it can legitimately disagree with the head read here.
+    """
+    conn.execute("BEGIN")
+    try:
+        head = _head(conn, chain_id)
+
+        probe = _load_side_root_probe()
+        digests: dict[str, Any] = {"candidates": {}, "controls": {}}
+        for table in probe.CANDIDATE_TABLES:
+            digests["candidates"][table] = probe.table_digest(conn, table)
+        for table in probe.CONTROL_TABLES:
+            digests["controls"][table] = probe.table_digest(conn, table)
+
+        row_counts = _row_counts(conn)
+    except BaseException:
+        conn.rollback()
+        raise
+    else:
+        conn.execute("COMMIT")
+
     recomputed = _recompute_state_root(db_path, chain_id) if with_state_root else None
     recorded = head["state_root"]
-
-    probe = _load_side_root_probe()
-    digests: dict[str, Any] = {"candidates": {}, "controls": {}}
-    for table in probe.CANDIDATE_TABLES:
-        digests["candidates"][table] = probe.table_digest(conn, table)
-    for table in probe.CONTROL_TABLES:
-        digests["controls"][table] = probe.table_digest(conn, table)
 
     return {
         "format": MANIFEST_FORMAT,
@@ -137,7 +155,7 @@ def build_manifest(conn: sqlite3.Connection, db_path: str, chain_id: str, *, wit
             "match": (recomputed is not None and recomputed == recorded),
             "skipped": recomputed is None,
         },
-        "row_counts": _row_counts(conn),
+        "row_counts": row_counts,
         "table_digests": digests,
         "digest_convention": "sha256 over canonically-ordered type-tagged rows; created_at/updated_at excluded (side-root-probe.py)",
         "signature": "",

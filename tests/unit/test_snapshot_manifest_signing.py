@@ -81,7 +81,7 @@ def _manifest_file(gen_tool, tmp_path: Path, name: str = "m.json") -> Path:
 def test_sign_then_verify_ok(signer, verifier, gen, tmp_path, capsys):
     key = _keyfile(tmp_path)
     mf = _manifest_file(gen, tmp_path)
-    assert signer.main([str(mf), "--key-file", str(key)]) == 0
+    assert signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"]) == 0
     signed = json.loads(mf.read_text())
     assert signed["signature"].startswith("0x") and len(signed["signature"]) == 132
     rc = verifier.main([str(mf), "--trusted-address", Account.from_key("0x" + key.read_text().strip()).address])
@@ -92,7 +92,7 @@ def test_sign_then_verify_ok(signer, verifier, gen, tmp_path, capsys):
 def test_wrong_trusted_address_fails(signer, verifier, gen, tmp_path, capsys):
     key = _keyfile(tmp_path)
     mf = _manifest_file(gen, tmp_path)
-    signer.main([str(mf), "--key-file", str(key)])
+    signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"])
     capsys.readouterr()
     rc = verifier.main([str(mf), "--trusted-address", Account.create().address])
     out = capsys.readouterr().out
@@ -102,7 +102,7 @@ def test_wrong_trusted_address_fails(signer, verifier, gen, tmp_path, capsys):
 def test_tampered_content_fails(signer, verifier, gen, tmp_path, capsys):
     key = _keyfile(tmp_path)
     mf = _manifest_file(gen, tmp_path)
-    signer.main([str(mf), "--key-file", str(key)])
+    signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"])
     m = json.loads(mf.read_text())
     m["head"]["height"] = 8  # tamper after signing
     mf.write_text(json.dumps(m, indent=2, sort_keys=True))
@@ -121,7 +121,7 @@ def test_missing_signature_fails(verifier, gen, tmp_path, capsys):
 def test_signature_copied_from_other_manifest_fails(signer, verifier, gen, tmp_path, capsys):
     key = _keyfile(tmp_path)
     mf1, mf2 = _manifest_file(gen, tmp_path, "a.json"), _manifest_file(gen, tmp_path, "b.json")
-    signer.main([str(mf1), "--key-file", str(key)])
+    signer.main([str(mf1), "--key-file", str(key), "--allow-unchecked-root"])
     sig = json.loads(mf1.read_text())["signature"]
     m2 = json.loads(mf2.read_text())
     m2["head"]["height"] = 9  # different content, then graft the signature
@@ -135,7 +135,7 @@ def test_signature_copied_from_other_manifest_fails(signer, verifier, gen, tmp_p
 def test_key_file_mode_644_refused(signer, gen, tmp_path, capsys):
     key = _keyfile(tmp_path, mode=0o644)
     mf = _manifest_file(gen, tmp_path)
-    rc = signer.main([str(mf), "--key-file", str(key)])
+    rc = signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"])
     out = capsys.readouterr()
     assert rc == 2 and "mode 600" in out.err
 
@@ -143,15 +143,15 @@ def test_key_file_mode_644_refused(signer, gen, tmp_path, capsys):
 def test_already_signed_refused(signer, gen, tmp_path, capsys):
     key = _keyfile(tmp_path)
     mf = _manifest_file(gen, tmp_path)
-    assert signer.main([str(mf), "--key-file", str(key)]) == 0
-    rc = signer.main([str(mf), "--key-file", str(key)])
+    assert signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"]) == 0
+    rc = signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"])
     assert rc == 2 and "already carries a signature" in capsys.readouterr().err
 
 
 def test_db_content_check_match(signer, verifier, gen, tmp_path, capsys):
     key = _keyfile(tmp_path)
     mf = _manifest_file(gen, tmp_path)  # manifest built from tmp_path/m.db
-    signer.main([str(mf), "--key-file", str(key)])
+    signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"])
     capsys.readouterr()
     rc = verifier.main(
         [
@@ -170,7 +170,7 @@ def test_db_content_check_match(signer, verifier, gen, tmp_path, capsys):
 def test_db_content_check_mismatch(signer, verifier, gen, tmp_path, capsys):
     key = _keyfile(tmp_path)
     mf = _manifest_file(gen, tmp_path)
-    signer.main([str(mf), "--key-file", str(key)])
+    signer.main([str(mf), "--key-file", str(key), "--allow-unchecked-root"])
     capsys.readouterr()
     # mutate the db the manifest attests
     conn = sqlite3.connect(tmp_path / "m.db")
