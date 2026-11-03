@@ -47,6 +47,12 @@ Deployment conventions worth knowing:
 - No bare `python` on deployed nodes: use `venv/bin/python` inside the
   checkout (or `python3` for the system interpreter). Poetry lives in its
   own venv.
+- **Tests and pin runs never execute repo scripts against real `/var` or
+  `/etc` paths** — not even to demonstrate a bug. Drive them against a
+  scratch dir via the script's env overrides (and when a script lacks one,
+  adding the override is part of the fix). A pin that runs the unfixed
+  `deploy.sh`/`update.sh`/`rotate_*.sh` with its real defaults can delete
+  live state; it did (INC-NODE2-BACKUP-HISTORY-LOST-1, #892).
 - The chain database path is `DATA_DIR/data/<chain_id>/chain.db`
   (`apps/blockchain-node/src/aitbc_chain/config.py`); `DATA_DIR` comes from
   `AITBC_DATA_DIR`/`--data-dir`. `sqlite3 <path>` silently *creates* an
