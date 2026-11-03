@@ -50,21 +50,11 @@ PATTERNS: list[tuple[str, str]] = [
 ]
 VAL_RES = [(c, re.compile(p)) for c, p in PATTERNS]
 
-ERE_LIST = [
-    "-----BEGIN (RSA |EC |OPENSSH |ENCRYPTED |DSA |PGP )?PRIVATE KEY( BLOCK)?-----",
-    "AGE-SECRET-KEY-[A-Z0-9]{50,}",
-    "eyJ[A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}[.][A-Za-z0-9_-]{10,}",
-    "(password|passwd|passphrase|secret)[\"' _-]*[:=][\"' ]*[^ \"']{6,}",
-    "[a-zA-Z][a-zA-Z0-9+.-]*://[^/ :@'\"]+:[^/ @'\"]+@",
-    "AKIA[0-9A-Z]{16}",
-    "(ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}",
-    "xox[baprs]-[A-Za-z0-9-]{10,}",
-    "openssh-key-v1",
-    "ciphertext.*kdfparams|kdfparams.*ciphertext",
-    "ntfy[.]sh|hooks[.]slack[.]com|discord(app)?[.]com/api/webhooks",
-    "(private_?key|secret|seed|mnemonic|signing_?key|api_?key|access_?key|wallet_?key|master_?key)[\"' _-]*[:=][\"' ]*(0x)?[0-9a-fA-F]{64}",
-    "bearer [A-Za-z0-9._~+/-]{20,}",
-]
+# One source of truth (#908): the tree scan asks git-grep for the same
+# patterns classify() judges — ERE previously missed gitea-token and
+# mnemonic-line entirely. git grep gets the Python pattern minus the (?i)
+# flag (it already runs with -Ii).
+ERE_LIST = [p.replace("(?i)", "").replace("(?:", "(") for _, p in PATTERNS]
 
 PLACEHOLDER = re.compile(
     r"(?i)(changeme|change[-_ ]?me|example|sample|placeholder|your[_-]|dummy|fake|"
@@ -160,8 +150,6 @@ def scan_history(repo: str) -> Iterator[Row]:
             "--all",
             "--no-color",
             "--format=@@@COMMIT %H",
-            "-G",
-            r"(private.?key|secret|mnemonic|seed.?phrase|api.?key|password|passwd|bearer|authorization|AGE-SECRET|ciphertext|token|webhook|ntfy)",
         ],
         stdout=subprocess.PIPE,
         text=True,
