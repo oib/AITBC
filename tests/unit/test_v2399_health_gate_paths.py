@@ -78,10 +78,8 @@ NON_SPEC_HEALTH_PATHS: dict[int, set[str]] = {
 # grow while that decision is outstanding; 9090 and 9093 are Prometheus and Alertmanager,
 # whose real liveness path is /-/healthy.
 UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = {
-    (8000, "/v1/health"),
     (8003, "/api/health"),
     (8004, "/api/health"),
-    (8080, "/health"),
     (9090, "/-/healthy"),
     (9093, "/-/healthy"),
 }
@@ -321,17 +319,6 @@ class TestSpecificRegressions:
         text = (REPO_ROOT / "scripts" / "testing" / "chaos_test_network.py").read_text()
         assert "/v1/health" not in text
         assert "coordinator:8203/health" in text
-
-    def test_ledger_wait_loops_do_not_gate_on_a_404(self):
-        """Both wait_for_blockchain_node loops retry 30 times, then exit 1."""
-        for name in ("backup_ledger.sh", "restore_ledger.sh"):
-            text = (REPO_ROOT / "scripts" / "maintenance" / name).read_text()
-            probe = re.search(r"curl [^\n]*localhost:8080[^\n]*health[^\n]*", text)
-            assert probe, f"{name} no longer has the blockchain-node readiness probe"
-            assert "/v1/health" not in probe.group(0), f"{name} still waits on /v1/health"
-            assert "-fsS" in probe.group(0) or "-sf" in probe.group(0), (
-                f"{name}'s readiness probe cannot fail: {probe.group(0)}"
-            )
 
     def test_rotate_jwt_secret_verifies_the_service_it_names(self):
         """The market gate probed 8104, which is trading, and passed while market was down."""

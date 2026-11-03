@@ -308,8 +308,9 @@ git reset --hard <previous-commit-sha>
 sudo systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc aitbc-wallet
 ```
 
-See `scripts/maintenance/restore_postgresql.sh` and
-`scripts/maintenance/restore_ledger.sh` for helper scripts.
+The maintained backup path is `scripts/maintenance/aitbc-backup.sh`
+(the `aitbc-backup.timer` unit runs it); the old kubectl-based
+backup_*/restore_* helpers were removed (#839).
 
 ## `setup.sh` vs `update.sh`
 
