@@ -124,12 +124,33 @@ async def submit_job(
     return view
 
 
+def _require_priced_gpu_compute(req: JobCreate) -> None:
+    """Refuse a gpu_compute job that carries no usable price.
+
+    A gpu_compute job holds a miner worker slot for its whole duration. An
+    unpriced one never reaches the escrowed state, so nothing pays for the slot
+    it occupies (MINER-GPU-COMPUTE-DURATION-UNCAPPED-1, #805). JobCreate's own
+    Decimal validation already refuses NaN and infinity. The market quote
+    path creates its job unpriced on purpose and prices it at purchase, so the
+    check lives on the public submit route only.
+    """
+    if (req.payload or {}).get("type") != "gpu_compute":
+        return
+    amount = req.payment_amount
+    if amount is None or amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="a gpu_compute job needs a positive finite payment_amount",
+        )
+
+
 async def _submit_job_impl(
     req: JobCreate,
     session: Session,
     user: AdminOrClientDep,
 ) -> JobView:
     req, quote = await _apply_offer_quote(req)
+    _require_priced_gpu_compute(req)
 
     if (
         not settings.tee_attestation_enabled
