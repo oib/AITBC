@@ -1440,8 +1440,8 @@ setup_venvs() {
             log "Installing core production dependencies..."
             pip install -r /opt/aitbc/requirements.txt || warning "Failed to install core dependencies"
         else
-            warning "requirements.txt not found, installing critical dependencies manually..."
-            pip install fastapi uvicorn sqlmodel || warning "Failed to install core packages"
+            warning "requirements.txt not found — refusing unpinned installs (#838); aborting install"
+            exit 1
         fi
 
         # Dependency tiers -- mirrors install-profiles.sh. The test tier goes on
