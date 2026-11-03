@@ -13,6 +13,10 @@
 #   HUB        - hub host for snapshot (default: hub.aitbc.bubuit.net)
 #   SSH_USER   - ssh user on hub (default: root)
 #   DB_DIR     - local data directory (default: /var/lib/aitbc/data)
+#   MANIFEST   - local path to a signed snapshot manifest (optional). When set,
+#                verify-snapshot-manifest.py checks it against the copied
+#                snapshot before the install mv; when unset, the check is
+#                skipped and the script says so (#853).
 
 set -euo pipefail
 
@@ -22,7 +26,6 @@ SSH_USER="${SSH_USER:-root}"
 DB_DIR="${DB_DIR:-/var/lib/aitbc/data}"
 DB="${DB_DIR}/${CHAIN_ID}/chain.db"
 UNITS="aitbc-blockchain-node aitbc-blockchain-rpc"
-SNAPSHOT_REMOTE="/tmp/aitbc-follower-snapshot-${CHAIN_ID}.db"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
 # Stop local blockchain services before touching the database.
@@ -32,6 +35,18 @@ for unit in $UNITS; do
         systemctl stop "$unit"
     fi
 done
+
+# #853: any exit after the stop — failed ssh, head mismatch, mv error —
+# must bring the units back up. The trap is cleared only on the success
+# path after the start loop. It also removes the remote scratch snapshot.
+SNAPSHOT_REMOTE=""
+cleanup() {
+    if [ -n "${SNAPSHOT_REMOTE}" ]; then
+        ssh "${SSH_USER}@${HUB}" "rm -f '${SNAPSHOT_REMOTE}'" 2>/dev/null || true
+    fi
+    for u in $UNITS; do systemctl start "$u" 2>/dev/null || true; done
+}
+trap cleanup EXIT
 
 # Back up the local DB in case the operator needs to revert. `sqlite3 .backup` reads through the
 # WAL, so the copy is whole even if a service was killed instead of stopped cleanly: on a host
@@ -53,6 +68,12 @@ if [ -f "$DB" ]; then
 fi
 
 # Create a consistent online backup on the hub without stopping its RPC.
+# #853: a mktemp path on the hub — two followers resetting at once can no
+# longer collide on (or delete) each other's fixed /tmp file.
+SNAPSHOT_REMOTE=$(ssh "${SSH_USER}@${HUB}" "mktemp '/tmp/aitbc-follower-snapshot-${CHAIN_ID}.XXXXXXXX.db'") || {
+    echo "mktemp on $HUB failed" >&2
+    exit 1
+}
 echo "Creating online backup on $HUB ..."
 if ! ssh "${SSH_USER}@${HUB}" "sqlite3 /var/lib/aitbc/data/${CHAIN_ID}/chain.db \".backup ${SNAPSHOT_REMOTE}\"" ; then
     echo "Failed to create online backup on $HUB" >&2
@@ -76,8 +97,9 @@ else
     scp "${SSH_USER}@${HUB}:${SNAPSHOT_REMOTE}" "${DB}.tmp"
 fi
 
-# Clean up the remote temporary snapshot.
-ssh "${SSH_USER}@${HUB}" "rm -f ${SNAPSHOT_REMOTE}" || true
+# Clean up the remote scratch snapshot; the EXIT trap covers failure paths.
+ssh "${SSH_USER}@${HUB}" "rm -f '${SNAPSHOT_REMOTE}'" || true
+SNAPSHOT_REMOTE=""
 
 # Verify the local copy has the same head as the remote snapshot.
 local_head=$(sqlite3 "${DB}.tmp" "SELECT height, hash FROM block WHERE chain_id=\"${CHAIN_ID}\" ORDER BY height DESC LIMIT 1")
@@ -85,6 +107,20 @@ if [ "$hub_head" != "$local_head" ]; then
     echo "Snapshot copy head mismatch: remote=$hub_head local=$local_head" >&2
     rm -f "${DB}.tmp"
     exit 1
+fi
+
+# #853: when a signed manifest is supplied, verify it against the copied
+# snapshot BEFORE the mv — the head comparison alone only proves the copy
+# survived transfer, not that the hub's snapshot is the attested one.
+if [ -n "${MANIFEST:-}" ]; then
+    echo "Verifying signed manifest $MANIFEST against $DB.tmp ..."
+    "$(dirname "$0")/verify-snapshot-manifest.py" "$MANIFEST" --db "${DB}.tmp" || {
+        echo "Manifest verification failed — refusing to install the snapshot" >&2
+        rm -f "${DB}.tmp"
+        exit 1
+    }
+else
+    echo "NOTE: MANIFEST unset — signed-manifest check skipped; the snapshot is only head-verified."
 fi
 
 # Atomically replace the local chain DB. The services are stopped, so any chain.db-wal / chain.db-shm
@@ -103,6 +139,8 @@ for unit in $UNITS; do
     systemctl start "$unit" || true
     printf "  %-26s %s\n" "$unit" "$(systemctl is-active "$unit" 2>/dev/null)"
 done
+
+trap - EXIT
 
 echo "Follower snapshot reset complete. Watch the catch-up:"
 echo "  journalctl -u aitbc-blockchain-node -f | grep -E 'imported|head|divergence'"
