@@ -90,3 +90,23 @@ def test_main_exit_codes(good_set, tmp_path, capsys):
     assert bv.main() == 0
     sys.argv = ["backup-verify.py", "--base", str(tmp_path / "nonexistent")]
     assert bv.main() == 2
+
+
+def test_aborted_chain_dump_fails(good_set, tmp_path):
+    """#910: a dump ending in 'ROLLBACK; -- due to errors' must not be CLEAN."""
+    aborted = (
+        b"BEGIN TRANSACTION;\nCREATE TABLE blocks (id INTEGER PRIMARY KEY);\n"
+        b"INSERT INTO blocks VALUES (1);\nROLLBACK; -- due to errors\n"
+    )
+    (good_set / "chain_broken_chain.db.gz").write_bytes(gzip.compress(aborted))
+    errs, rep = bv.verify_set(good_set, tmp_path / "sc", None)
+    assert any("chain_broken" in e for e in errs)
+
+
+def test_commitless_chain_dump_fails(good_set, tmp_path):
+    """#910: a truncated dump without COMMIT is not a snapshot."""
+    (good_set / "chain_trunc_chain.db.gz").write_bytes(
+        gzip.compress(b"BEGIN TRANSACTION;\nCREATE TABLE blocks (id INTEGER);\n")
+    )
+    errs, _ = bv.verify_set(good_set, tmp_path / "sc", None)
+    assert any("chain_trunc" in e for e in errs)
