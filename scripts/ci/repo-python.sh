@@ -19,7 +19,14 @@
 set -euo pipefail
 
 _runs() {
-    [ -x "$1" ] && "$1" -c 'import sys' >/dev/null 2>&1
+    # Bare names (the documented PYTHON=python3 opt-in) resolve via PATH —
+    # [ -x name ] is false for them even though they run.
+    local cand="$1"
+    case "$cand" in
+        */*) ;;
+        *) cand="$(command -v "$cand" 2>/dev/null || true)" ;;
+    esac
+    [ -n "$cand" ] && [ -x "$cand" ] && "$cand" -c 'import sys' >/dev/null 2>&1
 }
 
 if [ -n "${PYTHON:-}" ]; then
