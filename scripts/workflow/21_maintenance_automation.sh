@@ -3,7 +3,7 @@
 # AITBC Maintenance Automation Script
 # Automates weekly maintenance tasks
 
-set -e
+set -euo pipefail
 
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
@@ -80,19 +80,29 @@ echo "========================"
 
 # Optimize main database
 log_action "Starting database optimization"
-if [ -f "/var/lib/aitbc/data/ait-mainnet/chain.db" ]; then
-    sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db "VACUUM;" 2>/dev/null || true
-    sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db "ANALYZE;" 2>/dev/null || true
-    check_status "Main database optimized"
+CHAIN_ID="${CHAIN_ID:-$(grep -s '^CHAIN_ID=' /etc/aitbc/blockchain.env | tail -1 | cut -d= -f2)}"
+CHAIN_ID="${CHAIN_ID:-ait-mainnet}"
+if [ -f "/var/lib/aitbc/data/${CHAIN_ID}/chain.db" ]; then
+    if sqlite3 "/var/lib/aitbc/data/${CHAIN_ID}/chain.db" "VACUUM;" 2>/dev/null \
+        && sqlite3 "/var/lib/aitbc/data/${CHAIN_ID}/chain.db" "ANALYZE;" 2>/dev/null; then
+        check_status "Main database optimized"
+    else
+        echo -e "   ${RED}✗${NC} Main database VACUUM/ANALYZE FAILED"
+        log_action "Main database optimization FAILED"
+    fi
 else
     echo -e "   ${YELLOW}⚠️${NC} Main database not found"
 fi
 
 # Optimize mempool database
 if [ -f "/var/lib/aitbc/data/mempool.db" ]; then
-    sqlite3 /var/lib/aitbc/data/mempool.db "VACUUM;" 2>/dev/null || true
-    sqlite3 /var/lib/aitbc/data/mempool.db "ANALYZE;" 2>/dev/null || true
-    check_status "Mempool database optimized"
+    if sqlite3 /var/lib/aitbc/data/mempool.db "VACUUM;" 2>/dev/null \
+        && sqlite3 /var/lib/aitbc/data/mempool.db "ANALYZE;" 2>/dev/null; then
+        check_status "Mempool database optimized"
+    else
+        echo -e "   ${RED}✗${NC} Mempool database VACUUM/ANALYZE FAILED"
+        log_action "Mempool database optimization FAILED"
+    fi
 else
     echo -e "   ${YELLOW}⚠️${NC} Mempool database not found"
 fi
