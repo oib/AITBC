@@ -37,3 +37,20 @@ def test_keystore_rm_is_inside_the_setup_flow():
     src = SCRIPT.read_text()
     assert "ALREADY_SETUP=true" in src
     assert 'if [ "$WIPE" != 1 ]' in src
+
+
+SCRIPT13 = Path(__file__).resolve().parents[2] / "scripts/workflow/13_maintenance_automation.sh"
+
+
+def test_maintenance_never_commits_or_pushes():
+    """#957: git add/commit/push are gone from the script entirely."""
+    src = SCRIPT13.read_text()
+    code = "\n".join(ln for ln in src.splitlines() if not ln.strip().startswith("#"))
+    for bad in ("git add", "git commit", "git push"):
+        assert bad not in code
+
+
+def test_restart_is_conditional_on_real_change():
+    src = SCRIPT13.read_text()
+    assert "_before=$(git rev-parse HEAD)" in src
+    assert '!= "$_before"' in src
