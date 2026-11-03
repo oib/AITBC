@@ -61,3 +61,10 @@ def test_dropped_host_fails_digest():
     src = SCRIPT_FCC.read_text()
     assert "FAIL: no digest from:" in src
     assert "dig_dropped" in src
+
+
+def test_no_ssh_reach_exits_nonzero():
+    """#1013: skipped env sections = exit 3, never a 'No drift' claim."""
+    src = SCRIPT_FCC.read_text()
+    assert "NOT EVALUABLE: env sections skipped" in src
+    assert "exit 3" in src
