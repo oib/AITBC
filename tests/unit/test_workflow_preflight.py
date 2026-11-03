@@ -191,3 +191,18 @@ def test_no_dead_rpc_routes_in_scenarios():
         src = sh.read_text()
         for dead in ("getBalance", "mineBlock"):
             assert dead not in src, f"{sh.name}: calls {dead}"
+
+
+SCRIPT16 = Path(__file__).resolve().parents[2] / "scripts/workflow/16_monitoring_setup.sh"
+
+
+def test_generated_health_check_reads_env():
+    """#968: cron has no env — generated scripts source blockchain.env."""
+    src = SCRIPT16.read_text()
+    assert ". /etc/aitbc/blockchain.env" in src
+    assert "mining/status" not in src
+
+
+def test_cron_line_is_deduped():
+    src = SCRIPT16.read_text()
+    assert "grep -vF '/opt/aitbc/scripts/health_check.sh'" in src

@@ -29,6 +29,12 @@ cat > /opt/aitbc/scripts/health_check.sh << 'EOF'
 HEALTH_LOG="/var/log/aitbc/health_check.log"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
+# Cron carries no shell env — read the RPC url from the node's env file (#968).
+if [ -z "${BLOCKCHAIN_RPC:-}" ] && [ -f /etc/aitbc/blockchain.env ]; then
+    set -a; . /etc/aitbc/blockchain.env; set +a
+fi
+BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+
 # Create log directory if it doesn't exist
 mkdir -p /var/log/aitbc
 
@@ -97,7 +103,7 @@ chmod +x /opt/aitbc/scripts/health_check.sh
 
 # Setup cron job for health checks
 echo "2. Setting up health check cron job..."
-(crontab -l 2>/dev/null; echo "*/5 * * * * /opt/aitbc/scripts/health_check.sh") | crontab -
+(crontab -l 2>/dev/null | grep -vF '/opt/aitbc/scripts/health_check.sh'; echo "*/5 * * * * /opt/aitbc/scripts/health_check.sh") | crontab -
 
 # Create log rotation configuration — canonical stanza, see
 # scripts/deployment/aitbc-logrotate.conf for the full design notes.
@@ -141,20 +147,17 @@ systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc redis 2>/dev/null
 done
 echo
 
+if [ -z "${BLOCKCHAIN_RPC:-}" ] && [ -f /etc/aitbc/blockchain.env ]; then
+    set -a; . /etc/aitbc/blockchain.env; set +a
+fi
+BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
+
 # Blockchain Status
 echo "⛓️  Blockchain Status:"
 BLOCK_HEIGHT=$(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null)
 BLOCK_TIME=$(curl -s $BLOCKCHAIN_RPC/rpc/info | jq .genesis_params.block_time_seconds 2>/dev/null)
 echo "   Height: $BLOCK_HEIGHT"
 echo "   Block Time: $BLOCK_TIME seconds"
-echo
-
-# Mining Status
-echo "⛏️  Mining Status:"
-MINING_STATUS=$(curl -s $BLOCKCHAIN_RPC/rpc/mining/status | jq .active 2>/dev/null)
-HASH_RATE=$(curl -s $BLOCKCHAIN_RPC/rpc/mining/status | jq .hash_rate 2>/dev/null)
-echo "   Active: $MINING_STATUS"
-echo "   Hash Rate: $HASH_RATE H/s"
 echo
 
 # Market Status
@@ -181,7 +184,7 @@ scp /opt/aitbc/scripts/monitoring_dashboard.sh aitbc:/opt/aitbc/scripts/
 ssh aitbc 'chmod +x /opt/aitbc/scripts/health_check.sh /opt/aitbc/scripts/monitoring_dashboard.sh'
 
 # Setup cron on aitbc
-ssh aitbc '(crontab -l 2>/dev/null; echo "*/5 * * * * /opt/aitbc/scripts/health_check.sh") | crontab -'
+ssh aitbc "(crontab -l 2>/dev/null | grep -vF '/opt/aitbc/scripts/health_check.sh'; echo '*/5 * * * * /opt/aitbc/scripts/health_check.sh') | crontab -"
 
 echo "✅ Monitoring setup completed successfully!"
 echo "   • Health check script created and scheduled"
