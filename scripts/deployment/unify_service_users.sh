@@ -1,10 +1,57 @@
 #!/bin/bash
-# Update all AITBC systemd service files to use unified aitbc user
-# This script should be run after create_aitbc_user.sh
+# Update deployed AITBC systemd units to run as the unified aitbc user.
+# Run after create_aitbc_user.sh.
+#
+# This used to sed-rewrite every *.service under /opt/aitbc/apps — the
+# tracked repo files — dirtying the working tree and forcing User=aitbc
+# onto units that deliberately run as someone else (#883):
+#   aitbc-ops-signer.service  runs as root (signs ops transactions)
+#   aitbc-hermes-agent.service runs as aitbc-hermes
+#
+# The repo files are already correct; they are what gets installed. What
+# this script actually needs to fix is units already deployed under
+# /etc/systemd/system — and only the ones on the allow-list.
 
-set -e
+set -euo pipefail
 
-echo "Updating AITBC service files to use unified aitbc user..."
+SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
+LIB_DIR="${AITBC_LIB_DIR:-/var/lib/aitbc}"
+
+# Units meant to run as aitbc — the set of apps/*.service whose tracked
+# User= is already aitbc. Deliberate non-aitbc units are absent by design;
+# tests/unit/test_unify_service_users.py keeps this list in sync.
+AITBC_UNITS=(
+    aitbc-agent-coordinator.service
+    aitbc-ai.service
+    aitbc-learning.service
+    aitbc-modality-optimization.service
+    aitbc-multimodal.service
+    aitbc-api-gateway.service
+    aitbc-blockchain-event-bridge.service
+    aitbc-blockchain-explorer.service
+    aitbc-blockchain-node.service
+    aitbc-blockchain-p2p.service
+    aitbc-blockchain-rpc.service
+    aitbc-bridge-monitor.service
+    aitbc-coordinator-api.service
+    aitbc-edge.service
+    aitbc-exchange.service
+    aitbc-ffmpeg.service
+    aitbc-governance.service
+    aitbc-gpu.service
+    aitbc-ipfs.service
+    aitbc-island-ipfs.service
+    aitbc-market.service
+    aitbc-miner.service
+    aitbc-monitoring.service
+    aitbc-ollama-gate.service
+    aitbc-pool-hub.service
+    aitbc-trading.service
+    aitbc-wallet.service
+    aitbc-whisper.service
+)
+
+echo "Updating deployed AITBC units in $SYSTEMD_DIR to the unified aitbc user..."
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -18,80 +65,70 @@ if ! id aitbc > /dev/null 2>&1; then
     exit 1
 fi
 
-# Directory containing service files
-SERVICE_DIR="/opt/aitbc/apps"
+is_allowlisted() {
+    local name="$1" unit
+    for unit in "${AITBC_UNITS[@]}"; do
+        [ "$unit" = "$name" ] && return 0
+    done
+    return 1
+}
 
-# Find all .service files
-SERVICE_FILES=$(find "$SERVICE_DIR" -name "*.service")
-
-if [ -z "$SERVICE_FILES" ]; then
-    echo "No service files found in $SERVICE_DIR"
-    exit 1
-fi
-
-echo "Found $(echo "$SERVICE_FILES" | wc -l) service files"
-echo ""
-
-# Track changes
 CHANGES=0
 SKIPPED=0
+LEFT=0
 
-for service_file in $SERVICE_FILES; do
-    echo "Processing $service_file"
+for service_file in "$SYSTEMD_DIR"/aitbc-*.service; do
+    [ -e "$service_file" ] || continue
+    name="$(basename "$service_file")"
 
-    # Check if service file has User directive
-    if grep -q "^User=" "$service_file"; then
-        current_user=$(grep "^User=" "$service_file" | head -1 | cut -d= -f2)
-
-        # Skip if already using aitbc user
-        if [ "$current_user" = "aitbc" ]; then
-            echo "  Already using aitbc user, skipping"
-            SKIPPED=$((SKIPPED + 1))
-            continue
-        fi
-
-        # Update User directive
-        sed -i 's/^User=.*/User=aitbc/' "$service_file"
-
-        # Update Group directive to aitbc
-        if grep -q "^Group=" "$service_file"; then
-            sed -i 's/^Group=.*/Group=aitbc/' "$service_file"
-        else
-            # Add Group directive if it doesn't exist
-            sed -i '/^User=/a Group=aitbc' "$service_file"
-        fi
-
-        echo "  Updated from User=$current_user to User=aitbc"
-        CHANGES=$((CHANGES + 1))
-    else
-        echo "  No User directive found, adding User=aitbc and Group=aitbc"
-        # Add User and Group directives after [Service] section
-        sed -i '/^\[Service\]/a User=aitbc\nGroup=aitbc' "$service_file"
-        CHANGES=$((CHANGES + 1))
+    if ! is_allowlisted "$name"; then
+        echo "  $name: not in the aitbc allow-list — leaving User= unchanged"
+        LEFT=$((LEFT + 1))
+        continue
     fi
+
+    if grep -q "^User=aitbc" "$service_file"; then
+        echo "  $name: already User=aitbc, skipping"
+        SKIPPED=$((SKIPPED + 1))
+        continue
+    fi
+
+    if grep -q "^User=" "$service_file"; then
+        sed -i 's/^User=.*/User=aitbc/' "$service_file"
+    else
+        sed -i '/^\[Service\]/a User=aitbc' "$service_file"
+    fi
+    if grep -q "^Group=" "$service_file"; then
+        sed -i 's/^Group=.*/Group=aitbc/' "$service_file"
+    else
+        sed -i '/^User=/a Group=aitbc' "$service_file"
+    fi
+    echo "  $name: updated to User=aitbc"
+    CHANGES=$((CHANGES + 1))
 done
 
-echo ""
 echo ""
 echo "Fixing runtime file ownership..."
 
 # Island credentials belong to the aitbc runtime user.
-if [ -f "/var/lib/aitbc/island_credentials.json" ]; then
-    chown aitbc:aitbc "/var/lib/aitbc/island_credentials.json" 2>/dev/null || true
-    chmod 0600 "/var/lib/aitbc/island_credentials.json"
+if [ -f "$LIB_DIR/island_credentials.json" ]; then
+    chown aitbc:aitbc "$LIB_DIR/island_credentials.json" 2>/dev/null || true
+    chmod 0600 "$LIB_DIR/island_credentials.json"
     echo "  Island credentials: aitbc:aitbc 0600"
 fi
 
 # /var/lib/aitbc must remain writable by aitbc for api_keys.json.lock.
-chown root:aitbc /var/lib/aitbc 2>/dev/null || true
-chmod 2775 /var/lib/aitbc 2>/dev/null || true
+# Non-recursive: existing data keeps its owner (#882).
+chown root:aitbc "$LIB_DIR" 2>/dev/null || true
+chmod 2775 "$LIB_DIR" 2>/dev/null || true
 
 # Root-only secrets (e.g. /etc/aitbc/blockchain-secrets.env) are left root:600.
 # The CLI now skips env files it cannot read instead of aborting.
 
 echo "Summary:"
-echo "  Updated: $CHANGES service files"
-echo "  Skipped: $SKIPPED service files (already using aitbc)"
+echo "  Updated: $CHANGES deployed units"
+echo "  Skipped: $SKIPPED (already User=aitbc)"
+echo "  Left unchanged: $LEFT (not allow-listed — deliberate non-aitbc units)"
 echo ""
 echo "Next steps:"
 echo "1. Reload systemd: systemctl daemon-reload"
