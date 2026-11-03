@@ -223,3 +223,50 @@ def test_ntfy_mode_attaches_bearer(monkeypatch):
     monkeypatch.setattr(digest.urllib.request, "urlopen", fake_urlopen)
     digest._post(["https://ntfy.example/x"], "body", notify_format="ntfy", token="secret")
     assert calls[0].get_header("Authorization") == "Bearer secret"
+
+
+def test_unreadable_log_exits_nonzero(tmp_path):
+    """#925: a missing alert log is an error, not a quiet window."""
+    import subprocess
+    import sys as _sys
+
+    r = subprocess.run(
+        [
+            _sys.executable,
+            str(Path(__file__).parents[2] / "scripts/monitoring/alert-digest.py"),
+            "--alert-log",
+            str(tmp_path / "nonexistent.log"),
+            "--dry-run",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode != 0
+    assert "cannot read alert log" in (r.stderr + r.stdout)
+
+
+def test_log_in_mode000_dir_exits_nonzero(tmp_path):
+    """#925: a path inside an unreadable directory also fails loud."""
+    import subprocess
+    import sys as _sys
+    import os
+
+    d = tmp_path / "closed"
+    d.mkdir()
+    (d / "alerts.log").write_text("{}")
+    os.chmod(d, 0o000)
+    try:
+        r = subprocess.run(
+            [
+                _sys.executable,
+                str(Path(__file__).parents[2] / "scripts/monitoring/alert-digest.py"),
+                "--alert-log",
+                str(d / "alerts.log"),
+                "--dry-run",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode != 0
+    finally:
+        os.chmod(d, 0o700)
