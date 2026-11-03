@@ -29,7 +29,7 @@ from aitbc.config.hub import normalize_hub_base
 from aitbc.crypto.crypto import sign_transaction_hash
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
-from ..config import _resolve_api_key, get_config
+from ..config import _resolve_api_key, _resolve_market_api_key, get_config
 from ..utils import DECIMAL, error, info, success, warning
 from ..utils.error_handling import abort
 from ..utils.chain_id import get_chain_id
@@ -90,10 +90,11 @@ def _make_cid_path(cid: str) -> Path:
 def _hub_market_client(timeout: int = 15) -> AITBCHTTPClient:
     """Return an HTTP client for the hub market service (shared with market commands)."""
     config = get_config()
+    api_key = _resolve_market_api_key(config)
     if config.market_service_url and not config.market_service_url.startswith("http://127.0.0.1"):
-        return AITBCHTTPClient(base_url=config.market_service_url, timeout=timeout)
+        return AITBCHTTPClient(base_url=config.market_service_url, timeout=timeout, api_key=api_key)
     hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
-    return AITBCHTTPClient(base_url=normalize_hub_base(hub_host) or hub_host, timeout=timeout)
+    return AITBCHTTPClient(base_url=normalize_hub_base(hub_host) or hub_host, timeout=timeout, api_key=api_key)
 
 
 def _daemon_available(ipfs_api: str = IPFS_API) -> bool:

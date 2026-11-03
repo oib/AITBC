@@ -102,6 +102,7 @@ class Agent:
         capabilities: AgentCapabilities,
         coordinator_url: str | None = None,
         contract_config: ContractConfig | None = None,
+        api_key: str | None = None,
     ):
         self.identity = identity
         self.capabilities = capabilities
@@ -111,7 +112,8 @@ class Agent:
         self.reputation_score = 0.0
         self.earnings = 0.0
         self.coordinator_url = coordinator_url or "http://localhost:8107"
-        self.http_client = AsyncAITBCHTTPClient(base_url=self.coordinator_url)
+        resolved_key = api_key or os.getenv("MARKET_API_KEY") or os.getenv("AITBC_API_KEY")
+        self.http_client = AsyncAITBCHTTPClient(base_url=self.coordinator_url, api_key=resolved_key)
         self._background_tasks: set[asyncio.Task[Any]] = set()
 
         # Contract integration
