@@ -4,7 +4,7 @@
 # AITBC Mesh Network - Operations Dashboard
 # ============================================================================
 
-set -e
+set -euo pipefail
 
 
 # Fleet node addresses.
@@ -34,46 +34,39 @@ echo -e "${BLUE}║                      DASHBOARD v1.0                        �
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+# #920: everything below reads the LIVE system — the local RPC for chain
+# state, the env file for identity, systemctl for units. The previous
+# version built a fresh in-process consensus object and added two
+# invented validators, then printed that as status.
+
+BLOCKCHAIN_ENV="${AITBC_BLOCKCHAIN_ENV:-/etc/aitbc/blockchain.env}"
+RPC_PORT="${AITBC_RPC_PORT:-$(grep -iE '^rpc_bind_port=' "$BLOCKCHAIN_ENV" 2>/dev/null | head -1 | cut -d= -f2 | tr -d ' \'"'"'"' || true)}"
+RPC_PORT="${RPC_PORT:-8202}"
+P2P_PORT="${AITBC_P2P_PORT:-$(grep -iE '^p2p_bind_port=' "$BLOCKCHAIN_ENV" 2>/dev/null | head -1 | cut -d= -f2 | tr -d ' \'"'"'"' || true)}"
+P2P_PORT="${P2P_PORT:-7070}"
+
 # System Status
-echo -e "${CYAN}📊 SYSTEM STATUS${NC}"
+echo -e "${CYAN}📊 CHAIN STATUS${NC}"
 echo "================================"
 
-# Check consensus
-cd "$AITBC_ROOT"
-consensus_info=$("$PYTHON_CMD" -c "
-import sys
-sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
-
-try:
-    from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
-    poa = MultiValidatorPoA(chain_id=1337)
-
-    # Add test validators if empty
-    if len(poa.validators) == 0:
-        poa.add_validator('0xvalidator1', 1000.0)
-        poa.add_validator('0xvalidator2', 1000.0)
-
-    total_stake = sum(v.stake for v in poa.validators.values())
-    print(f'CONSENSUS:ACTIVE:{len(poa.validators)}:{total_stake}')
-
-    # Get proposer
-    proposer = poa.select_proposer(block_height=1)
-    print(f'PROPOSER:{proposer}')
-except Exception as e:
-    print(f'CONSENSUS:ERROR:{e}')
-" 2>/dev/null)
-
-if [[ "$consensus_info" == CONSENSUS:ACTIVE:* ]]; then
-    validator_count=$(echo "$consensus_info" | cut -d: -f3)
-    total_stake=$(echo "$consensus_info" | cut -d: -f4)
-    proposer=$(echo "$consensus_info" | cut -d: -f5-)
-
-    echo -e "${GREEN}✅ Consensus: ACTIVE${NC}"
-    echo "   Validators: $validator_count"
-    echo "   Total Stake: $total_stake AITBC"
-    echo "   Current Proposer: $proposer"
+head_json=$(curl -sf --max-time 5 "http://localhost:${RPC_PORT}/rpc/head" 2>/dev/null || true)
+if [ -n "$head_json" ]; then
+    height=$(echo "$head_json" | "$PYTHON_CMD" -c 'import json,sys; print(json.load(sys.stdin).get("height","?"))' 2>/dev/null || echo "?")
+    proposer=$(echo "$head_json" | "$PYTHON_CMD" -c 'import json,sys; print(json.load(sys.stdin).get("proposer","?"))' 2>/dev/null || echo "?")
+    echo -e "${GREEN}✅ RPC head: height $height${NC}"
+    echo "   Proposer: $proposer"
 else
-    echo -e "${RED}❌ Consensus: INACTIVE${NC}"
+    echo -e "${RED}❌ RPC head: unreachable at localhost:${RPC_PORT}${NC}"
+fi
+
+if [ -r "$BLOCKCHAIN_ENV" ]; then
+    chain_id=$(grep -iE '^chain_id=' "$BLOCKCHAIN_ENV" | head -1 | cut -d= -f2 | tr -d ' \'"'"'"' || true)
+    vset=$(grep -iE '^validator_set=' "$BLOCKCHAIN_ENV" | head -1 | cut -d= -f2- | tr -d ' \'"'"'"' || true)
+    [ -n "${chain_id:-}" ] && echo "   Chain: $chain_id"
+    if [ -n "${vset:-}" ]; then
+        vcount=$(echo "$vset" | tr ',' '\n' | grep -c . || true)
+        echo "   Validators configured: $vcount"
+    fi
 fi
 
 echo ""
@@ -82,16 +75,7 @@ echo ""
 echo -e "${CYAN}🌐 NETWORK STATUS${NC}"
 echo "================================"
 
-# Check basic connectivity
-if ping -c 1 localhost >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Network Connectivity: ACTIVE${NC}"
-else
-    echo -e "${RED}❌ Network Connectivity: FAILED${NC}"
-fi
-
-# Check ports
-ports=("8006" "30303" "9090")
-for port in "${ports[@]}"; do
+for port in "$RPC_PORT" "$P2P_PORT" 9090; do
     if netstat -tuln 2>/dev/null | grep -q ":$port "; then
         echo -e "${GREEN}✅ Port $port: OPEN${NC}"
     else
@@ -105,28 +89,13 @@ echo ""
 echo -e "${CYAN}🔧 SERVICE STATUS${NC}"
 echo "================================"
 
-services=("consensus" "network" "economics" "agents" "contracts")
-for service in "${services[@]}"; do
-    case "$service" in
-        "consensus")
-            if [[ "$consensus_info" == CONSENSUS:ACTIVE:* ]]; then
-                echo -e "${GREEN}✅ Consensus Service: RUNNING${NC}"
-            else
-                echo -e "${RED}❌ Consensus Service: STOPPED${NC}"
-            fi
-            ;;
-        "network")
-            echo -e "${YELLOW}⚠️  Network Service: LIMITED${NC}"
-            ;;
-        "economics")
-            echo -e "${GREEN}✅ Economics Service: RUNNING${NC}"
-            ;;
-        "agents")
-            echo -e "${YELLOW}⚠️  Agent Services: LIMITED${NC}"
-            ;;
-        "contracts")
-            echo -e "${GREEN}✅ Contract Service: RUNNING${NC}"
-            ;;
+services=("aitbc-blockchain-node" "aitbc-blockchain-rpc" "aitbc-agent-coordinator")
+for unit in "${services[@]}"; do
+    state=$(systemctl is-active "$unit" 2>/dev/null || echo "unknown")
+    case "$state" in
+        active)   echo -e "${GREEN}✅ $unit: active${NC}" ;;
+        inactive) echo -e "${RED}❌ $unit: inactive${NC}" ;;
+        *)        echo -e "${YELLOW}⚠️  $unit: $state${NC}" ;;
     esac
 done
 
