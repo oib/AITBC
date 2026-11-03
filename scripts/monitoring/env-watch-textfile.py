@@ -71,14 +71,21 @@ def parse_spec(spec: str) -> list[tuple[str, str, list[str]]]:
     return entries
 
 
-def _assigns_var(line: str, var: str) -> bool:
-    return line.lstrip().startswith(f"{var}=")
+def _assign_value(line: str, var: str) -> str | None:
+    """The assigned value when the line sets ``var``, else None."""
+    stripped = line.lstrip()
+    if not stripped.startswith(f"{var}="):
+        return None
+    return stripped[len(var) + 1 :].strip()
 
 
 def scan_entries(entries: list[tuple[str, str, list[str]]]) -> tuple[dict[tuple[str, str], int], dict[str, int]]:
     """Return ({(service,var): present}, {file_basename: readable}).
 
-    File contents are scanned line-wise for ``^VAR=`` only.
+    systemd EnvironmentFile stacking: the LAST file that assigns the var
+    wins, and an empty assignment (``VAR=``) counts as unset — a
+    presence gauge that reports 1 for a blanked variable misreads the
+    unit's real environment (#923).
     """
     present: dict[tuple[str, str], int] = {}
     file_ok: dict[str, int] = {}
@@ -94,13 +101,16 @@ def scan_entries(entries: list[tuple[str, str, list[str]]]) -> tuple[dict[tuple[
         return path_cache[path]
 
     for service, var, paths in entries:
-        found = 0
+        last_value: str | None = None
         for path in paths:
             lines = lines_of(path)
             file_ok[os.path.basename(path)] = 1 if lines is not None else 0
-            if lines is not None and any(_assigns_var(line, var) for line in lines):
-                found = 1
-        present[(service, var)] = found
+            if lines is not None:
+                for line in lines:
+                    value = _assign_value(line, var)
+                    if value is not None:
+                        last_value = value
+        present[(service, var)] = 1 if last_value else 0
     return present, file_ok
 
 
