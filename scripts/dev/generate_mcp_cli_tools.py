@@ -287,6 +287,8 @@ SAFE_LEAF_TOKENS = {
 
 # Explicit overrides for commands where the token heuristic is wrong.
 FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
+    # energy floor is a GET floor-price quote (#849 respin): it computes, never mutates.
+    ("energy", "floor"),
     ("market", "match"),
     ("market", "list"),
     ("market", "status"),
@@ -1191,6 +1193,34 @@ def _write_groups_list_module(
             "GENERATED_AITBC_GROUPS = frozenset(",
             "    {",
             *(f'        "{name}",' for name in sorted(groups)),
+            "    }",
+            ")",
+            "",
+            "# Command paths that carry a typed read tool (read_only_hint=True) — the",
+            "# read_aitbc_cli pivot gates on this allowlist (#849): anything not here is",
+            "# not presumed safe. Entries are 'group subpath' strings.",
+            "GENERATED_READ_ONLY_AITBC_PATHS = frozenset(",
+            "    {",
+            *(
+                f'        "{" ".join(spec["path"])}",'
+                for spec in sorted(
+                    (s for specs in groups.values() for s in specs if s["mode"] == "read_only"), key=lambda s: s["path"]
+                )
+            ),
+            "    }",
+            ")",
+            "",
+            "# Destructive generated paths — needed so the allowlist can tell a",
+            "# positional argument under a read path from a destructive SUBCOMMAND",
+            "# nested under it (e.g. 'agent discover agents' vs 'agent discover').",
+            "GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(",
+            "    {",
+            *(
+                f'        "{" ".join(spec["path"])}",'
+                for spec in sorted(
+                    (s for specs in groups.values() for s in specs if s["mode"] != "read_only"), key=lambda s: s["path"]
+                )
+            ),
             "    }",
             ")",
             "",

@@ -41,7 +41,11 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from aitbc_mcp_cli_tools_generated_groups import GENERATED_AITBC_GROUPS
+from aitbc_mcp_cli_tools_generated_groups import (
+    GENERATED_AITBC_GROUPS,
+    GENERATED_DESTRUCTIVE_AITBC_PATHS,
+    GENERATED_READ_ONLY_AITBC_PATHS,
+)
 from aitbc_mcp_mask import mask_envelope
 
 mcp = MCPServer("aitbc", log_level=os.getenv("AITBC_MCP_LOG_LEVEL", "INFO"))
@@ -930,6 +934,7 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
 # so can never match a token.
 DESTRUCTIVE_AITBC_PATHS = {
     "ai service test",
+    "contract verify",
     "crosschain bridge",
     "dispute file",
     "edge island bridge",
@@ -1098,6 +1103,37 @@ def _split_path_tokens(elements: list[str]) -> list[str]:
             parts = [el]
         tokens.extend(parts or [el])
     return tokens
+
+
+_READ_ONLY_PATH_TOKENS = {tuple(p.split()) for p in GENERATED_READ_ONLY_AITBC_PATHS}
+_GENERATED_DESTRUCTIVE_PATH_TOKENS = {tuple(p.split()) for p in GENERATED_DESTRUCTIVE_AITBC_PATHS}
+
+
+def _is_aitbc_subcommand_read_only(
+    subcommand: str | list[str] | None,
+    group: str | None = None,
+    args: list[str] | None = None,
+) -> bool:
+    """True when the effective command path is covered by a typed read tool.
+
+    The effective path is ``group + subcommand tokens + positional args``
+    (same construction as the destructive check). A read-only generated path
+    must be a *prefix* of it: trailing tokens are positional arguments the
+    read command itself takes. Anything a typed read tool does not cover is
+    not presumed safe — unknown leaves are refused at read_aitbc_cli and can
+    still run through run_aitbc_cli with the usual confirm (#849).
+    """
+    tokens = _split_path_tokens([str(t) for t in _subcommand_tokens(subcommand)] + [str(a) for a in (args or [])])
+    path = tuple([str(group).lower()] if group else []) + tuple(token.lower() for token in tokens)
+    if not path:
+        return False
+    best = max((len(rp) for rp in _READ_ONLY_PATH_TOKENS if path[: len(rp)] == rp), default=0)
+    if not best:
+        return False
+    # A destructive generated command nested under a read path (e.g. 'agent
+    # discover agents' below read 'agent discover') must not inherit the read
+    # verdict — the deeper generated prefix wins over positional-arg fallback.
+    return not any(path[: len(dp)] == dp and len(dp) > best for dp in _GENERATED_DESTRUCTIVE_PATH_TOKENS)
 
 
 def _is_aitbc_subcommand_destructive(
@@ -1941,6 +1977,15 @@ def read_aitbc_cli(
                 "error": "subcommand is destructive",
                 "subcommand": subcommand,
                 "note": "Use run_aitbc_cli for mutating operations; destructive subcommands require dry_run=false and confirm=true.",
+            }
+        )
+    if not _is_aitbc_subcommand_read_only(subcommand, group, args):
+        return _json(
+            {
+                "error": "subcommand is not a known read-only path",
+                "subcommand": subcommand,
+                "note": "read_aitbc_cli only runs paths that carry a typed read tool (#849). "
+                "Use run_aitbc_cli for everything else; destructive subcommands require dry_run=false and confirm=true.",
             }
         )
     env_error = _validate_cli_env_cwd(env, cwd)
