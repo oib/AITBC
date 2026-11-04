@@ -206,9 +206,14 @@ def get_engine(chain_id: str = "", create_ok: bool = False, allow_foreign: bool 
         if create_ok:
             _registered_chain_ids.add(resolved_chain_id)
 
-        # SQLCipher applies to whichever chain is configured when the flag and
-        # the key file are both present; no chain-id literal gates it.
-        encryption_enabled = settings.db_encryption_enabled and settings.db_encryption_key_path.exists()
+        # DB_ENCRYPTION_ENABLED=true with a missing/mistyped key path must not
+        # silently open a plaintext chain db — fail hard instead (#1069).
+        if settings.db_encryption_enabled and not settings.db_encryption_key_path.exists():
+            raise RuntimeError(
+                f"db_encryption_enabled is set but the key file does not exist: "
+                f"{settings.db_encryption_key_path} — refusing to fall back to plaintext"
+            )
+        encryption_enabled = settings.db_encryption_enabled
 
         if encryption_enabled:
             # Use SQLCipher with encryption key
@@ -282,36 +287,6 @@ _engine = create_engine(
 def _on_engine_connect(dbapi_connection: Any, connection_record: Any) -> None:
     _set_sqlite_pragmas(dbapi_connection, connection_record)
 
-
-# Application-layer validation
-class DatabaseOperationValidator:
-    """Validates database operations to prevent unauthorized access"""
-
-    def __init__(self) -> None:
-        self._allowed_operations = {"select", "insert", "update", "delete"}
-
-    def validate_operation(self, operation: str) -> bool:
-        """Validate that the operation is allowed"""
-        return operation.lower() in self._allowed_operations
-
-    def validate_query(self, query: str) -> bool:
-        """Validate that the query doesn't contain dangerous patterns"""
-        dangerous_patterns = [
-            "drop table",
-            "drop database",
-            "truncate",
-            "alter table",
-            "delete from account",
-            "update account set balance",
-        ]
-        query_lower = query.lower()
-        for pattern in dangerous_patterns:
-            if pattern in query_lower:
-                return False
-        return True
-
-
-_validator = DatabaseOperationValidator()
 
 # Session factory for the module-level engine (sessionmaker factory pattern).
 _session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False, class_=Session, expire_on_commit=False)
