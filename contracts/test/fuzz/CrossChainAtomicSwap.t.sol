@@ -28,18 +28,18 @@ contract CrossChainAtomicSwapFuzzTest is Test {
         vm.deal(initiator, 100 ether);
     }
 
-    function _initiateErc20(bytes32 swapId, uint256 amount, bytes32 hashlock) internal returns (uint256 timelock) {
+    function _initiateErc20(uint256 amount, bytes32 hashlock) internal returns (bytes32 id, uint256 timelock) {
         timelock = block.timestamp + 1 hours;
         vm.startPrank(initiator);
         token.approve(address(swap), amount);
-        swap.initiateSwap(swapId, participant, address(token), amount, hashlock, timelock);
+        id = swap.initiateSwap(participant, address(token), amount, hashlock, timelock);
         vm.stopPrank();
     }
 
     function testFuzz_InitiateSwapErc20(bytes32 swapId, uint256 amount, bytes32 hashlock) public {
         amount = bound(amount, 1, 400_000 * 10**18);
 
-        _initiateErc20(swapId, amount, hashlock);
+        (swapId, ) = _initiateErc20(amount, hashlock);
 
         (address init, address part, address tok, uint256 amt, bytes32 lock, , CrossChainAtomicSwap.SwapStatus status) =
             swap.swaps(swapId);
@@ -56,19 +56,20 @@ contract CrossChainAtomicSwapFuzzTest is Test {
         amount = bound(amount, 1, 50 ether);
 
         vm.prank(initiator);
-        swap.initiateSwap{value: amount}(swapId, participant, address(0), amount, hashlock, block.timestamp + 1 hours);
+        swapId = swap.initiateSwap{value: amount}(participant, address(0), amount, hashlock, block.timestamp + 1 hours);
 
         assertEq(address(swap).balance, amount);
     }
 
     function testFuzz_InitiateSwapRejectsDuplicateId(bytes32 swapId, uint256 amount) public {
         amount = bound(amount, 1, 100_000 * 10**18);
-        _initiateErc20(swapId, amount, bytes32(uint256(1)));
+        (swapId, ) = _initiateErc20(amount, bytes32(uint256(1)));
 
         vm.startPrank(initiator);
         token.approve(address(swap), amount);
+        // identical args in the same block derive the same id (#1101)
         vm.expectRevert("Swap ID already exists");
-        swap.initiateSwap(swapId, participant, address(token), amount, bytes32(uint256(2)), block.timestamp + 1 hours);
+        swapId = swap.initiateSwap(participant, address(token), amount, bytes32(uint256(1)), block.timestamp + 1 hours);
         vm.stopPrank();
     }
 
@@ -76,17 +77,17 @@ contract CrossChainAtomicSwapFuzzTest is Test {
         vm.assume(timelock <= block.timestamp);
 
         vm.expectRevert("Timelock must be in the future");
-        swap.initiateSwap(swapId, participant, address(token), 1, bytes32(0), timelock);
+        swapId = swap.initiateSwap(participant, address(token), 1, bytes32(0), timelock);
     }
 
     function testFuzz_InitiateSwapRejectsZeroAmount(bytes32 swapId) public {
         vm.expectRevert("Amount must be > 0");
-        swap.initiateSwap(swapId, participant, address(token), 0, bytes32(0), block.timestamp + 1 hours);
+        swapId = swap.initiateSwap(participant, address(token), 0, bytes32(0), block.timestamp + 1 hours);
     }
 
     function testFuzz_InitiateSwapRejectsZeroParticipant(bytes32 swapId) public {
         vm.expectRevert("Invalid participant");
-        swap.initiateSwap(swapId, address(0), address(token), 1, bytes32(0), block.timestamp + 1 hours);
+        swapId = swap.initiateSwap(address(0), address(token), 1, bytes32(0), block.timestamp + 1 hours);
     }
 
     function testFuzz_InitiateSwapRejectsMismatchedNativeValue(bytes32 swapId, uint256 amount) public {
@@ -94,7 +95,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
 
         vm.prank(initiator);
         vm.expectRevert("Incorrect ETH amount sent");
-        swap.initiateSwap{value: amount - 1}(swapId, participant, address(0), amount, bytes32(0), block.timestamp + 1 hours);
+        swapId = swap.initiateSwap{value: amount - 1}(participant, address(0), amount, bytes32(0), block.timestamp + 1 hours);
     }
 
     function testFuzz_InitiateSwapRejectsEthWithToken(bytes32 swapId, uint256 amount) public {
@@ -103,14 +104,14 @@ contract CrossChainAtomicSwapFuzzTest is Test {
         vm.startPrank(initiator);
         token.approve(address(swap), amount);
         vm.expectRevert("ETH sent but ERC20 token specified");
-        swap.initiateSwap{value: 1}(swapId, participant, address(token), amount, bytes32(0), block.timestamp + 1 hours);
+        swapId = swap.initiateSwap{value: 1}(participant, address(token), amount, bytes32(0), block.timestamp + 1 hours);
         vm.stopPrank();
     }
 
     function testFuzz_CompleteSwap(bytes32 swapId, bytes32 secret, uint256 amount) public {
         amount = bound(amount, 1, 100_000 * 10**18);
         bytes32 hashlock = sha256(abi.encodePacked(secret));
-        _initiateErc20(swapId, amount, hashlock);
+        (swapId, ) = _initiateErc20(amount, hashlock);
 
         swap.completeSwap(swapId, secret);
 
@@ -124,7 +125,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
         bytes32 hashlock = sha256(abi.encodePacked(secret));
 
         vm.prank(initiator);
-        swap.initiateSwap{value: amount}(swapId, participant, address(0), amount, hashlock, block.timestamp + 1 hours);
+        swapId = swap.initiateSwap{value: amount}(participant, address(0), amount, hashlock, block.timestamp + 1 hours);
 
         uint256 before = participant.balance;
         swap.completeSwap(swapId, secret);
@@ -136,7 +137,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
     {
         vm.assume(sha256(abi.encodePacked(wrongSecret)) != sha256(abi.encodePacked(secret)));
         amount = bound(amount, 1, 100_000 * 10**18);
-        _initiateErc20(swapId, amount, sha256(abi.encodePacked(secret)));
+        (swapId, ) = _initiateErc20(amount, sha256(abi.encodePacked(secret)));
 
         vm.expectRevert("Invalid secret");
         swap.completeSwap(swapId, wrongSecret);
@@ -144,7 +145,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
 
     function testFuzz_CompleteSwapRevertsAfterExpiry(bytes32 swapId, bytes32 secret, uint256 amount) public {
         amount = bound(amount, 1, 100_000 * 10**18);
-        uint256 timelock = _initiateErc20(swapId, amount, sha256(abi.encodePacked(secret)));
+        uint256 timelock; (swapId, timelock) = _initiateErc20(amount, sha256(abi.encodePacked(secret)));
 
         vm.warp(timelock);
         vm.expectRevert("Swap timelock expired");
@@ -153,7 +154,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
 
     function testFuzz_RefundSwap(bytes32 swapId, uint256 amount, bytes32 hashlock) public {
         amount = bound(amount, 1, 100_000 * 10**18);
-        uint256 timelock = _initiateErc20(swapId, amount, hashlock);
+        uint256 timelock; (swapId, timelock) = _initiateErc20(amount, hashlock);
 
         vm.warp(timelock);
         uint256 before = token.balanceOf(initiator);
@@ -168,7 +169,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
         amount = bound(amount, 1, 50 ether);
 
         vm.prank(initiator);
-        swap.initiateSwap{value: amount}(swapId, participant, address(0), amount, hashlock, block.timestamp + 1 hours);
+        swapId = swap.initiateSwap{value: amount}(participant, address(0), amount, hashlock, block.timestamp + 1 hours);
 
         uint256 before = initiator.balance;
         vm.warp(block.timestamp + 1 hours + 1);
@@ -178,7 +179,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
 
     function testFuzz_RefundRevertsBeforeExpiry(bytes32 swapId, uint256 amount, bytes32 hashlock) public {
         amount = bound(amount, 1, 100_000 * 10**18);
-        _initiateErc20(swapId, amount, hashlock);
+        (swapId, ) = _initiateErc20(amount, hashlock);
 
         vm.expectRevert("Swap timelock not yet expired");
         swap.refundSwap(swapId);
@@ -191,7 +192,7 @@ contract CrossChainAtomicSwapFuzzTest is Test {
 
     function testFuzz_DoubleCompleteReverts(bytes32 swapId, bytes32 secret, uint256 amount) public {
         amount = bound(amount, 1, 100_000 * 10**18);
-        _initiateErc20(swapId, amount, sha256(abi.encodePacked(secret)));
+        (swapId, ) = _initiateErc20(amount, sha256(abi.encodePacked(secret)));
         swap.completeSwap(swapId, secret);
 
         vm.expectRevert("Swap is not open");
