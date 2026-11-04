@@ -84,6 +84,7 @@ check_nodejs() {
 
 # Function to check system requirements
 check_system() {
+    local _err_before=${#ERRORS[@]}
     echo -e "\n📋 Checking System Requirements..."
 
     # Check OS
@@ -139,11 +140,12 @@ check_system() {
         WARNINGS+=("CPU cores $CPU_CORES is below recommended 4")
     fi
 
-    echo -e "${GREEN}✅ System requirements check passed${NC}"
+    if [ "$_err_before" -eq "${#ERRORS[@]}" ]; then echo -e "${GREEN}✅ System requirements check passed${NC}"; fi
 }
 
 # Function to check network requirements
 check_network() {
+    local _err_before=${#ERRORS[@]}
     echo -e "\n📋 Checking Network Requirements..."
 
     # Check if required ports are available
@@ -164,11 +166,12 @@ check_network() {
     # the network path, so these port checks describe a development box only.
     echo -e "${BLUE}ℹ️  Note: production nodes are containers; the container host owns the network path${NC}"
 
-    echo -e "${GREEN}✅ Network requirements check passed${NC}"
+    if [ "$_err_before" -eq "${#ERRORS[@]}" ]; then echo -e "${GREEN}✅ Network requirements check passed${NC}"; fi
 }
 
 # Function to check required packages
 check_packages() {
+    local _err_before=${#ERRORS[@]}
     echo -e "\n📋 Checking Required Packages..."
 
     REQUIRED_PACKAGES=("sqlite3" "git" "curl" "wget")
@@ -184,15 +187,16 @@ check_packages() {
         ERRORS+=("Missing required packages: ${MISSING_PACKAGES[*]}")
     fi
 
-    echo -e "${GREEN}✅ Package requirements check passed${NC}"
+    if [ "$_err_before" -eq "${#ERRORS[@]}" ]; then echo -e "${GREEN}✅ Package requirements check passed${NC}"; fi
 }
 
-# Run all checks
-check_python
-check_nodejs
-check_system
-check_network
-check_packages
+# Run all checks — || true so a failing section cannot abort under
+# set -e before the error summary prints.
+check_python || true
+check_nodejs || true
+check_system || true
+check_network || true
+check_packages || true
 
 # Display results
 echo -e "\n📊 Validation Results"
