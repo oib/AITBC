@@ -130,3 +130,52 @@ def test_matrix_patterns_match_at_least_one_published_route():
         if pattern not in infra and not any(_fnmatch.fnmatch(p, pattern) for p in registered)
     )
     assert unmatched == [], f"matrix patterns matching no registered route: {unmatched}"
+
+
+def test_sensitive_routes_have_their_exact_levels():
+    """Each new entry's level is a security decision — pin it (#1073)."""
+    cases = {
+        # scrape targets, same as /prometheus
+        "/metrics": AuthLevel.NONE,
+        "/rate-limit-metrics": AuthLevel.NONE,
+        # state dump leaks the whole chain table
+        "/v1/state/dump": AuthLevel.ADMIN,
+        # logout needs a valid token, nothing more
+        "/v1/logout": AuthLevel.ANY,
+        # handlers take AuthDep; ANY is the matrix floor for the path family
+        "/v1/market/gpu/abc-123": AuthLevel.ANY,
+        "/v1/market/gpu/abc-123/reviews": AuthLevel.ANY,
+        # miner-owned write routes
+        "/v1/market/sync-offers": AuthLevel.MINER,
+        "/v1/market/providers/miner-1/capacity": AuthLevel.MINER,
+        "/v1/tasks/ollama": AuthLevel.MINER,
+        # families whose handlers carry their own auth deps
+        "/v1/hipaa/consent": AuthLevel.ANY,
+        "/v1/economic-proposals": AuthLevel.ANY,
+        "/v1/economic-proposals/prop-1": AuthLevel.ANY,
+        "/v1/agent-creativity/capabilities": AuthLevel.ANY,
+        "/v1/oracle/price/BTC-USD": AuthLevel.ANY,
+        "/v1/agents/security/trust-scores": AuthLevel.ANY,
+    }
+    wrong = [p for p, lvl in cases.items() if get_auth_level(p) is not lvl]
+    assert wrong == [], f"routes resolving to the wrong auth level: {wrong}"
+
+
+def test_dropped_patterns_match_no_registered_route():
+    """The four entries removed in #1073 matched no real route — pin that."""
+    dropped = ["/v1/market/gpu/*/delete", "/v1/market/gpu/bid", "/v1/blockchain*", "/v1/security*"]
+    import re as _re
+
+    def wild(path: str) -> str:
+        return _re.sub(r"\{[^}]+\}", "*", path)
+
+    import fnmatch as _fnmatch
+
+    registered = {wild(r.path) for r in app.routes if getattr(r, "path", None)}
+    hits = [f"{pat} -> {p}" for pat in dropped for p in registered if _fnmatch.fnmatch(p, pat)]
+    assert hits == [], f"dropped patterns that DO match registered routes: {hits}"
+
+
+def test_anonymous_deny_still_applies_to_unregistered_routes():
+    """The deny-by-default floor must survive — a brand new path is denied."""
+    assert get_auth_level("/v1/no-such-route-ever") is AuthLevel.DENY
