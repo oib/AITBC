@@ -498,6 +498,11 @@ class ChainSettings(BaseSettings):
     gossip_auth_enabled: bool = os.getenv("GOSSIP_AUTH_ENABLED", "true").lower() in ("1", "true", "yes", "on")
     gossip_auth_timeout: float = float(os.getenv("GOSSIP_AUTH_TIMEOUT", "5.0"))
     gossip_auth_challenge_ttl: float = float(os.getenv("GOSSIP_AUTH_CHALLENGE_TTL", "60.0"))
+    # Scoped (payload-bound) gossip signatures (#1128). Off while the fleet
+    # rolls out: unscoped signatures are still accepted so old and new nodes
+    # keep gossiping mid-restart. Flip on only after every host is on the new
+    # build — per the issue, the flip is a separate planned step.
+    gossip_auth_require_scope: bool = os.getenv("GOSSIP_AUTH_REQUIRE_SCOPE", "false").lower() in ("1", "true", "yes")
     gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
     gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))
