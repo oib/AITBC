@@ -42,9 +42,10 @@ def _payload(**overrides) -> dict:
     return base
 
 
-def _seed_mappings(db_session: Session) -> None:
-    db_session.add(User(id="client-1", email="c@x.com", username="client-1"))
-    db_session.add(Wallet(user_id="client-1", address=BUYER.lower()))
+def _seed_mappings(db_session: Session, user_id: str = "bind-client-1") -> None:
+    if db_session.get(User, user_id) is None:
+        db_session.add(User(id=user_id, email=f"{user_id}@example.com", username=user_id))
+    db_session.add(Wallet(user_id=user_id, address=BUYER.lower()))
     db_session.add(AgentIdentity(agent_id=BUYER_AGENT, owner_address=BUYER.lower()))
     db_session.add(AgentIdentity(agent_id=PROVIDER_AGENT, owner_address=PROVIDER.lower()))
     db_session.add(
@@ -62,11 +63,12 @@ def _token(sub: str) -> dict[str, str]:
 
 class TestEscrowRelayAgentBinding:
     def test_relay_stores_agent_binding(self, client, db_session):
-        _seed_mappings(db_session)
+        user_id = "bind-client-happy"
+        _seed_mappings(db_session, user_id)
         mock_client = AsyncMock()
         mock_client.post.return_value = {"contract_id": "0xc1", "success": True}
         with patch(PATCH_TARGET, return_value=mock_client):
-            resp = client.post("/v1/escrow/relay", json=_payload(), headers=_token("client-1"))
+            resp = client.post("/v1/escrow/relay", json=_payload(), headers=_token(user_id))
         assert resp.status_code == 200, resp.text
         sent = mock_client.post.call_args.kwargs["json"]
         assert sent["buyer_agent_id"] == BUYER_AGENT
@@ -77,23 +79,26 @@ class TestEscrowRelayAgentBinding:
         assert row.provider_agent_id == PROVIDER_AGENT
 
     def test_relay_rejects_buyer_address_mismatch(self, client, db_session):
-        _seed_mappings(db_session)
+        user_id = "bind-client-mismatch"
+        _seed_mappings(db_session, user_id)
         mock_client = AsyncMock()
         with patch(PATCH_TARGET, return_value=mock_client):
             resp = client.post(
                 "/v1/escrow/relay",
                 json=_payload(buyer="0x11cD222222eF3496344cFA78fe025c3B48Caf435"),
-                headers=_token("client-1"),
+                headers=_token(user_id),
             )
         assert resp.status_code == 400
         mock_client.post.assert_not_called()
 
     def test_relay_unknown_agent_404(self, client, db_session):
-        db_session.add(User(id="client-1", email="c@x.com", username="client-1"))
-        db_session.add(Wallet(user_id="client-1", address=BUYER.lower()))
+        user_id = "bind-client-unknown"
+        if db_session.get(User, user_id) is None:
+            db_session.add(User(id=user_id, email=f"{user_id}@example.com", username=user_id))
+        db_session.add(Wallet(user_id=user_id, address=BUYER.lower()))
         db_session.commit()
         mock_client = AsyncMock()
         with patch(PATCH_TARGET, return_value=mock_client):
-            resp = client.post("/v1/escrow/relay", json=_payload(), headers=_token("client-1"))
+            resp = client.post("/v1/escrow/relay", json=_payload(), headers=_token(user_id))
         assert resp.status_code == 404
         mock_client.post.assert_not_called()
