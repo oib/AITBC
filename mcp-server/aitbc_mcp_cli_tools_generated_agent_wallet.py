@@ -32,7 +32,7 @@ def aitbc_agent_wallet_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Show the wallet balance and allocation for a given agent ID."""
+    """Show simulated wallet balance (not coordinator spend sessions — see agent-identity API)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -61,7 +61,7 @@ def aitbc_agent_wallet_rebalance(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Rebalance an agent wallet by reinvesting the specified earnings."""
+    """Simulate rebalance (no on-chain tx). Use coordinator spend sessions for real caps."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
