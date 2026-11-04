@@ -5882,38 +5882,6 @@
       }
     },
     "/api/v1/agent/workflows": {
-      "get": {
-        "tags": [
-          "workflows"
-        ],
-        "summary": "List workflows",
-        "description": "List all workflow definitions",
-        "operationId": "list_workflows_api_v1_agent_workflows_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response List Workflows Api V1 Agent Workflows Get"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
         "tags": [
           "workflows"
@@ -5921,15 +5889,33 @@
         "summary": "Create workflow",
         "description": "Create a new workflow definition",
         "operationId": "create_workflow_api_v1_agent_workflows_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateWorkflowRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -5963,6 +5949,38 @@
             }
           }
         }
+      },
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "List workflows",
+        "description": "List all workflow definitions",
+        "operationId": "list_workflows_api_v1_agent_workflows_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Workflows Api V1 Agent Workflows Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/agent/workflows/{workflow_id}/execute": {
@@ -5981,6 +5999,22 @@
             "schema": {
               "type": "string",
               "title": "Workflow Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
             }
           }
         ],
