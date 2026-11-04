@@ -446,7 +446,7 @@ class BlockImportMixin(SyncBase):
         except (ValueError, TypeError):
             timestamp = datetime.now(UTC)
         tx_count = block_data.get("tx_count", 0)
-        if transactions:
+        if transactions and get_block_version(block_data, block_data.get("height", 0)) < 20:
             tx_count = len(transactions)
 
         # Build the Block object early so we can run proposer-schedule validation
@@ -489,6 +489,36 @@ class BlockImportMixin(SyncBase):
         # New blocks carry an explicit version in block_metadata; unversioned
         # legacy blocks fall back to the configured v2 activation height.
         block_version = get_block_version(block_data, block_data["height"])
+
+        if block_version >= 20 and block_data.get("hash"):
+            # v20+: the signed block hash must reproduce over the delivered tx
+            # list — a relayed list that does not hash to it is rejected (#1064).
+            from .consensus.block_hash import compute_block_hash
+
+            delivered_hashes = [str(tx.get("tx_hash", "")) for tx in transactions or []]
+            recomputed = compute_block_hash(
+                self._chain_id,
+                int(block_data["height"]),
+                str(block_data.get("parent_hash", "")),
+                timestamp_str,
+                delivered_hashes,
+                str(block_data.get("proposer", "")),
+                str(block_data.get("state_root") or ""),
+                str(block_data.get("bridge_state_root") or ""),
+                str(block_data.get("aux_state_root") or ""),
+            )
+            if recomputed != str(block_data["hash"]):
+                metrics_registry.increment("sync_blocks_rejected_total")
+                logger.warning(
+                    "Block rejected at v20+: delivered tx list does not hash to the signed block hash at height %s",
+                    block_data["height"],
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=block_data["height"],
+                    block_hash=block_data.get("hash", ""),
+                    reason="tx_list_hash_mismatch",
+                )
 
         if transactions:
             # Parallel transaction validation path (v0.6.1).
@@ -753,7 +783,12 @@ class BlockImportMixin(SyncBase):
                         and use_account_nonce_override(tx_data, block_version)
                     ):
                         tx_data["nonce"] = sender_acct.nonce
-                    if "value" not in tx_data and "amount" in tx_data:
+                    if block_version >= 20:
+                        # v20+: value is unsigned — the signed amount always
+                        # wins, exactly as the proposer does (#1066).
+                        if "amount" in tx_data:
+                            tx_data["value"] = tx_data["amount"]
+                    elif "value" not in tx_data and "amount" in tx_data:
                         tx_data["value"] = tx_data["amount"]
                     state_transition = get_state_transition()
                     success, error_msg = state_transition.apply_transaction(
@@ -788,7 +823,7 @@ class BlockImportMixin(SyncBase):
                         value=tx_data.get("value", tx_data.get("amount", 0)),
                         fee=tx_data.get("fee", 0),
                         nonce=tx_data.get("nonce", 0),
-                        status="confirmed",
+                        status="confirmed" if success or block_version < 20 else "failed",
                     )
                     existing_tx = session.exec(
                         select(ChainTransaction)
