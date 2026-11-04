@@ -34,8 +34,7 @@ run_scenario() {
     echo "================================"
 
     if [ -f "$script_path" ]; then
-        bash "$script_path"
-        local exit_code=$?
+        bash "$script_path" && exit_code=0 || exit_code=$?
         if [ $exit_code -eq 0 ]; then
             echo "✅ $scenario_name completed successfully"
         else
@@ -52,6 +51,7 @@ run_scenario() {
 check_prerequisites() {
     echo "🔍 Checking prerequisites..."
     echo "=========================="
+    local failed=0
 
     # Check if aitbc CLI is available
     if command -v aitbc &> /dev/null; then
@@ -71,14 +71,14 @@ check_prerequisites() {
     if curl -sf http://127.0.0.1:8102/health &> /dev/null; then
         echo "✅ aitbc market accessible (port 8102)"
     else
-        echo "❌ aitbc market not accessible (port 8102)"
+        echo "❌ aitbc market not accessible (port 8102)"; failed=1
     fi
 
     # Check ${NODE1_HOST} connectivity
     if curl -sf http://${NODE1_HOST}:8102/health &> /dev/null; then
         echo "✅ ${NODE1_HOST} market accessible (port 8102)"
     else
-        echo "❌ ${NODE1_HOST} market not accessible (port 8102)"
+        echo "❌ ${NODE1_HOST} market not accessible (port 8102)"; failed=1
     fi
 
     # Check Ollama
@@ -86,7 +86,7 @@ check_prerequisites() {
         echo "✅ Ollama GPU service available"
         ollama list | head -3
     else
-        echo "❌ Ollama GPU service not available"
+        echo "❌ Ollama GPU service not available"; failed=1
     fi
 
     # Check SSH access to containers
@@ -96,13 +96,13 @@ check_prerequisites() {
     if ssh "${AITBC_NODE1_CONTAINER_SSH:?set AITBC_NODE1_CONTAINER_SSH to the ssh target for the container on node1}" "echo 'SSH OK'" &> /dev/null; then
         echo "✅ SSH access to aitbc container"
     else
-        echo "❌ SSH access to aitbc container failed"
+        echo "❌ SSH access to aitbc container failed"; failed=1
     fi
 
     if ssh ${NODE1_CONTAINER_SSH} "echo 'SSH OK'" &> /dev/null; then
         echo "✅ SSH access to ${NODE1_HOST} container"
     else
-        echo "❌ SSH access to ${NODE1_HOST} container failed"
+        echo "❌ SSH access to ${NODE1_HOST} container failed"; failed=1
     fi
 
     echo ""
@@ -113,18 +113,19 @@ check_prerequisites() {
     if [ -f "$home_dir/miner1/miner_wallet.json" ]; then
         echo "✅ miner1 configuration found"
     else
-        echo "❌ miner1 configuration missing"
+        echo "❌ miner1 configuration missing"; failed=1
     fi
 
     if [ -f "$home_dir/client1/client_wallet.json" ]; then
         echo "✅ client1 configuration found"
     else
-        echo "❌ client1 configuration missing"
+        echo "❌ client1 configuration missing"; failed=1
     fi
 
     echo ""
     echo "🔧 Prerequisite check complete"
     echo "=============================="
+    [ "$failed" -eq 0 ]
 }
 
 # Function to run comprehensive CLI tests
@@ -212,32 +213,25 @@ main() {
     fi
     scenario_count=$((scenario_count + 1))
 
-    # Run scenario tests
-    local scenarios=(
-        "Scenario A: Localhost GPU Miner → aitbc Market:$PROJECT_ROOT/test_scenario_a.sh"
-        "Scenario B: Localhost GPU Client → ${NODE1_HOST} Market:$PROJECT_ROOT/test_scenario_b.sh"
-        "Scenario C: aitbc Container User Operations:$PROJECT_ROOT/test_scenario_c.sh"
-        "Scenario D: ${NODE1_HOST} Container User Operations:$PROJECT_ROOT/test_scenario_d.sh"
-    )
-
-    for scenario_info in "${scenarios[@]}"; do
-        IFS=':' read -r scenario_name script_path <<< "$scenario_info"
-        scenario_count=$((scenario_count + 1))
-
-        if run_scenario "$scenario_name" "$script_path"; then
-            passed_count=$((passed_count + 1))
-        fi
+    # Scenarios A-D (test_scenario_*.sh) were removed from the repo; say so
+    # instead of reporting them as failures.
+    for s in "Scenario A (localhost miner → market)" "Scenario B (localhost client → node market)"              "Scenario C (container user operations)" "Scenario D (${NODE1_HOST} user operations)"; do
+        echo "⏭️  $s: removed"
     done
 
     # Run comprehensive test suite
     echo ""
     echo "🔧 Running Comprehensive Test Suite"
     echo "=================================="
-    if python3 "$PROJECT_ROOT/test_multi_site.py"; then
-        echo "✅ Comprehensive test suite passed"
-        passed_count=$((passed_count + 1))
+    if [ -f "$PROJECT_ROOT/test_multi_site.py" ]; then
+        if python3 "$PROJECT_ROOT/test_multi_site.py"; then
+            echo "✅ Comprehensive test suite passed"
+            passed_count=$((passed_count + 1))
+        else
+            echo "❌ Comprehensive test suite failed"
+        fi
     else
-        echo "❌ Comprehensive test suite failed"
+        echo "⏭️  Comprehensive test suite: removed (test_multi_site.py is gone)"
     fi
     scenario_count=$((scenario_count + 1))
 
@@ -254,19 +248,23 @@ case "${1:-all}" in
         run_cli_tests
         ;;
     "scenario-a")
-        run_scenario "Scenario A" "$PROJECT_ROOT/test_scenario_a.sh"
+        echo "⏭️  Scenario A: removed (test_scenario_a.sh is gone)"
         ;;
     "scenario-b")
-        run_scenario "Scenario B" "$PROJECT_ROOT/test_scenario_b.sh"
+        echo "⏭️  Scenario B: removed (test_scenario_b.sh is gone)"
         ;;
     "scenario-c")
-        run_scenario "Scenario C" "$PROJECT_ROOT/test_scenario_c.sh"
+        echo "⏭️  Scenario C: removed (test_scenario_c.sh is gone)"
         ;;
     "scenario-d")
-        run_scenario "Scenario D" "$PROJECT_ROOT/test_scenario_d.sh"
+        echo "⏭️  Scenario D: removed (test_scenario_d.sh is gone)"
         ;;
     "comprehensive")
-        python3 "$PROJECT_ROOT/test_multi_site.py"
+        if [ -f "$PROJECT_ROOT/test_multi_site.py" ]; then
+            python3 "$PROJECT_ROOT/test_multi_site.py"
+        else
+            echo "⏭️  Comprehensive test suite: removed (test_multi_site.py is gone)"
+        fi
         ;;
     "all"|*)
         main
