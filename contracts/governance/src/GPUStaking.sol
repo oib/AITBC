@@ -54,6 +54,10 @@ contract GPUStaking is Ownable, ReentrancyGuard {
     mapping(address => RewardInfo) public rewards;
 
     uint256 public poolCounter;
+    // Per-pool reward accounting: a claim is bounded by the provider's
+    // contribution to the named pool and by that pool's reward budget.
+    mapping(uint256 => mapping(address => uint256)) public poolLastRewardTime;
+    mapping(uint256 => mapping(address => uint256)) public poolBankedRewards;
     uint256 public constant MAX_UTILIZATION = 10000; // 100%
     uint256 public constant SECONDS_PER_DAY = 86400;
 
@@ -152,8 +156,14 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         resource.lastRewardTime = block.timestamp;
         resource.gpuSpecs = gpuSpecs;
 
-        // Update staking pool
+        // Update staking pool. Bank rewards accrued under the previous
+        // contribution before the share changes, and restart the pool clock.
         StakingPool storage pool = stakingPools[poolId];
+        if (pool.providerContributions[msg.sender] > 0) {
+            poolBankedRewards[poolId][msg.sender] = poolBankedRewards[poolId][msg.sender]
+                .add(_calculatePendingRewards(msg.sender, poolId));
+        }
+        poolLastRewardTime[poolId][msg.sender] = block.timestamp;
         pool.totalGPUPower = pool.totalGPUPower.add(gpuPower);
         pool.totalStaked = pool.totalStaked.add(stakeAmount);
         pool.providerContributions[msg.sender] = pool.providerContributions[msg.sender].add(gpuPower);
@@ -182,6 +192,11 @@ contract GPUStaking is Ownable, ReentrancyGuard {
             "Still locked"
         );
 
+        // Bank rewards accrued so far; the contribution shrinks below.
+        poolBankedRewards[poolId][msg.sender] = poolBankedRewards[poolId][msg.sender]
+            .add(_calculatePendingRewards(msg.sender, poolId));
+        poolLastRewardTime[poolId][msg.sender] = block.timestamp;
+
         // Calculate proportional stake amount to return
         uint256 stakeToReturn = (gpuPower.mul(resource.stakeAmount)).div(resource.gpuPower);
 
@@ -209,21 +224,30 @@ contract GPUStaking is Ownable, ReentrancyGuard {
      * @dev Claim pending rewards
      * @param poolId ID of the staking pool
      */
-    function claimRewards(uint256 poolId) external nonReentrant validPool(poolId) onlyProvider(msg.sender) {
-        uint256 rewardAmount = _calculatePendingRewards(msg.sender, poolId);
+    function claimRewards(uint256 poolId) external nonReentrant validPool(poolId) {
+        StakingPool storage pool = stakingPools[poolId];
+        uint256 amount = poolBankedRewards[poolId][msg.sender]
+            .add(_calculatePendingRewards(msg.sender, poolId));
 
-        require(rewardAmount > 0, "No rewards to claim");
+        require(amount > 0, "No rewards to claim");
+
+        // Advance the pool clock and debit the reward pool; a claim can
+        // never pay more than the pool holds. Any excess stays banked.
+        poolLastRewardTime[poolId][msg.sender] = block.timestamp;
+        uint256 payout = amount > pool.rewardPool ? pool.rewardPool : amount;
+        pool.rewardPool = pool.rewardPool.sub(payout);
+        poolBankedRewards[poolId][msg.sender] = amount.sub(payout);
 
         // Update reward info
         RewardInfo storage rewardInfo = rewards[msg.sender];
-        rewardInfo.totalRewards = rewardInfo.totalRewards.add(rewardAmount);
+        rewardInfo.totalRewards = rewardInfo.totalRewards.add(payout);
         rewardInfo.pendingRewards = 0;
         rewardInfo.lastClaimTime = block.timestamp;
 
         // Transfer rewards
-        require(stakingToken.transfer(msg.sender, rewardAmount), "Transfer failed");
+        require(stakingToken.transfer(msg.sender, payout), "Transfer failed");
 
-        emit RewardsClaimed(msg.sender, rewardAmount);
+        emit RewardsClaimed(msg.sender, payout);
     }
 
     /**
@@ -301,7 +325,8 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         address provider,
         uint256 poolId
     ) external view returns (uint256) {
-        return _calculatePendingRewards(provider, poolId);
+        return poolBankedRewards[poolId][provider]
+            .add(_calculatePendingRewards(provider, poolId));
     }
 
     /**
@@ -367,12 +392,24 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         GPUResource storage resource = gpuResources[provider];
         StakingPool storage pool = stakingPools[poolId];
 
-        if (!resource.isActive || pool.totalGPUPower == 0) {
+        // The share is the provider's contribution to this pool, so naming a
+        // pool the provider never joined yields zero rather than a share of
+        // another pool's power.
+        uint256 providerPower = pool.providerContributions[provider];
+        if (!resource.isActive || pool.totalGPUPower == 0 || providerPower == 0) {
             return 0;
         }
 
-        uint256 timePassed = block.timestamp.sub(resource.lastRewardTime);
-        uint256 providerShare = (resource.gpuPower.mul(1e18)).div(pool.totalGPUPower);
+        uint256 lastTime = poolLastRewardTime[poolId][provider];
+        if (lastTime == 0) {
+            lastTime = resource.lastRewardTime; // positions predating the per-pool clock
+        }
+        if (lastTime == 0 || block.timestamp <= lastTime) {
+            return 0;
+        }
+
+        uint256 timePassed = block.timestamp.sub(lastTime);
+        uint256 providerShare = providerPower.mul(1e18).div(pool.totalGPUPower);
 
         // Base rewards * utilization * provider share * time
         uint256 baseRewards = pool.rewardRate.mul(timePassed);
