@@ -34,4 +34,4 @@ pend=$(curl -sf --max-time 15 -H "X-API-Key: ${BRIDGE_LEDGER_API_KEY:-$BLOCKCHAI
 curl -sf --max-time 15 -X POST -H 'Content-Type: application/json' -H "X-API-Key: ${BRIDGE_LEDGER_API_KEY:-$BLOCKCHAIN_RPC_API_KEY}" \
   -d '{"status":"refunded"}' "$led/rpc/bridge/ledger/$row/status" >/dev/null || fail ledger-status "status writeback failed"
 echo "ledger round-trip ok: $row registered+refunded"
-ok ""
+ok no_tx

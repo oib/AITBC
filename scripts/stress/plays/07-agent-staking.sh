@@ -36,9 +36,22 @@ payload["signature"] = priv.sign_msg_hash(digest).to_hex()
 req = urllib.request.Request(os.environ["RPC_URL"] + os.environ["STRESS_PATH"],
     data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
 try:
-    print(urllib.request.urlopen(req, timeout=20).read().decode())
+    body = urllib.request.urlopen(req, timeout=20).read().decode()
 except urllib.error.HTTPError as e:
     print("HTTP", e.code, e.read().decode()); raise SystemExit(1)
+print(body)
+# #990: an HTTP 200 carrying an explicit failure status is still a failure —
+# and the body must make it into the log so the miss is diagnosable.
+try:
+    _j = json.loads(body)
+except Exception:
+    _j = {}
+if isinstance(_j, dict) and (
+    _j.get("success") is False
+    or str(_j.get("status", "")).lower() in ("error", "failed", "rejected", "refused")
+    or "error" in _j
+):
+    raise SystemExit(1)
 PYEOF
 }
 addr=$(python3 -c "import json;print(json.load(open('$WFILE')).get('address',''))" 2>/dev/null)
@@ -71,7 +84,7 @@ m=re.search(r"0x[0-9a-fA-F]{64}", sys.stdin.read()); print(m.group(0) if m else 
       printf '%s' "$resp" | grep -qiE "not.*unbond|window|mature|height" \
         && skip_mature "complete refused: $resp" || fail complete "complete failed: $resp"
     }
-    ok ""
+    ok no_tx
     ;;
   *) fail args "unknown leg $LEG";;
 esac

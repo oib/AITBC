@@ -35,7 +35,7 @@ print(m.group(0) if m else "")')
   [ -n "$JOB_ID" ] || fail submit "no job id"
   if [ -z "$OFFSET" ]; then
     echo "queued $JOB_ID — refund re-runnable with --job-id after expiry"
-    ok ""; exit 0
+    ok no_tx; exit 0
   fi
 fi
 
@@ -68,7 +68,7 @@ print(m.group(0) if m else "")')
     || fail refund "adversarial refund failed unexpectedly: $out"
   jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"refund refused at lock+$OFFSET\",\"job\":\"$JOB_ID\",\"lock_height\":$lock_h}"
   echo "refund refused at lock+$OFFSET as expected"
-  ok ""; exit 0
+  ok no_tx; exit 0
 fi
 
 out=$(cli ai refund --job-id "$JOB_ID" --reason "stress-1 escrow refund" --format json 2>&1) || {

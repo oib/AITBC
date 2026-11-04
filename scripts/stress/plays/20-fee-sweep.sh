@@ -12,4 +12,4 @@ rows=$(sqlite3 "$db" "select count(*), coalesce(sum(fee),0) from \"transaction\"
 cnt=${rows%%|*}; fees=${rows##*|}
 jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"ok\",\"sweeps\":$cnt,\"swept_fees\":$fees}"
 echo "fee-sweep: $cnt emissions, $fees fees swept"
-ok ""
+ok no_tx
