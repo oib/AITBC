@@ -277,3 +277,24 @@ class TestInitMempool:
         init_mempool(backend="database", db_url=db_url, max_size=50, min_fee=0)
         pool = get_mempool()
         assert isinstance(pool, DatabaseMempool)
+
+    def test_drain_keeps_sender_nonce_order_despite_fees(self):
+        """#1068: a higher-fee later nonce must not leapfrog its predecessor."""
+        pool = InMemoryMempool()
+        pool.add({"sender": "alice", "from": "alice", "nonce": 2, "fee": 100, "signature": "s"})
+        pool.add({"sender": "alice", "from": "alice", "nonce": 1, "fee": 1, "signature": "s"})
+        pool.add({"sender": "bob", "from": "bob", "nonce": 1, "fee": 50, "signature": "s"})
+
+        drained = pool.drain(max_count=10, max_bytes=1_000_000)
+        nonces = [t.content["nonce"] for t in drained if t.content.get("from") == "alice"]
+        assert nonces == [1, 2]
+
+    def test_drain_leaves_gapped_nonce_in_pool(self):
+        """#1068: a nonce missing its predecessor stays behind."""
+        pool = InMemoryMempool()
+        pool.add({"sender": "carol", "from": "carol", "nonce": 7, "fee": 10, "signature": "s"})
+        pool.add({"sender": "carol", "from": "carol", "nonce": 9, "fee": 99, "signature": "s"})
+
+        drained = pool.drain(max_count=10, max_bytes=1_000_000)
+        assert [t.content["nonce"] for t in drained] == [7]
+        assert pool.size() == 1
