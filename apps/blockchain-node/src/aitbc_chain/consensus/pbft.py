@@ -662,6 +662,11 @@ class PBFTConsensus:
             if self._local_validator and message.sender != self._local_validator and key not in self._local_prepared:
                 await self.prepare_phase(self._local_validator, message)
         elif message.message_type == PBFTMessageType.PREPARE:
+            # Feed the slashing detector BEFORE the silent duplicate drop:
+            # a same-sender prepare for a different block at the same round is
+            # a double-sign — it used to vanish into the dedup branch (#1062).
+            if settings.consensus_slashing_enabled:
+                self.consensus.record_prepare(message.sender, message.block_hash, message.view_number)
             if key not in self.state.prepared_messages:
                 self.state.prepared_messages[key] = []
             if any(m.sender == message.sender for m in self.state.prepared_messages[key]):
