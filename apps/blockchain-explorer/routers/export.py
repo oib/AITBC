@@ -23,8 +23,12 @@ def export_search(format: str = "csv", type: str = "transactions", data: str = "
     try:
         if not data:
             raise HTTPException(status_code=400, detail="No data to export")
-
-        results = json.loads(data)
+        try:
+            results = json.loads(data)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="data is not valid JSON") from None
+        if not isinstance(results, list) or not all(isinstance(r, dict) for r in results):
+            raise HTTPException(status_code=400, detail="data must be a JSON list of objects")
 
         if format == "csv":
             output = io.StringIO()
@@ -74,6 +78,8 @@ def export_search(format: str = "csv", type: str = "transactions", data: str = "
         else:
             raise HTTPException(status_code=400, detail="Unsupported format")
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Unhandled exception")
 
@@ -119,6 +125,8 @@ async def export_blocks(format: str = "csv") -> StreamingResponse:
         else:
             raise HTTPException(status_code=400, detail="Unsupported format")
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Unhandled exception")
 
