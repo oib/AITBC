@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
@@ -62,12 +62,14 @@ class ExecutionResponse(BaseModel):
     steps: list[dict[str, Any]]
 
 
-@router.post("", summary="Create workflow", response_model=WorkflowResponse)
-async def create_workflow(
-    request: Request, req: CreateWorkflowRequest, x_api_key: str | None = Header(default=None)
-) -> dict[str, Any]:
-    """Create a new workflow definition"""
+def _require_workflow_key(x_api_key: str | None = Header(default=None)) -> str | None:
     _require_api_key(x_api_key)
+    return x_api_key
+
+
+@router.post("", summary="Create workflow", response_model=WorkflowResponse, dependencies=[Depends(_require_workflow_key)])
+async def create_workflow(request: Request, req: CreateWorkflowRequest) -> dict[str, Any]:
+    """Create a new workflow definition"""
     try:
         orchestrator = get_orchestrator()
         workflow = await orchestrator.create_workflow(
@@ -81,12 +83,14 @@ async def create_workflow(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/{workflow_id}/execute", summary="Execute workflow", response_model=ExecutionResponse)
-async def execute_workflow(
-    request: Request, workflow_id: str, req: ExecuteWorkflowRequest, x_api_key: str | None = Header(default=None)
-) -> dict[str, Any]:
+@router.post(
+    "/{workflow_id}/execute",
+    summary="Execute workflow",
+    response_model=ExecutionResponse,
+    dependencies=[Depends(_require_workflow_key)],
+)
+async def execute_workflow(request: Request, workflow_id: str, req: ExecuteWorkflowRequest) -> dict[str, Any]:
     """Execute a workflow"""
-    _require_api_key(x_api_key)
     try:
         orchestrator = get_orchestrator()
         execution = await orchestrator.execute_workflow(workflow_id=workflow_id, input_parameters=req.input_parameters)
@@ -148,7 +152,7 @@ async def list_executions(request: Request, workflow_id: str | None = None) -> d
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/executions/{execution_id}/cancel", summary="Cancel execution")
+@router.post("/executions/{execution_id}/cancel", summary="Cancel execution", dependencies=[Depends(_require_workflow_key)])
 async def cancel_execution(request: Request, execution_id: str) -> dict[str, Any]:
     """Cancel a workflow execution"""
     try:
