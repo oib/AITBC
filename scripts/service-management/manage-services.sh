@@ -205,36 +205,6 @@ except:
     done
 }
 
-# Add validator
-add_validator() {
-    local address="$1"
-    local stake="${2:-1000.0}"
-
-    if [[ -z "$address" ]]; then
-        log_error "Usage: $0 add-validator <address> [stake]"
-        exit 1
-    fi
-
-    log_info "Adding validator: $address (stake: $stake)"
-
-    cd "$AITBC_ROOT"
-    "$PYTHON_CMD" -c "
-import sys
-sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
-
-from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
-
-poa = MultiValidatorPoA(chain_id=1337)
-success = poa.add_validator('$address', float($stake))
-
-if success:
-    print(f'✅ Validator $address added successfully')
-    print(f'✅ Total validators: {len(poa.validators)}')
-else:
-    print(f'❌ Failed to add validator $address')
-"
-}
-
 # Show help
 show_help() {
     echo "AITBC Mesh Network Service Management"
@@ -249,13 +219,11 @@ show_help() {
     echo "  start-agents    Start agent services only"
     echo "  start-contracts Start contract services only"
     echo "  status          Check service status"
-    echo "  add-validator   Add new validator"
     echo "  help            Show this help"
     echo ""
     echo "Examples:"
     echo "  $0 start                    # Start all services"
     echo "  $0 status                   # Check status"
-    echo "  $0 add-validator 0x123...   # Add validator"
     echo ""
 }
 
@@ -283,9 +251,6 @@ case "${1:-help}" in
         ;;
     "status")
         check_status
-        ;;
-    "add-validator")
-        add_validator "${2:-}" "${3:-}"
         ;;
     "help"|"-h"|"--help")
         show_help
