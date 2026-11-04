@@ -299,6 +299,7 @@ tests/__pycache__/
 
 # GPU miner local configs
 scripts/gpu/*.local.py
+scripts/notifications/config.local.sh
 
 # Deployment secrets (CRITICAL SECURITY)
 scripts/deployment/*.secret.*
