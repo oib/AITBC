@@ -168,6 +168,7 @@ EOF
 }
 
 cp "$REPO_ROOT/scripts/utils/link-systemd.sh" "$FAKE_REPO/scripts/utils/"
+cp "$REPO_ROOT/scripts/utils/systemd-env.sh" "$FAKE_REPO/scripts/utils/"
 
 # =========================================================================
 echo "== role: follower:customer:nogpu — monitoring units linked, preserve works =="
