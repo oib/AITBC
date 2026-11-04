@@ -226,6 +226,7 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
         activePoolIds.push(poolId);
 
         emit RewardPoolCreated(poolId, token, totalRewards, "");
+        return poolId;
     }
 
     /**
