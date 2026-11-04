@@ -30,7 +30,10 @@ if [ -z "${STRESS_STATE_DIR:-}" ]; then
 else STATE_DIR="$STRESS_STATE_DIR"; fi
 RUN_LOG="${STRESS_RUN_LOG:-$STATE_DIR/stress-runs.jsonl}"
 FINDINGS_LOG="${STRESS_FINDINGS_LOG:-$STATE_DIR/stress-findings.jsonl}"
-SPEND_FILE="$STATE_DIR/spent-${WALLET}.units"
+# Daily window: the cap tracks what the plays actually spend per UTC day and
+# resets at midnight — an always-growing cumulative file never lets a long
+# stress session start clean (#991).
+SPEND_FILE="$STATE_DIR/spent-${WALLET}-$(date -u +%Y%m%d).units"
 SPEND_CAP="${STRESS_SPEND_CAP:-100000}"
 LOCK_DIR="$STATE_DIR/serial.lock"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
@@ -115,12 +118,13 @@ wait_seal() {  # wait_seal <tx_hash> [max_blocks] — poll until block_height
 }
 
 # ---------------------------------------------------------------- spend cap
-spend_guard() {  # spend_guard <units> — cumulative 100k cap per wallet
+spend_guard() {  # spend_guard <units> — 100k/day cap per wallet, real amounts
   local n="$1" cur; cur=$(cat "$SPEND_FILE" 2>/dev/null || echo 0)
   if [ $(( cur + n )) -gt "$SPEND_CAP" ]; then
     fail spend "cap exceeded: $cur + $n > $SPEND_CAP units for $WALLET"
   fi
   echo $(( cur + n )) > "$SPEND_FILE"
+  echo "spend headroom: $(( SPEND_CAP - cur - n ))/$SPEND_CAP units left today"
 }
 
 
