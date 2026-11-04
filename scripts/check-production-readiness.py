@@ -40,12 +40,33 @@ def check_redis_connectivity() -> bool:
         return False
 
 
+def _expected_services() -> list[str]:
+    """Which units this host must run — role-aware, not one fixed list (#1050).
+
+    A follower runs no coordinator-api and a hub runs both; demanding the
+    coordinator on every host made the check fail on a healthy follower.
+    Override entirely via AITBC_EXPECTED_SERVICES (comma-separated).
+    """
+    override = os.environ.get("AITBC_EXPECTED_SERVICES")
+    if override is not None:
+        return [s.strip() for s in override.split(",") if s.strip()]
+    node_env = Path("/etc/aitbc/node.env")
+    mode = ""
+    if node_env.exists():
+        for line in node_env.read_text().splitlines():
+            if line.startswith("BLOCKCHAIN_MODE="):
+                mode = line.split("=", 1)[1].strip()
+    services = ["aitbc-blockchain-node.service"]
+    if mode in ("hub", ""):
+        # Unknown role gets the hub set — a missing node.env is a setup problem,
+        # not evidence the coordinator may be skipped.
+        services.insert(0, "aitbc-coordinator-api.service")
+    return services
+
+
 def check_systemd_services() -> bool:
-    """Check if critical systemd services are running."""
-    critical_services = [
-        "aitbc-coordinator-api.service",
-        "aitbc-blockchain-node.service",
-    ]
+    """Check if the services this host's role requires are running."""
+    critical_services = _expected_services()
 
     all_ok = True
     for service in critical_services:
@@ -68,29 +89,31 @@ def check_systemd_services() -> bool:
 
 
 def check_secrets() -> bool:
-    """Check for placeholder secrets in service files."""
-    service_dir = Path("/opt/aitbc/apps")
-    placeholder_patterns = [
-        r"change-me",
-        r"REPLACE_WITH_SECRET",
-        r"placeholder",
-        r"changeme",
-        r"TODO.*secret",
-    ]
+    """Check the live env files for placeholder secret values (#1050).
+
+    Service files hold no secrets by design (they read EnvironmentFile), so
+    scanning them could never fail. The placeholders actually live in
+    /etc/aitbc/*.env — assignment lines whose value is a known placeholder.
+    """
+    env_dir = Path(os.environ.get("AITBC_ENV_DIR", "/etc/aitbc"))
+    placeholder_values = {"change-me", "changeme", "replace_with_secret", "placeholder"}
 
     all_ok = True
-    for service_file in service_dir.rglob("*.service"):
+    for env_file in sorted(env_dir.glob("*.env")):
         try:
-            content = service_file.read_text()
-            for pattern in placeholder_patterns:
-                if re.search(pattern, content, re.IGNORECASE):
-                    print(f"❌ Placeholder secret found in {service_file}")
+            for lineno, line in enumerate(env_file.read_text().splitlines(), 1):
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                    continue
+                _, value = stripped.split("=", 1)
+                if value.strip().strip('"').strip("'").lower() in placeholder_values:
+                    print(f"❌ Placeholder secret in {env_file}:{lineno}")
                     all_ok = False
         except Exception:
             continue
 
     if all_ok:
-        print("✅ No placeholder secrets found in service files")
+        print("✅ No placeholder secrets found in env files")
 
     return all_ok
 
