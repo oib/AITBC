@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -55,3 +56,26 @@ def test_env_with_legacy_address_is_migrated_and_backup_0600(tmp_path):
     assert "0x" + "ab" * 20 in env.read_text() or "0x" in env.read_text()
     backup = tmp_path / "app.env.pre-0x-migration"
     assert backup.exists() and (backup.stat().st_mode & 0o777) == 0o600
+
+
+def test_backups_are_0600_under_permissive_umask(tmp_path):
+    """Both backup copies hold secrets (private key / env lines): a permissive
+    umask must not widen them. Pin: Path.touch(0o600) on both backup paths."""
+    old = os.umask(0o000)  # most permissive: touch() without a mode would give 0666
+    try:
+        # wallet leg: stored address mismatches the derived one -> .pre-0x-mismatch
+        _wallet(tmp_path, "0x" + "00" * 20)
+        mod.migrate_wallets(tmp_path)
+        wb = tmp_path / "w.json.pre-0x-mismatch"
+        assert wb.exists(), "mismatch backup was not created"
+        assert (wb.stat().st_mode & 0o777) == 0o600
+
+        # env leg: a legacy ait1 address -> .pre-0x-migration
+        env = tmp_path / "app.env"
+        env.write_text("ADDR=ait1" + "cd" * 20 + "\n")
+        mod.migrate_env_files(tmp_path)
+        eb = tmp_path / "app.env.pre-0x-migration"
+        assert eb.exists(), "env backup was not created"
+        assert (eb.stat().st_mode & 0o777) == 0o600
+    finally:
+        os.umask(old)
