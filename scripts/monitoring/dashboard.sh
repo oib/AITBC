@@ -123,11 +123,10 @@ echo ""
 # Quick Actions
 echo -e "${CYAN}⚡ QUICK ACTIONS${NC}"
 echo "================================"
-echo "1. Add Validator:     ./scripts/manage-services.sh add-validator <address>"
-echo "2. Check Status:      ./scripts/manage-services.sh status"
-echo "3. Start Services:    ./scripts/manage-services.sh start"
-echo "4. View Logs:         tail -f logs/quick_deployment.log"
-echo "5. Deploy to ${NODE1_HOST}:  ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull && ./scripts/manage-services.sh start'"
+echo "1. Check Status:      systemctl status 'aitbc-*'"
+echo "2. Start Services:    systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-exchange aitbc-market aitbc-trading aitbc-wallet"
+echo "3. View Logs:         journalctl -f -u 'aitbc-*'"
+echo "4. Deploy to ${NODE1_HOST}:  ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull && ./update.sh'"
 
 echo ""
 

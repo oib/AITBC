@@ -11,8 +11,8 @@
 
 ```bash
 # Check status / start all services
-/opt/aitbc/scripts/service-management/manage-services.sh status
-/opt/aitbc/scripts/service-management/manage-services.sh start
+systemctl status 'aitbc-*'
+systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-market aitbc-trading aitbc-wallet
 
 # Systemd control
 systemctl status aitbc-wallet
