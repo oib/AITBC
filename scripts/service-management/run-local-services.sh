@@ -11,12 +11,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib/services.sh"
 echo "🚀 Starting AITBC Services for Domain Access"
 echo "=========================================="
 
-# Kill any existing manually-started services (legacy port cleanup)
-echo "Cleaning up existing manual processes..."
-sudo fuser -k 3001/tcp 2>/dev/null || true
-sudo fuser -k 3002/tcp 2>/dev/null || true
-pkill -f "server.py" 2>/dev/null || true
-
 # Create logs directory
 mkdir -p logs
 
@@ -24,6 +18,7 @@ echo ""
 echo "📦 Starting Services via systemd..."
 
 # Start all AITBC services via systemd, in the order lib/services.sh defines.
+START_FAILED=()
 step=1
 for svc in "${AITBC_SERVICES[@]}"; do
     port="${AITBC_SERVICE_PORTS[$svc]:-}"
@@ -32,7 +27,7 @@ for svc in "${AITBC_SERVICES[@]}"; do
     else
         echo "$step. Starting $svc..."
     fi
-    sudo systemctl start "$svc"
+    sudo -n systemctl start "$svc" || START_FAILED+=("$svc")
     step=$((step + 1))
 done
 
@@ -45,50 +40,31 @@ sleep 5
 echo ""
 echo "🧪 Testing Services..."
 
-echo -n "Coordinator API Health: "
-if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/health" > /dev/null 2>&1; then
-    echo "✅ OK"
-else
-    echo "❌ Failed"
-fi
+HEALTH_FAILED=()
+check() {  # name port path
+    echo -n "$1: "
+    if curl -fsS "http://127.0.0.1:$2$3" > /dev/null 2>&1; then
+        echo "✅ OK"
+    else
+        echo "❌ Failed"
+        HEALTH_FAILED+=("$1")
+    fi
+}
 
-echo -n "Blockchain RPC: "
-if curl -s http://127.0.0.1:8202/rpc/head > /dev/null 2>&1; then
-    echo "✅ OK"
-else
-    echo "❌ Failed"
-fi
-
-echo -n "Exchange: "
-if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}/health" > /dev/null 2>&1; then
-    echo "✅ OK"
-else
-    echo "❌ Failed"
-fi
-
-echo -n "Market: "
-if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}/health" > /dev/null 2>&1; then
-    echo "✅ OK"
-else
-    echo "❌ Failed"
-fi
-
-echo -n "Trading: "
-if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-trading]}/health" > /dev/null 2>&1; then
-    echo "✅ OK"
-else
-    echo "❌ Failed"
-fi
-
-echo -n "Wallet: "
-if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}/health" > /dev/null 2>&1; then
-    echo "✅ OK"
-else
-    echo "❌ Failed"
-fi
+check "Coordinator API Health" "${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}" /health
+check "Blockchain RPC"         "${AITBC_SERVICE_PORTS[aitbc-blockchain-rpc]}" /rpc/head
+check "Exchange"               "${AITBC_SERVICE_PORTS[aitbc-exchange]}" /health
+check "Market"                 "${AITBC_SERVICE_PORTS[aitbc-market]}" /health
+check "Trading"                "${AITBC_SERVICE_PORTS[aitbc-trading]}" /health
+check "Wallet"                 "${AITBC_SERVICE_PORTS[aitbc-wallet]}" /health
 
 echo ""
-echo "✅ All services started!"
+if [ "${#START_FAILED[@]}" -eq 0 ] && [ "${#HEALTH_FAILED[@]}" -eq 0 ]; then
+    echo "✅ All services started!"
+else
+    [ "${#START_FAILED[@]}" -gt 0 ] && echo "❌ failed to start: ${START_FAILED[*]}"
+    [ "${#HEALTH_FAILED[@]}" -gt 0 ] && echo "❌ failed health checks: ${HEALTH_FAILED[*]}"
+fi
 echo ""
 echo "📋 Local URLs:"
 echo "   Coordinator API: http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/v1"
@@ -106,3 +82,5 @@ echo "   Exchange: https://aitbc.bubuit.net/exchange"
 echo ""
 echo "📝 Logs: journalctl -u aitbc-exchange -f"
 echo "🛑 Stop services: ./stop-services.sh"
+
+[ "${#START_FAILED[@]}" -eq 0 ] && [ "${#HEALTH_FAILED[@]}" -eq 0 ] || exit 1
