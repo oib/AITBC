@@ -38491,7 +38491,7 @@
           "circuit_name": {
             "type": "string",
             "title": "Circuit Name",
-            "default": "receipt_simple"
+            "default": "receipt_public"
           },
           "inputs": {
             "additionalProperties": true,
