@@ -37,6 +37,23 @@ Owner-gated mutators use `_require_owned_identity` (see #1070).
 Cross-chain and registry routes remain unchanged; spend policy does not replace
 `CrossChainMapping`.
 
+## Agent-coordinator coin requests (separate from spend sessions)
+
+Hub **automatic coin grants** (WebSocket / `POST` registration path) stay in
+`apps/agent-coordinator` (`coin_request_policy.py`). They use rolling
+hourly/daily **faucet budgets** (`COIN_REQUEST_AUTO_BUDGET_*`, per-identity
+first-grant rule) and do **not** replace coordinator **spend sessions** or
+marketplace escrow caps.
+
+| Concern | Enforced where | Notes |
+| --- | --- | --- |
+| Auto-approve coin request size / window budgets | agent-coordinator | Faucet onboarding; not GPU escrow |
+| Session cap, expiry, `allowed_ops`, audit | coordinator-api `/spend-sessions` | Phase A; consumed on wallet execute |
+| Escrow lock agent binding | coordinator + chain | Phase D; resolve API |
+
+Operators tune both layers independently; see module docstring in
+`coin_request_policy.py` and spend-session REST above.
+
 ## Proposed spend-policy routes (Phase A)
 
 Extend agent-identity router (or nested `/spend-sessions`) — names are **draft**;
@@ -44,9 +61,9 @@ confirm against OpenAPI generator before implementation.
 
 | Method | Path | Caller | Body / params | Behavior |
 | --- | --- | --- | --- | --- |
-| POST | `/identities/{agent_id}/spend-sessions` | Owner JWT | cap AIT, expiry, `allowed_ops[]`, optional chain_id | Create session credential (maps to `EscrowAllowance`) |
-| GET | `/identities/{agent_id}/spend-sessions` | Owner | — | List active/revoked |
-| POST | `/identities/{agent_id}/spend-sessions/{session_id}/revoke` | Owner | — | Immediate revoke |
+| POST | `/identities/{agent_id}/spend-sessions` | Owner JWT | cap AIT, expiry, `allowed_ops[]`, optional chain_id | Create session credential (maps to `EscrowAllowance`) — **implemented** |
+| GET | `/identities/{agent_id}/spend-sessions` | Owner | — | List active/revoked — **implemented** |
+| POST | `/identities/{agent_id}/spend-sessions/{session_id}/revoke` | Owner | — | Immediate revoke — **implemented** |
 | GET | `/identities/{agent_id}/spend-sessions/{session_id}` | Owner or session | — | Remaining cap, ops |
 | POST | `/identities/{agent_id}/spend-sessions/{session_id}/consume` | Internal / agent | op, amount AIT, ref (escrow_id) | Reserve or record spend (atomic with DB) |
 
@@ -91,10 +108,10 @@ Fund-moving and authorize commands require **explicit confirmation** flag.
 
 Today: job submit with `buyer_address`, `provider_address`, `zk_proof_required`.
 
-Phase D:
+Phase D (**implemented** on `main`):
 
-- Optional `buyer_agent_id` → resolve to address via coordinator
-- Document that `agent-wallet` MCP tools mirror CLI simulation until wired
+- Optional `buyer_agent_id` / `provider_agent_id` on escrow create, coordinator payments, GPU purchase, `aitbc ai submit|pay`, `market run`, `market gpu quote|buy`
+- Resolve to address via `GET .../resolve/{chain_id}`
 
 ## SDK
 
