@@ -209,7 +209,7 @@
             }
           },
           "403": {
-            "description": "caller signature required",
+            "description": "{field} does not match the signing address / caller signature required",
             "content": {
               "application/json": {
                 "schema": {
@@ -371,7 +371,7 @@
             }
           },
           "403": {
-            "description": "caller signature required",
+            "description": "{field} does not match the signing address / caller signature required",
             "content": {
               "application/json": {
                 "schema": {
@@ -532,7 +532,7 @@
             }
           },
           "403": {
-            "description": "caller signature required",
+            "description": "{field} does not match the signing address / caller signature required",
             "content": {
               "application/json": {
                 "schema": {
@@ -863,7 +863,7 @@
             }
           },
           "403": {
-            "description": "caller signature required",
+            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -978,7 +978,7 @@
             }
           },
           "403": {
-            "description": "caller signature required",
+            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1455,13 +1455,18 @@
               }
             ],
             "title": "Amount"
+          },
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp"
           }
         },
         "type": "object",
         "required": [
           "delegator_address",
           "delegate_address",
-          "amount"
+          "amount",
+          "timestamp"
         ],
         "title": "DelegateRequest",
         "description": "Request body for voting-power delegation. See ``StakeRequest`` for why this is a model."
@@ -1547,13 +1552,18 @@
           "lock_period_days": {
             "type": "integer",
             "title": "Lock Period Days"
+          },
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp"
           }
         },
         "type": "object",
         "required": [
           "staker_address",
           "amount",
-          "lock_period_days"
+          "lock_period_days",
+          "timestamp"
         ],
         "title": "StakeRequest",
         "description": "Request body for token staking.\n\nDeclared as a body model rather than bare scalars: FastAPI reads scalar\nparameters as *query* parameters, so this endpoint required its payload in the\nquery string while its only caller \u2014 ``aitbc governance stake`` \u2014 posts JSON.\nEvery invocation got a 422."

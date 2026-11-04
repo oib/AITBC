@@ -112,8 +112,16 @@ def test_get_governance_analytics(client):
 # v0.4.12 New Endpoint Tests
 def test_stake_tokens(client):
     """Test token staking endpoint"""
+    import time
+
     response = client.post(
-        "/v1/governance/stake", json={"staker_address": "0x1234567890abcdef", "amount": 1000, "lock_period_days": 30}
+        "/v1/governance/stake",
+        json={
+            "staker_address": "0x1234567890abcdef",
+            "amount": 1000,
+            "lock_period_days": 30,
+            "timestamp": time.time(),
+        },
     )
     # May fail without database setup, but endpoint should exist
     # Unsigned writes now get 403 (#1091); 200/500 cover the signed-path outcome space.
@@ -129,9 +137,16 @@ def test_get_voting_power(client):
 
 def test_delegate_voting_power(client):
     """Test delegation endpoint"""
+    import time
+
     response = client.post(
         "/v1/governance/delegate",
-        json={"delegator_address": "0x1234567890abcdef", "delegate_address": "0x0987654321fedcba", "amount": 500},
+        json={
+            "delegator_address": "0x1234567890abcdef",
+            "delegate_address": "0x0987654321fedcba",
+            "amount": 500,
+            "timestamp": time.time(),
+        },
     )
     assert response.status_code in [200, 403, 500]
 
