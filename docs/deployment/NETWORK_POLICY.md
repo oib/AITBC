@@ -91,7 +91,15 @@ container on the bridge, whether or not a proxy fronts it from outside.
 
 ## Known deviations
 
-**None.** The last entry (Blockchain Node Metrics 9009) was closed by adding
+| Service | Port | Reason |
+| --- | --- | --- |
+| Postfix | 25 | Debian-default MTA (`inet_interfaces = all`), local delivery only; host package config, not a repo unit — pinning needs an ops change outside this repo |
+| Prometheus server | 9090 | Host platform service scraped across the LAN monitoring path; configured outside this repo |
+| Prometheus node exporter | 9100 | Same host monitoring path; configured outside this repo |
+| Prometheus redis exporter | 9121 | Same host monitoring path; configured outside this repo |
+| Prometheus postgres exporter | 9187 | Same host monitoring path; configured outside this repo |
+
+The previous last entry (Blockchain Node Metrics 9009) was closed by adding
 `AITBC_NODE_METRICS_HOST` to `observability/exporters.py` and pinning
 `127.0.0.1` fleet-wide; Prometheus scrapes it locally on every node.
 
