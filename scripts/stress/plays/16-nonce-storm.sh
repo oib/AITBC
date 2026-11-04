@@ -29,6 +29,10 @@ probe=$("$AITBC_BIN" --output=json transactions send --from "$WALLET" --to "$add
 case "$probe" in
   *0x*) jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"ok\",\"probe\":\"resubmit admitted\"}";;
   *occupied*|*replay*) fail storm "phantom occupancy: $probe";;
-  *) jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"$probe\"}";;
+  *mempool*full*|*rate*limit*|*insufficient*|*nonce*|*duplicate*|*too*low*|*quota*)
+    # Only a known node refusal string counts as a legit no-admit; anything
+    # else is a new failure mode and must fail, not masquerade as expected.
+    jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"$probe\"}";;
+  *) fail storm "unrecognised resubmit outcome: $probe";;
 esac
 ok ""
