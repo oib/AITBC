@@ -35,6 +35,12 @@ MODE=run; [ "${1:-}" = "--check" ] && { MODE=check; shift; }
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') $*" | tee -a "$LOG"; }
 
+# Stake ids are interpolated into SQL below — allow only the id charset
+# the staking code emits so a hostile/mistyped arg can't inject.
+for sid in "$@"; do
+  [[ "$sid" =~ ^[A-Za-z0-9._:-]+$ ]] || { log "FAIL bad stake id: $sid"; exit 64; }
+done
+
 stake_field() {  # stake_field <stake_id> <column>
   sqlite3 -readonly "$DB" "SELECT $2 FROM agent_stake WHERE stake_id='$1' AND chain_id='$CHAIN'"
 }
@@ -63,7 +69,11 @@ payload["signature"] = priv.sign_msg_hash(digest).to_hex()
 req = urllib.request.Request(os.environ["RPC_URL"] + os.environ["STRESS_PATH"],
     data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
 try:
-    print(urllib.request.urlopen(req, timeout=20).read().decode())
+    body = urllib.request.urlopen(req, timeout=20).read().decode()
+    print(body)
+    data = json.loads(body)
+    if not isinstance(data, dict) or data.get("success") is not True:
+        sys.exit(1)
 except urllib.error.HTTPError as e:
     print(f"HTTP {e.code} {e.read().decode()}", file=sys.stdout)
     sys.exit(1)
@@ -93,9 +103,11 @@ done
 # the complete handler enforces.
 for sid in "$@"; do
   read -r gate <<<"$(sqlite3 -readonly "$DB" "SELECT max(block_height) + COALESCE(max(json_extract(payload,'$.lock_days')),1)*$BLOCKS_PER_DAY FROM [transaction] WHERE type='STAKE_LOCK' AND json_extract(payload,'$.agent_stake_id')='$sid'")"
+  [[ "$gate" =~ ^[0-9]+$ ]] || { log "FAIL complete $sid: no STAKE_LOCK row — nothing to wait for"; exit 1; }
   cur=$(sqlite3 -readonly "$DB" "SELECT max(height) FROM block WHERE chain_id='$CHAIN'")
+  cur=${cur:-0}
   log "$sid complete gate h$gate (current $cur)"
-  while [ "$cur" -lt "${gate:-999999999}" ]; do sleep 120; cur=$(sqlite3 -readonly "$DB" "SELECT max(height) FROM block WHERE chain_id='$CHAIN'"); done
+  while [ "$cur" -lt "$gate" ]; do sleep 120; cur=$(sqlite3 -readonly "$DB" "SELECT max(height) FROM block WHERE chain_id='$CHAIN'"); cur=${cur:-0}; done
   if out=$(sign_call "/rpc/agent-staking/stake/$sid/complete" "{\"stake_id\":\"$sid\",\"user_address\":\"$(python3 -c "import json;print(json.load(open('$WFILE'))['address'])" 2>/dev/null)\",\"chain_id\":\"$CHAIN\"}"); then
     log "complete $sid: $out"
   else
