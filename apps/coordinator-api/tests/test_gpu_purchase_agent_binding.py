@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import pytest
+
+pytest_plugins = ["test_routers_market_gpu"]
+
 from sqlmodel import Session, select
 
 from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity, ChainType, CrossChainMapping
