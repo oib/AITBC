@@ -8,6 +8,8 @@ and its default.
 
 from __future__ import annotations
 
+import json
+
 from click.testing import CliRunner
 
 from aitbc_cli.commands import auth as auth_mod
@@ -67,6 +69,25 @@ def test_login_credential_name_admin(monkeypatch):
     )
     assert result.exit_code == 0, result.output
     assert stored == [("admin", "tok-123", "default")]
+
+
+def test_login_plaintext_wallet_skips_password_prompt(tmp_path, monkeypatch):
+    """Fleet service wallets store a raw private_key — login must not require a password."""
+    wallet_path = tmp_path / "default.json"
+    wallet_path.write_text(json.dumps({"private_key": _PRIVATE_KEY}))
+    monkeypatch.setattr(
+        "aitbc_cli.commands.auth.find_wallet_file",
+        lambda name: wallet_path if name == "default" else None,
+    )
+    stored: list[tuple[str, str, str]] = []
+    _stub_login_flow(monkeypatch, stored)
+    result = CliRunner().invoke(
+        cli,
+        ["auth", "login", "--wallet", "default", "--coordinator-url", "http://coord.test"],
+    )
+    assert result.exit_code == 0, result.output
+    assert stored == [("client", "tok-123", "default")]
+    assert "No wallet password available" not in result.output
 
 
 def test_logout_honours_credential_name(monkeypatch):
