@@ -154,13 +154,28 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
 
 
 class ZKProofServiceAdapter(IZKProofService):
-    """Adapter for ZK proof service (mock implementation)"""
+    """Adapter for ZK proof service (mock implementation).
+
+    Disabled by default — a mock that answers verified=True for any input
+    must not run unless explicitly opted in (same gate as the
+    agent-integration mock, #1096).
+    """
 
     def __init__(self, session: Session):
         self._session = session
 
+    @staticmethod
+    def _require_mock_enabled() -> None:
+        import os
+
+        if os.getenv("AGENT_INTEGRATION_ZK_MOCK", "0") != "1":
+            raise RuntimeError(
+                "mock ZK proof service is disabled — set AGENT_INTEGRATION_ZK_MOCK=1 for development/testing only"
+            )
+
     async def generate_zk_proof(self, circuit_name: str, inputs: dict[str, Any]) -> dict[str, Any]:
         """Mock ZK proof generation"""
+        self._require_mock_enabled()
         from uuid import uuid4
 
         return {
@@ -173,6 +188,7 @@ class ZKProofServiceAdapter(IZKProofService):
 
     async def verify_proof(self, proof_id: str) -> dict[str, Any]:
         """Mock ZK proof verification"""
+        self._require_mock_enabled()
         return {"verified": True, "verification_time": 0.05, "details": {"mock": True}}
 
 
