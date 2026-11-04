@@ -250,6 +250,10 @@ def get_state_snapshot(request: Request, chain_id: str | None = None) -> dict[st
 @rate_limit(rate=10, per=60)
 def list_accounts(request: Request, chain_id: str | None = None, limit: int = 100, offset: int = 0) -> dict[str, Any]:
     """List accounts on the blockchain."""
+    # Clamp client bounds: negative/uncapped limit or offset used to return
+    # every account in one response (#1057).
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
         accounts = session.exec(select(Account).where(Account.chain_id == chain_id).offset(offset).limit(limit)).all()
