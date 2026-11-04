@@ -23,6 +23,13 @@ def test_spend_policy_requires_payload(monkeypatch):
 
 
 @pytest.mark.unit
+def test_spend_policy_requires_max_amount(monkeypatch):
+    monkeypatch.setenv("AITBC_SPEND_POLICY_ENFORCE", "1")
+    with pytest.raises(ValueError, match="max_amount required"):
+        assert_transfer_allowed(5, {"op": "wallet.execute"})
+
+
+@pytest.mark.unit
 def test_spend_policy_max_amount(monkeypatch):
     monkeypatch.setenv("AITBC_SPEND_POLICY_ENFORCE", "1")
     assert_transfer_allowed(5, {"op": "wallet.execute", "max_amount": 10})

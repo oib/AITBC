@@ -223,11 +223,12 @@ def _quote_buyer_payment_address(session: Session, request: GPUQuoteRequest) -> 
     resolved = resolve_agent_payment_address_sync(session, request.buyer_agent_id, default_resolve_chain_id())
     from aitbc.crypto.signature_recovery import canonical_address
 
-    if request.buyer_id.startswith("0x") and canonical_address(request.buyer_id) != resolved:
-        raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail=f"buyer_id does not match resolved address for agent {request.buyer_agent_id}",
-        )
+    if request.buyer_id.startswith("0x"):
+        if canonical_address(request.buyer_id) != resolved:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"buyer_id does not match resolved address for agent {request.buyer_agent_id}",
+            )
     return resolved
 
 
@@ -722,6 +723,29 @@ async def buy_gpu(
             else:
                 payment_method = request.payment_method
 
+            from ...payments.services.escrow_agent_binding import (
+                assert_agent_address_binding,
+                default_resolve_chain_id,
+                resolve_agent_payment_address,
+            )
+
+            resolve_chain = default_resolve_chain_id()
+            buyer_address = request.buyer_address
+            provider_address = request.provider_address
+            if request.buyer_agent_id:
+                if buyer_address:
+                    await assert_agent_address_binding(
+                        session, request.buyer_agent_id, buyer_address, role="buyer", chain_id=resolve_chain
+                    )
+                else:
+                    buyer_address = await resolve_agent_payment_address(session, request.buyer_agent_id, resolve_chain)
+            if request.provider_agent_id:
+                if provider_address:
+                    await assert_agent_address_binding(
+                        session, request.provider_agent_id, provider_address, role="provider", chain_id=resolve_chain
+                    )
+                else:
+                    provider_address = await resolve_agent_payment_address(session, request.provider_agent_id, resolve_chain)
             payment_create = JobPaymentCreate(
                 job_id=job.id,
                 amount=total_cost,
@@ -730,8 +754,8 @@ async def buy_gpu(
                 escrow_timeout_seconds=max(300, int(duration_hours * 3600)),
                 protected=booking.protected,
                 energy_quote=quote_payload,
-                buyer_address=request.buyer_address,
-                provider_address=request.provider_address,
+                buyer_address=buyer_address,
+                provider_address=provider_address,
                 buyer_lock_signature=request.buyer_lock_signature,
                 buyer_lock_nonce=request.buyer_lock_nonce,
                 buyer_lock_fee=request.buyer_lock_fee,
@@ -741,20 +765,6 @@ async def buy_gpu(
                 buyer_agent_id=request.buyer_agent_id,
                 provider_agent_id=request.provider_agent_id,
             )
-            from ...payments.services.escrow_agent_binding import assert_agent_address_binding, default_resolve_chain_id
-
-            resolve_chain = default_resolve_chain_id()
-            if request.buyer_agent_id and request.buyer_address:
-                await assert_agent_address_binding(
-                    session, request.buyer_agent_id, request.buyer_address, role="buyer", chain_id=resolve_chain
-                )
-            if request.provider_agent_id and request.provider_address:
-                await assert_agent_address_binding(
-                    session, request.provider_agent_id, request.provider_address, role="provider", chain_id=resolve_chain
-                )
-            # V23-46: client_id was missing entirely (TypeError). The job above was
-            # created with client_id=request.buyer_id, which is what the ownership
-            # check compares against.
             payment = await payment_service.create_payment(
                 client_id=request.buyer_id, job_id=job.id, payment_data=payment_create
             )

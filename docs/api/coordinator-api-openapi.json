@@ -17585,7 +17585,7 @@
             }
           },
           "400": {
-            "description": "Failed to create agent identity",
+            "description": "Wallet transaction failed",
             "content": {
               "application/json": {
                 "schema": {
