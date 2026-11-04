@@ -47,13 +47,13 @@ def _patch_bridge_config(signers, threshold):
     )
 
 
-def test_withdraw_without_signers_is_allowed_when_no_policy(handler):
-    """If signers is empty, the multi-sig gate is open."""
+def test_withdraw_without_signers_is_refused_when_no_policy(handler):
+    """#1086: an empty signer list fails closed — never approves a withdrawal."""
     with _patch_bridge_config((), 2):
         ok, count = handler._verify_bridge_withdrawal_signatures(
             "0x0000000000000000000000000000000000000000", Decimal("1.0"), []
         )
-    assert ok is True
+    assert ok is False
     assert count == 0
 
 
