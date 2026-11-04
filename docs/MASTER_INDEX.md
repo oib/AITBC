@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-10-31
+**Last Updated**: 2026-11-04
 
 ---
 
@@ -111,7 +111,7 @@ docs/
 Inbound markdown links per document (top referrers).
 
 | Document | Referenced by |
-|---|---|---|
+|---|---|
 | [CHANGELOG.md](CHANGELOG.md) | [README.md](README.md) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | [ci-cd/README.md](ci-cd/README.md), [development/1_overview.md](development/1_overview.md), [reference/faq.md](reference/faq.md) |
 | [DESIGN_CYCLE.md](DESIGN_CYCLE.md) | [README.md](README.md), [architecture/1_system-flow.md](architecture/1_system-flow.md), [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), +8 more |
