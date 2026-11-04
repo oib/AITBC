@@ -679,7 +679,11 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
 
         # Submit staking request
         http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
-        stake_data = {"staker_address": address, "amount": amount, "lock_period_days": lock_days}
+        import time
+
+        # timestamp is a required signed field on the service; an unsigned call
+        # now fails on auth (403) rather than schema (422) (#1091).
+        stake_data = {"staker_address": address, "amount": amount, "lock_period_days": lock_days, "timestamp": time.time()}
         result = http_client.post("/v1/governance/stake", json=stake_data)
 
         success(f"Staked {amount} tokens for {lock_days} days")
@@ -713,7 +717,14 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
 
         # Submit delegation request
         http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
-        delegation_data = {"delegator_address": delegator, "delegate_address": delegate, "amount": amount}
+        import time
+
+        delegation_data = {
+            "delegator_address": delegator,
+            "delegate_address": delegate,
+            "amount": amount,
+            "timestamp": time.time(),
+        }
         result = http_client.post("/v1/governance/delegate", json=delegation_data)
 
         success(f"Delegated {amount} voting power from {delegator} to {delegate}")
