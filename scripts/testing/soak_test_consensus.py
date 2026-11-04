@@ -201,8 +201,11 @@ class ConsensusSoakTest:
             node_id = f"node-{i}"
             is_byzantine = i < n_byzantine
 
-            # Each node gets its own consensus view (they share validator set)
-            node_consensus = MultiValidatorPoA(self.config.chain_id)
+            # Each node gets its own consensus view (they share validator set).
+            # load_state=False keeps the soak hermetic: the ambient
+            # VALIDATOR_SET / DB state of the host must not leak fleet
+            # validators into the proposer rotation.
+            node_consensus = MultiValidatorPoA(self.config.chain_id, load_state=False)
             for a, _ in keyspec:
                 node_consensus.add_validator(a, 1000.0)
                 node_consensus.validators[a].role = ValidatorRole.PROPOSER
