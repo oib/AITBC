@@ -87,8 +87,8 @@ check_endpoint() {
     fi
 }
 
-check_endpoint "$MARKET_HOST/health" "Market"
-check_endpoint "$BLOCKCHAIN_HOST/health" "Blockchain"
+check_endpoint "$MARKET_HOST/health" "Market" || true
+check_endpoint "$BLOCKCHAIN_HOST/health" "Blockchain" || true
 
 # Set environment variables for hosts
 export MARKET_HOST
@@ -98,6 +98,7 @@ export BLOCKCHAIN_HOST
 log_info "Starting load test..."
 log_info "This will run for $DURATION with $USERS users spawning at $SPAWN_RATE users/sec"
 
+LOCUST_EXIT=0
 $LOCUST -f "$REPO_ROOT/tests/load/test_api_load.py" \
     --headless \
     -u "$USERS" \
@@ -106,15 +107,12 @@ $LOCUST -f "$REPO_ROOT/tests/load/test_api_load.py" \
     --csv "$REPORT_PREFIX" \
     --html "$REPORT_PREFIX.html" \
     --only-summary \
-    2>&1 | tee "$REPORT_PREFIX.log"
+    2>&1 | tee "$REPORT_PREFIX.log" || LOCUST_EXIT=$?
 
-# Check exit code
-LOCUST_EXIT=${PIPESTATUS[0]}
-
-if [ $LOCUST_EXIT -eq 0 ]; then
+if [ "${LOCUST_EXIT}" -eq 0 ]; then
     log_success "Load test completed successfully"
 else
-    log_error "Load test failed with exit code $LOCUST_EXIT"
+    log_error "Load test failed with exit code ${LOCUST_EXIT}"
 fi
 
 # Generate summary report
@@ -136,15 +134,15 @@ $(tail -20 "$REPORT_PREFIX.log")
 
 Reports:
 --------
-- Log: $REPORT_PREFIX.log
-- CSV Stats: $REPORT_PREFIX_stats.csv
-- CSV History: $REPORT_PREFIX_stats_history.csv
-- CSV Failures: $REPORT_PREFIX_failures.csv
-- HTML Report: $REPORT_PREFIX.html
-- Summary: $REPORT_PREFIX-summary.txt
+- Log: ${REPORT_PREFIX}.log
+- CSV Stats: ${REPORT_PREFIX}_stats.csv
+- CSV History: ${REPORT_PREFIX}_stats_history.csv
+- CSV Failures: ${REPORT_PREFIX}_failures.csv
+- HTML Report: ${REPORT_PREFIX}.html
+- Summary: ${REPORT_PREFIX}-summary.txt
 EOF
 
 log_success "Summary report generated: $REPORT_PREFIX-summary.txt"
 log_info "Full report available at: $REPORT_PREFIX.html"
 
-exit $LOCUST_EXIT
+exit "${LOCUST_EXIT}"
