@@ -8,7 +8,9 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import Body, Depends, FastAPI
+import json
+
+from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -25,6 +27,39 @@ from aitbc.middleware import (
 
 from .services.governance_service import GovernanceService
 from .storage import get_session, init_db
+
+
+def _verify_caller_signature(address: str, signature: str | None, payload: dict[str, Any]) -> bool:
+    """Verify a secp256k1 signature over the canonical JSON of ``payload``
+    against ``address`` — the same verify_request_signature scheme the
+    blockchain-node RPC uses (#1091)."""
+    if not signature or not address:
+        return False
+    message = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    try:
+        from eth_utils import keccak
+
+        from aitbc.crypto.signature_recovery import SignatureMalformed, verify_signature
+
+        try:
+            return verify_signature(keccak(message), signature, address)
+        except SignatureMalformed:
+            return False
+    except Exception:
+        return False
+
+
+def _require_signature(address: str, signature: str | None, payload: dict[str, Any]) -> None:
+    """403 unless ``signature`` over ``payload`` verifies against ``address``.
+    Governance write routes used to take any body — forged stake and vote
+    power passed proposals with it (#1091)."""
+    if not _verify_caller_signature(address, signature, payload):
+        raise HTTPException(status_code=403, detail="caller signature required")
+
+
+def _unsigned(body: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in body.items() if k != "signature"}
+
 
 configure_logging(level="INFO", service_name="governance", to_file=True)
 logger = get_logger(__name__)
@@ -137,7 +172,12 @@ async def get_profile(profile_id: str, svc: Annotated[GovernanceService, Depends
 @app.post("/v1/governance/profiles")
 async def create_profile(profile_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new governance profile"""
-    return await svc.create_profile(profile_data)
+    _require_signature(
+        str(profile_data.get("caller_address") or profile_data.get("user_id") or ""),
+        profile_data.get("signature"),
+        _unsigned(profile_data),
+    )
+    return await svc.create_profile(_unsigned(profile_data))
 
 
 @app.get("/v1/governance/proposals")
@@ -160,6 +200,16 @@ async def get_proposal(proposal_id: str, svc: Annotated[GovernanceService, Depen
 @app.post("/v1/governance/proposals")
 async def create_proposal(proposal_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new proposal"""
+    _require_signature(
+        str(
+            proposal_data.get("proposer_address")
+            or proposal_data.get("proposer_id")
+            or proposal_data.get("caller_address")
+            or ""
+        ),
+        proposal_data.get("signature"),
+        _unsigned(proposal_data),
+    )
     return await svc.create_proposal(proposal_data)
 
 
@@ -176,7 +226,15 @@ async def get_votes(
 @app.post("/v1/governance/votes")
 async def create_vote(vote_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new vote"""
-    return await svc.create_vote(vote_data)
+    _require_signature(
+        str(vote_data.get("voter_address") or vote_data.get("voter_id") or ""),
+        vote_data.get("signature"),
+        _unsigned(vote_data),
+    )
+    try:
+        return await svc.create_vote(_unsigned(vote_data))
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
 
 @app.get("/v1/governance/treasury")
@@ -319,7 +377,13 @@ async def get_transactions(
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
-class StakeRequest(BaseModel):
+class _SignedBody(BaseModel):
+    """Adds the caller signature field shared by the write routes."""
+
+    signature: str | None = None
+
+
+class StakeRequest(_SignedBody):
     """Request body for token staking.
 
     Declared as a body model rather than bare scalars: FastAPI reads scalar
@@ -339,6 +403,11 @@ async def stake_tokens(
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Stake tokens for enhanced voting power"""
+    _require_signature(
+        request.staker_address,
+        request.signature,
+        _unsigned(request.model_dump(mode="json")),
+    )
     staker_address = request.staker_address
     amount = request.amount
     lock_period_days = request.lock_period_days
@@ -368,7 +437,7 @@ async def get_voting_power_v2(address: str, svc: Annotated[GovernanceService, De
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
-class DelegateRequest(BaseModel):
+class DelegateRequest(_SignedBody):
     """Request body for voting-power delegation. See ``StakeRequest`` for why this is a model."""
 
     delegator_address: str
@@ -382,6 +451,11 @@ async def delegate_voting_power(
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Delegate voting power to another address"""
+    _require_signature(
+        request.delegator_address,
+        request.signature,
+        _unsigned(request.model_dump(mode="json")),
+    )
     delegator_address = request.delegator_address
     delegate_address = request.delegate_address
     amount = request.amount
@@ -403,8 +477,15 @@ async def delegate_voting_power(
 async def close_proposal_endpoint(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
+    body: Annotated[dict[str, Any] | None, Body()] = None,
 ):
     """Close an active proposal and tally the result."""
+    body = body or {}
+    _require_signature(
+        str(body.get("caller_address") or ""),
+        body.get("signature"),
+        {"action": "close", "proposal_id": proposal_id},
+    )
     try:
         proposal = await svc.close_proposal(proposal_id)
         return {
@@ -431,7 +512,13 @@ async def execute_proposal_v2(
     body: Annotated[dict[str, Any] | None, Body()] = None,
 ):
     """Execute a passed proposal (v0.4.12 enhanced with logging + v0.7.3 on-chain submission)"""
-    signed_tx = (body or {}).get("signed_tx")
+    body = body or {}
+    _require_signature(
+        str(body.get("caller_address") or executor_address),
+        body.get("signature"),
+        {"action": "execute", "proposal_id": proposal_id},
+    )
+    signed_tx = body.get("signed_tx")
     try:
         proposal = await svc.execute_proposal(proposal_id, executor_address=executor_address, signed_tx=signed_tx)
         if not proposal:
