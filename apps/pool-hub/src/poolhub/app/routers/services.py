@@ -13,6 +13,8 @@ from ..deps import get_db, get_miner_id
 from ...models import Miner, ServiceConfig, ServiceType
 from ..schemas import ServiceConfigCreate, ServiceConfigResponse, ServiceConfigUpdate
 
+from .parameters import _governance_auth
+
 router = APIRouter(prefix="/services", tags=["services"])
 
 
@@ -59,6 +61,7 @@ async def create_or_update_service_config(
     config_data: ServiceConfigCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
     miner_id: Annotated[str, Depends(get_miner_id)],
+    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
 ) -> ServiceConfigResponse:
     """Create or update service configuration"""
     # Validate service type
@@ -104,6 +107,7 @@ async def patch_service_config(
     config_data: ServiceConfigUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
     miner_id: Annotated[str, Depends(get_miner_id)],
+    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
 ) -> ServiceConfigResponse:
     """Partially update service configuration"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
@@ -133,7 +137,10 @@ async def patch_service_config(
 
 @router.delete("/{service_type}")
 async def delete_service_config(
-    service_type: str, db: Annotated[AsyncSession, Depends(get_db)], miner_id: Annotated[str, Depends(get_miner_id)]
+    service_type: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    miner_id: Annotated[str, Depends(get_miner_id)],
+    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
 ) -> dict[str, Any]:
     """Delete service configuration"""
     stmt = select(ServiceConfig).where(ServiceConfig.miner_id == miner_id, ServiceConfig.service_type == service_type)
@@ -222,6 +229,7 @@ async def validate_service_config(
     config_data: dict[str, Any],
     db: Annotated[AsyncSession, Depends(get_db)],
     miner_id: Annotated[str, Depends(get_miner_id)],
+    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
 ) -> dict[str, Any]:
     """Validate service configuration against miner capabilities"""
     # Get miner info
