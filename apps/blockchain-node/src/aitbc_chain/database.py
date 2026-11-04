@@ -169,6 +169,22 @@ def _foreign_open_allowed(resolved_chain_id: str) -> bool:
     return resolved_chain_id in node_chain_ids()
 
 
+def _encryption_enabled() -> bool:
+    """Resolve whether SQLCipher is armed for this process.
+
+    DB_ENCRYPTION_ENABLED=true with a missing/mistyped key path must not
+    silently open a plaintext chain db — fail hard instead (#1069).
+    """
+    if not settings.db_encryption_enabled:
+        return False
+    if not settings.db_encryption_key_path.exists():
+        raise RuntimeError(
+            f"db_encryption_enabled is set but the key file does not exist: "
+            f"{settings.db_encryption_key_path} — refusing to fall back to plaintext"
+        )
+    return True
+
+
 def get_engine(chain_id: str = "", create_ok: bool = False, allow_foreign: bool = False) -> Engine:
     """Return the cached engine for ``chain_id``, creating it on first use.
 
@@ -206,14 +222,7 @@ def get_engine(chain_id: str = "", create_ok: bool = False, allow_foreign: bool 
         if create_ok:
             _registered_chain_ids.add(resolved_chain_id)
 
-        # DB_ENCRYPTION_ENABLED=true with a missing/mistyped key path must not
-        # silently open a plaintext chain db — fail hard instead (#1069).
-        if settings.db_encryption_enabled and not settings.db_encryption_key_path.exists():
-            raise RuntimeError(
-                f"db_encryption_enabled is set but the key file does not exist: "
-                f"{settings.db_encryption_key_path} — refusing to fall back to plaintext"
-            )
-        encryption_enabled = settings.db_encryption_enabled
+        encryption_enabled = _encryption_enabled()
 
         if encryption_enabled:
             # Use SQLCipher with encryption key
