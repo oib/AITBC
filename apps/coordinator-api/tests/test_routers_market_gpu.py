@@ -559,3 +559,20 @@ def test_confirm_gpu_client_id_must_be_caller(client, miner_token, client_token,
         json={"client_id": "client1"},
     )
     assert resp.status_code == 200
+
+
+def test_buy_gpu_rejects_body_buyer_id_mismatch(client, client_token, db_session, native_pricing, available_gpu):
+    """#1075 pin: a purchase whose body buyer_id is not the token sub is 403."""
+    _seed_energy(db_session)
+    resp = client.post(
+        "/v1/market/gpu/purchase",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={
+            "buyer_id": "0x08aB801150eF3496344cFA78fe025c3B48Caf435",
+            "gpu_id": available_gpu,
+            "duration_hours": 1,
+            "payment_method": "blockchain",
+        },
+    )
+    assert resp.status_code == 403
+    assert "buyer_id" in resp.text
