@@ -30,12 +30,25 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
     // ponytail: static default quorum in token units; owner can update via setQuorum()
     uint256 public quorum = 1000 * 10**18;
 
+    // Governance safety parameters
+    uint256 public constant MIN_VOTING_PERIOD = 1 days;
+    uint256 public constant MAX_VOTING_PERIOD = 30 days;
+    // Delay between the end of voting and when a passed proposal may execute.
+    uint256 public executionDelay = 1 days;
+    // Regional proposals are decided by council members whose weight is one
+    // vote each, so they pass on a count of council votes, not token units.
+    uint256 public regionalQuorum = 2;
+    // Only owner-allowlisted contracts may be proposal targets; the
+    // governance token itself is never a valid target.
+    mapping(address => bool) public allowedTargets;
+
     // Enhanced Staker struct
     struct Staker {
         uint256 amount;
         uint256 unbondingAmount;
         uint256 unbondingCompleteTime;
         uint256 lastStakeTime;
+        uint256 lastStakeBlock;
         uint256 reputationScore;
         uint256 votingPower;
         bool isActive;
@@ -55,6 +68,7 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         uint256 abstainVotes;
         uint256 startTime;
         uint256 endTime;
+        uint256 startBlock;
         bool executed;
         bool canceled;
         ProposalState state;
@@ -112,6 +126,10 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
     error NotCouncilMember(string region, address member);
     error RegistryNotSet();
     error CrossChainValidationFailed(uint256 proposalId);
+    error VotingPeriodOutOfBounds(uint256 votingPeriod);
+    error TargetNotAllowed(address target);
+    error TimelockNotExpired(uint256 executableAt);
+    error StakeAfterSnapshot(uint256 proposalId, address voter);
 
     modifier validAmount(uint256 amount) {
         if (amount == 0) revert InvalidAmount(amount);
@@ -166,6 +184,11 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         treasuryManager = ITreasuryManager(registry.getContract(keccak256(abi.encodePacked("TreasuryManager"))));
         crossChainGovernance = ICrossChainGovernance(registry.getContract(keccak256(abi.encodePacked("CrossChainGovernance"))));
         performanceAggregator = IPerformanceAggregator(registry.getContract(keccak256(abi.encodePacked("PerformanceAggregator"))));
+
+        // The registry-resolved integrations are the legitimate proposal
+        // targets; everything else needs an explicit setTargetAllowed call.
+        if (address(treasuryManager) != address(0)) allowedTargets[address(treasuryManager)] = true;
+        if (address(crossChainGovernance) != address(0)) allowedTargets[address(crossChainGovernance)] = true;
     }
 
     /**
@@ -209,6 +232,7 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         Staker storage staker = stakers[msg.sender];
         staker.amount += _amount;
         staker.lastStakeTime = block.timestamp;
+        staker.lastStakeBlock = block.number;
         staker.isActive = true;
         totalStaked += _amount;
 
@@ -258,6 +282,13 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         bytes calldata _callData,
         uint256 _value
     ) external onlyActiveStaker onlyCouncilMember(_region) nonReentrant returns (uint256) {
+        if (_votingPeriod < MIN_VOTING_PERIOD || _votingPeriod > MAX_VOTING_PERIOD) {
+            revert VotingPeriodOutOfBounds(_votingPeriod);
+        }
+        if (_targetContract != address(0) &&
+            (_targetContract == address(governanceToken) || !allowedTargets[_targetContract])) {
+            revert TargetNotAllowed(_targetContract);
+        }
         proposalCount++;
         Proposal storage p = proposals[proposalCount];
 
@@ -267,6 +298,7 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         p.descriptionHash = _descriptionHash;
         p.startTime = block.timestamp;
         p.endTime = block.timestamp + _votingPeriod;
+        p.startBlock = block.number;
         p.state = ProposalState.Active;
         p.proposalType = _proposalType;
         p.targetContract = _targetContract;
@@ -284,6 +316,14 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         require(block.timestamp >= p.startTime && block.timestamp <= p.endTime, "Voting closed");
         require(!p.hasVoted[msg.sender], "Already voted");
         require(_voteType <= 2, "Invalid vote type");
+
+        // Snapshot rule: only stake held in an earlier block than the
+        // proposal's startBlock counts. Tokens staked in the proposal block
+        // or later (e.g. bought to sway a live proposal) do not vote.
+        if (bytes(p.region).length == 0 &&
+            stakers[msg.sender].lastStakeBlock >= p.startBlock) {
+            revert StakeAfterSnapshot(_proposalId, msg.sender);
+        }
 
         uint256 weight = _calculateVotingWeight(msg.sender, p.region);
         require(weight > 0, "No voting weight");
@@ -304,12 +344,16 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
 
     function executeProposal(uint256 _proposalId) external validProposal(_proposalId) nonReentrant {
         Proposal storage p = proposals[_proposalId];
-        require(block.timestamp > p.endTime, "Voting not ended");
+        if (block.timestamp <= p.endTime + executionDelay) {
+            revert TimelockNotExpired(p.endTime + executionDelay);
+        }
         require(p.state == ProposalState.Active, "Invalid proposal state");
 
-        // Check if proposal passed
+        // Check if proposal passed; regional proposals are decided by a
+        // count of council votes, global ones by token-weighted quorum.
         uint256 totalVotes = p.forVotes + p.againstVotes + p.abstainVotes;
-        bool passed = p.forVotes > p.againstVotes && totalVotes >= quorum;
+        uint256 requiredVotes = bytes(p.region).length > 0 ? regionalQuorum : quorum;
+        bool passed = p.forVotes > p.againstVotes && totalVotes >= requiredVotes;
 
         if (passed) {
             p.state = ProposalState.Succeeded;
@@ -369,7 +413,7 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         address _targetContract,
         bytes memory _callData,
         uint256 _value
-    ) internal onlyActiveStaker nonReentrant returns (uint256) {
+    ) internal onlyActiveStaker returns (uint256) {
         proposalCount++;
         Proposal storage p = proposals[proposalCount];
 
@@ -379,6 +423,7 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         p.descriptionHash = _descriptionHash;
         p.startTime = block.timestamp;
         p.endTime = block.timestamp + _votingPeriod;
+        p.startBlock = block.number;
         p.state = ProposalState.Active;
         p.proposalType = _proposalType;
         p.targetContract = _targetContract;
@@ -520,6 +565,20 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
 
     function setQuorum(uint256 _quorum) external onlyOwner {
         quorum = _quorum;
+    }
+
+    function setRegionalQuorum(uint256 _regionalQuorum) external onlyOwner {
+        regionalQuorum = _regionalQuorum;
+    }
+
+    function setExecutionDelay(uint256 _executionDelay) external onlyOwner {
+        require(_executionDelay <= MAX_VOTING_PERIOD, "Delay too long");
+        executionDelay = _executionDelay;
+    }
+
+    function setTargetAllowed(address _target, bool _allowed) external onlyOwner {
+        require(_target != address(governanceToken), "Governance token is not a proposal target");
+        allowedTargets[_target] = _allowed;
     }
 
     function emergencyPause() external onlyOwner {
