@@ -378,11 +378,9 @@ class BountyService:
             total_rewards_stmt = select(func.sum(Bounty.reward_amount)).where(
                 and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.COMPLETED)  # type: ignore[arg-type]
             )
-            total_rewards_paid = (await run_in_threadpool(self.session.execute, total_rewards_stmt)).scalar() or Decimal(0)  # type: ignore[union-attr]  # not-money: ratio, threshold or configuration default — not an amount of money
+            total_rewards_paid = (await run_in_threadpool(self.session.execute, total_rewards_stmt)).scalar() or Decimal(0)  # type: ignore[union-attr]
             success_rate = completed_bounties / total_bounties * 100 if total_bounties > 0 else 0.0
-            avg_reward = (
-                total_value_locked / total_bounties if total_bounties > 0 else 0.0
-            )  # not-money: ratio, threshold or configuration default — not an amount of money
+            avg_reward = total_value_locked / total_bounties if total_bounties > 0 else Decimal(0)
             tier_stmt = (
                 select(Bounty.tier, func.count(Bounty.bounty_id).label("count"))  # type: ignore[call-overload, arg-type]
                 .where(Bounty.creation_time >= start_date)
@@ -399,7 +397,7 @@ class BountyService:
             )
             disputed_bounties = (await run_in_threadpool(self.session.execute, disputed_stmt)).scalar() or 0  # type: ignore[union-attr]
             fees_stmt = select(func.sum(Bounty.platform_fee + Bounty.creation_fee)).where(Bounty.creation_time >= start_date)  # type: ignore[arg-type]
-            total_fees_collected = (await run_in_threadpool(self.session.execute, fees_stmt)).scalar() or Decimal(0)  # type: ignore[union-attr]  # not-money: ratio, threshold or configuration default — not an amount of money
+            total_fees_collected = (await run_in_threadpool(self.session.execute, fees_stmt)).scalar() or Decimal(0)  # type: ignore[union-attr]
             stats = BountyStats(
                 period_start=start_date,
                 period_end=datetime.now(UTC),
