@@ -122,6 +122,9 @@ def main(argv: list[str] | None = None) -> int:
     print("-" * 60)
 
     results = check_gates(data)
+    if not results:
+        print(f"ERROR: no gates found in {gate_file} — a gate file with no gates cannot pass", file=sys.stderr)
+        return 1
     passed = 0
     failed = 0
     for name, message, ok in results:
