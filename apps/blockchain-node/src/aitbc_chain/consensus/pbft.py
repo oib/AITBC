@@ -74,6 +74,15 @@ class PBFTState:
     pre_prepare_messages: dict[str, PBFTMessage]
 
 
+def _int_key_seq(key: str) -> int:
+    """Sequence half of a "{seq}:{view}" bucket key; -1 for malformed keys so
+    they never match a bound (#1060 defensive layer)."""
+    try:
+        return int(key.split(":")[0])
+    except (ValueError, AttributeError):
+        return -1
+
+
 class PBFTConsensus:
     """PBFT consensus implementation"""
 
@@ -493,7 +502,7 @@ class PBFTConsensus:
 
     def _cleanup_messages(self, sequence: int) -> None:
         """Clean up old messages to prevent memory leaks"""
-        old_keys = [key for key in self.state.prepared_messages.keys() if int(key.split(":")[0]) < sequence]
+        old_keys = [key for key in self.state.prepared_messages.keys() if _int_key_seq(key) < sequence]
 
         for key in old_keys:
             self.state.prepared_messages.pop(key, None)
@@ -529,13 +538,13 @@ class PBFTConsensus:
         # H5: Preserve prepared certificates for committed sequences
         committed_seq = self.state.current_sequence
         # Only clear messages for sequences > current_sequence (uncommitted)
-        keys_to_clear = [key for key in list(self.state.prepared_messages.keys()) if int(key.split(":")[0]) > committed_seq]
+        keys_to_clear = [key for key in list(self.state.prepared_messages.keys()) if _int_key_seq(key) > committed_seq]
         for key in keys_to_clear:
             self.state.prepared_messages.pop(key, None)
             self.state.pre_prepare_messages.pop(key, None)
         # Don't clear committed_messages — they're done
         # Clear uncommitted pre_prepare messages
-        pp_to_clear = [key for key in list(self.state.pre_prepare_messages.keys()) if int(key.split(":")[0]) > committed_seq]
+        pp_to_clear = [key for key in list(self.state.pre_prepare_messages.keys()) if _int_key_seq(key) > committed_seq]
         for key in pp_to_clear:
             self.state.pre_prepare_messages.pop(key, None)
         return True
@@ -620,6 +629,23 @@ class PBFTConsensus:
         # B6: verify the signature before processing
         if not self._verify_message_signature(message):
             return
+
+        # Intake bounds (#1060): sequence/view must coerce to non-negative ints
+        # within a window of the local position — a poisoned key used to crash
+        # _cleanup_messages/handle_view_change and a far-future one lingered.
+        try:
+            seq = int(message.sequence_number)
+            view = int(message.view_number)
+        except (TypeError, ValueError):
+            return  # non-integer sequence/view — drop
+        if seq < 0 or view < 0:
+            return
+        max_seq = self.state.current_sequence + getattr(settings, "pbft_max_sequence_ahead", 512)
+        max_view = self.state.current_view + getattr(settings, "pbft_max_view_ahead", 64)
+        if seq > max_seq or view > max_view:
+            return  # far-future sequence/view — drop
+        message.sequence_number = seq
+        message.view_number = view
 
         # Membership gate: a prepare or commit only carries weight when its
         # sender is in the active consensus set. A valid signature from an
