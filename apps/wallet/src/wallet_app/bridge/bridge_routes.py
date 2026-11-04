@@ -704,11 +704,14 @@ async def bridge_withdraw_build(body: dict[str, Any]) -> dict[str, Any]:
 
 
 @bridge_router.post("/withdraw/submit")
-async def bridge_withdraw_submit(body: dict[str, Any]) -> dict[str, Any]:
+@rate_limit(rate=10, per=60)
+async def bridge_withdraw_submit(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Relay a signed BRIDGE_WITHDRAW transaction to the AITBC blockchain."""
     signed_tx = body.get("signed_tx")
     if not signed_tx or not isinstance(signed_tx, dict):
         raise HTTPException(status_code=400, detail="signed_tx is required")
+    if signed_tx.get("type") != "BRIDGE_WITHDRAW":
+        raise HTTPException(status_code=400, detail="signed_tx must be a BRIDGE_WITHDRAW transaction")
 
     blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
     try:

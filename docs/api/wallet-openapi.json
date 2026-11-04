@@ -1593,7 +1593,7 @@
             }
           },
           "400": {
-            "description": "signed_tx is required / Failed to submit transaction: {exc}",
+            "description": "signed_tx is required / signed_tx must be a BRIDGE_WITHDRAW transaction / Failed to submit transaction: {exc}",
             "content": {
               "application/json": {
                 "schema": {
