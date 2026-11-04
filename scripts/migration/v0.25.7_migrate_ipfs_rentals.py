@@ -14,7 +14,7 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
-_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "market" / "src")
+_SRC = str(Path(__file__).resolve().parents[2] / "apps" / "market" / "src")
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
