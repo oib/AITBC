@@ -2,11 +2,8 @@
 Token and API key management utilities
 """
 
-import json
-import os
 import secrets
 import time
-from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -96,80 +93,3 @@ class SessionManager:
             del self.sessions[key]
 
         return len(expired_keys)
-
-
-class APIKeyManager:
-    """API key management with storage"""
-
-    def __init__(self, storage_path: str | None = None):
-        """Initialize API key manager"""
-        self.storage_path = storage_path
-        self.keys: dict[str, dict[str, Any]] = {}
-
-        if storage_path:
-            self._load_keys()
-
-    def create_api_key(self, user_id: str, scopes: list[str] | None = None, name: str | None = None) -> str:
-        """Create a new API key"""
-        api_key = generate_api_key()
-        self.keys[api_key] = {
-            "user_id": user_id,
-            "scopes": scopes or ["read"],
-            "name": name,
-            "created_at": datetime.now(UTC).isoformat(),
-            "last_used": None,
-        }
-
-        if self.storage_path:
-            self._save_keys()
-
-        return api_key
-
-    def validate_api_key(self, api_key: str) -> dict[str, Any] | None:
-        """Validate API key and return key data"""
-        key_data = self.keys.get(api_key)
-        if not key_data:
-            return None
-
-        # Update last used
-        key_data["last_used"] = datetime.now(UTC).isoformat()
-        if self.storage_path:
-            self._save_keys()
-
-        return key_data
-
-    def revoke_api_key(self, api_key: str) -> bool:
-        """Revoke an API key"""
-        if api_key in self.keys:
-            del self.keys[api_key]
-            if self.storage_path:
-                self._save_keys()
-            return True
-        return False
-
-    def list_user_keys(self, user_id: str) -> list[str]:
-        """List all API keys for a user"""
-        return [key for key, data in self.items() if data["user_id"] == user_id]
-
-    def _load_keys(self):
-        """Load keys from storage"""
-        if self.storage_path and os.path.exists(self.storage_path):
-            try:
-                with open(self.storage_path) as f:
-                    self.keys = json.load(f)
-            except (OSError, json.JSONDecodeError) as e:
-                logger.warning("Failed to load token keys from %s: %s", self.storage_path, e)
-                self.keys = {}
-
-    def _save_keys(self):
-        """Save keys to storage"""
-        if self.storage_path:
-            try:
-                with open(self.storage_path, "w") as f:
-                    json.dump(self.keys, f)
-            except OSError as e:
-                logger.warning("Failed to save token keys to %s: %s", self.storage_path, e)
-
-    def items(self):
-        """Return key items"""
-        return self.keys.items()
