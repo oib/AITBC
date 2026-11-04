@@ -20,10 +20,7 @@ NODE="${2:-}"
 
 run_sql() { sudo -u aitbc sqlite3 "$DB" "$1"; }
 
-if [ -n "$NODE" ] && ! [[ "$NODE" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}$ ]]; then
-    echo "Invalid node_id" >&2
-    exit 1
-fi
+valid_node() { [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}$ ]]; }
 
 case "$CMD" in
     list)
@@ -35,10 +32,12 @@ case "$CMD" in
         ;;
     show)
         [ -n "$NODE" ] || { echo "usage: $0 show <node_id>" >&2; exit 1; }
+        valid_node "$NODE" || { echo "Invalid node_id" >&2; exit 1; }
         run_sql "SELECT node_id, issued_ip, datetime(created_at,'unixepoch'), COALESCE(contact,''), CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked '||datetime(revoked_at,'unixepoch') END FROM peer_keys WHERE node_id = '$NODE' ORDER BY created_at;"
         ;;
     revoke)
         [ -n "$NODE" ] || { echo "usage: $0 revoke <node_id>" >&2; exit 1; }
+        valid_node "$NODE" || { echo "Invalid node_id" >&2; exit 1; }
         run_sql "UPDATE peer_keys SET revoked_at = strftime('%s','now') WHERE node_id = '$NODE' AND revoked_at IS NULL;"
         echo "Revoked active key for $NODE (if any). The node may now re-join via POST /rpc/join."
         ;;
