@@ -22,6 +22,8 @@ aitbc ai submit [OPTIONS]
 | `--currency` | text | — | no | Payment currency (default: AITBC) |
 | `--buyer-address` | text | — | no | Customer wallet address for escrow |
 | `--provider-address` | text | — | no | Provider wallet address for escrow |
+| `--buyer-agent-id` | text | — | no | Buyer agent id; payment address resolved via coordinator |
+| `--provider-agent-id` | text | — | no | Provider agent id; payment address resolved via coordinator |
 | `--offer-id` | text | — | no | Market offer this job is bought against |
 | `--offer-quantity` | Decimal | — | no | How many of the offer's price units to buy (default: 1) |
 | `--acceptance-window` | integer | — | no | Seconds after completion before payment auto-releases (default: 0) |
