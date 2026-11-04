@@ -46,7 +46,13 @@ tx=$(printf '%s' "$out" | python3 -c 'import sys,re; m=re.search(r"0x[0-9a-fA-F]
 if [ $rc -eq 0 ] && [ -n "$tx" ]; then
   bh=$(wait_seal "$tx") || exit $?; echo "execute sealed: $tx h$bh"
 elif [ $rc -ne 0 ]; then
-  jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"execute refused (pre-quorum or not an executor)\",\"proposal\":\"$prop\"}"
-  echo "execute refused (pre-quorum or not an executor; expected): proposal $prop"
+  # Only a lifecycle refusal counts: pre-quorum/not-executor/not-succeeded.
+  # A random failure must not log expected_refusal (#992).
+  if printf '%s' "$out" | grep -qiE "not.*succeed|quorum|executor|not.*execut|not.*active|status"; then
+    jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"execute refused (pre-quorum or not an executor)\",\"proposal\":\"$prop\"}"
+    echo "execute refused (pre-quorum or not an executor; expected): proposal $prop"
+  else
+    fail execute "unexpected execute failure: $out" "${tx:-null}"
+  fi
 fi
 ok "${tx:-}"
