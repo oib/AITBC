@@ -1381,6 +1381,14 @@ class StateTransition:
         recipient_addr = _to_ait_address(tx_data.get("to") or "")
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
+        # v20+: ``value`` is unsigned (the signature covers ``amount``) — a
+        # divergent value is a forgery, reject rather than pick one (#1066).
+        if block_version >= 20 and "amount" in tx_data:
+            try:
+                if "value" in tx_data and int(value) != int(tx_data["amount"]):
+                    return (False, "transaction value must equal signed amount")
+            except (TypeError, ValueError):
+                return (False, "transaction value/amount must be integers")
         tx_record = session.exec(
             select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
         ).first()
