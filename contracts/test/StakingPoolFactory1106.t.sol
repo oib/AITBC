@@ -12,12 +12,18 @@ import "../contracts/AIToken.sol";
 /// not pool 1 / address(0) / amount 0, which reverted every unstake.
 
 contract MockPerformanceAggregator {
+    uint256 public multiplier = 10000;
+
+    function setMultiplier(uint256 m) external {
+        multiplier = m;
+    }
+
     function getReputationScore(address) external pure returns (uint256) {
         return 100;
     }
 
-    function calculateAPYMultiplier(uint256) external pure returns (uint256) {
-        return 10000; // 1x — no bonus
+    function calculateAPYMultiplier(uint256) external view returns (uint256) {
+        return multiplier;
     }
 }
 
@@ -26,6 +32,7 @@ contract StakingPoolFactory1106Test is Test {
     StakingPoolFactory factory;
     RewardDistributor distributor;
     AIToken token;
+    MockPerformanceAggregator agg;
     address staker = address(0x5);
     address other = address(0x6);
     uint256 constant STAKE = 1000e18;
@@ -35,7 +42,7 @@ contract StakingPoolFactory1106Test is Test {
         token = new AIToken(10_000_000e18);
         factory = new StakingPoolFactory(address(token));
         distributor = new RewardDistributor();
-        MockPerformanceAggregator agg = new MockPerformanceAggregator();
+        agg = new MockPerformanceAggregator();
 
         registry.registerContract(keccak256("StakingPoolFactory"), address(factory));
         registry.registerContract(keccak256("PerformanceAggregator"), address(agg));
@@ -102,6 +109,16 @@ contract StakingPoolFactory1106Test is Test {
         vm.prank(staker);
         factory.unstakeFromPool(1, STAKE);
         assertEq(token.balanceOf(staker), STAKE, "principal must survive a distributor outage");
+    }
+
+    function test_SubBasisMultiplierDoesNotLockPrincipal() public {
+        // The real PerformanceAggregator answers <10000 for a 0-reputation
+        // staker — multiplier - BASIS_POINTS underflowed and unstake reverted,
+        // re-locking principal exactly like the zero-recipient bug (#1106).
+        agg.setMultiplier(8000);
+        vm.prank(staker);
+        factory.unstakeFromPool(1, STAKE);
+        assertEq(token.balanceOf(staker), STAKE, "sub-1x multiplier must not lock principal");
     }
 
     function test_SecondPositionUnstakeAfterFirst() public {
