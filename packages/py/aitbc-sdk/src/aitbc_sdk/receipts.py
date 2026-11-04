@@ -26,15 +26,23 @@ class ReceiptVerification:
     receipt: dict[str, Any]
     miner_signature: SignatureValidation
     coordinator_attestations: list[SignatureValidation]
+    policy_reasons: list[str] = field(default_factory=list)
 
     @property
     def verified(self) -> bool:
+        if self.policy_reasons:
+            return False
         if not self.miner_signature.valid:
+            return False
+        # A self-signed receipt with no coordinator attestation must not
+        # verify — all([]) is True, which is exactly the gap a forged
+        # receipt exploited.
+        if not self.coordinator_attestations:
             return False
         return all(att.valid for att in self.coordinator_attestations)
 
     def failure_reasons(self) -> list[str]:
-        reasons: list[str] = []
+        reasons: list[str] = list(self.policy_reasons)
         if not self.miner_signature.valid:
             key_part = self.miner_signature.key_id or "unknown"
             reasons.append(f"miner_signature_invalid:{key_part}")
@@ -42,6 +50,8 @@ class ReceiptVerification:
             if not att.valid:
                 key_part = att.key_id or "unknown"
                 reasons.append(f"coordinator_attestation_invalid:{key_part}")
+        if not reasons and not self.coordinator_attestations:
+            reasons.append("missing_coordinator_attestation")
         return reasons
 
 
@@ -167,13 +177,24 @@ class CoordinatorReceiptClient:
         return ReceiptPage(items=items, next_cursor=next_cursor, raw=raw)
 
     def summarize_receipts(
-        self, job_id: str, page_size: int = 100, trusted_key_ids: Iterable[str] | None = None
+        self,
+        job_id: str,
+        page_size: int = 100,
+        trusted_key_ids: Iterable[str] | None = None,
+        *,
+        trusted_miner_key_ids: Iterable[str] | None = None,
+        trusted_coordinator_key_ids: Iterable[str] | None = None,
     ) -> ReceiptStatus:
         receipts = list(self.iter_receipts(job_id=job_id, page_size=page_size))
         if not receipts:
             return ReceiptStatus(job_id=job_id, total=0, verified_count=0, failed=[], latest_verified=None)
 
-        verifications = verify_receipts(receipts, trusted_key_ids)
+        verifications = verify_receipts(
+            receipts,
+            trusted_key_ids,
+            trusted_miner_key_ids=trusted_miner_key_ids,
+            trusted_coordinator_key_ids=trusted_coordinator_key_ids,
+        )
         verified = [v for v in verifications if v.verified]
         failed = [v for v in verifications if not v.verified]
         failures: list[ReceiptFailure] = []
@@ -272,28 +293,73 @@ def _verify_signature(
     return SignatureValidation(key_id=key_id, valid=valid, algorithm=algorithm, reason=reason)
 
 
-def verify_receipt(receipt: dict[str, Any], trusted_key_ids: Iterable[str] | None = None) -> ReceiptVerification:
-    """Verify a receipt's signatures. When ``trusted_key_ids`` is given, every
-    signature's embedded ``key_id`` must be in the set — otherwise a valid
-    signature from an arbitrary self-made keypair reports as verified."""
+def verify_receipt(
+    receipt: dict[str, Any],
+    trusted_key_ids: Iterable[str] | None = None,
+    *,
+    trusted_miner_key_ids: Iterable[str] | None = None,
+    trusted_coordinator_key_ids: Iterable[str] | None = None,
+    expected_job_id: str | None = None,
+) -> ReceiptVerification:
+    """Verify a receipt's signatures and coordinator attestation.
+
+    Trust sets are separate: ``trusted_miner_key_ids`` constrains the miner
+    signature, ``trusted_coordinator_key_ids`` constrains the coordinator
+    attestations (``trusted_key_ids`` is the legacy alias applying to both).
+    A receipt verifies only when the miner signature is valid AND at least
+    one coordinator attestation validates — a self-signed receipt with no
+    attestation never verifies. With no coordinator trust set configured
+    every attestation is untrusted, so the receipt cannot verify either.
+    ``expected_job_id``, when given, must match the receipt's ``job_id``.
+    """
+    if trusted_key_ids is not None:
+        trusted_miner_key_ids = trusted_key_ids
+        if trusted_coordinator_key_ids is None:
+            trusted_coordinator_key_ids = trusted_key_ids
+
     payload = {k: v for k, v in receipt.items() if k not in {"signature", "attestations"}}
     miner_sig = receipt.get("signature") or {}
-    miner_validation = _verify_signature(payload, miner_sig, trusted_key_ids)
+    miner_validation = _verify_signature(payload, miner_sig, trusted_miner_key_ids)
 
     attestations = receipt.get("attestations") or []
-    att_validations = [_verify_signature(payload, att, trusted_key_ids) for att in attestations if isinstance(att, dict)]
+    att_validations = [
+        _verify_signature(payload, att, trusted_coordinator_key_ids) for att in attestations if isinstance(att, dict)
+    ]
+
+    policy_reasons: list[str] = []
+    if trusted_coordinator_key_ids is None:
+        policy_reasons.append("no_coordinator_trust_set")
+    if not att_validations:
+        policy_reasons.append("missing_coordinator_attestation")
+    if expected_job_id is not None and receipt.get("job_id") != expected_job_id:
+        policy_reasons.append(f"job_id_mismatch:{receipt.get('job_id')}")
 
     return ReceiptVerification(
         receipt=receipt,
         miner_signature=miner_validation,
         coordinator_attestations=att_validations,
+        policy_reasons=policy_reasons,
     )
 
 
 def verify_receipts(
-    receipts: Iterable[dict[str, Any]], trusted_key_ids: Iterable[str] | None = None
+    receipts: Iterable[dict[str, Any]],
+    trusted_key_ids: Iterable[str] | None = None,
+    *,
+    trusted_miner_key_ids: Iterable[str] | None = None,
+    trusted_coordinator_key_ids: Iterable[str] | None = None,
+    expected_job_id: str | None = None,
 ) -> list[ReceiptVerification]:
-    return [verify_receipt(receipt, trusted_key_ids) for receipt in receipts]
+    return [
+        verify_receipt(
+            receipt,
+            trusted_key_ids,
+            trusted_miner_key_ids=trusted_miner_key_ids,
+            trusted_coordinator_key_ids=trusted_coordinator_key_ids,
+            expected_job_id=expected_job_id,
+        )
+        for receipt in receipts
+    ]
 
 
 def _decode_key(data: str) -> bytes:
