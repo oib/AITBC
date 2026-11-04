@@ -19,16 +19,18 @@ def build_cmd() -> list[str]:
     The port comes from ``P2P_BIND_PORT`` (default 7070 — the value the
     wrapper hardcoded before this env was honoured, which is what the live
     hub still runs). The host comes from ``P2P_BIND_HOST`` (default
-    0.0.0.0: followers on other hosts may gossip over the internet
-    (docs/deployment/NETWORK_POLICY.md); hubs behind a public vhost can set
-    P2P_BIND_HOST=127.0.0.1 so inbound gossip arrives via /rpc/gossip/ws.
+    127.0.0.1 — the relay is a hub-internal service per
+    docs/architecture/4_blockchain-node.md and followers never connect to
+    it, so binding all interfaces only exposed an unauthenticated publish
+    endpoint, #1065). A deployment that needs off-host gossip sets
+    P2P_BIND_HOST explicitly.
     """
     return [
         sys.executable,
         "-m",
         "aitbc_chain.gossip.relay",
         "--host",
-        os.environ.get("P2P_BIND_HOST", "0.0.0.0"),
+        os.environ.get("P2P_BIND_HOST", "127.0.0.1"),
         "--port",
         os.environ.get("P2P_BIND_PORT", "7070"),
         "--access-log",

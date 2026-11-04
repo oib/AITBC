@@ -36,7 +36,9 @@ class TestWrapperBuildCmd:
     def test_defaults_match_live(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _clear(monkeypatch)
         cmd = _load_wrapper().build_cmd()
-        assert cmd[cmd.index("--host") + 1] == "0.0.0.0"
+        # 127.0.0.1 since #1065: the relay is hub-internal, so the old
+        # 0.0.0.0 default only exposed the publish endpoint.
+        assert cmd[cmd.index("--host") + 1] == "127.0.0.1"
         # 7070 is what the hardcode produced on the live hub — unchanged.
         assert cmd[cmd.index("--port") + 1] == "7070"
         assert cmd[-1] == "--access-log"
