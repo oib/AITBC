@@ -409,6 +409,15 @@ class GovernanceService:
             .first()
         )
         power = voter.voting_power + voter.delegated_power if voter else 0.0
+        existing = (
+            self._session_factory.execute(
+                sm_select(DomainVote).where(DomainVote.proposal_id == proposal_id, DomainVote.voter_id == voter_id)
+            )
+            .scalars()
+            .first()
+        )
+        if existing:
+            raise ValueError("voter has already voted on this proposal")  # #1071: one vote per voter
         vote = DomainVote(
             proposal_id=proposal_id,
             voter_id=voter_id,

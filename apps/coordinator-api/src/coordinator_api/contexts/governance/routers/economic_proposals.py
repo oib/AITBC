@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 
-from ....auth import require_auth
+from ....auth import AuthDep, require_auth
 from ....metrics import governance_errors_total, governance_requests_total
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
@@ -24,6 +24,7 @@ from ..schemas.economic_proposal import (
     EconomicProposalVoteRequest,
 )
 from ..services.economic_proposal_service import EconomicProposalService
+from ..services.governance_service import GovernanceService
 
 logger = get_logger(__name__)
 limiter = Limiter(key_func=get_remote_address)
@@ -40,13 +41,14 @@ async def create_proposal(
     request: Request,
     payload: EconomicProposalCreate,
     service: Annotated[EconomicProposalService, Depends(_get_service)],
+    user: AuthDep,
 ) -> EconomicParameterProposal:
     """Create a new OpenClaw economic parameter proposal."""
     governance_requests_total.labels(endpoint="/economic-proposals", method="POST").inc()
     try:
         return await run_in_threadpool(
             service.create_proposal,
-            proposer_id=payload.proposer_id,
+            proposer_id=user["sub"],  # the proposer is the caller (#1071)
             parameter_name=payload.parameter_name,
             current_value=payload.current_value,
             proposed_value=payload.proposed_value,
@@ -118,11 +120,17 @@ async def vote_on_proposal(
     proposal_id: str,
     payload: EconomicProposalVoteRequest,
     service: Annotated[EconomicProposalService, Depends(_get_service)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> EconomicParameterProposal:
     """Cast a vote on an economic parameter proposal."""
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/votes", method="POST").inc()
+    # Weight comes from the caller's governance profile, not the body (#1071).
+    voter_id = user["sub"]
+    profile = await run_in_threadpool(GovernanceService(session).get_or_create_profile, voter_id, 0.0)
+    voting_power = float((profile.voting_power or 0.0) + (profile.delegated_power or 0.0))
     try:
-        return await run_in_threadpool(service.vote, proposal_id, payload.vote, payload.voting_power)
+        return await run_in_threadpool(service.vote, proposal_id, payload.vote, voting_power)
     except ValueError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/votes", method="POST", error_type="invalid_request"

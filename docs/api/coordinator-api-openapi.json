@@ -21970,6 +21970,24 @@
         "summary": "Create Grant",
         "description": "Create a new grant proposal.",
         "operationId": "create_grant_v1_grants_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -22396,6 +22414,22 @@
               "type": "string",
               "title": "Grant Id"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -22468,6 +22502,22 @@
             "schema": {
               "type": "string",
               "title": "Grant Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -23528,15 +23578,33 @@
         "summary": "Init Governance Profile",
         "description": "Initialize a governance profile for a user",
         "operationId": "init_governance_profile_v1_governance_profiles_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ProfileInitRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -23655,12 +23723,19 @@
         "operationId": "create_proposal_v1_governance_proposals_post",
         "parameters": [
           {
-            "name": "proposer_id",
-            "in": "query",
-            "required": true,
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Proposer Id"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -23737,12 +23812,19 @@
             }
           },
           {
-            "name": "voter_id",
-            "in": "query",
-            "required": true,
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Voter Id"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -23882,12 +23964,19 @@
             }
           },
           {
-            "name": "executor_id",
-            "in": "query",
-            "required": true,
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
             "schema": {
-              "type": "string",
-              "title": "Executor Id"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -38704,6 +38793,7 @@
           },
           "voting_days": {
             "type": "integer",
+            "maximum": 90.0,
             "minimum": 1.0,
             "title": "Voting Days",
             "default": 7
@@ -41958,6 +42048,7 @@
           },
           "quorum_required": {
             "type": "number",
+            "minimum": 1.0,
             "title": "Quorum Required",
             "default": 1000.0
           },
