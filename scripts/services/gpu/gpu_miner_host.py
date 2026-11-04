@@ -14,9 +14,12 @@ from datetime import UTC, datetime
 import httpx
 
 # Configuration
-COORDINATOR_URL = "http://127.0.0.1:8203"
-MINER_ID = "${MINER_API_KEY}"
-AUTH_TOKEN = "${MINER_API_KEY}"
+# #1027: credentials and ids come from the environment, not template
+# placeholders — a script that ships with "${MINER_API_KEY}" literally
+# registers under a placeholder key.
+COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://127.0.0.1:8203")
+MINER_ID = os.getenv("MINER_ID", "")
+AUTH_TOKEN = os.getenv("MINER_API_KEY", "")
 HEARTBEAT_INTERVAL = 15
 MAX_RETRIES = 10
 RETRY_DELAY = 30
@@ -48,17 +51,32 @@ logger = logging.getLogger(__name__)
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-# GPU capabilities (RTX 4060 Ti)
-GPU_CAPABILITIES = {
-    "gpu": {
-        "model": "NVIDIA GeForce RTX 4060 Ti",
-        "memory_gb": 16,
-        "cuda_version": "12.4",
-        "platform": "CUDA",
-        "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "hermes"],
-        "max_concurrent_jobs": 1,
+
+def _cuda_version():
+    """CUDA version from the nvidia-smi header line (#1027)."""
+    try:
+        result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            for part in result.stdout.replace("|", " ").split():
+                if part.replace(".", "").isdigit() and "." in part:
+                    return part
+    except Exception:
+        pass
+    return "unknown"
+
+
+def build_gpu_capabilities(gpu_info):
+    """Registration capabilities probed from the real GPU (#1027)."""
+    return {
+        "gpu": {
+            "model": gpu_info["name"],
+            "memory_gb": gpu_info["memory_total"] // 1024,
+            "cuda_version": _cuda_version(),
+            "platform": "CUDA",
+            "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "hermes"],
+            "max_concurrent_jobs": 1,
+        }
     }
-}
 
 
 def get_gpu_info():
@@ -134,6 +152,22 @@ def detect_inference_backend():
         return None, []
 
 
+def _is_placeholder(value):
+    """A value that was never substituted or was left empty (#1027)."""
+    return not value or "${" in value or value.startswith("<")
+
+
+def credentials_ok():
+    """Refuse to run under template placeholders or missing env (#1027)."""
+    if _is_placeholder(AUTH_TOKEN):
+        logger.error("MINER_API_KEY is unset or a placeholder — refusing to start")
+        return False
+    if _is_placeholder(MINER_ID):
+        logger.error("MINER_ID is unset or a placeholder — refusing to start")
+        return False
+    return True
+
+
 def wait_for_coordinator():
     """Wait for coordinator to be available"""
     for i in range(MAX_RETRIES):
@@ -142,7 +176,7 @@ def wait_for_coordinator():
             if response.status_code == 200:
                 logger.info("Coordinator is available!")
                 return True
-        except httpx.RequestException:
+        except httpx.RequestError:
             pass
 
         logger.info("Waiting for coordinator... (%s/%s)", i + 1, MAX_RETRIES)
@@ -152,9 +186,9 @@ def wait_for_coordinator():
     return False
 
 
-def register_miner():
+def register_miner(capabilities):
     """Register the miner with the coordinator"""
-    register_data = {"capabilities": GPU_CAPABILITIES, "concurrency": 1, "region": "localhost"}
+    register_data = {"capabilities": capabilities, "concurrency": 1, "region": "localhost"}
 
     headers = {"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}
 
@@ -336,20 +370,34 @@ def execute_job(job, available_models, backend):
         return False
 
 
-def submit_result(job_id, result):
-    """Submit job result to coordinator"""
+def submit_result(job_id, result, retries=3, delay=10):
+    """Submit job result to coordinator, retrying transient failures.
+
+    #1027: a submit that kept failing used to vanish silently — now it
+    retries and ends with an explicit "result lost" report.
+    """
     headers = {"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}
 
-    try:
-        response = httpx.post(f"{COORDINATOR_URL}/v1/miners/{job_id}/result", json=result, headers=headers, timeout=10)
+    for attempt in range(retries):
+        try:
+            response = httpx.post(f"{COORDINATOR_URL}/v1/miners/{job_id}/result", json=result, headers=headers, timeout=10)
+            if response.status_code == 200:
+                logger.info("Result submitted for job %s", job_id)
+                return True
+            logger.error(
+                "Result submission failed (attempt %s/%s): %s - %s",
+                attempt + 1,
+                retries,
+                response.status_code,
+                response.text,
+            )
+        except httpx.RequestError as e:
+            logger.error("Result submission error (attempt %s/%s): %s", attempt + 1, retries, e)
+        if attempt + 1 < retries:
+            time.sleep(delay)
 
-        if response.status_code == 200:
-            logger.info("Result submitted for job %s", job_id)
-        else:
-            logger.error("Result submission failed: %s - %s", response.status_code, response.text)
-
-    except Exception as e:
-        logger.error("Result submission error: %s", e)
+    logger.error("RESULT LOST for job %s after %s attempts — coordinator never accepted it", job_id, retries)
+    return False
 
 
 def poll_for_jobs():
@@ -380,6 +428,10 @@ def main():
     """Main miner loop"""
     logger.info("Starting Real GPU Miner Client on Host...")
 
+    # #1027: refuse placeholder credentials before anything else
+    if not credentials_ok():
+        sys.exit(1)
+
     # Check GPU availability
     gpu_info = get_gpu_info()
     if not gpu_info:
@@ -387,6 +439,7 @@ def main():
         sys.exit(1)
 
     logger.info("GPU detected: %s (%sMB)", gpu_info["name"], gpu_info["memory_total"])
+    capabilities = build_gpu_capabilities(gpu_info)
 
     # Detect inference backend
     backend, models = detect_inference_backend()
@@ -402,7 +455,7 @@ def main():
         sys.exit(1)
 
     # Register with coordinator
-    session_token = register_miner()
+    session_token = register_miner(capabilities)
     if not session_token:
         logger.error("Failed to register, exiting")
         sys.exit(1)
