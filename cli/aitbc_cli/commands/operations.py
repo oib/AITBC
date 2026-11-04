@@ -658,9 +658,21 @@ def get_proposal(ctx, proposal_id: str, format: str):
 @click.option("--address", required=True, help="Staker address")
 @click.option("--amount", type=int, required=True, help="Amount of tokens to stake")
 @click.option("--lock-days", type=int, default=30, help="Lock period in days (min 30)")
+@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the stake request (required by the service)")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def stake(ctx, address: str, amount: int, lock_days: int, format: str):
+def stake(
+    ctx,
+    address: str,
+    amount: int,
+    lock_days: int,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Stake tokens for enhanced voting power (governance-service record).
 
     This records voting-power stake on the governance service only — it does
@@ -681,9 +693,17 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
         http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
         import time
 
+        from .governance import _sign_body, _wallet_signer
+
         # timestamp is a required signed field on the service; an unsigned call
-        # now fails on auth (403) rather than schema (422) (#1091).
+        # fails on auth (403) rather than schema (422) (#1091).
         stake_data = {"staker_address": address, "amount": amount, "lock_period_days": lock_days, "timestamp": time.time()}
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
+        if signer:
+            signer_address, private_key = signer
+            if address.lower() != signer_address.lower():
+                raise click.ClickException("--address does not match the --wallet address")
+            stake_data["signature"] = _sign_body(private_key, dict(stake_data))
         result = http_client.post("/v1/governance/stake", json=stake_data)
 
         success(f"Staked {amount} tokens for {lock_days} days")
@@ -705,9 +725,21 @@ def stake(ctx, address: str, amount: int, lock_days: int, format: str):
 @click.option("--delegator", required=True, help="Delegator address")
 @click.option("--delegate", required=True, help="Delegate address")
 @click.option("--amount", type=int, required=True, help="Amount of voting power to delegate")
+@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the delegation (required by the service)")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
+def delegate(
+    ctx,
+    delegator: str,
+    delegate: str,
+    amount: int,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Delegate voting power from one address to another."""
     config = get_config()
 
@@ -719,12 +751,20 @@ def delegate(ctx, delegator: str, delegate: str, amount: int, format: str):
         http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
         import time
 
+        from .governance import _sign_body, _wallet_signer
+
         delegation_data = {
             "delegator_address": delegator,
             "delegate_address": delegate,
             "amount": amount,
             "timestamp": time.time(),
         }
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
+        if signer:
+            signer_address, private_key = signer
+            if delegator.lower() != signer_address.lower():
+                raise click.ClickException("--delegator does not match the --wallet address")
+            delegation_data["signature"] = _sign_body(private_key, dict(delegation_data))
         result = http_client.post("/v1/governance/delegate", json=delegation_data)
 
         success(f"Delegated {amount} voting power from {delegator} to {delegate}")
