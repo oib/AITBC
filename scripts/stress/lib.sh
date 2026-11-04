@@ -12,7 +12,7 @@ HOST="$(hostname -s)"; CHAIN="bc-2"; WALLET="${STRESS_WALLET:-default}"
 OPERATOR_WALLET="${STRESS_OPERATOR_WALLET:-agent-econ-operator}"
 opw="STRESS_OPERATOR_WALLET_${HOST}"; OPERATOR_WALLET="${!opw:-$OPERATOR_WALLET}"
 OPERATOR_WALLET_PATH="${STRESS_OPERATOR_WALLET_PATH:-/var/lib/aitbc/wallets/${OPERATOR_WALLET}.json}"
-AMOUNT="100"; RPC_URL=""; TAG=""
+AMOUNT="100"; RPC_URL=""; TAG="${STRESS_TAG:-}"
 while [ $# -gt 0 ]; do case "$1" in
   --host) HOST="$2"; shift 2;;
   --chain) CHAIN="$2"; shift 2;;
