@@ -428,18 +428,23 @@ def _scan_entries(entries, nonce: int, genesis: str, recipient: str, attempt_has
     """
     for entry in entries:
         body = entry.get("content") if isinstance(entry.get("content"), dict) else entry
+        # Sealed rows name the same legs sender/recipient; mempool content
+        # names them from/to (#1080 comment 14858 — a flat read again made
+        # sealed matches invisible and released live claims).
+        sender = body.get("from") or body.get("sender")
+        target = body.get("to") or body.get("recipient")
         if attempt_hash and (entry.get("tx_hash") == attempt_hash or entry.get("transaction_hash") == attempt_hash):
-            if body.get("to") != recipient:
+            if target != recipient:
                 logger.error(
                     "Tx %s for claimed attempt on %s points at %s, not %s — keeping the claim",
                     attempt_hash,
                     request_id,
-                    body.get("to"),
+                    target,
                     recipient,
                 )
                 return "keep"
             return attempt_hash
-        if body.get("nonce") == nonce and body.get("from") == genesis and body.get("to") == recipient:
+        if body.get("nonce") == nonce and sender == genesis and target == recipient:
             h = entry.get("tx_hash") or entry.get("transaction_hash")
             return h if isinstance(h, str) else None
     return None
