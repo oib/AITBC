@@ -384,7 +384,8 @@ class TestOnChainSubmission:
             "/v1/governance/proposals/nonexistent/execute",
             json={"executor_address": "0xabc"},
         )
-        assert response.status_code in [200, 404, 500]
+        # Unsigned execute now gets 403 (#1091); still not a 422 contract error
+        assert response.status_code in [200, 403, 404, 500]
         assert response.status_code != 422  # Not a validation error
 
 
