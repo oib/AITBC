@@ -237,6 +237,44 @@ def _to_canonical(address: str) -> str:
     return str(address)
 
 
+def _optional_agent_binding(body: dict[str, Any]) -> tuple[str | None, str | None]:
+    buyer_agent_id = body.get("buyer_agent_id")
+    provider_agent_id = body.get("provider_agent_id")
+    for key, value in (("buyer_agent_id", buyer_agent_id), ("provider_agent_id", provider_agent_id)):
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise HTTPException(status_code=400, detail=f"{key} must be a non-empty string")
+    return (
+        buyer_agent_id.strip() if isinstance(buyer_agent_id, str) else None,
+        provider_agent_id.strip() if isinstance(provider_agent_id, str) else None,
+    )
+
+
+def _check_stored_agent_binding(row: Escrow, buyer_agent_id: str | None, provider_agent_id: str | None) -> None:
+    if buyer_agent_id and row.buyer_agent_id and row.buyer_agent_id != buyer_agent_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"escrow for job {row.job_id} is already bound to buyer agent {row.buyer_agent_id}",
+        )
+    if provider_agent_id and row.provider_agent_id and row.provider_agent_id != provider_agent_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"escrow for job {row.job_id} is already bound to provider agent {row.provider_agent_id}",
+        )
+
+
+def _escrow_agent_fields(db_record: Escrow | None) -> dict[str, str]:
+    if db_record is None:
+        return {}
+    out: dict[str, str] = {}
+    if db_record.buyer_agent_id:
+        out["buyer_agent_id"] = db_record.buyer_agent_id
+    if db_record.provider_agent_id:
+        out["provider_agent_id"] = db_record.provider_agent_id
+    return out
+
+
 def _get_settlement_key() -> str:
     """Return the configured non-treasury escrow release key, falling back to treasury."""
     if _ESCROW_RELEASE_PRIVATE_KEY:
@@ -1387,6 +1425,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     if _to_canonical(buyer) == _to_canonical(_NODE_WALLET):
         raise HTTPException(status_code=400, detail="escrow buyer cannot be the node wallet") from None
 
+    buyer_agent_id, provider_agent_id = _optional_agent_binding(body)
+
     mgr = get_escrow_manager()
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
@@ -1421,6 +1461,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     f"escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash})"
                 ),
             ) from None
+        if existing_row:
+            _check_stored_agent_binding(existing_row, buyer_agent_id, provider_agent_id)
         # ``_find_contract_id`` falls back to loading the contract from the DB
         # row and finally to reconstructing row + contract from the on-chain
         # lock, so a create whose response was lost after the lock landed still
@@ -1441,6 +1483,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             "amount": str(amount_dec),
             "lock_tx_hash": (existing_row.lock_tx_hash if existing_row and existing_row.lock_tx_hash else existing_lock_hash),
             "message": "escrow already locked",
+            **_escrow_agent_fields(existing_row),
         }
 
     # No ESCROW_LOCK for this job_id reached the chain, so any contract or
@@ -1720,6 +1763,10 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     existing.buyer = _to_canonical(buyer)
                     existing.provider = _to_canonical(provider)
                     existing.amount = amount_units
+                    if buyer_agent_id:
+                        existing.buyer_agent_id = buyer_agent_id
+                    if provider_agent_id:
+                        existing.provider_agent_id = provider_agent_id
                     for column, value in state_columns.items():
                         setattr(existing, column, value)
                     if energy_kwargs:
@@ -1742,6 +1789,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                         amount=amount_units,
                         status="locked",
                         lock_tx_hash=lock_tx_hash,
+                        buyer_agent_id=buyer_agent_id,
+                        provider_agent_id=provider_agent_id,
                         **state_columns,
                         **(
                             {
@@ -1780,6 +1829,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         "amount": str(amount_dec),
         "lock_tx_hash": lock_tx_hash,
         "message": message,
+        **({"buyer_agent_id": buyer_agent_id} if buyer_agent_id else {}),
+        **({"provider_agent_id": provider_agent_id} if provider_agent_id else {}),
     }
 
 
@@ -2532,6 +2583,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                     "refund_tx_hash": db_record.refund_tx_hash if db_record else None,
                     "status": db_record.status if db_record else None,
                     "lock_tx_hash": db_record.lock_tx_hash if db_record else None,
+                    **_escrow_agent_fields(db_record),
                 }
     if db_record:
         record_amount_ait = str(units_to_ait(db_record.amount))
@@ -2552,6 +2604,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
             "refund_tx_hash": db_record.refund_tx_hash,
             "status": db_record.status,
             "lock_tx_hash": db_record.lock_tx_hash,
+            **_escrow_agent_fields(db_record),
         }
     raise HTTPException(status_code=404, detail=f"No escrow found for job_id={job_id}") from None
 
