@@ -46,11 +46,15 @@ def _transform_value(value: str) -> str:
         evm = _to_evm(value)
         return evm if evm else value
 
-    # Try JSON (e.g. VALIDATOR_SET)
+    # Try JSON (e.g. VALIDATOR_SET) — but only rewrite the line when a legacy
+    # address was actually replaced; otherwise re-serialisation would rewrite
+    # formatting of a value that held no ait1/aitbc1 address (#936).
     try:
         parsed = json.loads(value)
-        _walk(parsed)
-        return json.dumps(parsed, separators=(",", ":"))
+        changed = _walk(parsed)
+        if changed:
+            return json.dumps(parsed, separators=(",", ":"))
+        return value
     except (json.JSONDecodeError, ValueError):
         pass
 
@@ -63,23 +67,28 @@ def _transform_value(value: str) -> str:
     return "".join(out)
 
 
-def _walk(obj: Any) -> None:
+def _walk(obj: Any) -> bool:
+    """Rewrite legacy addresses in place; True when anything changed."""
+    changed = False
     if isinstance(obj, dict):
         for k, v in obj.items():
             if isinstance(v, str):
                 evm = _to_evm(v)
                 if evm:
                     obj[k] = evm
+                    changed = True
             else:
-                _walk(v)
+                changed = _walk(v) or changed
     elif isinstance(obj, list):
         for i, item in enumerate(obj):
             if isinstance(item, str):
                 evm = _to_evm(item)
                 if evm:
                     obj[i] = evm
+                    changed = True
             else:
-                _walk(item)
+                changed = _walk(item) or changed
+    return changed
 
 
 def migrate_env_files(env_dir: Path) -> None:
@@ -98,6 +107,7 @@ def migrate_env_files(env_dir: Path) -> None:
                 lines.append(line)
         if changed:
             backup = Path(f"{path}.pre-0x-migration")
+            backup.touch(0o600)  # env lines can hold secrets — 0600, not umask
             backup.write_text(original)
             path.write_text("".join(lines))
             print(f"migrated {path} (backup {backup})")
@@ -130,9 +140,18 @@ def migrate_wallets(wallet_dir: Path) -> None:
                 file=sys.stderr,
             )
             backup = Path(f"{path}.pre-0x-mismatch")
+            backup.touch(0o600)  # the copy carries the private key — 0600
             backup.write_text(json.dumps(data, indent=2))
         data["address"] = evm_address
-        data["public_key"] = account._public_key.hex() if hasattr(account, "_public_key") else ""
+        # Keep an existing public_key; only derive one when the wallet has none.
+        # The old code overwrote it with "" whenever the private attribute was
+        # absent, which is every supported eth_account (#936).
+        if not data.get("public_key"):
+            from eth_keys import keys as _eth_keys
+
+            data["public_key"] = (
+                _eth_keys.PrivateKey(bytes.fromhex(str(private_key).removeprefix("0x"))).public_key.to_hex().removeprefix("0x")
+            )
         path.write_text(json.dumps(data, indent=2))
         print(f"migrated {path}")
 
