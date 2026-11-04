@@ -19,9 +19,11 @@ from starlette.websockets import WebSocket
 from aitbc.aitbc_logging import configure_logging, get_logger
 
 from .gossip_auth import (
+    channel_scope,
     create_challenge,
     is_public_topic,
     is_restricted_topic,
+    publish_scope,
     verify_challenge,
 )
 
@@ -81,12 +83,19 @@ async def gossip_challenge(request: Any) -> JSONResponse:
     {challenge, address, timestamp} with its validator key and posts the
     signature with the message.
     """
-    challenge, ts = create_challenge()
+    issued = create_challenge(getattr(request.client, "host", "") if request.client else "")
+    if issued is None:
+        return JSONResponse({"status": "error", "message": "Challenge rate limited"}, status_code=429)
+    challenge, ts = issued
     return JSONResponse({"challenge": challenge, "timestamp": ts})
 
 
-def _publisher_authenticated(data: Any) -> bool:
-    """True when the body carries a valid validator challenge response."""
+def _publisher_authenticated(data: Any, scope: str) -> bool:
+    """True when the body carries a valid validator challenge response.
+
+    ``scope`` is derived HERE from the actual request — the signature must
+    cover this exact payload/topic, not just the challenge (#1128).
+    """
     try:
         return bool(
             verify_challenge(
@@ -94,6 +103,7 @@ def _publisher_authenticated(data: Any) -> bool:
                 str(data.get("address", "")),
                 float(data.get("timestamp", 0)),
                 str(data.get("signature", "")),
+                scope,
             )
         )
     except (TypeError, ValueError):
@@ -115,7 +125,7 @@ async def gossip_endpoint(request: Any) -> JSONResponse:
     # rejected outright — the relay used to publish anything to
     # anyone (#1065).
     if is_restricted_topic(channel):
-        if not _publisher_authenticated(data):
+        if not _publisher_authenticated(data, publish_scope(channel, message)):
             return JSONResponse(
                 {"status": "error", "message": "Validator auth required"},
                 status_code=401,
@@ -133,7 +143,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     # Restricted topics need the validator challenge on SUBSCRIBE too —
     # publish-side auth alone leaves the streams readable (#1065). The
     # caller fetches a challenge from GET /gossip/challenge and signs it.
-    if is_restricted_topic(channel) and not _publisher_authenticated(websocket.query_params):
+    if is_restricted_topic(channel) and not _publisher_authenticated(websocket.query_params, channel_scope(channel)):
         await websocket.close(code=1008)
         logger.warning("Rejected unauthenticated restricted subscribe: %s", channel)
         return
