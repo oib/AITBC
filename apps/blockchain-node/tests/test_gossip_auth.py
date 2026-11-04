@@ -7,6 +7,8 @@ topic requires validator authentication.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from aitbc_chain.gossip.gossip_auth import is_public_topic, is_restricted_topic
@@ -161,3 +163,36 @@ def test_flood_cannot_evict_fresh_challenge(monkeypatch: pytest.MonkeyPatch) -> 
     legit = gossip_auth.create_challenge("10.9.9.9")
     assert legit is not None
     assert legit[0] in gossip_auth._PENDING_CHALLENGES
+
+
+def test_eviction_removes_oldest_unused(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Fill the set to the cap, then mint one more: the OLDEST entry must be
+    # the one evicted — pinning order, not just that eviction happens.
+    monkeypatch.setattr(gossip_auth, "_MAX_PENDING_CHALLENGES", 4)
+    now = time.time()
+    gossip_auth._PENDING_CHALLENGES["oldest"] = (now + 60, "10.0.0.1")
+    gossip_auth._PENDING_CHALLENGES["mid"] = (now + 120, "10.0.0.2")
+    gossip_auth._PENDING_CHALLENGES["newest"] = (now + 180, "10.0.0.3")
+    gossip_auth._PENDING_CHALLENGES["newest2"] = (now + 240, "10.0.0.4")
+    fresh = gossip_auth.create_challenge("10.9.9.9")
+    assert fresh is not None
+    assert "oldest" not in gossip_auth._PENDING_CHALLENGES
+    assert "newest" in gossip_auth._PENDING_CHALLENGES  # newest survives: evict-oldest, not evict-newest
+    assert fresh[0] in gossip_auth._PENDING_CHALLENGES
+    # (b) the fresh challenge still VERIFIES — not just present
+    challenge, ts = fresh
+    scope = gossip_auth.channel_scope("blocks.bc-2")
+    address, sig = _sign(challenge, ts, scope)
+    assert gossip_auth.verify_challenge(challenge, address, ts, sig, scope)
+
+
+def test_unscoped_verify_rejected_when_scope_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Flag ON + caller-observed scope missing: an unscoped signature must be
+    # refused even though it verifies cryptographically (#1128 guard).
+    monkeypatch.setattr(settings, "gossip_auth_require_scope", True)
+    issued = gossip_auth.create_challenge("10.0.0.1")
+    assert issued is not None
+    challenge, ts = issued
+    address, sig = _sign(challenge, ts)  # legacy unscoped signature
+    assert not gossip_auth.verify_challenge(challenge, address, ts, sig, "")
+    assert not gossip_auth.verify_challenge("other", address, ts, sig)

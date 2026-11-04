@@ -271,3 +271,35 @@ def test_gossip_websocket_scoped_auth_and_replay_rejected(monkeypatch: pytest.Mo
 
             msg = websocket.receive_json()
             assert "error" in msg or msg.get("type") != "auth_ok"
+
+
+def test_gossip_websocket_unscoped_auth_flag_on_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1128: require_scope ON refuses an unscoped auth_response; OFF accepts it."""
+    from aitbc_chain.gossip import gossip_auth
+
+    key = "44" * 32
+    from eth_keys import keys
+
+    address = keys.PrivateKey(bytes.fromhex(key)).public_key.to_checksum_address()
+    monkeypatch.setattr(settings, "gossip_auth_enabled", True)
+    monkeypatch.setattr(settings, "validator_set", f'[{{"address": "{address}"}}]')
+
+    def _try(flag: bool) -> dict:
+        monkeypatch.setattr(settings, "gossip_auth_require_scope", flag)
+        with TestClient(create_app()) as client:
+            with client.websocket_connect("/rpc/gossip/ws?topic=blocks.test") as websocket:
+                challenge = websocket.receive_json()
+                signature = gossip_auth.sign_challenge(challenge["challenge"], address, challenge["timestamp"], key)
+                websocket.send_json(
+                    {
+                        "type": "auth_response",
+                        "address": address,
+                        "signature": signature,
+                        "timestamp": challenge["timestamp"],
+                        "challenge": challenge["challenge"],
+                    }
+                )
+                return websocket.receive_json()
+
+    assert _try(False).get("type") == "auth_ok"
+    assert "error" in _try(True)
