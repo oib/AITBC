@@ -78,6 +78,10 @@ def _load(mempool_entries, sealed_entries):
     net.AITBCHTTPClient = _make_client(mempool_entries, sealed_entries)
     sys.modules["aitbc.network"] = net
     sys.modules.setdefault("aitbc", types.ModuleType("aitbc"))
+    sys.modules.setdefault("aitbc.crypto", types.ModuleType("aitbc.crypto"))
+    sig = types.ModuleType("aitbc.crypto.signature_recovery")
+    sig.canonical_address = lambda a, *k: a
+    sys.modules["aitbc.crypto.signature_recovery"] = sig
 
     mod = types.ModuleType("cr_under_test")
     mod.__dict__["get_db_session"] = lambda: _Sess()
@@ -146,3 +150,29 @@ def test_sealed_wrong_recipient_on_hash_holds():
     found = mod._recover_claimed_attempt("r1", f"claiming:t:nonce=7:tx={HASH1}", 5, RECIP)
     assert found is None
     assert not released  # claim kept — never release while the tx may be pending
+
+
+def test_sealed_lowercase_row_vs_checksummed_recipient():
+    """The sealed query is case-insensitive; a lower-case row must still match
+    a checksummed recipient — else the claim releases and pays twice."""
+    lc_recip = "0xaBcD1234"
+    mod, released = _load(
+        [],
+        [
+            _entry_sealed(recipient=lc_recip.lower()),
+            _entry_sealed(tx_hash="0x" + "ef" * 32, nonce=7, recipient=lc_recip.lower()),
+        ],
+    )
+    mod.__dict__["TransactionService"] = _TxSvc
+    found = mod._recover_claimed_attempt("r1", "claiming:t:nonce=7", 5, lc_recip)
+    assert found in (HASH1, "0x" + "ef" * 32)
+    assert not released
+
+
+def test_sealed_lowercase_row_hash_match_finalizes():
+    lc_recip = "0xaBcD1234"
+    mod, released = _load([], [_entry_sealed(recipient=lc_recip.lower())])
+    mod.__dict__["TransactionService"] = _TxSvc
+    found = mod._recover_claimed_attempt("r1", f"claiming:t:nonce=7:tx={HASH1}", 5, lc_recip)
+    assert found == HASH1
+    assert not released
