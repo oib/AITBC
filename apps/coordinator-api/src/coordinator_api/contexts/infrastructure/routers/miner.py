@@ -712,12 +712,16 @@ async def get_miner_earnings(
         from ...infrastructure.services.jobs import JobService
 
         job_service = JobService(session)
+        start = datetime.fromisoformat(from_time).replace(tzinfo=None) if from_time else None
+        end = datetime.fromisoformat(to_time).replace(tzinfo=None) if to_time else None
         completed_jobs = await run_in_threadpool(
             job_service.list_jobs,
             assigned_miner_id=miner_id,
             state="COMPLETED",
-            limit=10000,
+            limit=None,
             offset=0,
+            completed_from=start,
+            completed_to=end,
         )
 
         total_earnings = Decimal("0")
@@ -770,17 +774,11 @@ async def get_miner_earnings(
             "to_time": to_time,
             "earnings_history": history[:20],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting miner earnings: %s", e)
-        return {
-            "miner_id": miner_id,
-            "total_earnings": "0",
-            "pending_earnings": "0",
-            "paid_earnings": "0",
-            "completed_jobs": 0,
-            "currency": "AITBC",
-            "error": "Failed to get miner earnings",
-        }
+        raise HTTPException(status_code=500, detail="failed to compute miner earnings") from e
 
 
 @router.put("/miners/{miner_id}/capabilities", summary="Update miner capabilities")

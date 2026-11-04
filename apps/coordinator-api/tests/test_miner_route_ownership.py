@@ -121,5 +121,6 @@ class TestMinerRouteOwnership:
         )
         client = caller_client({"sub": VICTIM, "role": "miner"})
         resp = client.post(f"/v1/miners/{VICTIM}/earnings")
-        assert resp.status_code == 200
+        # #1076: a lookup failure is a 5xx, never a fake all-zeros payload.
+        assert resp.status_code == 500
         assert "secret-internal-error-detail" not in resp.text

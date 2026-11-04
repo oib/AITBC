@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from fastapi import HTTPException, status
 
@@ -213,8 +213,10 @@ class JobService:
         self,
         client_id: str | None = None,
         assigned_miner_id: str | None = None,
-        limit: int = 20,
+        limit: int | None = 20,
         offset: int = 0,
+        completed_from: datetime | None = None,
+        completed_to: datetime | None = None,
         **filters: Any,
     ) -> list[Job]:
         """List jobs with optional filtering"""
@@ -227,7 +229,13 @@ class JobService:
             query = query.where(Job.state == filters["state"])
         if "job_type" in filters:
             query = query.where(Job.payload["type"].as_string() == filters["job_type"])
-        query = query.offset(offset).limit(limit)
+        if completed_from:
+            query = query.where(col(Job.completed_at) >= completed_from)
+        if completed_to:
+            query = query.where(col(Job.completed_at) <= completed_to)
+        query = query.offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
         return list(self.session.execute(query).scalars().all())
 
     def fail_job(self, job_id: str, miner_id: str, error_message: str) -> Job:

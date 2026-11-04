@@ -4468,6 +4468,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "failed to compute miner earnings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
