@@ -66,7 +66,6 @@ run_test() {
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
         log_error "FAILED: $test_name"
-        return 1
     fi
 }
 
@@ -79,6 +78,7 @@ cleanup() {
 }
 
 # Setup
+trap cleanup EXIT
 cd "$REPO_ROOT"
 
 log_info "Starting workflow CLI integration tests"
@@ -135,9 +135,12 @@ echo "Tests Failed: $TESTS_FAILED"
 echo "Tests Skipped: $TESTS_SKIPPED"
 echo "========================================"
 
-if [ $TESTS_FAILED -eq 0 ]; then
+if [ $TESTS_FAILED -eq 0 ] && [ $TESTS_SKIPPED -eq 0 ]; then
     log_info "All tests passed!"
     exit 0
+elif [ $TESTS_FAILED -eq 0 ]; then
+    log_error "No failures, but $TESTS_SKIPPED tests were skipped — a skipped suite is not a pass!"
+    exit 1
 else
     log_error "Some tests failed!"
     exit 1
