@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Agent Complete Multi-Node Blockchain Workflow
 # Updated 2026-03-30: Complete AI operations, advanced coordination, genesis reset
 # This script orchestrates all Agent agents for complete multi-node blockchain deployment
@@ -145,7 +146,7 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
     cd /opt/aitbc
     source venv/bin/activate
     echo "Total wallets created:"
-    ./aitbc-cli wallet list | wc -l
+    scripts/aitbc-cli wallet list | wc -l
 
     # Check Agent agent status
     agent status --agent all
@@ -168,23 +169,23 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
 
     # Check cross-node transactions
     echo "Cross-Node Transactions:"
-    ./aitbc-cli transaction list --limit 3
+    scripts/aitbc-cli transaction list --limit 3
 
     # Check AI operations
     echo "AI Operations:"
-    ./aitbc-cli ai submit --wallet wallet --type inference --prompt "Generate image" --payment 100
+    scripts/aitbc-cli ai submit --wallet wallet --type inference --prompt "Generate image" --payment 100
 
     # Check resource allocation
     echo "Resource Allocation:"
-    ./aitbc-cli resource allocate --agent-id agent-name --memory 8192 --duration 3600
+    scripts/aitbc-cli resource allocate --agent-id agent-name --memory 8192 --duration 3600
 
     # Check market participation
     echo "Market Participation:"
-    ./aitbc-cli market create --type ai-inference --price 50 --description "Service" --wallet wallet
+    scripts/aitbc-cli market create --type ai-inference --price 50 --description "Service" --wallet wallet
 
     # Check governance
     echo "Governance:"
-    ./aitbc-cli smart-contract --action create --name "Contract" --code "Code" --wallet wallet
+    scripts/aitbc-cli smart-contract --action create --name "Contract" --code "Code" --wallet wallet
 
     # Check monitoring
     echo "Monitoring:"
@@ -209,11 +210,11 @@ agent execute --agent CoordinatorAgent --task performance_testing || {
     source venv/bin/activate
 
     # Get addresses for transaction test
-    CLIENT_ADDR=$(./aitbc-cli wallet address --wallet client-wallet)
-    USER_ADDR=$(./aitbc-cli wallet address --wallet user-wallet)
+    CLIENT_ADDR=$(scripts/aitbc-cli wallet address client-wallet)
+    USER_ADDR=$(scripts/aitbc-cli wallet address user-wallet)
 
     echo "Testing transaction speed..."
-    time ./aitbc-cli wallet send 1 $USER_ADDR "Performance test transaction"
+    time scripts/aitbc-cli wallet send --to-address $USER_ADDR --amount 1
 }
 
 # 8. Network Health Check via Agent
@@ -331,15 +332,15 @@ echo ""
 echo "💰 Wallet Status:"
 cd /opt/aitbc
 source venv/bin/activate
-GENESIS_WALLETS=$(./aitbc-cli wallet list | wc -l)
-FOLLOWER_WALLETS=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list | wc -l')
+GENESIS_WALLETS=$(scripts/aitbc-cli wallet list | wc -l)
+FOLLOWER_WALLETS=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet list | wc -l')
 echo "Genesis Wallets: $GENESIS_WALLETS"
 echo "Follower Wallets: $FOLLOWER_WALLETS"
 
 # Display recent transactions
 echo ""
 echo "📈 Recent Transactions:"
-./aitbc-cli transaction list --limit 3
+scripts/aitbc-cli transaction list --limit 3
 
 # Display agent status
 echo ""
