@@ -637,8 +637,9 @@ def query_transactions(
         # there could drop matching rows beyond the window; without them the
         # SQL result is the final one and must not materialise the whole
         # table to slice it in Python (RPC-TX-QUERY-UNBOUNDED-1).
-        if limit and not (island_id or pair or status or order_id):
-            # An omitted/0/huge limit loaded the whole chain table (#1057).
+        if limit is not None and not (island_id or pair or status or order_id):
+            # An omitted/0/huge limit loaded the whole chain table (#1057);
+            # `if limit` let 0 skip the clamp entirely.
             query = query.limit(max(1, min(limit or 100, 500)))
 
         _logger.debug(f"Query: {query}")
