@@ -14,7 +14,7 @@ import os
 import sys
 import urllib.parse
 import urllib.request
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.error import URLError
 
@@ -34,7 +34,14 @@ def _to_decimal(value: str | int | float | None) -> Decimal:
 def _load_expected_balances(path: Path) -> dict[str, str]:
     """Load a mapping of budget_id -> expected total balance."""
     data = json.loads(path.read_text())
-    return {str(k): str(v) for k, v in data.items()}
+    out = {}
+    for k, v in data.items():
+        try:
+            Decimal(str(v))
+        except InvalidOperation:
+            raise SystemExit(f"expected balance for {k!r} is not a number: {v!r}") from None
+        out[str(k)] = str(v)
+    return out
 
 
 def _load_budgets(path: Path) -> list[Budget]:
@@ -102,8 +109,9 @@ def reconcile(
 ) -> tuple[bool, list[str]]:
     """Compare each budget's total to the expected balance.
 
-    If ``rpc_url`` is set, live balances are fetched and compared first; if a
-    fetch fails the budget's recorded total is used instead.
+    If ``rpc_url`` is set, live balances are fetched and compared; a failed or
+    unreadable fetch is itself a mismatch — silently falling back to the
+    recorded total made the check pass whenever the daemon was down.
     """
     messages: list[str] = []
     ok = True
@@ -119,8 +127,11 @@ def reconcile(
         actual = budget.total
         if rpc_url:
             live = _fetch_live_balance(budget.budget_id, rpc_url, endpoint_template, api_key)
-            if live is not None:
-                actual = live
+            if live is None:
+                ok = False
+                messages.append(f"budget {budget.budget_id}: live balance unreadable")
+                continue
+            actual = live
         if actual != expected_total:
             ok = False
             messages.append(f"budget {budget.budget_id}: expected {expected_total}, got {actual}")
@@ -139,6 +150,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--budgets",
         type=Path,
+        required=True,
         help="JSON file with a list of budget objects",
     )
     parser.add_argument(
@@ -160,19 +172,7 @@ def main(argv: list[str] | None = None) -> int:
 
     expected = _load_expected_balances(args.expected)
 
-    if args.budgets:
-        budgets = _load_budgets(args.budgets)
-    else:
-        # Demo mode: one sample budget.
-        budgets = [
-            Budget(
-                budget_id="agent-1",
-                agent_id="agent-1",
-                chain_id="ait-hub",
-                token="AITBC",
-                total=Decimal("100"),
-            )
-        ]
+    budgets = _load_budgets(args.budgets)
 
     ok, messages = reconcile(
         budgets,
