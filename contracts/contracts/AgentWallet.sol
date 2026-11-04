@@ -70,6 +70,10 @@ contract AgentWallet is Ownable, ReentrancyGuard {
      */
     function registerAgent(address _agent, uint256 _initialSpendingLimit) external {
         require(_agent != address(0), "Invalid agent address");
+        // A registrant may only claim ownership of itself — otherwise a
+        // front-runner owns the record for any agent address it watches
+        // and can withdraw tokens deposited for it (#1101).
+        require(msg.sender == _agent, "Only the agent can register itself");
         require(agents[_agent].owner == address(0), "Agent already registered");
 
         agents[_agent] = Agent({
