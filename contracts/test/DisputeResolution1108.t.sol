@@ -12,6 +12,8 @@ import "../contracts/AIToken.sol";
 /// arbitrator rejection, vote reset on escalation, and the resolution
 /// actually moving funds through the rental.
 contract DisputeResolution1108Test is Test {
+    event RentalResolutionFailed(uint256 indexed agreementId, address indexed winner, uint256 resolutionAmount);
+
     DisputeResolution disputes_;
     AIPowerRental rental;
     AIToken token;
@@ -71,8 +73,67 @@ contract DisputeResolution1108Test is Test {
         disputes_.resolveDisputeAfterDeadline(0);
         (, , , , DisputeResolution.DisputeStatus st, , , , , , ) = disputes_.getDispute(0);
         assertEq(uint256(st), uint256(DisputeResolution.DisputeStatus.Resolved));
-        // and the decision moved funds: initiator wins → consumer refunded 100e18
-        assertGe(token.balanceOf(consumer), 100e18);
+        // and the decision moved funds: the provider filed and won, so
+        // the PROVIDER is paid the escrowed price — not the consumer
+        // (#1108 rework; the old leg paid the wrong side).
+        assertGe(token.balanceOf(provider), 100e18);
+    }
+
+    /// A consumer-filed dispute that the consumer loses pays the provider
+    /// the escrowed price — the old code resolved with amount 0 and left
+    /// the escrow stranded on a resolved record (#1108 rework).
+    function test_ConsumerInitiatedLossPaysProvider() public {
+        // second agreement, filed by the consumer this time
+        vm.warp(block.timestamp + 1 days + 1); // AIToken MINTING_COOLDOWN is 1 day — setUp already minted
+        token.mint(consumer, 200e18);
+        vm.prank(consumer);
+        uint256 agreementId2 = rental.createRental(provider, consumer, 1 days, 100e18, "GPU", 1);
+        vm.startPrank(consumer);
+        token.approve(address(rental), 200e18);
+        rental.startRental(agreementId2);
+        rental.disputeRental(agreementId2, "refund me");
+        disputes_.fileDispute(agreementId2, provider, DisputeResolution.DisputeType.ServiceQuality, "refund me", keccak256("e2"));
+        vm.stopPrank();
+
+        address[] memory arbs = new address[](3);
+        arbs[0] = arb1; arbs[1] = arb2; arbs[2] = arb3;
+        disputes_.assignArbitrators(1, arbs);
+        // full panel votes against the initiator (consumer) -> provider wins
+        vm.prank(arb1);
+        disputes_.submitArbitrationVote(1, false, 60, "a");
+        vm.prank(arb2);
+        disputes_.submitArbitrationVote(1, false, 60, "b");
+        vm.prank(arb3);
+        disputes_.submitArbitrationVote(1, false, 60, "c");
+
+        (, , , , DisputeResolution.DisputeStatus st, , , , , , ) = disputes_.getDispute(1);
+        assertEq(uint256(st), uint256(DisputeResolution.DisputeStatus.Resolved));
+        assertGe(token.balanceOf(provider), 100e18);
+        // and the rental-side record is resolved, not stranded
+        AIPowerRental.DisputeInfo memory di = rental.getDisputeInfo(agreementId2);
+        assertTrue(di.resolved);
+    }
+
+    /// When this contract does not own the rental the payout leg reverts —
+    /// the panel result must still land, not re-freeze (#1108 rework).
+    function test_ResolutionSurvivesNonOwnerRental() public {
+        // take rental ownership back from the panel contract
+        vm.prank(address(disputes_));
+        rental.transferOwnership(address(this));
+
+        _assign();
+        vm.prank(arb1);
+        disputes_.submitArbitrationVote(0, true, 80, "clear");
+        vm.warp(block.timestamp + 11 days);
+        vm.expectEmit(true, true, false, true);
+        emit RentalResolutionFailed(agreementId, provider, 100e18);
+        disputes_.resolveDisputeAfterDeadline(0);
+
+        (, , , , DisputeResolution.DisputeStatus st, , , , , , ) = disputes_.getDispute(0);
+        assertEq(uint256(st), uint256(DisputeResolution.DisputeStatus.Resolved));
+        // payout leg reverted inside try/catch: nobody was paid, but the
+        // dispute is final rather than frozen
+        assertEq(token.balanceOf(provider), 0);
     }
 
     function test_DeadlinePathRejectsEarlyCall() public {
