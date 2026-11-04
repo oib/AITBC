@@ -174,6 +174,12 @@ def aitbc_ai_pay(
     wallet: Annotated[str, Field(description="Wallet name to sign the escrow lock")],
     buyer_address: Annotated[str | None, Field(description="Override buyer/customer address")] = None,
     provider_address: Annotated[str | None, Field(description="Override provider address")] = None,
+    buyer_agent_id: Annotated[
+        str | None, Field(description="Buyer agent id; payment address resolved via coordinator")
+    ] = None,
+    provider_agent_id: Annotated[
+        str | None, Field(description="Provider agent id; payment address resolved via coordinator")
+    ] = None,
     offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")] = None,
     offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy")] = None,
     currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")] = None,
@@ -199,6 +205,8 @@ def aitbc_ai_pay(
             "wallet": "wallet",
             "buyer_address": "buyer-address",
             "provider_address": "provider-address",
+            "buyer_agent_id": "buyer-agent-id",
+            "provider_agent_id": "provider-agent-id",
             "offer_id": "offer-id",
             "offer_quantity": "offer-quantity",
             "currency": "currency",
@@ -484,6 +492,12 @@ def aitbc_ai_submit(
     currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")] = None,
     buyer_address: Annotated[str | None, Field(description="Customer wallet address for escrow")] = None,
     provider_address: Annotated[str | None, Field(description="Provider wallet address for escrow")] = None,
+    buyer_agent_id: Annotated[
+        str | None, Field(description="Buyer agent id; payment address resolved via coordinator")
+    ] = None,
+    provider_agent_id: Annotated[
+        str | None, Field(description="Provider agent id; payment address resolved via coordinator")
+    ] = None,
     offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")] = None,
     offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy (default: 1)")] = None,
     acceptance_window: Annotated[
@@ -549,6 +563,8 @@ def aitbc_ai_submit(
             "currency": "currency",
             "buyer_address": "buyer-address",
             "provider_address": "provider-address",
+            "buyer_agent_id": "buyer-agent-id",
+            "provider_agent_id": "provider-agent-id",
             "offer_id": "offer-id",
             "offer_quantity": "offer-quantity",
             "acceptance_window": "acceptance-window",

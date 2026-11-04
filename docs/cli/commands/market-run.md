@@ -29,6 +29,8 @@ aitbc market run [OPTIONS]
 | `--days` | integer | `1` | no | Rental duration in days for IPFS hosting |
 | `--pin`, `--no-pin` | flag | `true` | no | Pin the CID for IPFS hosting (default: pin) |
 | `--track` | flag | `false` | no | Create a coordinator job record after a successful run |
+| `--buyer-agent-id` | text | — | no | Buyer agent id; payment address resolved via coordinator |
+| `--provider-agent-id` | text | — | no | Provider agent id; payment address resolved via coordinator |
 | `--proposer` | text | — | no | Override the escrow node-wallet address (defaults to the node wallet advertised at /health) |
 | `--output` | choice | — | no | Output format (alias for --format) |
 | `--format` | choice | — | no | Output format |
