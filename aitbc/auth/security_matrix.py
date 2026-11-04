@@ -48,6 +48,11 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # ruling on #474): label keys are relay+result only, and the endpoint is
     # loopback-scoped (nginx must not proxy it).
     "/prometheus": AuthLevel.NONE,
+    # Same scrape-target family as /prometheus — the dashboard /metrics and
+    # /rate-limit-metrics handlers were never registered and resolved to
+    # DENY for every caller (#1073).
+    "/metrics": AuthLevel.NONE,
+    "/rate-limit-metrics": AuthLevel.NONE,
     # The ASGI mount redirects /prometheus to /prometheus/ — the wildcard
     # covers the canonical path the client actually lands on.
     "/prometheus/*": AuthLevel.NONE,
@@ -92,6 +97,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # Admin routes
     "/v1/admin/*": AuthLevel.ADMIN,
     # Miner routes
+    "/v1/agents/security/*": AuthLevel.ANY,
     "/v1/miners/*": AuthLevel.MINER,
     "/v1/market/gpu/register": AuthLevel.MINER,
     "/v1/market/native-energy/profile": AuthLevel.MINER,
@@ -104,8 +110,25 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/market/gpu/sell": AuthLevel.MINER,
     "/v1/market/gpu/*/release": AuthLevel.MINER,
     "/v1/market/gpu/*/confirm": AuthLevel.MINER,
-    "/v1/market/gpu/*/delete": AuthLevel.MINER,
-    "/v1/market/gpu/sync-offers": AuthLevel.MINER,
+    # Details, DELETE and reviews all share /v1/market/gpu/{id}: the handlers
+    # take AuthDep, so ANY is the honest floor for the whole path family
+    # (#1073). The old "/v1/market/gpu/*/delete" entry matched no real route —
+    # the real DELETE is /v1/market/gpu/{gpu_id}.
+    "/v1/market/gpu/*": AuthLevel.ANY,
+    "/v1/market/sync-offers": AuthLevel.MINER,
+    "/v1/market/providers/*/capacity": AuthLevel.MINER,
+    "/v1/tasks/ollama": AuthLevel.MINER,
+    "/v1/state/dump": AuthLevel.ADMIN,
+    "/v1/logout": AuthLevel.ANY,
+    # These families all registered routes but had no matrix entry, so every
+    # call resolved to DENY (#1073). Their handlers carry their own auth deps
+    # (hipaa/economic-proposals require_auth, oracle set_price AdminDep), so
+    # ANY is the matrix-level floor.
+    "/v1/hipaa/*": AuthLevel.ANY,
+    "/v1/economic-proposals": AuthLevel.ANY,
+    "/v1/economic-proposals/*": AuthLevel.ANY,
+    "/v1/agent-creativity/*": AuthLevel.ANY,
+    "/v1/oracle/*": AuthLevel.ANY,
     # Client routes. Admin wallets (operator accounts) also drive the customer
     # job/payment workflow, so these accept admin-or-client.
     "/v1/jobs": AuthLevel.ADMIN_OR_CLIENT,
@@ -113,7 +136,6 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/market/gpu/purchase": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/gpu/quote": AuthLevel.NONE,
     "/v1/market/gpu/*/book": AuthLevel.ADMIN_OR_CLIENT,
-    "/v1/market/gpu/bid": AuthLevel.ADMIN_OR_CLIENT,
     # D2: the bare collection path needs its own entry. get_auth_level() tries an
     # exact match and then fnmatch, and "/v1/payments" does not match
     # "/v1/payments/*" -- so POST /v1/payments fell through to the CORE-03
@@ -159,8 +181,6 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/ml-zk*": AuthLevel.ANY,
     "/v1/confidential/payments": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/confidential*": AuthLevel.ANY,
-    "/v1/security*": AuthLevel.ANY,
-    "/v1/blockchain*": AuthLevel.ANY,
     "/v1/islands*": AuthLevel.ANY,
     "/v1/web-vitals*": AuthLevel.ANY,
     "/v1/monitoring*": AuthLevel.ANY,
