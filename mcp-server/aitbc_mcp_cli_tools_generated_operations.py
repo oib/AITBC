@@ -345,6 +345,10 @@ def aitbc_operations_governance_delegate(
     delegator: Annotated[str, Field(description="Delegator address")],
     delegate: Annotated[str, Field(description="Delegate address")],
     amount: Annotated[int, Field(description="Amount of voting power to delegate")],
+    wallet_name: Annotated[str | None, Field(description="Wallet to sign the delegation (required by the service)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -356,7 +360,14 @@ def aitbc_operations_governance_delegate(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"delegator": "delegator", "delegate": "delegate", "amount": "amount", "format": "format"},
+        values={
+            "delegator": "delegator",
+            "delegate": "delegate",
+            "amount": "amount",
+            "wallet_name": "wallet",
+            "password_file": "password-file",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -567,6 +578,10 @@ def aitbc_operations_governance_stake(
     address: Annotated[str, Field(description="Staker address")],
     amount: Annotated[int, Field(description="Amount of tokens to stake")],
     lock_days: Annotated[int | None, Field(description="Lock period in days (min 30)")] = None,
+    wallet_name: Annotated[str | None, Field(description="Wallet to sign the stake request (required by the service)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -578,7 +593,14 @@ def aitbc_operations_governance_stake(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"address": "address", "amount": "amount", "lock_days": "lock-days", "format": "format"},
+        values={
+            "address": "address",
+            "amount": "amount",
+            "lock_days": "lock-days",
+            "wallet_name": "wallet",
+            "password_file": "password-file",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)

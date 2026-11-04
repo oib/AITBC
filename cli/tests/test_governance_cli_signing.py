@@ -156,3 +156,52 @@ def test_propose_tx_payload_carries_block_window() -> None:
     assert payload["voting_ends_block"] == 100 + 2 * 43200
     assert payload["proposal_id"].startswith("prop_")
     assert payload["proposer"] == ADDR
+
+
+def _fake_http(captured: dict):
+    http = MagicMock()
+
+    def _post(path, json=None, **kw):
+        captured["path"], captured["json"] = path, json
+        return {"ok": True}
+
+    http.post = _post
+    return http
+
+
+def test_ops_stake_posts_signed_body() -> None:
+    from aitbc_cli.commands.operations import governance as ops_gov
+
+    captured: dict = {}
+    signer = (ADDR, PK.to_hex())
+    with (
+        patch("aitbc_cli.commands.operations.AITBCHTTPClient", return_value=_fake_http(captured)),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=signer),
+        patch("aitbc_cli.commands.operations._wallet_signer", create=True, return_value=signer),
+        patch("aitbc_cli.commands.operations.success"),
+        patch("aitbc_cli.commands.operations.output"),
+    ):
+        result = CliRunner().invoke(ops_gov, ["stake", "--address", ADDR, "--amount", "10", "--wallet", "w"])
+    assert result.exit_code == 0, result.output
+    body = captured["json"]
+    unsigned = {k: v for k, v in body.items() if k != "signature"}
+    assert _verify(ADDR, body["signature"], unsigned)
+    assert "timestamp" in unsigned
+
+
+def test_ops_delegate_signer_must_match_delegator() -> None:
+    from aitbc_cli.commands.operations import governance as ops_gov
+
+    other = keys.PrivateKey(b"\x0e" * 32).public_key.to_checksum_address()
+    signer = (ADDR, PK.to_hex())
+    with (
+        patch("aitbc_cli.commands.operations.AITBCHTTPClient", return_value=_fake_http({})),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=signer),
+        patch("aitbc_cli.commands.operations._wallet_signer", create=True, return_value=signer),
+    ):
+        result = CliRunner().invoke(
+            ops_gov,
+            ["delegate", "--delegator", other, "--delegate", ADDR, "--amount", "1", "--wallet", "w"],
+        )
+    assert result.exit_code != 0
+    assert "does not match" in (result.output + str(result.exception or ""))
