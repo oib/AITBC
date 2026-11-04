@@ -9,6 +9,7 @@ Exit codes:
 """
 
 import re
+from urllib.parse import unquote
 import sys
 from pathlib import Path
 
@@ -57,9 +58,31 @@ SOURCE_SUFFIXES = frozenset(
     }
 )
 
-LINK_RE = re.compile(r"(\[[^\]]*\]\()([^)]+)(\))")
+# Link forms the checker must see (#1028): inline [t](url), titled
+# [t](url "..."), angle <url>, image ![a](url), and reference [t][ref]
+# with `ref: url` definitions. The old single regex saw only the plain form.
+INLINE_LINK_RE = re.compile(r"!?\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+[\"'][^\"']*[\"'])?\s*\)")
+# Angle autolinks count only when they aim at a markdown page —
+# <file.json> in docs is a CLI placeholder, not a link.
+ANGLE_LINK_RE = re.compile(r"<([^ >]+\.md[^ >]*)>")
+REF_DEF_RE = re.compile(r"^\s*\[([^\]]+)\]:\s*(\S+)", re.MULTILINE)
+REF_USE_RE = re.compile(r"\[([^\]]+)\]\[([^\]]*)\]")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+
+
+def iter_link_targets(text: str):
+    """Yield raw link targets across all markdown forms."""
+    ref_defs = {m.group(1).strip().lower(): m.group(2) for m in REF_DEF_RE.finditer(text)}
+    for m in INLINE_LINK_RE.finditer(text):
+        yield m.group(1)
+    for m in ANGLE_LINK_RE.finditer(text):
+        yield m.group(1)
+    for m in REF_USE_RE.finditer(text):
+        # [text][ref] uses group 2; [ref][] resolves via its own label.
+        ref = (m.group(2) or m.group(1)).strip().lower()
+        if ref in ref_defs:
+            yield ref_defs[ref]
 
 
 def strip_code_fences(text: str) -> str:
@@ -93,9 +116,9 @@ def main() -> int:
 
     for src in scan_files:
         text = INLINE_CODE_RE.sub("", strip_code_fences(src.read_text(errors="ignore")))
-        for m in LINK_RE.finditer(text):
-            target = m.group(2).strip()
-            base = target.split("#", 1)[0]
+        for target in iter_link_targets(text):
+            target = target.strip()
+            base = unquote(target).split("#", 1)[0]
             if not base:
                 continue
             if base.startswith(("http://", "https://", "mailto://", "vscode-remote://")):
