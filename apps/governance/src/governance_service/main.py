@@ -203,33 +203,6 @@ async def get_analytics(svc: Annotated[GovernanceService, Depends(get_governance
     return await svc.get_analytics(period=period or "monthly")
 
 
-@app.post("/v1/governance/execute")
-async def execute_proposal(
-    proposal_id: str, executor_id: str, svc: Annotated[GovernanceService, Depends(get_governance_service)]
-):
-    """Execute a passed proposal (migrated from Coordinator API)"""
-    logger.info("Executing proposal %s by executor %s", proposal_id, executor_id)
-    proposal = await svc.get_proposal(proposal_id)
-    if not proposal:
-        return JSONResponse(status_code=404, content={"error": "Proposal not found"})
-    if proposal.status != "passed":
-        return JSONResponse(status_code=400, content={"error": "Proposal must be in 'passed' status to execute"})
-    try:
-        execution_result = {
-            "proposal_id": proposal_id,
-            "executor_id": executor_id,
-            "status": "executed",
-            "executed_at": svc.get_current_timestamp(),
-            "tx_hash": None,
-        }
-        await svc.update_proposal_status(proposal_id, "executed")
-        logger.info("Successfully executed proposal %s", proposal_id)
-        return execution_result
-    except Exception:
-        logger.exception("Error executing proposal %s", proposal_id)
-        return JSONResponse(status_code=500, content={"error": "Internal server error"})
-
-
 @app.get("/v1/governance/params")
 def get_governance_params():
     """Get governance parameters (migrated from Coordinator API)"""
