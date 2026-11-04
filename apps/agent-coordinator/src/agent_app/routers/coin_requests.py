@@ -308,10 +308,16 @@ def remote_execute_coin_request(
         if not signed_tx:
             raise HTTPException(status_code=500, detail="Failed to generate signed transaction")
 
-        # Fold the attempt's nonce into the claim (CAS on the marker we wrote):
-        # if the submit below dies ambiguously the row keeps this nonce, and a
-        # retry can find the accepted tx on-chain instead of paying twice (#851).
-        nonce_claim = f"{claim}:nonce={signed_tx.get('nonce')}"
+        # Fold the attempt's nonce AND its locally-computed hash into the
+        # claim (CAS on the marker we wrote): if the submit below dies
+        # ambiguously the row keeps both, and a retry can ask the node for
+        # the tx by hash — not just scan by nonce (#1080).
+        attempt_hash = _compute_attempt_hash(signed_tx)
+        nonce_claim = (
+            f"{claim}:nonce={signed_tx.get('nonce')}:tx={attempt_hash}"
+            if attempt_hash
+            else f"{claim}:nonce={signed_tx.get('nonce')}"
+        )
         with get_db_session() as session:
             session.query(CoinRequest).filter(CoinRequest.id == req.request_id, CoinRequest.transaction_hash == claim).update(
                 {"transaction_hash": nonce_claim}, synchronize_session=False
@@ -383,6 +389,34 @@ def _release_claim_for_safe_exit(request_id: str, claim: str) -> None:
     _release_claim(request_id, claim)
 
 
+def _compute_attempt_hash(signed_tx: dict) -> str | None:
+    """Hash a signed tx the way mempool admission does — sha256 of the
+    canonical json. Lets a claim carry the hash before the POST returns."""
+    try:
+        import hashlib
+        import json as _json
+
+        canonical = _json.dumps(signed_tx, sort_keys=True, separators=(",", ":")).encode()
+        return f"0x{hashlib.sha256(canonical).hexdigest()}"
+    except Exception:
+        return None
+
+
+def _claim_fields(claim: str) -> tuple[int | None, str | None]:
+    """Parse ``:nonce=N`` and optional ``:tx=H`` from a nonce-marked claim."""
+    nonce = None
+    attempt_hash = None
+    for part in claim.split(":"):
+        if part.startswith("nonce="):
+            try:
+                nonce = int(part[6:])
+            except ValueError:
+                pass
+        elif part.startswith("tx="):
+            attempt_hash = part[3:] or None
+    return nonce, attempt_hash
+
+
 def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient: str) -> str | None:
     """Reconcile a nonce-marked claim against the chain.
 
@@ -390,15 +424,10 @@ def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient
     found (mempool or sealed); None when the chain shows nothing — the claim
     is then released and the caller may safely retry.
     """
-    marker = ":nonce="
-    if marker not in claim:
+    nonce, attempt_hash = _claim_fields(claim)
+    if nonce is None:
         # A bare claim (pre-signing crash) carries no nonce — release and let
         # the retry proceed; nothing signed ever existed.
-        _release_claim(request_id, claim)
-        return None
-    try:
-        nonce = int(claim.rsplit(marker, 1)[1])
-    except ValueError:
         _release_claim(request_id, claim)
         return None
 
@@ -412,13 +441,33 @@ def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient
         pending = mempool_resp.get("transactions", []) if isinstance(mempool_resp, dict) else []
         found: str | None = None
         for entry in pending:
-            if entry.get("nonce") == nonce and entry.get("from") == genesis and entry.get("to") == recipient:
+            # Mempool entries are PendingTransaction-shaped: the submitted body
+            # lives under "content" — nonce/from/to are NOT top-level keys, so
+            # a flat read made every pending tx invisible (#1080).
+            body = entry.get("content") if isinstance(entry.get("content"), dict) else entry
+            if attempt_hash and entry.get("tx_hash") == attempt_hash:
+                if body.get("to") != recipient:
+                    logger.error(
+                        "Pending tx %s for claimed attempt on %s points at %s, not %s — keeping the claim",
+                        attempt_hash,
+                        request_id,
+                        body.get("to"),
+                        recipient,
+                    )
+                    return None
+                found = attempt_hash
+                break
+            if body.get("nonce") == nonce and body.get("from") == genesis and body.get("to") == recipient:
                 found = entry.get("tx_hash") or entry.get("transaction_hash")
                 break
         if found is None:
             sealed = client.get_json("/rpc/transactions", params={"sender": genesis, "recipient": recipient})
             for entry in sealed if isinstance(sealed, list) else []:
-                if entry.get("nonce") == nonce:
+                body = entry.get("content") if isinstance(entry.get("content"), dict) else entry
+                if attempt_hash and (entry.get("tx_hash") == attempt_hash or entry.get("transaction_hash") == attempt_hash):
+                    found = attempt_hash
+                    break
+                if body.get("nonce") == nonce:
                     found = entry.get("tx_hash") or entry.get("transaction_hash")
                     break
         if found:
