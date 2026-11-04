@@ -169,6 +169,18 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
     uint256 public forecastCounter;
     uint256 public alertCounter;
 
+    // Alert spam control (#1121): free uncapped alerts let anyone grow
+    // activePriceAlerts until _checkPriceAlerts inside updateMarketData ran
+    // out of gas and the oracle could no longer publish prices. Cap per
+    // subscriber, let subscribers cancel (swap-and-pop keeps the array
+    // short), and bound the per-update scan with a rotating cursor so a
+    // long queue defers, never blocks, the price update.
+    uint256 public constant MAX_ALERTS_PER_SUBSCRIBER = 50;
+    uint256 public constant MAX_ALERT_CHECKS_PER_UPDATE = 100;
+    uint256 public alertCheckCursor;
+    mapping(address => uint256) public subscriberAlertCount;
+    mapping(uint256 => uint256) public alertActiveIndex;
+
     // Events
     event MarketDataUpdated(
         uint256 indexed timestamp,
@@ -207,6 +219,8 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
         uint256 currentPrice,
         uint256 thresholdPrice
     );
+
+    event PriceAlertCancelled(uint256 indexed alertId, address indexed subscriber);
 
     event SurgePricingActivated(
         uint256 surgeMultiplier,
@@ -554,6 +568,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
     ) external nonReentrant whenNotPaused returns (uint256) {
         require(_subscriber != address(0), "Invalid subscriber");
         require(_thresholdPrice > 0, "Invalid threshold price");
+        require(subscriberAlertCount[_subscriber] < MAX_ALERTS_PER_SUBSCRIBER, "Alert cap reached");
 
         uint256 alertId = alertCounter++;
 
@@ -568,9 +583,39 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
             notificationMethod: _notificationMethod
         });
 
+        alertActiveIndex[alertId] = activePriceAlerts.length;
         activePriceAlerts.push(alertId);
+        subscriberAlertCount[_subscriber]++;
 
         return alertId;
+    }
+
+    /**
+     * @dev Cancels an active price alert: the subscriber (or owner) marks it
+     * inactive and it leaves activePriceAlerts via swap-and-pop so the
+     * update-time scan stays short (#1121).
+     */
+    function cancelPriceAlert(uint256 _alertId) external nonReentrant whenNotPaused {
+        PriceAlert storage alert = priceAlerts[_alertId];
+        require(alert.isActive, "Alert not active");
+        require(msg.sender == alert.subscriber || msg.sender == owner(), "Not alert subscriber");
+
+        alert.isActive = false;
+        subscriberAlertCount[alert.subscriber]--;
+
+        uint256 index = alertActiveIndex[_alertId];
+        uint256 lastId = activePriceAlerts[activePriceAlerts.length - 1];
+        activePriceAlerts[index] = lastId;
+        alertActiveIndex[lastId] = index;
+        activePriceAlerts.pop();
+        delete alertActiveIndex[_alertId];
+
+        emit PriceAlertCancelled(_alertId, alert.subscriber);
+    }
+
+    /// @dev Number of alerts the update-time scan walks (bounded batches).
+    function activePriceAlertCount() external view returns (uint256) {
+        return activePriceAlerts.length;
     }
 
     /**
@@ -736,7 +781,18 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
 
     // Internal function to check price alerts
     function _checkPriceAlerts(uint256 _currentPrice) internal {
-        for (uint256 i = 0; i < activePriceAlerts.length; i++) {
+        uint256 count = activePriceAlerts.length;
+        if (count == 0) return;
+
+        // Bounded scan: at most MAX_ALERT_CHECKS_PER_UPDATE entries per
+        // update, continuing where the last update stopped, so a spammed
+        // alert queue defers triggers instead of gas-starving the oracle
+        // update (#1121).
+        uint256 start = alertCheckCursor % count;
+        uint256 scanned = 0;
+        for (uint256 j = 0; j < count && scanned < MAX_ALERT_CHECKS_PER_UPDATE; j++) {
+            uint256 i = (start + j) % count;
+            scanned++;
             uint256 alertId = activePriceAlerts[i];
             PriceAlert storage alert = priceAlerts[alertId];
 
@@ -755,6 +811,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
                 emit PriceAlertTriggered(alertId, alert.subscriber, alert.alertType, _currentPrice, alert.thresholdPrice);
             }
         }
+        alertCheckCursor = (start + scanned) % count;
     }
 
     // ============================================================
