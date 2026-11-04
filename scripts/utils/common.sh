@@ -34,7 +34,7 @@ log_warn() {
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} "$1""
+    echo -e "${RED}[ERROR]${NC} $1"
     log_to_file "ERROR" "$1"
 }
 
