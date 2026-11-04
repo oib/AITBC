@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 
 import pytest
-from nacl.signing import VerifyKey
+from nacl.signing import SigningKey
 
 from wallet_app.keystore.persistent_service import PersistentKeystoreService
 
@@ -16,7 +17,10 @@ def test_create_wallet_returns_record(keystore: PersistentKeystoreService) -> No
     record = keystore.create_wallet("alice", TEST_PASSWORD)
 
     assert record.wallet_id == "alice"
-    assert len(bytes.fromhex(record.public_key)) == 32
+    # Post-migration (#1078): public_key is the EIP-55 checksummed 0x address
+    # derived from the secp256k1 key, not the raw Ed25519 public key bytes.
+    assert record.public_key.startswith("0x")
+    assert len(bytes.fromhex(record.public_key[2:])) == 20
     assert record.ciphertext
     assert "alice" in keystore.list_wallets()
 
@@ -68,14 +72,18 @@ def test_private_key_is_not_stored_in_plaintext(keystore: PersistentKeystoreServ
     assert TEST_PASSWORD.encode() not in raw
 
 
-def test_signature_verifies_against_stored_public_key(keystore: PersistentKeystoreService) -> None:
-    record = keystore.create_wallet("alice", TEST_PASSWORD)
+def test_signature_verifies_against_the_wallet_secret(keystore: PersistentKeystoreService) -> None:
+    # sign_message still signs Ed25519 over the stored secret bytes; the
+    # public_key column is now the chain 0x address, so verification goes
+    # against the verify key derived from the minted secret.
+    secret = bytes(range(1, 33))
+    keystore.create_wallet("alice", TEST_PASSWORD, secret=secret)
     message = b"transfer 10 AIT"
 
     signature = keystore.sign_message("alice", TEST_PASSWORD, message)
 
     # Raises nacl.exceptions.BadSignatureError if the signature does not check out.
-    VerifyKey(bytes.fromhex(record.public_key)).verify(message, signature)
+    SigningKey(secret).verify_key.verify(message, signature)
 
 
 def test_sign_with_wrong_password_raises(keystore: PersistentKeystoreService) -> None:
@@ -165,3 +173,161 @@ def test_sqlite_schema_has_expected_tables(keystore: PersistentKeystoreService) 
         conn.close()
 
     assert {"wallets", "wallet_access_log"} <= names
+
+
+# ---------- secp256k1 send path (WALLET-DAEMON-SEND-...-KEYS-1, #1078) ----------
+
+
+def _legacy_ed25519_wallet(keystore: PersistentKeystoreService, wallet_id: str) -> None:
+    """Rewrite a fresh wallet row into a pre-migration one: no key_scheme
+    marker, the state every Ed25519-era wallet on disk still has."""
+    conn = sqlite3.connect(keystore.db_path)
+    try:
+        conn.execute("UPDATE wallets SET metadata = '{}' WHERE wallet_id = ?", (wallet_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_new_wallet_mints_secp256k1_with_0x_address(keystore: PersistentKeystoreService) -> None:
+    record = keystore.create_wallet("carol", TEST_PASSWORD)
+
+    assert record.public_key.startswith("0x")
+    assert len(bytes.fromhex(record.public_key[2:])) == 20
+    assert record.metadata["key_scheme"] == "secp256k1"
+
+
+def test_wallet_address_is_derived_from_the_stored_secret(keystore: PersistentKeystoreService) -> None:
+    """The address in public_key must be the one the stored key controls —
+    the same mismatch class as UTILS-KEYSTORE-PY-KEY-NOT-DERIVED (#937)."""
+    from aitbc.utils.validation import validate_address
+    from eth_keys import keys as eth_keys
+
+    secret = bytes(range(32, 64))
+    record = keystore.create_wallet("named", TEST_PASSWORD, secret=secret)
+
+    assert validate_address(record.public_key)
+    assert record.public_key.lower() == eth_keys.PrivateKey(secret).public_key.to_address().lower()
+
+
+def test_legacy_ed25519_wallet_refused_on_send(keystore: PersistentKeystoreService) -> None:
+    """A pre-migration row must be refused with the clear error — never a
+    signature the node cannot verify."""
+    keystore.create_wallet("legacy", TEST_PASSWORD)
+    _legacy_ed25519_wallet(keystore, "legacy")
+
+    result = keystore.sign_and_submit_transaction("legacy", TEST_PASSWORD, "0x" + "11" * 20, 10, chain_id="test-chain")
+
+    assert result["success"] is False
+    assert "legacy Ed25519" in result["error"]
+    assert "migrate funds" in result["error"]
+
+
+def test_signed_transaction_recovers_sender_address(keystore: PersistentKeystoreService) -> None:
+    """The signature over the node's canonical unsigned fields must recover
+    to the sender's 0x address — the comparison the node actually runs."""
+    from eth_keys import keys as eth_keys
+    from eth_utils import keccak
+
+    record = keystore.create_wallet("dave", TEST_PASSWORD)
+    captured: dict = {}
+
+    def fake_submit(self, tx_data, signature):
+        captured["tx_data"] = tx_data
+        captured["signature"] = signature
+        return {"success": True, "transaction_hash": "0xdead"}
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(PersistentKeystoreService, "_submit_transaction_to_chain", fake_submit)
+    monkey.setattr(PersistentKeystoreService, "_get_account_nonce", lambda self, addr: 7)
+    monkey.setenv("CHAIN_ID", "test-chain")
+    try:
+        result = keystore.sign_and_submit_transaction("dave", TEST_PASSWORD, "0x" + "22" * 20, 42)
+    finally:
+        monkey.undo()
+
+    assert result["success"] is True
+    tx = captured["tx_data"]
+    # canonical unsigned fields only — a timestamp here used to break verify
+    assert set(tx) >= {"from", "to", "amount", "fee", "nonce", "chain_id", "type"}
+    assert "timestamp" not in tx
+    assert tx["from"] == record.public_key
+    assert tx["nonce"] == 7
+
+    message = json.dumps(tx, sort_keys=True, separators=(",", ":")).encode()
+    sig = eth_keys.Signature(signature_bytes=bytes.fromhex(captured["signature"].removeprefix("0x")))
+    # the node compares canonical_address(recovered) == canonical_address(from)
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    assert canonical_address(sig.recover_public_key_from_msg_hash(keccak(message)).to_checksum_address()) == canonical_address(
+        tx["from"]
+    )
+
+
+def test_submit_body_uses_node_aliases_and_reads_transaction_hash(
+    keystore: PersistentKeystoreService,
+) -> None:
+    """The wire body must speak the node's only accepted names
+    (from/to/signature — not sender/recipient/sig) and read
+    transaction_hash, not tx_hash, out of the answer."""
+    import wallet_app.keystore.persistent_service as svc
+
+    record = keystore.create_wallet("erin", TEST_PASSWORD)
+    captured: dict = {}
+
+    class _Resp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"success": True, "transaction_hash": "0xbeef", "status": "pending"}
+
+    def fake_post(url, json=None, timeout=None):
+        captured["url"] = url
+        captured["body"] = json
+        return _Resp()
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(svc.httpx, "post", fake_post)
+    monkey.setattr(svc.httpx, "get", lambda *a, **k: _Resp())  # unreachable — nonce given
+    try:
+        result = keystore.sign_and_submit_transaction(
+            "erin", TEST_PASSWORD, "0x" + "33" * 20, 5, nonce=0, chain_id="test-chain"
+        )
+    finally:
+        monkey.undo()
+
+    body = captured["body"]
+    for alias in ("from", "to", "signature"):
+        assert alias in body
+    for rejected in ("sender", "recipient", "sig"):
+        assert rejected not in body
+    assert body["from"] == record.public_key
+    assert result["success"] is True
+    assert result["tx_hash"] == "0xbeef"
+
+
+def test_nonce_lookup_error_propagates(keystore: PersistentKeystoreService) -> None:
+    """A failed nonce fetch must not silently sign with nonce 0 — the error
+    surfaces and nothing is submitted."""
+    called: list = []
+
+    def explode(self, address):
+        raise RuntimeError("rpc down")
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(PersistentKeystoreService, "_get_account_nonce", explode)
+    monkey.setattr(
+        PersistentKeystoreService,
+        "_submit_transaction_to_chain",
+        lambda self, tx, sig: called.append((tx, sig)) or {"success": True},
+    )
+    try:
+        keystore.create_wallet("frank", TEST_PASSWORD)
+        result = keystore.sign_and_submit_transaction("frank", TEST_PASSWORD, "0x" + "44" * 20, 5, chain_id="test-chain")
+    finally:
+        monkey.undo()
+
+    assert result["success"] is False
+    assert "rpc down" in result["error"]
+    assert called == []

@@ -262,7 +262,7 @@ class PersistentKeystoreService:
             # instead of producing a signature that can never verify.
             # EIP-55 checksummed: validate_address and the node's recovery
             # comparison both require it — lowercasing breaks both.
-            public_key_hex = pk_obj.public_key.to_address()
+            public_key_hex = pk_obj.public_key.to_checksum_address()
             metadata_map.setdefault("key_scheme", "secp256k1")
             now = datetime.now(UTC).isoformat()
 
