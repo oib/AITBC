@@ -45,6 +45,10 @@ ensure_workspace_base() {
 # Setup a specific workspace
 setup_workspace() {
     local workspace_type="$1"
+    if [[ ! "$workspace_type" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "Invalid workspace type '$workspace_type' — must be a plain name (letters, digits, -, _)"
+        return 1
+    fi
     local workspace_dir="$WORKSPACE_BASE/$workspace_type"
 
     if [[ -z "$REPO_URL" ]]; then
@@ -77,8 +81,8 @@ setup_workspace() {
     log_info "Repository contents:"
     ls -la | head -10
 
-    # Set git config for CI
-    git config --global http.postBuffer 1048576000
+    # Set git config for CI — repo-local, not --global on the invoking user
+    git config http.postBuffer 1048576000
 
     return 0
 }
@@ -87,6 +91,10 @@ setup_workspace() {
 cleanup_all_workspaces() {
     log_info "=== Cleaning up all workspaces ==="
 
+    if [[ "$WORKSPACE_BASE" != "/var/lib/aitbc-workspaces" ]]; then
+        log_error "Refusing to rm -rf unexpected WORKSPACE_BASE '$WORKSPACE_BASE'"
+        return 1
+    fi
     if [[ -d "$WORKSPACE_BASE" ]]; then
         log_warning "Removing workspace base directory: $WORKSPACE_BASE"
         rm -rf "$WORKSPACE_BASE"
