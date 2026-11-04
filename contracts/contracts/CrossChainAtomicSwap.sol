@@ -57,30 +57,42 @@ contract CrossChainAtomicSwap is ReentrancyGuard, Ownable {
      * @dev Initiate an atomic swap. The amount is locked in this contract.
      */
     function initiateSwap(
-        bytes32 _swapId,
         address _participant,
         address _token,
         uint256 _amount,
         bytes32 _hashlock,
         uint256 _timelock
-    ) external payable nonReentrant {
-        require(swaps[_swapId].status == SwapStatus.INVALID, "Swap ID already exists");
+    ) external payable nonReentrant returns (bytes32 swapId) {
         require(_participant != address(0), "Invalid participant");
         require(_timelock > block.timestamp, "Timelock must be in the future");
         require(_amount > 0, "Amount must be > 0");
 
+        uint256 received = _amount;
         if (_token == address(0)) {
             require(msg.value == _amount, "Incorrect ETH amount sent");
         } else {
             require(msg.value == 0, "ETH sent but ERC20 token specified");
+            // Fee-on-transfer tokens deliver less than _amount — account for
+            // what actually arrived or the swap is perpetually short (#1101).
+            uint256 before_ = IERC20(_token).balanceOf(address(this));
             IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+            received = IERC20(_token).balanceOf(address(this)) - before_;
+            require(received > 0, "No tokens received");
         }
+
+        // The swap id is derived inside the contract — a caller-supplied id
+        // could be occupied first by a mempool watcher (#1101).
+        swapId = keccak256(
+            abi.encodePacked(msg.sender, _participant, _token, _amount, _hashlock, _timelock, block.timestamp)
+        );
+        require(swaps[swapId].status == SwapStatus.INVALID, "Swap ID already exists");
+        bytes32 _swapId = swapId;
 
         swaps[_swapId] = Swap({
             initiator: msg.sender,
             participant: _participant,
             token: _token,
-            amount: _amount,
+            amount: received,
             hashlock: _hashlock,
             timelock: _timelock,
             status: SwapStatus.OPEN
@@ -91,7 +103,7 @@ contract CrossChainAtomicSwap is ReentrancyGuard, Ownable {
             msg.sender,
             _participant,
             _token,
-            _amount,
+            received,
             _hashlock,
             _timelock
         );
