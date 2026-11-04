@@ -100,6 +100,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         uint256 totalEarnings,
         uint256 stakerCount
     );
+    event StakingRewardsFailed(address agentWallet, uint256 earnings);
 
     event BatchProcessed(
         uint256 indexed batchId,
@@ -243,6 +244,8 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
             try this._processMappingInternal(_mappingIds[i]) {
                 successCount++;
             } catch {
+                performanceMappings[_mappingIds[i]].status = IntegrationStatus.FAILED;
+                performanceMappings[_mappingIds[i]].processedAt = block.timestamp;
                 failureCount++;
             }
         }
@@ -545,6 +548,10 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
     }
 
     function _processMappingInternal(uint256 _mappingId) external {
+        // Called only via this._processMappingInternal from the batch/processing
+        // paths — an open external let anyone drive verification repeatedly
+        // (#1114).
+        require(msg.sender == address(this), "self-call only");
         PerformanceMapping storage perfMap = performanceMappings[_mappingId];
 
         // Get bounty details
@@ -569,6 +576,10 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
             // Trigger staking rewards
             _triggerStakingRewards(submitter, accuracy);
         }
+        // Batch processing used to leave every mapping PENDING forever —
+        // mark it so the same mapping cannot be re-verified (#1114).
+        perfMap.status = IntegrationStatus.COMPLETED;
+        perfMap.processedAt = block.timestamp;
     }
 
     function _autoVerifyBounty(
@@ -586,11 +597,12 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         // Calculate earnings based on accuracy
         uint256 baseEarnings = (_accuracy * 100) * 10**18; // Simplified calculation
 
-        // Distribute to stakers
+        // Distribute to stakers — the failure used to be swallowed, which is
+        // why "rewards triggered" logged while nothing ever paid (#1114).
         try agentStaking.distributeAgentEarnings(_agentWallet, baseEarnings) {
             emit StakingRewardsTriggered(_agentWallet, baseEarnings, 0);
         } catch {
-            // Handle staking distribution failure
+            emit StakingRewardsFailed(_agentWallet, baseEarnings);
         }
     }
 
