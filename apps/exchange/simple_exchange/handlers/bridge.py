@@ -17,6 +17,24 @@ _REPO_ROOT = str(Path(__file__).resolve().parents[4])
 _BRIDGE_MONITOR_SRC = str(Path(_REPO_ROOT) / "apps" / "bridge-monitor" / "src")
 
 
+def _deposit_request_error(eth_amount: Decimal, ait_address: str) -> tuple[int, str] | None:
+    """(status, message) for an unacceptable deposit request, else None.
+
+    Same ait_address syntax the bridge monitor's ``valid_ait_recipient``
+    enforces — an unvalidated string used to flow into the deposit record and
+    could leave a paid deposit without a claimable recipient.
+    """
+    if not bridge_config.deposit_enabled:
+        return (503, "Bridge deposits are currently disabled")
+    if eth_amount <= 0 or not ait_address:
+        return (400, "eth_amount and ait_address required")
+    if not (
+        ait_address.startswith("0x") and len(ait_address) == 42 and all(c in "0123456789abcdefABCDEF" for c in ait_address[2:])
+    ):
+        return (400, "ait_address is not a valid AIT recipient address")
+    return None
+
+
 class BridgeMixin:
     """Cross-chain bridge methods."""
 
@@ -74,8 +92,10 @@ class BridgeMixin:
                 return
             ait_address = body.get("ait_address", "")
 
-            if eth_amount <= 0 or not ait_address:
-                self.send_json_response({"error": "eth_amount and ait_address required"}, status=400)  # type: ignore[attr-defined]
+            rejection = _deposit_request_error(eth_amount, ait_address)
+            if rejection:
+                status_code, message = rejection
+                self.send_json_response({"error": message}, status=status_code)  # type: ignore[attr-defined]
                 return
 
             # Get bridge configuration
@@ -150,7 +170,10 @@ class BridgeMixin:
         signers = {s.strip().lower() for s in bridge_config.signers}
         threshold = bridge_config.multisig_threshold
         if not signers or threshold <= 0:
-            return (True, 0)  # no multi-sig configured; gate is open
+            # Fail closed (#1086): an exchange that ever enabled withdrawals
+            # while the signer list was unset would let every unsigned claim
+            # pass this check.
+            return (False, 0)
 
         try:
             from eth_hash.auto import keccak
