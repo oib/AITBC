@@ -668,7 +668,7 @@ EnvironmentFile=-/etc/aitbc/validator-secrets.env
 
 ### Wallet Service
 
-- **aitbc-wallet.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`
+- **aitbc-wallet.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`, `exchange.env`, `aitbc-wallet.env` (optional `-` prefix — wallet auth, spend policy, DB URL, etc.)
 
 ### CLI
 
