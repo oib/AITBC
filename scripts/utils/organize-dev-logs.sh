@@ -4,7 +4,7 @@
 # Organizes scattered logs and sets up prevention measures
 #
 
-set -e
+set -euo pipefail
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -145,13 +145,13 @@ alias clilogs="cd $AITBC_CLI_LOG_DIR"
 alias serviceslogs="cd $AITBC_SERVICES_LOG_DIR"
 
 # Common log commands
-alias wgetlog="wget -o $AITBC_TOOLS_LOG_DIR/wget-log-$(date +%Y%m%d_%H%M%S).log"
-alias curllog="curl -o $AITBC_TOOLS_LOG_DIR/curl-log-$(date +%Y%m%d_%H%M%S).log"
-alias devlog="echo '[$(date +%Y-%m-%d %H:%M:%S)]' >> $AITBC_CURRENT_LOG_DIR/dev-session-$(date +%Y%m%d).log"
+alias wgetlog='wget -o "$AITBC_TOOLS_LOG_DIR/wget-log-$(date +%Y%m%d_%H%M%S).log"'
+alias curllog='curl -o "$AITBC_TOOLS_LOG_DIR/curl-log-$(date +%Y%m%d_%H%M%S).log"'
+devlog() { echo "[$(date '+%Y-%m-%d %H:%M:%S')]" >> "$AITBC_CURRENT_LOG_DIR/dev-session-$(date +%Y%m%d).log"; }
 
 # Log cleanup
 alias cleanlogs="find $AITBC_DEV_LOGS_DIR -name '*.log' -mtime +7 -delete"
-alias archivelogs="find $AITBC_DEV_LOGS_DIR/current -name '*.log' -mtime +1 -exec mv {} $AITBC_DEV_LOGS_DIR/archive/$(date +%Y)/$(date +%m)/ \;"
+alias archivelogs='find "$AITBC_DEV_LOGS_DIR/current" -name "*.log" -mtime +1 -exec mv {} "$AITBC_DEV_LOGS_DIR/archive/$(date +%Y)/$(date +%m)/" \;'
 EOF
 
     # Update main .env.dev to include log environment
@@ -270,17 +270,11 @@ EOF
 configure_environment() {
     print_status "Configuring environment for log management..."
 
-    # Update .gitignore to prevent log files in root
-    if [[ -f "$PROJECT_ROOT/.gitignore" ]]; then
-        if ! grep -q "# Development logs" "$PROJECT_ROOT/.gitignore"; then
-            echo "" >> "$PROJECT_ROOT/.gitignore"
-            echo "# Development logs - keep in dev/logs/" >> "$PROJECT_ROOT/.gitignore"
-            echo "*.log" >> "$PROJECT_ROOT/.gitignore"
-            echo "*.out" >> "$PROJECT_ROOT/.gitignore"
-            echo "*.err" >> "$PROJECT_ROOT/.gitignore"
-            echo "wget-log" >> "$PROJECT_ROOT/.gitignore"
-            echo "download.log" >> "$PROJECT_ROOT/.gitignore"
-        fi
+    # Do NOT append to the tracked .gitignore here — a runtime script must
+    # not mutate tracked repo files. Print the suggested block instead.
+    if ! grep -q "# Development logs" "$PROJECT_ROOT/.gitignore" 2>/dev/null; then
+        print_warning "Consider adding to .gitignore (not done automatically):"
+        printf '  # Development logs - keep in dev/logs/\n  *.log\n  *.out\n  *.err\n  wget-log\n  download.log\n'
     fi
 
     # Create a log prevention reminder
