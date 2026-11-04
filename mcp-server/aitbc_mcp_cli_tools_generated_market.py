@@ -161,8 +161,10 @@ def aitbc_market_download(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_escrow_create(
     job_id: Annotated[str, Field(description="Coordinator job ID.")],
-    buyer: Annotated[str, Field(description="The Buyer.")],
-    provider: Annotated[str, Field(description="The Provider.")],
+    buyer: Annotated[str | None, Field(description="Buyer payment address (or use --buyer-agent-id).")] = None,
+    provider: Annotated[str | None, Field(description="Provider payment address (or use --provider-agent-id).")] = None,
+    buyer_agent_id: Annotated[str | None, Field(description="Resolve buyer address via agent-identity API.")] = None,
+    provider_agent_id: Annotated[str | None, Field(description="Resolve provider address via agent-identity API.")] = None,
     amount: Annotated[str | None, Field(description="Amount of AIT.")] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet name to sign the escrow lock")] = None,
     password_file: Annotated[
@@ -183,6 +185,8 @@ def aitbc_market_escrow_create(
             "job_id": "job-id",
             "buyer": "buyer",
             "provider": "provider",
+            "buyer_agent_id": "buyer-agent-id",
+            "provider_agent_id": "provider-agent-id",
             "amount": "amount",
             "wallet_name": "wallet",
             "password_file": "password-file",

@@ -381,6 +381,8 @@ class Escrow(ChainBase, table=True):
     dispute_reason: str | None = None
     dispute_evidence: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON))
     resolution: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    buyer_agent_id: str | None = Field(default=None, index=True, max_length=128)
+    provider_agent_id: str | None = Field(default=None, index=True, max_length=128)
 
 
 class CrossChainTransfer(ChainBase, table=True):
