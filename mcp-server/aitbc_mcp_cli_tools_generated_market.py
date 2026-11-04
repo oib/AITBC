@@ -1863,6 +1863,12 @@ def aitbc_market_run(
     days: Annotated[int | None, Field(description="Rental duration in days for IPFS hosting")] = None,
     pin: Annotated[bool | None, Field(description="Pin the CID for IPFS hosting (default: pin)")] = None,
     track: Annotated[bool | None, Field(description="Create a coordinator job record after a successful run")] = None,
+    buyer_agent_id: Annotated[
+        str | None, Field(description="Buyer agent id; payment address resolved via coordinator")
+    ] = None,
+    provider_agent_id: Annotated[
+        str | None, Field(description="Provider agent id; payment address resolved via coordinator")
+    ] = None,
     proposer_id: Annotated[
         str | None,
         Field(description="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)"),
@@ -1896,6 +1902,8 @@ def aitbc_market_run(
             "bitrate": "bitrate",
             "max_time": "max-time",
             "days": "days",
+            "buyer_agent_id": "buyer-agent-id",
+            "provider_agent_id": "provider-agent-id",
             "proposer_id": "proposer",
             "output_format": "format",
         },

@@ -18,6 +18,8 @@ aitbc ai pay [OPTIONS]
 | `--wallet` | text | — | yes | Wallet name to sign the escrow lock |
 | `--buyer-address` | text | — | no | Override buyer/customer address |
 | `--provider-address` | text | — | no | Override provider address |
+| `--buyer-agent-id` | text | — | no | Buyer agent id; payment address resolved via coordinator |
+| `--provider-agent-id` | text | — | no | Provider agent id; payment address resolved via coordinator |
 | `--offer-id` | text | — | no | Market offer this job is bought against |
 | `--offer-quantity` | Decimal | — | no | How many of the offer's price units to buy |
 | `--currency` | text | — | no | Payment currency (default: AITBC) |

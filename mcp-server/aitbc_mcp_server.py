@@ -3144,6 +3144,14 @@ def submit_ai_job(
         str | None,
         Field(description="Provider wallet address for escrow."),
     ] = None,
+    buyer_agent_id: Annotated[
+        str | None,
+        Field(description="Buyer agent id; payment address resolved via coordinator."),
+    ] = None,
+    provider_agent_id: Annotated[
+        str | None,
+        Field(description="Provider agent id; payment address resolved via coordinator."),
+    ] = None,
     offer_quantity: Annotated[
         str | None,
         Field(description="How many of the offer's price units to buy."),
@@ -3227,6 +3235,10 @@ def submit_ai_job(
         options["buyer-address"] = buyer_address
     if provider_address is not None:
         options["provider-address"] = provider_address
+    if buyer_agent_id is not None:
+        options["buyer-agent-id"] = buyer_agent_id
+    if provider_agent_id is not None:
+        options["provider-agent-id"] = provider_agent_id
     if offer_quantity is not None:
         options["offer-quantity"] = offer_quantity
     if acceptance_window is not None:
@@ -3278,6 +3290,14 @@ def pay_for_ai_job(
         str | None,
         Field(description="Override provider address."),
     ] = None,
+    buyer_agent_id: Annotated[
+        str | None,
+        Field(description="Buyer agent id; payment address resolved via coordinator."),
+    ] = None,
+    provider_agent_id: Annotated[
+        str | None,
+        Field(description="Provider agent id; payment address resolved via coordinator."),
+    ] = None,
     currency: Annotated[
         str,
         Field(description="Payment currency."),
@@ -3305,6 +3325,10 @@ def pay_for_ai_job(
         options["buyer-address"] = buyer_address
     if provider_address is not None:
         options["provider-address"] = provider_address
+    if buyer_agent_id is not None:
+        options["buyer-agent-id"] = buyer_agent_id
+    if provider_agent_id is not None:
+        options["provider-agent-id"] = provider_agent_id
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("ai", "pay", None, options, "json")
