@@ -14,7 +14,7 @@ Local FastAPI service that manages encrypted keys, signs transactions/receipts, 
   ```
 
 - Configuration comes from environment variables read by `wallet_app/settings.py` (`HOST`, `PORT`, `WALLET_API_KEY`, `WALLET_AUTH_ENABLED`, `WALLET_BIND_HOST`, `WALLET_BIND_PORT`, `WALLET_DIR`/`AITBC_WALLET_DIR`, `BLOCKCHAIN_RPC_URL`, …). There is no `.env.example` in `apps/wallet` — create `.env` yourself or export the variables directly.
-- **Spend policy (AGENT-SPEND-A-1):** when `AITBC_SPEND_POLICY_ENFORCE=1`, `POST …/send` requires a `payload` on the transaction with `op` (`wallet.execute`, `escrow.fund`, or `transfer.approved`) and optional `max_amount`. Default is off (`0`). Session caps are enforced on coordinator-api; this gate is daemon-local metadata only.
+- **Spend policy (AGENT-SPEND-A-1):** when `AITBC_SPEND_POLICY_ENFORCE=1`, `POST …/send` requires a `payload` with `op` (`wallet.execute`, `escrow.fund`, or `transfer.approved`) and **`max_amount`** (shape gate only — the caller supplies both fields; authoritative caps are coordinator spend sessions). Default is off (`0`).
 - Run the service locally:
 
   ```bash

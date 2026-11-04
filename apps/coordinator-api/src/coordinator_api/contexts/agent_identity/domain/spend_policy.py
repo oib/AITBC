@@ -9,6 +9,18 @@ PERM_TRANSFER_APPROVED = "transfer.approved"
 ALLOWED_PERMISSIONS: frozenset[str] = frozenset({PERM_WALLET_EXECUTE, PERM_ESCROW_FUND, PERM_TRANSFER_APPROVED})
 
 
+class SpendPermissionError(ValueError):
+    """Agent wallet permissions deny the operation."""
+
+
+class SpendSessionRequiredError(ValueError):
+    """execute_wallet_transaction requires session_id in data."""
+
+
+class SpendSessionCapError(ValueError):
+    """Session cap or state rejects the spend."""
+
+
 def operation_from_tx_data(data: dict | None) -> str:
     """Map transaction payload to a permission op (default wallet.execute)."""
     if not data:
@@ -22,10 +34,10 @@ def operation_from_tx_data(data: dict | None) -> str:
 
 
 def assert_wallet_permission(permissions: list[str], operation: str) -> None:
-    """When permissions are configured, require the operation to be listed."""
+    """Fail closed: empty permissions deny all operations."""
     if operation not in ALLOWED_PERMISSIONS:
         raise ValueError(f"unsupported spend operation: {operation}")
     if not permissions:
-        return
+        raise SpendPermissionError("Insufficient permissions for wallet execute")
     if operation not in permissions:
-        raise ValueError("Insufficient permissions for wallet execute")
+        raise SpendPermissionError("Insufficient permissions for wallet execute")
