@@ -162,6 +162,41 @@ def _send(client: AITBCHTTPClient, method: str, path: str, query_params, request
     return client.delete(path, params=query_params, idempotency_key=idempotency_key)
 
 
+def _auth_client(
+    *, base_url: str, timeout: int, url: str | None, api_key: str | None, resolved_key: str | None, auth_kind: str
+):
+    """Build the HTTP client with the right credential.
+
+    --url retargets the request at an arbitrary host: a configured or stored
+    credential must never ride along — that is silent key exfiltration to
+    whatever URL was passed (and the generated MCP tool exposes --url). Only
+    an explicit --api-key may authenticate to a custom URL.
+    """
+    suppress_stored = bool(url) and api_key is None
+    if suppress_stored and resolved_key:
+        click.echo(
+            f"--url is set: the configured credential is not sent to {url}. Pass --api-key explicitly to authenticate.",
+            err=True,
+        )
+
+    if auth_kind == "trading":
+        trading_token = api_key or (None if suppress_stored else resolved_key)
+        if not trading_token:
+            raise click.ClickException(
+                "No trading API key configured: set TRADING_API_KEY or a readable /etc/aitbc/aitbc-trading.env"
+            )
+        return AITBCHTTPClient(
+            base_url=base_url,
+            timeout=timeout,
+            headers={"X-Trading-Api-Key": trading_token},
+        )
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=timeout,
+        **({} if suppress_stored else auth_client_kwargs(api_key, resolved_key)),
+    )
+
+
 @http.command(
     name="call",
     epilog="""Examples:
@@ -242,23 +277,14 @@ def call_http(
     # auth_client_kwargs (which only emits X-API-Key) and fails loudly when no
     # trading key resolves — silently sending an unrelated credential would
     # surface as a misleading "Missing API key" 401.
-    if auth_kind == "trading":
-        trading_token = api_key or resolved_key
-        if not trading_token:
-            raise click.ClickException(
-                "No trading API key configured: set TRADING_API_KEY or a readable /etc/aitbc/aitbc-trading.env"
-            )
-        client = AITBCHTTPClient(
-            base_url=base_url,
-            timeout=timeout,
-            headers={"X-Trading-Api-Key": trading_token},
-        )
-    else:
-        client = AITBCHTTPClient(
-            base_url=base_url,
-            timeout=timeout,
-            **auth_client_kwargs(api_key, resolved_key),
-        )
+    client = _auth_client(
+        base_url=base_url,
+        timeout=timeout,
+        url=url,
+        api_key=api_key,
+        resolved_key=resolved_key,
+        auth_kind=auth_kind,
+    )
     try:
         result = _send(client, method, path, query_params, request_body, idempotency_key)
         output(result, output_format, title=f"{method} {service}/{path}")
