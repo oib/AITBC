@@ -2,13 +2,14 @@
 /** Smoke for the #1118-batch rehearsal deploy: exercises one pin per fix on
  * the deployed contracts. Local hardhat/anvil only. Reads DEPLOY_RECORD. */
 import fs from "node:fs";
+import { resolveRpc, readDeployerKey } from "./guards.js";
 import path from "node:path";
 import { createPublicClient, createWalletClient, http, parseAbi, encodeFunctionData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 const record = JSON.parse(fs.readFileSync(path.resolve(process.env.DEPLOY_RECORD), "utf8"));
-const rpcUrl = process.env.RPC_URL || "http://127.0.0.1:8545";
-const account = privateKeyToAccount(`0x${fs.readFileSync(process.env.DEPLOYER_KEY_FILE, "utf8").trim().replace(/^0x/, "")}`);
+const rpcUrl = resolveRpc();
+const account = privateKeyToAccount(readDeployerKey(process.env.DEPLOYER_KEY_FILE));
 const pc = createPublicClient({ transport: http(rpcUrl) });
 const wc = createWalletClient({ account, transport: http(rpcUrl) });
 const A = (n) => record.deployed[n].address;
