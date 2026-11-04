@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 
 from fastapi import HTTPException, status
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from aitbc.crypto.signature_recovery import canonical_address
 
 from coordinator_api.agent_identity.registry import CrossChainRegistry
+from coordinator_api.contexts.agent_identity.domain.agent_identity import CrossChainMapping
 
 from ....config import settings
 
@@ -21,6 +22,20 @@ def default_resolve_chain_id() -> int:
         return int(raw)
     except ValueError:
         return 1
+
+
+def resolve_agent_payment_address_sync(session: Session, agent_id: str, chain_id: int | None = None) -> str:
+    """Sync resolve for non-async routes (e.g. GPU quote)."""
+    cid = chain_id if chain_id is not None else default_resolve_chain_id()
+    row = session.exec(
+        select(CrossChainMapping).where(CrossChainMapping.agent_id == agent_id, CrossChainMapping.chain_id == cid)
+    ).first()
+    if not row or not row.chain_address:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"no payment address for agent {agent_id} on chain {cid}",
+        )
+    return canonical_address(row.chain_address)
 
 
 async def resolve_agent_payment_address(session: Session, agent_id: str, chain_id: int | None = None) -> str:
