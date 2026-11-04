@@ -10,6 +10,7 @@ This script:
 """
 
 import re
+import shlex
 from pathlib import Path
 
 
@@ -17,6 +18,7 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
     """Migrate a single service file to use EnvironmentFile."""
     content = service_file.read_text()
     lines = content.split("\n")
+    lines_before = list(lines)
 
     result = {
         "file": str(service_file),
@@ -39,18 +41,28 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
                 result["changes"].append(f"User=aitbc-internal (was {result['user']})")
                 lines[i] = "User=aitbc-internal"
 
-    # Find Environment= lines (not EnvironmentFile)
+    # Find Environment= lines (not EnvironmentFile). systemd allows several
+    # VAR=value pairs on one line (space-separated, optionally quoted); the
+    # old single-pair regex silently dropped every pair after the first.
     env_lines = []
     env_file_lines = []
     for i, line in enumerate(lines):
         if line.startswith("Environment=") and "EnvironmentFile" not in line:
             result["has_hardcoded_env"] = True
-            # Extract variable name and value
-            match = re.match(r'Environment="?([^=]+)=([^"]+)"?', line)
-            if match:
-                var_name, var_value = match.groups()
-                result["env_vars"].append((var_name, var_value))
-                env_lines.append((i, line))
+            payload = line.split("=", 1)[1].strip()
+            try:
+                tokens = shlex.split(payload)
+            except ValueError:
+                tokens = payload.split()
+            for token in tokens:
+                # A quoted Environment="A=1 B=2" arrives as one token after
+                # shlex — systemd still reads it as space-separated pairs.
+                for piece in token.split():
+                    if "=" not in piece:
+                        continue
+                    var_name, var_value = piece.split("=", 1)
+                    result["env_vars"].append((var_name, var_value))
+            env_lines.append((i, line))
         elif line.startswith("EnvironmentFile"):
             result["uses_env_file"] = True
             env_file_lines.append(line)
@@ -59,7 +71,7 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
     if env_lines:
         # Remove hardcoded Environment= lines
         for i, _ in env_lines:
-            lines[i] = f"# Environment={lines[i].split('=', 1)[1]} # Moved to /etc/aitbc/{service_name}.env"
+            lines[i] = f"# Environment= values moved to /etc/aitbc/{service_name}.env (values not repeated here)"
 
         # Add EnvironmentFile after EnvironmentFile lines or after User
         insert_pos = len(lines)
@@ -81,8 +93,20 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
     # unrecoverable outside git -- and these files are frequently not in git.
     backup_path = service_file.with_suffix(service_file.suffix + ".bak")
     if not backup_path.exists():
-        backup_path.write_text(service_file.read_text())
-        result["changes"].append(f"Backed up original to {backup_path}")
+        if env_lines:
+            # Redact migrated Environment= lines in the backup too — a
+            # plaintext copy of every stripped secret defeats the migration.
+            redacted = [
+                "# Environment= values redacted from backup"
+                if ln.startswith("Environment=") and "EnvironmentFile" not in ln
+                else ln
+                for ln in lines_before
+            ]
+            backup_path.write_text("\n".join(redacted))
+        else:
+            backup_path.write_text(service_file.read_text())
+        backup_path.chmod(0o600)
+        result["changes"].append(f"Backed up original to {backup_path} (mode 0600)")
 
     new_content = "\n".join(lines)
     service_file.write_text(new_content)
