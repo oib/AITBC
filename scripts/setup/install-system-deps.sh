@@ -74,7 +74,7 @@ check_binary() {
         if [[ "$bin" == "node" ]]; then
             local version
             version="$(node --version 2>/dev/null || true)"
-            if [[ -n "$version" && "${version#v}" < "24.14.0" ]]; then
+            if [[ -n "$version" ]] && ! printf '%s\n' "24.14.0" "${version#v}" | sort -VC 2>/dev/null; then
                 echo "  ⚠ $bin present but $version < 24.14.0; upgrade for apps/zk-circuits"
                 return 1
             fi
@@ -185,7 +185,7 @@ main() {
     if [[ "$MODE" == "dry-run" ]]; then
         echo ""
         echo "Dry run. Re-run with --install to install missing packages."
-        exit 0
+        exit 1
     fi
 
     if [[ ${#missing_apt[@]} -eq 0 ]]; then
