@@ -9,11 +9,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlmodel import func as sql_func
 from sqlmodel import select
 
+from aitbc.rate_limiting import rate_limit
 from aitbc.utils import ait_to_units
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
@@ -53,6 +54,14 @@ class AIJobRequest(BaseModel):
     nonce: int = Field(default=0, ge=0, description="Sender account nonce")
     fee: int = Field(default=DEFAULT_TX_FEE_UNITS, ge=0, description="Transaction fee in compute-units (1 AIT = 36_000_000)")
     signature: str = Field(..., description="secp256k1 signature over the job transaction, signed by wallet_address")
+
+
+class AIJobCancelRequest(BaseModel):
+    """Owner-signed cancel (#1055): the route took a bare job id, so anyone
+    could cancel any job. The signature covers the cancel transaction shape."""
+
+    wallet_address: str = Field(..., description="address that submitted the job")
+    signature: str = Field(..., description="secp256k1 signature over the cancel transaction")
 
 
 class AIJobResponse(BaseModel):
@@ -258,14 +267,38 @@ def ai_get_job(job_id: str) -> dict[str, Any]:
 
 
 @router.post("/ai/job/{job_id}/cancel", summary="Cancel AI job", tags=["ai"])
-def ai_cancel_job(job_id: str) -> dict[str, Any]:
-    """Cancel an AI job"""
+@rate_limit(rate=20, per=60)
+def ai_cancel_job(job_id: str, cancel: AIJobCancelRequest, request: Request) -> dict[str, Any]:
+    """Cancel an AI job — owner signature required (#1055).
+
+    A bare job id is public (it is the tx hash), so the cancel must prove the
+    caller controls the wallet that submitted the job: a secp256k1 signature
+    over {from, type:AI_JOB_CANCEL, payload.job_id, chain_id}, verified like
+    ai_submit_job, with the signer matching the job's sender.
+    """
+    from .utils import get_chain_id, verify_transaction_signature
+
     try:
         metrics_registry.increment("rpc_ai_cancel_total")
+        chain_id = get_chain_id()
+
+        cancel_data: dict[str, Any] = {
+            "from": cancel.wallet_address,
+            "type": "AI_JOB_CANCEL",
+            "payload": {"job_id": job_id},
+            "chain_id": chain_id,
+            "signature": cancel.signature,
+        }
+        if not verify_transaction_signature(cancel_data, cancel.signature, cancel.wallet_address):
+            raise HTTPException(status_code=403, detail="Invalid transaction signature")
 
         with session_scope("") as session:
-            stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
-            txs = session.exec(stmt).all()
+            # The job id is usually the tx hash — look it up directly first.
+            tx = session.get(Transaction, job_id)
+            txs: list[Transaction] = [tx] if tx and tx.type in AI_JOB_TX_TYPES else []
+            if not txs:
+                stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
+                txs = list(session.exec(stmt).all())
             cancelled_ids = _cancelled_job_ids(session)
 
             for tx in txs:
@@ -274,6 +307,9 @@ def ai_cancel_job(job_id: str) -> dict[str, Any]:
                 # hash; older rows carry an explicit job_id in the payload. Match
                 # the same identity _job_from_tx reports.
                 if payload.get("job_id", tx.tx_hash) == job_id:
+                    # Only the job's own sender may cancel it (#1055).
+                    if not set(address_spellings(cancel.wallet_address)) & set(address_spellings(tx.sender)):
+                        raise HTTPException(status_code=403, detail="Signer is not the job owner")
                     current_status = "cancelled" if job_id in cancelled_ids else tx.status
                     if current_status in ["completed", "cancelled"]:
                         raise HTTPException(status_code=400, detail=f"Cannot cancel job with status: {current_status}")
