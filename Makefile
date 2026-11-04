@@ -10,7 +10,7 @@ PYTHON ?= $(shell \
 	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
 	else command -v python3; fi)
 
-.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money bandit typecheck test test-smoke test-shell test-integration test-e2e test-apps test-cli test-governance test-migrations-slow test-required test-nightly test-suite-parity live-dry-run openapi openapi-check version-check ci
+.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money bandit typecheck test test-smoke test-shell test-integration test-e2e test-apps test-cli test-governance test-migrations-slow test-required test-nightly test-suite-parity live-dry-run readiness openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, fail on any finding (the CI lint gate)"
@@ -89,6 +89,11 @@ test-cli:
 
 live-dry-run:
 	WALLET_URL=http://127.0.0.1:1 BLOCKCHAIN_RPC_URL=http://127.0.0.1:1 bash scripts/ci/live-scenario-dry-run.sh
+
+# Host readiness gate — role-aware service check + env-placeholder scan
+# (#1050). Was run by nothing; only a unit test imported it.
+readiness:
+	$(PYTHON) scripts/check-production-readiness.py
 
 # A convenience for running one suite, not a workaround any more. This used to be the only
 # way governance ran: it and apps/coordinator-api mapped governance_profiles, proposals,
