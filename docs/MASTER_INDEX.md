@@ -124,7 +124,7 @@ Inbound markdown links per document (top referrers).
 | [account-abstraction/architecture.md](account-abstraction/architecture.md) | [account-abstraction/security.md](account-abstraction/security.md) |
 | [account-abstraction/database.md](account-abstraction/database.md) | [account-abstraction/api.md](account-abstraction/api.md), [account-abstraction/architecture.md](account-abstraction/architecture.md) |
 | [account-abstraction/implementation-plan.md](account-abstraction/implementation-plan.md) | [account-abstraction/api.md](account-abstraction/api.md), [account-abstraction/architecture.md](account-abstraction/architecture.md), [account-abstraction/database.md](account-abstraction/database.md), +1 more |
-| [account-abstraction/security.md](account-abstraction/security.md) | [account-abstraction/architecture.md](account-abstraction/architecture.md) |
+| [account-abstraction/security.md](account-abstraction/security.md) | [account-abstraction/architecture.md](account-abstraction/architecture.md), [contracts/guardian.md](contracts/guardian.md) |
 | [agent-coordinator/API.md](agent-coordinator/API.md) | [README.md](README.md) |
 | [agent-coordinator/ARCHITECTURE.md](agent-coordinator/ARCHITECTURE.md) | [features/6-agent-coordination.md](features/6-agent-coordination.md) |
 | [agent-coordinator/CLI.md](agent-coordinator/CLI.md) | [README.md](README.md) |
