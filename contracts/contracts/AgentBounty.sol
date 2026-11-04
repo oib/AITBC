@@ -332,11 +332,10 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         bountySubmissions[_bountyId].push(submissionId);
         userSubmissions[msg.sender].push(submissionId);
 
-        // Auto-verify if ZK-proof is provided
-        if (_zkProof.length > 0) {
-            _verifySubmission(_bountyId, submissionId);
-        }
-
+        // No auto-verify on non-empty zkProof: the proof path runs through
+        // the same authorized-verifier check as everything else — the stub
+        // performance verifier auto-accepted any bytes, so auto-verify paid
+        // rewards on self-submitted junk (#1099 residual).
         emit BountySubmitted(_bountyId, submissionId, msg.sender, _performanceHash, _accuracy);
 
         return submissionId;
@@ -713,28 +712,6 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Internal functions
-
-    function _verifySubmission(uint256 _bountyId, uint256 _submissionId) internal {
-        Bounty storage bounty = bounties[_bountyId];
-        Submission storage submission = submissions[_submissionId];
-
-        // Verify ZK-proof using PerformanceVerifier
-        bool proofValid = performanceVerifier.verifyPerformanceProof(
-            0, // Use dummy agreement ID for bounty verification
-            submission.responseTime,
-            submission.accuracy,
-            95, // Default availability
-            100, // Default compute power
-            submission.zkProof
-        );
-
-        if (proofValid && submission.accuracy >= bounty.minAccuracy) {
-            submission.status = SubmissionStatus.VERIFIED;
-            _completeBounty(_bountyId, _submissionId);
-        } else {
-            submission.status = SubmissionStatus.REJECTED;
-        }
-    }
 
     function _completeBounty(uint256 _bountyId, uint256 _submissionId) internal {
         Bounty storage bounty = bounties[_bountyId];
