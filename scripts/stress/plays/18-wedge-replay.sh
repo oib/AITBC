@@ -5,7 +5,7 @@
 # lands rejected-writeback, then a corrected next-nonce tx, assert seal.
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
-serial_check || exit 75
+serial_acquire || exit 75
 addr=0x00000000000000000000000000000000000000D9
 PW_ARGS=(); [ -n "${STRESS_WALLET_PASSWORD_FILE:-}" ] && PW_ARGS=(--password-file "$STRESS_WALLET_PASSWORD_FILE")
 

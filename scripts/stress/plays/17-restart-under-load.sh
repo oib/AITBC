@@ -6,7 +6,7 @@
 # (c) no phantom occupancy after recovery.
 set -euo pipefail
 . "$(dirname "$0")/../lib.sh"
-serial_check || exit 75
+serial_acquire || exit 75
 TARGET="${RESTART_TARGET:-$HOST}"
 MAX_BLOCKS="${RESTART_MAX_BLOCKS:-12}"
 addr=${STORM_TO:-0x00000000000000000000000000000000000000D9}
