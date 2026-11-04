@@ -35,10 +35,12 @@ for h in $HOSTS; do
   aux[$h]=$aa; blk[$h]=$bb
 done
 ref="${aux[hub]:-?}"; bad=""
+[ "$ref" = "?" ] && bad=" hub(aux_state_root missing@$H)"
 for h in $HOSTS; do
+  [ "${aux[$h]:-?}" = "?" ] && bad="$bad $h(aux_state_root missing@$H)" && continue
   [ "${aux[$h]}" != "$ref" ] && bad="$bad $h(aux=${aux[$h]} blk=${blk[$h]:0:14} vs hub $ref)"
 done
-[ -n "$bad" ] && fail aux-root "aux_state_root@$H divergence:$bad"
+[ -n "$bad" ] && fail aux-root "aux_state_root@$H divergence/missing:$bad"
 echo "aux parity ok @h$H: $ref"
 
 # --- leg 2: committed-table row-count/digest diff ----------------------------
