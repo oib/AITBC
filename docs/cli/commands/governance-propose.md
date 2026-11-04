@@ -18,7 +18,7 @@ aitbc governance propose [OPTIONS]
 | `--description` | text | — | yes | Proposal description |
 | `--type` | text | `parameter_change` | no | Proposal type (parameter_change, fund_allocation, etc.) |
 | `--category` | text | `general` | no | Proposal category |
-| `--proposer-id` | text | — | yes | Proposer profile ID |
+| `--proposer-id` | text | — | yes | Proposer profile ID (with --wallet the signed value is the wallet address) |
 | `--proposer-address` | text | — | no | Proposer wallet address (for on-chain submission) |
 | `--params` | text | — | no | JSON-encoded parameters for parameter_change proposals |
 | `--execution-payload` | text | — | no | JSON the EXECUTE binds to (v13). Defaults to --params; required for any non-parameter_change proposal |

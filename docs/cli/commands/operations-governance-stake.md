@@ -17,6 +17,10 @@ aitbc operations governance stake [OPTIONS]
 | `--address` | text | — | yes | Staker address |
 | `--amount` | integer | — | yes | Amount of tokens to stake |
 | `--lock-days` | integer | `30` | no | Lock period in days (min 30) |
+| `--wallet` | text | — | no | Wallet to sign the stake request (required by the service) |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples
