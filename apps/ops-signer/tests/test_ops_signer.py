@@ -317,7 +317,12 @@ def test_sign_failure_logs_class_and_reason_but_never_secret(monkeypatch, tmp_pa
     the stub 'returned' must not appear in logs, exceptions or replies."""
     secret = "pw-canary-" + os.urandom(4).hex()
     monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
-    monkeypatch.setattr(Path, "stat", _root600_stat)
+    real_stat = Path.stat
+
+    def stat_for_wallet(self, **kw):
+        return _root600_stat(self, **kw) if str(self).endswith("ops.json") else real_stat(self, **kw)
+
+    monkeypatch.setattr(Path, "stat", stat_for_wallet)
     _stub_run(monkeypatch, out=secret.encode())
     from aitbc_ops_signer.signer import Signer
 
@@ -528,3 +533,27 @@ def test_ambiguous_cause_inside_a_wrapper_keeps_the_reservation(deps):
     r = handle_request(req(amount=500), **_deps_with_failing_signer(deps, exc))
     assert r["ok"] is False
     assert deps["ledger"].spent_last_24h() == 500
+
+
+def test_send_reported_ok_when_ledger_record_fails(deps):
+    """A send that committed must never be reported as error."""
+    deps["ledger"].record_tx_hash = lambda *a, **k: (_ for _ in ()).throw(OSError("disk full"))
+    r = handle_request(req(), **deps)
+    assert r["ok"] is True and r["result"] == "signed" and r["tx_hash"].startswith("0x")
+
+
+def test_unwritable_audit_refuses_before_send(cfg, tmp_path):
+    from dataclasses import replace
+
+    audit_dir = tmp_path / "auditdir"
+    audit_dir.mkdir()  # os.open on a directory fails -> intent line unwritable
+    deps = {
+        "config": replace(cfg, audit_path=str(audit_dir)),
+        "ledger": DailyLedger(cfg.ledger_path),
+        "signer": SpySigner(),
+        "peer": OPS_PEER,
+        "peer_gid": OPS_PEER[2],
+    }
+    r = handle_request(req(), **deps)
+    assert r["result"] == "refused" and r["reason"] == "audit_unwritable"
+    assert deps["signer"].calls == []
