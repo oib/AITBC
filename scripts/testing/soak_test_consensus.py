@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import secrets
 import signal
 import sys
 import time
@@ -43,13 +44,38 @@ _AITBC_ROOT = Path(__file__).resolve().parents[2]
 if str(_AITBC_ROOT) not in sys.path:
     sys.path.insert(0, str(_AITBC_ROOT))
 
+from eth_keys import keys  # noqa: E402
+
 from aitbc_chain.config import settings  # noqa: E402
 from aitbc_chain.consensus.multi_validator_poa import (  # noqa: E402
     MultiValidatorPoA,
     ValidatorRole,
 )
 from aitbc_chain.consensus.pbft import PBFTConsensus  # noqa: E402
-from aitbc_chain.gossip import InMemoryGossipBackend  # noqa: E402
+
+
+class _SoakBus:
+    """Synchronous in-process PBFT transport for the soak.
+
+    Each published message is delivered straight into the other nodes'
+    ``handle_incoming_message``, so a round actually exercises the
+    signature check, the scheduled-proposer check, the membership gate
+    and the prepare/commit quorums (the InMemoryGossipBackend only
+    queued messages nobody subscribed to).  ``offline`` holds validator
+    addresses that must not receive anything — the Byzantine crash model.
+    """
+
+    def __init__(self) -> None:
+        self.nodes: list[PBFTConsensus] = []
+        self.offline: set[str] = set()
+
+    async def publish(self, topic: str, msg_data: dict[str, Any]) -> None:
+        for node in self.nodes:
+            if node._local_validator == msg_data.get("sender"):
+                continue
+            if node._local_validator in self.offline:
+                continue
+            await node.handle_incoming_message(msg_data)
 
 
 @dataclass
@@ -57,8 +83,9 @@ class SoakTestConfig:
     """Configuration for the soak test."""
 
     duration_hours: float = 48.0
-    num_nodes: int = 3
+    num_nodes: int = 4
     num_byzantine: int = 1
+    round_timeout_seconds: float = 5.0
     block_interval_seconds: float = 2.0
     report_interval_minutes: float = 15.0
     chain_id: str = "soak-test-chain"
@@ -71,6 +98,7 @@ class NodeState:
     """State tracker for a single node in the soak test."""
 
     node_id: str
+    address: str
     consensus: MultiValidatorPoA
     pbft: PBFTConsensus
     is_byzantine: bool = False
@@ -143,7 +171,7 @@ class ConsensusSoakTest:
     def __init__(self, config: SoakTestConfig) -> None:
         self.config = config
         self.nodes: dict[str, NodeState] = {}
-        self.gossip_backend = InMemoryGossipBackend()
+        self.gossip_backend = _SoakBus()
         self.report = SoakTestReport(config=config)
         self._stop_event = asyncio.Event()
         self._block_height = 0
@@ -155,40 +183,42 @@ class ConsensusSoakTest:
         n_byzantine = self.config.num_byzantine
 
         assert n_validators >= 3, "Soak test requires at least 3 nodes"
-        assert n_byzantine >= 1, "Soak test requires at least 1 Byzantine node"
-        assert n_byzantine < n_validators // 3 + 1, (
+        assert n_byzantine >= 0, "Byzantine count cannot be negative"
+        assert n_byzantine <= (n_validators - 1) // 3, (
             f"Too many Byzantine nodes ({n_byzantine}) for {n_validators} validators. "
             f"PBFT tolerates at most (n-1)/3 = {(n_validators - 1) // 3} Byzantine validators."
         )
 
-        # Create a shared consensus instance with all validators
-        shared_consensus = MultiValidatorPoA(self.config.chain_id)
-        for i in range(n_validators):
-            addr = f"0x{i:040x}"
-            shared_consensus.add_validator(addr, 1000.0)
-            shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+        # Real validator keys — the intake path verifies signatures and a
+        # scheduled proposer that cannot sign is simply dropped.
+        keyspec: list[tuple[str, str]] = []
+        for _ in range(n_validators):
+            pk = keys.PrivateKey(secrets.token_bytes(32))
+            keyspec.append((pk.public_key.to_checksum_address(), pk.to_hex()))
 
-        # Create per-node PBFT instances sharing the gossip backend
-        for i in range(n_validators):
+        # Create per-node PBFT instances sharing the dispatch bus
+        for i, (addr, pk_hex) in enumerate(keyspec):
             node_id = f"node-{i}"
             is_byzantine = i < n_byzantine
 
             # Each node gets its own consensus view (they share validator set)
             node_consensus = MultiValidatorPoA(self.config.chain_id)
-            for j in range(n_validators):
-                addr = f"0x{j:040x}"
-                node_consensus.add_validator(addr, 1000.0)
-                node_consensus.validators[addr].role = ValidatorRole.PROPOSER
+            for a, _ in keyspec:
+                node_consensus.add_validator(a, 1000.0)
+                node_consensus.validators[a].role = ValidatorRole.PROPOSER
 
             pbft = PBFTConsensus(
                 node_consensus,
-                private_key="",
+                private_key=pk_hex,
                 chain_id=self.config.chain_id,
+                local_validator=addr,
             )
             pbft.set_gossip_backend(self.gossip_backend)
+            self.gossip_backend.nodes.append(pbft)
 
             self.nodes[node_id] = NodeState(
                 node_id=node_id,
+                address=addr,
                 consensus=node_consensus,
                 pbft=pbft,
                 is_byzantine=is_byzantine,
@@ -200,48 +230,70 @@ class ConsensusSoakTest:
         self._block_height += 1
         height = self._block_height
         block_hash = f"0xblock_{height:08d}"
-        proposer_idx = height % self.config.num_nodes
-        proposer = f"0x{proposer_idx:040x}"
 
-        # Byzantine nodes equivocate (send conflicting prepare messages)
+        self.report.total_consensus_rounds += 1
+
+        # The scheduled proposer for this height drives ONE real PBFT round:
+        # pre-prepare -> prepare quorum -> commit quorum over the bus.
+        any_consensus = next(iter(self.nodes.values())).consensus
+        proposer_addr = any_consensus.select_proposer(height, 0)
+        proposer_node = next(
+            (n for n in self.nodes.values() if n.address == proposer_addr),
+            None,
+        )
+        if proposer_node is None:
+            self.report.total_consensus_failures += 1
+            self._log_event("consensus_failure", f"no scheduled proposer at height {height}", height)
+            self.report.total_blocks += 1
+            self._parent_hash = block_hash
+            return
+
+        # Byzantine crash model: every 10th block the Byzantine nodes go
+        # deaf — the bus withholds all delivery to them. While f <=
+        # (n-1)/3 the honest remainder still forms both quorums.
+        self.gossip_backend.offline = (
+            {n.address for n in self.nodes.values() if n.is_byzantine}
+            if self.config.num_byzantine and height % 10 == 0
+            else set()
+        )
+        if self.gossip_backend.offline:
+            self._log_event("byzantine_fault", f"Byzantine nodes offline for height {height}", height)
+
+        try:
+            await proposer_node.pbft.propose_and_wait(
+                proposer_addr,
+                block_hash,
+                timeout=self.config.round_timeout_seconds,
+                sequence=height,
+                view=0,
+            )
+        except Exception as e:
+            proposer_node.consensus_failures += 1
+            self.report.total_consensus_failures += 1
+            self._log_event(
+                "consensus_error",
+                f"Proposer {proposer_node.node_id} error at height {height}: {e}",
+                height,
+            )
+
+        # The round verdict is read from honest nodes' commit quorums — a
+        # deaf Byzantine proposer times out on its own side even when the
+        # honest remainder committed fine.
+        key = f"{height}:0"
         for node in self.nodes.values():
-            if node.is_byzantine and height % 10 == 0:
-                # Simulate Byzantine equivocation every 10 blocks
-                validator = f"0x{proposer_idx:040x}"
-                node.consensus.record_prepare(validator, block_hash, height)
-                node.consensus.record_prepare(validator, f"0xevil_{height}", height)
-                # Check if slashing occurred
-                if node.consensus.validators[validator].stake < 1000.0:
-                    node.slashing_events += 1
-                    self.report.total_slashing_events += 1
-                    self._log_event(
-                        "slashing",
-                        f"Byzantine validator {validator} slashed on {node.node_id}",
-                        height,
-                    )
+            if node.is_byzantine:
                 continue
-
-            # Honest nodes run consensus
-            try:
-                result = await node.pbft.pre_prepare_phase(proposer, block_hash)
-                if result:
-                    node.blocks_produced += 1
-                    node.last_block_hash = block_hash
-                    node.last_block_height = height
-                else:
-                    node.consensus_failures += 1
-                    self.report.total_consensus_failures += 1
-                    self._log_event(
-                        "consensus_failure",
-                        f"Node {node.node_id} failed consensus at height {height}",
-                        height,
-                    )
-            except Exception as e:
+            if len(node.pbft.state.committed_messages.get(key, [])) >= node.pbft.required_messages:
+                node.blocks_produced += 1
+                node.blocks_validated += 1
+                node.last_block_hash = block_hash
+                node.last_block_height = height
+            else:
                 node.consensus_failures += 1
                 self.report.total_consensus_failures += 1
                 self._log_event(
-                    "consensus_error",
-                    f"Node {node.node_id} error at height {height}: {e}",
+                    "consensus_failure",
+                    f"Node {node.node_id} reached no commit quorum at height {height}",
                     height,
                 )
 
@@ -466,8 +518,8 @@ def main() -> int:
     parser.add_argument(
         "--nodes",
         type=int,
-        default=3,
-        help="Number of validator nodes (default: 3, minimum: 3)",
+        default=4,
+        help="Number of validator nodes (default: 4, minimum: 3; 4 needed to tolerate 1 Byzantine)",
     )
     parser.add_argument(
         "--byzantine",
