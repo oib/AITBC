@@ -68,7 +68,12 @@ def test_stake_accepts_the_body_the_cli_sends(client: TestClient) -> None:
     """Payload copied from cli/aitbc_cli/commands/operations.py:652."""
     response = client.post(
         "/v1/governance/stake",
-        json={"staker_address": "0x1234567890abcdef", "amount": 1000, "lock_period_days": 30},
+        json={
+            "staker_address": "0x1234567890abcdef",
+            "amount": 1000,
+            "lock_period_days": 30,
+            "timestamp": __import__("time").time(),
+        },
     )
     assert response.status_code != 422
 
@@ -81,6 +86,7 @@ def test_delegate_accepts_the_body_the_cli_sends(client: TestClient) -> None:
             "delegator_address": "0x1234567890abcdef",
             "delegate_address": "0xfedcba0987654321",
             "amount": 1000,
+            "timestamp": __import__("time").time(),
         },
     )
     assert response.status_code != 422
