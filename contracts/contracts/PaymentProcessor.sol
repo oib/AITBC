@@ -23,6 +23,9 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     uint256 public disputeResolutionFee = 100; // 1% in basis points
     uint256 public minPaymentAmount = 1e15; // 0.001 AITBC minimum
     uint256 public maxPaymentAmount = 1e22; // 10,000 AITBC maximum
+    // #1103: a created-but-unconfirmed payment can be cancelled by the
+    // payer once this timeout has passed, refunding amount and fees.
+    uint256 public confirmTimeout = 1 days;
 
     // Structs
     struct Payment {
@@ -103,6 +106,10 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256) public userEscrowBalance;
     mapping(address => bool) public authorizedPayees;
     mapping(address => bool) public authorizedPayers;
+    // #1103: Performance and DisputeResolution payments may only be
+    // released after an authorized verifier has approved the release.
+    mapping(address => bool) public releaseVerifiers;
+    mapping(uint256 => bool) public releaseApproved;
 
     // Events
     event PaymentCreated(
@@ -184,6 +191,11 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         uint256 indexed paymentId,
         uint256 feeAmount,
         address indexed collector
+    );
+
+    event ReleaseApproved(
+        uint256 indexed paymentId,
+        address indexed verifier
     );
 
     // Modifiers
@@ -373,9 +385,83 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
             require(msg.sender == payment.from, "Only payer can release manually");
         } else if (payment.releaseCondition == ReleaseCondition.TimeBased) {
             require(block.timestamp >= payment.releaseTime, "Release time not reached");
+        } else if (
+            payment.releaseCondition == ReleaseCondition.Performance ||
+            payment.releaseCondition == ReleaseCondition.DisputeResolution
+        ) {
+            // #1103: these conditions are meaningless without an external
+            // check — a verifier must have approved this payment's release,
+            // otherwise the payee could release confirmed funds to itself.
+            require(releaseApproved[_paymentId], "Release not approved by verifier");
         }
 
         _releasePayment(_paymentId);
+    }
+
+    /**
+     * @dev Approves release of a Performance or DisputeResolution payment.
+     *      Only an authorized verifier may call this (#1103).
+     * @param _paymentId ID of the payment
+     */
+    function approveRelease(uint256 _paymentId)
+        external
+        paymentExists(_paymentId)
+    {
+        Payment storage payment = payments[_paymentId];
+
+        require(releaseVerifiers[msg.sender], "Not a release verifier");
+        require(
+            payment.releaseCondition == ReleaseCondition.Performance ||
+            payment.releaseCondition == ReleaseCondition.DisputeResolution,
+            "Condition does not need verifier approval"
+        );
+        require(
+            payment.status == PaymentStatus.Confirmed ||
+            payment.status == PaymentStatus.HeldInEscrow,
+            "Payment not awaiting release"
+        );
+        require(!releaseApproved[_paymentId], "Release already approved");
+
+        releaseApproved[_paymentId] = true;
+
+        emit ReleaseApproved(_paymentId, msg.sender);
+    }
+
+    /**
+     * @dev Cancels a created-but-unconfirmed payment after the confirm
+     *      timeout, refunding amount, platform fee and dispute fee to the
+     *      payer (#1103).
+     * @param _paymentId ID of the payment
+     */
+    function cancelPayment(uint256 _paymentId)
+        external
+        paymentExists(_paymentId)
+        nonReentrant
+    {
+        Payment storage payment = payments[_paymentId];
+
+        require(payment.status == PaymentStatus.Created, "Payment not cancellable");
+        require(
+            msg.sender == payment.from || msg.sender == owner(),
+            "Only payer or owner can cancel"
+        );
+        require(
+            block.timestamp >= payment.createdTime + confirmTimeout,
+            "Confirm timeout not reached"
+        );
+
+        payment.status = PaymentStatus.Cancelled;
+
+        uint256 refundAmount = payment.amount + payment.platformFee + payment.disputeFee;
+        payment.platformFee = 0;
+        payment.disputeFee = 0;
+
+        require(
+            paymentToken.transfer(payment.from, refundAmount),
+            "Cancel refund failed"
+        );
+
+        emit PaymentRefunded(_paymentId, payment.from, refundAmount, "confirm timeout");
     }
 
     /**
@@ -554,6 +640,19 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
             );
         }
 
+        // #1103: a dispute actually consumed the dispute-resolution fee —
+        // pay it to the owner (acting for the arbitration process) instead
+        // of leaving it stranded. The platform fee stays claimable via
+        // claimPlatformFee.
+        if (payment.disputeFee > 0) {
+            uint256 disputePayout = payment.disputeFee;
+            payment.disputeFee = 0;
+            require(
+                paymentToken.transfer(owner(), disputePayout),
+                "Dispute fee payout failed"
+            );
+        }
+
         payment.status = PaymentStatus.Released;
 
         emit DisputeResolved(_paymentId, _resolutionAmount, _resolveInFavorOfPayer);
@@ -618,6 +717,22 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Authorizes a release verifier (#1103)
+     * @param _verifier Address to authorize
+     */
+    function authorizeReleaseVerifier(address _verifier) external onlyOwner {
+        releaseVerifiers[_verifier] = true;
+    }
+
+    /**
+     * @dev Revokes release verifier authorization (#1103)
+     * @param _verifier Address to revoke
+     */
+    function revokeReleaseVerifier(address _verifier) external onlyOwner {
+        releaseVerifiers[_verifier] = false;
+    }
+
+    /**
      * @dev Updates platform fee percentage
      * @param _newFee New fee percentage in basis points
      */
@@ -663,6 +778,18 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
             require(
                 paymentToken.transfer(owner(), feeAmount),
                 "Platform fee transfer failed"
+            );
+        }
+
+        // #1103: the dispute fee is collected up front for a potential
+        // dispute; on a clean release no dispute happened, so it is
+        // refunded to the payer rather than stranded in the contract.
+        if (payment.disputeFee > 0) {
+            uint256 disputeRefund = payment.disputeFee;
+            payment.disputeFee = 0;
+            require(
+                paymentToken.transfer(payment.from, disputeRefund),
+                "Dispute fee refund failed"
             );
         }
 
