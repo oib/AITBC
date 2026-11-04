@@ -4,8 +4,9 @@
 #
 # The holds file is a markdown doc whose "## Binding now" section is a
 # table of `| hold | scope | until | source |` rows. This check is a
-# mechanical gate: any binding-table row that names the host AND mentions
-# restart/pull/deploy in its scope blocks the action. It is deliberately
+# mechanical gate: any binding-table row that names the host (or the fleet /
+# all hosts) AND mentions restart/pull/deploy — matched case-insensitively —
+# blocks the action. It is deliberately
 # conservative — a row whose hold has lapsed but is still listed still
 # fails the check; remove the row (or wait for the editor) to clear it.
 #
@@ -23,13 +24,16 @@ file="${2:-${HOLDS_FILE:-tasks/HOLDS.md}}"
 
 [ -r "$file" ] || { echo "hold-check: cannot read holds file: $file" >&2; exit 2; }
 
-if awk -v host="$host" '
+if awk -v host="$(printf %s "$host" | tr '[:upper:]' '[:lower:]')" '
   /^## Binding now/  { inb=1; next }
   /^## /             { if (inb) exit }
   inb && /^\|/ {
-    # host must appear as a whole word (hub must not match hub1)
-    if ($0 ~ "(^|[^A-Za-z0-9])" host "([^A-Za-z0-9]|$)" &&
-        $0 ~ /restart|pull|deploy/) {
+    row = tolower($0)
+    # host must appear as a whole word (hub must not match hub1); a
+    # fleet-wide row covers every host
+    if ((row ~ "(^|[^a-z0-9])" host "([^a-z0-9]|$)" ||
+         row ~ /(^|[^a-z0-9])(fleet|all[ -]hosts?|every[ -]host|all[ -]nodes?)([^a-z0-9]|$)/) &&
+        row ~ /restart|pull|deploy/) {
       print "hold-check: HOLD ACTIVE — " $0 > "/dev/stderr"; found=1
     }
   }
