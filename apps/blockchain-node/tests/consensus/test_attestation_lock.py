@@ -229,3 +229,85 @@ class TestProposalSuppression:
         proposer._remote_attestation = None
         monkeypatch.setattr(settings, "attestation_lock_enabled", True)
         assert await proposer._honor_attestation_lock(100) is False
+
+
+# ---------------------------------------------------------------------------
+# #1058: attester must refuse a header whose proposer is not the scheduled one
+# ---------------------------------------------------------------------------
+
+
+def _schedule(monkeypatch, scheduled_addr: str, parent_ts=None):
+    """Arrange the proposer schedule so select_proposer() -> scheduled_addr and
+    the round derivation sees a known parent timestamp."""
+    from datetime import UTC, datetime
+
+    from aitbc_chain.consensus import multi_validator_poa as mvpoa
+
+    class _Sched:
+        def select_proposer(self, height, round_number=0):
+            return scheduled_addr
+
+    monkeypatch.setattr(mvpoa, "get_consensus", lambda chain_id: _Sched())
+    parent = parent_ts or datetime(2026, 1, 1, tzinfo=UTC)
+    monkeypatch.setattr(
+        RemoteAttestationService,
+        "_parent_timestamp",
+        lambda self, ph: parent,
+    )
+    return parent
+
+
+def _timed_header(height: int, block_hash: str, proposer: str, ts) -> dict:
+    h = _header(height, block_hash, proposer)
+    h["header"]["timestamp"] = ts.isoformat()
+    return h
+
+
+@pytest.mark.asyncio
+async def test_unscheduled_proposer_is_refused(monkeypatch):
+    """A valid-set validator that is NOT scheduled for the height/round gets
+    no signature and no lock — the #1058 forged-header path."""
+    from datetime import timedelta
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+
+    # schedule picks our_addr, but the request claims proposer_addr
+    parent_ts = _schedule(monkeypatch, our_addr)
+    block_ts = parent_ts + timedelta(seconds=10)  # round 0
+    await svc._handle_request(_timed_header(100, "0xaaaa", proposer_addr, block_ts))
+
+    assert not broker.published
+    assert svc.attestation_lock(100, 60.0) is None
+
+
+@pytest.mark.asyncio
+async def test_scheduled_proposer_still_signed(monkeypatch):
+    """The scheduled validator is attested as before — gate is not over-broad."""
+    from datetime import timedelta
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+
+    parent_ts = _schedule(monkeypatch, proposer_addr)
+    block_ts = parent_ts + timedelta(seconds=10)
+    await svc._handle_request(_timed_header(100, "0xaaaa", proposer_addr, block_ts))
+
+    assert broker.published
+    assert svc.attestation_lock(100, 60.0)[0] == "0xaaaa"
+
+
+@pytest.mark.asyncio
+async def test_untraceable_schedule_stays_permissive(monkeypatch):
+    """No parent timestamp / no schedule data → permissive, same policy as
+    _is_scheduled_proposer in pbft.py (never lock the honest path out)."""
+    from datetime import UTC, datetime, timedelta
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+
+    monkeypatch.setattr(RemoteAttestationService, "_parent_timestamp", lambda self, ph: None)
+    ts = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(seconds=10)
+    await svc._handle_request(_timed_header(100, "0xaaaa", proposer_addr, ts))
+
+    assert broker.published
