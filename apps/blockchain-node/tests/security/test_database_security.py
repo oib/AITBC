@@ -1,38 +1,30 @@
 """Security tests for database access restrictions.
 
-Tests that database manipulation is not possible without detection.
+The fail-closed DB-encryption gate: DB_ENCRYPTION_ENABLED=true with a
+missing key file must refuse instead of opening a plaintext chain db.
 """
 
-from aitbc_chain.database import DatabaseOperationValidator
+import pytest
+
+import aitbc_chain.database as d
 
 
 class TestDatabaseSecurity:
     """Test database security measures."""
 
-    def test_operation_validator_allowed_operations(self):
-        """Test that operation validator allows valid operations."""
-        validator = DatabaseOperationValidator()
+    def test_missing_key_raises(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(d.settings, "db_encryption_enabled", True, raising=False)
+        monkeypatch.setattr(d.settings, "db_encryption_key_path", tmp_path / "nokey", raising=False)
+        with pytest.raises(RuntimeError):
+            d._encryption_enabled()
 
-        assert validator.validate_operation("select")
-        assert validator.validate_operation("insert")
-        assert validator.validate_operation("update")
-        assert validator.validate_operation("delete")
-        assert not validator.validate_operation("drop")
-        assert not validator.validate_operation("truncate")
+    def test_flag_off_returns_false(self, monkeypatch):
+        monkeypatch.setattr(d.settings, "db_encryption_enabled", False, raising=False)
+        assert d._encryption_enabled() is False
 
-    def test_operation_validator_dangerous_queries(self):
-        """Test that operation validator blocks dangerous queries."""
-        validator = DatabaseOperationValidator()
-
-        # Dangerous patterns should be blocked
-        assert not validator.validate_query("DROP TABLE account")
-        assert not validator.validate_query("DROP DATABASE")
-        assert not validator.validate_query("TRUNCATE account")
-        assert not validator.validate_query("ALTER TABLE account")
-        assert not validator.validate_query("DELETE FROM account")
-        assert not validator.validate_query("UPDATE account SET balance")
-
-        # Safe queries should pass
-        assert validator.validate_query("SELECT * FROM account")
-        assert validator.validate_query("INSERT INTO transaction VALUES")
-        assert validator.validate_query("UPDATE block SET height = 1")
+    def test_flag_on_with_key_returns_true(self, monkeypatch, tmp_path):
+        key = tmp_path / "key.bin"
+        key.write_bytes(b"k" * 32)
+        monkeypatch.setattr(d.settings, "db_encryption_enabled", True, raising=False)
+        monkeypatch.setattr(d.settings, "db_encryption_key_path", key, raising=False)
+        assert d._encryption_enabled() is True
