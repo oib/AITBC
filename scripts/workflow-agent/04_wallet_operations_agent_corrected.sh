@@ -83,13 +83,13 @@ echo "Miner Wallet Address: $MINER_ADDR"
 echo "5. Checking wallet balances..."
 echo "=== Current Wallet Balances ==="
 echo "Client Wallet:"
-scripts/aitbc-cli wallet balance client-wallet
+scripts/aitbc-cli wallet balance --name client-wallet
 
 echo "User Wallet:"
-scripts/aitbc-cli wallet balance user-wallet
+scripts/aitbc-cli wallet balance --name user-wallet
 
 echo "Miner Wallet (on ${NODE1_HOST}):"
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance miner-wallet'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance --name miner-wallet'
 
 # 6. Fund wallets from genesis (if genesis wallet exists)
 echo "6. Funding wallets from genesis authority..."
@@ -119,13 +119,13 @@ fi
 echo "7. Verifying wallet balances after funding..."
 echo "=== Updated Wallet Balances ==="
 echo "Client Wallet:"
-scripts/aitbc-cli wallet balance client-wallet
+scripts/aitbc-cli wallet balance --name client-wallet
 
 echo "User Wallet:"
-scripts/aitbc-cli wallet balance user-wallet
+scripts/aitbc-cli wallet balance --name user-wallet
 
 echo "Miner Wallet (on ${NODE1_HOST}):"
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance miner-wallet'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance --name miner-wallet'
 
 # 8. Execute cross-node transaction
 echo "8. Executing cross-node transaction..."
@@ -143,23 +143,23 @@ fi
 # 9. Monitor transaction confirmation
 echo "9. Monitoring transaction confirmation..."
 echo "=== Recent Transactions ==="
-scripts/aitbc-cli wallet transactions client-wallet --limit 5
+scripts/aitbc-cli wallet transactions --name client-wallet --limit 5
 
 echo ""
 echo "=== Transactions on ${NODE1_HOST} ==="
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet transactions miner-wallet --limit 5'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet transactions --name miner-wallet --limit 5'
 
 # 10. Verify final wallet balances
 echo "10. Verifying final wallet balances..."
 echo "=== Final Wallet Balances ==="
 echo "Client Wallet:"
-scripts/aitbc-cli wallet balance client-wallet
+scripts/aitbc-cli wallet balance --name client-wallet
 
 echo "User Wallet:"
-scripts/aitbc-cli wallet balance user-wallet
+scripts/aitbc-cli wallet balance --name user-wallet
 
 echo "Miner Wallet (on ${NODE1_HOST}):"
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance miner-wallet'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance --name miner-wallet'
 
 # 11. Test wallet switching
 echo "11. Testing wallet switching..."
