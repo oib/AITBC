@@ -2710,7 +2710,9 @@ class StateTransition:
                 existing.status = "active"
                 existing.updated_at = datetime.now(UTC)
             else:
-                price = gpu_data.get("price_per_hour", 0.0)
+                price = gpu_data.get(
+                    "price_per_hour", 0.0
+                )  # not-money: apply-time, consensus-frozen — the float default is part of the replayed payload semantics; converting to Decimal("0") would change what missing price_per_hour yields on replay. Needs a version-height gate + own megaplan (#1033).
                 try:
                     price = Decimal(str(price))
                 except Exception:
@@ -2788,8 +2790,12 @@ class StateTransition:
                 return (False, f"GPU not found: {gpu_id}")
             allocation_id = allocation_data.get("allocation_id", f"alloc_{uuid4().hex[:12]}")
             try:
-                duration_hours = float(allocation_data.get("duration_hours", 0.0))
-                total_cost = Decimal(str(allocation_data.get("total_cost", 0.0)))
+                duration_hours = float(
+                    allocation_data.get("duration_hours", 0.0)
+                )  # not-money: apply-time, consensus-frozen — same replay-boundary as the price default above; conversion is a version-height change (#1033).
+                total_cost = Decimal(
+                    str(allocation_data.get("total_cost", 0.0))
+                )  # not-money: apply-time, consensus-frozen — Decimal(str(0.0)) yields "0.0" while Decimal("0") yields "0"; changing the default can diverge the stored state hash on replay. Version-height gate required (#1033).
             except Exception:
                 return (False, f"Invalid duration_hours or total_cost for GPU {gpu_id}")
             allocation = GPUAllocation(
