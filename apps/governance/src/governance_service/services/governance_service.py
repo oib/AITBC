@@ -511,23 +511,17 @@ class GovernanceService:
             vote_data.pop(key, None)
 
         voter_id = vote_data.get("voter_id") or "anonymous"
+        vote_proposal_id = str(vote_data.get("proposal_id") or "")
 
         # One vote per voter per proposal — repeats used to stack weight (#1091).
-        proposal_status = await self.get_proposal(vote_data.get("proposal_id"))
+        proposal_status = await self.get_proposal(vote_proposal_id)
         if proposal_status is None:
-            raise ValueError(f"Proposal not found: {vote_data.get('proposal_id')}")
+            raise ValueError(f"Proposal not found: {vote_proposal_id}")
         if proposal_status.status != ProposalStatus.ACTIVE:
             raise ValueError(f"Proposal is not active (status: {proposal_status.status})")
-        from sqlalchemy import func
-
-        existing_vote = await self.session.execute(
-            select(Vote).where(
-                Vote.proposal_id == vote_data.get("proposal_id"),
-                func.lower(Vote.voter_id) == voter_id.lower(),
-            )
-        )
-        if existing_vote.scalars().first() is not None:
-            raise ValueError(f"voter {voter_id} has already voted on proposal {vote_data.get('proposal_id')}")
+        for prior in await self.list_votes(proposal_id=vote_proposal_id):
+            if str(prior.voter_id or "").lower() == voter_id.lower():
+                raise ValueError(f"voter {voter_id} has already voted on proposal {vote_proposal_id}")
 
         existing_profile = await self.get_profile(voter_id)
         if not existing_profile:
