@@ -21,6 +21,8 @@ from ..schemas.grant import (
     GrantProposalResponse,
     GrantVoteRequest,
 )
+from ....auth import AdminDep, AuthDep
+from ..services.governance_service import GovernanceService
 from ..services.grant_service import GrantService
 
 router = APIRouter(prefix="/grants", tags=["grants"])
@@ -37,12 +39,14 @@ async def create_grant(
     request: Request,
     body: GrantProposalCreate,
     service: Annotated[GrantService, Depends(get_grant_service)],
+    user: AuthDep,
 ) -> GrantProposal:
     """Create a new grant proposal."""
+    developer_id = user["sub"]  # the applicant is the caller (#1071)
     try:
         return await run_in_threadpool(
             service.create_grant,
-            developer_id=body.developer_id,
+            developer_id=developer_id,
             title=body.title,
             description=body.description,
             requested_amount=body.requested_amount,
@@ -165,10 +169,19 @@ async def vote_grant(
     grant_id: str,
     body: GrantVoteRequest,
     service: Annotated[GrantService, Depends(get_grant_service)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> GrantProposal:
     """Vote on a grant proposal."""
+    # Identity and weight come from the caller and its governance profile —
+    # never the body (#1071). A client used to mint 1e9 voting power per call.
+    voter_id = user["sub"]
+    profile = await run_in_threadpool(GovernanceService(session).get_or_create_profile, voter_id, 0.0)
+    voting_power = (profile.voting_power or 0.0) + (profile.delegated_power or 0.0)
     try:
-        return await run_in_threadpool(service.vote, grant_id=grant_id, vote=body.vote, voting_power=body.voting_power)
+        return await run_in_threadpool(
+            service.vote, grant_id=grant_id, vote=body.vote, voting_power=voting_power, voter_id=voter_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -184,6 +197,7 @@ async def disburse_grant(
     grant_id: str,
     body: GrantDisburseRequest,
     service: Annotated[GrantService, Depends(get_grant_service)],
+    user: AdminDep,
 ) -> GrantProposal:
     """Disburse funds for a grant or milestone."""
     try:

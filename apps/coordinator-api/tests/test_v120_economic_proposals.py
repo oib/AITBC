@@ -38,9 +38,14 @@ def test_create_and_get_economic_proposal(client) -> None:
     assert get_resp.json()["id"] == data["id"]
 
 
-def test_vote_and_execute_economic_proposal(client) -> None:
+def test_vote_and_execute_economic_proposal(client, db_session) -> None:
     """Votes are recorded and a proposal can be executed after reaching threshold."""
     _auth_headers(client)
+    # #1071: weight comes from the caller's profile — body voting_power is ignored.
+    from coordinator_api.contexts.governance.services.governance_service import GovernanceService
+
+    profile = GovernanceService(db_session).get_or_create_profile("test_user", 10.0)
+    assert profile.voting_power == 10.0
     create_resp = client.post(
         "/v1/economic-proposals",
         json={
@@ -79,6 +84,6 @@ def test_list_economic_proposals(client) -> None:
             "proposed_value": "0.6",
         },
     )
-    resp = client.get("/v1/economic-proposals?proposer_id=agent-1")
+    resp = client.get("/v1/economic-proposals?proposer_id=test_user")
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
