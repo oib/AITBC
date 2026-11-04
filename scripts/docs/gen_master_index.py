@@ -115,7 +115,7 @@ def _referenced_by(docs: Path, inbound: dict[Path, set[Path]], cap: int = 3) -> 
         "Inbound markdown links per document (top referrers).",
         "",
         "| Document | Referenced by |",
-        "|---|---|---|",
+        "|---|---|",
     ]
     for md in sorted(docs.rglob("*.md"), key=lambda p: p.relative_to(docs).as_posix()):
         rel = md.relative_to(docs).as_posix()
