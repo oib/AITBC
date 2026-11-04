@@ -80,7 +80,7 @@ def _simulated_profile(agent_id: str) -> dict[str, Any]:
     trust = _hash_float(base + ("trust",), 300.0, 980.0, 2)
     tx_count = _hash_int(base + ("tx_count",), 5, 10000)
     completed = _hash_int(base + ("completed",), 0, tx_count)
-    return {
+    return {  # not-money: demo/simulation value, not a live amount
         "agent_id": agent_id,
         "trust_score": trust,
         "reputation_level": _reputation_level(trust),

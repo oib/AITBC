@@ -52,7 +52,9 @@ class MarketService:
 
         total_offers = len(offers)
         open_capacity = sum(offer.capacity for offer in open_offers)
-        average_price = mean([offer.price for offer in open_offers]) if open_offers else 0.0
+        average_price = (
+            mean([offer.price for offer in open_offers]) if open_offers else 0.0
+        )  # not-money: statistical summary over values, not a stored amount
 
         return MarketStatsView(
             totalOffers=total_offers,

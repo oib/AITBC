@@ -335,7 +335,7 @@ def _load_silences(path: str | None, cache: dict[str, Any]) -> list[dict[str, An
 # _NOTIFY_BUDGET_SECONDS is spent. 60s sits far under the unit's
 # WatchdogSec=300 window even with several configured URLs.
 _NOTIFY_TIMEOUT = httpx.Timeout(connect=3.0, read=5.0, write=5.0, pool=3.0)
-_NOTIFY_BUDGET_SECONDS = 60.0
+_NOTIFY_BUDGET_SECONDS = 60.0  # not-money: time/duration value, not an amount
 
 
 def _notify(

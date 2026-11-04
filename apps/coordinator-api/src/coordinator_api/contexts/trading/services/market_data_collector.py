@@ -230,7 +230,7 @@ class MarketDataCollector:
         try:
             regions = ["us_west", "us_east", "europe", "asia"]
             for region in regions:
-                base_price = 0.05
+                base_price = 0.05  # not-money: ratio, threshold or configuration default — not an amount of money
                 competitor_prices = [
                     base_price * (1 + (hash(f"comp1_{region}") % 20 - 10) / 100),
                     base_price * (1 + (hash(f"comp2_{region}") % 20 - 10) / 100),

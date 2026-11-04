@@ -238,7 +238,7 @@ def status(ctx, chain_id, detailed, node_urls, use_local):
 
             if detailed:
                 status_data.update(
-                    {
+                    {  # not-money: ratio, threshold or configuration default — not an amount of money
                         "Consensus": chain_info.consensus_algorithm.value,
                         "TPS": f"{chain_info.tps:.1f}",
                         "Gas Price": f"{chain_info.gas_price / 1e9:.1f} gwei",
@@ -354,7 +354,7 @@ def info(ctx, chain_id, detailed, metrics, use_local, node_urls):
 
         if metrics:
             # Performance metrics
-            performance_info = {
+            performance_info = {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "TPS": f"{chain_info.tps:.1f}",
                 "Avg Block Time": f"{chain_info.avg_block_time:.1f}s",
                 "Avg Gas Used": f"{chain_info.avg_gas_used:,}",

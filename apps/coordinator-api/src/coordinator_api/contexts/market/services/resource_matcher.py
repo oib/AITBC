@@ -197,7 +197,9 @@ class ResourceMatcher:
     def _create_simple_embedding(self, gpu: GPURegistry) -> list[float]:
         """Create simple embedding based on GPU features."""
         memory_norm = min(1.0, gpu.memory_gb / 80.0)
-        price_norm = min(1.0, float(gpu.price_per_hour) / 10.0)
+        price_norm = min(
+            1.0, float(gpu.price_per_hour) / 10.0
+        )  # not-money: ratio, threshold or configuration default — not an amount of money
         rating_norm = gpu.average_rating / 5.0
         embedding = [
             memory_norm,

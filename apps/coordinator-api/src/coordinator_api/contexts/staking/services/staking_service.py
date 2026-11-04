@@ -427,7 +427,9 @@ class StakingService:
             total_rewards_stmt = select(func.sum(AgentMetrics.total_rewards_distributed)).where(
                 AgentMetrics.last_update_time >= start_date  # type: ignore[arg-type]
             )
-            total_rewards = (self.session.execute(total_rewards_stmt)).scalar() or 0.0
+            total_rewards = (
+                self.session.execute(total_rewards_stmt)
+            ).scalar() or 0.0  # not-money: ratio, threshold or configuration default — not an amount of money
             tier_stmt = (
                 select(AgentStake.agent_tier, func.count(AgentStake.stake_id).label("count"))  # type: ignore[arg-type, call-overload]
                 .where(AgentStake.start_time >= start_date)

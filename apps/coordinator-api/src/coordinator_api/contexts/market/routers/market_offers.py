@@ -12,6 +12,7 @@ from ....auth import AdminDep
 from ....contexts.infrastructure.domain import Miner
 from ....schemas import MarketOfferView
 from ....storage import get_session
+from decimal import Decimal
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["market-offers"])
@@ -33,12 +34,12 @@ def sync_offers(
             offer = MarketOffer(
                 provider=miner.id,
                 capacity=miner.concurrency or 1,
-                price=capabilities.get("pricing_per_hour", 0.5),
+                price=capabilities.get("pricing_per_hour", Decimal("0.5")),
                 gpu_model=capabilities.get("gpu", None),
                 gpu_memory_gb=capabilities.get("gpu_memory_gb", None),
                 gpu_count=capabilities.get("gpu_count", 1),
                 cuda_version=capabilities.get("cuda_version", None),
-                price_per_hour=capabilities.get("pricing_per_hour", 0.5),
+                price_per_hour=capabilities.get("pricing_per_hour", Decimal("0.5")),
                 region=miner.region or None,
                 attributes={"supported_models": capabilities.get("supported_models", [])},
             )

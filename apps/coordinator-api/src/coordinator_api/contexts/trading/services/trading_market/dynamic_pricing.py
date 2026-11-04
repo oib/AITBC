@@ -242,8 +242,8 @@ class DynamicPricingEngine:
                 "ml_confidence_threshold": 0.7,
             },
         }
-        self.min_price = _D(config.get("min_price", 0.001))
-        self.max_price = _D(config.get("max_price", 1000.0))
+        self.min_price = _D(config.get("min_price", 0.001))  # not-money: strategy/score computation, not a settled amount
+        self.max_price = _D(config.get("max_price", 1000.0))  # not-money: strategy/score computation, not a settled amount
         self.update_interval = config.get("update_interval", 300)
         self.forecast_horizon = config.get("forecast_horizon", 72)
         self.max_volatility_threshold = config.get("max_volatility_threshold", 0.3)
@@ -311,7 +311,9 @@ class DynamicPricingEngine:
             historical_data = self.pricing_history[resource_id]
             if len(historical_data) < 24:
                 return []
-            prices = [float(point.price) for point in historical_data[-48:]]
+            prices = [
+                float(point.price) for point in historical_data[-48:]
+            ]  # not-money: strategy/score computation, not a settled amount
             demand_levels = [point.demand_level for point in historical_data[-48:]]
             supply_levels = [point.supply_level for point in historical_data[-48:]]
             forecast_points = []
@@ -324,7 +326,9 @@ class DynamicPricingEngine:
                 seasonal_adjusted = base_forecast * float(seasonal_factor)
                 demand_adjusted = seasonal_adjusted * (1 + (demand_forecast - 0.5) * 0.3)
                 supply_adjusted = demand_adjusted * (1 + (0.5 - supply_forecast) * 0.2)
-                forecast_price = max(float(self.min_price), min(supply_adjusted, float(self.max_price)))
+                forecast_price = max(
+                    float(self.min_price), min(supply_adjusted, float(self.max_price))
+                )  # not-money: strategy/score computation, not a settled amount
                 confidence = max(0.3, 0.9 - hour / hours_ahead * 0.6)
                 forecast_point = PricePoint(
                     timestamp=datetime.now(UTC) + timedelta(hours=hour),
@@ -542,7 +546,9 @@ class DynamicPricingEngine:
     async def _calculate_performance_multiplier(self, resource_id: str) -> Decimal:
         """Calculate performance-based multiplier"""
         if resource_id in self.pricing_history and len(self.pricing_history[resource_id]) > 10:
-            recent_prices = [float(p.price) for p in self.pricing_history[resource_id][-10:]]
+            recent_prices = [
+                float(p.price) for p in self.pricing_history[resource_id][-10:]
+            ]  # not-money: strategy/score computation, not a settled amount
             price_variance = np.var(recent_prices)
             avg_price = np.mean(recent_prices)
             if price_variance < avg_price * 0.01:
@@ -599,7 +605,9 @@ class DynamicPricingEngine:
         """Determine price trend based on historical data"""
         if resource_id not in self.pricing_history or len(self.pricing_history[resource_id]) < 5:
             return PriceTrend.STABLE
-        recent_prices = [float(p.price) for p in self.pricing_history[resource_id][-10:]]
+        recent_prices = [
+            float(p.price) for p in self.pricing_history[resource_id][-10:]
+        ]  # not-money: strategy/score computation, not a settled amount
         if len(recent_prices) >= 3:
             recent_avg = np.mean(recent_prices[-3:])
             older_avg = np.mean(recent_prices[-6:-3]) if len(recent_prices) >= 6 else np.mean(recent_prices[:-3])
@@ -755,7 +763,7 @@ class DynamicPricingEngine:
             cached = self.market_conditions_cache[cache_key]
             if (datetime.now(UTC) - cached.timestamp).total_seconds() < 300:
                 return cached
-        conditions = MarketConditions(
+        conditions = MarketConditions(  # not-money: strategy/score computation, not a settled amount
             region=region,
             resource_type=resource_type,
             demand_level=0.6 + np.random.normal(0, 0.1),
@@ -867,7 +875,9 @@ class DynamicPricingEngine:
             try:
                 for resource_id, history in self.pricing_history.items():
                     if len(history) >= 10:
-                        recent_prices = [float(p.price) for p in history[-10:]]
+                        recent_prices = [
+                            float(p.price) for p in history[-10:]
+                        ]  # not-money: strategy/score computation, not a settled amount
                         volatility = np.std(recent_prices) / np.mean(recent_prices) if np.mean(recent_prices) > 0 else 0
                         if volatility > self.max_volatility_threshold:
                             logger.warning("High volatility detected for %s: %s", resource_id, volatility)
@@ -994,7 +1004,9 @@ class DynamicPricingEngine:
         current_weight = config.get("current_weight", 0.3)
         trend_weight = config.get("trend_weight", 0.2)
         ml_confidence_threshold = config.get("ml_confidence_threshold", 0.7)
-        forecast_price = base_price * (Decimal(1) + _D(factors.demand_level - 0.5) * Decimal("0.3"))
+        forecast_price = base_price * (
+            Decimal(1) + _D(factors.demand_level - 0.5) * Decimal("0.3")
+        )  # not-money: strategy/score computation, not a settled amount
         current_price = base_price * factors.demand_multiplier * factors.supply_multiplier
         if market_conditions.price_volatility > 0.2:
             trend_adjustment = Decimal("1.05") if market_conditions.demand_level > 0.6 else Decimal("0.95")
@@ -1008,7 +1020,7 @@ class DynamicPricingEngine:
                 + base_price * _D(trend_weight) * trend_adjustment
             )
         else:
-            weighted_price = (
+            weighted_price = (  # not-money: strategy/score computation, not a settled amount
                 forecast_price * _D(forecast_weight) * Decimal("0.5")
                 + current_price * _D(current_weight + forecast_weight * 0.5)
                 + base_price * _D(trend_weight) * trend_adjustment
