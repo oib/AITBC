@@ -108,3 +108,73 @@ def test_restricted_subscribe_with_validator_signature(client: TestClient) -> No
     )
     with client.websocket_connect(f"/ws?{qs}"):
         pass  # accepted, not closed
+
+
+# ---------------------------------------------------------------------------
+# #1128: scoped signatures + single-use challenges on the relay
+# ---------------------------------------------------------------------------
+
+
+def _signed_publish(client: TestClient, channel: str, message: object) -> dict:
+    challenge = client.get("/gossip/challenge").json()
+    address = _validator_address()
+    scope = gossip_auth.publish_scope(channel, message)
+    signature = gossip_auth.sign_challenge(challenge["challenge"], address, challenge["timestamp"], VALIDATOR_KEY, scope)
+    return {
+        "channel": channel,
+        "message": message,
+        "address": address,
+        "timestamp": challenge["timestamp"],
+        "challenge": challenge["challenge"],
+        "signature": signature,
+    }
+
+
+def test_replay_of_signed_publish_rejected(client: TestClient) -> None:
+    body = _signed_publish(client, "blocks.bc-2", {"h": "0xabc"})
+    assert client.post("/gossip", json=body).status_code == 200
+    # exact same response replayed: the challenge is consumed (#1128)
+    assert client.post("/gossip", json=body).status_code == 401
+
+
+def test_tampered_message_with_valid_challenge_rejected(client: TestClient) -> None:
+    # sign a scope for message A, present message B — binding must catch it
+    challenge = client.get("/gossip/challenge").json()
+    address = _validator_address()
+    scope = gossip_auth.publish_scope("blocks.bc-2", {"h": "0xabc"})
+    signature = gossip_auth.sign_challenge(challenge["challenge"], address, challenge["timestamp"], VALIDATOR_KEY, scope)
+    resp = client.post(
+        "/gossip",
+        json={
+            "channel": "blocks.bc-2",
+            "message": {"h": "0xdef"},
+            "address": address,
+            "timestamp": challenge["timestamp"],
+            "challenge": challenge["challenge"],
+            "signature": signature,
+        },
+    )
+    assert resp.status_code == 401
+
+
+def test_unscoped_signature_flag_compat(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    challenge = client.get("/gossip/challenge").json()
+    address = _validator_address()
+    signature = gossip_auth.sign_challenge(challenge["challenge"], address, challenge["timestamp"], VALIDATOR_KEY)
+    body = {
+        "channel": "blocks.bc-2",
+        "message": "x",
+        "address": address,
+        "timestamp": challenge["timestamp"],
+        "challenge": challenge["challenge"],
+        "signature": signature,
+    }
+    monkeypatch.setattr(settings, "gossip_auth_require_scope", False)
+    assert client.post("/gossip", json=body).status_code == 200
+
+    challenge2 = client.get("/gossip/challenge").json()
+    body["challenge"] = challenge2["challenge"]
+    body["timestamp"] = challenge2["timestamp"]
+    body["signature"] = gossip_auth.sign_challenge(challenge2["challenge"], address, challenge2["timestamp"], VALIDATOR_KEY)
+    monkeypatch.setattr(settings, "gossip_auth_require_scope", True)
+    assert client.post("/gossip", json=body).status_code == 401

@@ -40,13 +40,19 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _canonical_json(message: dict[str, Any]) -> bytes:
-    """Serialize a message dict to canonical JSON bytes.
+def canonical_json(message: dict[str, Any]) -> bytes:
+    """Serialize a message dict to canonical JSON bytes (UTF-8).
 
-    Keys are sorted, separators are compact (no whitespace). This
-    matches the format used by ``recover_signer()`` in ``crypto.py``.
+    Keys are sorted, separators are compact (no whitespace). This is
+    THE shared canonical form: signer and verifier MUST serialize with
+    exactly this function or scoped signature hashes disagree (#1128).
+    Matches the format used by ``recover_signer()`` in ``crypto.py``.
     """
     return json.dumps(message, sort_keys=True, separators=(",", ":")).encode()
+
+
+# Backwards-compatible private alias.
+_canonical_json = canonical_json
 
 
 def sign_consensus_message(message: dict[str, Any], private_key: str) -> str:
