@@ -29,4 +29,6 @@ class EscrowRelay(SQLModel, table=True):
     # authorization; its hash dedups relays of the same signed lock.
     lock_hash: str = Field(unique=True, index=True, max_length=64)
     contract_id: str | None = Field(default=None, max_length=128)
+    buyer_agent_id: str | None = Field(default=None, index=True, max_length=128)
+    provider_agent_id: str | None = Field(default=None, index=True, max_length=128)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
