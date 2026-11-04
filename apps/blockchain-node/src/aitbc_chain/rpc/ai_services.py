@@ -369,7 +369,7 @@ def ai_stats() -> dict[str, Any]:
 
                 # Sum revenue for completed jobs
                 if status == "completed":
-                    total_revenue += payload.get("payment", 0.0)
+                    total_revenue += Decimal(str(payload.get("payment", "0")))
 
         return {
             "total_jobs": total_jobs,
