@@ -770,7 +770,17 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         } else if (escrow.releaseCondition == ReleaseCondition.TimeBased) {
             require(block.timestamp >= escrow.releaseTime, "Release time not reached");
         } else if (escrow.releaseCondition == ReleaseCondition.OracleVerified) {
-            require(conditionalReleases[_escrowId].conditionMet, "Condition not met");
+            ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
+            require(condRelease.conditionMet, "Condition not met");
+            // A multi-oracle verification stamps finalVerificationTime; the
+            // post-verification delay must hold for a manual release too, not
+            // just for the never-reached in-call release inside verifyCondition.
+            if (condRelease.finalVerificationTime != 0) {
+                require(
+                    block.timestamp >= condRelease.finalVerificationTime + oracleVerificationDelay,
+                    "Oracle verification delay not elapsed"
+                );
+            }
         } else if (escrow.releaseCondition == ReleaseCondition.MultiSignature) {
             require(escrow.currentSignatures >= escrow.requiredSignatures, "Insufficient signatures");
         }
@@ -809,10 +819,10 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
 
         escrow.isRefunded = true;
 
-        uint256 refundAmount = escrow.amount;
-        if (escrow.escrowType == EscrowType.ProtectedCompute) {
-            refundAmount += escrow.platformFee;
-        }
+        // The depositor paid amount + platformFee in for every escrow type
+        // (_transferTokensForEscrow), so a refund must return both — not only
+        // for ProtectedCompute — or the fee stays stranded in the contract.
+        uint256 refundAmount = escrow.amount + escrow.platformFee;
 
         require(
             paymentToken.transfer(escrow.depositor, refundAmount),
@@ -889,13 +899,37 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
                 emergency.isApproved = true;
                 emergency.approvalTime = block.timestamp;
                 emit EmergencyReleaseApproved(_escrowId, emergency.votesFor, emergency.votesAgainst, true);
-
-                // Apply timelock before execution
-                if (block.timestamp >= emergency.approvalTime + emergencyReleaseTimelock) {
-                    _releaseEscrow(_escrowId, "Emergency release approved and timelock elapsed");
-                }
             }
         }
+    }
+
+    /**
+     * @dev Executes an approved emergency release once its timelock has
+     * elapsed. The approval itself cannot release: approvalTime is stamped in
+     * the same call that reaches quorum, so the timelock check must live in a
+     * separate executor. Anyone may trigger it once the delay has passed.
+     * @param _escrowId ID of the escrow
+     */
+    function executeEmergencyRelease(uint256 _escrowId)
+        external
+        escrowExists(_escrowId)
+        escrowNotFrozen(_escrowId)
+        escrowNotReleased(_escrowId)
+        escrowNotRefunded(_escrowId)
+        nonReentrant
+    {
+        EmergencyRelease storage emergency = emergencyReleases[_escrowId];
+
+        require(emergency.isApproved, "Emergency release not approved");
+        require(!emergency.isExecuted, "Emergency release already executed");
+        require(
+            block.timestamp >= emergency.approvalTime + emergencyReleaseTimelock,
+            "Emergency release timelock not elapsed"
+        );
+
+        emergency.isExecuted = true;
+
+        _releaseEscrow(_escrowId, "Emergency release approved and timelock elapsed");
     }
 
     /**
