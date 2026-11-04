@@ -3565,6 +3565,21 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/spend-sessions",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/spend-sessions",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/spend-sessions/{session_id}/revoke",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/spend-sessions/{session_id}/revoke",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/sync-reputation",
           "upstream": "/v1/agent-identity/identities/{agent_id}/sync-reputation",
           "methods": [

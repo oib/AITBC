@@ -18,5 +18,6 @@ Python contract source: [`apps/blockchain-node/src/aitbc_chain/contracts/guardia
 
 ## Operational Notes
 
-- This is an in-memory Python implementation used by the blockchain-node RPC layer.
-- See [`docs/api/blockchain-node-openapi.json`](../../docs/api/blockchain-node-openapi.json) for related RPC endpoints.
+- **Assessment (Nov 2026):** this Python module is **not** wired into blockchain-node apply or RPC enforcement. Treat it as a prototype/simulator unless a future row connects it to consensus.
+- See [`docs/account-abstraction/security.md`](../account-abstraction/security.md) for the enforcement matrix.
+- See [`docs/api/blockchain-node-openapi.json`](../../docs/api/blockchain-node-openapi.json) for related RPC endpoints (escrow/settlement — not guardian enforcement).
