@@ -576,7 +576,7 @@
           "miners"
         ],
         "summary": "Register Miner",
-        "description": "Register a miner with the pool hub.",
+        "description": "Register a miner with the pool hub.\n\nFirst registration is open (the submitted api key becomes the miner's\ncredential). Re-registering an existing miner_id requires the same api\nkey \u2014 otherwise anyone could overwrite another miner's address, price\nand payout wallet (#1083).",
         "operationId": "register_miner_v1_miners_register_post",
         "requestBody": {
           "content": {
@@ -607,6 +607,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "miner_id already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
