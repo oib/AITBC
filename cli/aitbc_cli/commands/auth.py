@@ -122,6 +122,7 @@ def login(
             password_stdin=password_stdin,
             legacy_env_names=("WALLET_PASSWORD",),
             interactive_ok=False,
+            allow_unencrypted=True,
             ctx=ctx,
         )
 
