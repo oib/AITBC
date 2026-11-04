@@ -35,6 +35,8 @@ class JobPaymentCreate(BaseModel):
     escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
     buyer_address: str | None = Field(default=None, description="Customer wallet address for escrow")
     provider_address: str | None = Field(default=None, description="Provider wallet address for escrow")
+    buyer_agent_id: str | None = Field(default=None, max_length=128, description="Agent id bound at escrow lock (buyer)")
+    provider_agent_id: str | None = Field(default=None, max_length=128, description="Agent id bound at escrow lock (provider)")
     buyer_lock_signature: str | None = Field(default=None, description="Pre-signed ESCROW_LOCK transaction signature")
     buyer_lock_nonce: int | None = Field(default=None, description="Nonce used in the ESCROW_LOCK transaction")
     buyer_lock_fee: int | None = Field(default=None, description="Fee used in the ESCROW_LOCK transaction")

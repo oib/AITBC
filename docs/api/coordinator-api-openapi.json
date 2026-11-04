@@ -39639,6 +39639,32 @@
             "title": "Provider Address",
             "description": "Provider wallet address for escrow"
           },
+          "buyer_agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Agent Id",
+            "description": "Agent id bound at escrow lock (buyer)"
+          },
+          "provider_agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Agent Id",
+            "description": "Agent id bound at escrow lock (provider)"
+          },
           "buyer_lock_signature": {
             "anyOf": [
               {

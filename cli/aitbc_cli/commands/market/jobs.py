@@ -30,6 +30,29 @@ from . import get_chain_id, get_market_wallet, get_next_nonce
 from .escrow import _escrow_create, _post_escrow_release
 
 
+def _escrow_parties_for_market_run(
+    ctx: click.Context,
+    wallet_address: str,
+    provider_address: str,
+    buyer_agent_id: str | None,
+    provider_agent_id: str | None,
+) -> tuple[str, str, str | None, str | None]:
+    """Resolve optional agent ids before on-chain escrow lock (market run paths)."""
+    if not buyer_agent_id and not provider_agent_id:
+        return wallet_address, provider_address or wallet_address, None, None
+    from ...utils.agent_identity_resolve import resolve_escrow_parties
+
+    buyer, provider, ba, pa = resolve_escrow_parties(
+        ctx,
+        buyer=wallet_address,
+        provider=provider_address or wallet_address,
+        buyer_agent_id=buyer_agent_id,
+        provider_agent_id=provider_agent_id,
+        chain_id=int(get_chain_id()),
+    )
+    return buyer, provider, ba, pa
+
+
 def _shop_access_headers(job_id: str) -> dict[str, str]:
     """Headers for the paid-shop access gate (#803, ruling 6A + strict binding).
 
@@ -246,6 +269,8 @@ def _run_ollama(
     output_format: str,
     track: bool = False,
     node_wallet: str | None = None,
+    buyer_agent_id: str | None = None,
+    provider_agent_id: str | None = None,
 ) -> None:
     """Run an Ollama inference job against a software offer and pay metered escrow."""
     config = get_config()
@@ -265,15 +290,20 @@ def _run_ollama(
     estimated_cost = (Decimal(estimated_tokens) / 1000) * price
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer.get("offer_id")}{wallet_address}'.encode()).hexdigest()[:8]}"
     info(f"Locking escrow: ~{estimated_cost:.8f} AIT (est. {estimated_tokens} tokens)")
+    buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
+        ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
+    )
     contract_id = _escrow_create(
         ctx,
         job_id,
-        wallet_address,
-        provider_address or wallet_address,
+        buyer,
+        provider,
         estimated_cost,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
+        buyer_agent_id=buyer_agent_id,
+        provider_agent_id=provider_agent_id,
     )
 
     # Resolve the Ollama endpoint. Customers always reach the public endpoint.
@@ -360,6 +390,8 @@ def _run_whisper(
     output_format: str,
     track: bool = False,
     node_wallet: str | None = None,
+    buyer_agent_id: str | None = None,
+    provider_agent_id: str | None = None,
 ) -> None:
     """Transcribe audio using a Whisper software offer and pay metered escrow."""
     import subprocess
@@ -410,15 +442,20 @@ def _run_whisper(
 
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
     info(f"Audio duration: {duration_minutes:.2f} min — locking escrow: ~{estimated_cost:.8f} AIT")
+    buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
+        ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
+    )
     contract_id = _escrow_create(
         ctx,
         job_id,
-        wallet_address,
-        provider_address or wallet_address,
+        buyer,
+        provider,
         estimated_cost,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
+        buyer_agent_id=buyer_agent_id,
+        provider_agent_id=provider_agent_id,
     )
 
     # Submit audio to Whisper service
@@ -548,6 +585,8 @@ def _run_ffmpeg(
     output_format: str,
     track: bool = False,
     node_wallet: str | None = None,
+    buyer_agent_id: str | None = None,
+    provider_agent_id: str | None = None,
 ) -> None:
     """Process video using an FFmpeg software offer and pay metered escrow."""
     import urllib.request as _urllib
@@ -578,15 +617,20 @@ def _run_ffmpeg(
     info(f"Estimated duration: {estimated_hours:.2f} hours — locking escrow: ~{estimated_cost:.8f} AIT")
 
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+    buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
+        ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
+    )
     contract_id = _escrow_create(
         ctx,
         job_id,
-        wallet_address,
-        provider_address or wallet_address,
+        buyer,
+        provider,
         estimated_cost,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
+        buyer_agent_id=buyer_agent_id,
+        provider_agent_id=provider_agent_id,
     )
 
     # Submit video to FFmpeg service
@@ -707,6 +751,8 @@ def _run_hermes(
     output_format: str,
     track: bool = False,
     node_wallet: str | None = None,
+    buyer_agent_id: str | None = None,
+    provider_agent_id: str | None = None,
 ) -> None:
     """Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow."""
     config = get_config()
@@ -739,15 +785,20 @@ def _run_hermes(
     info(f"Max time: {max_time}s — locking escrow: ~{estimated_cost:.8f} AIT")
 
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+    buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
+        ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
+    )
     contract_id = _escrow_create(
         ctx,
         job_id,
-        wallet_address,
-        provider_address or wallet_address,
+        buyer,
+        provider,
         estimated_cost,
         config,
         private_key=private_key,
         node_wallet=node_wallet,
+        buyer_agent_id=buyer_agent_id,
+        provider_agent_id=provider_agent_id,
     )
 
     info("Sending prompt to Hermes Agent service...")
@@ -873,6 +924,8 @@ def _run_hermes(
 @click.option("--days", type=int, default=1, help="Rental duration in days for IPFS hosting")
 @click.option("--pin/--no-pin", default=True, help="Pin the CID for IPFS hosting (default: pin)")
 @click.option("--track", is_flag=True, default=False, help="Create a coordinator job record after a successful run")
+@click.option("--buyer-agent-id", default=None, help="Buyer agent id; payment address resolved via coordinator")
+@click.option("--provider-agent-id", default=None, help="Provider agent id; payment address resolved via coordinator")
 @click.option(
     "--proposer",
     "proposer_id",
@@ -898,6 +951,8 @@ def run_job(
     days: int,
     pin: bool,
     track: bool,
+    buyer_agent_id: str | None,
+    provider_agent_id: str | None,
     proposer_id: str | None,
     output_format: str,
 ) -> None:
@@ -929,6 +984,8 @@ def run_job(
                 output_format,
                 track,
                 node_wallet=node_wallet,
+                buyer_agent_id=buyer_agent_id,
+                provider_agent_id=provider_agent_id,
             )
         elif service_type == "whisper":
             if not os.path.exists(prompt):
@@ -946,6 +1003,8 @@ def run_job(
                 output_format,
                 track,
                 node_wallet=node_wallet,
+                buyer_agent_id=buyer_agent_id,
+                provider_agent_id=provider_agent_id,
             )
         elif service_type == "ffmpeg":
             if not os.path.exists(prompt):
@@ -964,6 +1023,8 @@ def run_job(
                 output_format,
                 track,
                 node_wallet=node_wallet,
+                buyer_agent_id=buyer_agent_id,
+                provider_agent_id=provider_agent_id,
             )
         elif service_type == "hermes":
             _run_hermes(
@@ -976,6 +1037,8 @@ def run_job(
                 output_format,
                 track,
                 node_wallet=node_wallet,
+                buyer_agent_id=buyer_agent_id,
+                provider_agent_id=provider_agent_id,
             )
         elif service_type == "ipfs":
             # Local import to avoid a circular module load with host.py.

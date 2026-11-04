@@ -34,6 +34,7 @@ from aitbc.utils.units import ait_to_units, units_to_ait
 from aitbc.utils.validation import validate_address
 from ....custom_types import JobState
 from ....schemas import JobPaymentCreate, JobPaymentView
+from .escrow_agent_binding import assert_agent_address_binding, default_resolve_chain_id
 from ....storage import get_session
 from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
@@ -354,6 +355,10 @@ class PaymentService:
         meta: dict[str, Any] = {}
         if payment_data.provider_address:
             meta["provider_address"] = payment_data.provider_address
+        if payment_data.buyer_agent_id:
+            meta["buyer_agent_id"] = payment_data.buyer_agent_id
+        if payment_data.provider_agent_id:
+            meta["provider_agent_id"] = payment_data.provider_agent_id
         if payment_data.auto_reinvest_pct is not None:
             meta["auto_reinvest_pct"] = str(payment_data.auto_reinvest_pct)
         # G1: the advertised terms, stored as strings beside the payee they name.
@@ -860,6 +865,12 @@ class PaymentService:
         if meta.get("energy_is_protected"):
             payload["energy_quote"] = meta["energy_quote"]
             payload["energy_quote_digest"] = meta["energy_quote_digest"]
+        buyer_agent_id = meta.get("buyer_agent_id")
+        provider_agent_id = meta.get("provider_agent_id")
+        if buyer_agent_id:
+            payload["buyer_agent_id"] = buyer_agent_id
+        if provider_agent_id:
+            payload["provider_agent_id"] = provider_agent_id
         escrow_data = await client.post(
             f"{self.blockchain_rpc_url}/rpc/escrow/create",
             json=payload,
@@ -1031,6 +1042,16 @@ class PaymentService:
         if parties is None:
             return None
         buyer, provider = parties
+
+        resolve_chain = default_resolve_chain_id()
+        if payment_data.buyer_agent_id:
+            await assert_agent_address_binding(
+                self.session, payment_data.buyer_agent_id, buyer, role="buyer", chain_id=resolve_chain
+            )
+        if payment_data.provider_agent_id:
+            await assert_agent_address_binding(
+                self.session, payment_data.provider_agent_id, provider, role="provider", chain_id=resolve_chain
+            )
 
         try:
             nonce = payment_data.buyer_lock_nonce
