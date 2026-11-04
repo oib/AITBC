@@ -701,3 +701,88 @@ def test_gpu_purchase_forwards_agent_ids_to_payment(
     assert pd is not None
     assert pd.buyer_agent_id == BUYER_AGENT
     assert pd.provider_agent_id == PROVIDER_AGENT
+
+
+@pytest.mark.unit
+def test_gpu_quote_rejects_mismatching_buyer_address_with_agent_id(
+    client, db_session, native_pricing, available_gpu, pricing_engine_override
+):
+    _seed_energy(db_session)
+    _seed_agent_mappings(db_session)
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        json={
+            "buyer_id": "0x0000000000000000000000000000000000000001",
+            "buyer_agent_id": BUYER_AGENT,
+            "gpu_id": available_gpu,
+            "duration_hours": 1.0,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert resp.status_code == 400
+    assert "buyer_id" in resp.text.lower()
+
+
+@pytest.mark.unit
+def test_gpu_purchase_resolves_buyer_address_from_agent_id(
+    client,
+    client_token,
+    db_session,
+    native_pricing,
+    available_gpu,
+    pricing_engine_override,
+    monkeypatch,
+):
+    _seed_energy(db_session)
+    _seed_agent_mappings(db_session)
+    quote_resp = client.post(
+        "/v1/market/gpu/quote",
+        json={
+            "buyer_id": "client1",
+            "buyer_agent_id": BUYER_AGENT,
+            "gpu_id": available_gpu,
+            "duration_hours": 0.05,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert quote_resp.status_code == 200
+    quote = quote_resp.json()
+    captured = {}
+
+    async def fake_create_payment(self, client_id: str, job_id: str, payment_data):
+        captured["payment_data"] = payment_data
+        return JobPayment(
+            id="pay_gpu_agent2",
+            job_id=job_id,
+            amount=payment_data.amount,
+            status="escrowed",
+            currency="AITBC",
+            payment_method="aitbc_token",
+        )
+
+    monkeypatch.setattr(PaymentService, "create_payment", fake_create_payment)
+
+    buy_resp = client.post(
+        "/v1/market/gpu/purchase",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={
+            "buyer_id": "client1",
+            "gpu_id": available_gpu,
+            "duration_hours": 0.05,
+            "payment_method": "blockchain",
+            "energy_quote": quote["energy_quote"],
+            "protected": True,
+            "job_id": quote["job_id"],
+            "provider_address": PROVIDER,
+            "buyer_agent_id": BUYER_AGENT,
+            "provider_agent_id": PROVIDER_AGENT,
+            "buyer_lock_signature": "0xdeadbeef",
+            "buyer_lock_nonce": 1,
+        },
+    )
+    assert buy_resp.status_code == 200, buy_resp.text
+    pd = captured["payment_data"]
+    assert pd.buyer_address.lower() == BUYER.lower()
+    assert pd.buyer_agent_id == BUYER_AGENT

@@ -125,6 +125,12 @@ Append-only.
 No private keys, no session secrets in clear text — store session **id** only;
 credential presented out-of-band (HMAC/JWT) per implementation row.
 
+**Chain `escrow.buyer_agent_id` / `provider_agent_id` (Phase D):** when set via
+direct RPC they are **caller-supplied labels** on the escrow row, not proof of
+identity. Coordinator relay and payment paths validate against
+`CrossChainMapping`; nothing in consensus or RPC should treat on-chain agent id
+strings as authenticated identity without that binding path.
+
 ### Deferred tables (only if product requires)
 
 | Table | When |

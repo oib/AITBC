@@ -399,17 +399,20 @@ async def execute_wallet_transaction(
     try:
         from decimal import Decimal
 
+        from ..domain.spend_policy import SpendPermissionError, SpendSessionCapError, SpendSessionRequiredError
+
         result = await manager.wallet_adapter.execute_wallet_transaction(
             agent_id, chain_id, request["to_address"], Decimal(str(request["amount"])), request.get("data")
         )
         return result
+    except SpendPermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (SpendSessionRequiredError, SpendSessionCapError) as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
-        msg = str(exc)
-        if "permission" in msg.lower() or "session" in msg.lower() or "cap" in msg.lower():
-            raise HTTPException(status_code=403, detail=msg) from exc
-        raise HTTPException(status_code=400, detail=msg) from exc
-    except Exception:
-        raise HTTPException(status_code=400, detail="Failed to create agent identity") from None
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Wallet transaction failed") from exc
 
 
 @router.get("/identities/{agent_id}/wallets/{chain_id}/transactions", response_model=list[dict[str, Any]])

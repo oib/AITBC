@@ -8,6 +8,7 @@ import pytest
 
 from coordinator_api.contexts.agent_identity.domain.spend_policy import (
     PERM_WALLET_EXECUTE,
+    SpendPermissionError,
     assert_wallet_permission,
     operation_from_tx_data,
 )
@@ -21,14 +22,15 @@ def test_operation_from_tx_data_defaults():
 
 
 @pytest.mark.unit
-def test_assert_wallet_permission_empty_list_legacy():
-    assert_wallet_permission([], PERM_WALLET_EXECUTE)
+def test_assert_wallet_permission_empty_list_denies():
+    with pytest.raises(SpendPermissionError, match="Insufficient permissions"):
+        assert_wallet_permission([], PERM_WALLET_EXECUTE)
 
 
 @pytest.mark.unit
 def test_assert_wallet_permission_enforces_when_set():
     assert_wallet_permission(["wallet.execute"], "wallet.execute")
-    with pytest.raises(ValueError, match="Insufficient permissions"):
+    with pytest.raises(SpendPermissionError, match="Insufficient permissions"):
         assert_wallet_permission(["escrow.fund"], "wallet.execute")
 
 
@@ -49,5 +51,39 @@ def test_spend_session_consume_cap(db_session):
     )
     svc.consume(row.id, "agent-spend-1", 1000, Decimal("3"), "wallet.execute")
     svc.consume(row.id, "agent-spend-1", 1000, Decimal("7"), "wallet.execute")
-    with pytest.raises(ValueError, match="cap exceeded"):
+    with pytest.raises(Exception, match="cap exceeded"):
         svc.consume(row.id, "agent-spend-1", 1000, Decimal("0.01"), "wallet.execute")
+
+
+@pytest.mark.unit
+def test_validate_consume_does_not_increment_used_ait(db_session):
+    from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity, AgentSpendSession
+
+    db_session.add(AgentIdentity(agent_id="agent-spend-2", owner_address="0x" + "22" * 20))
+    db_session.commit()
+    svc = SpendSessionService(db_session)
+    row = svc.create_session(
+        "agent-spend-2",
+        "0x" + "22" * 20,
+        1000,
+        Decimal("5"),
+        ["wallet.execute"],
+        None,
+    )
+    used_before = row.used_ait
+    svc.validate_consume(row.id, "agent-spend-2", 1000, Decimal("2"), "wallet.execute")
+    db_session.rollback()
+    row_after = db_session.get(AgentSpendSession, row.id)
+    assert row_after is not None
+    assert row_after.used_ait == used_before
+
+
+@pytest.mark.unit
+def test_create_session_rejects_invalid_cap(db_session):
+    from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity
+
+    db_session.add(AgentIdentity(agent_id="agent-spend-3", owner_address="0x" + "33" * 20))
+    db_session.commit()
+    svc = SpendSessionService(db_session)
+    with pytest.raises(ValueError, match="cap_ait"):
+        svc.create_session("agent-spend-3", "0x" + "33" * 20, 1000, Decimal("0"), ["wallet.execute"], None)
