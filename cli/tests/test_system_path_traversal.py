@@ -136,3 +136,22 @@ def test_run_script_runs_resolved_path(runner, allowed_scripts):
     run_mock.assert_called_once()
     # the resolved path, not the raw string, is handed to bash
     assert run_mock.call_args[0][0][2] == str(script.resolve())
+
+
+def test_file_masks_env_and_keystore_secrets(runner, allowed):
+    """#1097: a read of an env or keystore path returns no secret value."""
+    env = allowed / "svc.env"
+    env.write_text("AITBC_API_KEY=supersecret-api-key-value\nLISTEN_ADDR=0.0.0.0:8102\nCOMMENT=plain text stays\n")
+    result = runner.invoke(system, obj={"output_format": "table"}, args=["file", "--path", str(env)])
+    assert result.exit_code == 0, result.output
+    assert "supersecret-api-key-value" not in result.output
+    assert "***MASKED***" in result.output
+    assert "0.0.0.0:8102" in result.output
+    assert "plain text stays" in result.output
+
+    keystore = allowed / "node.json"
+    keystore.write_text('{"address": "0xabc", "private_key": "0x' + "a1" * 32 + '", "name": "miner"}')
+    result = runner.invoke(system, obj={"output_format": "table"}, args=["file", "--path", str(keystore)])
+    assert result.exit_code == 0, result.output
+    assert "a1" * 32 not in result.output
+    assert "miner" in result.output
