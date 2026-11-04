@@ -142,6 +142,8 @@ async def main():
         print("\nErrors:")
         for plugin_id, error in errors:
             print(f"  - {plugin_id}: {error}")
+        print("\nResolve the errors above before decommissioning aitbc-plugin.service")
+        raise SystemExit(1)
 
     print(f"\nBackup saved to: {BACKUP_PATH}")
     print("Original JSON file preserved at: " + PLUGIN_JSON_PATH)
