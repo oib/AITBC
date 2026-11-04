@@ -344,6 +344,29 @@ def _is_float_call(node: ast.AST) -> bool:
     return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "float"
 
 
+def _contains_float_call(node: ast.AST) -> bool:
+    """True when a ``float(...)`` call sits anywhere inside the expression.
+
+    ``_is_float_call`` only asks whether the *top* node is the call, so every
+    compound form walked past the guard (#1033): ``fee = float(x) * 2`` is a
+    ``BinOp``, ``round(float(a), 8)`` is a ``Call`` whose *argument* is the
+    conversion, and ``balance += float(x)`` is an ``AugAssign``. ``ast.walk``
+    visits the inner ``Call`` regardless of how deep it sits.
+    """
+    return any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "float" for n in ast.walk(node))
+
+
+def _contains_float_literal(node: ast.AST) -> bool:
+    """True when a float literal sits anywhere inside the expression.
+
+    ``price = 1.5`` never reaches a ``float()`` call, but the literal is the
+    same defect in a different spelling (#1033). ``bool`` is an ``int`` subclass
+    so it is filtered explicitly; an int constant bound to a money name is a
+    whole amount, not a violation.
+    """
+    return any(isinstance(n, ast.Constant) and isinstance(n.value, float) for n in ast.walk(node))
+
+
 SUPPRESSION = "# not-money:"
 
 
@@ -445,8 +468,10 @@ def _violations_in(path: Path) -> list[str]:
         if isinstance(node, ast.AnnAssign) and (declared := _annotated_name(node.target)):
             if "float" in ast.unparse(node.annotation) and _is_money_name(declared):
                 keys.append(f"annotation:{declared}")
-            if node.value is not None and _is_float_call(node.value) and _is_money_name(declared):
+            if node.value is not None and _contains_float_call(node.value) and _is_money_name(declared):
                 keys.append(f"float-call:{declared}")
+            if node.value is not None and _contains_float_literal(node.value) and _is_money_name(declared):
+                keys.append(f"float-literal:{declared}")
 
         elif isinstance(node, ast.arg) and node.annotation is not None:
             # ``def pay(amount: float)``. Every parameter kind -- positional, keyword-only,
@@ -454,26 +479,40 @@ def _violations_in(path: Path) -> list[str]:
             if _is_narrowed_float(node.annotation) and _is_money_name(node.arg):
                 keys.append(f"param:{node.arg}")
 
-        elif isinstance(node, ast.Assign) and _is_float_call(node.value):
+        elif isinstance(node, ast.Assign):
             for target in node.targets:
                 for name in _target_names(target):
+                    if not _is_money_name(name):
+                        continue
+                    if _contains_float_call(node.value):
+                        keys.append(f"float-call:{name}")
+                    elif _contains_float_literal(node.value):
+                        keys.append(f"float-literal:{name}")
+
+        elif isinstance(node, ast.AugAssign):
+            # ``balance += float(x)`` — the conversion hides inside an augmented
+            # assignment, which is not an ``ast.Assign`` at all (#1033).
+            if _contains_float_call(node.value):
+                for name in _target_names(node.target):
                     if _is_money_name(name):
                         keys.append(f"float-call:{name}")
 
         elif isinstance(node, ast.Call):
             for keyword in node.keywords:
-                if keyword.arg and _is_float_call(keyword.value) and _is_money_name(keyword.arg):
+                if not keyword.arg or not _is_money_name(keyword.arg):
+                    continue
+                if _contains_float_call(keyword.value):
                     keys.append(f"float-call:{keyword.arg}")
+                elif _contains_float_literal(keyword.value):
+                    keys.append(f"float-literal:{keyword.arg}")
             # dict(...) literals and Pydantic-style payloads: {"amount": float(x)}
         elif isinstance(node, ast.Dict):
             for key, value in zip(node.keys, node.values, strict=False):
-                if (
-                    isinstance(key, ast.Constant)
-                    and isinstance(key.value, str)
-                    and _is_float_call(value)
-                    and _is_money_name(key.value)
-                ):
-                    keys.append(f"float-call:{key.value}")
+                if isinstance(key, ast.Constant) and isinstance(key.value, str) and _is_money_name(key.value):
+                    if _contains_float_call(value):
+                        keys.append(f"float-call:{key.value}")
+                    elif _contains_float_literal(value):
+                        keys.append(f"float-literal:{key.value}")
 
     if strict:
         # Any float() at all, bound to a money name or not.
