@@ -969,6 +969,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v20_threshold = getattr(settings, "state_transition_v20_height", None)
+    if v20_threshold and height >= v20_threshold:
+        return 20
     v19_threshold = getattr(settings, "state_transition_v19_height", None)
     if v19_threshold and height >= v19_threshold:
         return 19
@@ -2525,7 +2528,23 @@ class StateTransition:
                 return "recipient is not the bond escrow address"
             if value <= 0:
                 return "non-positive lock value"
-            lock_days = int(payload.get("lock_days", 30))
+            if block_version is not None and block_version >= 20:
+                # v20 (#1067): the provider in the payload must be the signer —
+                # before this, any account could top up a bond with a huge
+                # lock_days and push the victim's locked_until a century out,
+                # and the same arbitrary sender could create bonds in someone
+                # else's name. lock_days is bounded so a giant value cannot
+                # raise OverflowError after the debit and nonce update.
+                if sender_addr != _to_ait_address(provider):
+                    return "not signed by the bond provider"
+                try:
+                    lock_days = int(payload.get("lock_days", 30))
+                except (TypeError, ValueError, OverflowError):
+                    return "invalid lock_days"
+                if not 1 <= lock_days <= 3650:
+                    return "lock_days out of range (1-3650)"
+            else:
+                lock_days = int(payload.get("lock_days", 30))
             locked_until = now + timedelta(days=lock_days)
             # Reuse an existing active bond with the same id if it exists (top-up).
             existing = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
