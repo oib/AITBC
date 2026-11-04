@@ -2,7 +2,7 @@
 
 # `aitbc agent-wallet balance`
 
-Show the wallet balance and allocation for a given agent ID.
+Show simulated wallet balance (not coordinator spend sessions — see agent-identity API).
 
 ## Usage
 
