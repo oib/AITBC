@@ -27,3 +27,9 @@ aitbc bounty status --bounty-id <bounty_id>
 RPC_URL=http://127.0.0.1:8202/rpc
 aitbc bounty status --bounty-id <bounty_id> --rpc-url "$RPC_URL"
 ```
+
+## Related
+
+- On-chain record types: `BOUNTY_LOCK`, `BOUNTY_PAYOUT`, `BOUNTY_REFUND`
+- Scenarios: [86](../../scenarios/86_bounty_lifecycle.md)
+- [Feature ↔ scenario ↔ record mesh](../../reference/feature-scenario-record-mesh.md)
