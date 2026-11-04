@@ -231,6 +231,9 @@ contract BountyIntegrationFuzzTest is Test {
         );
 
         bounty.authorizeCreator(CREATOR);
+        // BountyIntegration settles submissions through verifySubmission,
+        // which #1099 restricted to authorized verifiers.
+        bounty.authorizeVerifier(address(integ));
         // updateAgentPerformance requires oracle auth + a supported agent
         staking.addOracle(address(integ));
         staking.addSupportedAgent(SUBMITTER, AgentStaking.PerformanceTier.BRONZE);
