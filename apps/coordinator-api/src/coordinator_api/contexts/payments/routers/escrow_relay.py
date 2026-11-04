@@ -49,6 +49,8 @@ class EscrowRelayRequest(BaseModel):
     provider: str = Field(..., min_length=1, max_length=128)
     amount: str | int | Decimal = Field(...)
     lock_tx: dict[str, Any]
+    buyer_agent_id: str | None = Field(default=None, max_length=128)
+    provider_agent_id: str | None = Field(default=None, max_length=128)
 
 
 class EscrowRelayResponse(BaseModel):

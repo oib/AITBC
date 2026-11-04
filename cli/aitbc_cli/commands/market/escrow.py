@@ -425,6 +425,8 @@ def _escrow_create(
     config,
     private_key: str | None = None,
     node_wallet: str | None = None,
+    buyer_agent_id: str | None = None,
+    provider_agent_id: str | None = None,
 ) -> str | None:
     """Create an on-chain escrow for a paid job.
 
@@ -510,6 +512,10 @@ def _escrow_create(
         "lock_tx": {**lock_tx, "signature": signature},
         "lock_signature": signature,
     }
+    if buyer_agent_id:
+        payload["buyer_agent_id"] = buyer_agent_id
+    if provider_agent_id:
+        payload["provider_agent_id"] = provider_agent_id
     try:
         http_client = _get_rpc_client(config, rpc_url, timeout=10)
         result = http_client.post("/rpc/escrow/create", json=payload)
@@ -769,32 +775,76 @@ def escrow_status(ctx, job_id: str):
 
   aitbc market escrow create --job-id job-123 --buyer 0x... --provider 0x...
 
-  aitbc market escrow create --job-id job-123 --buyer 0x... --provider 0x... --amount 100""",
+  aitbc market escrow create --job-id job-123 --buyer-agent-id agent-buyer --provider 0x...""",
 )
 @click.option("--job-id", "job_id", required=True, help="Coordinator job ID.")
-@click.option("--buyer", "buyer", required=True, help="The Buyer.")
-@click.option("--provider", "provider", required=True, help="The Provider.")
+@click.option("--buyer", "buyer", required=False, help="Buyer payment address (or use --buyer-agent-id).")
+@click.option("--provider", "provider", required=False, help="Provider payment address (or use --provider-agent-id).")
+@click.option("--buyer-agent-id", "buyer_agent_id", default=None, help="Resolve buyer address via agent-identity API.")
+@click.option(
+    "--provider-agent-id", "provider_agent_id", default=None, help="Resolve provider address via agent-identity API."
+)
 @click.option("--amount", "amount", required=False, type=DECIMAL, help="Amount of AIT.")
 @click.option("--wallet", "wallet_name", help="Wallet name to sign the escrow lock")
 @wallet_password_options
 @click.pass_context
-def escrow_create_cmd(ctx, job_id, buyer, provider, amount, wallet_name, password, password_file, password_stdin):
+def escrow_create_cmd(
+    ctx,
+    job_id,
+    buyer,
+    provider,
+    buyer_agent_id,
+    provider_agent_id,
+    amount,
+    wallet_name,
+    password,
+    password_file,
+    password_stdin,
+):
     """Create an on-chain escrow for a job with buyer, provider, and optional amount."""
     try:
         from decimal import Decimal as _Decimal
+
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        from ...utils.agent_identity_resolve import resolve_agent_payment_address
         from ...utils.money import wallet_amount
         from ...utils.wallet_loader import load_wallet_for_payment
 
         config = get_config()
+        if buyer_agent_id:
+            resolved_buyer = resolve_agent_payment_address(ctx, buyer_agent_id)
+            if buyer and canonical_address(buyer) != resolved_buyer:
+                abort(ctx, f"--buyer does not match resolved address for {buyer_agent_id}")
+            buyer = buyer or resolved_buyer
+        if provider_agent_id:
+            resolved_provider = resolve_agent_payment_address(ctx, provider_agent_id)
+            if provider and canonical_address(provider) != resolved_provider:
+                abort(ctx, f"--provider does not match resolved address for {provider_agent_id}")
+            provider = provider or resolved_provider
+        if not buyer or not provider:
+            abort(ctx, "Provide --buyer and --provider and/or --buyer-agent-id and --provider-agent-id")
         amt = _Decimal(wallet_amount(amount)) if amount is not None else None
         _, private_key, _ = load_wallet_for_payment(
             ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
         )
-        contract_id = _escrow_create(ctx, job_id, buyer, provider, amt, config, private_key=private_key)
-        output(
-            {"contract_id": contract_id, "job_id": job_id, "buyer": buyer, "provider": provider},
-            ctx.obj.get("output_format", "table"),
+        contract_id = _escrow_create(
+            ctx,
+            job_id,
+            buyer,
+            provider,
+            amt,
+            config,
+            private_key=private_key,
+            buyer_agent_id=buyer_agent_id,
+            provider_agent_id=provider_agent_id,
         )
+        out = {"contract_id": contract_id, "job_id": job_id, "buyer": buyer, "provider": provider}
+        if buyer_agent_id:
+            out["buyer_agent_id"] = buyer_agent_id
+        if provider_agent_id:
+            out["provider_agent_id"] = provider_agent_id
+        output(out, ctx.obj.get("output_format", "table"))
     except click.Abort:
         raise
     except Exception as e:

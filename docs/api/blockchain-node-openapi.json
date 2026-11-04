@@ -23623,7 +23623,7 @@
             }
           },
           "409": {
-            "description": "escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash}) / a different ESCROW_LOCK sealed for job_id={job_id} (tx {sealed.get('tx_hash')}); refusing to fund against the submitted hash",
+            "description": "escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash}) / escrow for job {row.job_id} is already bound to buyer agent {row.buyer_agent_id} / escrow for job {row.job_id} is already bound to provider agent {row.provider_agent_id} / a different ESCROW_LOCK sealed for job_id={job_id} (tx {sealed.get('tx_hash')}); refusing to fund against the submitted hash",
             "content": {
               "application/json": {
                 "schema": {
