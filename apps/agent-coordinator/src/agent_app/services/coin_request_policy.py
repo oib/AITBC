@@ -15,6 +15,10 @@ V23 review addendum: the per-identity rule alone is not enough — `sender` and
 pair" is "one grant per fresh pair". The rolling hourly/daily budgets below cap
 the aggregate the faucet can pay in a window no matter how many identities
 appear; past them, requests park at manual review and a warning is logged.
+
+Marketplace GPU spend and agent session caps are enforced separately on
+coordinator-api (``/v1/agent-identity/.../spend-sessions``, AGENT-SPEND-A-1).
+Coin-request auto-approve budgets here do not replace those session limits.
 """
 
 from __future__ import annotations
