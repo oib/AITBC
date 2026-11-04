@@ -134,3 +134,30 @@ contract AgentBountyAccessTest is Test {
         bounty.verifySubmission(bountyId, submissionId, true, verifier);
     }
 }
+
+contract AgentBountyZkAutoVerifyPinTest is AgentBountyAccessTest {
+    // #1099 residual: a non-empty zkProof used to auto-verify through the
+    // always-true stub and pay the reward inside submitBountySolution.
+    // A proof submission now stays PENDING for an authorized verifier.
+    function testZkProofSubmissionStaysPendingAndPaysNothing() public {
+        vm.prank(creator);
+        uint256 bountyId = bounty.createBounty(
+            "t", "d", REWARD, AgentBounty.BountyTier.BRONZE,
+            keccak256("criteria"), 80, block.timestamp + 1 days, 5, true // requiresZKProof
+        );
+
+        uint256 before = token.balanceOf(submitter);
+        vm.prank(submitter);
+        uint256 submissionId = bounty.submitBountySolution(bountyId, hex"deadbeef", keccak256("perf"), 90, 1200);
+
+        (,,,,,, AgentBounty.SubmissionStatus status,) = bounty.getSubmission(submissionId);
+        assertEq(uint256(status), uint256(AgentBounty.SubmissionStatus.PENDING));
+        assertEq(token.balanceOf(submitter), before);
+
+        // The authorized path still works afterwards.
+        bounty.authorizeVerifier(verifier);
+        vm.prank(verifier);
+        bounty.verifySubmission(bountyId, submissionId, true, verifier);
+        assertEq(token.balanceOf(submitter), before + REWARD - (REWARD * 300) / 10000);
+    }
+}
