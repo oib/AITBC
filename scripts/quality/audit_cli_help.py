@@ -54,24 +54,23 @@ def main() -> int:
 
     if args.json:
         print(json.dumps(report, indent=2, default=str))
-        return 0
+    else:
+        print("AITBC CLI --help audit")
+        print(f"  Total commands : {report['total']}")
+        print(f"  Passing        : {report['ok']}")
+        print(f"  Score          : {report['score']:.2f} / 100")
+        print()
 
-    print("AITBC CLI --help audit")
-    print(f"  Total commands : {report['total']}")
-    print(f"  Passing        : {report['ok']}")
-    print(f"  Score          : {report['score']:.2f} / 100")
-    print()
-
-    failures = report["failures"]
-    if failures:
-        print(f"Top {args.show_failures} failing commands:")
-        for a in failures[: args.show_failures]:
-            print(f"  - {a['path']}")
-            for issue in a["issues"]:
-                print(f"      * {issue}")
+        failures = report["failures"]
+        if failures:
+            print(f"Top {args.show_failures} failing commands:")
+            for a in failures[: args.show_failures]:
+                print(f"  - {a['path']}")
+                for issue in a["issues"]:
+                    print(f"      * {issue}")
 
     if args.fail_under is not None and report["score"] < args.fail_under:
-        print(f"\nFAIL: score {report['score']:.2f} is below {args.fail_under}")
+        print(f"FAIL: score {report['score']:.2f} is below {args.fail_under}", file=sys.stderr)
         return 1
 
     return 0
