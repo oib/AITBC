@@ -7,12 +7,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
 
 from ..workflow import get_orchestrator
+
+from .coin_requests import _require_api_key
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent/workflows", tags=["workflows"])
@@ -61,8 +63,11 @@ class ExecutionResponse(BaseModel):
 
 
 @router.post("", summary="Create workflow", response_model=WorkflowResponse)
-async def create_workflow(request: Request, req: CreateWorkflowRequest) -> dict[str, Any]:
+async def create_workflow(
+    request: Request, req: CreateWorkflowRequest, x_api_key: str | None = Header(default=None)
+) -> dict[str, Any]:
     """Create a new workflow definition"""
+    _require_api_key(x_api_key)
     try:
         orchestrator = get_orchestrator()
         workflow = await orchestrator.create_workflow(
@@ -77,8 +82,11 @@ async def create_workflow(request: Request, req: CreateWorkflowRequest) -> dict[
 
 
 @router.post("/{workflow_id}/execute", summary="Execute workflow", response_model=ExecutionResponse)
-async def execute_workflow(request: Request, workflow_id: str, req: ExecuteWorkflowRequest) -> dict[str, Any]:
+async def execute_workflow(
+    request: Request, workflow_id: str, req: ExecuteWorkflowRequest, x_api_key: str | None = Header(default=None)
+) -> dict[str, Any]:
     """Execute a workflow"""
+    _require_api_key(x_api_key)
     try:
         orchestrator = get_orchestrator()
         execution = await orchestrator.execute_workflow(workflow_id=workflow_id, input_parameters=req.input_parameters)
