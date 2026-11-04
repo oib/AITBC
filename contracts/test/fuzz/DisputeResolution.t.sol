@@ -347,7 +347,9 @@ contract DisputeResolutionFuzzTest is Test {
 
         (, , , , , , , , , uint256 dResolutionAmount, address dWinner) = disputes_.getDispute(disputeId);
         assertEq(dWinner, consumer); // respondent
-        assertEq(dResolutionAmount, 0);
+        // The escrowed price goes to the winner either way (#1108 rework) —
+        // 0 here stranded the escrow on a resolved record.
+        assertEq(dResolutionAmount, 100e18);
     }
 
     function testFuzz_VoteRejectsWrongStatus() public {

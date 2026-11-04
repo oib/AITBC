@@ -192,6 +192,12 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         string resolutionReason
     );
 
+    event RentalResolutionFailed(
+        uint256 indexed agreementId,
+        address indexed winner,
+        uint256 resolutionAmount
+    );
+
     event DisputeEscalated(
         uint256 indexed disputeId,
         uint256 escalationLevel,
@@ -612,13 +618,13 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         dispute.status = DisputeStatus.Resolved;
 
         // Calculate resolution amount based on agreement
-        (, , , , uint256 agreementPrice, , , , , , , ) = aiPowerRental.getRentalAgreement(dispute.agreementId);
+        (, address agreementProvider, , , uint256 agreementPrice, , , , , , , ) = aiPowerRental.getRentalAgreement(dispute.agreementId);
 
-        if (initiatorWins) {
-            dispute.resolutionAmount = agreementPrice; // Full refund/compensation
-        } else {
-            dispute.resolutionAmount = 0; // No compensation
-        }
+        // The escrowed price always goes to the winner (#1108 rework):
+        // awarding 0 on a respondent win stranded the escrow (recorded
+        // resolved, winner unpaid). Provider wins -> earned price;
+        // consumer wins -> refund.
+        dispute.resolutionAmount = agreementPrice;
 
         // Update arbitrator success rates
         for (uint256 i = 0; i < votes.length; i++) {
@@ -640,7 +646,20 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         // record — still resolves, just without the payout leg.
         AIPowerRental.DisputeInfo memory di = aiPowerRental.getDisputeInfo(dispute.agreementId);
         if (di.exists && !di.resolved) {
-            aiPowerRental.resolveDispute(dispute.agreementId, dispute.resolutionAmount, !initiatorWins);
+            // _resolveInFavorOfProvider is the winner's side, not the
+            // filing side (#1108 rework): the initiator may be the
+            // provider or the consumer, so !initiatorWins paid the wrong
+            // party whenever the provider filed.
+            bool winnerIsProvider = dispute.winner == agreementProvider;
+            try aiPowerRental.resolveDispute(dispute.agreementId, dispute.resolutionAmount, winnerIsProvider) {
+            } catch {
+                // resolveDispute is onlyOwner on the rental — when this
+                // contract does not own the rental, or the escrow is
+                // short, the call reverts and would re-freeze every
+                // resolution path (#1108). The panel result stays final;
+                // the failed payout leg is surfaced, not dropped.
+                emit RentalResolutionFailed(dispute.agreementId, dispute.winner, dispute.resolutionAmount);
+            }
         }
 
         emit DisputeResolved(_disputeId, dispute.winner, dispute.resolutionAmount, dispute.resolutionReason);
