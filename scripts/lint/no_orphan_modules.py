@@ -165,6 +165,54 @@ def _imported_module_names(path: Path) -> set[str]:
     return names
 
 
+def _module_dotted(path: Path) -> str | None:
+    """Dotted module name for a tracked file under a src/ root or top-level package."""
+    parts = path.parts
+    if "src" in parts:
+        idx = parts.index("src")
+        mod = parts[idx + 1 :]
+    else:
+        mod = parts
+    if not mod or not mod[-1].endswith(".py"):
+        return None
+    mod = list(mod)
+    mod[-1] = mod[-1][:-3]
+    if mod[-1] == "__init__":
+        mod = mod[:-1]
+    return ".".join(m for m in mod if m) or None
+
+
+def _resolved_import_paths(path: Path) -> set[str]:
+    """Fully-resolved module paths this file imports (relative imports resolved)."""
+    try:
+        source = (REPO_ROOT / path).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+    except (FileNotFoundError, UnicodeDecodeError, SyntaxError, ValueError):
+        return set()
+
+    own = _module_dotted(path)
+    # For __init__.py the module IS the package: relative imports start from
+    # it, not its parent.
+    own_pkg = (own if path.name == "__init__.py" else own.rpartition(".")[0]) if own else ""
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            base_parts = own_pkg.split(".") if own_pkg else []
+            if node.level:
+                # level N goes up N-1 packages from the importing module's package
+                base_parts = base_parts[: len(base_parts) - (node.level - 1)] if node.level <= len(base_parts) else []
+            mod_parts = node.module.split(".") if node.module else []
+            full = ".".join([*base_parts, *mod_parts])
+            if full:
+                out.add(full)
+                for alias in node.names:
+                    out.add(f"{full}.{alias.name}")
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                out.add(alias.name)
+    return {t for t in out if t}
+
+
 def _is_candidate(path: Path) -> bool:
     """True when this file is one the guard is allowed to report."""
     posix = path.as_posix()
@@ -205,7 +253,22 @@ def _scan() -> dict[str, int]:
             others = _imported_module_names(path)
         imported |= others
 
-    return {p.as_posix(): _line_count(p) for p in candidates if p.stem not in imported}
+    stem_suspects = [p for p in candidates if p.stem not in imported]
+    # A surviving stem match may still be an orphan hidden by an unrelated
+    # module with the same stem (LINT-NO-ORPHAN-MODULES-NAME-MATCH-1). Verify
+    # with resolved dotted import paths before declaring it reachable.
+    imported_paths: set[str] = set()
+    for path in files:
+        imported_paths |= _resolved_import_paths(path)
+    orphans = {p.as_posix(): _line_count(p) for p in stem_suspects}
+    for p in candidates:
+        if p in stem_suspects:
+            continue
+        dotted = _module_dotted(p)
+        if dotted and dotted not in imported_paths:
+            # The stem matched but no resolved import reaches this module.
+            orphans[p.as_posix()] = _line_count(p)
+    return orphans
 
 
 def _load_baseline() -> dict[str, dict]:

@@ -1,17 +1,81 @@
 {
   "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state.",
-  "total_modules": 7,
-  "total_lines": 1496,
+  "total_modules": 34,
+  "total_lines": 6491,
   "orphans": {
     "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
       "lines": 189,
       "verdict": "keep",
       "why": "The adapter half of the same design document."
     },
+    "apps/coordinator-api/src/coordinator_api/agent_identity/core.py": {
+      "lines": 383,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/agent_identity/registry.py": {
+      "lines": 450,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/agent_identity/sdk/communication.py": {
+      "lines": 493,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/advanced_ai/schemas/federated_learning.py": {
+      "lines": 42,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/domain/rl_config.py": {
+      "lines": 70,
+      "verdict": "unreviewed"
+    },
     "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_service.py": {
       "lines": 316,
       "verdict": "keep",
       "why": "Named by docs/archive/architecture/agent-service-di-architecture.md as a design target."
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/agent_identity/storage/schema.py": {
+      "lines": 11,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/blockchain/storage/schema.py": {
+      "lines": 10,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/community/domain/community.py": {
+      "lines": 182,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/cross_chain/schemas/atomic_swap.py": {
+      "lines": 48,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/ecosystem/domain/ecosystem.py": {
+      "lines": 68,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/edge_gpu/domain/gpu_models.py": {
+      "lines": 108,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/governance/schemas/dao_governance.py": {
+      "lines": 34,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/explorer.py": {
+      "lines": 346,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/miners.py": {
+      "lines": 141,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/ipfs/schemas/decentralized_memory.py": {
+      "lines": 31,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/market/domain/market.py": {
+      "lines": 8,
+      "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/market/services/external_providers.py": {
       "lines": 159,
@@ -28,15 +92,59 @@
       "verdict": "keep",
       "why": "Documented with a working usage example in docs/market/advanced-market/04-ml-search.md and named by skills/agent-autonomy-testing/SKILL.md."
     },
+    "apps/coordinator-api/src/coordinator_api/contexts/multimodal/domain/fusion_model.py": {
+      "lines": 67,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/payments/storage/schema.py": {
+      "lines": 11,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/portfolio/domain/agent_portfolio.py": {
+      "lines": 301,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/security/services/kyc_aml_providers.py": {
+      "lines": 365,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py": {
+      "lines": 341,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/domain/pricing_strategies.py": {
+      "lines": 727,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/trading/schemas/pricing.py": {
+      "lines": 443,
+      "verdict": "unreviewed"
+    },
     "apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_enhanced.py": {
       "lines": 45,
       "verdict": "keep",
       "why": "A deliberate stub. Its docstring records that the BFV implementation it replaced was not cryptographically secure and is disabled pending a vetted FHE library. Deleting it deletes a security decision."
     },
+    "apps/coordinator-api/src/coordinator_api/core/middleware.py": {
+      "lines": 72,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/middleware/compliance.py": {
+      "lines": 60,
+      "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/models/confidential.py": {
+      "lines": 165,
+      "verdict": "unreviewed"
+    },
     "apps/coordinator-api/src/coordinator_api/sdk/enterprise_client.py": {
       "lines": 455,
       "verdict": "keep",
       "why": "An SDK client is outward-facing surface. Nothing inside the service is supposed to import it, so 'unimported' is the expected state, not a defect."
+    },
+    "apps/coordinator-api/src/coordinator_api/shared_kernel/enums.py": {
+      "lines": 18,
+      "verdict": "unreviewed"
     }
   }
 }
