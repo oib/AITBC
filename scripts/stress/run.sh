@@ -33,7 +33,7 @@ while :; do
   [ "$UNTIL_FAIL" = 0 ] && [ "$iter" -gt "$TIMES" ] && break
   for f in $SCRIPTS; do
     echo "== iter $iter $f =="
-    bash "$f" --tag "iter-$iter" "${PASS[@]:-}"
+    STRESS_TAG="iter-$iter" bash "$f" ${PASS[@]+"${PASS[@]}"}
     rc=$?
     if [ $rc -eq 77 ]; then echo "  skip_mature"; continue; fi
     if [ $rc -eq 75 ]; then echo "  serial_wait"; continue; fi
