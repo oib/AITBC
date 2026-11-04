@@ -191,3 +191,20 @@ class TestFailedApplyStoredFailed:
         with session_factory() as session:
             row = session.exec(select(Transaction).where(Transaction.tx_hash == tx["tx_hash"])).first()
             assert row is not None and row.status == "failed"
+
+
+class TestHeaderTxCountKept:
+    def test_header_tx_count_stored_at_v20(self, session_factory):
+        """v20 stores the header's declared tx_count — the integrity field —
+        not len(delivered). The count itself is unsigned, so an honest block
+        can legitimately carry a header count the served rows don't prove."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+        tx = _signed_tx()
+        b = _block(1, [tx], tx_count=5)  # header declares 5, serves 1
+        b["hash"] = _signed_hash(b, [tx["tx_hash"]])
+        result = _import(sync, b)
+        assert result.accepted, f"block rejected: {result.reason}"
+        with session_factory() as session:
+            row = session.exec(select(Block).where(Block.chain_id == CHAIN, Block.height == 1)).one()
+            assert row.tx_count == 5  # header value, not len(transactions)==1
