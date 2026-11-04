@@ -68,3 +68,65 @@ def test_every_registered_collection_path_is_registered_in_the_matrix():
     )
 
     assert orphans == [], f"published routes reachable only via a wildcard sibling, so denied to everyone: {orphans}"
+
+
+def test_every_published_route_resolves_to_a_callable_level():
+    """No published route may resolve to AuthLevel.DENY (#1073).
+
+    31 of the registered routes once answered 401/403 to every role because no
+    matrix entry covered them. Walk every route in the committed OpenAPI spec
+    (same scope rule as the collection-path test) and assert a caller exists.
+    """
+    published = {
+        (path, method)
+        for path, ops in json.loads(
+            (Path(__file__).resolve().parents[3] / "docs" / "api" / "coordinator-api-openapi.json").read_text()
+        )
+        .get("paths", {})
+        .items()
+        for method in ops
+    }
+
+    denied = sorted(f"{method.upper()} {path}" for path, method in published if get_auth_level(path, method) is AuthLevel.DENY)
+    assert denied == [], f"published routes resolving to DENY (no caller can ever reach them): {denied}"
+
+
+def test_matrix_patterns_match_at_least_one_published_route():
+    """A matrix pattern that matches nothing is drift (#1073 gpu/*/delete).
+
+    The old /v1/market/gpu/*/delete entry matched no real route while the real
+    DELETE /v1/market/gpu/{gpu_id} went denied.
+    """
+    import fnmatch as _fnmatch
+    import re as _re
+
+    # FastAPI path templates "/v1/jobs/{job_id}" map to the matrix's "*".
+    # The check runs against registered routes, not the published spec —
+    # infra patterns (/docs, /prometheus) legitimately match routes the spec
+    # deliberately omits.
+    def wild(path: str) -> str:
+        return _re.sub(r"\{[^}]+\}", "*", path)
+
+    registered = {wild(route.path) for route in app.routes if getattr(route, "path", None)}
+    # Mounted ASGI apps (/docs, /prometheus, /redoc) sit on Mount objects and
+    # are reachable by construction — exclude their patterns from the check.
+    {getattr(route, "path", "") for route in app.routes if not getattr(route, "methods", None)}
+
+    infra = {
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+        "/metrics",
+        "/rate-limit-metrics",
+        "/prometheus",
+        "/prometheus/*",
+        "/health",
+        "/health/live",
+        "/health/ready",
+    }
+    unmatched = sorted(
+        pattern
+        for pattern in ROUTE_SECURITY_MATRIX
+        if pattern not in infra and not any(_fnmatch.fnmatch(p, pattern) for p in registered)
+    )
+    assert unmatched == [], f"matrix patterns matching no registered route: {unmatched}"
