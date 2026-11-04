@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import itertools
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -15,7 +17,7 @@ from aitbc.security import SecurityAuditor, SecurityValidator
 from ..chain_id import resolve_chain_id
 from ..config import settings
 from ..metrics import metrics_registry
-from .utils import withdrawn_listing_ids
+from .utils import verify_request_signature, withdrawn_listing_ids
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -25,6 +27,7 @@ security_auditor = SecurityAuditor()
 
 # In-memory storage for market listings
 _market_listings: list[dict[str, Any]] = []
+_listing_seq = itertools.count(1)
 
 
 async def _publish_offer_event(
@@ -95,6 +98,17 @@ class MarketCreateRequest(BaseModel):
     gpu_model: str | None = None
     memory_gb: int | None = None
     compute_capability: str | None = None
+    # secp256k1 signature over the rest of the payload, from seller_address —
+    # the write path is unauthenticated without it (#1056).
+    signature: str | None = None
+
+
+class MarketDeleteRequest(BaseModel):
+    """Request to delete a market listing"""
+
+    # secp256k1 signature over {"action": "market_delete", "listing_id": id},
+    # from the listing's seller_address.
+    signature: str | None = None
 
 
 def _chain_db_path() -> Path:
@@ -186,6 +200,20 @@ async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
     try:
         metrics_registry.increment("rpc_market_create_total")
 
+        # The seller must prove it controls seller_address: sign every other
+        # field of the payload. Unsigned writes used to publish under any
+        # address into the public listing (#1056).
+        unsigned = {k: v for k, v in request.model_dump().items() if k != "signature"}
+        if not request.signature or not verify_request_signature(
+            request.seller_address, request.signature, {"action": "market_create", **unsigned}
+        ):
+            security_auditor.log_event(
+                action="market_create_bad_signature",
+                details={"seller_address": request.seller_address},
+                severity="WARNING",
+            )
+            raise HTTPException(status_code=403, detail="seller signature required")
+
         # Security validation: validate amount
         if not SecurityValidator.validate_amount(request.price):
             security_auditor.log_event(
@@ -203,7 +231,7 @@ async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
         )
 
         # Generate unique listing ID
-        listing_id = f"listing_{len(_market_listings) + 1:03d}"
+        listing_id = f"listing_{next(_listing_seq):03d}"
 
         # Create new listing
         new_listing = {
@@ -235,6 +263,8 @@ async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
             "listing": new_listing,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         metrics_registry.increment("rpc_market_create_errors_total")
         logger.exception("Unhandled exception")
@@ -265,14 +295,27 @@ def market_get_listing(listing_id: str) -> dict[str, Any]:
 
 
 @router.delete("/market/listing/{listing_id}", summary="Delete market listing", tags=["market"])
-async def market_delete_listing(listing_id: str) -> dict[str, Any]:
+async def market_delete_listing(listing_id: str, body: MarketDeleteRequest | None = None) -> dict[str, Any]:
     """Delete a market listing"""
     try:
         metrics_registry.increment("rpc_market_delete_total")
 
-        # Find and remove listing
+        # Only the listing's seller may remove it — signature over the delete
+        # intent from the stored seller_address (#1056).
         for i, listing in enumerate(_market_listings):
             if listing.get("listing_id") == listing_id:
+                signature = body.signature if body else None
+                if not signature or not verify_request_signature(
+                    listing.get("seller_address", ""),
+                    signature,
+                    {"action": "market_delete", "listing_id": listing_id},
+                ):
+                    security_auditor.log_event(
+                        action="market_delete_bad_signature",
+                        details={"listing_id": listing_id},
+                        severity="WARNING",
+                    )
+                    raise HTTPException(status_code=403, detail="seller signature required")
                 _market_listings.pop(i)
                 # Publish offer deleted event to gossip (v0.8.2 §B9)
                 await _publish_offer_event("deleted", listing_id, settings.chain_id)
