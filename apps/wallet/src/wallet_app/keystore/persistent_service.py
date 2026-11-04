@@ -445,9 +445,12 @@ class PersistentKeystoreService:
                 # Log success
                 self._log_access(wallet_id, "transaction_submitted", True, ip_address)
 
+                # The node answers {"success": true, "transaction_hash": ...}
+                # — the old tx_hash key made every accepted tx read as failed
+                # (#1078).
                 return {
                     "success": result.get("success", False),
-                    "tx_hash": result.get("tx_hash"),
+                    "tx_hash": result.get("transaction_hash") or result.get("tx_hash"),
                     "status": result.get("status", "pending"),
                     "sender": sender,
                     "recipient": recipient,
@@ -470,34 +473,38 @@ class PersistentKeystoreService:
             }
 
     def _get_account_nonce(self, address: str) -> int:
-        """Fetch current nonce from blockchain for an address"""
+        """Fetch current nonce from blockchain for an address.
+
+        Any lookup error previously answered nonce 0 — a silent wrong nonce
+        signs a transaction the node then rejects as a nonce conflict, and on
+        a replayed account it can re-sign an already-sealed one (#1078).
+        Errors propagate instead.
+        """
         if not validate_address(address):
-            return 0
-        try:
-            rpc_url = settings.blockchain_rpc_url
-            response = httpx.get(f"{rpc_url}/rpc/accounts/{address}", timeout=10.0)
-            if response.status_code == 200:
-                data = response.json()
-                return int(data.get("nonce", 0))
-            return 0
-        except Exception:
-            # Default to 0 if account doesn't exist or request fails
-            return 0
+            raise ValueError(f"cannot fetch nonce for invalid address {address!r}")
+        rpc_url = settings.blockchain_rpc_url
+        response = httpx.get(f"{rpc_url}/rpc/accounts/{address}", timeout=10.0)
+        response.raise_for_status()
+        data = response.json()
+        return int(data.get("nonce", 0))
 
     def _submit_transaction_to_chain(self, tx_data: dict[str, Any], signature: str) -> dict[str, Any]:
         """Submit signed transaction to blockchain RPC"""
         try:
             rpc_url = settings.blockchain_rpc_url
 
-            # Build RPC request
+            # Build RPC request — the node's TransactionRequest declares
+            # "from"/"to"/"signature" as the ONLY names it accepts (required
+            # aliases, no populate_by_name), so sender/recipient/sig were
+            # rejected outright (#1078).
             request_data = {
-                "sender": tx_data["from"],
-                "recipient": tx_data["to"],
+                "from": tx_data["from"],
+                "to": tx_data["to"],
                 "amount": tx_data["amount"],
                 "fee": tx_data["fee"],
                 "nonce": tx_data["nonce"],
                 "chain_id": tx_data["chain_id"],
-                "sig": signature,
+                "signature": signature,
                 "payload": tx_data.get("payload", {}),
                 "type": tx_data.get("type", "TRANSFER"),
             }
