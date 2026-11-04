@@ -265,6 +265,7 @@ contract StakingPoolFactory is IStakingPoolFactory, Ownable, ReentrancyGuard, Pa
         });
 
         emit PoolCreated(poolId, poolName, baseAPY, lockPeriod);
+        return poolId;
     }
 
     /**
@@ -468,14 +469,20 @@ contract StakingPoolFactory is IStakingPoolFactory, Ownable, ReentrancyGuard, Pa
         stakingToken.safeTransfer(msg.sender, amount);
 
         if (rewards > 0 && address(rewardDistributor) != address(0)) {
-            // Create reward claim
-            uint256 rewardPoolId = 1; // Assuming first pool, or get it dynamically
-            rewardDistributor.createRewardPool(address(stakingToken), rewards);
-            rewardDistributor.distributeRewards(
-                rewardPoolId,
-                new address[](1),
-                new uint256[](1)
-            );
+            // Record a real claim for the staker in the distributor: the
+            // returned pool id, the caller as recipient, the computed amount.
+            // The old code distributed pool 1 to [address(0)] with amounts
+            // [0] — distributeRewards rejects a zero recipient, so every
+            // unstake with rewards reverted and locked the principal. A
+            // distributor-side failure must still never lock the
+            // principal, so the whole leg is best-effort (#1106).
+            try rewardDistributor.createRewardPool(address(stakingToken), rewards) returns (uint256 rewardPoolId) {
+                address[] memory recipients = new address[](1);
+                recipients[0] = msg.sender;
+                uint256[] memory amounts = new uint256[](1);
+                amounts[0] = rewards;
+                try rewardDistributor.distributeRewards(rewardPoolId, recipients, amounts) {} catch {}
+            } catch {}
         }
 
         emit Unstaked(positionId, msg.sender, amount, rewards);
