@@ -417,6 +417,17 @@ def _claim_fields(claim: str) -> tuple[int | None, str | None]:
     return nonce, attempt_hash
 
 
+def _canon(value) -> str:
+    """Canonical-compare an address: EIP-55 form then lower — the sealed
+    query is case-insensitive so exact equality misses rows (#1080)."""
+    try:
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        return (canonical_address(value) or "").lower()
+    except Exception:
+        return str(value or "").lower()
+
+
 def _scan_entries(entries, nonce: int, genesis: str, recipient: str, attempt_hash: str | None, request_id: str) -> str | None:
     """Match one mempool/sealed entry to a claimed attempt. Returns the found
     tx hash, "keep" when the stored hash points at a different recipient (the
@@ -434,7 +445,7 @@ def _scan_entries(entries, nonce: int, genesis: str, recipient: str, attempt_has
         sender = body.get("from") or body.get("sender")
         target = body.get("to") or body.get("recipient")
         if attempt_hash and (entry.get("tx_hash") == attempt_hash or entry.get("transaction_hash") == attempt_hash):
-            if target != recipient:
+            if _canon(target) != _canon(recipient):
                 logger.error(
                     "Tx %s for claimed attempt on %s points at %s, not %s — keeping the claim",
                     attempt_hash,
@@ -444,7 +455,7 @@ def _scan_entries(entries, nonce: int, genesis: str, recipient: str, attempt_has
                 )
                 return "keep"
             return attempt_hash
-        if body.get("nonce") == nonce and sender == genesis and target == recipient:
+        if body.get("nonce") == nonce and _canon(sender) == _canon(genesis) and _canon(target) == _canon(recipient):
             h = entry.get("tx_hash") or entry.get("transaction_hash")
             return h if isinstance(h, str) else None
     return None
