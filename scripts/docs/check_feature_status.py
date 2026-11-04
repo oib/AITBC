@@ -38,6 +38,13 @@ ROW = re.compile(r"^\|.*✅.*\|$")
 TOKEN = re.compile(r"`([^`\s]{2,})`")
 
 
+def identifier_in(token: str, haystack: str) -> bool:
+    """Whole-identifier hit in code: a backticked common word used to resolve
+    by substring anywhere (#1029). A token counts only as a real identifier
+    occurrence in non-test code."""
+    return re.search(r"(?<![A-Za-z0-9_.$-])" + re.escape(token) + r"(?![A-Za-z0-9_$-])", haystack) is not None
+
+
 def code_haystack() -> str:
     """All tracked code files' contents, for token lookups."""
     files = subprocess.run(
@@ -49,6 +56,17 @@ def code_haystack() -> str:
     ).stdout.splitlines()
     out = []
     for rel in files:
+        # Tests name the same identifiers — hits there are not evidence the
+        # feature exists in shipped code (#1029).
+        parts = rel.split("/")
+        if (
+            "tests" in parts
+            or "test" in parts
+            or parts[-1].startswith("test_")
+            or parts[-1].endswith("_test.py")
+            or parts[-1].endswith(".t.sol")
+        ):
+            continue
         try:
             out.append((ROOT / rel).read_text(errors="replace"))
         except OSError:
@@ -67,7 +85,7 @@ def main() -> int:
     tokens_of = {r: TOKEN.findall(r[2]) for r in rows}
     unique = sorted({t for toks in tokens_of.values() for t in toks})
     haystack = code_haystack()
-    resolved = {t for t in unique if t in haystack}
+    resolved = {t for t in unique if identifier_in(t, haystack)}
 
     failures: list[str] = []
     for (rel, _ln, row), toks in zip(rows, tokens_of.values(), strict=False):
@@ -96,6 +114,7 @@ def main() -> int:
         print(f"baseline row now verifiable (remove it): {f}")
     if not new:
         print(f"feature-status check clean — {len(baseline)} known unverifiable rows, {len(rows)} ✅ rows scanned")
+        print(f"baseline threshold: {len(baseline)} — it may only fall")
     else:
         print("add a backticked code identifier (tx type / env var / command) to the row,")
         print("drop the ✅, or list it in the baseline with --write-baseline")
