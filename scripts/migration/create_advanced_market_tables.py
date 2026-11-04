@@ -20,6 +20,11 @@ from pathlib import Path
 def get_db_path():
     """Get SQLite database path from environment or use default."""
     # Default path consistent with blockchain-node pattern
+    import os
+
+    env_path = os.environ.get("AITBC_COORDINATOR_DB")
+    if env_path:
+        return Path(env_path)
     data_dir = Path("/var/lib/aitbc/data")
     if not data_dir.exists():
         data_dir = Path.home() / ".aitbc" / "data"
@@ -370,6 +375,7 @@ Examples:
     )
     parser.add_argument("--verify", action="store_true", help="Verify tables exist without creating")
     parser.add_argument("--reset", action="store_true", help="Drop and recreate tables (WARNING: data loss)")
+    parser.add_argument("--yes", action="store_true", help="Confirm a destructive --reset non-interactively")
 
     args = parser.parse_args()
 
@@ -377,12 +383,21 @@ Examples:
     print(f"Database path: {db_path}\n")
 
     if args.verify:
-        verify_tables(db_path)
-    else:
-        if not create_tables(reset=args.reset):
+        sys.exit(0 if verify_tables(db_path) else 1)
+
+    if args.reset and not args.yes:
+        if not sys.stdin.isatty():
+            print("--reset drops live tables; re-run with --yes to confirm non-interactively", file=sys.stderr)
             sys.exit(1)
-        print("\nVerifying tables...")
-        verify_tables(db_path)
+        answer = input(f"Drop and recreate tables in {db_path}? Type 'yes' to continue: ")
+        if answer.strip().lower() != "yes":
+            print("Aborted.")
+            sys.exit(1)
+
+    if not create_tables(reset=args.reset):
+        sys.exit(1)
+    print("\nVerifying tables...")
+    sys.exit(0 if verify_tables(db_path) else 1)
 
 
 if __name__ == "__main__":
