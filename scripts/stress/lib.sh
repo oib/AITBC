@@ -55,7 +55,13 @@ skip_mature() {  # maturity window not reached — exit 77, not a failure
   jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"skip_mature\",\"reason\":\"$1\"}"
   echo "SKIP_MATURE: $1"; exit 77
 }
-ok() { jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"chain\":\"$CHAIN\",\"status\":\"ok\",\"tx_hash\":$( [ "${1:-}" = "" ] && echo null || echo "\"$1\"" )}"; }
+ok() {  # ok <tx_hash|no_tx> — an ok line must carry evidence (#990)
+  case "${1:-}" in
+    "") fail evidence "ok called with no tx_hash and no expected-no-tx marker";;
+    no_tx) jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"chain\":\"$CHAIN\",\"status\":\"ok\",\"tx_hash\":null,\"evidence\":\"no_tx_expected\"}";;
+    *) jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"chain\":\"$CHAIN\",\"status\":\"ok\",\"tx_hash\":\"$1\"}";;
+  esac
+}
 
 # ---------------------------------------------------------------- host map
 # Fleet-reachable addresses: ssh aliases (hub/hub1/node0..2) exist only on

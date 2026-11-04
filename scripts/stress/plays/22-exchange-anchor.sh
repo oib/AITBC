@@ -11,7 +11,7 @@ serial_check || exit 75
 
 if [ ! -f /var/lib/aitbc/island_credentials.json ]; then
   jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"no island credentials\"}"
-  echo "no island credentials — exchange anchor skipped"; ok ""; exit 0
+  echo "no island credentials — exchange anchor skipped"; ok no_tx; exit 0
 fi
 
 # exchange-island resolves rpc from island credentials — no --rpc-url flag;

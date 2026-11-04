@@ -69,4 +69,4 @@ print(";".join(parts))
   fi
 done
 echo "row-count/digest parity ok across: $PROBE_HOSTS"
-ok ""
+ok no_tx

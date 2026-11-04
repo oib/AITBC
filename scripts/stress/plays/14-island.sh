@@ -15,4 +15,4 @@ n1=$(stress_ssh node1 'curl -sf --max-time 10 http://127.0.0.1:8302/rpc/status |
 diff=$(( h1 - n1 )); [ $diff -lt 0 ] && diff=$(( -diff ))
 [ "$diff" -le 3 ] || fail island-parity "hub1=$h1 node1=$n1 gap=$diff"
 echo "island parity ok: hub1=$h1 node1=$n1"
-ok ""
+ok no_tx

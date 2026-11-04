@@ -35,4 +35,4 @@ case "$probe" in
     jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"$probe\"}";;
   *) fail storm "unrecognised resubmit outcome: $probe";;
 esac
-ok ""
+ok no_tx
