@@ -1842,6 +1842,22 @@ class StateTransition:
             retired_error = retired_gpu_error(tx_type, tx_data.get("payload"), settings.gpu_retired_id_set())
             if retired_error:
                 return (False, retired_error)
+        if tx_type == "BOND_LOCK" and block_version >= 20:
+            # v20 (#1067): the provider in the payload must be the signer —
+            # any account could previously top up a bond with a huge lock_days
+            # and push the victim's locked_until a century out, or open a bond
+            # in someone else's name. lock_days is bounded here so a giant
+            # value cannot raise OverflowError inside apply after the debit.
+            _v20_payload = tx_data.get("payload") or {}
+            _v20_sender = _to_ait_address(tx_data.get("from") or "")
+            if _v20_sender != _to_ait_address(_v20_payload.get("provider") or ""):
+                return (False, "BOND_LOCK refused: signer is not the bond provider")
+            try:
+                _v20_days = int(_v20_payload.get("lock_days", 30))
+            except (TypeError, ValueError, OverflowError):
+                return (False, "BOND_LOCK refused: invalid lock_days")
+            if not 1 <= _v20_days <= 3650:
+                return (False, "BOND_LOCK refused: lock_days out of range (1-3650)")
         if tx_type == "BOND_LOCK" and block_version >= 19:
             # v19 (BOND-LOCK-TOPUP-SLASHED-1, #782): a top-up on a bond row that
             # is not status=active used to raise ``amount`` while the row kept
@@ -2528,23 +2544,7 @@ class StateTransition:
                 return "recipient is not the bond escrow address"
             if value <= 0:
                 return "non-positive lock value"
-            if block_version is not None and block_version >= 20:
-                # v20 (#1067): the provider in the payload must be the signer —
-                # before this, any account could top up a bond with a huge
-                # lock_days and push the victim's locked_until a century out,
-                # and the same arbitrary sender could create bonds in someone
-                # else's name. lock_days is bounded so a giant value cannot
-                # raise OverflowError after the debit and nonce update.
-                if sender_addr != _to_ait_address(provider):
-                    return "not signed by the bond provider"
-                try:
-                    lock_days = int(payload.get("lock_days", 30))
-                except (TypeError, ValueError, OverflowError):
-                    return "invalid lock_days"
-                if not 1 <= lock_days <= 3650:
-                    return "lock_days out of range (1-3650)"
-            else:
-                lock_days = int(payload.get("lock_days", 30))
+            lock_days = int(payload.get("lock_days", 30))
             locked_until = now + timedelta(days=lock_days)
             # Reuse an existing active bond with the same id if it exists (top-up).
             existing = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
