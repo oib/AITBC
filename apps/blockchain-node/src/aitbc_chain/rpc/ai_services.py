@@ -180,10 +180,18 @@ def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
 
 
 @router.get("/ai/jobs", summary="List AI jobs", tags=["ai"])
-def ai_list_jobs(wallet_address: str | None = None, status: str | None = None) -> dict[str, Any]:
+def ai_list_jobs(
+    wallet_address: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, Any]:
     """Get list of AI jobs, optionally filtered by wallet address or status"""
     try:
         metrics_registry.increment("rpc_ai_list_total")
+        # Unbounded .all() used to scan every AI job row on every call (#1057).
+        limit = max(1, min(limit, 500))
+        offset = max(0, offset)
 
         with session_scope("") as session:
             stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
@@ -191,19 +199,22 @@ def ai_list_jobs(wallet_address: str | None = None, status: str | None = None) -
                 # Verbatim column, so match every spelling of the account (V23-65).
                 stmt = stmt.where(sql_func.lower(Transaction.sender).in_(address_spellings(wallet_address)))
             stmt = stmt.order_by(Transaction.created_at.desc())  # type: ignore[attr-defined]
-            txs = session.exec(stmt).all()
+            # The status filter runs on the effective status (the 'cancelled'
+            # overlay), so paginate generously in SQL then trim in Python.
+            txs = session.exec(stmt.offset(offset).limit(limit + offset)).all()
 
-            # 'cancelled' is an overlay from the service table, not the stored
-            # status — the status filter applies to the effective value.
             cancelled_ids = _cancelled_job_ids(session)
             jobs = [_job_from_tx(tx, cancelled_ids) for tx in txs]
             if status:
                 jobs = [j for j in jobs if j["status"] == status]
+            jobs = jobs[:limit]
 
         return {
             "jobs": jobs,
             "total": len(jobs),
             "filters": {"wallet_address": wallet_address, "status": status},
+            "limit": limit,
+            "offset": offset,
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
