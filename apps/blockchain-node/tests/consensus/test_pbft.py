@@ -904,3 +904,84 @@ async def test_pbft_minority_partition_cannot_commit():
     block_hash = "0x" + secrets.token_hex(32)
     result = await nodes[proposer_addr].propose_and_wait(proposer_addr, block_hash, timeout=2.0, sequence=1, view=0)
     assert result is False, "minority partition must not be able to commit without 2f+1 validators"
+
+
+def _prepare_data(sender: str, block_hash: str, view: int = 0, seq: int = 1) -> dict:
+    """An unsigned-shape incoming PREPARE gossip payload (tests run with
+    pbft_require_signatures off via conftest)."""
+    return {
+        "message_type": "prepare",
+        "sender": sender,
+        "view_number": view,
+        "sequence_number": seq,
+        "digest": "0xdigest",
+        "signature": "",
+        "timestamp": 0.0,
+        "block_hash": block_hash,
+    }
+
+
+@pytest.mark.asyncio
+async def test_double_sign_prepare_feeds_slashing_detector():
+    """Pin for #1062: a same-round different-hash PREPARE from one validator
+    is a double-sign and must reach the detector — it used to be dropped by
+    the dedup branch before anyone saw it."""
+    from aitbc_chain.consensus.slashing import SlashingCondition
+
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    offender = list(consensus.validators.keys())[1]
+
+    await pbft.handle_incoming_message(_prepare_data(offender, "0xblockA"))
+    await pbft.handle_incoming_message(_prepare_data(offender, "0xblockB"))
+
+    history = consensus.get_slashing_history()
+    assert len(history) == 1
+    assert history[0].validator_address == offender
+    assert history[0].condition == SlashingCondition.DOUBLE_SIGN
+    # 50% of the 1000.0 stake is levied immediately even though one event is
+    # below the deactivation threshold (consensus_byzantine_threshold = 3)
+    assert consensus.validators[offender].stake == pytest.approx(500.0)
+    assert consensus.validators[offender].is_active is True
+
+
+@pytest.mark.asyncio
+async def test_identical_prepare_redelivery_not_byzantine():
+    """Pin for #1062: a gossip replay of the *same* prepare (same round, same
+    hash) must not read as a double-sign — otherwise every rebroadcast is a
+    slash."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    member = list(consensus.validators.keys())[2]
+
+    await pbft.handle_incoming_message(_prepare_data(member, "0xblockA"))
+    await pbft.handle_incoming_message(_prepare_data(member, "0xblockA"))
+
+    assert consensus.get_slashing_history() == []
+    # …but two different hashes at the same round still flag, so replay of a
+    # *changed* message is not a blind spot.
+    await pbft.handle_incoming_message(_prepare_data(member, "0xblockB"))
+    assert len(consensus.get_slashing_history()) == 1
+
+
+@pytest.mark.asyncio
+async def test_slashing_flag_off_skips_detector():
+    """Pin for #1062: consensus_slashing_enabled=False keeps the detector
+    silent — the intake path itself (dedup, quorum counting) is unchanged."""
+    from aitbc_chain.config import settings
+
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    member = list(consensus.validators.keys())[1]
+
+    original = settings.consensus_slashing_enabled
+    settings.consensus_slashing_enabled = False
+    try:
+        await pbft.handle_incoming_message(_prepare_data(member, "0xblockA"))
+        await pbft.handle_incoming_message(_prepare_data(member, "0xblockB"))
+    finally:
+        settings.consensus_slashing_enabled = original
+
+    assert consensus.get_slashing_history() == []
+    # intake still recorded the first prepare and deduped the second sender
+    assert len(pbft.state.prepared_messages["1:0"]) == 1
