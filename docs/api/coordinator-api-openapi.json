@@ -2426,6 +2426,16 @@
               }
             }
           },
+          "403": {
+            "description": "only the GPU owner may reprice it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "GPU {gpu_id} not found",
             "content": {
@@ -2588,6 +2598,16 @@
               }
             }
           },
+          "403": {
+            "description": "only the GPU owner or the booking client may release it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "GPU {gpu_id} not found",
             "content": {
@@ -2665,6 +2685,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "client_id must be the authenticated caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
