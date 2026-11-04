@@ -680,10 +680,16 @@ def aitbc_market_exchange_withdraw_eth(
 def aitbc_market_gpu_buy(
     gpu_id: Annotated[str, Field(description="GPU registry ID")],
     buyer_id: Annotated[
-        str, Field(description="Buyer client ID from the quote (native rail: the funding wallet address 0x...)")
+        str, Field(description="Buyer client ID from the quote (must match authenticated client on purchase)")
     ],
     job_id: Annotated[str, Field(description="Job ID from the quote response")],
     duration_hours: Annotated[float, Field(description="Rental duration in hours")],
+    buyer_agent_id: Annotated[
+        str | None, Field(description="Buyer agent id; must match signing wallet via resolve API")
+    ] = None,
+    provider_agent_id: Annotated[
+        str | None, Field(description="Provider agent id; must match quote provider via resolve API")
+    ] = None,
     settlement: Annotated[Literal["native", "evm"] | None, Field(description="Settlement rail")] = None,
     wallet: Annotated[str | None, Field(description="Wallet name for signing")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct wallet file path")] = None,
@@ -707,6 +713,8 @@ def aitbc_market_gpu_buy(
         values={
             "gpu_id": "gpu-id",
             "buyer_id": "buyer-id",
+            "buyer_agent_id": "buyer-agent-id",
+            "provider_agent_id": "provider-agent-id",
             "job_id": "job-id",
             "duration_hours": "duration-hours",
             "settlement": "settlement",
@@ -753,7 +761,12 @@ def aitbc_market_gpu_buy(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_gpu_quote(
     gpu_id: Annotated[str, Field(description="GPU registry ID")],
-    buyer_id: Annotated[str, Field(description="Buyer client ID (native rail: the funding wallet address 0x...)")],
+    buyer_id: Annotated[
+        str, Field(description="Buyer client ID (native rail: funding wallet 0x…, or auth client id with --buyer-agent-id)")
+    ],
+    buyer_agent_id: Annotated[
+        str | None, Field(description="Buyer agent id; quote buyer field resolved via coordinator")
+    ] = None,
     duration_hours: Annotated[float | None, Field(description="Rental duration in hours")] = None,
     gpu_count: Annotated[int | None, Field(description="Number of GPUs")] = None,
     max_ait: Annotated[float | None, Field(description="Maximum AIT buyer cap")] = None,
@@ -777,6 +790,7 @@ def aitbc_market_gpu_quote(
         values={
             "gpu_id": "gpu-id",
             "buyer_id": "buyer-id",
+            "buyer_agent_id": "buyer-agent-id",
             "duration_hours": "duration-hours",
             "gpu_count": "gpu-count",
             "max_ait": "max-ait",
