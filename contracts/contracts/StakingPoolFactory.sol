@@ -520,12 +520,17 @@ contract StakingPoolFactory is IStakingPoolFactory, Ownable, ReentrancyGuard, Pa
         // Base rewards calculation
         uint256 baseRewards = (position.amount * position.apyAtStake * timeElapsed) / (BASIS_POINTS * 365 days);
 
-        // Performance bonus
+        // Performance bonus — only ever additive. A sub-1x multiplier
+        // underflowed the subtraction and reverted unstake for every
+        // low-reputation staker, re-locking the principal the same way the
+        // zero-recipient bug did (#1106 residual found in deploy rehearsal).
         uint256 performanceBonus = 0;
         if (address(performanceAggregator) != address(0)) {
             uint256 reputationScore = performanceAggregator.getReputationScore(position.staker);
             uint256 multiplier = performanceAggregator.calculateAPYMultiplier(reputationScore);
-            performanceBonus = (baseRewards * (multiplier - BASIS_POINTS)) / BASIS_POINTS;
+            if (multiplier > BASIS_POINTS) {
+                performanceBonus = (baseRewards * (multiplier - BASIS_POINTS)) / BASIS_POINTS;
+            }
         }
 
         return baseRewards + performanceBonus;
