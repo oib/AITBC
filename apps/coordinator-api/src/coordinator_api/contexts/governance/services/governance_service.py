@@ -27,6 +27,11 @@ from aitbc.utils.validation import validate_address
 logger = get_logger(__name__)
 
 
+def _utc_now() -> datetime:
+    """Return a naive UTC timestamp (SQLite-friendly)."""
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class ProposalStatus(Enum):
     """Status of a governance proposal"""
 
@@ -439,7 +444,10 @@ class GovernanceService:
             raise ValueError(f"Proposal {proposal_id} not found")
         if proposal.status != ProposalStatus.ACTIVE:
             return proposal
-        if datetime.now(UTC) < proposal.voting_ends:
+        voting_ends = proposal.voting_ends
+        if voting_ends.tzinfo is not None:
+            voting_ends = voting_ends.replace(tzinfo=None)
+        if _utc_now() < voting_ends:
             return proposal
         total = proposal.votes_for + proposal.votes_against + proposal.votes_abstain
         if total < proposal.quorum_required:
