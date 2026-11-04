@@ -19,12 +19,19 @@ comes from ``MARKET_VERIFY_URL`` (default http://127.0.0.1:8102).
 from __future__ import annotations
 
 import os
+import re
+from urllib.parse import quote
 from typing import Any
 
 from fastapi import HTTPException, Request, status
 
 MARKET_VERIFY_URL = os.environ.get("MARKET_VERIFY_URL", "http://127.0.0.1:8102")
 VERIFY_TIMEOUT = float(os.environ.get("MARKET_VERIFY_TIMEOUT", "10"))
+
+# Access keys are token_urlsafe output — a single safe path segment only.
+# Anything else (notably "../jobs/<id>" traversal against the verify URL)
+# is refused before any market call (SHOPGATE-ACCESS-KEY-PATH-TRAVERSAL-1).
+_ACCESS_KEY_RE = re.compile(r"[A-Za-z0-9_-]{8,128}")
 
 
 def _verify(access_key: str, access_secret: str) -> dict[str, Any] | None:
@@ -33,7 +40,7 @@ def _verify(access_key: str, access_secret: str) -> dict[str, Any] | None:
 
     try:
         resp = httpx.get(
-            f"{MARKET_VERIFY_URL}/v1/market/access/{access_key}",
+            f"{MARKET_VERIFY_URL}/v1/market/access/{quote(access_key, safe='')}",
             params={"access_secret": access_secret},
             timeout=VERIFY_TIMEOUT,
         )
@@ -64,6 +71,8 @@ async def require_job_access(request: Request) -> dict[str, Any]:
     job_id = request.headers.get("X-Job-Id")
     if not access_key or not access_secret:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="access token required")
+    if not _ACCESS_KEY_RE.fullmatch(access_key):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid access token")
     if not job_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Job-Id required")
     job = _verify(access_key, access_secret)
