@@ -117,3 +117,32 @@ def test_absent_tx_releases():
     found = mod._recover_claimed_attempt("r1", "claiming:t:nonce=7", 5, RECIP)
     assert found is None
     assert released
+
+
+def _entry_sealed(tx_hash=HASH1, nonce=7, sender=GENESIS, recipient=RECIP):
+    # the real /rpc/transactions shape: sender/recipient keys, no from/to
+    return {"tx_hash": tx_hash, "sender": sender, "recipient": recipient, "nonce": nonce}
+
+
+def test_sealed_hash_match_finalizes():
+    mod, released = _load([], [_entry_sealed()])
+    mod.__dict__["TransactionService"] = _TxSvc
+    found = mod._recover_claimed_attempt("r1", "claiming:t:nonce=7", 5, RECIP)
+    assert found == HASH1
+    assert not released
+
+
+def test_sealed_nonce_match_finalizes():
+    mod, released = _load([], [_entry_sealed(tx_hash="0x" + "cd" * 32)])
+    mod.__dict__["TransactionService"] = _TxSvc
+    found = mod._recover_claimed_attempt("r1", "claiming:t:nonce=7", 5, RECIP)
+    assert found == "0x" + "cd" * 32
+    assert not released
+
+
+def test_sealed_wrong_recipient_on_hash_holds():
+    mod, released = _load([], [_entry_sealed(recipient="0xother")])
+    mod.__dict__["TransactionService"] = _TxSvc
+    found = mod._recover_claimed_attempt("r1", f"claiming:t:nonce=7:tx={HASH1}", 5, RECIP)
+    assert found is None
+    assert not released  # claim kept — never release while the tx may be pending
