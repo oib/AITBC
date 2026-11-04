@@ -44,13 +44,13 @@ agent execute --agent WalletAgent --task create_cross_node_wallets || {
     # Create client wallet on aitbc
     cd /opt/aitbc
     source venv/bin/activate
-    ./aitbc-cli wallet create client-wallet --type simple
+    scripts/aitbc-cli wallet create --name client-wallet --type simple
 
     # Create miner wallet on ${NODE1_HOST}
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet create miner-wallet --type simple'
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet create --name miner-wallet --type simple'
 
     # Create user wallet on aitbc
-    ./aitbc-cli wallet create user-wallet --type simple
+    scripts/aitbc-cli wallet create --name user-wallet --type simple
 }
 
 # 3. List created wallets (via agent)
@@ -60,10 +60,10 @@ agent execute --agent WalletAgent --task list_wallets || {
     echo "=== Wallets on aitbc ==="
     cd /opt/aitbc
     source venv/bin/activate
-    ./aitbc-cli wallet list
+    scripts/aitbc-cli wallet list
 
     echo "=== Wallets on ${NODE1_HOST} ==="
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list'
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet list'
 }
 
 # 4. Get wallet addresses (via agent)
@@ -72,13 +72,13 @@ agent execute --agent WalletAgent --task get_wallet_addresses || {
     echo "⚠️ agent address retrieval failed - using manual method"
 
     # Get client wallet address
-    CLIENT_ADDR=$(cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet client-wallet)
+    CLIENT_ADDR=$(cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet address client-wallet)
 
     # Get miner wallet address
-    MINER_ADDR=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet miner-wallet')
+    MINER_ADDR=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet address miner-wallet')
 
     # Get user wallet address
-    USER_ADDR=$(cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet user-wallet)
+    USER_ADDR=$(cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet address user-wallet)
 
     # Get genesis wallet address
     GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbcgenesis.json | jq -r '.address')
@@ -98,10 +98,10 @@ agent execute --agent WalletAgent --task fund_wallets_from_genesis || {
     source venv/bin/activate
 
     # Fund client wallet with 1000 AIT
-    ./aitbc-cli wallet send 1000 $CLIENT_ADDR "Initial funding for client wallet"
+    scripts/aitbc-cli wallet send --to-address $CLIENT_ADDR --amount 1000
 
     # Fund user wallet with 500 AIT
-    ./aitbc-cli wallet send 500 $USER_ADDR "Initial funding for user wallet"
+    scripts/aitbc-cli wallet send --to-address $USER_ADDR --amount 500
 
     echo "⏳ Waiting for transactions to confirm..."
     sleep 10
@@ -117,16 +117,16 @@ agent execute --agent WalletAgent --task verify_wallet_balances || {
     source venv/bin/activate
 
     echo "Genesis Wallet:"
-    ./aitbc-cli wallet balance --wallet aitbcgenesis
+    scripts/aitbc-cli wallet balance --wallet aitbcgenesis
 
     echo "Client Wallet:"
-    ./aitbc-cli wallet balance --wallet client-wallet
+    scripts/aitbc-cli wallet balance --wallet client-wallet
 
     echo "User Wallet:"
-    ./aitbc-cli wallet balance --wallet user-wallet
+    scripts/aitbc-cli wallet balance --wallet user-wallet
 
     echo "Miner Wallet (on ${NODE1_HOST}):"
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance --wallet miner-wallet'
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance --wallet miner-wallet'
 }
 
 # 7. Execute cross-node transaction (via agent)
@@ -138,11 +138,11 @@ agent execute --agent WalletAgent --task execute_cross_node_transaction || {
     source venv/bin/activate
 
     # Get miner wallet address
-    MINER_ADDR=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet address --wallet miner-wallet')
+    MINER_ADDR=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet address miner-wallet')
 
     # Send 200 AIT from client wallet to miner wallet (cross-node)
     echo "Sending 200 AIT from client wallet to miner wallet (cross-node)..."
-    ./aitbc-cli wallet send 200 $MINER_ADDR "Cross-node transaction to miner wallet"
+    scripts/aitbc-cli wallet send --to-address $MINER_ADDR --amount 200
 
     echo "⏳ Waiting for cross-node transaction to confirm..."
     sleep 15
@@ -158,11 +158,11 @@ agent execute --agent WalletAgent --task monitor_transaction_confirmation || {
 
     # Check recent transactions
     echo "=== Recent Transactions ==="
-    ./aitbc-cli transaction list --limit 5
+    scripts/aitbc-cli transaction list --limit 5
 
     # Check miner wallet balance (should show the cross-node transaction)
     echo "=== Miner Wallet Balance After Cross-Node Transaction ==="
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance --wallet miner-wallet'
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance --wallet miner-wallet'
 }
 
 # 9. Verify transaction on both nodes (via agent)
@@ -173,10 +173,10 @@ agent execute --agent WalletAgent --task verify_transaction_on_nodes || {
     echo "=== Transaction Verification on aitbc ==="
     cd /opt/aitbc
     source venv/bin/activate
-    ./aitbc-cli transaction list --limit 3
+    scripts/aitbc-cli transaction list --limit 3
 
     echo "=== Transaction Verification on ${NODE1_HOST} ==="
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli transaction list --limit 3'
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli transaction list --limit 3'
 }
 
 # 10. Test wallet switching (via agent)
@@ -188,14 +188,14 @@ agent execute --agent WalletAgent --task test_wallet_switching || {
     source venv/bin/activate
 
     echo "=== Testing Wallet Switching on aitbc ==="
-    ./aitbc-cli wallet switch client-wallet
-    ./aitbc-cli wallet balance
+    scripts/aitbc-cli wallet switch client-wallet
+    scripts/aitbc-cli wallet balance
 
-    ./aitbc-cli wallet switch user-wallet
-    ./aitbc-cli wallet balance
+    scripts/aitbc-cli wallet switch user-wallet
+    scripts/aitbc-cli wallet balance
 
     echo "=== Testing Wallet Switching on ${NODE1_HOST} ==="
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet switch miner-wallet && ./aitbc-cli wallet balance'
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet switch miner-wallet && scripts/aitbc-cli wallet balance'
 }
 
 # 11. Create additional test wallets (via agent)
@@ -207,10 +207,10 @@ agent execute --agent WalletAgent --task create_test_wallets || {
     source venv/bin/activate
 
     # Create test wallets for market testing
-    ./aitbc-cli wallet create provider-wallet --type simple
-    ./aitbc-cli wallet create customer-wallet --type simple
+    scripts/aitbc-cli wallet create --name provider-wallet --type simple
+    scripts/aitbc-cli wallet create --name customer-wallet --type simple
 
-    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet create validator-wallet --type simple'
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet create --name validator-wallet --type simple'
 }
 
 # 12. Notify CoordinatorAgent of completion (via agent)
@@ -263,16 +263,16 @@ echo "=== Final Wallet Status ==="
 cd /opt/aitbc
 source venv/bin/activate
 echo "=== aitbc Wallets ==="
-./aitbc-cli wallet list
+scripts/aitbc-cli wallet list
 
 echo ""
 echo "=== ${NODE1_HOST} Wallets ==="
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet list'
 
 # Display recent transactions
 echo ""
 echo "=== Recent Transactions (Cross-Node Verified) ==="
-./aitbc-cli transaction list --limit 3
+scripts/aitbc-cli transaction list --limit 3
 
 # Display agent status
 echo ""
