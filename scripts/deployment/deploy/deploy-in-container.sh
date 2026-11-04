@@ -13,11 +13,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # shellcheck source=scripts/deployment/deploy/deploy-env.sh
-<<<<<<< HEAD
-source "$(dirname "$0")/deploy-env.sh"  # #886: print_success lives here
-=======
-source "$(dirname "$0")/deploy-env.sh"  # write_blockchain_env lives here
->>>>>>> a29270bde (fix(deploy): node scripts write /etc/aitbc/blockchain.env via shared helper — real proposer identity, no placeholder key)
+source "$(dirname "$0")/deploy-env.sh"  # #886 print_success and #888 write_blockchain_env live here
 
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -278,8 +274,8 @@ server {
 
     location /rpc/ {
         proxy_pass http://localhost:8202;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
     }
 
     location / {
