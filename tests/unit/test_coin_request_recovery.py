@@ -176,3 +176,19 @@ def test_sealed_lowercase_row_hash_match_finalizes():
     found = mod._recover_claimed_attempt("r1", f"claiming:t:nonce=7:tx={HASH1}", 5, lc_recip)
     assert found == HASH1
     assert not released
+
+
+def test_sealed_lowercase_sender_vs_checksummed_genesis():
+    """A lower-case sealed sender must still match a checksummed genesis
+    address — else the nonce match misses and the claim releases."""
+    lc_recip = "0xaBcD1234"
+
+    class _CkTxSvc:
+        rpc_url = "http://x"
+        genesis_address = "0xAbCd0001"
+
+    mod, released = _load([], [_entry_sealed(sender="0xabcd0001", recipient=lc_recip.lower())])
+    mod.__dict__["TransactionService"] = _CkTxSvc
+    found = mod._recover_claimed_attempt("r1", "claiming:t:nonce=7", 5, lc_recip)
+    assert found == HASH1
+    assert not released
