@@ -246,7 +246,7 @@ def test_buy_gpu_short_duration_clamps_ttl_and_escrow_timeout(
         "/v1/market/gpu/purchase",
         headers={"Authorization": f"Bearer {client_token}"},
         json={
-            "buyer_id": BUYER,
+            "buyer_id": "client1",
             "gpu_id": available_gpu,
             "duration_hours": 0.05,
             "payment_method": "blockchain",
