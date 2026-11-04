@@ -73,7 +73,6 @@ from .tenant_keys import (
     TenantKeyStatus,
 )
 from .tokens import (
-    APIKeyManager,
     SessionManager,
     generate_api_key,
     generate_token,
@@ -99,7 +98,6 @@ __all__ = [
     "verify_agent_envelope",
     "verify_identity_claim",
     "verify_rotation_claim",
-    "APIKeyManager",
     # Secret management
     "SecretManager",
     "SessionManager",
