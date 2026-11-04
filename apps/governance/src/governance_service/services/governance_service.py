@@ -518,8 +518,13 @@ class GovernanceService:
             raise ValueError(f"Proposal not found: {vote_data.get('proposal_id')}")
         if proposal_status.status != ProposalStatus.ACTIVE:
             raise ValueError(f"Proposal is not active (status: {proposal_status.status})")
+        from sqlalchemy import func
+
         existing_vote = await self.session.execute(
-            select(Vote).where(Vote.proposal_id == vote_data.get("proposal_id"), Vote.voter_id == voter_id)
+            select(Vote).where(
+                Vote.proposal_id == vote_data.get("proposal_id"),
+                func.lower(Vote.voter_id) == voter_id.lower(),
+            )
         )
         if existing_vote.scalars().first() is not None:
             raise ValueError(f"voter {voter_id} has already voted on proposal {vote_data.get('proposal_id')}")
