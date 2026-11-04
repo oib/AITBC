@@ -29,6 +29,10 @@ contract AITBCVoting {
     uint256 public constant EXECUTION_DELAY = 1 days;
     uint256 public constant MIN_VOTING_PERIOD = 1 days;
     uint256 public constant MAX_VOTING_PERIOD = 30 days;
+    // Minimum power to open a proposal — a dust holder used to be able to
+    // open (and, with the shared timestamp+title id, overwrite) proposals.
+    uint256 public constant MIN_PROPOSAL_POWER = 1_000_000 * 10**18; // 0.1% of 1e9 supply
+    uint256 public proposalCounter;
 
     event ProposalCreated(bytes32 indexed proposalId, address indexed proposer);
     event VoteCast(bytes32 indexed proposalId, address indexed voter, bool support, uint256 power);
@@ -48,11 +52,16 @@ contract AITBCVoting {
         require(votingPeriod >= MIN_VOTING_PERIOD, "Voting period too short");
         require(votingPeriod <= MAX_VOTING_PERIOD, "Voting period too long");
 
-        bytes32 proposalId = keccak256(abi.encodePacked(msg.sender, block.timestamp, title));
+        // Nonce in the id: sender+timestamp+title alone let a same-block
+        // second proposal overwrite the first and reset its votes (#1118).
+        bytes32 proposalId = keccak256(abi.encodePacked(msg.sender, block.timestamp, title, proposalCounter++));
 
         uint256 votingPower = governanceToken.getVotingPower(msg.sender);
-        uint256 totalSupply = governanceToken.totalSupply();
-        uint256 quorumRequired = (totalSupply * QUORUM_PERCENTAGE) / 100;
+        require(votingPower >= MIN_PROPOSAL_POWER, "Below proposal threshold");
+        // Quorum against total POSSIBLE power (supply + staked multiplier),
+        // not raw supply — weights can exceed supply (#1118).
+        uint256 totalPower = governanceToken.getTotalVotingPower();
+        uint256 quorumRequired = (totalPower * QUORUM_PERCENTAGE) / 100;
 
         proposals[proposalId] = Proposal({
             id: proposalId,
@@ -80,7 +89,10 @@ contract AITBCVoting {
         require(block.timestamp <= proposal.votingEnd, "Voting ended");
         require(!hasVoted[proposalId][msg.sender], "Already voted");
 
-        uint256 votingPower = governanceToken.getVotingPower(msg.sender);
+        // Snapshot at proposal start: power gained or moved after creation
+        // cannot vote, so the same tokens cannot vote from several
+        // addresses in turn (#1118).
+        uint256 votingPower = governanceToken.getPastVotingPower(msg.sender, proposal.votingStart);
         require(votingPower > 0, "No voting power");
 
         hasVoted[proposalId][msg.sender] = true;
@@ -104,16 +116,22 @@ contract AITBCVoting {
         require(totalVotes >= proposal.quorumRequired, "Quorum not met");
         require(proposal.yesVotes > proposal.noVotes, "Proposal rejected");
 
+        // Real execution: the proposal value encodes (target, calldata) and
+        // the call must succeed — a proposal that cannot run anything is not
+        // marked Executed (#1118; the old code set Executed unconditionally
+        // behind an empty placeholder).
+        bool ok = _executeProposalValue(proposalId, proposal.value);
+        require(ok, "Proposal call failed");
+
         proposal.status = ProposalStatus.Executed;
         emit ProposalExecuted(proposalId);
-
-        // Execute proposal logic here - would call appropriate contract functions
-        _executeProposalValue(proposalId, proposal.value);
     }
 
-    function _executeProposalValue(bytes32 proposalId, bytes memory value) internal {
-        // Placeholder for proposal execution logic
-        // Different proposal types would have different execution paths
+    function _executeProposalValue(bytes32, bytes memory value) internal returns (bool) {
+        (address target, bytes memory data) = abi.decode(value, (address, bytes));
+        require(target != address(0) && target != address(this), "Invalid proposal target");
+        (bool ok, ) = target.call(data);
+        return ok;
     }
 
     function getProposal(bytes32 proposalId) external view returns (Proposal memory) {
