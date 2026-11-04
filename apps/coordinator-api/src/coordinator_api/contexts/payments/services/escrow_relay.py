@@ -32,6 +32,7 @@ from ....config import settings
 from ....storage import get_session
 from ...infrastructure.domain.user import Wallet
 from ..domain.escrow_relay import EscrowRelay
+from .escrow_agent_binding import assert_agent_address_binding, default_resolve_chain_id
 from .escrow_relay_metrics import RESULT_CHAIN_TIMEOUT, RESULT_UPSTREAM_5XX, tag_escrow_result
 from .payments import _find_http_status_error
 
@@ -146,6 +147,21 @@ class EscrowRelayService:
                 detail="Invalid types for job_id, buyer, or provider",
             )
 
+        buyer_agent_id = body.get("buyer_agent_id")
+        provider_agent_id = body.get("provider_agent_id")
+        if buyer_agent_id is not None and not isinstance(buyer_agent_id, str):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="buyer_agent_id must be a string")
+        if provider_agent_id is not None and not isinstance(provider_agent_id, str):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="provider_agent_id must be a string")
+
+        resolve_chain = default_resolve_chain_id()
+        if buyer_agent_id:
+            await assert_agent_address_binding(self.session, buyer_agent_id, buyer, role="buyer", chain_id=resolve_chain)
+        if provider_agent_id:
+            await assert_agent_address_binding(
+                self.session, provider_agent_id, provider, role="provider", chain_id=resolve_chain
+            )
+
         amount_units = self._amount_units(body.get("amount"))
         if not is_admin:
             await run_in_threadpool(self._check_buyer_binding, client_id, buyer)
@@ -158,6 +174,16 @@ class EscrowRelayService:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"an escrow was already relayed for job {job_id} with a different lock",
+                )
+            if buyer_agent_id and existing.buyer_agent_id and existing.buyer_agent_id != buyer_agent_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"escrow for job {job_id} is already bound to buyer agent {existing.buyer_agent_id}",
+                )
+            if provider_agent_id and existing.provider_agent_id and existing.provider_agent_id != provider_agent_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"escrow for job {job_id} is already bound to provider agent {existing.provider_agent_id}",
                 )
             return {"contract_id": existing.contract_id, "duplicate": True}
 
@@ -194,7 +220,14 @@ class EscrowRelayService:
             ) from exc
 
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
-        row = EscrowRelay(client_id=client_id, job_id=job_id, lock_hash=lock_hash, contract_id=contract_id)
+        row = EscrowRelay(
+            client_id=client_id,
+            job_id=job_id,
+            lock_hash=lock_hash,
+            contract_id=contract_id,
+            buyer_agent_id=buyer_agent_id,
+            provider_agent_id=provider_agent_id,
+        )
         self.session.add(row)
         await run_in_threadpool(self.session.commit)
         # Audit: one line per relay — never log lock_tx or signature content.

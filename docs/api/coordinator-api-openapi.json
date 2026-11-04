@@ -37745,6 +37745,30 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Lock Tx"
+          },
+          "buyer_agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Agent Id"
+          },
+          "provider_agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Agent Id"
           }
         },
         "additionalProperties": true,
