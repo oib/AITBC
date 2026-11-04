@@ -524,7 +524,17 @@ async def buy_gpu(
     user: AuthDep,
 ) -> dict[str, Any]:
     """Buy GPU compute from market with blockchain payment and AI job scheduling."""
-    gpu = await run_in_threadpool(_get_gpu_or_404, session, request.gpu_id)
+    # #1075: the purchase must belong to the caller — a body-supplied buyer_id
+    # let a client book a rental on someone else's account.
+    if request.buyer_id != user["sub"]:
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="buyer_id does not match authenticated buyer")
+    # Lock the GPU row while booking: two concurrent purchases could both see
+    # "available" and double-book the same GPU.
+    gpu = await run_in_threadpool(
+        lambda: session.exec(select(GPURegistry).where(GPURegistry.id == request.gpu_id).with_for_update()).first()
+    )
+    if not gpu:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"GPU {request.gpu_id} not found")
     if gpu.status != "available":
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {request.gpu_id} is not available for purchase"
@@ -1240,20 +1250,6 @@ async def get_pricing(
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,
         "pricing_timestamp": datetime.now(UTC).isoformat() + "Z",
-    }
-
-
-@router.post("/market/gpu/bid")
-def bid_gpu(request: dict[str, Any], session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
-    """Place a bid on a GPU"""
-    bid_id = str(uuid4())
-    return {
-        "bid_id": bid_id,
-        "status": "placed",
-        "gpu_id": request.get("gpu_id"),
-        "bid_amount": request.get("bid_amount"),
-        "duration_hours": request.get("duration_hours"),
-        "timestamp": datetime.now(UTC).isoformat() + "Z",
     }
 
 

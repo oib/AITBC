@@ -2344,8 +2344,18 @@
               }
             }
           },
+          "403": {
+            "description": "buyer_id does not match authenticated buyer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Prepared job {request.job_id} not found",
+            "description": "GPU {request.gpu_id} not found / Prepared job {request.job_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -3131,52 +3141,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/market/gpu/bid": {
-      "post": {
-        "tags": [
-          "market-gpu"
-        ],
-        "summary": "Bid Gpu",
-        "description": "Place a bid on a GPU",
-        "operationId": "bid_gpu_v1_market_gpu_bid_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Request"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Bid Gpu V1 Market Gpu Bid Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
