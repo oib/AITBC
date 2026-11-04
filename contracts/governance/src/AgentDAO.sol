@@ -58,6 +58,7 @@ contract AgentDAO is
     // Snapshot structure for anti-flash-loan protection
     struct VotingSnapshot {
         uint256 timestamp;
+        uint256 blockNumber;
         uint256 totalSupply;
         uint256 totalVotingPower;
         mapping(address => uint256) tokenBalances;
@@ -111,6 +112,9 @@ contract AgentDAO is
     mapping(address => bool) public multiSigSigners;
     uint256 public multiSigRequired = 3;
     mapping(uint256 => mapping(address => bool)) public multiSigApprovals;
+    // #1117: real approval count — the mapping cannot be iterated, so a
+    // counter is incremented once per signer under the already-approved guard.
+    mapping(uint256 => uint256) public multiSigApprovalCount;
 
     // Events
     event ProposalCreated(
@@ -159,6 +163,7 @@ contract AgentDAO is
         VotingSnapshot storage snapshot = votingSnapshots[snapshotId];
 
         snapshot.timestamp = block.timestamp;
+        snapshot.blockNumber = block.number - 1; // strictly-past: ERC20Votes rejects the current block
         snapshot.totalSupply = governanceToken.totalSupply();
 
         // Calculate 24-hour TWAS for all token holders
@@ -203,7 +208,9 @@ contract AgentDAO is
         ProposalType proposalType
     ) public returns (uint256 proposalId) {
         // Check proposal threshold and create snapshot
-        uint256 votingPower = getVotingPower(msg.sender, snapshotCounter);
+        // #1117: gate on current delegated power — getVotingPower(snapshotCounter)
+        // reads the NEXT (not yet created) snapshot and always returned 0.
+        uint256 votingPower = IVotes(address(governanceToken)).getVotes(msg.sender);
         require(votingPower >= PROPOSAL_THRESHOLD, "Insufficient voting power");
 
         // Require proposal bond
@@ -236,6 +243,17 @@ contract AgentDAO is
     }
 
     /**
+     * @dev Cast a vote — routes through the same guards as castVoteWithReason (#1117)
+     * @param proposalId ID of the proposal
+     * @param support Vote support (0=against, 1=for, 2=abstain)
+     */
+    function castVote(uint256 proposalId, uint8 support) public override returns (uint256) {
+        // #1117: the inherited entrypoint used to bypass the custom
+        // safeguards — it now routes through the same guarded path.
+        return _guardedVote(proposalId, support, "");
+    }
+
+    /**
      * @dev Cast a vote with snapshot security and agent reputation
      * @param proposalId ID of the proposal
      * @param support Vote support (0=against, 1=for, 2=abstain)
@@ -246,33 +264,17 @@ contract AgentDAO is
         uint8 support,
         string calldata reason
     ) public override returns (uint256) {
-        require(
-            state(proposalId) == ProposalState.Active,
-            "AgentDAO: voting is not active"
-        );
+        return _guardedVote(proposalId, support, reason);
+    }
 
-        Proposal storage proposal = proposals[proposalId];
-        require(!proposal.challenged || block.timestamp > proposal.challengeEnd, "Proposal challenged");
+    function _guardedVote(
+        uint256 proposalId,
+        uint8 support,
+        string memory reason
+    ) internal returns (uint256) {
+        uint256 votingPower = _voteGuards(proposalId, msg.sender);
 
-        // Get voting power from snapshot
-        uint256 votingPower = getVotingPower(msg.sender, proposal.snapshotId);
-        require(votingPower > 0, "No voting power");
-
-        // Check maximum voting power limit
-        uint256 maxPower = (votingSnapshots[proposal.snapshotId].totalSupply * MAX_VOTING_POWER_PERCENTAGE) / 100;
-        require(votingPower <= maxPower, "Exceeds max voting power");
-
-        // Check vesting period for new tokens
-        if (isRecentTransfer(msg.sender, proposal.snapshotId)) {
-            votingPower = calculateVestedPower(msg.sender, proposal.snapshotId);
-        }
-
-        // Apply reputation bonus for agents
-        if (agentWallets[msg.sender].isActive) {
-            votingPower = applyReputationBonus(msg.sender, votingPower);
-        }
-
-        uint256 votes = super.castVoteWithReason(proposalId, support, reason);
+        uint256 votes = _castVote(proposalId, msg.sender, support, reason);
 
         // Update agent wallet
         if (agentWallets[msg.sender].isActive) {
@@ -283,6 +285,34 @@ contract AgentDAO is
         emit VoteCast(proposalId, msg.sender, support, votingPower, reason);
 
         return votes;
+    }
+
+    function _voteGuards(uint256 proposalId, address voter) internal view returns (uint256 votingPower) {
+        require(
+            state(proposalId) == ProposalState.Active,
+            "AgentDAO: voting is not active"
+        );
+
+        Proposal storage proposal = proposals[proposalId];
+        require(!proposal.challenged || block.timestamp > proposal.challengeEnd, "Proposal challenged");
+
+        // Get voting power from snapshot
+        votingPower = getVotingPower(voter, proposal.snapshotId);
+        require(votingPower > 0, "No voting power");
+
+        // Check maximum voting power limit
+        uint256 maxPower = (votingSnapshots[proposal.snapshotId].totalSupply * MAX_VOTING_POWER_PERCENTAGE) / 100;
+        require(votingPower <= maxPower, "Exceeds max voting power");
+
+        // Check vesting period for new tokens
+        if (isRecentTransfer(voter, proposal.snapshotId)) {
+            votingPower = calculateVestedPower(voter, proposal.snapshotId);
+        }
+
+        // Apply reputation bonus for agents
+        if (agentWallets[voter].isActive) {
+            votingPower = applyReputationBonus(voter, votingPower);
+        }
     }
 
     /**
@@ -312,6 +342,7 @@ contract AgentDAO is
         require(!multiSigApprovals[proposalId][msg.sender], "Already approved");
 
         multiSigApprovals[proposalId][msg.sender] = true;
+        multiSigApprovalCount[proposalId] += 1;
         emit MultiSigApproval(proposalId, msg.sender);
     }
 
@@ -325,7 +356,9 @@ contract AgentDAO is
         if (snapshotId == 0) return 0;
 
         VotingSnapshot storage snapshot = votingSnapshots[snapshotId];
-        return snapshot.votingPower[voter];
+        // #1117: real checkpointed power — the per-voter map was never
+        // written, so votes always reverted. The token is IVotes.
+        return IVotes(address(governanceToken)).getPastVotes(voter, snapshot.blockNumber);
     }
 
     /**
@@ -361,6 +394,25 @@ contract AgentDAO is
         AgentWallet storage wallet = agentWallets[agent];
         uint256 bonus = (basePower * wallet.reputation) / 1000; // 0.1% per reputation point
         return basePower + bonus;
+    }
+
+    /**
+     * @dev OZ execute entrypoint — resolves the stored proposal and runs the
+     *      same guarded path as execute(proposalId) (#1117).
+     */
+    function execute(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory calldatas,
+        bytes32 descriptionHash
+    ) public payable override(Governor) returns (uint256) {
+        // #1117: the inherited entrypoint used to bypass the multi-sig and
+        // challenge safeguards — resolve the stored proposal and run the
+        // same guarded path as execute(proposalId).
+        uint256 proposalId = hashProposal(targets, values, calldatas, descriptionHash);
+        require(proposals[proposalId].descriptionHash == descriptionHash, "Unknown proposal");
+        execute(proposalId);
+        return proposalId;
     }
 
     /**
@@ -403,9 +455,7 @@ contract AgentDAO is
      * @return approvalCount Number of multi-sig approvals
      */
     function getMultiSigApprovals(uint256 proposalId) public view returns (uint256) {
-        uint256 count = 0;
-        // This is simplified - in production, iterate through signers
-        return count;
+        return multiSigApprovalCount[proposalId];
     }
 
     /**
