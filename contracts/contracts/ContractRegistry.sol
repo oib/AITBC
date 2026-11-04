@@ -31,6 +31,8 @@ contract ContractRegistry is IContractRegistry, Ownable, ReentrancyGuard, Pausab
     error ContractAlreadyRegistered(bytes32 contractId);
     error ContractNotFound(bytes32 contractId);
     error InvalidAddress(address contractAddress);
+    error NoCodeAtAddress(address contractAddress);
+    error AddressAliasedToOtherId(address contractAddress, bytes32 existingId);
     error RegistryPausedError();
     error NotAuthorized();
 
@@ -113,6 +115,7 @@ contract ContractRegistry is IContractRegistry, Ownable, ReentrancyGuard, Pausab
         if (contractAddresses[contractId] != address(0)) {
             revert ContractAlreadyRegistered(contractId);
         }
+        _checkRegisterable(contractId, contractAddress);
 
         contractAddresses[contractId] = contractAddress;
         contractVersions[contractId] = 1;
@@ -148,6 +151,7 @@ contract ContractRegistry is IContractRegistry, Ownable, ReentrancyGuard, Pausab
         if (oldAddress == address(0)) {
             revert ContractNotFound(contractId);
         }
+        _checkRegisterable(contractId, newAddress);
 
         contractAddresses[contractId] = newAddress;
         contractVersions[contractId]++;
@@ -231,12 +235,28 @@ contract ContractRegistry is IContractRegistry, Ownable, ReentrancyGuard, Pausab
 
         for (uint256 i = 0; i < _contractIds.length; i++) {
             if (_contractAddresses[i] != address(0) && contractAddresses[_contractIds[i]] == address(0)) {
+                _checkRegisterable(_contractIds[i], _contractAddresses[i]);
                 contractAddresses[_contractIds[i]] = _contractAddresses[i];
                 contractVersions[_contractIds[i]] = 1;
                 addressToId[_contractAddresses[i]] = _contractIds[i];
+                contractIds.push(_contractIds[i]);
 
                 emit ContractRegistered(_contractIds[i], _contractAddresses[i], 1);
             }
+        }
+    }
+
+    /**
+     * @dev A registered address must hold code and map back to exactly one id;
+     * otherwise updating or deregistering one id erases the other's lookup.
+     */
+    function _checkRegisterable(bytes32 contractId, address contractAddress) internal view {
+        if (!isContract(contractAddress)) {
+            revert NoCodeAtAddress(contractAddress);
+        }
+        bytes32 existing = addressToId[contractAddress];
+        if (existing != bytes32(0) && existing != contractId) {
+            revert AddressAliasedToOtherId(contractAddress, existing);
         }
     }
 
