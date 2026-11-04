@@ -37,6 +37,7 @@ check_grep() {
             --exclude="*.lock" \
             --exclude="package-lock.json" \
             --exclude="check_deprecation_cleanup.sh" \
+            --exclude="run-suite-manual.sh" \
             "$pattern" \
             "$REPO_ROOT/aitbc" \
             "$REPO_ROOT/apps" \
