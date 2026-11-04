@@ -74,6 +74,8 @@ class ScalabilityValidator:
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             tasks = []
+            cpu_start = _read_proc_stat()
+            wall_start = time.monotonic()
 
             # Gradual ramp-up
             for user in range(concurrent_users):
@@ -83,11 +85,13 @@ class ScalabilityValidator:
 
                 # Create requests for this user
                 for _req in range(requests_per_user):
-                    task = self.measure_endpoint_performance(session, method, endpoint, **kwargs)
+                    task = asyncio.create_task(self.measure_endpoint_performance(session, endpoint, method, **kwargs))
                     tasks.append(task)
 
             # Wait for all tasks to complete
             results = await asyncio.gather(*tasks, return_exceptions=True)
+            wall_elapsed = time.monotonic() - wall_start
+            cpu_delta = _cpu_percent_delta(cpu_start, _read_proc_stat())
 
             # Filter valid results
             valid_results = [r for r in results if isinstance(r, dict)]
@@ -108,9 +112,9 @@ class ScalabilityValidator:
                 "median_response_time": statistics.median(response_times) if response_times else 0,
                 "p95_response_time": statistics.quantiles(response_times, n=20)[18] if len(response_times) > 20 else 0,
                 "p99_response_time": statistics.quantiles(response_times, n=100)[98] if len(response_times) > 100 else 0,
-                "requests_per_second": len(successful_results) / (max(response_times) - min(response_times))
-                if len(response_times) > 1
-                else 0,
+                "requests_per_second": len(valid_results) / wall_elapsed if wall_elapsed > 0 else 0,
+                "wall_time_s": wall_elapsed,
+                "cpu_percent_delta": cpu_delta,
             }
 
     def get_system_metrics(self):
@@ -350,3 +354,22 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
+
+
+def _read_proc_stat():
+    """(user, nice, system, idle) jiffies from the first /proc/stat line, or None."""
+    try:
+        with open("/proc/stat") as f:
+            fields = f.readline().split()
+        return tuple(int(x) for x in fields[1:5])
+    except OSError:
+        return None
+
+
+def _cpu_percent_delta(start, end):
+    """CPU busy % between two _read_proc_stat snapshots; None when not computable."""
+    if start is None or end is None:
+        return None
+    busy = (end[0] + end[1] + end[2]) - (start[0] + start[1] + start[2])
+    total = sum(end) - sum(start)
+    return round(busy / total * 100, 1) if total > 0 else None
