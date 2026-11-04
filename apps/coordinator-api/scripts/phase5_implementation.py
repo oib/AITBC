@@ -491,7 +491,12 @@ class Phase5Implementation:
                     "accuracy": ">99%",
                     "throughput": "high",
                 },
-                "pricing": {"base_price": 0.05, "gpu_premium": 0.02, "unit": "execution", "volume_discounts": "available"},
+                "pricing": {
+                    "base_price": 0.05,
+                    "gpu_premium": 0.02,
+                    "unit": "execution",
+                    "volume_discounts": "available",
+                },  # not-money: demo/simulation value, not a live amount
                 "verification_status": "verified",
                 "developer": "AITBC_Labs",
                 "compliance": "enterprise_grade",
@@ -505,7 +510,11 @@ class Phase5Implementation:
                 "type": agent_type,
                 "gpu_accelerated": False,
                 "performance_metrics": {"execution_time": "<2s", "accuracy": ">95%", "throughput": "standard"},
-                "pricing": {"base_price": 0.01, "unit": "execution", "volume_discounts": "available"},
+                "pricing": {
+                    "base_price": 0.01,
+                    "unit": "execution",
+                    "volume_discounts": "available",
+                },  # not-money: demo/simulation value, not a live amount
                 "verification_status": "verified",
                 "developer": "AITBC_Labs",
                 "compliance": "standard",

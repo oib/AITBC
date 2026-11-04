@@ -102,7 +102,7 @@ class DualModeWalletAdapter:
         private_key = generate_ethereum_private_key()
         address = derive_ethereum_address(private_key)
 
-        wallet_data = {
+        wallet_data = {  # not-money: stub/demo response, not a live amount
             "name": wallet_name,
             "address": address,
             "balance": 0.0,
@@ -119,7 +119,7 @@ class DualModeWalletAdapter:
         _save_wallet(wallet_path, wallet_data, password if password else None)
 
         success(f"Created file wallet: {wallet_name}")
-        return {
+        return {  # not-money: stub/demo response, not a live amount
             "mode": "file",
             "wallet_name": wallet_name,
             "address": address,
@@ -197,7 +197,7 @@ class DualModeWalletAdapter:
                         wallet_data = json.load(f)
 
                     wallets.append(
-                        {
+                        {  # not-money: stub/demo response, not a live amount
                             "mode": "file",
                             "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_file.stem,
                             "address": wallet_data.get("address"),
@@ -259,7 +259,7 @@ class DualModeWalletAdapter:
             with open(wallet_path) as f:
                 wallet_data = json.load(f)
 
-            return {
+            return {  # not-money: stub/demo response, not a live amount
                 "mode": "file",
                 "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_name,
                 "address": wallet_data.get("address"),
@@ -300,7 +300,7 @@ class DualModeWalletAdapter:
         """Get wallet balance using file-based storage"""
         wallet_info = self._get_wallet_info_file(wallet_name)
         if wallet_info:
-            balance = wallet_info.get("balance", 0.0)
+            balance = wallet_info.get("balance", 0.0)  # not-money: stub/demo response, not a live amount
             if isinstance(balance, int | float | str):
                 # str() first: the value comes from JSON on disk, so Decimal(0.1) would
                 # capture the binary error that Decimal("0.1") does not.

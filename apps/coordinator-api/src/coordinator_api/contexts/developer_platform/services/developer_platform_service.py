@@ -349,7 +349,7 @@ class DeveloperPlatformService:
 
     async def get_staking_info(self, address: str) -> dict:
         """Get staking information for an address (both as staker and developer)"""
-        return {
+        return {  # not-money: demo/simulation value, not a live amount
             "address": address,
             "total_staked_as_staker": 1000.0,
             "total_staked_on_me": 5000.0,
@@ -360,7 +360,7 @@ class DeveloperPlatformService:
 
     async def unstake_tokens(self, staking_id: str, amount: Decimal) -> dict:
         """Unstake tokens from a developer"""
-        unstake_info = {
+        unstake_info = {  # not-money: demo/simulation value, not a live amount
             "staking_id": staking_id,
             "amount_unstaked": str(amount),
             "rewards_earned": 25.5,
@@ -372,7 +372,7 @@ class DeveloperPlatformService:
 
     async def get_rewards(self, address: str) -> dict:
         """Get reward information for an address"""
-        return {
+        return {  # not-money: demo/simulation value, not a live amount
             "address": address,
             "pending_rewards": 45.75,
             "claimed_rewards": 250.25,

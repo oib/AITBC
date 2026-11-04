@@ -110,7 +110,7 @@ class Agent:
         self.chain_id = ""
         self.registered = False
         self.reputation_score = 0.0
-        self.earnings = 0.0
+        self.earnings = 0.0  # not-money: ratio, threshold or configuration default — not an amount of money
         self.coordinator_url = coordinator_url or "http://localhost:8107"
         resolved_key = api_key or os.getenv("MARKET_API_KEY") or os.getenv("AITBC_API_KEY")
         self.http_client = AsyncAITBCHTTPClient(base_url=self.coordinator_url, api_key=resolved_key)

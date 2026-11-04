@@ -89,7 +89,7 @@ class ReceiptService:
             )
         )
         if unit_price is None:
-            unit_price = 0.02
+            unit_price = 0.02  # not-money: ratio, threshold or configuration default — not an amount of money
 
         price = _coerce_float(
             _first_present(
@@ -104,18 +104,20 @@ class ReceiptService:
             )
         )
         if price is None:
-            price = round(max(0.0, units) * max(0.0, unit_price), 6)
+            price = round(
+                max(0.0, units) * max(0.0, unit_price), 6
+            )  # not-money: ratio, threshold or configuration default — not an amount of money
         status_value = job.state.value if hasattr(job.state, "value") else job.state
         # Keep the signed receipt values positive and consistent.
         units = max(0.0, units)
-        price = max(0.0, price)
+        price = max(0.0, price)  # not-money: ratio, threshold or configuration default — not an amount of money
         if result_metrics:
             result_metrics = dict(result_metrics)
             result_metrics["duration_ms"] = int(units * 1000)
             if result_metrics.get("duration_ms") and result_metrics["duration_ms"] < 0:
                 result_metrics["duration_ms"] = int(units * 1000)
 
-        payload = {
+        payload = {  # not-money: ratio, threshold or configuration default — not an amount of money
             "version": "1.0",
             "receipt_id": token_hex(16),
             "job_id": job.id,

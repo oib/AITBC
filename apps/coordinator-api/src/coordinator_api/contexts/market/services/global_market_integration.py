@@ -545,7 +545,11 @@ class GlobalMarketIntegrationService:
     ) -> dict[str, Any]:
         """Calculate optimized pricing based on strategy"""
         try:
-            optimized_pricing = {"regional_pricing": {}, "cross_chain_pricing": {}, "price_improvement": 0.0}
+            optimized_pricing = {
+                "regional_pricing": {},
+                "cross_chain_pricing": {},
+                "price_improvement": 0.0,
+            }  # not-money: ratio, threshold or configuration default — not an amount of money
             base_price = offer.base_price
             if strategy == "balanced":
                 for region in offer.regions_available:
@@ -569,14 +573,22 @@ class GlobalMarketIntegrationService:
                     optimized_pricing["regional_pricing"][region] = base_price * Decimal("0.9")  # type: ignore[index]
                 for chain_id in offer.supported_chains:
                     optimized_pricing["cross_chain_pricing"][chain_id] = base_price * Decimal("0.85")  # type: ignore[index]
-                optimized_pricing["price_improvement"] = -0.1
+                optimized_pricing[
+                    "price_improvement"
+                ] = -0.1  # not-money: ratio, threshold or configuration default — not an amount of money
             elif strategy == "premium":
                 for region in offer.regions_available:
                     optimized_pricing["regional_pricing"][region] = base_price * Decimal("1.15")  # type: ignore[index]
                 for chain_id in offer.supported_chains:
                     optimized_pricing["cross_chain_pricing"][chain_id] = base_price * Decimal("1.1")  # type: ignore[index]
-                optimized_pricing["price_improvement"] = 0.1
+                optimized_pricing["price_improvement"] = (
+                    0.1  # not-money: ratio, threshold or configuration default — not an amount of money
+                )
             return optimized_pricing
         except Exception as e:
             logger.error("Error calculating optimized pricing: %s", e)
-            return {"regional_pricing": {}, "cross_chain_pricing": {}, "price_improvement": 0.0}
+            return {
+                "regional_pricing": {},
+                "cross_chain_pricing": {},
+                "price_improvement": 0.0,
+            }  # not-money: ratio, threshold or configuration default — not an amount of money

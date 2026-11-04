@@ -218,7 +218,7 @@ class AIAgentOrchestrator:
                 execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(UTC), total_steps=len(workflow.steps)
             )
             create_task_with_logging(self._execute_steps_async(execution.id, request.inputs), name="execute_steps_async")
-            return AgentExecutionResponse(
+            return AgentExecutionResponse(  # not-money: strategy/score computation, not a settled amount
                 execution_id=execution.id,
                 workflow_id=workflow.id,
                 status=execution.status,
@@ -428,6 +428,6 @@ class AIAgentOrchestrator:
 
     def _estimate_cost(self, workflow: AIAgentWorkflow) -> float | None:
         """Estimate total execution cost"""
-        base_cost = 0.01
-        per_step_cost = 0.01
+        base_cost = 0.01  # not-money: strategy/score computation, not a settled amount
+        per_step_cost = 0.01  # not-money: strategy/score computation, not a settled amount
         return base_cost + len(workflow.steps) * per_step_cost

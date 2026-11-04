@@ -82,7 +82,7 @@ class AdvancedReinforcementLearningEngine:
             "entropy_losses": [],
         }
         for episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             states, actions, rewards, dones, old_log_probs, values = ([], [], [], [], [], [])
             for step in range(config.max_steps_per_episode):
                 state = self.get_state_from_data(training_data[step % len(training_data)])
@@ -157,7 +157,7 @@ class AdvancedReinforcementLearningEngine:
             "alpha_values": [],
         }
         for episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             for step in range(config.max_steps_per_episode):
                 state = self.get_state_from_data(training_data[step % len(training_data)])
                 state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -191,7 +191,7 @@ class AdvancedReinforcementLearningEngine:
         optim.Adam(agent.parameters(), lr=config.learning_rate)
         training_history: dict[str, list[float]] = {"episode_rewards": [], "losses": [], "q_values": []}
         for episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             for step in range(config.max_steps_per_episode):
                 state = self.get_state_from_data(training_data[step % len(training_data)])
                 state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -320,10 +320,10 @@ class AdvancedReinforcementLearningEngine:
         agent = await self.load_trained_agent(agent_id, algorithm)
         if agent is None:
             return {"error": "Agent not found"}  # type: ignore[dict-item]
-        total_reward = 0.0
+        total_reward = 0.0  # not-money: RL reward signal, not currency
         episode_rewards = []
         for _episode in range(10):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             for step in range(len(test_data)):
                 state = self.get_state_from_data(test_data[step])
                 action = await self.get_agent_action(agent, state, algorithm)
@@ -430,7 +430,7 @@ class AdvancedReinforcementLearningEngine:
         reward_history = []
         success_rate_history = []
         for _episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             episode_success = 0.0
             for _step in range(config.max_steps_per_episode):
                 state = self.get_random_state(config.state_space)
@@ -467,7 +467,7 @@ class AdvancedReinforcementLearningEngine:
         epsilon_decay = 0.995
         epsilon = epsilon_start
         for _episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             episode_success = 0.0
             for _step in range(config.max_steps_per_episode):
                 state = self.get_random_state(config.state_space)
@@ -504,7 +504,7 @@ class AdvancedReinforcementLearningEngine:
         reward_history = []
         success_rate_history = []
         for _episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             episode_success = 0.0
             for _step in range(config.max_steps_per_episode):
                 state = self.get_random_state(config.state_space)
@@ -537,7 +537,7 @@ class AdvancedReinforcementLearningEngine:
         reward_history = []
         success_rate_history = []
         for _episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             episode_success = 0.0
             for _step in range(config.max_steps_per_episode):
                 state = self.get_random_state(config.state_space)
@@ -570,7 +570,7 @@ class AdvancedReinforcementLearningEngine:
         reward_history = []
         success_rate_history = []
         for _episode in range(config.max_episodes):
-            episode_reward = 0.0
+            episode_reward = 0.0  # not-money: RL reward signal, not currency
             episode_success = 0.0
             for _step in range(config.max_steps_per_episode):
                 state = self.get_random_state(config.state_space)

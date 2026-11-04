@@ -201,8 +201,10 @@ def _simulated_orderbook_transactions(pair: str, limit: int) -> list[dict[str, A
     transactions = []
     for i in range(1, limit + 1):
         ask_seed = ("exchange", "orderbook", pair, "ask", str(i))
-        ask_price = round(base * (1 + i * 0.005), 8)
-        ask_amount = _hash_float(ask_seed + ("amount",), 10.0, 1000.0, 4)
+        ask_price = round(base * (1 + i * 0.005), 8)  # not-money: demo/simulation value, not a live amount
+        ask_amount = _hash_float(
+            ask_seed + ("amount",), 10.0, 1000.0, 4
+        )  # not-money: demo/simulation value, not a live amount
         ask_hash = hashlib.md5(":".join(ask_seed).encode(), usedforsecurity=False).hexdigest()
         transactions.append(
             {
@@ -219,8 +221,10 @@ def _simulated_orderbook_transactions(pair: str, limit: int) -> list[dict[str, A
         )
 
         bid_seed = ("exchange", "orderbook", pair, "bid", str(i))
-        bid_price = round(base * (1 - i * 0.005), 8)
-        bid_amount = _hash_float(bid_seed + ("amount",), 10.0, 1000.0, 4)
+        bid_price = round(base * (1 - i * 0.005), 8)  # not-money: demo/simulation value, not a live amount
+        bid_amount = _hash_float(
+            bid_seed + ("amount",), 10.0, 1000.0, 4
+        )  # not-money: demo/simulation value, not a live amount
         bid_hash = hashlib.md5(":".join(bid_seed).encode(), usedforsecurity=False).hexdigest()
         transactions.append(
             {
@@ -244,9 +248,11 @@ def _simulated_orders_for_pair(pair: str, count: int) -> list[dict[str, Any]]:
     for i in range(1, count + 1):
         side = "sell" if i % 2 == 0 else "buy"
         seed = ("exchange", "rates", pair, side, str(i))
-        price = round(base * (1 + (i * 0.005) * (1 if side == "sell" else -1)), 8)
+        price = round(
+            base * (1 + (i * 0.005) * (1 if side == "sell" else -1)), 8
+        )  # not-money: demo/simulation value, not a live amount
         order_hash = hashlib.md5(":".join(seed).encode(), usedforsecurity=False).hexdigest()
-        order = {
+        order = {  # not-money: demo/simulation value, not a live amount
             "side": side,
             "amount": _hash_float(seed + ("amount",), 10.0, 1000.0, 4),
             "user_id": order_hash[:32],
@@ -273,9 +279,11 @@ def _simulated_order_list(user: str | None, status: str | None, pair: str | None
         for i in range(1, 6):
             side = "sell" if i % 2 == 0 else "buy"
             seed = ("exchange", "orders", user or "any", status or "any", p, str(i))
-            price = round(base * (1 + (i * 0.005) * (1 if side == "sell" else -1)), 8)
+            price = round(
+                base * (1 + (i * 0.005) * (1 if side == "sell" else -1)), 8
+            )  # not-money: demo/simulation value, not a live amount
             order_hash = hashlib.md5(":".join(seed).encode(), usedforsecurity=False).hexdigest()
-            order = {
+            order = {  # not-money: demo/simulation value, not a live amount
                 "order_id": f"sim_{side}_{i:04d}_{order_hash[:8]}",
                 "pair": p,
                 "side": side,

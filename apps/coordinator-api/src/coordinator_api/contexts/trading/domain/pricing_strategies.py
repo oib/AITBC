@@ -621,7 +621,7 @@ class StrategyOptimizer:
             condition_eval = condition
 
             # Common performance metrics
-            metrics = {
+            metrics = {  # not-money: strategy/score computation, not a settled amount
                 "revenue_growth": performance_data.get("revenue_growth", 0),
                 "price_elasticity": performance_data.get("price_elasticity", 0.5),
                 "profit_margin": performance_data.get("profit_margin", 0.2),

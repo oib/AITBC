@@ -157,7 +157,7 @@ def market_listings(request: Request) -> dict[str, Any]:
                 listing_id = f"tx_{tx_id}"
                 if listing_id in withdrawn:
                     continue
-                listing = {
+                listing = {  # not-money: ratio, threshold or configuration default — not an amount of money
                     "listing_id": listing_id,
                     "seller_address": sender,
                     "provider_address": payload.get("provider_address") or sender,

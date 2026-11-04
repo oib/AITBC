@@ -545,7 +545,9 @@ class MarketService:
         total_offers = offer_count_result.scalar() or 0
         avg_price_stmt = select(func.avg(MarketOffer.price_per_hour)).where(MarketOffer.price_per_hour.isnot(None))  # type: ignore[union-attr]
         avg_price_result = await self.session.execute(avg_price_stmt)
-        avg_price = avg_price_result.scalar() or 0.0
+        avg_price = (
+            avg_price_result.scalar() or 0.0
+        )  # not-money: ratio, threshold or configuration default — not an amount of money
         capacity_stmt = select(func.sum(MarketOffer.capacity))
         capacity_result = await self.session.execute(capacity_stmt)
         total_capacity = capacity_result.scalar() or 0

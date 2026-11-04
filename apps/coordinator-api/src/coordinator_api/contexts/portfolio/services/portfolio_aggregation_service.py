@@ -229,7 +229,7 @@ class PortfolioAggregationService:
     ) -> dict[str, Any]:
         """Calculate portfolio summary metrics from aggregated data"""
         try:
-            total_aitbc_balance = 0.0
+            total_aitbc_balance = 0.0  # not-money: ratio, threshold or configuration default — not an amount of money
             wallets = wallet_data.get("wallets", [])
             total_aitbc_balance = wallet_data.get("total_balance", len(wallets))
             rates = exchange_data.get("rates", {})

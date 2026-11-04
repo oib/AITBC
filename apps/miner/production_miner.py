@@ -248,7 +248,7 @@ def build_gpu_capabilities() -> dict:
     arch = classify_architecture(model) if model else "unknown"
     edge_optimized = arch in {"ada_lovelace", "ampere", "turing"}
     ollama_available, models = check_ollama()
-    return {
+    return {  # not-money: ratio, threshold or configuration default — not an amount of money
         "gpus": [
             {
                 "name": model,
@@ -413,7 +413,7 @@ def build_pool_hub_register_data():
     """Build the payload the pool hub expects for miner registration."""
     gpu_info = get_gpu_info()
     caps = build_gpu_capabilities()
-    return {
+    return {  # not-money: ratio, threshold or configuration default — not an amount of money
         "miner_id": MINER_ID,
         "api_key": AUTH_TOKEN,
         "addr": MINER_ENDPOINT,

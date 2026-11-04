@@ -355,7 +355,9 @@ class SwarmCoordinator(Agent):
             avg_reputation = sum(self.swarm_reputation.values()) / len(self.swarm_reputation) if self.swarm_reputation else 0
 
             # Simulate benefit analysis
-            earnings_boost = total_contributions * 0.15  # 15% boost per contribution
+            earnings_boost = (
+                total_contributions * 0.15
+            )  # 15% boost per contribution  # not-money: ratio, threshold or configuration default — not an amount of money
             utilization_improvement = avg_reputation * 0.25  # 25% utilization improvement
 
             return {

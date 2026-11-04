@@ -57,7 +57,7 @@ class RealTimeLearningSystem:
     def record_experience(self, experience_data: dict[str, Any]) -> dict[str, Any]:
         """Record a new learning experience"""
         try:
-            experience = LearningExperience(
+            experience = LearningExperience(  # not-money: RL reward signal, not currency
                 experience_id=str(uuid.uuid4()),
                 timestamp=datetime.now(UTC),
                 context=experience_data.get("context", {}),

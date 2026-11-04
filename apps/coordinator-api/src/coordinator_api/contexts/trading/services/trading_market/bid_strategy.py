@@ -181,7 +181,7 @@ class BidStrategyEngine:
 
     async def update_agent_preferences(self, agent_id: str, preferences: dict[str, Any]) -> None:
         """Update agent bidding preferences"""
-        self.agent_preferences[agent_id] = {
+        self.agent_preferences[agent_id] = {  # not-money: strategy/score computation, not a settled amount
             "preferred_strategy": preferences.get("preferred_strategy", "balanced"),
             "risk_tolerance": preferences.get("risk_tolerance", 0.5),
             "cost_sensitivity": preferences.get("cost_sensitivity", 0.5),
@@ -329,7 +329,9 @@ class BidStrategyEngine:
     ) -> float:
         """Calculate probability of bid success"""
         base_prob = 1.0 - market_conditions.demand_level
-        price_competitiveness = float(market_conditions.average_hourly_price) / max(float(bid_price), 0.001)
+        price_competitiveness = float(market_conditions.average_hourly_price) / max(
+            float(bid_price), 0.001
+        )  # not-money: strategy/score computation, not a settled amount
         price_factor = min(1.0, price_competitiveness)
         urgency_factor = 1.0
         if task_requirements.urgency == UrgencyLevel.CRITICAL:
@@ -396,7 +398,7 @@ class BidStrategyEngine:
         price_efficiency = float(market_price) / max(float(bid_price), 0.001)
         duration_efficiency = min(1.2, 1.0 + (task_requirements.estimated_duration - 1) * 0.05)
         compute_efficiency = task_requirements.compute_intensity
-        budget_utilization = (
+        budget_utilization = (  # not-money: strategy/score computation, not a settled amount
             float(bid_price) * task_requirements.estimated_duration / max(float(task_requirements.max_budget), 0.001)
         )
         budget_efficiency = 1.0 - abs(budget_utilization - 0.8)
@@ -478,8 +480,12 @@ class BidStrategyEngine:
         async with self._lock:
             if len(self.market_history) < 2:
                 return "insufficient_data"
-            recent_prices = [float(c.average_hourly_price) for c in self.market_history[-24:]]
-            older_prices = [float(c.average_hourly_price) for c in self.market_history[-48:-24]]
+            recent_prices = [
+                float(c.average_hourly_price) for c in self.market_history[-24:]
+            ]  # not-money: strategy/score computation, not a settled amount
+            older_prices = [
+                float(c.average_hourly_price) for c in self.market_history[-48:-24]
+            ]  # not-money: strategy/score computation, not a settled amount
             if not older_prices:
                 return "insufficient_data"
             recent_avg = sum(recent_prices) / len(recent_prices)

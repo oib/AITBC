@@ -183,13 +183,22 @@ async def get_market_stats(session: Annotated[AsyncSession, Depends(get_session_
 @router.get("/v1/exchange/wallet/balance", dependencies=[Depends(require_trading_api_key)])
 def get_exchange_wallet_balance() -> dict[str, Any]:
     """Get Ethereum wallet balance (migrated from Coordinator API)."""
-    return {"balance": 0.0, "unconfirmed_balance": 0.0, "address": ETHEREUM_CONFIG["main_address"]}
+    return {
+        "balance": 0.0,
+        "unconfirmed_balance": 0.0,
+        "address": ETHEREUM_CONFIG["main_address"],
+    }  # not-money: stub/demo response, not a live amount
 
 
 @router.get("/v1/exchange/wallet/info", dependencies=[Depends(require_trading_api_key)])
 def get_exchange_wallet_info() -> dict[str, Any]:
     """Get comprehensive wallet information (migrated from Coordinator API)."""
-    return {"address": ETHEREUM_CONFIG["main_address"], "network": "testnet", "balance": 0.0, "transactions": []}
+    return {
+        "address": ETHEREUM_CONFIG["main_address"],
+        "network": "testnet",
+        "balance": 0.0,
+        "transactions": [],
+    }  # not-money: stub/demo response, not a live amount
 
 
 async def _monitor_payment(payment_id: str) -> None:

@@ -209,7 +209,7 @@ def get_tier_progress(
             next_tier = RewardTier.PLATINUM
         elif current_tier == RewardTier.PLATINUM:
             next_tier = RewardTier.DIAMOND
-        requirements_met = {
+        requirements_met = {  # not-money: ratio, threshold or configuration default — not an amount of money
             "minimum_trust_score": trust_score >= 400,
             "minimum_performance": profile.performance_score >= 3.0,
             "minimum_activity": profile.rewards_distributed >= 1,
