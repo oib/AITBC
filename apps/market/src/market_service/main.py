@@ -709,7 +709,7 @@ async def get_market_performance(
     return performance
 
 
-@app.post("/v1/market/dynamic-pricing")
+@app.post("/v1/market/dynamic-pricing", dependencies=[Depends(require_market_api_key)])
 async def calculate_dynamic_pricing(
     offer_id: str,
     current_demand: int,
@@ -782,7 +782,7 @@ def get_plugins(plugin_type: str | None = None, status: str = "approved") -> Any
     }
 
 
-@app.post("/v1/market/plugins")
+@app.post("/v1/market/plugins", dependencies=[Depends(require_market_api_key)])
 async def register_plugin(plugin_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
     """Register a new plugin"""
     try:
@@ -831,7 +831,7 @@ async def get_software_offer(plugin_id: str, svc: Annotated[MarketService, Depen
         raise
 
 
-@app.post("/v1/market/offer")
+@app.post("/v1/market/offer", dependencies=[Depends(require_market_api_key)])
 async def register_offer(service_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
     """Register or update a market offer"""
     try:
@@ -852,7 +852,7 @@ async def register_offer(service_data: dict[str, Any], svc: Annotated[MarketServ
         raise
 
 
-@app.delete("/v1/market/offer/{plugin_id}")
+@app.delete("/v1/market/offer/{plugin_id}", dependencies=[Depends(require_market_api_key)])
 async def unregister_offer(
     plugin_id: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
@@ -1107,7 +1107,7 @@ async def cancel_market_job(
         raise
 
 
-@app.post("/v1/market/jobs/{job_id}/pin-confirm")
+@app.post("/v1/market/jobs/{job_id}/pin-confirm", dependencies=[Depends(require_market_api_key)])
 async def confirm_market_job_pin(
     job_id: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
@@ -1252,7 +1252,7 @@ async def get_software_offer_health(plugin_id: str, svc: Annotated[MarketService
         raise
 
 
-@app.post("/v1/knowledge-graph")
+@app.post("/v1/knowledge-graph", dependencies=[Depends(require_market_api_key)])
 async def create_graph(graph_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
     """Create a new knowledge graph"""
     try:
@@ -1265,7 +1265,7 @@ async def create_graph(graph_data: dict[str, Any], svc: Annotated[MarketService,
         raise
 
 
-@app.post("/v1/knowledge-graph/{graph_id}/nodes")
+@app.post("/v1/knowledge-graph/{graph_id}/nodes", dependencies=[Depends(require_market_api_key)])
 async def add_node(
     graph_id: str, node_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]
 ) -> Any:
@@ -1281,7 +1281,7 @@ async def add_node(
         raise
 
 
-@app.post("/v1/knowledge-graph/{graph_id}/edges")
+@app.post("/v1/knowledge-graph/{graph_id}/edges", dependencies=[Depends(require_market_api_key)])
 async def add_edge(
     graph_id: str, edge_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]
 ) -> Any:
@@ -1317,7 +1317,7 @@ class RatingRequest(BaseModel):
     comment: str = ""
 
 
-@app.post("/v1/market/offer/{service_id}/rate")
+@app.post("/v1/market/offer/{service_id}/rate", dependencies=[Depends(require_market_api_key)])
 async def rate_service(
     service_id: str, rating_data: RatingRequest, svc: Annotated[MarketService, Depends(get_market_service)]
 ) -> Any:
@@ -1422,7 +1422,7 @@ async def get_unsynced_ratings(
         raise
 
 
-@app.post("/v1/market/ratings/sync")
+@app.post("/v1/market/ratings/sync", dependencies=[Depends(require_market_api_key)])
 async def sync_ratings(ratings: list[dict[str, Any]], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
     """Sync ratings from remote node"""
     try:
@@ -1434,7 +1434,7 @@ async def sync_ratings(ratings: list[dict[str, Any]], svc: Annotated[MarketServi
         raise
 
 
-@app.post("/v1/market/ratings/mark-synced")
+@app.post("/v1/market/ratings/mark-synced", dependencies=[Depends(require_market_api_key)])
 async def mark_ratings_synced(rating_ids: list[str], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
     """Mark ratings as synced to remote nodes"""
     try:
@@ -1552,7 +1552,7 @@ _MARKET_GOVERNANCE_PARAMETERS: dict[str, type] = {
 }
 
 
-@app.post("/v1/market/parameters/apply")
+@app.post("/v1/market/parameters/apply", dependencies=[Depends(require_market_api_key)])
 def apply_market_parameter(
     request: ParameterChangeRequest,
     authenticated: Annotated[dict[str, Any], Depends(require_market_api_key)],
@@ -1631,7 +1631,7 @@ class EdgeAdvertiseRequest(BaseModel):
     gpus: list[dict[str, Any]] = Field(default_factory=list, description="Raw GPU profiles from edge service")
 
 
-@app.post("/v1/market/edge-advertise")
+@app.post("/v1/market/edge-advertise", dependencies=[Depends(require_market_api_key)])
 async def edge_advertise(
     request: EdgeAdvertiseRequest, session: Annotated[AsyncSession, Depends(get_session)]
 ) -> dict[str, Any]:
