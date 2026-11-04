@@ -17,7 +17,7 @@ describe("resolveRpc", () => {
     }
   });
   it("refuses non-loopback and non-http(s)", () => {
-    for (const u of ["https://sepolia.infura.io/v3/x", "ftp://127.0.0.1", "http://127.0.0.1:8545@evil.example"]) {
+    for (const u of ["https://sepolia.infura.io/v3/x", "ftp://127.0.0.1", "http://127.0.0.1:8545@evil.example", "http://user:pw@127.0.0.1:8545", "http://user:pw@localhost:8545"]) {
       assert.throws(() => resolveRpc({ RPC_URL: u }), /refusing|invalid/);
     }
   });
