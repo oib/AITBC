@@ -45,7 +45,7 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 
     import secrets
 
-    multisig_data = {
+    multisig_data = {  # not-money: stub/demo response, not a live amount
         "wallet_id": name,
         "type": "multisig",
         "address": to_checksum_address(f"0x{secrets.token_hex(20)}"),

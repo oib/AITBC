@@ -131,9 +131,9 @@ class GlobalMarketService:
                 for region in regions:
                     if region.region_code == request.source_region:
                         regional_fees[region.region_code] = total_amount * 0.01
-            cross_chain_fee = 0.0
+            cross_chain_fee = Decimal("0")
             if request.source_chain and request.target_chain and (request.source_chain != request.target_chain):
-                cross_chain_fee = total_amount * 0.005
+                cross_chain_fee = total_amount * Decimal("0.005")
             transaction = GlobalMarketTransaction(
                 buyer_id=buyer_id,
                 seller_id=offer.agent_id,

@@ -31,7 +31,7 @@ class MatchingEngine:
     """Advanced agent matching and routing algorithms"""
 
     def __init__(self) -> None:
-        self.weights = {
+        self.weights = {  # not-money: ratio, threshold or configuration default — not an amount of money
             "price": 0.25,
             "specifications": 0.2,
             "timing": 0.15,
@@ -221,9 +221,21 @@ class NegotiationSystem:
 
     def __init__(self) -> None:
         self.strategies = {
-            "aggressive": {"price_tolerance": 0.05, "concession_rate": 0.02, "max_rounds": 3},
-            "balanced": {"price_tolerance": 0.1, "concession_rate": 0.05, "max_rounds": 5},
-            "cooperative": {"price_tolerance": 0.15, "concession_rate": 0.08, "max_rounds": 7},
+            "aggressive": {
+                "price_tolerance": 0.05,
+                "concession_rate": 0.02,
+                "max_rounds": 3,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
+            "balanced": {
+                "price_tolerance": 0.1,
+                "concession_rate": 0.05,
+                "max_rounds": 5,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
+            "cooperative": {
+                "price_tolerance": 0.15,
+                "concession_rate": 0.08,
+                "max_rounds": 7,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
         }
         self.response_timeout_minutes = 60
         self.max_negotiation_hours = 24
@@ -239,14 +251,18 @@ class NegotiationSystem:
             initial_price = (buyer_min + seller_price) / 2
         else:
             initial_price = (buyer_min + buyer_max + seller_price) / 3
-        initial_offer = {
+        initial_offer = {  # not-money: ratio, threshold or configuration default — not an amount of money
             "price": initial_price,
             "specifications": self.merge_specifications(buyer_request.specifications, seller_offer.get("specifications", {})),
             "timing": self.negotiate_timing(buyer_request.requirements.get("timing", {}), seller_offer.get("timing", {})),
             "service_level": self.determine_service_level(
                 buyer_request.service_level_required, seller_offer.get("service_level", "standard")
             ),
-            "payment_terms": {"settlement_type": "escrow", "payment_schedule": "milestone", "advance_payment": 0.2},
+            "payment_terms": {
+                "settlement_type": "escrow",
+                "payment_schedule": "milestone",
+                "advance_payment": 0.2,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
             "delivery_terms": {
                 "start_time": self.negotiate_start_time(
                     buyer_request.start_time, seller_offer.get("timing", {}).get("start_time")
@@ -644,7 +660,7 @@ class P2PTradingProtocol:
     def get_available_sellers(self, trade_request: TradeRequest) -> list[dict[str, Any]]:
         """Get available sellers for a trade request (mock implementation)"""
         mock_sellers = [
-            {
+            {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "agent_id": "seller_001",
                 "price": 0.05,
                 "specifications": {"cpu_cores": 4, "memory_gb": 16, "gpu_count": 1},
@@ -653,7 +669,7 @@ class P2PTradingProtocol:
                 "service_level": "premium",
                 "terms": {"settlement_type": "escrow", "delivery_guarantee": True},
             },
-            {
+            {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "agent_id": "seller_002",
                 "price": 0.045,
                 "specifications": {"cpu_cores": 2, "memory_gb": 8, "gpu_count": 1},

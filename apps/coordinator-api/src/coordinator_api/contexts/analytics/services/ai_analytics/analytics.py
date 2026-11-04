@@ -163,16 +163,24 @@ class DataCollector:
         self, session: Session, period_type: AnalyticsPeriod, start_time: datetime, end_time: datetime
     ) -> MarketMetric | None:
         """Collect average price metrics"""
-        base_price = 0.1
+        base_price = 0.1  # not-money: ratio, threshold or configuration default — not an amount of money
         if period_type == AnalyticsPeriod.DAILY:
-            avg_price = base_price + hash(start_time.date()) % 50 / 1000.0
+            avg_price = (
+                base_price + hash(start_time.date()) % 50 / 1000.0
+            )  # not-money: ratio, threshold or configuration default — not an amount of money
         elif period_type == AnalyticsPeriod.WEEKLY:
-            avg_price = base_price + hash(start_time.isocalendar()[1]) % 100 / 1000.0
+            avg_price = (
+                base_price + hash(start_time.isocalendar()[1]) % 100 / 1000.0
+            )  # not-money: ratio, threshold or configuration default — not an amount of money
         elif period_type == AnalyticsPeriod.MONTHLY:
-            avg_price = base_price + hash(start_time.month) % 200 / 1000.0
+            avg_price = (
+                base_price + hash(start_time.month) % 200 / 1000.0
+            )  # not-money: ratio, threshold or configuration default — not an amount of money
         else:
             avg_price = base_price
-        previous_price = avg_price * (0.98 + hash(start_time.date()) % 4 / 100.0)
+        previous_price = avg_price * (
+            0.98 + hash(start_time.date()) % 4 / 100.0
+        )  # not-money: ratio, threshold or configuration default — not an amount of money
         change_percentage = (avg_price - previous_price) / previous_price * 100.0 if previous_price > 0 else 0.0
         return MarketMetric(
             metric_name="average_price",

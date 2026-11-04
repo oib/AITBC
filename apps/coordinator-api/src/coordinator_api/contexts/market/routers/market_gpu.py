@@ -59,7 +59,7 @@ async def get_pricing_engine() -> DynamicPricingEngine:
     global pricing_engine
     if pricing_engine is None:
         pricing_engine = DynamicPricingEngine(
-            {"min_price": 0.001, "max_price": 1000.0, "update_interval": 300, "forecast_horizon": 72}
+            {"min_price": Decimal("0.001"), "max_price": Decimal("1000"), "update_interval": 300, "forecast_horizon": 72}
         )
         await pricing_engine.initialize()
     return pricing_engine

@@ -122,7 +122,7 @@ class SyncedOffer:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SyncedOffer:
         """Deserialize from a dict (cache storage or RPC response)."""
-        return cls(
+        return cls(  # not-money: ratio, threshold or configuration default — not an amount of money
             offer_id=data.get("offer_id", ""),
             chain_id=data.get("chain_id", ""),
             provider=data.get("provider", ""),

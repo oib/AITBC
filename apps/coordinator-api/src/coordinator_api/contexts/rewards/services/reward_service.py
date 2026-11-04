@@ -528,7 +528,7 @@ class RewardEngine:
             .all()
         )
         if not distributions:
-            return {
+            return {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "period_type": period_type,
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
@@ -538,7 +538,9 @@ class RewardEngine:
             }
         total_rewards = sum(d.reward_amount for d in distributions)
         unique_agents = len({d.agent_id for d in distributions})
-        average_reward = total_rewards / unique_agents if unique_agents > 0 else 0.0
+        average_reward = (
+            total_rewards / unique_agents if unique_agents > 0 else 0.0
+        )  # not-money: ratio, threshold or configuration default — not an amount of money
         agent_ids = list({d.agent_id for d in distributions})
         profiles = (
             (

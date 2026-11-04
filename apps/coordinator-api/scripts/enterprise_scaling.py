@@ -444,10 +444,18 @@ class AgentMarketDevelopment:
         """Develop pricing models"""
         pricing_models = {
             "models": [
-                {"name": "pay_per_use", "unit": "execution", "base_price": 0.01},
+                {
+                    "name": "pay_per_use",
+                    "unit": "execution",
+                    "base_price": 0.01,
+                },  # not-money: demo/simulation value, not a live amount
                 {"name": "subscription", "unit": "month", "base_price": 100},
                 {"name": "tiered", "tiers": ["basic", "standard", "premium"]},
-                {"name": "gpu_premium", "unit": "gpu_hour", "base_price": 0.5},
+                {
+                    "name": "gpu_premium",
+                    "unit": "gpu_hour",
+                    "base_price": 0.5,
+                },  # not-money: demo/simulation value, not a live amount
             ],
             "payment_methods": ["AITBC_tokens", "cryptocurrency", "fiat"],
             "billing_cycle": "monthly",
@@ -505,7 +513,11 @@ class AgentMarketDevelopment:
                 "gpu_accelerated": True,
                 "gpu_requirements": {"cuda_version": "12.0", "min_memory": "8GB", "compute_capability": "7.5"},
                 "performance_metrics": {"speedup_factor": "165.54x", "execution_time": "<1s", "accuracy": ">95%"},
-                "pricing": {"base_price": 0.05, "gpu_premium": 0.02, "unit": "execution"},
+                "pricing": {
+                    "base_price": 0.05,
+                    "gpu_premium": 0.02,
+                    "unit": "execution",
+                },  # not-money: demo/simulation value, not a live amount
                 "verification_status": "verified",
                 "developer": "AITBC_Labs",
             }

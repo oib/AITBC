@@ -57,7 +57,7 @@ def blockchain(blocks, transactions, delay, output, seed):
 
         # Generate transactions
         for _tx_num in range(transactions):
-            tx = {
+            tx = {  # not-money: demo/simulation value, not a live amount
                 "tx_id": f"0x{rng.getrandbits(256):064x}",
                 "from_address": f"ait{rng.getrandbits(160):040x}",
                 "to_address": f"ait{rng.getrandbits(160):040x}",
@@ -119,7 +119,7 @@ def wallets(wallets, balance, transactions, amount_range, seed):
     try:
         min_amount, max_amount = map(float, amount_range.split("-"))
     except ValueError:
-        min_amount, max_amount = 1.0, 100.0
+        min_amount, max_amount = 1.0, 100.0  # not-money: demo/simulation value, not a live amount
 
     # Create wallets
     created_wallets = []
@@ -184,7 +184,7 @@ def price(price, volatility, timesteps, delay, seed):
         current_price = current_price * (1 + change_percent)
 
         # Ensure price doesn't go negative
-        current_price = max(current_price, 0.01)
+        current_price = max(current_price, 0.01)  # not-money: demo/simulation value, not a live amount
 
         prices.append(current_price)
 
