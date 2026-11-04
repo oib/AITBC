@@ -135,10 +135,13 @@ class GPUBuyRequest(BaseModel):
     evm_agreement_id: int | None = None
     evm_escrow_id: int | None = None
     settlement_route: str | None = None
+    buyer_agent_id: str | None = Field(default=None, max_length=128)
+    provider_agent_id: str | None = Field(default=None, max_length=128)
 
 
 class GPUQuoteRequest(BaseModel):
     buyer_id: str
+    buyer_agent_id: str | None = Field(default=None, max_length=128)
     gpu_id: str
     duration_hours: float = Field(default=1.0, ge=0.0167, le=8760)
     gpu_count: int = Field(default=1, ge=1, le=10000)
@@ -206,6 +209,26 @@ def _get_energy_oracle(session: Session) -> NativeEnergyOracle | EVMEnergyOracle
         return None
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=rpc_url, network=str(settings.energy_pricing_chain_id)))
     return EVMEnergyOracle(rpc, contract, settings.energy_pricing_chain_id)
+
+
+def _quote_buyer_payment_address(session: Session, request: GPUQuoteRequest) -> str:
+    """Payment address embedded in the energy quote (may differ from client buyer_id)."""
+    from ...payments.services.escrow_agent_binding import (
+        default_resolve_chain_id,
+        resolve_agent_payment_address_sync,
+    )
+
+    if not request.buyer_agent_id:
+        return request.buyer_id
+    resolved = resolve_agent_payment_address_sync(session, request.buyer_agent_id, default_resolve_chain_id())
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    if request.buyer_id.startswith("0x") and canonical_address(request.buyer_id) != resolved:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"buyer_id does not match resolved address for agent {request.buyer_agent_id}",
+        )
+    return resolved
 
 
 def _build_energy_quote(
@@ -469,7 +492,7 @@ def quote_gpu(
     quote_dict = _build_energy_quote(
         session=session,
         gpu=gpu,
-        buyer=request.buyer_id,
+        buyer=_quote_buyer_payment_address(session, request),
         job_id=job.id,
         duration_hours=request.duration_hours,
         gpu_count=request.gpu_count,
@@ -715,7 +738,20 @@ async def buy_gpu(
                 evm_tx_hash=request.evm_tx_hash,
                 evm_agreement_id=request.evm_agreement_id,
                 evm_escrow_id=request.evm_escrow_id,
+                buyer_agent_id=request.buyer_agent_id,
+                provider_agent_id=request.provider_agent_id,
             )
+            from ...payments.services.escrow_agent_binding import assert_agent_address_binding, default_resolve_chain_id
+
+            resolve_chain = default_resolve_chain_id()
+            if request.buyer_agent_id and request.buyer_address:
+                await assert_agent_address_binding(
+                    session, request.buyer_agent_id, request.buyer_address, role="buyer", chain_id=resolve_chain
+                )
+            if request.provider_agent_id and request.provider_address:
+                await assert_agent_address_binding(
+                    session, request.provider_agent_id, request.provider_address, role="provider", chain_id=resolve_chain
+                )
             # V23-46: client_id was missing entirely (TypeError). The job above was
             # created with client_id=request.buyer_id, which is what the ownership
             # check compares against.

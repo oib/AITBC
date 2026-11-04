@@ -15,7 +15,8 @@ aitbc market gpu quote [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--gpu-id` | text | — | yes | GPU registry ID |
-| `--buyer-id` | text | — | yes | Buyer client ID (native rail: the funding wallet address 0x...) |
+| `--buyer-id` | text | — | yes | Buyer client ID (native rail: funding wallet 0x…, or auth client id with --buyer-agent-id) |
+| `--buyer-agent-id` | text | — | no | Buyer agent id; quote buyer field resolved via coordinator |
 | `--duration-hours` | float | `1.0` | no | Rental duration in hours |
 | `--gpu-count` | integer | `1` | no | Number of GPUs |
 | `--max-ait` | float | — | no | Maximum AIT buyer cap |

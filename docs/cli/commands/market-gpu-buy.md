@@ -15,7 +15,9 @@ aitbc market gpu buy [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--gpu-id` | text | — | yes | GPU registry ID |
-| `--buyer-id` | text | — | yes | Buyer client ID from the quote (native rail: the funding wallet address 0x...) |
+| `--buyer-id` | text | — | yes | Buyer client ID from the quote (must match authenticated client on purchase) |
+| `--buyer-agent-id` | text | — | no | Buyer agent id; must match signing wallet via resolve API |
+| `--provider-agent-id` | text | — | no | Provider agent id; must match quote provider via resolve API |
 | `--job-id` | text | — | yes | Job ID from the quote response |
 | `--duration-hours` | float | — | yes | Rental duration in hours |
 | `--settlement` | choice | `native` | no | Settlement rail |
