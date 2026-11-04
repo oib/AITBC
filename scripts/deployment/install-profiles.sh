@@ -138,7 +138,9 @@ if [ -f "$REPO_ROOT/requirements-test.txt" ]; then
         # Not usable as constraints verbatim -- the export carries extras
         # (coverage[toml]) and pip rejects those in a constraints file.
         TEST_CONSTRAINTS="$(mktemp)"
-        trap 'rm -f "$TEST_CONSTRAINTS"' EXIT
+        # One EXIT trap: clean the temp file AND still print the agent
+        # follow-up (a bare rm-only trap here used to replace it).
+        trap 'rm -f "$TEST_CONSTRAINTS"; declare -F agent_print_followup >/dev/null && agent_print_followup || true' EXIT
         "$REPO_ROOT/scripts/utils/dev-constraints.sh" > "$TEST_CONSTRAINTS" || {
             error "failed to build constraints from requirements-dev.txt"
         }
