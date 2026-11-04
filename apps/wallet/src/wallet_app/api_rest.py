@@ -407,6 +407,12 @@ def send_transaction(
 
     except HTTPException:
         raise
+    except ValueError as exc:
+        error_msg = str(exc)
+        logger.warning("Transaction rejected", extra={"wallet_id": wallet_id, "error": error_msg})
+        if idempotency_key and operation_attempt:
+            get_operations_ledger().fail(idempotency_key, operation_attempt, error_msg, terminal=False)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg) from exc
     except Exception as exc:
         logger.error("Unexpected error in transaction submission", extra={"wallet_id": wallet_id, "error": str(exc)})
         if idempotency_key and operation_attempt:
