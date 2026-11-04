@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# Canonical service names (replaces a list of retired unit names).
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/../service-management/lib/services.sh"
 
 # ssh target for the blockchain container on node1. This used to be a private
 # ~/.ssh/config alias, so the script only worked on one operator's workstation.
@@ -80,10 +83,10 @@ is_service_running_in_container() {
     local service="$2"
     case $container in
         "aitbc")
-            ssh "$NODE1_CONTAINER_SSH" 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
+            ssh "$NODE1_CONTAINER_SSH" "systemctl is-active --quiet '$service' 2>/dev/null" 2>/dev/null
             ;;
         "${NODE1_HOST}")
-            ssh ${NODE1_CONTAINER_SSH} 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
+            ssh ${NODE1_CONTAINER_SSH} "systemctl is-active --quiet '$service' 2>/dev/null" 2>/dev/null
             ;;
         *)
             return 1
@@ -226,7 +229,7 @@ fi
 print_status "Container Services Status:"
 
 # Define services to check in containers
-container_services=("aitbc-coordinator-api" "aitbc-wallet-daemon" "aitbc-blockchain-node-1" "aitbc-blockchain-node-2" "aitbc-exchange-api" "aitbc-explorer")
+container_services=("${AITBC_SERVICES[@]}")
 
 for container in "${containers[@]}"; do
     container_ip="${container_ips[$container]}"
@@ -388,10 +391,10 @@ echo "  - Stop all services: ./scripts/stop-aitbc-dev.sh"
 echo ""
 print_status "Debug specific issues:"
 echo "  - Debug aitbc coordinator: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-coordinator-api'"
-echo "  - Debug aitbc wallet: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-wallet-daemon'"
-echo "  - Debug aitbc blockchain 1: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-blockchain-node-1'"
-echo "  - Debug local blockchain 2: systemctl status aitbc-blockchain-node-2"
-echo "  - Debug aitbc exchange: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-exchange-api'"
+echo "  - Debug aitbc wallet: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-wallet'"
+echo "  - Debug aitbc blockchain: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-blockchain-p2p'"
+echo "  - Debug aitbc rpc: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-blockchain-rpc'"
+echo "  - Debug aitbc exchange: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-exchange'"
 echo ""
 print_status "Service URLs:"
 echo "  - API Gateway:     http://localhost:8201"
