@@ -21,6 +21,7 @@ from ...config import _resolve_market_api_key, get_config
 from ...utils.wallet_secret import wallet_password_options
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
+from ...utils.agent_identity_resolve import resolve_escrow_parties
 from ...utils.chain_id import resolve_chain_id
 from ...utils.energy_quote import (
     assert_configured_native_chain,
@@ -90,7 +91,12 @@ def gpu():
 
 @gpu.command()
 @click.option("--gpu-id", required=True, help="GPU registry ID")
-@click.option("--buyer-id", required=True, help="Buyer client ID (native rail: the funding wallet address 0x...)")
+@click.option(
+    "--buyer-id",
+    required=True,
+    help="Buyer client ID (native rail: funding wallet 0x…, or auth client id with --buyer-agent-id)",
+)
+@click.option("--buyer-agent-id", default=None, help="Buyer agent id; quote buyer field resolved via coordinator")
 @click.option("--duration-hours", type=float, default=1.0, help="Rental duration in hours")
 @click.option("--gpu-count", type=int, default=1, help="Number of GPUs")
 @click.option("--max-ait", type=float, default=None, help="Maximum AIT buyer cap")
@@ -102,20 +108,14 @@ def gpu():
 )
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
-def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement, json_output):
+def quote(ctx, gpu_id, buyer_id, buyer_agent_id, duration_hours, gpu_count, max_ait, settlement, json_output):
     """Request an operator-signed energy quote for a GPU rental."""
-    # On the native rail the coordinator copies --buyer-id into the signed
-    # quote's buyer field verbatim, and `market gpu buy` can only fund a quote
-    # whose buyer equals the signing wallet — a non-address client id mints a
-    # quote that can never be bought. Refuse it before a dead quote and its
-    # bound job are created; the buyer cap is the same either way, so pass the
-    # funding wallet even for a price-only quote.
-    if settlement == "native" and not is_address(buyer_id):
+    if settlement == "native" and not buyer_agent_id and not is_address(buyer_id):
         error(
             f"--buyer-id {buyer_id!r} is not a wallet address. On the native rail the quote's "
             "buyer field is set from --buyer-id and `aitbc market gpu buy` can only fund it when it "
             "equals the signing wallet — a non-address buyer id produces an unfundable quote. "
-            "Pass the buyer wallet address (0x...) as --buyer-id"
+            "Pass the buyer wallet address (0x...) as --buyer-id, or pass --buyer-agent-id to resolve it"
         )
         sys.exit(1)
     client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
@@ -126,6 +126,8 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
         "gpu_count": gpu_count,
         "settlement_route": settlement,
     }
+    if buyer_agent_id:
+        payload["buyer_agent_id"] = buyer_agent_id
     if max_ait is not None:
         payload["buyer_max_amount"] = str(max_ait)
     try:
@@ -173,9 +175,9 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
 
 @gpu.command()
 @click.option("--gpu-id", required=True, help="GPU registry ID")
-@click.option(
-    "--buyer-id", required=True, help="Buyer client ID from the quote (native rail: the funding wallet address 0x...)"
-)
+@click.option("--buyer-id", required=True, help="Buyer client ID from the quote (must match authenticated client on purchase)")
+@click.option("--buyer-agent-id", default=None, help="Buyer agent id; must match signing wallet via resolve API")
+@click.option("--provider-agent-id", default=None, help="Provider agent id; must match quote provider via resolve API")
 @click.option("--job-id", required=True, help="Job ID from the quote response")
 @click.option("--duration-hours", type=float, required=True, help="Rental duration in hours")
 @click.option(
@@ -196,6 +198,8 @@ def buy(
     ctx,
     gpu_id,
     buyer_id,
+    buyer_agent_id,
+    provider_agent_id,
     job_id,
     duration_hours,
     settlement,
@@ -271,10 +275,26 @@ def buy(
         error(f"Wallet address {buyer_address} does not match quote buyer {parsed.buyer}")
         sys.exit(1)
 
+    if buyer_agent_id or provider_agent_id:
+        bind_chain = int(signing_id) if settlement == "native" and signing_id else resolve_chain_id(ctx, rpc_url)
+        buyer_address, provider_resolved, buyer_agent_id, provider_agent_id = resolve_escrow_parties(
+            ctx,
+            buyer=buyer_address,
+            provider=parsed.provider,
+            buyer_agent_id=buyer_agent_id,
+            provider_agent_id=provider_agent_id,
+            chain_id=int(bind_chain),
+        )
+        if to_canonical(provider_resolved) != to_canonical(parsed.provider):
+            error(f"Resolved provider {provider_resolved} does not match quote provider {parsed.provider}")
+            sys.exit(1)
+
     if settlement == "native":
         _buy_native(
             ctx,
             buyer_id=buyer_id,
+            buyer_agent_id=buyer_agent_id,
+            provider_agent_id=provider_agent_id,
             gpu_id=gpu_id,
             job_id=job_id,
             duration_hours=duration_hours,
@@ -308,6 +328,8 @@ def _buy_native(
     ctx,
     *,
     buyer_id,
+    buyer_agent_id=None,
+    provider_agent_id=None,
     gpu_id,
     job_id,
     duration_hours,
@@ -380,6 +402,10 @@ def _buy_native(
     }
     if max_ait is not None:
         payload["buyer_max_amount"] = str(max_ait)
+    if buyer_agent_id:
+        payload["buyer_agent_id"] = buyer_agent_id
+    if provider_agent_id:
+        payload["provider_agent_id"] = provider_agent_id
 
     try:
         result = client.post("/v1/market/gpu/purchase", json=payload)

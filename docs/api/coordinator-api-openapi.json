@@ -2232,6 +2232,16 @@
               }
             }
           },
+          "400": {
+            "description": "buyer_id does not match resolved address for agent {request.buyer_agent_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "GPU {gpu_id} not found",
             "content": {
@@ -38582,6 +38592,30 @@
               }
             ],
             "title": "Settlement Route"
+          },
+          "buyer_agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Agent Id"
+          },
+          "provider_agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Agent Id"
           }
         },
         "type": "object",
@@ -38648,6 +38682,18 @@
           "buyer_id": {
             "type": "string",
             "title": "Buyer Id"
+          },
+          "buyer_agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Agent Id"
           },
           "gpu_id": {
             "type": "string",
