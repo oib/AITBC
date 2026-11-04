@@ -153,7 +153,9 @@ def governance():
     "--type", "proposal_type", default="parameter_change", help="Proposal type (parameter_change, fund_allocation, etc.)"
 )
 @click.option("--category", default="general", help="Proposal category")
-@click.option("--proposer-id", required=True, help="Proposer profile ID")
+@click.option(
+    "--proposer-id", required=True, help="Proposer profile ID (with --wallet the signed value is the wallet address)"
+)
 @click.option("--proposer-address", default="", help="Proposer wallet address (for on-chain submission)")
 @click.option("--params", default=None, help="JSON-encoded parameters for parameter_change proposals")
 @click.option(
@@ -225,6 +227,9 @@ def propose(
             proposal_id = f"prop_{uuid.uuid4().hex[:8]}"
             proposal_data["proposal_id"] = proposal_id
             proposal_data["proposer_address"] = proposer_address
+            # Route gate (#1091): proposer_id must equal the signing address;
+            # the service binds and stores it.
+            proposal_data["proposer_id"] = proposer_address
             http_client, chain_id = _governance_rpc(ctx)
             proposal_data["chain_id"] = chain_id
             try:
