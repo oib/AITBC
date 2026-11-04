@@ -17,41 +17,38 @@ RECIP = "0xrecip"
 HASH1 = "0x" + "ab" * 32
 
 
-def _load(monkeypatch, mempool_entries, sealed_entries):
-    """Load the router module with DB + network layer stubbed."""
-    for name in list(sys.modules):
-        if "coin_requests" in name:
-            del sys.modules[name]
+class _Row:
+    transaction_hash = None
+    id = "id"
 
-    rows = {}
-    released = []
 
-    class _Q:
-        def __init__(self, *a, **k):
-            pass
+class _Q:
+    released: list[bool] = []
 
-        def filter(self, *a):
-            return self
+    def filter(self, *a):
+        return self
 
-        def update(self, vals, **k):
-            if vals.get("transaction_hash") is None:
-                released.append(True)
-            rows.update(vals)
-            return 1
+    def update(self, vals, **k):
+        if vals.get("transaction_hash") is None:
+            _Q.released.append(True)
+        return 1
 
-        def first(self):
-            return types.SimpleNamespace(transaction_hash="x", audit_log="")
+    def first(self):
+        return types.SimpleNamespace(transaction_hash="x", audit_log="")
 
-    class _Sess:
-        def query(self, *a):
-            return _Q()
 
-        def __enter__(self):
-            return self
+class _Sess:
+    def query(self, *a):
+        return _Q()
 
-        def __exit__(self, *a):
-            return False
+    def __enter__(self):
+        return self
 
+    def __exit__(self, *a):
+        return False
+
+
+def _make_client(mempool_entries, sealed_entries):
     class _Client:
         def __init__(self, *a, **k):
             pass
@@ -63,31 +60,36 @@ def _load(monkeypatch, mempool_entries, sealed_entries):
                 return sealed_entries
             raise AssertionError(url)
 
-    svc = types.ModuleType("aitbc")
-    net = types.ModuleType("aitbc.network")
-    net.AITBCHTTPClient = _Client
-    sys.modules["aitbc.network"] = net
-    sys.modules.setdefault("aitbc", svc)
+    return _Client
 
-    types.ModuleType("fake_cr")
 
-    # pull the function plus its deps out of the real file
+def _extract_functions(mod):
+    """Exec only the helpers under test, verbatim, out of the router file."""
     text = (SRC / "agent_app/routers/coin_requests.py").read_text()
-    mod = types.ModuleType("cr_under_test")
-    mod.__dict__["get_db_session"] = lambda: _Sess()
-    mod.__dict__["CoinRequest"] = types.SimpleNamespace(id="id", transaction_hash="th")
-    mod.__dict__["logger"] = types.SimpleNamespace(info=print, warning=print, error=print, exception=print)
-    mod.__dict__["sys"] = sys
-    mod.__dict__["aitbc"] = svc
-
-    # execute only the two helpers we need verbatim
-
     src_rec = text[text.index("def _compute_attempt_hash") : text.index("def _release_claim(")]
     src_rel = text[text.index("def _release_claim(") :]
-    src_rel = src_rel[: src_rel.index("\n\n\n") if "\n\n\n" in src_rel else len(src_rel)]
-    mod.__dict__["sys"].modules["aitbc.network"] = net
-    exec(compile(src_rel + "\n\n" + src_rec, "coin_requests.py", "exec"), mod.__dict__)
-    return mod, released
+    end = src_rel.index("\n\n\n") if "\n\n\n" in src_rel else len(src_rel)
+    exec(compile(src_rel[:end] + "\n\n" + src_rec, "coin_requests.py", "exec"), mod.__dict__)
+
+
+def _load(mempool_entries, sealed_entries):
+    _Q.released = []
+    net = types.ModuleType("aitbc.network")
+    net.AITBCHTTPClient = _make_client(mempool_entries, sealed_entries)
+    sys.modules["aitbc.network"] = net
+    sys.modules.setdefault("aitbc", types.ModuleType("aitbc"))
+
+    mod = types.ModuleType("cr_under_test")
+    mod.__dict__["get_db_session"] = lambda: _Sess()
+    mod.__dict__["CoinRequest"] = _Row
+    mod.__dict__["logger"] = types.SimpleNamespace(info=print, warning=print, error=print, exception=print)
+    _extract_functions(mod)
+    return mod, _Q.released
+
+
+class _TxSvc:
+    rpc_url = "http://x"
+    genesis_address = GENESIS
 
 
 def _entry_pending():
@@ -101,28 +103,17 @@ def _entry_pending():
     }
 
 
-def test_pending_mempool_tx_keeps_and_finalizes(monkeypatch):
-    mod, released = _load(monkeypatch, [_entry_pending()], [])
-
-    class TxSvc:
-        rpc_url = "http://x"
-        genesis_address = GENESIS
-
-    sys.modules["aitbc"].TransactionService = None
-    mod.__dict__["TransactionService"] = TxSvc
+def test_pending_mempool_tx_keeps_and_finalizes():
+    mod, released = _load([_entry_pending()], [])
+    mod.__dict__["TransactionService"] = _TxSvc
     found = mod._recover_claimed_attempt("r1", "claiming:t:nonce=7", 5, RECIP)
     assert found == HASH1  # recovered the real hash, not released
     assert not released
 
 
-def test_absent_tx_releases(monkeypatch):
-    mod, released = _load(monkeypatch, [], [])
-
-    class TxSvc:
-        rpc_url = "http://x"
-        genesis_address = GENESIS
-
-    mod.__dict__["TransactionService"] = TxSvc
+def test_absent_tx_releases():
+    mod, released = _load([], [])
+    mod.__dict__["TransactionService"] = _TxSvc
     found = mod._recover_claimed_attempt("r1", "claiming:t:nonce=7", 5, RECIP)
     assert found is None
     assert released
