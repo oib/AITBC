@@ -55,13 +55,51 @@ else
 fi
 echo ""
 
-# Run pip-audit against the requirements file
+# Run pip-audit against the requirements files and each app's declared
+# dependencies ([project].dependencies + [tool.poetry.dependencies]).
+# Any non-zero pip-audit run — vulnerabilities or an audit error — is
+# recorded and fails the script at the summary.
+AUDIT_FAILED=0
+APP_REQS="$(mktemp)"
+trap 'rm -f "$APP_REQS"; _cleanup' EXIT
+
 echo -e "${BLUE}=== Running pip-audit ===${NC}"
-if [ -f "requirements.txt" ]; then
-    "$PIP_AUDIT" -r requirements.txt --desc || echo -e "${YELLOW}⚠ pip-audit found issues${NC}"
-else
-    echo -e "${YELLOW}No requirements.txt found${NC}"
-fi
+req_found=0
+for reqs in requirements*.txt; do
+    [ -f "$reqs" ] || continue
+    req_found=1
+    echo "--- $reqs ---"
+    "$PIP_AUDIT" -r "$reqs" --desc || AUDIT_FAILED=1
+done
+[ "$req_found" = 1 ] || echo -e "${YELLOW}No requirements*.txt found${NC}"
+for pyproject in apps/*/pyproject.toml; do
+    [ -e "$pyproject" ] || continue
+    app="$(basename "$(dirname "$pyproject")")"
+    python3 - "$pyproject" > "$APP_REQS" <<'PY'
+import sys, tomllib
+d = tomllib.load(open(sys.argv[1], "rb"))
+lines = list(d.get("project", {}).get("dependencies", []))
+for name, spec in d.get("tool", {}).get("poetry", {}).get("dependencies", {}).items():
+    if name.lower() == "python":
+        continue
+    if isinstance(spec, dict):
+        if any(k in spec for k in ("path", "git", "url")):
+            continue
+        extras = f"[{','.join(spec['extras'])}]" if spec.get("extras") else ""
+        spec = spec.get("version", "")
+        name = f"{name}{extras}"
+    if not isinstance(spec, str) or spec in ("", "*"):
+        lines.append(name)
+    elif spec[0] in "^~" or spec[0].isdigit():
+        lines.append(f"{name}>={spec.lstrip('^~')}")
+    else:
+        lines.append(f"{name}{spec}")
+print("\n".join(lines))
+PY
+    [ -s "$APP_REQS" ] || continue
+    echo "--- apps/$app/pyproject.toml ---"
+    "$PIP_AUDIT" -r "$APP_REQS" || AUDIT_FAILED=1
+done
 echo ""
 
 # Check for outdated packages (skip due to cache issues)
@@ -86,7 +124,11 @@ echo ""
 
 # Generate summary report
 echo -e "${BLUE}=== Security Scan Summary ===${NC}"
-echo -e "${GREEN}✓ Security scan completed${NC}"
+if [ "$AUDIT_FAILED" -ne 0 ]; then
+    echo -e "${YELLOW}✗ pip-audit reported vulnerabilities or audit errors — scan FAILED${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Security scan completed — no known vulnerabilities${NC}"
 echo ""
 echo "Primary security scan (pip-audit) completed successfully."
 echo "Note: pip-audit is the only dependency scanner — no other scan tools"
