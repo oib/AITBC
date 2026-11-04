@@ -48,9 +48,28 @@ def test_token_must_match_the_request_job(svc_path, module, route):
         resp = client.post(
             route,
             headers={
-                "X-Access-Key": "k",
+                "X-Access-Key": "k0123456789abcdef",
                 "X-Access-Secret": "s",
                 "X-Job-Id": "job-B",
             },
         )
     assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("svc_path, module, route", PAID_ROUTES)
+def test_access_key_must_be_a_single_safe_path_segment(svc_path, module, route):
+    """Traversal keys (SHOPGATE-ACCESS-KEY-PATH-TRAVERSAL-1, #1087): a key
+    that is not a single safe URL path segment is refused before the
+    market verify call is even attempted."""
+    app = _app(svc_path, module)
+    client = TestClient(app, raise_server_exceptions=False)
+    with patch("aitbc.shop_gate._verify", side_effect=AssertionError("_verify must not be called")):
+        resp = client.post(
+            route,
+            headers={
+                "X-Access-Key": "../jobs/job-1",
+                "X-Access-Secret": "s",
+                "X-Job-Id": "job-1",
+            },
+        )
+    assert resp.status_code == 401
