@@ -33,8 +33,12 @@ ENABLE_ZK_VERIFICATION = os.getenv("COORDINATOR_ENABLE_ZK_VERIFICATION", "false"
 
 # The circuit that proves receipts. P2.1 uses `receipt_public`, whose `receiptHash` is a
 # public signal and can be checked against the on-chain job result before escrow release.
-# It falls back to the previous `receipt_simple` only if `receipt_public` is unavailable.
+# `receipt_simple` is retired: its main declares no public list so receiptHash is
+# private and a "proof" states nothing about a receipt (#1095). An env override
+# asking for it falls back to receipt_public instead of selecting a broken circuit.
 RECEIPT_CIRCUIT = os.getenv("COORDINATOR_RECEIPT_CIRCUIT", "receipt_public")
+if RECEIPT_CIRCUIT == "receipt_simple":
+    RECEIPT_CIRCUIT = "receipt_public"
 
 # Node resolves `require()` against the directory of the script being executed, not against
 # the process cwd. Every snarkjs call below writes its script to a tempfile under /tmp, so
@@ -80,7 +84,6 @@ CIRCUIT_SUCCESS_SIGNALS: dict[str, int | None] = {
     "ml_training_verification": -1,  # ``training_complete`` is the last public signal
     "modular_ml_components": -1,  # ``training_complete`` is the last public signal
     "receipt_public": None,
-    "receipt_simple": None,
 }
 
 
@@ -278,11 +281,6 @@ class ZKProofService:
                 "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_public"),
                 "wasm_path": self.circuits_dir / "receipt_public_js" / "receipt_public.wasm",
                 "vkey_path": self.circuits_dir / "receipt_public_js" / "verification_key.json",
-            },
-            "receipt_simple": {
-                "zkey_path": _resolve_proving_key(self.circuits_dir, "receipt_simple"),
-                "wasm_path": self.circuits_dir / "receipt_simple_js" / "receipt_simple.wasm",
-                "vkey_path": self.circuits_dir / "receipt_simple_js" / "verification_key.json",
             },
             "ml_inference_verification": {
                 "zkey_path": _resolve_proving_key(self.circuits_dir, "ml_inference_verification"),
