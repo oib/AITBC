@@ -21,6 +21,7 @@ from nacl.signing import SigningKey
 
 from ..crypto.encryption import EncryptionError, EncryptionSuite
 from ..security import validate_password_rules, wipe_buffer
+from ..spend_policy import assert_transfer_allowed
 from ..settings import settings
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.validation import validate_address
@@ -403,6 +404,8 @@ class PersistentKeystoreService:
             raise KeyError(f"Wallet not found: {wallet_id}")
 
         sender_address = record.public_key
+
+        assert_transfer_allowed(amount, payload)
 
         try:
             # Legacy Ed25519 wallets (pre-migration rows carry no

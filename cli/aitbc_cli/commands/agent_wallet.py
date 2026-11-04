@@ -13,10 +13,13 @@ from ..utils.error_handling import abort
 
   aitbc agent-wallet balance --agent-id agent-1
 
-  aitbc agent-wallet stake --agent-id agent-1 --amount 100"""
+  aitbc agent-wallet stake --agent-id agent-1 --amount 100
+
+Note: all agent-wallet subcommands are SIMULATED stubs (status=simulated). Real spend
+policy and sessions live on coordinator-api /v1/agent-identity (AGENT-SPEND-A-1)."""
 )
 def agent_wallet():
-    """Show and manage agent-owned wallets, staking, and rebalancing allocations."""
+    """Show and manage agent-owned wallets (SIMULATED — not authoritative for spend policy)."""
     pass
 
 
@@ -30,7 +33,7 @@ def agent_wallet():
 @click.option("--agent-id", "agent_id", required=True, help="Agent ID.")
 @click.pass_context
 def balance(ctx, agent_id: str):
-    """Show the wallet balance and allocation for a given agent ID."""
+    """Show simulated wallet balance (not coordinator spend sessions — see agent-identity API)."""
     try:
         result = {
             "agent_id": agent_id,
@@ -87,7 +90,7 @@ def stake(ctx, agent_id: str, amount: str, contract: str):
 @click.option("--reinvest-pct", default="50", help="Percentage of earnings to reinvest")
 @click.pass_context
 def rebalance(ctx, agent_id: str, earnings: str, reinvest_pct: str):
-    """Rebalance an agent wallet by reinvesting the specified earnings."""
+    """Simulate rebalance (no on-chain tx). Use coordinator spend sessions for real caps."""
     try:
         result = {
             "agent_id": agent_id,
