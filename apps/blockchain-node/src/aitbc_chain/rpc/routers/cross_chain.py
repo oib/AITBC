@@ -492,7 +492,8 @@ def get_cross_chain_swap(request: Request, swap_id: str) -> dict[str, Any]:
                 record = session.exec(
                     select(CrossChainSwap).where((CrossChainSwap.swap_id == swap_id) | (CrossChainSwap.transfer_id == swap_id))
                 ).first()
-        except Exception:
+        except Exception as exc:
+            _logger.warning("swap lookup: chain %s query failed: %s", chain_id, exc)
             continue
         if record is not None:
             swap = record
@@ -508,6 +509,9 @@ def list_cross_chain_swaps(
     request: Request, user_address: str | None = None, status: str | None = None, limit: int = 100
 ) -> dict[str, Any]:
     """List persisted cross-chain swaps with optional filters."""
+    # Clamp the client bound and push it into each chain query — the route
+    # used to load every swap row on every chain then slice in Python (#1057).
+    limit = max(1, min(limit, 500))
     bridge = _get_bridge()
     results: list[dict[str, Any]] = []
     seen: set[str] = set()  # a swap row is only stored on its source chain, but
@@ -518,14 +522,18 @@ def list_cross_chain_swaps(
         try:
             with bridge._session_for(chain_id) as session:
                 query = select(CrossChainSwap)
+                if status:
+                    query = query.where(CrossChainSwap.status == status)
                 if user_address:
                     query = query.where(CrossChainSwap.user_address == user_address)
+                query = query.limit(limit)
                 for record in session.exec(query).all():
                     if record.swap_id in seen:
                         continue
                     seen.add(record.swap_id)
                     results.append(_swap_status_payload(record, bridge))
-        except Exception:
+        except Exception as exc:
+            _logger.warning("swap list: chain %s query failed: %s", chain_id, exc)
             continue
     results.sort(key=lambda s: s.get("created_at") or "", reverse=True)
     if status:
@@ -666,7 +674,8 @@ def get_cross_chain_stats(request: Request) -> dict[str, Any]:
                     entry = bridge_stats.setdefault(transfer.status, {"status": transfer.status, "count": 0, "volume": 0})
                     entry["count"] += 1
                     entry["volume"] += transfer.amount
-        except Exception:
+        except Exception as exc:
+            _logger.warning("bridge stats: chain %s query failed: %s", chain_id, exc)
             continue
     return {
         "total_volume": str(Decimal(total_volume_units) / Decimal(36_000_000)),
