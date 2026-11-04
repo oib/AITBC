@@ -46,11 +46,29 @@ def _sign_receipt(payload: dict[str, object], key: SigningKey) -> dict[str, obje
     return receipt
 
 
+def _attested(receipt: dict[str, object], coord_key: SigningKey) -> dict[str, object]:
+    """Attach a coordinator attestation over the receipt payload."""
+    payload = {k: v for k, v in receipt.items() if k not in {"signature", "attestations"}}
+    att = ReceiptSigner(coord_key.encode()).sign(payload)
+    out = dict(receipt)
+    out["attestations"] = [att]
+    return out
+
+
+def _key_id(key: SigningKey) -> str:
+    import base64
+
+    return base64.urlsafe_b64encode(key.verify_key.encode()).rstrip(b"=").decode()
+
+
 def test_verify_receipt_success(sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipt = _sign_receipt(sample_payload, signing_key)
 
-    result = verify_receipt(receipt)
+    coord_key = SigningKey.generate()
+    receipt = _attested(receipt, coord_key)
+
+    result = verify_receipt(receipt, trusted_coordinator_key_ids={_key_id(coord_key)})
     assert isinstance(result, ReceiptVerification)
     assert result.miner_signature.valid is True
     assert result.verified is True
@@ -66,7 +84,8 @@ def test_verify_receipt_failure(sample_payload: dict[str, object]) -> None:
     result = verify_receipt(receipt)
     assert result.miner_signature.valid is False
     assert result.verified is False
-    assert result.failure_reasons() == [f"miner_signature_invalid:{result.miner_signature.key_id}"]
+    reasons = result.failure_reasons()
+    assert f"miner_signature_invalid:{result.miner_signature.key_id}" in reasons
     assert result.miner_signature.reason == "signature mismatch"
 
 
@@ -74,7 +93,10 @@ def test_verify_receipts_batch(sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
     receipt = _sign_receipt(sample_payload, signing_key)
 
-    results = verify_receipts([receipt, receipt])
+    coord_key = SigningKey.generate()
+    receipt = _attested(receipt, coord_key)
+
+    results = verify_receipts([receipt, receipt], trusted_coordinator_key_ids={_key_id(coord_key)})
     assert len(results) == 2
     assert all(item.verified for item in results)
 
@@ -190,7 +212,8 @@ def test_iter_receipts_handles_pagination(monkeypatch, sample_payload: dict[str,
 
 def test_summarize_receipts_all_verified(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
-    receipts = [_sign_receipt(sample_payload, signing_key) for _ in range(2)]
+    coord_key = SigningKey.generate()
+    receipts = [_attested(_sign_receipt(sample_payload, signing_key), coord_key) for _ in range(2)]
 
     def _fake_iter(self, job_id: str, page_size: int = 100):
         yield from receipts
@@ -198,7 +221,7 @@ def test_summarize_receipts_all_verified(monkeypatch, sample_payload: dict[str, 
     monkeypatch.setattr(CoordinatorReceiptClient, "iter_receipts", _fake_iter)
 
     client = CoordinatorReceiptClient("https://coordinator", "api")
-    status = client.summarize_receipts("job-verified")
+    status = client.summarize_receipts("job-verified", trusted_coordinator_key_ids={_key_id(coord_key)})
 
     assert isinstance(status, ReceiptStatus)
     assert status.total == 2
@@ -212,7 +235,8 @@ def test_summarize_receipts_all_verified(monkeypatch, sample_payload: dict[str, 
 
 def test_summarize_receipts_with_failures(monkeypatch, sample_payload: dict[str, object]) -> None:
     signing_key = SigningKey.generate()
-    good = _sign_receipt(sample_payload, signing_key)
+    coord_key = SigningKey.generate()
+    good = _attested(_sign_receipt(sample_payload, signing_key), coord_key)
 
     bad = dict(good)
     bad["metadata"] = {"job_payload": {"task": "tampered"}}
@@ -225,7 +249,7 @@ def test_summarize_receipts_with_failures(monkeypatch, sample_payload: dict[str,
     monkeypatch.setattr(CoordinatorReceiptClient, "iter_receipts", _fake_iter)
 
     client = CoordinatorReceiptClient("https://coordinator", "api")
-    status = client.summarize_receipts("job-mixed")
+    status = client.summarize_receipts("job-mixed", trusted_coordinator_key_ids={_key_id(coord_key)})
 
     assert status.total == 2
     assert status.verified_count == 1
@@ -246,7 +270,7 @@ def test_verify_receipt_trusted_key_ids(sample_payload: dict[str, object]) -> No
     import base64
 
     signing_key = SigningKey.generate()
-    receipt = _sign_receipt(sample_payload, signing_key)
+    receipt = _attested(_sign_receipt(sample_payload, signing_key), signing_key)
     signer_key_id = base64.urlsafe_b64encode(signing_key.verify_key.encode()).rstrip(b"=").decode()
 
     trusted = verify_receipt(receipt, trusted_key_ids={signer_key_id})
@@ -260,7 +284,29 @@ def test_verify_receipt_trusted_key_ids(sample_payload: dict[str, object]) -> No
     assert untrusted.verified is False
 
 
-def test_verify_receipt_no_trusted_set_keeps_prior_behavior(sample_payload: dict[str, object]) -> None:
-    """trusted_key_ids=None preserves the pre-pinning semantics."""
+def test_verify_receipt_self_signed_unattested_not_verified(sample_payload: dict[str, object]) -> None:
+    """#1094: a self-signed receipt with no coordinator attestation and no
+    coordinator trust set must not verify."""
     receipt = _sign_receipt(sample_payload, SigningKey.generate())
-    assert verify_receipt(receipt).verified is True
+    result = verify_receipt(receipt)
+    assert result.verified is False
+    assert "no_coordinator_trust_set" in result.policy_reasons
+    assert "missing_coordinator_attestation" in result.policy_reasons
+
+
+def test_verify_receipt_untrusted_attestation_not_verified(sample_payload: dict[str, object]) -> None:
+    """#1094: an attestation from a key outside the coordinator trust set fails."""
+    coord_key = SigningKey.generate()
+    receipt = _attested(_sign_receipt(sample_payload, SigningKey.generate()), coord_key)
+    result = verify_receipt(receipt, trusted_coordinator_key_ids={"other-key"})
+    assert result.verified is False
+
+
+def test_verify_receipt_expected_job_id(sample_payload: dict[str, object]) -> None:
+    coord_key = SigningKey.generate()
+    receipt = _attested(_sign_receipt(sample_payload, SigningKey.generate()), coord_key)
+    ok = verify_receipt(receipt, trusted_coordinator_key_ids={_key_id(coord_key)}, expected_job_id="job-123")
+    assert ok.verified is True
+    bad = verify_receipt(receipt, trusted_coordinator_key_ids={_key_id(coord_key)}, expected_job_id="job-999")
+    assert bad.verified is False
+    assert any(r.startswith("job_id_mismatch") for r in bad.policy_reasons)
