@@ -4,28 +4,30 @@ from __future__ import annotations
 
 from typing import Any
 
-from aitbc.config.hub import normalize_hub_base
+from aitbc.config.hub import hub_coordinator_url
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import get_config
 from .error_handling import abort
-from .http_client import AITBCHTTPClient, get_logger
+from .http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, service_root_url
 
 logger = get_logger(__name__)
 
 
 def _coordinator_base_url() -> str:
     config = get_config()
-    raw = getattr(config, "hub_discovery_url", None) or getattr(config, "coordinator_url", None) or "hub.aitbc.invalid"
-    return normalize_hub_base(str(raw)) or str(raw)
+    raw = config.coordinator_api_url or hub_coordinator_url() or config.hub_discovery_url or "http://localhost:8203"
+    return service_root_url(str(raw), "http://localhost:8203")
 
 
 def resolve_agent_payment_address(ctx, agent_id: str, chain_id: int = 1) -> str:
     """Return the chain payment address for ``agent_id`` (raises via abort on failure)."""
+    config = get_config()
     base = _coordinator_base_url()
     path = f"/v1/agent-identity/identities/{agent_id}/resolve/{chain_id}"
+    auth = auth_client_kwargs(config_key=config.coordinator_api_key)
     try:
-        client = AITBCHTTPClient(base_url=base, timeout=15)
+        client = AITBCHTTPClient(base_url=base, timeout=15, **auth)
         data: dict[str, Any] = client.get(path)
     except Exception as exc:
         logger.warning("agent identity resolve failed for %s: %s", agent_id, exc)
