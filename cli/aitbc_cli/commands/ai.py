@@ -20,6 +20,7 @@ from aitbc.compliance.policies import (
 from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
 from ..utils.chain_id import resolve_chain_id
+from ..utils.agent_identity_resolve import resolve_escrow_parties
 from ..utils.escrow import create_signed_escrow_lock, get_buyer_nonce, get_node_wallet
 from ..utils.error_handling import CLIError, LOGIN_HINT, abort, is_unauthorized
 from ..utils.http_client import (
@@ -182,6 +183,8 @@ def _create_escrow_payment(
     offer_id: str | None,
     offer_quantity: Decimal | None,
     idempotency_key: str | None = None,
+    buyer_agent_id: str | None = None,
+    provider_agent_id: str | None = None,
 ) -> dict[str, Any]:
     from ..utils.address import to_canonical
 
@@ -225,6 +228,10 @@ def _create_escrow_payment(
         payload["offer_id"] = offer_id
     if offer_quantity is not None:
         payload["offer_quantity"] = str(offer_quantity)
+    if buyer_agent_id:
+        payload["buyer_agent_id"] = buyer_agent_id
+    if provider_agent_id:
+        payload["provider_agent_id"] = provider_agent_id
     if idempotency_key:
         return _post_idempotent(coord_http_client, "/v1/payments", json=payload, idempotency_key=idempotency_key)
     return coord_http_client.post("/v1/payments", json=payload)
@@ -568,6 +575,8 @@ def _secure_escrow(
     offer_id,
     offer_quantity,
     idempotency_key=None,
+    buyer_agent_id=None,
+    provider_agent_id=None,
 ):
     """If the coordinator priced the job but did not secure an escrow, sign the
     ESCROW_LOCK tx and create the payment in a second step."""
@@ -610,6 +619,8 @@ def _secure_escrow(
             offer_id,
             offer_quantity,
             idempotency_key=idempotency_key,
+            buyer_agent_id=buyer_agent_id,
+            provider_agent_id=provider_agent_id,
         )
     except CLIError as e:
         # The job was already accepted by the coordinator; name it so the
@@ -651,6 +662,8 @@ def ai():
 @click.option("--currency", default=None, help="Payment currency (default: AITBC)")
 @click.option("--buyer-address", help="Customer wallet address for escrow")
 @click.option("--provider-address", help="Provider wallet address for escrow")
+@click.option("--buyer-agent-id", help="Buyer agent id; payment address resolved via coordinator")
+@click.option("--provider-agent-id", help="Provider agent id; payment address resolved via coordinator")
 @click.option("--offer-id", help="Market offer this job is bought against")
 @click.option("--offer-quantity", type=Decimal, default=None, help="How many of the offer's price units to buy (default: 1)")
 @click.option(
@@ -708,6 +721,8 @@ def submit(
     currency,
     buyer_address,
     provider_address,
+    buyer_agent_id,
+    provider_agent_id,
     offer_id,
     offer_quantity,
     acceptance_window,
@@ -757,6 +772,19 @@ def submit(
         # from the same address, so the lock falls back to the wallet the
         # same way _apply_payment_fields does for the POST.
         buyer_address = buyer_address or wallet_address
+
+        if buyer_agent_id or provider_agent_id:
+            if not (payment or offer_id):
+                abort(ctx, "--buyer-agent-id / --provider-agent-id require a paid submission (--payment or --offer-id)")
+            bind_chain = int(chain_id) if chain_id else resolve_chain_id(ctx, rpc_url)
+            buyer_address, provider_address, buyer_agent_id, provider_agent_id = resolve_escrow_parties(
+                ctx,
+                buyer=buyer_address,
+                provider=provider_address or os.environ.get("SHOP_WALLET_ADDRESS"),
+                buyer_agent_id=buyer_agent_id,
+                provider_agent_id=provider_agent_id,
+                chain_id=int(bind_chain),
+            )
 
         # Auth once and reuse for media upload and job submission.
         headers = _require_auth_headers(ctx)
@@ -834,6 +862,8 @@ def submit(
             offer_id=offer_id,
             offer_quantity=offer_quantity,
             idempotency_key=f"{submit_key}-escrow",
+            buyer_agent_id=buyer_agent_id,
+            provider_agent_id=provider_agent_id,
         )
 
         # A paid job whose escrow could not be secured can never be dispatched --
@@ -916,6 +946,8 @@ def _resolve_pay_params(
 @click.option("--wallet", required=True, help="Wallet name to sign the escrow lock")
 @click.option("--buyer-address", help="Override buyer/customer address")
 @click.option("--provider-address", help="Override provider address")
+@click.option("--buyer-agent-id", help="Buyer agent id; payment address resolved via coordinator")
+@click.option("--provider-agent-id", help="Provider agent id; payment address resolved via coordinator")
 @click.option("--offer-id", help="Market offer this job is bought against")
 @click.option("--offer-quantity", type=Decimal, default=None, help="How many of the offer's price units to buy")
 @click.option("--currency", default=None, help="Payment currency (default: AITBC)")
@@ -931,6 +963,8 @@ def pay(
     wallet,
     buyer_address,
     provider_address,
+    buyer_agent_id,
+    provider_agent_id,
     offer_id,
     offer_quantity,
     currency,
@@ -975,6 +1009,17 @@ def pay(
             ctx, rpc_url, job, wallet_address, buyer_address, provider_address, offer_id, offer_quantity
         )
 
+        if buyer_agent_id or provider_agent_id:
+            pay_chain = int(chain_id) if chain_id else resolve_chain_id(ctx, rpc_url)
+            buyer_address, provider_address, buyer_agent_id, provider_agent_id = resolve_escrow_parties(
+                ctx,
+                buyer=buyer_address,
+                provider=provider_address,
+                buyer_agent_id=buyer_agent_id,
+                provider_agent_id=provider_agent_id,
+                chain_id=int(pay_chain),
+            )
+
         payment_result = _create_escrow_payment(
             ctx,
             http_client,
@@ -990,6 +1035,8 @@ def pay(
             offer_id,
             Decimal(str(offer_quantity)) if offer_quantity is not None else None,
             idempotency_key=_new_idempotency_key(f"ai-pay-{job_id}"),
+            buyer_agent_id=buyer_agent_id,
+            provider_agent_id=provider_agent_id,
         )
 
         success(f"Escrow secured: {payment_result.get('payment_id')}")
