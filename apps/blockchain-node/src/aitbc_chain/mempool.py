@@ -10,6 +10,7 @@ from typing import Any, cast
 from collections.abc import Iterable
 
 from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, MetaData, Text, delete, func
+from sqlalchemy import select as sa_select
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlmodel import Field, Session, create_engine, select, text
 
@@ -97,6 +98,69 @@ def _tx_nonce(tx: dict[str, Any]) -> int | None:
     if isinstance(nonce, int) and not isinstance(nonce, bool):
         return nonce
     return None
+
+
+@dataclass
+class _DrainCand:
+    """One drain candidate. ``payload`` is caller-owned (the PendingTransaction
+    for the in-memory pool, the slim row tuple for the database pool)."""
+
+    fee: int
+    tx_hash: str
+    size_bytes: int
+    sender: str | None
+    nonce: int | None
+    payload: Any
+
+
+def _order_for_drain(cands: Iterable[_DrainCand]) -> list[_DrainCand]:
+    """Order drain candidates so a sender's tx never precedes its own lower nonce.
+
+    Global fee order lets a high-fee later nonce drain before its predecessor
+    and get rejected as a nonce gap (#1068). Instead each sender contributes
+    only the contiguous run from its lowest pooled nonce — a gapped nonce
+    stays in the pool — and the ready heads merge by fee. Entries without a
+    sender/nonce slot are independent and always ready.
+    """
+    import heapq
+
+    by_sender: dict[str, list[_DrainCand]] = {}
+    independent: list[_DrainCand] = []
+    for c in cands:
+        if c.sender and c.nonce is not None:
+            by_sender.setdefault(c.sender, []).append(c)
+        else:
+            independent.append(c)
+
+    for lst in by_sender.values():
+        lst.sort(key=lambda c: c.nonce if c.nonce is not None else 0)
+        run: list[_DrainCand] = []
+        prev = None
+        for c in lst:
+            if prev is not None and c.nonce != prev + 1:
+                break
+            run.append(c)
+            prev = c.nonce
+        lst[:] = run
+
+    ready: list[tuple[int, str, _DrainCand]] = [(-c.fee, c.tx_hash, c) for c in independent]
+    heapq.heapify(ready)
+    next_idx: dict[str, int] = {}
+    for sender, lst in by_sender.items():
+        next_idx[sender] = 0
+        heapq.heappush(ready, (-lst[0].fee, lst[0].tx_hash, lst[0]))
+
+    ordered: list[_DrainCand] = []
+    while ready:
+        _, _, c = heapq.heappop(ready)
+        ordered.append(c)
+        if c.sender is not None:
+            i = next_idx[c.sender] + 1
+            next_idx[c.sender] = i
+            lst = by_sender[c.sender]
+            if i < len(lst):
+                heapq.heappush(ready, (-lst[i].fee, lst[i].tx_hash, lst[i]))
+    return ordered
 
 
 def _tx_cost(tx: dict[str, Any]) -> int:
@@ -244,16 +308,34 @@ class InMemoryMempool:
         """Drain transactions for block inclusion, prioritized by fee (highest first)."""
         with self._lock:
             chain_transactions = self._get_chain_transactions(chain_id)
-            sorted_txs = sorted(chain_transactions.values(), key=lambda t: (-t.fee, t.tx_hash))
+            cands = []
+            for tx in chain_transactions.values():
+                slot = _tx_slot_key(tx.content)
+                cands.append(
+                    _DrainCand(
+                        fee=tx.fee,
+                        tx_hash=tx.tx_hash,
+                        size_bytes=tx.size_bytes,
+                        sender=slot[0] if slot else None,
+                        nonce=slot[1] if slot else None,
+                        payload=tx,
+                    )
+                )
             result: list[PendingTransaction] = []
             total_bytes = 0
-            for tx in sorted_txs:
+            blocked: set[str] = set()
+            for c in _order_for_drain(cands):
                 if len(result) >= max_count:
                     break
-                if total_bytes + tx.size_bytes > max_bytes:
+                if c.sender is not None and c.sender in blocked:
                     continue
-                result.append(tx)
-                total_bytes += tx.size_bytes
+                if total_bytes + c.size_bytes > max_bytes:
+                    # A head skipped for bytes must not let its later nonces drain.
+                    if c.sender is not None:
+                        blocked.add(c.sender)
+                    continue
+                result.append(c.payload)
+                total_bytes += c.size_bytes
 
             for tx in result:
                 self._drop_entry(chain_id, tx)
@@ -760,21 +842,34 @@ class DatabaseMempool:
                 # Rank on the slim columns only: loading every pending row's
                 # content per block is wasted memory when the pool holds
                 # thousands of entries we will not include.
-                entries = session.exec(
-                    select(MempoolEntry.tx_hash, MempoolEntry.fee, MempoolEntry.size_bytes, MempoolEntry.received_at)
-                    .where(MempoolEntry.chain_id == chain_id)
-                    .order_by(cast(Any, MempoolEntry.fee).desc(), cast(Any, MempoolEntry.tx_hash).asc())
+                entries = session.execute(
+                    sa_select(
+                        cast(Any, MempoolEntry.tx_hash),
+                        cast(Any, MempoolEntry.fee),
+                        cast(Any, MempoolEntry.size_bytes),
+                        cast(Any, MempoolEntry.received_at),
+                        cast(Any, MempoolEntry.sender),
+                        cast(Any, MempoolEntry.nonce),
+                    ).where(cast(Any, MempoolEntry.chain_id == chain_id))
                 ).all()
 
                 picked: list[tuple[str, int, int, float]] = []
                 total_bytes = 0
-                for tx_hash, fee, size_bytes, received_at in entries:
+                blocked: set[str] = set()
+                for c in _order_for_drain(
+                    _DrainCand(fee=f, tx_hash=h, size_bytes=s, sender=snd or None, nonce=n, payload=r)
+                    for h, f, s, r, snd, n in entries
+                ):
                     if len(picked) >= max_count:
                         break
-                    if total_bytes + size_bytes > max_bytes:
+                    if c.sender is not None and c.sender in blocked:
                         continue
-                    picked.append((tx_hash, fee, size_bytes, received_at))
-                    total_bytes += size_bytes
+                    if total_bytes + c.size_bytes > max_bytes:
+                        if c.sender is not None:
+                            blocked.add(c.sender)
+                        continue
+                    picked.append((c.tx_hash, c.fee, c.size_bytes, c.payload))
+                    total_bytes += c.size_bytes
 
                 result: list[PendingTransaction] = []
                 if picked:
