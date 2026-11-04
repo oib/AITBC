@@ -116,6 +116,46 @@ def _sign_body(private_key: str, payload: dict) -> str:
     return pk.sign_msg_hash(keccak(msg)).to_hex()
 
 
+def _prepare_signed_proposal(
+    ctx: click.Context,
+    signer_address: str,
+    private_key: str,
+    proposer_address: str,
+    proposal_data: dict,
+    tx_payload: dict,
+) -> None:
+    """Bind the proposer to the signer and attach the client-signed
+    GOVERNANCE_PROPOSE tx to ``proposal_data`` in place."""
+    if proposer_address and proposer_address.lower() != signer_address.lower():
+        raise click.ClickException("--proposer-address does not match the --wallet address")
+    proposer_address = proposer_address or signer_address
+    proposal_data["proposal_id"] = f"prop_{uuid.uuid4().hex[:8]}"
+    proposal_data["proposer_address"] = proposer_address
+    # Route gate (#1091): proposer_id must equal the signing address;
+    # the service binds and stores it.
+    proposal_data["proposer_id"] = proposer_address
+    http_client, chain_id = _governance_rpc(ctx)
+    proposal_data["chain_id"] = chain_id
+    try:
+        height = int(http_client.get(f"/rpc/height?chain_id={chain_id}").get("height", 0))
+    except Exception:
+        height = 0
+    # ~2s block time → ~43200 blocks/day; matches the service's
+    # voting_period_blocks convention.
+    blocks_per_day = 43200
+    tx_payload.update(
+        {
+            "proposal_id": proposal_data["proposal_id"],
+            "proposer": proposer_address,
+            "voting_starts_block": height,
+            "voting_ends_block": height + tx_payload.pop("voting_days") * blocks_per_day,
+        }
+    )
+    proposal_data["signed_tx"] = _sign_governance_tx(
+        http_client, chain_id, private_key, signer_address, "GOVERNANCE_PROPOSE", tx_payload
+    )
+
+
 def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AITBCHTTPClient:
     """Create an HTTP client for the governance service."""
     import os
@@ -221,44 +261,22 @@ def propose(
         signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
         if signer:
             signer_address, private_key = signer
-            if proposer_address and proposer_address.lower() != signer_address.lower():
-                raise click.ClickException("--proposer-address does not match the --wallet address")
-            proposer_address = proposer_address or signer_address
-            proposal_id = f"prop_{uuid.uuid4().hex[:8]}"
-            proposal_data["proposal_id"] = proposal_id
-            proposal_data["proposer_address"] = proposer_address
-            # Route gate (#1091): proposer_id must equal the signing address;
-            # the service binds and stores it.
-            proposal_data["proposer_id"] = proposer_address
-            http_client, chain_id = _governance_rpc(ctx)
-            proposal_data["chain_id"] = chain_id
-            try:
-                height = int(http_client.get(f"/rpc/height?chain_id={chain_id}").get("height", 0))
-            except Exception:
-                height = 0
-            # ~2s block time → ~43200 blocks/day; matches the service's
-            # voting_period_blocks convention.
-            blocks_per_day = 43200
-            proposal_data["signed_tx"] = _sign_governance_tx(
-                http_client,
-                chain_id,
-                private_key,
+            # v13 binds GOVERNANCE_EXECUTE to the sealed execution_payload — a
+            # missing field 400s every propose. The params JSON is the execution
+            # intent unless --execution-payload overrides it.
+            _prepare_signed_proposal(
+                ctx,
                 signer_address,
-                "GOVERNANCE_PROPOSE",
+                private_key,
+                proposer_address,
+                proposal_data,
                 {
-                    "proposal_id": proposal_id,
-                    "proposer": proposer_address,
                     "title": title,
                     "description": description,
                     "proposal_type": proposal_type,
                     "parameters": proposal_value,
-                    # v13 binds GOVERNANCE_EXECUTE to the sealed
-                    # execution_payload — a missing field 400s every
-                    # propose. The params JSON is the execution intent
-                    # unless --execution-payload overrides it.
                     "execution_payload": execution_payload_value,
-                    "voting_starts_block": height,
-                    "voting_ends_block": height + voting_days * blocks_per_day,
+                    "voting_days": voting_days,
                 },
             )
         if signer:
