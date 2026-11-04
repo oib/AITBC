@@ -34,7 +34,7 @@ def _zkeys(tree: Path) -> list[Path]:
 
 
 def _circuit_of(zkey: Path) -> str:
-    """``receipt_simple_0001.zkey`` -> ``receipt_simple``."""
+    """``receipt_public_0001.zkey`` -> ``receipt_public``."""
     stem, _, _ = zkey.stem.rpartition("_")
     return stem
 
@@ -105,8 +105,8 @@ def test_a_mismatched_pair_is_actually_detected(tmp_path: Path) -> None:
         _verification_key_mismatch,
     )
 
-    zkey = SERVICE_TREE / "receipt_simple_0001.zkey"
-    real = json.loads((SERVICE_TREE / "receipt_simple_js" / "verification_key.json").read_text())
+    zkey = SERVICE_TREE / "receipt_public_0001.zkey"
+    real = json.loads((SERVICE_TREE / "receipt_public_js" / "verification_key.json").read_text())
 
     wrong = tmp_path / "verification_key.json"
     wrong.write_text(json.dumps({**real, "nPublic": real["nPublic"] + 1}))
@@ -149,8 +149,8 @@ def test_shipped_contributed_keys_report_their_count() -> None:
     """Filename `_0001` is not evidence of a contribution (V23-91)."""
     by_name = {zkey.name: read_zkey_contribution_count(zkey) for zkey in _zkeys(SERVICE_TREE)}
 
-    assert by_name["receipt_simple_0000.zkey"] == 0
-    assert by_name["receipt_simple_0001.zkey"] == 1
+    assert by_name["ml_inference_verification_0000.zkey"] == 0
+    assert by_name["receipt_public_0001.zkey"] == 1
     assert by_name["ml_inference_verification_0001.zkey"] == 1
     assert by_name["ml_training_verification_0001.zkey"] == 1
     # modular_ml_components_0001.zkey was the regression (zero contributions under a _0001
