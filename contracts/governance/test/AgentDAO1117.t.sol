@@ -162,4 +162,65 @@ contract AgentDAO1117Test is Test {
         dao.approveMultiSig(pid); // deployer is signer #3
         assertEq(dao.getMultiSigApprovals(pid), 3);
     }
+
+    function _succeeded(AgentDAO.ProposalType t) internal returns (uint256 pid) {
+        pid = _propose(t);
+        vm.roll(block.number + 86401); // past votingDelay
+        vm.prank(voter);
+        dao.castVote(pid, 1);
+        vm.roll(block.number + 604800); // past votingPeriod -> Succeeded
+    }
+
+    function _args(uint256 pid)
+        internal
+        view
+        returns (address[] memory, uint256[] memory, bytes[] memory, bytes32)
+    {
+        pid;
+        address[] memory t = new address[](1); t[0] = address(this);
+        uint256[] memory v = new uint256[](1);
+        bytes[] memory c = new bytes[](1); c[0] = "";
+        return (t, v, c, keccak256(bytes("test")));
+    }
+
+    // Pin 4a: the 4-arg OZ execute is not a bypass — too few multi-sig
+    // approvals reverts like execute(proposalId); with the approvals in it
+    // runs the real execution path.
+    function test_FourArgExecuteEnforcesMultiSig() public {
+        uint256 pid = _propose(AgentDAO.ProposalType.EMERGENCY_ACTION);
+        (address[] memory t, uint256[] memory v, bytes[] memory c, bytes32 h) = _args(pid);
+        // make it succeed: vote + roll past the period
+        vm.roll(block.number + 86401);
+        vm.prank(voter);
+        dao.castVote(pid, 1);
+        vm.roll(block.number + 604800);
+        vm.expectRevert("Insufficient multi-sig approvals");
+        dao.execute(t, v, c, h);
+    }
+
+    // Pin 4b: unknown proposal reverts through the 4-arg entrypoint.
+    function test_FourArgExecuteRejectsUnknownProposal() public {
+        address[] memory t = new address[](1); t[0] = address(0xBEEF);
+        uint256[] memory v = new uint256[](1);
+        bytes[] memory c = new bytes[](1); c[0] = "";
+        vm.expectRevert("Unknown proposal");
+        dao.execute(t, v, c, keccak256(bytes("never proposed")));
+    }
+
+    // Pin 4c: a proposal inside its challenge window cannot be executed
+    // through the 4-arg entrypoint either.
+    function test_FourArgExecuteRejectsChallenged() public {
+        uint256 pid = _propose(AgentDAO.ProposalType.EMERGENCY_ACTION);
+        (address[] memory t, uint256[] memory v, bytes[] memory c, bytes32 h) = _args(pid);
+        vm.roll(block.number + 86401);
+        vm.prank(voter);
+        dao.castVote(pid, 1);
+        vm.roll(block.number + 604800);
+        vm.prank(voter);
+        token.approve(address(dao), 1000e18);
+        vm.prank(voter);
+        dao.challengeProposal(pid);
+        vm.expectRevert("Proposal challenged");
+        dao.execute(t, v, c, h);
+    }
 }
