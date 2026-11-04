@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -18,6 +18,7 @@ from aitbc.rate_limiting import rate_limit
 from ..domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType
 from ..domain.slash_appeal import SlashAppeal
 from ....storage import get_session
+from ....auth import AdminDep, AuthDep
 from ..services.governance_service import GovernanceService
 
 logger = get_logger(__name__)
@@ -39,9 +40,27 @@ class ProposalCreateRequest(BaseModel):
     description: str
     category: str = "general"
     execution_payload: dict[str, Any] = Field(default_factory=dict)
-    quorum_required: float = 1000.0
+    quorum_required: float = Field(default=1000.0, ge=1.0)
     voting_starts: str | None = None
     voting_ends: str | None = None
+
+    @field_validator("voting_ends")
+    @classmethod
+    def _bounded_window(cls, v: str | None) -> str | None:
+        """#1071: the caller cannot self-assign an already-ended or unbounded window."""
+        if v is None:
+            return v
+        from datetime import UTC, datetime, timedelta
+
+        ends = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if ends.tzinfo is None:
+            ends = ends.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
+        if ends <= now:
+            raise ValueError("voting_ends must be in the future")
+        if ends > now + timedelta(days=90):
+            raise ValueError("voting_ends may not be more than 90 days out")
+        return v
 
 
 class VoteRequest(BaseModel):
@@ -60,7 +79,7 @@ class SlashAppealRequest(BaseModel):
 @router.post("/profiles", response_model=GovernanceProfile)
 @rate_limit(rate=20, per=60)
 async def init_governance_profile(
-    request: Request, profile_request: ProfileInitRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request, profile_request: ProfileInitRequest, session: Annotated[Session, Depends(get_session)], user: AdminDep
 ) -> GovernanceProfile:
     """Initialize a governance profile for a user"""
     service = GovernanceService(session)
@@ -99,10 +118,12 @@ async def delegate_voting_power(
 async def create_proposal(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    proposer_id: Annotated[str, Query(...)],
     proposal_request: Annotated[ProposalCreateRequest, Body(...)],
+    user: AuthDep,
 ) -> Proposal:
     """Submit a new governance proposal to the DAO"""
+    # The proposer is the caller, never a caller-supplied string (#1071).
+    proposer_id = user["sub"]
     service = GovernanceService(session)
     try:
         proposal = await run_in_threadpool(service.create_governance_proposal, proposer_id, proposal_request.model_dump())
@@ -121,10 +142,11 @@ async def cast_vote(
     request: Request,
     proposal_id: str,
     session: Annotated[Session, Depends(get_session)],
-    voter_id: Annotated[str, Query(...)],
     vote_request: Annotated[VoteRequest, Body(...)],
+    user: AuthDep,
 ) -> Vote:
     """Cast a vote on an active proposal"""
+    voter_id = user["sub"]  # the voter is the caller, never a query param (#1071)
     service = GovernanceService(session)
     try:
         vote = await run_in_threadpool(
@@ -165,9 +187,10 @@ async def execute_proposal(
     request: Request,
     proposal_id: str,
     session: Annotated[Session, Depends(get_session)],
-    executor_id: Annotated[str, Query(...)],
+    user: AdminDep,
 ) -> Proposal:
     """Execute the payload of a succeeded proposal"""
+    executor_id = user["sub"]
     service = GovernanceService(session)
     try:
         proposal = await run_in_threadpool(service.execute_governance_proposal, proposal_id, executor_id)

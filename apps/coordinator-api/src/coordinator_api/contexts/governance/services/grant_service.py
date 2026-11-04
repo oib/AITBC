@@ -35,6 +35,12 @@ def _as_naive(value: datetime | None) -> datetime | None:
     return value.replace(tzinfo=None) if value.tzinfo else value
 
 
+def _check_disburse_balance(grant: GrantProposal, disburse_amount: Decimal) -> None:
+    """#1071: a disbursement can never exceed what the vote approved."""
+    if grant.approved_amount - grant.disbursed_amount < disburse_amount:
+        raise ValueError("disbursement exceeds the approved balance")
+
+
 class GrantService:
     """CRUD, voting, and disbursement logic for DAO grants."""
 
@@ -118,13 +124,27 @@ class GrantService:
         )
         return list(self.session.execute(stmt).scalars().all())
 
-    def vote(self, grant_id: str, vote: str, voting_power: float) -> GrantProposal:
+    @staticmethod
+    def _record_grant_voter(grant: GrantProposal, voter_id: str) -> None:
+        """One vote per voter (#1071): voter ids ride in proposal_metadata so
+        the uniqueness survives without a schema change."""
+        voters = set((grant.proposal_metadata or {}).get("voters") or [])
+        if voter_id in voters:
+            raise ValueError("voter has already voted on this grant")
+        voters.add(voter_id)
+        metadata = dict(grant.proposal_metadata or {})
+        metadata["voters"] = sorted(voters)
+        grant.proposal_metadata = metadata
+
+    def vote(self, grant_id: str, vote: str, voting_power: float, voter_id: str | None = None) -> GrantProposal:
         """Cast a vote on a grant and resolve if voting has ended."""
         grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")
         if grant.status not in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE}:
             raise ValueError("Grant is not open for voting")
+        if voter_id is not None:
+            self._record_grant_voter(grant, voter_id)
         now = _utc_now()
         voting_ends = _as_naive(grant.voting_ends)
         if voting_ends and now > voting_ends:
@@ -195,6 +215,7 @@ class GrantService:
             if milestone.status != MilestoneStatus.APPROVED:
                 raise ValueError("Milestone is not approved for disbursement")
             disburse_amount = _to_decimal(amount) if amount is not None else milestone.amount
+            _check_disburse_balance(grant, disburse_amount)
             milestone.status = MilestoneStatus.PAID
             milestone.completed_at = _utc_now()
             grant.disbursed_amount += disburse_amount
@@ -202,7 +223,9 @@ class GrantService:
         else:
             if amount is None:
                 raise ValueError("Amount required when no milestone is specified")
-            grant.disbursed_amount += _to_decimal(amount)
+            amount_dec = _to_decimal(amount)
+            _check_disburse_balance(grant, amount_dec)
+            grant.disbursed_amount += amount_dec
         if grant.disbursed_amount >= grant.approved_amount:
             grant.status = GrantStatus.COMPLETED
         else:

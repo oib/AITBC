@@ -18,7 +18,7 @@ class GrantProposalCreate(BaseModel):
     title: str
     description: str = ""
     requested_amount: Decimal = Decimal("0")
-    voting_days: int = Field(default=7, ge=1)
+    voting_days: int = Field(default=7, ge=1, le=90)
 
 
 class GrantMilestoneCreate(BaseModel):
