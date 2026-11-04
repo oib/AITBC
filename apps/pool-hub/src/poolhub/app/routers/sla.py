@@ -21,6 +21,8 @@ from ...services.billing_integration import BillingIntegration
 from ...services.sla_collector import SLACollector
 
 logger = get_logger(__name__)
+from .parameters import _governance_auth
+
 router = APIRouter(prefix="/sla", tags=["SLA"])
 
 
@@ -149,7 +151,9 @@ async def get_sla_violations(
 
 
 @router.post("/metrics/collect")
-async def collect_sla_metrics(sla_collector: Annotated[SLACollector, Depends(get_sla_collector)]) -> dict[str, Any]:
+async def collect_sla_metrics(
+    sla_collector: Annotated[SLACollector, Depends(get_sla_collector)], _: Annotated[dict[str, Any], Depends(_governance_auth)]
+) -> dict[str, Any]:
     """Trigger SLA metrics collection for all miners"""
     try:
         results = await sla_collector.collect_all_miner_metrics()
@@ -229,7 +233,11 @@ def get_scaling_recommendations(
 
 
 @router.post("/capacity/alerts/configure")
-def configure_capacity_alerts(alert_config: dict[str, Any], db: Annotated[AsyncSession, Depends(get_db)]) -> dict[str, Any]:
+def configure_capacity_alerts(
+    alert_config: dict[str, Any],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[dict[str, Any], Depends(_governance_auth)],
+) -> dict[str, Any]:
     """Configure capacity alerts"""
     try:
         return {"status": "configured", "alert_config": alert_config, "timestamp": datetime.now(UTC).isoformat()}
@@ -259,7 +267,9 @@ async def get_billing_usage(
 
 @router.post("/billing/sync")
 async def sync_billing_usage(
-    request: UsageSyncRequest, billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)]
+    request: UsageSyncRequest,
+    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
+    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
 ) -> dict[str, Any]:
     """Trigger billing sync with coordinator-api"""
     try:
@@ -281,7 +291,9 @@ async def sync_billing_usage(
 
 @router.post("/billing/usage/record")
 async def record_usage(
-    request: UsageRecordRequest, billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)]
+    request: UsageRecordRequest,
+    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
+    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
 ) -> dict[str, Any]:
     """Record a single usage event to coordinator-api billing"""
     try:
@@ -303,7 +315,9 @@ async def record_usage(
 
 @router.post("/billing/invoice/generate")
 async def generate_invoice(
-    request: InvoiceGenerationRequest, billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)]
+    request: InvoiceGenerationRequest,
+    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
+    _: Annotated[dict[str, Any] | None, Depends(_governance_auth)] = None,
 ) -> dict[str, Any]:
     """Trigger invoice generation in coordinator-api"""
     try:
