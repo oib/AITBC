@@ -33,7 +33,7 @@ SessionDep = Depends(get_session)
 class GenerateProofRequest(BaseModel):
     """Request to generate a ZK proof"""
 
-    circuit_name: str = "receipt_simple"
+    circuit_name: str = "receipt_public"
     inputs: dict[str, Any]
     private_inputs: dict[str, Any] | None = None
 
@@ -42,7 +42,7 @@ class GenerateProofRequest(BaseModel):
 # there only means the proof is valid for the caller-supplied signals — nothing
 # binds those signals to a real job. Receipt proofs must go through
 # /receipt/verify, which re-derives the expected signals server-side.
-RECEIPT_ONLY_CIRCUITS = {"receipt_model", "receipt_public", "receipt_simple"}
+RECEIPT_ONLY_CIRCUITS = {"receipt_model", "receipt_public"}
 
 
 class VerifyProofRequest(BaseModel):
