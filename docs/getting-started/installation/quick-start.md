@@ -58,7 +58,7 @@ chmod +x scripts/deployment/setup.sh
    - Provides fallback manual startup
 
 7. **Service Management**
-   - Installs systemd units; `scripts/service-management/manage-services.sh` for manual control
+   - Installs systemd units; manage with `systemctl start|stop|status aitbc-*`
    - Sets up health monitoring
    - Configures logging
 
@@ -71,11 +71,11 @@ After running the setup script:
 /opt/aitbc/scripts/monitoring/health_check.sh
 
 # Service status / start all
-/opt/aitbc/scripts/service-management/manage-services.sh status
-/opt/aitbc/scripts/service-management/manage-services.sh start
+systemctl status 'aitbc-*'
+systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-market aitbc-trading aitbc-wallet
 
 # View logs (journald)
-journalctl -f -u 'aitbc-*' 
+journalctl -f -u 'aitbc-*'
 ```
 
 ## See Also
