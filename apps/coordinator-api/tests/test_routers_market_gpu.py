@@ -478,3 +478,84 @@ def test_quote_gpu_unconfigured_chain_id_raises_named(client, db_session, native
         )
     assert resp.status_code == 500
     assert "CHAIN_ID" in caplog.text
+
+
+@pytest.fixture
+def miner_b_token() -> str:
+    return create_access_token("miner_B", "miner")
+
+
+def _booked_gpu(client, token, db_session, client_id: str = "client1") -> str:
+    """A registered GPU in 'booked' status with an active booking row."""
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+
+    gpu_id = _register_gpu(client, token)
+    gpu = db_session.get(GPURegistry, gpu_id)
+    gpu.status = "booked"
+    db_session.add(
+        GPUBooking(
+            gpu_id=gpu_id,
+            client_id=client_id,
+            duration_hours=1.0,
+            total_cost=Decimal("1.0"),
+            start_time=datetime.now(UTC),
+            status="active",
+        )
+    )
+    db_session.commit()
+    return gpu_id
+
+
+@pytest.mark.unit
+def test_register_gpu_ignores_body_miner_id(client, miner_token, db_session):
+    """#1074: the body miner_id can no longer register a GPU under someone else."""
+    gpu_id = _register_gpu(client, miner_token, miner_id="victim_miner")
+    gpu = db_session.get(GPURegistry, gpu_id)
+    assert gpu.miner_id == "gpu_miner"
+
+
+@pytest.mark.unit
+def test_sell_gpu_requires_owner(client, miner_token, miner_b_token, available_gpu):
+    """#1074: another miner's token cannot reprice the GPU."""
+    resp = client.post(
+        "/v1/market/gpu/sell",
+        headers={"Authorization": f"Bearer {miner_b_token}"},
+        json={"seller_id": "miner_B", "gpu_id": available_gpu, "listing_price": "0.0001"},
+    )
+    assert resp.status_code == 403
+    resp = client.post(
+        "/v1/market/gpu/sell",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"seller_id": "gpu_miner", "gpu_id": available_gpu, "listing_price": "0.04"},
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.unit
+def test_release_gpu_requires_owner_or_client(client, miner_token, miner_b_token, db_session):
+    """#1074: another miner cannot cancel someone else's active booking."""
+    gpu_id = _booked_gpu(client, miner_token, db_session)
+    resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_b_token}"})
+    assert resp.status_code == 403
+    gpu = db_session.get(GPURegistry, gpu_id)
+    assert gpu.status == "booked"
+    resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
+    assert resp.status_code == 200
+
+
+@pytest.mark.unit
+def test_confirm_gpu_client_id_must_be_caller(client, miner_token, client_token, db_session):
+    """#1074: a booking's client_id can only be set to the caller's own id."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, client_id="client1")
+    resp = client.post(
+        f"/v1/market/gpu/{gpu_id}/confirm",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"client_id": "attacker"},
+    )
+    assert resp.status_code == 403
+    resp = client.post(
+        f"/v1/market/gpu/{gpu_id}/confirm",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"client_id": "client1"},
+    )
+    assert resp.status_code == 200
