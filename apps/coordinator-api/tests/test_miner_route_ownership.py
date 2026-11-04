@@ -124,3 +124,35 @@ class TestMinerRouteOwnership:
         # #1076: a lookup failure is a 5xx, never a fake all-zeros payload.
         assert resp.status_code == 500
         assert "secret-internal-error-detail" not in resp.text
+
+
+@pytest.mark.unit
+def test_list_jobs_window_filter_and_no_cap(db_session):
+    """#1076 pin: completed_from/to filter in SQL; limit=None returns all matches."""
+    from coordinator_api.contexts.infrastructure.services.jobs import JobService
+
+    old = (datetime.now(UTC) - timedelta(days=30)).replace(tzinfo=None)
+    mid = (datetime.now(UTC) - timedelta(days=10)).replace(tzinfo=None)
+    new = (datetime.now(UTC) - timedelta(days=1)).replace(tzinfo=None)
+    for i, done in enumerate([old, mid, new]):
+        db_session.add(
+            Job(
+                id=f"job-w{i}",
+                client_id="client-1",
+                state="COMPLETED",
+                payload={"type": "inference"},
+                assigned_miner_id=VICTIM,
+                completed_at=done,
+            )
+        )
+    db_session.commit()
+
+    svc = JobService(db_session)
+    windowed = svc.list_jobs(assigned_miner_id=VICTIM, state="COMPLETED", completed_from=mid, completed_to=new, limit=None)
+    assert {j.id for j in windowed} == {"job-w1", "job-w2"}
+
+    everything = svc.list_jobs(assigned_miner_id=VICTIM, state="COMPLETED", limit=None)
+    assert len(everything) == 3
+
+    capped = svc.list_jobs(assigned_miner_id=VICTIM, state="COMPLETED", limit=2)
+    assert len(capped) == 2
