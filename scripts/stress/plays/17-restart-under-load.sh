@@ -47,4 +47,4 @@ probe=$("$AITBC_BIN" --output=json transactions send --from "$WALLET" --to "$add
 case "$probe" in *occupied*|*replay*) fail restart "phantom occupancy post-recovery: $probe";; esac
 jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"ok\",\"target\":\"$TARGET\",\"pre\":$pre,\"post\":${cur:-0}}"
 echo "restart-under-load ok: $TARGET caught up pre=$pre → ${cur:-0}"
-ok ""
+ok no_tx

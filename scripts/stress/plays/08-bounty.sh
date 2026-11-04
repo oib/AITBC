@@ -40,9 +40,22 @@ payload["signature"] = priv.sign_msg_hash(digest).to_hex()
 req = urllib.request.Request(os.environ["RPC_URL"] + os.environ["STRESS_PATH"],
     data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
 try:
-    print(urllib.request.urlopen(req, timeout=20).read().decode())
+    body = urllib.request.urlopen(req, timeout=20).read().decode()
 except urllib.error.HTTPError as e:
     print("HTTP", e.code, e.read().decode()); raise SystemExit(1)
+print(body)
+# #990: an HTTP 200 carrying an explicit failure status is still a failure —
+# and the body must make it into the log so the miss is diagnosable.
+try:
+    _j = json.loads(body)
+except Exception:
+    _j = {}
+if isinstance(_j, dict) and (
+    _j.get("success") is False
+    or str(_j.get("status", "")).lower() in ("error", "failed", "rejected", "refused")
+    or "error" in _j
+):
+    raise SystemExit(1)
 PYEOF
 }
 addr=$(python3 -c "import json;print(json.load(open('$WFILE')).get('address',''))" 2>/dev/null)
@@ -67,7 +80,7 @@ if [ "$LEG" = "submit" ]; then
     "{\"submission_id\":\"$SUBMISSION_ID\",\"user_address\":\"$addr\",\"chain_id\":\"$CHAIN\"}" 2>&1) \
     || fail submit "bounty submit failed: $resp"
   echo "submitted $SUBMISSION_ID on $BOUNTY_ID — verify leg: ./08-bounty.sh verify $BOUNTY_ID $SUBMISSION_ID"
-  ok ""; exit 0
+  ok no_tx; exit 0
 fi
 
 if [ "$LEG" = "verify" ]; then
