@@ -45,15 +45,26 @@ def _payload(**overrides) -> dict:
 def _seed_mappings(db_session: Session, user_id: str = "bind-client-1") -> None:
     if db_session.get(User, user_id) is None:
         db_session.add(User(id=user_id, email=f"{user_id}@example.com", username=user_id))
-    db_session.add(Wallet(user_id=user_id, address=BUYER.lower()))
-    db_session.add(AgentIdentity(agent_id=BUYER_AGENT, owner_address=BUYER.lower()))
-    db_session.add(AgentIdentity(agent_id=PROVIDER_AGENT, owner_address=PROVIDER.lower()))
-    db_session.add(
-        CrossChainMapping(agent_id=BUYER_AGENT, chain_id=1, chain_type=ChainType.ETHEREUM, chain_address=BUYER.lower())
-    )
-    db_session.add(
-        CrossChainMapping(agent_id=PROVIDER_AGENT, chain_id=1, chain_type=ChainType.ETHEREUM, chain_address=PROVIDER.lower())
-    )
+    if not db_session.exec(select(Wallet).where(Wallet.user_id == user_id)).first():
+        db_session.add(Wallet(user_id=user_id, address=BUYER.lower()))
+    if db_session.exec(select(AgentIdentity).where(AgentIdentity.agent_id == BUYER_AGENT)).first() is None:
+        db_session.add(AgentIdentity(agent_id=BUYER_AGENT, owner_address=BUYER.lower()))
+    if db_session.exec(select(AgentIdentity).where(AgentIdentity.agent_id == PROVIDER_AGENT)).first() is None:
+        db_session.add(AgentIdentity(agent_id=PROVIDER_AGENT, owner_address=PROVIDER.lower()))
+    if not db_session.exec(
+        select(CrossChainMapping).where(CrossChainMapping.agent_id == BUYER_AGENT, CrossChainMapping.chain_id == 1)
+    ).first():
+        db_session.add(
+            CrossChainMapping(agent_id=BUYER_AGENT, chain_id=1, chain_type=ChainType.ETHEREUM, chain_address=BUYER.lower())
+        )
+    if not db_session.exec(
+        select(CrossChainMapping).where(CrossChainMapping.agent_id == PROVIDER_AGENT, CrossChainMapping.chain_id == 1)
+    ).first():
+        db_session.add(
+            CrossChainMapping(
+                agent_id=PROVIDER_AGENT, chain_id=1, chain_type=ChainType.ETHEREUM, chain_address=PROVIDER.lower()
+            )
+        )
     db_session.commit()
 
 
