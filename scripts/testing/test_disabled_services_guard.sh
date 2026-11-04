@@ -104,6 +104,7 @@ touch "$ETC_DIR/blockchain.env"
 
 echo "== link-systemd.sh (sandboxed, real script) =="
 cp "$REPO_ROOT/scripts/utils/link-systemd.sh" "$FAKE_REPO/scripts/utils/"
+cp "$REPO_ROOT/scripts/utils/systemd-env.sh" "$FAKE_REPO/scripts/utils/"
 PATH="$STUB_BIN:$PATH" \
 AITBC_SYSTEMD_DIR="$SYSTEMD_DIR" \
 AITBC_TMPFILES_DIR="$SBX/tmpfiles" \
