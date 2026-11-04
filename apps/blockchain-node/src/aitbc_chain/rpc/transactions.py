@@ -389,6 +389,9 @@ def get_mempool(request: Request, chain_id: str | None = None, limit: int = 100)
     """Get pending transactions from mempool"""
     from ..mempool import get_mempool
 
+    # A negative limit used to slice every entry but the last (#1057).
+    limit = max(1, min(limit, 500))
+
     try:
         mempool = get_mempool()
         # Hand an unspecified chain through as None so the mempool applies its
@@ -635,7 +638,8 @@ def query_transactions(
         # SQL result is the final one and must not materialise the whole
         # table to slice it in Python (RPC-TX-QUERY-UNBOUNDED-1).
         if limit and not (island_id or pair or status or order_id):
-            query = query.limit(limit)
+            # An omitted/0/huge limit loaded the whole chain table (#1057).
+            query = query.limit(max(1, min(limit or 100, 500)))
 
         _logger.debug(f"Query: {query}")
 

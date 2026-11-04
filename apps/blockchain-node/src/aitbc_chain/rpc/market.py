@@ -6,9 +6,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from aitbc.rate_limiting import rate_limit
 from aitbc.security import SecurityAuditor, SecurityValidator
 
 from ..chain_id import resolve_chain_id
@@ -105,7 +106,8 @@ def _chain_db_path() -> Path:
 
 
 @router.get("/market/listings", summary="List market items", tags=["market"])
-def market_listings() -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def market_listings(request: Request) -> dict[str, Any]:
     """Get all market listings from blockchain"""
     try:
         metrics_registry.increment("rpc_market_listings_total")
