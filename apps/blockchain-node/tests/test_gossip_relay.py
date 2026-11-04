@@ -178,3 +178,28 @@ def test_unscoped_signature_flag_compat(client: TestClient, monkeypatch: pytest.
     body["signature"] = gossip_auth.sign_challenge(challenge2["challenge"], address, challenge2["timestamp"], VALIDATOR_KEY)
     monkeypatch.setattr(settings, "gossip_auth_require_scope", True)
     assert client.post("/gossip", json=body).status_code == 401
+
+
+def test_unscoped_subscribe_flag_compat(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from starlette.websockets import WebSocketDisconnect
+
+    def _unscoped_ws_params() -> str:
+        challenge = client.get("/gossip/challenge").json()
+        address = _validator_address()
+        signature = gossip_auth.sign_challenge(challenge["challenge"], address, challenge["timestamp"], VALIDATOR_KEY)
+        return (
+            f"channel=blocks.bc-2&address={address}&timestamp={challenge['timestamp']}"
+            f"&challenge={challenge['challenge']}&signature={signature}"
+        )
+
+    # flag OFF: compatibility window — unscoped subscribe accepted
+    monkeypatch.setattr(settings, "gossip_auth_require_scope", False)
+    with client.websocket_connect(f"/ws?{_unscoped_ws_params()}"):
+        pass
+
+    # flag ON: unscoped subscribe refused
+    monkeypatch.setattr(settings, "gossip_auth_require_scope", True)
+    with pytest.raises(WebSocketDisconnect) as excinfo:
+        with client.websocket_connect(f"/ws?{_unscoped_ws_params()}"):
+            pass
+    assert excinfo.value.code == 1008
