@@ -653,15 +653,20 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
             "Payment transfer failed"
         );
 
-        // Transfer platform fee to owner
-        if (payment.platformFee > 0) {
+        // Transfer platform fee to owner. The fee is zeroed before the
+        // transfer so claimPlatformFee cannot pay the same fee a second
+        // time (#1102): the claim path stays for payments that reach
+        // Released without a fee payout (dispute resolution).
+        uint256 feeAmount = payment.platformFee;
+        if (feeAmount > 0) {
+            payment.platformFee = 0;
             require(
-                paymentToken.transfer(owner(), payment.platformFee),
+                paymentToken.transfer(owner(), feeAmount),
                 "Platform fee transfer failed"
             );
         }
 
-        emit PaymentReleased(_paymentId, payment.to, payment.amount, payment.platformFee);
+        emit PaymentReleased(_paymentId, payment.to, payment.amount, feeAmount);
     }
 
     // View functions
