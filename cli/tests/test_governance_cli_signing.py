@@ -26,6 +26,11 @@ from aitbc_cli.commands.governance import _sign_body, governance  # noqa: E402
 PK = keys.PrivateKey(b"\x0d" * 32)
 ADDR = PK.public_key.to_checksum_address()
 
+# governance_service is importable for the service-side reconstruction check
+_GOV_SRC = str(__import__("pathlib").Path(__file__).resolve().parents[2] / "apps" / "governance" / "src")
+if _GOV_SRC not in __import__("sys").path:
+    __import__("sys").path.insert(0, _GOV_SRC)
+
 
 def _verify(addr: str, sig: str, payload: dict) -> bool:
     msg = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
@@ -63,7 +68,7 @@ def test_close_posts_signed_body() -> None:
     assert result.exit_code == 0, result.output
     body = captured["json"]
     assert body["caller_address"] == ADDR
-    assert _verify(ADDR, body["signature"], {"action": "close", "proposal_id": "prop_1"})
+    assert _verify(ADDR, str(body["signature"]), {"action": "close", "proposal_id": "prop_1"})
 
 
 def test_execute_posts_signed_body() -> None:
@@ -79,7 +84,7 @@ def test_execute_posts_signed_body() -> None:
     assert result.exit_code == 0, result.output
     body = captured["json"]
     assert body["caller_address"] == ADDR
-    assert _verify(ADDR, body["signature"], {"action": "execute", "proposal_id": "prop_2"})
+    assert _verify(ADDR, str(body["signature"]), {"action": "execute", "proposal_id": "prop_2"})
 
 
 def test_vote_signs_whole_body_and_binds_voter() -> None:
@@ -97,7 +102,7 @@ def test_vote_signs_whole_body_and_binds_voter() -> None:
     body = captured["json"]
     assert body["voter_id"] == ADDR
     unsigned = {k: v for k, v in body.items() if k != "signature"}
-    assert _verify(ADDR, body["signature"], unsigned)
+    assert _verify(ADDR, str(body["signature"]), unsigned)
 
 
 def test_close_without_wallet_posts_no_signature() -> None:
@@ -130,7 +135,7 @@ def test_propose_signs_body_and_binds_proposer() -> None:
     body = captured["json"]
     assert body["proposer_id"] == ADDR
     unsigned = {k: v for k, v in body.items() if k != "signature"}
-    assert _verify(ADDR, body["signature"], unsigned)
+    assert _verify(ADDR, str(body["signature"]), unsigned)
 
 
 def test_propose_tx_payload_carries_block_window() -> None:
@@ -169,6 +174,43 @@ def _fake_http(captured: dict):
     return http
 
 
+def _service_reconstructs(model, body: dict) -> dict:
+    """What the governance service signs/verifies: model_dump(mode="json")
+    minus the signature field — the shape the #1091 gate checks."""
+    return {k: v for k, v in model(**body).model_dump(mode="json").items() if k != "signature"}
+
+
+def test_ops_stake_signed_body_survives_service_reconstruction() -> None:
+    """The signature must verify over the dict the service re-dumps from its
+    pydantic model — where Decimal('1000') is the string '1000' (#1133)."""
+    from governance_service.main import StakeRequest
+
+    body = {
+        "staker_address": ADDR,
+        "amount": "1000",
+        "lock_period_days": 30,
+        "timestamp": 1730000000.0,
+    }
+    body["signature"] = _sign_body(PK.to_hex(), _service_reconstructs(StakeRequest, body))
+    unsigned = _service_reconstructs(StakeRequest, body)
+    assert unsigned["amount"] == "1000"
+    assert _verify(ADDR, str(body["signature"]), unsigned)
+
+
+def test_ops_delegate_signed_body_survives_service_reconstruction() -> None:
+    from governance_service.main import DelegateRequest
+
+    body = {
+        "delegator_address": ADDR,
+        "delegate_address": "0x" + "22" * 20,
+        "amount": "500",
+        "timestamp": 1730000000.0,
+    }
+    body["signature"] = _sign_body(PK.to_hex(), _service_reconstructs(DelegateRequest, body))
+    unsigned = _service_reconstructs(DelegateRequest, body)
+    assert _verify(ADDR, str(body["signature"]), unsigned)
+
+
 def test_ops_stake_posts_signed_body() -> None:
     from aitbc_cli.commands.operations import governance as ops_gov
 
@@ -184,8 +226,11 @@ def test_ops_stake_posts_signed_body() -> None:
         result = CliRunner().invoke(ops_gov, ["stake", "--address", ADDR, "--amount", "10", "--wallet", "w"])
     assert result.exit_code == 0, result.output
     body = captured["json"]
-    unsigned = {k: v for k, v in body.items() if k != "signature"}
-    assert _verify(ADDR, body["signature"], unsigned)
+    # verify over the dict the service reconstructs, not the posted dict itself
+    from governance_service.main import StakeRequest
+
+    unsigned = _service_reconstructs(StakeRequest, body)
+    assert _verify(ADDR, str(body["signature"]), unsigned)
     assert "timestamp" in unsigned
 
 
