@@ -71,6 +71,20 @@ def _cancellation_rows(engine) -> list[AIJobCancellation]:
         return session.exec(select(AIJobCancellation)).all()
 
 
+SENDER = "0x" + "aa" * 20
+
+
+def _call_cancel(monkeypatch, job_id: str, wallet: str = SENDER):
+    """#1055: cancel now takes a signed request; the signature path is
+    verify_transaction_signature — patched here, exercised in ai_submit tests."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setattr("aitbc_chain.rpc.utils.verify_transaction_signature", lambda *a, **k: True)
+    monkeypatch.setattr("aitbc_chain.rpc.utils.get_chain_id", lambda *a, **k: CHAIN)
+    cancel = ai_services.AIJobCancelRequest(wallet_address=wallet, signature="0xdead")
+    return ai_services.ai_cancel_job(job_id, cancel, MagicMock())
+
+
 @pytest.mark.asyncio
 async def test_cancel_writes_service_row_and_leaves_sealed_tx_untouched(monkeypatch):
     engine = _engine()
@@ -78,7 +92,7 @@ async def test_cancel_writes_service_row_and_leaves_sealed_tx_untouched(monkeypa
     seeded = _seed_job(engine, status="pending")
     sealed_payload = dict(seeded.payload)
 
-    result = ai_services.ai_cancel_job(JOB_ID)
+    result = _call_cancel(monkeypatch, JOB_ID)
 
     assert result["status"] == "cancelled"
     rows = _cancellation_rows(engine)
@@ -93,9 +107,9 @@ async def test_second_cancel_refuses(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
     _seed_job(engine, status="pending")
 
-    ai_services.ai_cancel_job(JOB_ID)
+    _call_cancel(monkeypatch, JOB_ID)
     with pytest.raises(HTTPException) as exc:
-        ai_services.ai_cancel_job(JOB_ID)
+        _call_cancel(monkeypatch, JOB_ID)
 
     assert exc.value.status_code == 400 and "cancelled" in exc.value.detail
     assert len(_cancellation_rows(engine)) == 1
@@ -108,7 +122,7 @@ async def test_completed_job_refuses(monkeypatch):
     _seed_job(engine, status="completed")
 
     with pytest.raises(HTTPException) as exc:
-        ai_services.ai_cancel_job(JOB_ID)
+        _call_cancel(monkeypatch, JOB_ID)
 
     assert exc.value.status_code == 400 and "completed" in exc.value.detail
     assert _cancellation_rows(engine) == []
@@ -120,7 +134,7 @@ async def test_unknown_job_404s(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
 
     with pytest.raises(HTTPException) as exc:
-        ai_services.ai_cancel_job("nope")
+        _call_cancel(monkeypatch, "nope")
 
     assert exc.value.status_code == 404
 
@@ -131,7 +145,7 @@ async def test_cancel_overlay_reaches_list_get_and_stats(monkeypatch):
     _bind_session_scope(monkeypatch, engine)
     _seed_job(engine, status="pending")
 
-    ai_services.ai_cancel_job(JOB_ID)
+    _call_cancel(monkeypatch, JOB_ID)
 
     listed = ai_services.ai_list_jobs()
     assert listed["jobs"][0]["status"] == "cancelled"
@@ -145,3 +159,17 @@ async def test_cancel_overlay_reaches_list_get_and_stats(monkeypatch):
 
     stats = ai_services.ai_stats()
     assert stats["status_breakdown"] == {"cancelled": 1}
+
+
+@pytest.mark.asyncio
+async def test_non_owner_signature_is_403(monkeypatch):
+    """#1055: a cancel signed by someone other than the job's sender is refused."""
+    engine = _engine()
+    _bind_session_scope(monkeypatch, engine)
+    _seed_job(engine, status="pending")
+
+    with pytest.raises(HTTPException) as exc:
+        _call_cancel(monkeypatch, JOB_ID, wallet="0x" + "bb" * 20)
+
+    assert exc.value.status_code == 403
+    assert _cancellation_rows(engine) == []

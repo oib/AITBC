@@ -11448,7 +11448,7 @@
           "ai"
         ],
         "summary": "Cancel AI job",
-        "description": "Cancel an AI job",
+        "description": "Cancel an AI job \u2014 owner signature required (#1055).\n\nA bare job id is public (it is the tx hash), so the cancel must prove the\ncaller controls the wallet that submitted the job: a secp256k1 signature\nover {from, type:AI_JOB_CANCEL, payload.job_id, chain_id}, verified like\nai_submit_job, with the signer matching the job's sender.",
         "operationId": "ai_cancel_job_rpc_ai_job__job_id__cancel_post",
         "parameters": [
           {
@@ -11461,6 +11461,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIJobCancelRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -11486,6 +11496,16 @@
           },
           "400": {
             "description": "Cannot cancel job with status: {current_status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid transaction signature / Signer is not the job owner",
             "content": {
               "application/json": {
                 "schema": {
@@ -23205,7 +23225,7 @@
           "ai"
         ],
         "summary": "Cancel AI job",
-        "description": "Cancel an AI job",
+        "description": "Cancel an AI job \u2014 owner signature required (#1055).\n\nA bare job id is public (it is the tx hash), so the cancel must prove the\ncaller controls the wallet that submitted the job: a secp256k1 signature\nover {from, type:AI_JOB_CANCEL, payload.job_id, chain_id}, verified like\nai_submit_job, with the signer matching the job's sender.",
         "operationId": "ai_cancel_job_v1_ai_job__job_id__cancel_post",
         "parameters": [
           {
@@ -23218,6 +23238,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIJobCancelRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -23243,6 +23273,16 @@
           },
           "400": {
             "description": "Cannot cancel job with status: {current_status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid transaction signature / Signer is not the job owner",
             "content": {
               "application/json": {
                 "schema": {
@@ -24281,6 +24321,27 @@
   },
   "components": {
     "schemas": {
+      "AIJobCancelRequest": {
+        "properties": {
+          "wallet_address": {
+            "type": "string",
+            "title": "Wallet Address",
+            "description": "address that submitted the job"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature",
+            "description": "secp256k1 signature over the cancel transaction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet_address",
+          "signature"
+        ],
+        "title": "AIJobCancelRequest",
+        "description": "Owner-signed cancel (#1055): the route took a bare job id, so anyone\ncould cancel any job. The signature covers the cancel transaction shape."
+      },
       "AIJobRequest": {
         "properties": {
           "wallet_address": {
