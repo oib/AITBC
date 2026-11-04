@@ -344,7 +344,9 @@ def aitbc_governance_proposal_show(
 def aitbc_governance_propose(
     title: Annotated[str, Field(description="Proposal title")],
     description: Annotated[str, Field(description="Proposal description")],
-    proposer_id: Annotated[str, Field(description="Proposer profile ID")],
+    proposer_id: Annotated[
+        str, Field(description="Proposer profile ID (with --wallet the signed value is the wallet address)")
+    ],
     proposal_type: Annotated[str | None, Field(description="Proposal type (parameter_change, fund_allocation, etc.)")] = None,
     category: Annotated[str | None, Field(description="Proposal category")] = None,
     proposer_address: Annotated[str | None, Field(description="Proposer wallet address (for on-chain submission)")] = None,
