@@ -255,6 +255,61 @@ class AgentWallet(SQLModel, table=True):
         return validate_ethereum_address(v)
 
 
+class AgentSpendSession(SQLModel, table=True):
+    """Scoped spend credential for an agent (owner-issued)."""
+
+    __tablename__ = "agent_spend_sessions"
+    __table_args__ = (
+        Index("ix_agent_spend_sessions_agent_id", "agent_id"),
+        Index("ix_agent_spend_sessions_agent_chain", "agent_id", "chain_id"),
+        {"extend_existing": True},
+    )
+
+    id: str = Field(default_factory=lambda: f"session_{uuid4().hex[:8]}", primary_key=True)
+    agent_id: str = Field(max_length=128)
+    owner_address: str = Field(max_length=42)
+    chain_id: int = Field(default=1000)
+    cap_ait: Decimal = Field(ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
+    used_ait: Decimal = Field(default=Decimal("0.0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
+    allowed_ops: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    expires_at: datetime | None = Field(default=None)
+    revoked_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("agent_id")
+    @classmethod
+    def validate_agent_id_field(cls, v: str) -> str:
+        return validate_agent_id(v)
+
+    @field_validator("owner_address")
+    @classmethod
+    def validate_owner_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
+
+
+class WalletAuditLog(SQLModel, table=True):
+    """Append-only audit for spend policy events."""
+
+    __tablename__ = "wallet_audit_log"
+    __table_args__ = (Index("ix_wallet_audit_log_agent_id", "agent_id"), {"extend_existing": True})
+
+    id: str = Field(default_factory=lambda: f"audit_{uuid4().hex[:8]}", primary_key=True)
+    agent_id: str = Field(max_length=128)
+    session_id: str | None = Field(default=None, max_length=32)
+    event: str = Field(max_length=64)
+    amount_ait: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8), nullable=True))
+    op: str | None = Field(default=None, max_length=64)
+    ref: str | None = Field(default=None, max_length=256)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AgentSpendSessionCreate(SQLModel):
+    chain_id: int = Field(default=1000)
+    cap_ait: Decimal = Field(gt=0)
+    allowed_ops: list[str] = Field(default_factory=lambda: ["wallet.execute"])
+    expires_at: datetime | None = None
+
+
 # Request/Response Models for API
 class AgentIdentityCreate(SQLModel):
     """Request model for creating agent identities"""

@@ -32,6 +32,8 @@ from ..domain.agent_identity import (
     IdentityStatus,
     VerificationType,
 )
+from ..domain.spend_policy import assert_wallet_permission, operation_from_tx_data
+from .spend_session_service import SpendSessionService
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
@@ -115,6 +117,18 @@ class AgentWalletManager:
         wallet = result.scalars().first()
         if not wallet:
             raise ValueError(f"Active wallet not found for agent {agent_id} on chain {chain_id}")
+        operation = operation_from_tx_data(data)
+        assert_wallet_permission(list(wallet.permissions or []), operation)
+        session_id = (data or {}).get("session_id") if data else None
+        if session_id:
+            SpendSessionService(self.session).consume(
+                str(session_id),
+                agent_id,
+                chain_id,
+                amount,
+                operation,
+                ref=str((data or {}).get("ref") or ""),
+            )
         if wallet.spending_limit > 0 and wallet.total_spent + amount > wallet.spending_limit:
             raise ValueError("Transaction amount exceeds spending limit")
         adapter = self._get_adapter(chain_id)
