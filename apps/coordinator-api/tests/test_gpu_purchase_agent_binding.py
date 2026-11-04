@@ -9,7 +9,7 @@ from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentI
 from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
 from coordinator_api.contexts.payments.services.payments import PaymentService
 
-from test_routers_market_gpu import _seed_energy
+from .test_routers_market_gpu import _seed_energy
 
 BUYER = "0x08aB801150eF3496344cFA78fe025c3B48Caf435"
 PROVIDER = "0xF4924759508E420eeD947BD33326731B11c4B7Df"
