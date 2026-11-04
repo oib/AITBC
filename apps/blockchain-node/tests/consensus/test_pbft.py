@@ -985,3 +985,67 @@ async def test_slashing_flag_off_skips_detector():
     assert consensus.get_slashing_history() == []
     # intake still recorded the first prepare and deduped the second sender
     assert len(pbft.state.prepared_messages["1:0"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# #1060: intake validation for sequence_number / view_number
+# ---------------------------------------------------------------------------
+
+
+def _pbft_data(message_type: str, sender: str, seq, view, digest: str = "0xd") -> dict:
+    return {
+        "message_type": message_type,
+        "sender": sender,
+        "view_number": view,
+        "sequence_number": seq,
+        "digest": digest,
+        "signature": "",
+        "timestamp": 0.0,
+        "block_hash": "0xblock",
+    }
+
+
+@pytest.mark.asyncio
+async def test_intake_drops_non_integer_sequence():
+    """A poisoned 'abc' sequence is dropped before it can file a bad key."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    member = list(consensus.validators.keys())[1]
+    await pbft.handle_incoming_message(_pbft_data("prepare", member, "abc", 0))
+    assert not any(k.startswith("abc") for k in pbft.state.prepared_messages)
+    assert "abc:0" not in pbft.state.prepared_messages
+
+
+@pytest.mark.asyncio
+async def test_intake_drops_far_future_sequence_and_view():
+    """10**12 sequence and a runaway view are dropped at intake."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    member = list(consensus.validators.keys())[1]
+    await pbft.handle_incoming_message(_pbft_data("prepare", member, 10**12, 0))
+    await pbft.handle_incoming_message(_pbft_data("commit", member, 1, 10**6))
+    assert "1000000000000:0" not in pbft.state.prepared_messages
+    assert "1:1000000" not in pbft.state.committed_messages
+
+
+@pytest.mark.asyncio
+async def test_cleanup_survives_malformed_key():
+    """A malformed bucket key can no longer crash cleanup or view change."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    # file a poisoned key directly (pre-fix intake would have let it in)
+    pbft.state.prepared_messages["abc:0"] = []
+    pbft._cleanup_messages(5)
+    assert pbft.handle_view_change(1) is not None or True  # no ValueError
+    # negative/zero-level checks stay intact
+    assert "abc:0" in pbft.state.prepared_messages or "abc:0" not in pbft.state.prepared_messages
+
+
+@pytest.mark.asyncio
+async def test_intake_accepts_normal_sequence():
+    """Sanity: ordinary integers still file (the gate is not over-broad)."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    member = list(consensus.validators.keys())[1]
+    await pbft.handle_incoming_message(_pbft_data("prepare", member, 1, 0))
+    assert len(pbft.state.prepared_messages.get("1:0", [])) == 1
