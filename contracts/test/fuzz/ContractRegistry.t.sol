@@ -31,6 +31,8 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
         vm.assume(contractId != selfId);
+        vm.assume(uint160(contractAddress) > 0xff && contractAddress != address(registry));
+        vm.etch(contractAddress, hex"01"); // registrations require code (#1122)
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
@@ -50,6 +52,8 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
         vm.assume(contractId != selfId);
+        vm.assume(uint160(contractAddress) > 0xff && contractAddress != address(registry));
+        vm.etch(contractAddress, hex"01");
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
@@ -65,6 +69,10 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(oldAddress != newAddress);
         vm.assume(contractId != bytes32(0));
         vm.assume(contractId != selfId);
+        vm.assume(uint160(oldAddress) > 0xff && oldAddress != address(registry));
+        vm.assume(uint160(newAddress) > 0xff && newAddress != address(registry));
+        vm.etch(oldAddress, hex"01");
+        vm.etch(newAddress, hex"01");
 
         vm.prank(owner);
         registry.registerContract(contractId, oldAddress);
@@ -79,6 +87,8 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
         vm.assume(contractId != selfId);
+        vm.assume(uint160(contractAddress) > 0xff && contractAddress != address(registry));
+        vm.etch(contractAddress, hex"01");
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
@@ -99,6 +109,7 @@ contract ContractRegistryFuzzTest is Test {
         for (uint256 i = 0; i < numContracts; i++) {
             contractIds[i] = keccak256(abi.encodePacked("batch", i));
             addresses[i] = address(uint160(i + 1000));
+            vm.etch(addresses[i], hex"01");
         }
 
         vm.prank(owner);
@@ -119,6 +130,7 @@ contract ContractRegistryFuzzTest is Test {
         for (uint256 i = 0; i < numContracts; i++) {
             contractIds[i] = keccak256(abi.encodePacked(i));
             addresses[i] = address(uint160(i + 100));
+            vm.etch(addresses[i], hex"01");
 
             vm.prank(owner);
             registry.registerContract(contractIds[i], addresses[i]);
@@ -133,6 +145,8 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
         vm.assume(contractId != selfId);
+        vm.assume(uint160(contractAddress) > 0xff && contractAddress != address(registry));
+        vm.etch(contractAddress, hex"01");
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
@@ -157,6 +171,8 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
         vm.assume(contractId != selfId);
+        vm.assume(uint160(contractAddress) > 0xff && contractAddress != address(registry));
+        vm.etch(contractAddress, hex"01");
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
