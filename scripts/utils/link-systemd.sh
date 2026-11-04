@@ -63,21 +63,32 @@ fi
 
 BLOCKCHAIN_ENV_FILE="${AITBC_BLOCKCHAIN_ENV_FILE:-$ETC_AITBC_DIR/blockchain.env}"
 
+SYSTEMD_ENV="$REPO_ROOT/scripts/utils/systemd-env.sh"
+
+# Read the role keys through the EnvironmentFile parser, never `source`:
+# sourcing executes the file, so a `$()` or `(` in an unrelated value ran in
+# this shell and an unparseable file silently degraded to the default role.
+# A file the parser cannot read is a hard stop — the sweep must not run on a
+# role guessed from partial data.
 get_node_role() {
     local blockchain_mode="" market_role="" hardware_profile=""
-    if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
-        source "$BLOCKCHAIN_ENV_FILE" 2>/dev/null
-        blockchain_mode="${BLOCKCHAIN_MODE:-}"
-        market_role="${MARKET_ROLE:-}"
-        hardware_profile="${HARDWARE_PROFILE:-}"
-    fi
-    if [ -f "$NODE_ENV_FILE" ]; then
-        source "$NODE_ENV_FILE" 2>/dev/null
-        # node.env is node-specific and must override the public blockchain.env.
-        blockchain_mode="${BLOCKCHAIN_MODE:-$blockchain_mode}"
-        market_role="${MARKET_ROLE:-$market_role}"
-        hardware_profile="${HARDWARE_PROFILE:-$hardware_profile}"
-    fi
+    local env_file key val rc
+    for env_file in "$BLOCKCHAIN_ENV_FILE" "$NODE_ENV_FILE"; do
+        [ -f "$env_file" ] || continue
+        for key in BLOCKCHAIN_MODE MARKET_ROLE HARDWARE_PROFILE; do
+            val=$("$SYSTEMD_ENV" get "$env_file" "$key" 2>/dev/null) && rc=0 || rc=$?
+            case $rc in
+                1) continue ;;                     # key absent — fine
+                0) ;;
+                *) echo "❌ cannot parse $env_file ($key) — refusing to sweep on a guessed role" >&2; return 1 ;;
+            esac
+            case $key in
+                BLOCKCHAIN_MODE)   blockchain_mode="$val" ;;
+                MARKET_ROLE)       market_role="$val" ;;
+                HARDWARE_PROFILE)  hardware_profile="$val" ;;
+            esac
+        done
+    done
 
     # Output both axes so get_allowed_services can combine them
     echo "${blockchain_mode:-follower}:${market_role:-customer}:${hardware_profile:-nogpu}"
@@ -206,7 +217,7 @@ get_allowed_services() {
 }
 
 # Determine node role (blockchain_mode:market_role:hardware_profile)
-NODE_ROLE=$(get_node_role)
+NODE_ROLE=$(get_node_role) || { echo "❌ env parse failed — nothing linked, nothing swept"; exit 1; }
 echo "🎯 Node role: $NODE_ROLE"
 
 # Get allowed services list (combines both axes)
