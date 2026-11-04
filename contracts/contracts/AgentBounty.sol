@@ -20,6 +20,7 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     PerformanceVerifier public performanceVerifier;
 
     uint256 public bountyCounter;
+    uint256 public submissionCounter;
     uint256 public creationFeePercentage = 50; // 0.5% in basis points
     uint256 public successFeePercentage = 200; // 2% in basis points
     uint256 public disputeFeePercentage = 10; // 0.1% in basis points
@@ -87,6 +88,9 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256[]) public creatorBounties;
     mapping(BountyTier => uint256) public tierRequirements;
     mapping(uint256 => mapping(address => bool)) public hasSubmitted;
+    // Verifiers allowed to settle submissions: the owner and any address the
+    // owner authorizes (e.g. the BountyIntegration contract).
+    mapping(address => bool) public authorizedVerifiers;
 
     // Arrays
     uint256[] public activeBountyIds;
@@ -153,6 +157,9 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         uint256 feeAmount,
         address indexed collector
     );
+
+    event VerifierAuthorized(address indexed verifier);
+    event VerifierRevoked(address indexed verifier);
 
     // Modifiers
     modifier bountyExists(uint256 _bountyId) {
@@ -304,7 +311,9 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             require(_zkProof.length > 0, "ZK-proof required");
         }
 
-        uint256 submissionId = bounty.submissionCount; // Use count as ID
+        // Global counter: a per-bounty count would collide in the shared
+        // `submissions` mapping (submission 0 of bounty 1 overwrote bounty 0's).
+        uint256 submissionId = submissionCounter++;
 
         Submission storage submission = submissions[submissionId];
         submission.submissionId = submissionId;
@@ -352,11 +361,17 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         Bounty storage bounty = bounties[_bountyId];
         Submission storage submission = submissions[_submissionId];
 
+        require(msg.sender == owner() || authorizedVerifiers[msg.sender], "Not an authorized verifier");
+        require(
+            msg.sender != submission.submitter && msg.sender != bounty.creator,
+            "Submitter or creator cannot verify"
+        );
         require(submission.status == SubmissionStatus.PENDING, "Submission not pending");
         require(submission.bountyId == _bountyId, "Submission bounty mismatch");
 
         submission.status = _verified ? SubmissionStatus.VERIFIED : SubmissionStatus.REJECTED;
-        submission.verifier = _verifier;
+        _verifier; // kept for ABI compatibility; the recorded verifier is the caller
+        submission.verifier = msg.sender;
 
         if (_verified) {
             // Check if this meets the bounty requirements
@@ -486,6 +501,27 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
                 break;
             }
         }
+    }
+
+    /**
+     * @dev Authorizes an address to verify submissions
+     * @param _verifier Address to authorize (EOA oracle or a contract like BountyIntegration)
+     */
+    function authorizeVerifier(address _verifier) external onlyOwner {
+        require(_verifier != address(0), "Invalid address");
+        require(!authorizedVerifiers[_verifier], "Already authorized");
+        authorizedVerifiers[_verifier] = true;
+        emit VerifierAuthorized(_verifier);
+    }
+
+    /**
+     * @dev Revokes a verifier's authorization
+     * @param _verifier Address to revoke
+     */
+    function revokeVerifier(address _verifier) external onlyOwner {
+        require(authorizedVerifiers[_verifier], "Not authorized");
+        authorizedVerifiers[_verifier] = false;
+        emit VerifierRevoked(_verifier);
     }
 
     /**
