@@ -417,6 +417,34 @@ def _claim_fields(claim: str) -> tuple[int | None, str | None]:
     return nonce, attempt_hash
 
 
+def _scan_entries(entries, nonce: int, genesis: str, recipient: str, attempt_hash: str | None, request_id: str) -> str | None:
+    """Match one mempool/sealed entry to a claimed attempt. Returns the found
+    tx hash, "keep" when the stored hash points at a different recipient (the
+    claim must stay), or None when nothing matched.
+
+    Mempool entries are PendingTransaction-shaped: the submitted body lives
+    under "content" — nonce/from/to are NOT top-level keys, so a flat read
+    made every pending tx invisible (#1080).
+    """
+    for entry in entries:
+        body = entry.get("content") if isinstance(entry.get("content"), dict) else entry
+        if attempt_hash and (entry.get("tx_hash") == attempt_hash or entry.get("transaction_hash") == attempt_hash):
+            if body.get("to") != recipient:
+                logger.error(
+                    "Tx %s for claimed attempt on %s points at %s, not %s — keeping the claim",
+                    attempt_hash,
+                    request_id,
+                    body.get("to"),
+                    recipient,
+                )
+                return "keep"
+            return attempt_hash
+        if body.get("nonce") == nonce and body.get("from") == genesis and body.get("to") == recipient:
+            h = entry.get("tx_hash") or entry.get("transaction_hash")
+            return h if isinstance(h, str) else None
+    return None
+
+
 def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient: str) -> str | None:
     """Reconcile a nonce-marked claim against the chain.
 
@@ -436,40 +464,18 @@ def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient
         from aitbc.network import AITBCHTTPClient
 
         client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=15)
-        genesis = tx_service.genesis_address
+        genesis = tx_service.genesis_address or ""
         mempool_resp = client.get_json("/rpc/mempool")
         pending = mempool_resp.get("transactions", []) if isinstance(mempool_resp, dict) else []
-        found: str | None = None
-        for entry in pending:
-            # Mempool entries are PendingTransaction-shaped: the submitted body
-            # lives under "content" — nonce/from/to are NOT top-level keys, so
-            # a flat read made every pending tx invisible (#1080).
-            body = entry.get("content") if isinstance(entry.get("content"), dict) else entry
-            if attempt_hash and entry.get("tx_hash") == attempt_hash:
-                if body.get("to") != recipient:
-                    logger.error(
-                        "Pending tx %s for claimed attempt on %s points at %s, not %s — keeping the claim",
-                        attempt_hash,
-                        request_id,
-                        body.get("to"),
-                        recipient,
-                    )
-                    return None
-                found = attempt_hash
-                break
-            if body.get("nonce") == nonce and body.get("from") == genesis and body.get("to") == recipient:
-                found = entry.get("tx_hash") or entry.get("transaction_hash")
-                break
+        found = _scan_entries(pending, nonce, genesis, recipient, attempt_hash, request_id)
+        if found == "keep":
+            return None
         if found is None:
             sealed = client.get_json("/rpc/transactions", params={"sender": genesis, "recipient": recipient})
-            for entry in sealed if isinstance(sealed, list) else []:
-                body = entry.get("content") if isinstance(entry.get("content"), dict) else entry
-                if attempt_hash and (entry.get("tx_hash") == attempt_hash or entry.get("transaction_hash") == attempt_hash):
-                    found = attempt_hash
-                    break
-                if body.get("nonce") == nonce:
-                    found = entry.get("tx_hash") or entry.get("transaction_hash")
-                    break
+            entries = sealed if isinstance(sealed, list) else []
+            found = _scan_entries(entries, nonce, genesis, recipient, attempt_hash, request_id)
+            if found == "keep":
+                return None
         if found:
             # Finalize the row to the recovered hash so later calls take the
             # fast already-executed path instead of reconciling again.
