@@ -4,7 +4,7 @@
 # Stops incus containers and all AITBC services on localhost
 # Enhanced to handle persistent services with auto-restart configuration
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -114,7 +114,7 @@ fi
 print_status "Stopping AITBC systemd services on localhost..."
 
 # Get all AITBC services
-aitbc_services=$(systemctl list-units --all | grep "aitbc-" | awk '{print $1}' | grep -v "not-found")
+aitbc_services=$(systemctl list-units --all --plain --no-legend 2>/dev/null | grep "aitbc-" | awk '{print $1}' | grep -v "not-found" || true)
 
 if [ -z "$aitbc_services" ]; then
     print_warning "No AITBC services found on localhost"
