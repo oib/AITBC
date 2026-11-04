@@ -131,3 +131,28 @@ def test_propose_signs_body_and_binds_proposer() -> None:
     assert body["proposer_id"] == ADDR
     unsigned = {k: v for k, v in body.items() if k != "signature"}
     assert _verify(ADDR, body["signature"], unsigned)
+
+
+def test_propose_tx_payload_carries_block_window() -> None:
+    """_sign_governance_tx gets the real height + voting-days window."""
+    captured: dict = {}
+    http = MagicMock()
+    http.get = lambda *a, **k: {"height": 100}
+    with (
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_client(captured)),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(http, "c")),
+        patch("aitbc_cli.commands.governance._sign_governance_tx") as sign_tx,
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        sign_tx.return_value = {"signed": True}
+        result = CliRunner().invoke(
+            governance,
+            ["propose", "--title", "t", "--description", "d", "--proposer-id", "p", "--voting-days", "2"],
+        )
+    assert result.exit_code == 0, result.output
+    payload = sign_tx.call_args.args[5]
+    assert payload["voting_starts_block"] == 100
+    assert payload["voting_ends_block"] == 100 + 2 * 43200
+    assert payload["proposal_id"].startswith("prop_")
+    assert payload["proposer"] == ADDR
