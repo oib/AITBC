@@ -34,16 +34,17 @@ VERIFY_TIMEOUT = float(os.environ.get("MARKET_VERIFY_TIMEOUT", "10"))
 _ACCESS_KEY_RE = re.compile(r"[A-Za-z0-9_-]{8,128}")
 
 
-def _verify(access_key: str, access_secret: str) -> dict[str, Any] | None:
+async def _verify(access_key: str, access_secret: str) -> dict[str, Any] | None:
     """Return the job dict when the token validates, else None."""
     import httpx
 
     try:
-        resp = httpx.get(
-            f"{MARKET_VERIFY_URL}/v1/market/access/{quote(access_key, safe='')}",
-            params={"access_secret": access_secret},
-            timeout=VERIFY_TIMEOUT,
-        )
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{MARKET_VERIFY_URL}/v1/market/access/{quote(access_key, safe='')}",
+                params={"access_secret": access_secret},
+                timeout=VERIFY_TIMEOUT,
+            )
     except httpx.HTTPError:
         # The gate is paid work; a dead verifier must not silently pass.
         raise HTTPException(
@@ -75,7 +76,7 @@ async def require_job_access(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid access token")
     if not job_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Job-Id required")
-    job = _verify(access_key, access_secret)
+    job = await _verify(access_key, access_secret)
     if job is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid access token")
     if job.get("job_id") != job_id:
