@@ -154,6 +154,9 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         uint256 platformFee
     );
 
+    event PerformanceSubmittedUnverified(
+        uint256 indexed agreementId, uint256 responseTime, uint256 accuracy, uint256 availability, uint256 computePower
+    );
     event PerformanceSubmitted(
         uint256 indexed agreementId,
         uint256 responseTime,
@@ -610,17 +613,30 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
         require(agreement.status == RentalStatus.Active, "Agreement not active");
 
-        // Verify ZK proof
-        bool proofValid = zkVerifier.verifyPerformanceProof(
+        // The performance-proof verifier reverts unconditionally (#1100) —
+        // catch it: the submission is recorded with withinSLA=false and no
+        // SLA credit instead of hard-reverting the call.
+        try zkVerifier.verifyPerformanceProof(
             _agreementId,
             _responseTime,
             _accuracy,
             _availability,
             _computePower,
             _zkProof
-        );
-
-        require(proofValid, "Invalid performance proof");
+        ) returns (bool proofValid) {
+            require(proofValid, "Invalid performance proof");
+        } catch {
+            agreement.performance = PerformanceMetrics({
+                responseTime: _responseTime,
+                accuracy: _accuracy,
+                availability: _availability,
+                computePower: _computePower,
+                withinSLA: false,
+                lastUpdateTime: block.timestamp
+            });
+            emit PerformanceSubmittedUnverified(_agreementId, _responseTime, _accuracy, _availability, _computePower);
+            return;
+        }
 
         agreement.performance = PerformanceMetrics({
             responseTime: _responseTime,

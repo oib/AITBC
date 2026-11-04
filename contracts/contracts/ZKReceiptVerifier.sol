@@ -14,7 +14,6 @@ contract ZKReceiptVerifier is Groth16Verifier {
     // Events
     event ProofVerified(
         bytes32 indexed receiptHash,
-        uint256 settlementAmount,
         uint256 timestamp,
         address indexed verifier
     );
@@ -96,15 +95,13 @@ contract ZKReceiptVerifier is Groth16Verifier {
      * @param b Proof parameter b (G2 point)
      * @param c Proof parameter c (G1 point)
      * @param publicSignals Public signals [receiptHash]
-     * @param settlementAmount Amount to settle (passed separately, not in proof)
      * @return success Whether verification succeeded
      */
     function verifyAndRecord(
         uint[2] calldata a,
         uint[2][2] calldata b,
         uint[2] calldata c,
-        uint[1] calldata publicSignals,
-        uint256 settlementAmount
+        uint[1] calldata publicSignals
     ) external onlyAuthorized returns (bool success) {
         // Extract public signal
         bytes32 receiptHash = bytes32(publicSignals[0]);
@@ -128,8 +125,9 @@ contract ZKReceiptVerifier is Groth16Verifier {
             // Mark as verified
             verifiedReceipts[receiptHash] = true;
 
-            // Emit event with settlement amount
-            emit ProofVerified(receiptHash, settlementAmount, block.timestamp, msg.sender);
+            // The caller-invented settlementAmount is gone (#1100) — the
+            // event reports only what the proof binds.
+            emit ProofVerified(receiptHash, block.timestamp, msg.sender);
 
             return true;
         } else {
@@ -233,10 +231,10 @@ contract ZKReceiptVerifier is Groth16Verifier {
         uint256 computePower,
         bytes memory zkProof
     ) external pure returns (bool valid) {
-        // Implementation for performance proof verification
-        // This is a placeholder since the actual implementation would need
-        // to parse the zkProof bytes and call the appropriate Circom verifier
-        return true;
+        // No performance-proof circuit exists — returning anything but a
+        // revert was verification theatre that paid real rewards (#1100).
+        // Callers catch this into unverified/Pending; nothing can verify.
+        revert("performance proof verifier not implemented");
     }
 
     }

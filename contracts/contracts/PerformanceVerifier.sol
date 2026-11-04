@@ -653,20 +653,22 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     ) internal view returns (bool) {
         PerformanceMetrics memory metrics = performanceMetrics[_verificationId];
 
-        // Verify ZK proof
-        bool zkValid = zkVerifier.verifyPerformanceProof(
+        // The ZK stub reverts unconditionally (#1100) — catch it into
+        // false so submissions land Pending rather than reverting the
+        // caller. The old groth16Valid=true placeholder is gone; nothing
+        // on this path can produce true.
+        try zkVerifier.verifyPerformanceProof(
             metrics.agreementId,
             metrics.responseTime,
             metrics.accuracy,
             metrics.availability,
             metrics.computePower,
             _zkProof
-        );
-
-        // Verify Groth16 proof
-        bool groth16Valid = true; // Placeholder for Groth16 verification
-
-        return zkValid && groth16Valid;
+        ) returns (bool zkValid) {
+            return zkValid;
+        } catch {
+            return false;
+        }
     }
 
 function verifyPerformanceProof(
@@ -677,8 +679,9 @@ function verifyPerformanceProof(
         uint256 computePower,
         bytes memory zkProof
     ) external pure returns (bool valid) {
-        // Placeholder implementation - delegate to ZKReceiptVerifier
-        return true;
+        // No performance-proof circuit exists (#1100) — revert so no gate
+        // can treat arbitrary bytes as verified.
+        revert("performance proof verifier not implemented");
     }
 
     function _verifyPerformance(uint256 _verificationId) internal {
