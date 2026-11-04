@@ -323,9 +323,9 @@ def register_gpu(
     from datetime import datetime
 
     gpu_id = f"gpu_{uuid.uuid4().hex[:8]}"
-    # E1: the authenticated miner is the canonical owner; a caller-supplied
-    # miner_id is allowed only for bootstrap/service accounts that know both.
-    miner_id = gpu_specs.get("miner_id") or user.get("sub") or gpu_specs.get("miner") or "default_miner"
+    # E1: the authenticated miner is the canonical owner — a caller-supplied
+    # miner_id can never register a GPU under someone else's id (#1074).
+    miner_id = user.get("sub") or gpu_specs.get("miner_id") or gpu_specs.get("miner") or "default_miner"
     compute_capability = gpu_specs.get("compute_capability", "")
     cuda_version = compute_capability if compute_capability else ""
     price_per_hour = Decimal(str(gpu_specs.get("price_per_hour", "0.05")))
@@ -769,6 +769,8 @@ async def buy_gpu(
 def sell_gpu(request: GPUSellRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
     """List GPU for sale on market with specified price."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
+    if gpu.miner_id != user.get("sub"):
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="only the GPU owner may reprice it")
     gpu.price_per_hour = request.listing_price
     gpu.status = "available"
     session.commit()
@@ -859,6 +861,12 @@ def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)], 
         .scalars()
         .first()
     )
+    caller = user.get("sub")
+    if caller != gpu.miner_id and (booking is None or booking.client_id != caller):
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="only the GPU owner or the booking client may release it",
+        )
     refund = Decimal("0")
     if booking:
         try:
@@ -889,6 +897,11 @@ def confirm_gpu_booking(
     if not booking:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"Active booking for {gpu_id} not found")
     if request.client_id:
+        if request.client_id != user.get("sub"):
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="client_id must be the authenticated caller",
+            )
         booking.client_id = request.client_id
         session.add(booking)
         session.commit()
