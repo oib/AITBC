@@ -236,20 +236,34 @@ class PersistentKeystoreService:
 
             metadata_map = {str(k): str(v) for k, v in (metadata or {}).items()}
 
+            # secp256k1 keys: the chain's canonical address format is EVM 0x
+            # and the node verifies secp256k1 keccak signatures — the Ed25519
+            # keys this used to mint could never produce one (#1078).
             if secret is None:
-                signing_key = SigningKey.generate()
-                secret_bytes = signing_key.encode()
+                from eth_keys import keys as _eth_keys
+
+                pk_obj = _eth_keys.PrivateKey(token_bytes(32))
+                secret_bytes = pk_obj.to_bytes()
             else:
                 if len(secret) != 32:
                     raise ValueError("secret key must be 32 bytes")
                 secret_bytes = secret
-                signing_key = SigningKey(secret_bytes)
+                from eth_keys import keys as _eth_keys
+
+                pk_obj = _eth_keys.PrivateKey(secret_bytes)
 
             salt = token_bytes(self._encryption.salt_bytes)
             nonce = token_bytes(self._encryption.nonce_bytes)
             ciphertext = self._encryption.encrypt(password=password, plaintext=secret_bytes, salt=salt, nonce=nonce)
 
-            public_key_hex = signing_key.verify_key.encode().hex()
+            # public_key carries the derived 0x chain address — what the
+            # node's signature recovery compares sender against. The
+            # key_scheme marker lets send refuse legacy Ed25519 rows
+            # instead of producing a signature that can never verify.
+            # EIP-55 checksummed: validate_address and the node's recovery
+            # comparison both require it — lowercasing breaks both.
+            public_key_hex = pk_obj.public_key.to_address()
+            metadata_map.setdefault("key_scheme", "secp256k1")
             now = datetime.now(UTC).isoformat()
 
             conn = sqlite3.connect(self.db_path)
@@ -391,10 +405,21 @@ class PersistentKeystoreService:
         sender_address = record.public_key
 
         try:
+            # Legacy Ed25519 wallets (pre-migration rows carry no
+            # key_scheme) cannot produce a signature the node accepts —
+            # refuse clearly rather than sign unverifiable bytes (#1078).
+            if record.metadata.get("key_scheme") != "secp256k1":
+                raise ValueError(
+                    f"wallet {wallet_id} holds a legacy Ed25519 key and cannot sign transactions — "
+                    "create a new wallet (secp256k1) and migrate funds"
+                )
+
             # Unlock wallet to get signing key
             secret_bytes = bytearray(self.unlock_wallet(wallet_id, password, ip_address))
             try:
-                signing_key = SigningKey(bytes(secret_bytes))
+                from eth_keys import keys as _eth_keys
+
+                signing_key = _eth_keys.PrivateKey(bytes(secret_bytes))
 
                 # Fetch nonce from blockchain if not provided
                 if nonce is None:
@@ -410,13 +435,17 @@ class PersistentKeystoreService:
                         "for this service; refusing to sign a transaction for a guessed chain"
                     )
 
-                # Normalize addresses
-                sender = sender_address.lower().strip()
-                recipient = recipient.lower().strip()
+                # Normalize addresses — keep the EIP-55 checksum on the
+                # sender: lowercasing it fails validate_address and the
+                # node's recovered-address comparison (#1078).
+                sender = sender_address.strip()
+                recipient = recipient.strip()
                 if not recipient.startswith("0x"):
                     recipient = "0x" + recipient
 
-                # Build transaction data
+                # Build transaction data — EXACTLY the fields the node signs
+                # for verification (_unsigned_tx_fields): no timestamp (the
+                # node never sees one, so a signed timestamp broke verify)
                 tx_data = {
                     "from": sender,
                     "to": recipient,
@@ -424,7 +453,6 @@ class PersistentKeystoreService:
                     "fee": fee,
                     "nonce": nonce,
                     "chain_id": chain_id,
-                    "timestamp": datetime.now(UTC).isoformat(),
                     "type": "TRANSFER",
                 }
 
@@ -432,12 +460,13 @@ class PersistentKeystoreService:
                 if payload:
                     tx_data["payload"] = payload
 
-                # Create canonical signing message
-                message = json.dumps(tx_data, sort_keys=True, separators=(",", ":")).encode()
+                # Sign keccak256 of the canonical JSON with secp256k1 —
+                # the same message the node's verify_transaction_signature
+                # reconstructs (#1078).
+                from eth_utils import keccak
 
-                # Sign with Ed25519
-                signed = signing_key.sign(message)
-                signature_hex = signed.signature.hex()
+                message = json.dumps(tx_data, sort_keys=True, separators=(",", ":")).encode()
+                signature_hex = signing_key.sign_msg_hash(keccak(message)).to_hex()
 
                 # Submit to blockchain RPC
                 result = self._submit_transaction_to_chain(tx_data, signature_hex)
