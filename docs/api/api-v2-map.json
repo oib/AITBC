@@ -6662,13 +6662,6 @@
           ]
         },
         {
-          "public": "/api/v2/governance/v1/governance/execute",
-          "upstream": "/v1/governance/execute",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
           "public": "/api/v2/governance/v1/governance/params",
           "upstream": "/v1/governance/params",
           "methods": [
