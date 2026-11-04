@@ -20,3 +20,9 @@ echo "==> Running CLI doc sync tests"
 
 echo "==> Checking cli docs generator would not change output"
 "$PYTHON" scripts/generate_cli_docs.py --check
+
+echo "==> Checking doc-mesh generator would not change output"
+"$PYTHON" scripts/docs/gen_doc_mesh.py --check
+
+echo "==> Checking cli-command-pages generator would not change output"
+"$PYTHON" scripts/docs/gen_cli_command_docs.py --check

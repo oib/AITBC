@@ -33,3 +33,10 @@ aitbc agent-staking add --stake-id <stake_id> --amount <amount>
 RPC_URL=http://127.0.0.1:8202/rpc
 aitbc agent-staking add --stake-id <stake_id> --amount <amount> --rpc-url "$RPC_URL"
 ```
+
+## Related
+
+- On-chain record types: `STAKE_LOCK`, `STAKE_RELEASE`
+- Scenarios: [01](../../scenarios/01_wallet_basics.md), [17](../../scenarios/17_governance_voting.md), [83](../../scenarios/83_stake_options.md), [87](../../scenarios/87_agent_staking.md)
+- Feature docs: [9-wallet](../../features/9-wallet.md)
+- [Feature ↔ scenario ↔ record mesh](../../reference/feature-scenario-record-mesh.md)

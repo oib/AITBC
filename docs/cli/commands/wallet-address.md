@@ -7,8 +7,14 @@ Display the public address of the active or named wallet.
 ## Usage
 
 ```bash
-aitbc wallet address [OPTIONS]
+aitbc wallet address [OPTIONS] [NAME_ARG]
 ```
+
+## Arguments
+
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `name_arg` | text | no | — |
 
 ## Options
 

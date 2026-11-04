@@ -31,3 +31,10 @@ aitbc liquidity build-deposit --amount <amount>
 RPC_URL=http://127.0.0.1:8202/rpc
 aitbc liquidity build-deposit --amount <amount> --rpc-url "$RPC_URL"
 ```
+
+## Related
+
+- On-chain record types: `LIQUIDITY_CLAIM`, `LIQUIDITY_DEPOSIT`, `LIQUIDITY_WITHDRAW`
+- Scenarios: [01](../../scenarios/01_wallet_basics.md), [83](../../scenarios/83_stake_options.md)
+- Feature docs: [9-wallet](../../features/9-wallet.md)
+- [Feature ↔ scenario ↔ record mesh](../../reference/feature-scenario-record-mesh.md)
