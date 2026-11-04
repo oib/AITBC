@@ -74,8 +74,8 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `agent-wallet`
 
-- [`aitbc agent-wallet balance`](agent-wallet-balance.md) — Show the wallet balance and allocation for a given agent ID.
-- [`aitbc agent-wallet rebalance`](agent-wallet-rebalance.md) — Rebalance an agent wallet by reinvesting the specified earnings.
+- [`aitbc agent-wallet balance`](agent-wallet-balance.md) — Show simulated wallet balance (not coordinator spend sessions — see agent-identity API).
+- [`aitbc agent-wallet rebalance`](agent-wallet-rebalance.md) — Simulate rebalance (no on-chain tx). Use coordinator spend sessions for real caps.
 - [`aitbc agent-wallet stake`](agent-wallet-stake.md) — Simulate staking AITBC on behalf of an agent ID (no on-chain transaction).
 
 ## `ai`
