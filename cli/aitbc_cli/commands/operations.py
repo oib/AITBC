@@ -697,7 +697,14 @@ def stake(
 
         # timestamp is a required signed field on the service; an unsigned call
         # fails on auth (403) rather than schema (422) (#1091).
-        stake_data = {"staker_address": address, "amount": amount, "lock_period_days": lock_days, "timestamp": time.time()}
+        stake_data = {
+            "staker_address": address,
+            # StakeRequest.amount is Decimal: the service signs the model dump,
+            # where it is a string — post and sign the string form (#1133).
+            "amount": str(Decimal(amount)),
+            "lock_period_days": lock_days,
+            "timestamp": time.time(),
+        }
         signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
         if signer:
             signer_address, private_key = signer
@@ -756,7 +763,8 @@ def delegate(
         delegation_data = {
             "delegator_address": delegator,
             "delegate_address": delegate,
-            "amount": amount,
+            # DelegateRequest.amount is Decimal as well — sign the string form.
+            "amount": str(Decimal(amount)),
             "timestamp": time.time(),
         }
         signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
