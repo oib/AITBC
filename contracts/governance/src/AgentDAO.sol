@@ -428,6 +428,9 @@ contract AgentDAO is
             state(proposalId) == ProposalState.Succeeded,
             "AgentDAO: proposal not successful"
         );
+        // #1117: a proposal still inside its challenge window must not
+        // execute through either entrypoint.
+        require(!proposal.challenged || block.timestamp > proposal.challengeEnd, "Proposal challenged");
 
         // Check multi-sig for critical proposals
         if (proposal.proposalType == ProposalType.EMERGENCY_ACTION ||
