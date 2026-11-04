@@ -13,6 +13,7 @@ import asyncio
 import json
 import sqlite3
 import time
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -160,6 +161,19 @@ class RemoteAttestationService:
         validator_set = self._load_validator_set()
         if validator_set and canonical_address(proposer) not in {canonical_address(v) for v in validator_set}:
             return
+
+        # The claimed proposer must be the scheduled one for (height, round):
+        # a forged request used to get a signature and a lock anyway (#1058).
+        if getattr(settings, "consensus_enforce_proposer_schedule", True):
+            expected = self._scheduled_proposer(height_int, header)
+            if expected and canonical_address(expected) != canonical_address(proposer):
+                logger.info(
+                    "Attestation refusal: %s is not the scheduled proposer at height %s (%s is)",
+                    proposer[:18],
+                    height_int,
+                    expected[:18],
+                )
+                return
 
         # v9: before signing, verify every transaction in the request —
         # sender signature (except the shared internal allowlist) and nonce
@@ -468,6 +482,48 @@ class RemoteAttestationService:
             del self._attested[height]
             return None
         return block_hash, proposer
+
+    def _scheduled_proposer(self, height: int, header: dict) -> str | None:
+        """Derive the round from parent/header timestamps and return the
+        scheduled proposer for (height, round); None when it cannot be
+        determined (permissive, like _is_scheduled_proposer in pbft.py)."""
+        try:
+            ts_raw = header.get("timestamp")
+            block_ts = ts_raw if isinstance(ts_raw, datetime) else datetime.fromisoformat(str(ts_raw))
+        except (TypeError, ValueError):
+            return None
+        parent_ts = self._parent_timestamp(str(header.get("parent_hash", "")))
+        if parent_ts is None:
+            return None
+        try:
+            from .multi_validator_poa import get_consensus, proposer_round
+
+            window = int(float(getattr(settings, "consensus_proposer_round_seconds", 60)))
+            rnd = proposer_round(parent_ts, block_ts, window)
+            return get_consensus(self._chain_id).select_proposer(height, rnd)
+        except Exception:
+            return None
+
+    def _parent_timestamp(self, parent_hash: str) -> datetime | None:
+        """Parent block timestamp for the round derivation — the block itself
+        if the DB has it, else the tip when parent_hash matches the tip."""
+        if self._session_factory is None or not parent_hash:
+            return None
+        try:
+            with self._session_factory() as session:
+                row = session.exec(
+                    select(Block.timestamp).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
+                ).first()
+                if row is not None:
+                    return row if isinstance(row, datetime) else row[0]
+                tip = session.exec(
+                    select(Block.timestamp).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+                ).first()
+                if tip is not None:
+                    return tip if isinstance(tip, datetime) else tip[0]
+        except Exception:
+            return None
+        return None
 
     def _load_validator_set(self) -> set[str]:
         validator_set_str = getattr(settings, "validator_set", "")
