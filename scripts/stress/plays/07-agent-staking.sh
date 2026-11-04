@@ -59,7 +59,7 @@ addr=$(python3 -c "import json;print(json.load(open('$WFILE')).get('address','')
 
 case "$LEG" in
   lock)
-    spend_guard "$AMOUNT" || true
+    spend_guard "$STAKE_AMT" || true
     resp=$(call /rpc/agent-staking/stake \
       "{\"stake_id\":\"$STAKE_ID\",\"user_address\":\"$addr\",\"agent_wallet\":\"$addr\",\"amount\":$STAKE_AMT,\"chain_id\":\"$CHAIN\",\"lock_period\":${STRESS_LOCK_DAYS:-1}}" 2>&1) \
       || fail lock "agent-stake lock refused: $resp"
