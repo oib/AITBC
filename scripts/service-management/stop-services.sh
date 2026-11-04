@@ -37,6 +37,8 @@ done
 echo "🛑 Stopping AITBC Services"
 echo "========================"
 
+STOP_FAILED=0
+
 if [ "$DRY_RUN" = true ]; then
     echo "🔍 DRY RUN MODE - No changes will be made"
     echo ""
@@ -52,7 +54,7 @@ if [ -f .service_pids ]; then
                 echo "[DRY RUN] Would stop PID $PID..."
             else
                 echo "Stopping PID $PID..."
-                kill "$PID"
+                kill "$PID" || { echo "   failed to stop PID $PID"; STOP_FAILED=1; }
             fi
         fi
     done
@@ -63,16 +65,13 @@ if [ -f .service_pids ]; then
     fi
 fi
 
-# Force kill any remaining services
-echo "Cleaning up any remaining processes..."
+# Stop the systemd units, in reverse startup order (dependents first).
+echo "Stopping systemd services..."
 if [ "$DRY_RUN" = true ]; then
-    echo "[DRY RUN] Would run: sudo systemctl stop aitbc-*"
-    for port in $(printf '%s\n' "${AITBC_SERVICE_PORTS[@]}" | sort -n); do
-        echo "[DRY RUN] Would run: sudo fuser -k $port/tcp"
-    done
+    echo "[DRY RUN] Would run: sudo systemctl stop $(aitbc_services_reversed | tr '\n' ' ')"
 else
     if [ "$FORCE" = false ]; then
-        echo "⚠️  This will stop all AITBC systemd services and kill processes on ports 8106-8203"
+        echo "⚠️  This will stop all AITBC systemd services"
         read -p "Continue? (y/N): " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -80,17 +79,24 @@ else
             exit 1
         fi
     fi
-    # Stop systemd services (canonical method)
-    # Reverse startup order: dependents before the chain they talk to.
-    sudo systemctl stop $(aitbc_services_reversed | tr '\n' ' ') 2>/dev/null || true
-    # Kill any stray manual processes on service ports
-    for port in $(printf '%s\n' "${AITBC_SERVICE_PORTS[@]}" | sort -n); do
-        sudo fuser -k "$port"/tcp 2>/dev/null || true
-    done
+    while read -r svc; do
+        sudo -n systemctl stop "$svc" 2>/dev/null || { echo "   systemctl stop failed: $svc"; STOP_FAILED=1; }
+    done < <(aitbc_services_reversed)
+    # Verify: a unit that is still active after stop is a failure, not a
+    # stray process to fuser -k away.
+    while read -r svc; do
+        if systemctl is-active --quiet "$svc"; then
+            echo "   still active after stop: $svc"
+            STOP_FAILED=1
+        fi
+    done < <(aitbc_services_reversed)
 fi
 
 if [ "$DRY_RUN" = true ]; then
     echo "🔍 DRY RUN COMPLETE - No changes were made"
-else
+elif [ "$STOP_FAILED" -eq 0 ]; then
     echo "✅ All services stopped!"
+else
+    echo "❌ Some services did not stop cleanly"
+    exit 1
 fi

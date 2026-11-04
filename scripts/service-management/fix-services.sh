@@ -12,29 +12,23 @@ echo "🔧 Starting AITBC Services via systemd"
 echo "====================================="
 
 # Start services via systemd (canonical method)
-echo "1. Starting Coordinator API..."
-sudo systemctl start aitbc-coordinator-api 2>/dev/null || echo "   (already running or not installed)"
-
-echo "2. Starting Blockchain RPC..."
-sudo systemctl start aitbc-blockchain-rpc 2>/dev/null || echo "   (already running or not installed)"
-
-echo "3. Starting Blockchain P2P..."
-sudo systemctl start aitbc-blockchain-p2p 2>/dev/null || echo "   (already running or not installed)"
-
-echo "4. Starting Exchange..."
-sudo systemctl start aitbc-exchange 2>/dev/null || echo "   (already running or not installed)"
-
-echo "5. Starting Market..."
-sudo systemctl start aitbc-market 2>/dev/null || echo "   (already running or not installed)"
-
-echo "6. Starting Trading..."
-sudo systemctl start aitbc-trading 2>/dev/null || echo "   (already running or not installed)"
-
-echo "7. Starting Wallet..."
-sudo systemctl start aitbc-wallet 2>/dev/null || echo "   (already running or not installed)"
+FAILED=()
+step=0
+for svc in "${AITBC_SERVICES[@]}"; do
+    step=$((step + 1))
+    echo "$step. Starting $svc..."
+    if ! sudo -n systemctl start "$svc" 2>/dev/null; then
+        FAILED+=("$svc")
+        echo "   FAILED: systemctl start $svc"
+    fi
+done
 
 echo ""
-echo "✅ Services started!"
+if [ "${#FAILED[@]}" -eq 0 ]; then
+    echo "✅ Services started!"
+else
+    echo "❌ ${#FAILED[@]} service(s) failed to start: ${FAILED[*]}"
+fi
 echo "Coordinator API: http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}"
 echo "Blockchain RPC:  http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-blockchain-rpc]}"
 echo "Exchange:        http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}"
@@ -52,10 +46,13 @@ sleep 3
 echo ""
 echo "🧪 Testing endpoints:"
 echo "Coordinator API Health:"
-curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/health" | head -c 100
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/health" | head -c 100 || echo "(no response)"
 
 echo -e "\n\nExchange Health:"
-curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}/health" | head -c 100
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}/health" | head -c 100 || echo "(no response)"
 
 echo -e "\n\nMarket Offers:"
-curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}/v1/market/offers" | head -c 100
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}/v1/market/offers" | head -c 100 || echo "(no response)"
+
+echo ""
+[ "${#FAILED[@]}" -eq 0 ] || exit 1
