@@ -503,3 +503,6 @@ contracts/governance/cache/
 # canonical.
 docs/MEGAPLAN.md
 docs/TASKLIST.md
+
+# test artifacts: locks written under a MagicMock engine url (#1126)
+MagicMock/
