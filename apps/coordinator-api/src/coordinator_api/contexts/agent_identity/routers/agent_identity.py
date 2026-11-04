@@ -4,6 +4,7 @@ REST API endpoints for agent identity management and cross-chain operations
 """
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from aitbc.aitbc_logging import get_logger
@@ -19,10 +20,13 @@ from ...infrastructure.domain.user import Wallet
 from ..domain.agent_identity import (
     AgentIdentity,
     AgentWallet,
+    AgentSpendSessionCreate,
     CrossChainMappingResponse,
     IdentityStatus,
     VerificationType,
 )
+from ..services.spend_session_service import SpendSessionService
+from starlette.concurrency import run_in_threadpool
 
 router = APIRouter(prefix="/agent-identity", tags=["Agent Identity"])
 logger = get_logger(__name__)
@@ -399,6 +403,11 @@ async def execute_wallet_transaction(
             agent_id, chain_id, request["to_address"], Decimal(str(request["amount"])), request.get("data")
         )
         return result
+    except ValueError as exc:
+        msg = str(exc)
+        if "permission" in msg.lower() or "session" in msg.lower() or "cap" in msg.lower():
+            raise HTTPException(status_code=403, detail=msg) from exc
+        raise HTTPException(status_code=400, detail=msg) from exc
     except Exception:
         raise HTTPException(status_code=400, detail="Failed to create agent identity") from None
 
@@ -718,3 +727,86 @@ async def resolve_address_to_agent(
         raise
     except Exception:
         raise HTTPException(status_code=500, detail="Operation failed") from None
+
+
+# Spend policy (AGENT-SPEND-A-1 Phase A)
+
+
+@router.post("/identities/{agent_id}/spend-sessions", response_model=dict[str, Any])
+async def create_spend_session(
+    agent_id: str,
+    request: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
+) -> dict[str, Any]:
+    """Owner issues a scoped spend session for an agent."""
+    identity = _require_owned_identity(session, agent_id, user)
+    body = AgentSpendSessionCreate(
+        chain_id=int(request.get("chain_id", 1000)),
+        cap_ait=Decimal(str(request["cap_ait"])),
+        allowed_ops=list(request.get("allowed_ops") or ["wallet.execute"]),
+        expires_at=request.get("expires_at"),
+    )
+    svc = SpendSessionService(session)
+    try:
+        row = await run_in_threadpool(
+            svc.create_session,
+            agent_id,
+            identity.owner_address,
+            body.chain_id,
+            body.cap_ait,
+            body.allowed_ops,
+            body.expires_at,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "session_id": row.id,
+        "agent_id": row.agent_id,
+        "chain_id": row.chain_id,
+        "cap_ait": str(row.cap_ait),
+        "used_ait": str(row.used_ait),
+        "allowed_ops": row.allowed_ops,
+        "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+        "revoked_at": None,
+    }
+
+
+@router.get("/identities/{agent_id}/spend-sessions", response_model=list[dict[str, Any]])
+async def list_spend_sessions(
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
+    include_revoked: bool = False,
+) -> list[dict[str, Any]]:
+    _require_owned_identity(session, agent_id, user)
+    svc = SpendSessionService(session)
+    rows = await run_in_threadpool(svc.list_sessions, agent_id, include_revoked)
+    return [
+        {
+            "session_id": r.id,
+            "chain_id": r.chain_id,
+            "cap_ait": str(r.cap_ait),
+            "used_ait": str(r.used_ait),
+            "allowed_ops": r.allowed_ops,
+            "expires_at": r.expires_at.isoformat() if r.expires_at else None,
+            "revoked_at": r.revoked_at.isoformat() if r.revoked_at else None,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/identities/{agent_id}/spend-sessions/{session_id}/revoke", response_model=dict[str, Any])
+async def revoke_spend_session(
+    agent_id: str,
+    session_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
+) -> dict[str, Any]:
+    _require_owned_identity(session, agent_id, user)
+    svc = SpendSessionService(session)
+    try:
+        row = await run_in_threadpool(svc.revoke_session, agent_id, session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"session_id": row.id, "revoked_at": row.revoked_at.isoformat() if row.revoked_at else None}
