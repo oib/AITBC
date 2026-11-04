@@ -147,6 +147,23 @@ def handle_request(
         row_id = ledger.admit(req.amount_units, memo=req.memo, to_addr=req.to, max_per_day=config.max_per_day)
         if row_id is None:
             raise Refused("over_day_cap")
+        # The intent line must exist before the send — a payment with no
+        # audit record is worse than a refused one, so refuse when it
+        # cannot be written.
+        try:
+            audit_line(
+                config.audit_path,
+                memo=req.memo,
+                to=req.to,
+                amount_units=req.amount_units,
+                result="intent",
+                reason="-",
+                tx_hash="-",
+                peer_uid=peer[1],
+            )
+        except OSError:
+            ledger.release(row_id)
+            raise Refused("audit_unwritable") from None
         try:
             tx_hash = signer.sign_and_send(to=req.to, amount_units=req.amount_units)
         except Exception as e:
@@ -165,7 +182,12 @@ def handle_request(
             else:
                 ledger.release(row_id)
             raise
-        ledger.record_tx_hash(row_id, tx_hash)
+        # The send already committed; a ledger write failure must not turn
+        # the answer into "error" — the client would retry a paid transfer.
+        try:
+            ledger.record_tx_hash(row_id, tx_hash)
+        except Exception as e:  # noqa: BLE001 - the tx is real either way
+            log.error("send succeeded but ledger record failed for row %s: %s: %s", row_id, type(e).__name__, e)
         result = "signed"
         reason = "-"
         return {"ok": True, "result": result, "tx_hash": tx_hash}
