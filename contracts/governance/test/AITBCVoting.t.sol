@@ -6,6 +6,8 @@ import "../src/AITBCGovernanceToken.sol";
 import "../src/AITBCVoting.sol";
 
 contract AITBCVotingTest is Test {
+    function noop() external {} // executable target for execute tests
+
     AITBCGovernanceToken token;
     AITBCVoting voting;
     address owner;
@@ -20,9 +22,10 @@ contract AITBCVotingTest is Test {
         token = new AITBCGovernanceToken();
         voting = new AITBCVoting(address(token));
 
-        // Transfer tokens to users
-        token.transfer(user1, 10000 * 10**18);
-        token.transfer(user2, 10000 * 10**18);
+        // Transfer tokens to users (above the 1e6 proposal threshold)
+        token.transfer(user1, 102_000_000 * 10**18); // quorum-capable before the snapshot warp
+        token.transfer(user2, 2_000_000 * 10**18);
+        vm.warp(block.timestamp + 1); // power must exist strictly before proposal creation
     }
 
     function testCreateProposal() public {
@@ -122,16 +125,13 @@ contract AITBCVotingTest is Test {
     }
 
     function testExecuteProposal() public {
-        // Transfer more tokens to meet quorum (10% of 1B = 100M tokens)
-        token.transfer(user1, 100_000_001 * 10**18);
-
         vm.startPrank(user1);
 
         bytes32 proposalId = voting.createProposal(
             "parameter_change",
             "Test Proposal",
             "Test description",
-            abi.encode("test_value"),
+            abi.encode(address(this), abi.encodeCall(this.noop, ())),
             7 days
         );
 
@@ -151,9 +151,6 @@ contract AITBCVotingTest is Test {
     }
 
     function testCannotExecuteRejectedProposal() public {
-        // Transfer more tokens to meet quorum
-        token.transfer(user1, 100_000_001 * 10**18);
-
         vm.startPrank(user1);
 
         bytes32 proposalId = voting.createProposal(
