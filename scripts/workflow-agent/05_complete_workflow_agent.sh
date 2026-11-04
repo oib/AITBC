@@ -169,7 +169,7 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
 
     # Check cross-node transactions
     echo "Cross-Node Transactions:"
-    scripts/aitbc-cli transaction list --limit 3
+    scripts/aitbc-cli transactions pending
 
     # Check AI operations
     echo "AI Operations:"
@@ -340,7 +340,7 @@ echo "Follower Wallets: $FOLLOWER_WALLETS"
 # Display recent transactions
 echo ""
 echo "📈 Recent Transactions:"
-scripts/aitbc-cli transaction list --limit 3
+scripts/aitbc-cli transactions pending
 
 # Display agent status
 echo ""
