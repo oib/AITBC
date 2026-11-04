@@ -10,6 +10,7 @@
 
 ```
 docs/
+├── account-abstraction/
 ├── agent/
 ├── agent-coordinator/
 ├── agent-sdk/
@@ -56,11 +57,12 @@ docs/
 
 ## Directory stats
 
-- **Top-level directories**: 34
-- **Markdown files under docs/**: 1505
+- **Top-level directories**: 35
+- **Markdown files under docs/**: 1510
 
 | Directory | Files | Description |
 |---|---|---|
+| [account-abstraction](account-abstraction/) | 5 |  |
 | [agent](agent/) | 9 | Single agent integration and coordination |
 | [agent-coordinator](agent-coordinator/) | 18 | Agent coordinator service and API docs |
 | [agent-sdk](agent-sdk/) | 13 | Agent SDK and communication guide |
@@ -118,6 +120,11 @@ Inbound markdown links per document (top referrers).
 | [FEATURES.md](FEATURES.md) | [README.md](README.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [MASTER_INDEX.md](MASTER_INDEX.md) | [FEATURES.md](FEATURES.md), [README.md](README.md), [apps/README.md](apps/README.md), +7 more |
 | [README.md](README.md) | [agent-sdk/README.md](agent-sdk/README.md), [apps/README.md](apps/README.md), [architecture/README.md](architecture/README.md), +80 more |
+| [account-abstraction/api.md](account-abstraction/api.md) | [account-abstraction/architecture.md](account-abstraction/architecture.md), [account-abstraction/database.md](account-abstraction/database.md) |
+| [account-abstraction/architecture.md](account-abstraction/architecture.md) | [account-abstraction/security.md](account-abstraction/security.md) |
+| [account-abstraction/database.md](account-abstraction/database.md) | [account-abstraction/api.md](account-abstraction/api.md), [account-abstraction/architecture.md](account-abstraction/architecture.md) |
+| [account-abstraction/implementation-plan.md](account-abstraction/implementation-plan.md) | [account-abstraction/api.md](account-abstraction/api.md), [account-abstraction/architecture.md](account-abstraction/architecture.md), [account-abstraction/database.md](account-abstraction/database.md), +1 more |
+| [account-abstraction/security.md](account-abstraction/security.md) | [account-abstraction/architecture.md](account-abstraction/architecture.md) |
 | [agent-coordinator/API.md](agent-coordinator/API.md) | [README.md](README.md) |
 | [agent-coordinator/ARCHITECTURE.md](agent-coordinator/ARCHITECTURE.md) | [features/6-agent-coordination.md](features/6-agent-coordination.md) |
 | [agent-coordinator/CLI.md](agent-coordinator/CLI.md) | [README.md](README.md) |
