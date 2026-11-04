@@ -1330,6 +1330,41 @@ _ALLOWED_READ_PREFIXES = (
 )
 
 
+_ENV_LINE_RE = re.compile(r"^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*)(\s*=\s*)(.*?)(\s*)$")
+_JSON_FIELD_RE = re.compile(r'^(\s*")([A-Za-z_][A-Za-z0-9_]*)("\s*:\s*")([^"]*)(".*)$')
+# Secret-shaped values anywhere in the output: 0x+64-hex (a raw private key),
+# a bare 64-char hex, and 40+-char base64/hex blobs. Masked whatever the name.
+_BLOB_VALUE_RE = re.compile(r"(?<![0-9A-Za-z])(0x[0-9a-fA-F]{64}|[0-9a-fA-F]{64}|[A-Za-z0-9+/]{44,}={0,2})(?![0-9A-Za-z])")
+_MASK = "***MASKED***"
+
+
+def _mask_secret_lines(text: str) -> str:
+    """Redact denied keys and secret-shaped values from a dumped file.
+
+    ``system file`` is exposed read-only over MCP, so the raw dump is a
+    credential leak: env files carry API keys and wallet/keystore JSONs carry
+    private keys. Values are masked by the file-info denylist rather than
+    refusing the read outright.
+    """
+    out = []
+    for line in text.splitlines(keepends=True):
+        m = _ENV_LINE_RE.match(line.rstrip("\n"))
+        if m and _field_name_denied(m.group(2)):
+            out.append(
+                f"{m.group(1)}{m.group(2)}{m.group(3)}{_MASK}\n"
+                if line.endswith("\n")
+                else f"{m.group(1)}{m.group(2)}{m.group(3)}{_MASK}"
+            )
+            continue
+        j = _JSON_FIELD_RE.match(line.rstrip("\n"))
+        if j and _field_name_denied(j.group(2)):
+            tail = "\n" if line.endswith("\n") else ""
+            out.append(f"{j.group(1)}{j.group(2)}{j.group(3)}{_MASK}{j.group(5)}{tail}")
+            continue
+        out.append(_BLOB_VALUE_RE.sub(_MASK, line))
+    return "".join(out)
+
+
 @system.command(
     name="file",
     epilog="""Examples:
@@ -1349,7 +1384,7 @@ def read_file(ctx, path: str):
     resolved = _resolve_allowed_read_path(path)
     try:
         with open(resolved, encoding="utf-8") as f:
-            click.echo(f.read())
+            click.echo(_mask_secret_lines(f.read()))
     except Exception as e:
         raise click.ClickException(f"Error reading {path}: {e}") from e
 
