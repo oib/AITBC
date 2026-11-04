@@ -8,7 +8,6 @@ import argparse
 import asyncio
 import json
 import logging
-import subprocess
 import sys
 import time
 from datetime import UTC, datetime, timedelta
@@ -56,29 +55,59 @@ class ChaosOrchestrator:
             if process.returncode != 0:
                 logger.error("Scenario %s failed with exit code %s", scenario_name, process.returncode)
                 logger.error("Error: %s", stderr.decode())
-                return None
+                return {
+                    "scenario_name": scenario_name,
+                    "failed": True,
+                    "mttr": None,
+                    "error": f"exit {process.returncode}: {stderr.decode()[:400]}",
+                    "execution_time": time.time() - start_time,
+                }
 
-            # Find the results file
+            # Find the results file — written during THIS run. A stale file
+            # from an earlier run is reported, never silently consumed.
             result_files = list(Path(".").glob(f"chaos_test_{scenario_name}_*.json"))
-            if not result_files:
-                logger.error("No results file found for scenario %s", scenario_name)
-                return None
+            fresh = [p for p in result_files if p.stat().st_mtime >= start_time]
+            if not fresh:
+                stale = [str(p) for p in result_files]
+                if stale:
+                    logger.error(
+                        "Scenario %s wrote no results file; stale file(s) present and ignored: %s",
+                        scenario_name,
+                        ", ".join(stale),
+                    )
+                else:
+                    logger.error("No results file found for scenario %s", scenario_name)
+                return {
+                    "scenario_name": scenario_name,
+                    "failed": False,
+                    "mttr": None,
+                    "stale_results_files": stale,
+                    "error": "no results file written",
+                    "execution_time": time.time() - start_time,
+                }
 
-            # Load the most recent result file
-            result_file = max(result_files, key=lambda p: p.stat().st_mtime)
+            # Load the most recent fresh result file
+            result_file = max(fresh, key=lambda p: p.stat().st_mtime)
             with open(result_file) as f:
                 results = json.load(f)
 
             # Add execution metadata
             results["execution_time"] = time.time() - start_time
             results["scenario_name"] = scenario_name
+            results["failed"] = False
 
             logger.info("Scenario %s completed successfully", scenario_name)
             return results
 
         except Exception as e:
             logger.error("Failed to run scenario %s: %s", scenario_name, e)
-            return None
+            return {
+                "scenario_name": scenario_name,
+                "failed": True,
+                "mttr": None,
+                "error": str(e)[:400],
+                "execution_time": time.time() - start_time,
+            }
 
     def calculate_summary_metrics(self):
         """Calculate summary metrics across all scenarios"""
@@ -94,9 +123,7 @@ class ChaosOrchestrator:
             self.results["summary"]["min_mttr"] = min(mttr_values)
 
         self.results["summary"]["total_scenarios"] = len(self.results["scenarios"])
-        self.results["summary"]["successful_scenarios"] = sum(
-            1 for s in self.results["scenarios"] if s.get("mttr") is not None
-        )
+        self.results["summary"]["successful_scenarios"] = sum(1 for s in self.results["scenarios"] if not s.get("failed"))
         self.results["summary"]["failed_scenarios"] = (
             self.results["summary"]["total_scenarios"] - self.results["summary"]["successful_scenarios"]
         )
@@ -160,10 +187,9 @@ class ChaosOrchestrator:
         print("-" * 40)
         for scenario in self.results["scenarios"]:
             name = scenario.get("scenario_name", "Unknown")
-            mttr = scenario.get("mttr", "N/A")
-            if mttr != "N/A":
-                mttr = f"{mttr:.2f}s"
-            print(f"  {name:20} MTTR: {mttr}")
+            mttr = scenario.get("mttr")
+            label = f"{mttr:.2f}s" if isinstance(mttr, (int, float)) else ("FAILED" if scenario.get("failed") else "N/A")
+            print(f"  {name:20} MTTR: {label}")
 
         print("\nSummary Metrics:")
         print("-" * 40)
@@ -198,8 +224,9 @@ class ChaosOrchestrator:
             args.extend(["--namespace", self.namespace])
 
             result = await self.run_scenario(scenario, args)
-            if result:
-                self.results["scenarios"].append(result)
+            # Every scenario lands in the results — a crash counts as failed,
+            # it is never silently dropped from the totals.
+            self.results["scenarios"].append(result)
 
         self.results["orchestration_end"] = datetime.now(UTC).isoformat()
 
@@ -290,8 +317,15 @@ async def main():
 
     # Verify kubectl is available
     try:
-        subprocess.run(["kubectl", "version"], capture_output=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
+        kubectl = await asyncio.create_subprocess_exec(
+            "kubectl",
+            "version",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        if (await kubectl.wait()) != 0:
+            raise FileNotFoundError("kubectl version exited non-zero")
+    except (OSError, FileNotFoundError):
         logger.error("kubectl is not available or not configured")
         sys.exit(1)
 
@@ -322,6 +356,8 @@ async def main():
         }
 
         await orchestrator.run_all_scenarios(scripts, scenario_args)
+        if orchestrator.results["summary"]["failed_scenarios"] > 0:
+            sys.exit(1)
 
 
 if __name__ == "__main__":
