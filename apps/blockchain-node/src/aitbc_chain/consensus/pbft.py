@@ -74,6 +74,20 @@ class PBFTState:
     pre_prepare_messages: dict[str, PBFTMessage]
 
 
+def pbft_required_messages(active_count: int) -> int:
+    """The prepare/commit quorum for ``active_count`` validators (#1061).
+
+    f = (n-1)//3 Byzantine tolerated, and the quorum is the smallest count
+    where two disjoint quorums would intersect in more than f nodes:
+    ceil((n+f+1)/2). Plain 2f+1 is only that value when n == 3f+1; at
+    n = 3f or 3f+2 it lets two disjoint quorums form with no Byzantine
+    node at all (n=6 -> 4, n=9 -> 6, not 3 and 5).
+    """
+    n = max(0, int(active_count))
+    f = max(0, (n - 1) // 3)
+    return max(1, (n + f + 1 + 1) // 2)
+
+
 def _int_key_seq(key: str) -> int:
     """Sequence half of a "{seq}:{view}" bucket key; -1 for malformed keys so
     they never match a bound (#1060 defensive layer)."""
@@ -759,14 +773,8 @@ class PBFTConsensus:
         """H4: dynamically recalculate fault tolerance from the current validator set."""
         participants = self.consensus.get_consensus_participants()
         active_count = len(participants)
-        self.fault_tolerance = max(1, active_count // 3)
-        base_required = 2 * self.fault_tolerance + 1
-        min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
-        # The configured minimum cannot exceed the number of validators that can
-        # actually participate (everyone except the proposer).  Clamp it so a
-        # downed validator cannot create an impossible quorum.
-        effective_min = max(0, min(min_attestations, max(0, active_count - 1)))
-        if effective_min and min_attestations > 0:
-            self.required_messages = max(2, min(base_required, effective_min + 1))
-        else:
-            self.required_messages = max(2, min(base_required, active_count))
+        # True BFT quorum (#1061): shared formula with /consensus/status —
+        # MULTI_VALIDATOR_MIN_ATTESTATIONS clamps crash-tolerance attestation
+        # only, it must never shrink the Byzantine quorum.
+        self.fault_tolerance = max(1, (active_count - 1) // 3)
+        self.required_messages = pbft_required_messages(active_count)

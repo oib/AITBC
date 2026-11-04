@@ -152,9 +152,9 @@ async def test_dynamic_fault_tolerance():
     try:
         consensus = _make_consensus(3)
         pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
-        # 3 validators → f = 1 → required = 3
+        # 3 validators → f = 0 → quorum 2 (ceil((3+0+1)/2); #1061 formula)
         assert pbft.fault_tolerance == 1
-        assert pbft.required_messages == 3
+        assert pbft.required_messages == 2
 
         # Add more validators (need 7+ for f=2)
         for i in range(3, 7):
@@ -1157,3 +1157,25 @@ async def test_commit_uses_pre_prepare_digest():
     # if it committed, the commit must carry the pre-prepare digest
     if pbft.state.committed_messages.get(key):
         assert all(m.digest == pbft.get_message_digest("0xgood", 1, 0) for m in pbft.state.committed_messages[key])
+
+
+@pytest.mark.parametrize("n,want", [(4, 3), (5, 4), (6, 4), (7, 5), (9, 6), (10, 7)])
+def test_quorum_never_lets_disjoint_quorums_form(n, want):
+    """#1061: required = ceil((n+f+1)/2) with f=(n-1)//3 — two disjoint quorums
+    must always intersect in more than f nodes. Plain 2f+1 fails that at
+    n=6 (3+3=6 disjoint) and n=9 (5+5=10 > 9 is fine but 4+4=8 disjoint)."""
+    consensus = _make_consensus(n)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    pbft._recalculate_fault_tolerance()
+    assert pbft.required_messages == want
+    f = (n - 1) // 3
+    assert 2 * pbft.required_messages > n + f
+
+
+def test_status_route_uses_same_quorum_formula():
+    """#1061 done_when: engine and /consensus/status come from one function."""
+    from aitbc_chain.consensus.pbft import pbft_required_messages
+
+    for n in (4, 5, 6, 7, 9, 10):
+        f = (n - 1) // 3
+        assert pbft_required_messages(n) == (n + f + 2) // 2

@@ -51,10 +51,13 @@ def consensus_status_route(request: Request, chain_id: str | None = None) -> dic
                 "chain_id": chain_id,
             }
 
-        # Standard BFT quorum values from the active validator count.
+        # Standard BFT quorum values from the active validator count — same
+        # formula the PBFT engine uses (#1061, one function).
+        from ...consensus.pbft import pbft_required_messages
+
         n = len(participants)
         fault_tolerance = (n - 1) // 3
-        required_messages = 2 * fault_tolerance + 1
+        required_messages = pbft_required_messages(n)
 
         # Crash-tolerance threshold actually used by the multi-validator engine.
         min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
