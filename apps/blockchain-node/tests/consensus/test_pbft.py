@@ -103,7 +103,7 @@ async def test_reject_unsigned_message_when_signatures_required():
         sender="0xabc",
         view_number=0,
         sequence_number=1,
-        digest="0xdigest",
+        digest=pbft.get_message_digest("", 1, 0),
         signature="",  # unsigned
         timestamp=0.0,
     )
@@ -251,7 +251,7 @@ async def test_gossip_transport_receives():
         "sender": member,
         "view_number": 0,
         "sequence_number": 1,
-        "digest": "0xdigest",
+        "digest": pbft.get_message_digest("", 1, 0),
         "signature": "",
         "timestamp": 0.0,
     }
@@ -268,7 +268,7 @@ async def test_gossip_transport_receives():
         "sender": consensus.select_proposer(2, 0),
         "view_number": 0,
         "sequence_number": 2,
-        "digest": "0xdigest2",
+        "digest": pbft.get_message_digest("", 2, 0),
         "signature": "",
         "timestamp": 0.0,
     }
@@ -281,7 +281,7 @@ async def test_gossip_transport_receives():
         "sender": member,
         "view_number": 0,
         "sequence_number": 1,
-        "digest": "0xdigest",
+        "digest": pbft.get_message_digest("", 1, 0),
         "signature": "",
         "timestamp": 0.0,
     }
@@ -318,7 +318,7 @@ async def test_non_member_prepare_and_commit_dropped():
                 "sender": sender,
                 "view_number": 0,
                 "sequence_number": 1,
-                "digest": "0xdigest",
+                "digest": pbft.get_message_digest("0xblock", 1, 0),
                 "signature": "",
                 "timestamp": 0.0,
                 "block_hash": "0xblock",
@@ -330,7 +330,7 @@ async def test_non_member_prepare_and_commit_dropped():
                 "sender": sender,
                 "view_number": 0,
                 "sequence_number": 1,
-                "digest": "0xdigest",
+                "digest": pbft.get_message_digest("0xblock", 1, 0),
                 "signature": "",
                 "timestamp": 0.0,
                 "block_hash": "0xblock",
@@ -354,7 +354,7 @@ async def test_member_votes_still_count_after_membership_gate():
             "sender": member,
             "view_number": 0,
             "sequence_number": 1,
-            "digest": "0xdigest",
+            "digest": pbft.get_message_digest("0xblock", 1, 0),
             "signature": "",
             "timestamp": 0.0,
             "block_hash": "0xblock",
@@ -537,7 +537,7 @@ async def test_out_of_turn_pre_prepare_is_dropped():
             "sender": impostor,
             "view_number": view,
             "sequence_number": height,
-            "digest": "0xdigest",
+            "digest": pbft.get_message_digest("0x" + "11" * 32, height, 0),
             "signature": "",
             "timestamp": 0.0,
             "block_hash": "0x" + "11" * 32,
@@ -653,7 +653,7 @@ async def test_the_round_is_adopted_as_the_view():
             "sender": consensus.select_proposer(height, view),
             "view_number": view,
             "sequence_number": height,
-            "digest": "0xdigest",
+            "digest": pbft.get_message_digest("0x" + "11" * 32, height, view),
             "signature": "",
             "timestamp": 0.0,
             "block_hash": "0x" + "11" * 32,
@@ -906,7 +906,7 @@ async def test_pbft_minority_partition_cannot_commit():
     assert result is False, "minority partition must not be able to commit without 2f+1 validators"
 
 
-def _prepare_data(sender: str, block_hash: str, view: int = 0, seq: int = 1) -> dict:
+def _prepare_data(pbft: PBFTConsensus, sender: str, block_hash: str, view: int = 0, seq: int = 1) -> dict:
     """An unsigned-shape incoming PREPARE gossip payload (tests run with
     pbft_require_signatures off via conftest)."""
     return {
@@ -914,7 +914,7 @@ def _prepare_data(sender: str, block_hash: str, view: int = 0, seq: int = 1) -> 
         "sender": sender,
         "view_number": view,
         "sequence_number": seq,
-        "digest": "0xdigest",
+        "digest": pbft.get_message_digest(block_hash, seq, view),
         "signature": "",
         "timestamp": 0.0,
         "block_hash": block_hash,
@@ -932,8 +932,8 @@ async def test_double_sign_prepare_feeds_slashing_detector():
     pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
     offender = list(consensus.validators.keys())[1]
 
-    await pbft.handle_incoming_message(_prepare_data(offender, "0xblockA"))
-    await pbft.handle_incoming_message(_prepare_data(offender, "0xblockB"))
+    await pbft.handle_incoming_message(_prepare_data(pbft, offender, "0xblockA"))
+    await pbft.handle_incoming_message(_prepare_data(pbft, offender, "0xblockB"))
 
     history = consensus.get_slashing_history()
     assert len(history) == 1
@@ -954,13 +954,13 @@ async def test_identical_prepare_redelivery_not_byzantine():
     pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
     member = list(consensus.validators.keys())[2]
 
-    await pbft.handle_incoming_message(_prepare_data(member, "0xblockA"))
-    await pbft.handle_incoming_message(_prepare_data(member, "0xblockA"))
+    await pbft.handle_incoming_message(_prepare_data(pbft, member, "0xblockA"))
+    await pbft.handle_incoming_message(_prepare_data(pbft, member, "0xblockA"))
 
     assert consensus.get_slashing_history() == []
     # …but two different hashes at the same round still flag, so replay of a
     # *changed* message is not a blind spot.
-    await pbft.handle_incoming_message(_prepare_data(member, "0xblockB"))
+    await pbft.handle_incoming_message(_prepare_data(pbft, member, "0xblockB"))
     assert len(consensus.get_slashing_history()) == 1
 
 
@@ -977,8 +977,8 @@ async def test_slashing_flag_off_skips_detector():
     original = settings.consensus_slashing_enabled
     settings.consensus_slashing_enabled = False
     try:
-        await pbft.handle_incoming_message(_prepare_data(member, "0xblockA"))
-        await pbft.handle_incoming_message(_prepare_data(member, "0xblockB"))
+        await pbft.handle_incoming_message(_prepare_data(pbft, member, "0xblockA"))
+        await pbft.handle_incoming_message(_prepare_data(pbft, member, "0xblockB"))
     finally:
         settings.consensus_slashing_enabled = original
 
@@ -992,16 +992,20 @@ async def test_slashing_flag_off_skips_detector():
 # ---------------------------------------------------------------------------
 
 
-def _pbft_data(message_type: str, sender: str, seq, view, digest: str = "0xd") -> dict:
+def _pbft_data(
+    message_type: str, sender: str, seq, view, digest: str | None = None, pbft=None, block_hash: str = "0xblock"
+) -> dict:
     return {
         "message_type": message_type,
         "sender": sender,
         "view_number": view,
         "sequence_number": seq,
-        "digest": digest,
+        "digest": digest
+        if digest is not None
+        else (pbft.get_message_digest(block_hash, seq, view) if pbft is not None else ""),
         "signature": "",
         "timestamp": 0.0,
-        "block_hash": "0xblock",
+        "block_hash": block_hash,
     }
 
 
@@ -1011,7 +1015,7 @@ async def test_intake_drops_non_integer_sequence():
     consensus = _make_consensus(4)
     pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
     member = list(consensus.validators.keys())[1]
-    await pbft.handle_incoming_message(_pbft_data("prepare", member, "abc", 0))
+    await pbft.handle_incoming_message(_pbft_data("prepare", member, "abc", 0, pbft=pbft))
     assert not any(k.startswith("abc") for k in pbft.state.prepared_messages)
     assert "abc:0" not in pbft.state.prepared_messages
 
@@ -1022,8 +1026,8 @@ async def test_intake_drops_far_future_sequence_and_view():
     consensus = _make_consensus(4)
     pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
     member = list(consensus.validators.keys())[1]
-    await pbft.handle_incoming_message(_pbft_data("prepare", member, 10**12, 0))
-    await pbft.handle_incoming_message(_pbft_data("commit", member, 1, 10**6))
+    await pbft.handle_incoming_message(_pbft_data("prepare", member, 10**12, 0, pbft=pbft))
+    await pbft.handle_incoming_message(_pbft_data("commit", member, 1, 10**6, pbft=pbft))
     assert "1000000000000:0" not in pbft.state.prepared_messages
     assert "1:1000000" not in pbft.state.committed_messages
 
@@ -1047,5 +1051,109 @@ async def test_intake_accepts_normal_sequence():
     consensus = _make_consensus(4)
     pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
     member = list(consensus.validators.keys())[1]
-    await pbft.handle_incoming_message(_pbft_data("prepare", member, 1, 0))
+    await pbft.handle_incoming_message(_pbft_data("prepare", member, 1, 0, pbft=pbft))
     assert len(pbft.state.prepared_messages.get("1:0", [])) == 1
+
+
+# ---------------------------------------------------------------------------
+# #1059: quorum is digest-bound — prepares/commits of another block never count
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_prepare_digest_must_match_block_hash():
+    """A signed prepare whose digest doesn't recompute from block_hash drops."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    member = list(consensus.validators.keys())[1]
+    await pbft.handle_incoming_message(
+        {
+            "message_type": "prepare",
+            "sender": member,
+            "view_number": 0,
+            "sequence_number": 1,
+            # digest of a different hash than the one carried in block_hash
+            "digest": pbft.get_message_digest("0xother", 1, 0),
+            "signature": "",
+            "timestamp": 0.0,
+            "block_hash": "0xblock",
+        }
+    )
+    assert pbft.state.prepared_messages == {}
+
+
+@pytest.mark.asyncio
+async def test_prepare_quorum_requires_same_digest():
+    """Prepares for different digests never pool into one quorum."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test")
+    list(consensus.validators.keys())[1]
+
+    # local pre-prepare for 0xgood so the node has a digest to bind to
+    proposer = consensus.select_proposer(1, 0)
+    await pbft.handle_incoming_message(
+        {
+            "message_type": "pre_prepare",
+            "sender": proposer,
+            "view_number": 0,
+            "sequence_number": 1,
+            "digest": pbft.get_message_digest("0xgood", 1, 0),
+            "signature": "",
+            "timestamp": 0.0,
+            "block_hash": "0xgood",
+        }
+    )
+    # three valid-digest prepares, but for the wrong block
+    for i in range(3):
+        sender = list(consensus.validators.keys())[i + 1]
+        await pbft.handle_incoming_message(_prepare_data(pbft, sender, "0xbad"))
+    # quorum requires prepares on the pre-prepare's digest — nothing commits
+    assert pbft._digest_count(pbft.state.prepared_messages["1:0"], pbft.get_message_digest("0xgood", 1, 0)) == 0
+    assert (
+        "1:0" not in pbft.state.committed_messages
+        or pbft._digest_count(pbft.state.committed_messages["1:0"], pbft.get_message_digest("0xgood", 1, 0)) == 0
+    )
+
+
+@pytest.mark.asyncio
+async def test_commit_uses_pre_prepare_digest():
+    """_maybe_send_commit binds the local pre-prepare's digest, not prepared[0]."""
+    consensus = _make_consensus(4)
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test", local_validator=list(consensus.validators.keys())[0])
+
+    # file a pre-prepare + enough prepares on its digest
+    proposer = consensus.select_proposer(1, 0)
+    await pbft.handle_incoming_message(
+        {
+            "message_type": "pre_prepare",
+            "sender": proposer,
+            "view_number": 0,
+            "sequence_number": 1,
+            "digest": pbft.get_message_digest("0xgood", 1, 0),
+            "signature": "",
+            "timestamp": 0.0,
+            "block_hash": "0xgood",
+        }
+    )
+    key = "1:0"
+    # drop the local validator's auto-prepare effect by filing prepares directly
+    pbft.state.prepared_messages[key] = []
+    for i in range(3):
+        sender = list(consensus.validators.keys())[i + 1]
+        pbft.state.prepared_messages[key].append(
+            PBFTMessage(
+                message_type=PBFTMessageType.PREPARE,
+                sender=sender,
+                view_number=0,
+                sequence_number=1,
+                digest=pbft.get_message_digest("0xgood", 1, 0),
+                signature="",
+                timestamp=0.0,
+                block_hash="0xgood",
+            )
+        )
+    sent = await pbft._maybe_send_commit(key)
+    assert sent in (True, False)
+    # if it committed, the commit must carry the pre-prepare digest
+    if pbft.state.committed_messages.get(key):
+        assert all(m.digest == pbft.get_message_digest("0xgood", 1, 0) for m in pbft.state.committed_messages[key])

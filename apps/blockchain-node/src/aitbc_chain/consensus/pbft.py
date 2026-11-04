@@ -466,11 +466,25 @@ class PBFTConsensus:
         """
         self._on_execute = callback
 
+    def _pre_prepare_digest(self, key: str) -> str | None:
+        """The digest the local pre-prepare carries for a bucket key — the only
+        digest this node may prepare/commit toward (#1059)."""
+        pp = self.state.pre_prepare_messages.get(key)
+        return pp.digest if pp is not None else None
+
+    @staticmethod
+    def _digest_count(messages: list, digest: str | None) -> int:
+        """Count messages carrying one digest — a quorum never mixes digests."""
+        return sum(1 for m in messages if m.digest == digest)
+
     async def _maybe_send_commit(self, key: str) -> bool:
         """Send a local commit message if we have a prepare quorum and have not yet committed."""
         self._recalculate_fault_tolerance()
         prepared = self.state.prepared_messages.get(key, [])
-        if len(prepared) < self.required_messages:
+        pp_digest = self._pre_prepare_digest(key)
+        if pp_digest is None:
+            return False  # no local pre-prepare to bind to
+        if self._digest_count(prepared, pp_digest) < self.required_messages:
             return False
         if key in self._local_committed:
             return True
@@ -647,6 +661,12 @@ class PBFTConsensus:
         message.sequence_number = seq
         message.view_number = view
 
+        # The signed digest must recompute from the (unsigned) block_hash +
+        # bounded fields — otherwise block_hash rides unsigned and a swapped
+        # hash still verifies (#1059).
+        if message.digest != self.get_message_digest(message.block_hash, seq, view):
+            return
+
         # Membership gate: a prepare or commit only carries weight when its
         # sender is in the active consensus set. A valid signature from an
         # address outside the set is still not a vote — without this check any
@@ -708,7 +728,11 @@ class PBFTConsensus:
                 return  # ignore duplicate commit from same sender
             self.state.committed_messages[key].append(message)
             self._message_event.set()
-            if len(self.state.committed_messages[key]) >= self.required_messages:
+            pp_digest = self._pre_prepare_digest(key)
+            if (
+                pp_digest is not None
+                and self._digest_count(self.state.committed_messages[key], pp_digest) >= self.required_messages
+            ):
                 await self.execute_phase(key)
 
     # ------------------------------------------------------------------
