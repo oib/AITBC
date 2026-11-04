@@ -751,8 +751,9 @@ def submit_job_failure(job_id: str, fail_data: dict[str, Any], session: Annotate
 
 @app.post("/v1/miners/{miner_id}/earnings")
 def get_miner_earnings(miner_id: str, session: Annotated[AsyncSession, Depends(get_session_dep)]):
-    """Get miner earnings"""
-    return {"miner_id": miner_id, "total_earnings": 0.0, "pending_earnings": 0.0, "currency": "AITBC"}
+    """Get miner earnings. Not implemented -- answering zeros would be a lie
+    to anything billing on it (GPU-MINER-EARNINGS-ROUTE-RETURNS-ZEROS-1)."""
+    raise HTTPException(status_code=501, detail=_JOB_DISPATCH_NOT_IMPLEMENTED)
 
 
 @app.put("/v1/miners/{miner_id}/capabilities")
