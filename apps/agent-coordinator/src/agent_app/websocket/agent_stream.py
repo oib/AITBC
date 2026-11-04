@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 from collections.abc import Callable
+from uuid import uuid4
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -403,7 +405,7 @@ INITIAL_COIN_AMOUNT = ait_to_units(3)  # AIT granted automatically on first requ
 TRANSACTION_FEE = DEFAULT_TX_FEE_UNITS  # blockchain transaction fee (matches RPC default, 0.01 AIT)
 
 
-def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:
+def _has_received_initial_coins(sender: str, wallet_address: str) -> bool | None:
     """Check whether this destination — or this agent — has already received initial coins.
 
     Keyed on the destination as well as the sender (V23-67). `sender` is a self-declared
@@ -412,22 +414,22 @@ def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:
     This path matters more than the registration one: it signs and submits on the spot, so a
     bypass here is a payout rather than a row waiting for an operator.
 
+    Returns ``None`` when the ledger cannot be read at all (#1082) — an
+    unanswerable lookup must park the request, not wave it through.
+
     Approved rows count whether or not they carry a transaction hash. The old query required
     one, which was defensible while this handler was the only way to create a request — it
     pays microseconds after approving, so there was no window. `/register` is now a second
     way in and it writes approved rows that stay unexecuted until an operator runs `execute`,
     and those rows have to count here too or the same wallet collects from both paths.
     """
-    db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
-    if not os.path.exists(db_path):
-        return False
+    conn = _agent_db_conn()
+    if conn is None:
+        return None
     try:
-        import sqlite3
-
         from ..services.coin_request_policy import address_spellings
 
         spellings = address_spellings(wallet_address)
-        conn = sqlite3.connect(db_path)
         # The f-string interpolates a run of `?` placeholders, one per spelling -- never a
         # value. Every address still arrives through the parameter tuple below. sqlite3 has
         # no way to bind a variable-length IN list, so building the placeholders is the
@@ -443,7 +445,7 @@ def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:
         return bool(count > 0)
     except Exception as e:
         logger.warning("Could not query coin_requests DB: %s", e)
-        return False
+        return None
 
 
 def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
@@ -466,18 +468,38 @@ def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
+_AGENT_DB_SCHEMA = (
+    "CREATE TABLE IF NOT EXISTS coin_requests (id TEXT, sender TEXT, recipient TEXT, amount INTEGER, "
+    "wallet_address TEXT, status TEXT, approval_mode TEXT, approved_by TEXT, approved_at TEXT, "
+    "created_at TEXT, expires_at TEXT, transaction_hash TEXT, audit_log TEXT)"
+)
+
+
+def _agent_db_conn() -> sqlite3.Connection | None:
+    """Open the agent coin-request DB, creating the table on a fresh node.
+
+    Returns ``None`` when the store exists but cannot be opened or written —
+    the callers then park instead of paying blind (#1082).
+    """
+    db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.execute(_AGENT_DB_SCHEMA)
+        return conn
+    except Exception as e:
+        logger.warning("Could not open coin-request ledger %s: %s", db_path, e)
+        return None
+
+
 def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash: str) -> None:
     """Record the auto-approved coin request in the agent SQLite database."""
-    db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
-    if not os.path.exists(db_path):
-        logger.warning("Agent DB not found at %s — skipping record", db_path)
+    conn = _agent_db_conn()
+    if conn is None:
         return
     try:
-        import sqlite3
         from datetime import UTC, datetime, timedelta
 
         now = datetime.now(UTC).replace(tzinfo=None)
-        conn = sqlite3.connect(db_path)
         conn.execute(
             "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
             "approval_mode, approved_by, approved_at, created_at, expires_at, transaction_hash, audit_log) "
@@ -505,19 +527,80 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
         logger.warning("Could not record coin request in DB: %s", e)
 
 
+def _record_claiming_coin_request(sender: str, amount: int, wallet_address: str) -> str | None:
+    """Insert the request row BEFORE paying it, claim marker in transaction_hash.
+
+    The ``claiming:<ts>`` marker is the same convention /register's execute
+    path uses (EXECUTION_CLAIM_PREFIX): the row proves the hub committed to
+    this payout *before* signing, so a crash mid-send leaves a findable claim
+    instead of an unrecorded payout. Returns the request id, or None when the
+    ledger could not be written — the caller must then NOT pay.
+    """
+    conn = _agent_db_conn()
+    if conn is None:
+        return None
+    try:
+        from datetime import UTC, datetime, timedelta
+
+        now = datetime.now(UTC).replace(tzinfo=None)
+        request_id = f"auto-{sender}-{uuid4().hex[:12]}"
+        conn.execute(
+            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
+            "approval_mode, approved_by, approved_at, created_at, expires_at, transaction_hash, audit_log) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                request_id,
+                sender,
+                os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
+                amount,
+                wallet_address,
+                "APPROVED",
+                "automatic",
+                "request_coins_handler",
+                now.isoformat(),
+                now.isoformat(),
+                (now + timedelta(hours=24)).isoformat(),
+                f"claiming:{now.isoformat()}",
+                json.dumps({"action": "initial_coin_grant", "auto_approved": True}),
+            ),
+        )
+        conn.commit()
+        conn.close()
+        return request_id
+    except Exception as e:
+        logger.warning("Could not write claiming coin request in DB: %s", e)
+        return None
+
+
+def _finish_claimed_coin_request(request_id: str, tx_hash: str, *, failed: bool = False) -> None:
+    """Replace the claim marker with the real tx hash, or mark the claim FAILED."""
+    conn = _agent_db_conn()
+    if conn is None:
+        return
+    try:
+        if failed:
+            conn.execute("UPDATE coin_requests SET status = 'FAILED' WHERE id = ?", (request_id,))
+        else:
+            conn.execute("UPDATE coin_requests SET transaction_hash = ? WHERE id = ?", (tx_hash, request_id))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning("Could not finish claiming coin request %s: %s", request_id, e)
+
+
 def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) -> str:
     """Record a pending coin request in the agent SQLite database for manual approval.
 
     Returns the request_id so the handler can include it in the response.
     """
-    db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
+    conn = _agent_db_conn()
+    if conn is None:
+        return f"req-{sender}-unknown"
     try:
-        import sqlite3
         from datetime import UTC, datetime, timedelta
 
         now = datetime.now(UTC).replace(tzinfo=None)
-        request_id = f"req-{sender}-{int(now.timestamp())}"
-        conn = sqlite3.connect(db_path)
+        request_id = f"req-{sender}-{uuid4().hex[:12]}"
         conn.execute(
             "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
             "approval_mode, created_at, expires_at, audit_log) "
@@ -617,8 +700,21 @@ async def request_coins_handler(
                         "message": "wallet_address must equal the connection's authenticated wallet",
                     }
 
-        # Check if this sender has already received initial coins
-        if _has_received_initial_coins(sender, wallet_address):
+        # Check if this sender has already received initial coins. An
+        # unreadable ledger is not "no prior grant" — park for review (#1082).
+        prior = _has_received_initial_coins(sender, wallet_address)
+        if prior is None:
+            request_id = _record_pending_coin_request(sender, amount, wallet_address)
+            return {
+                "action": "coin_request_received",
+                "request_id": request_id,
+                "amount": amount,
+                "wallet_address": wallet_address,
+                "status": "pending_approval",
+                "reason": "the coin-request ledger is unreadable",
+                "message": "Coin request requires approval. Reason: the coin-request ledger is unreadable.",
+            }
+        if prior:
             logger.info("Coin request from %s: already received initial coins — running approval strategy", sender)
             strategy, approval_mode = _get_approval_strategy()
             approval_request = {
@@ -644,19 +740,29 @@ async def request_coins_handler(
                         "reason": why,
                         "message": f"Coin request requires approval. Reason: {why}.",
                     }
-                # Strategy approved — sign and submit the transaction
+                # Strategy approved — record the claim BEFORE paying (#1082),
+                # so the ledger proves the payout was committed, not recorded
+                # after the fact.
+                claim_id = _record_claiming_coin_request(sender, amount, wallet_address)
+                if claim_id is None:
+                    return {
+                        "action": "coin_request_failed",
+                        "error": "coin-request ledger unavailable — not paying without a record",
+                    }
                 signed_tx = TransactionService().generate_signed_transaction(wallet_address, amount)
                 if not signed_tx:
+                    _finish_claimed_coin_request(claim_id, "", failed=True)
                     return {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
                 result = _submit_transaction(signed_tx)
                 if not result or not result.get("success"):
+                    _finish_claimed_coin_request(claim_id, "", failed=True)
                     return {
                         "action": "coin_request_failed",
                         "error": "Blockchain rejected transaction",
                         "detail": result,
                     }
                 tx_hash = result.get("transaction_hash", "")
-                _record_coin_request(sender, amount, wallet_address, tx_hash)
+                _finish_claimed_coin_request(claim_id, tx_hash)
                 confirmation = {
                     "type": "COINS_TRANSFERRED",
                     "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
@@ -710,16 +816,25 @@ async def request_coins_handler(
         grant_amount = INITIAL_COIN_AMOUNT
         logger.info("First-time coin request from %s — auto-transferring %s AIT to %s", sender, grant_amount, wallet_address)
 
+        # The row exists BEFORE the payout (#1082): a claim marker stands in
+        # for the tx hash so a mid-send crash leaves a findable claim instead
+        # of an unrecorded payout.
+        claim_id = _record_claiming_coin_request(sender, grant_amount, wallet_address)
+        if claim_id is None:
+            return {"action": "coin_request_failed", "error": "coin-request ledger unavailable — not paying without a record"}
+
         transaction = TransactionService().generate_signed_transaction(wallet_address, grant_amount)
         if not transaction:
+            _finish_claimed_coin_request(claim_id, "", failed=True)
             return {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
 
         result = _submit_transaction(transaction)
         if not result or not result.get("success"):
+            _finish_claimed_coin_request(claim_id, "", failed=True)
             return {"action": "coin_request_failed", "error": "Blockchain rejected transaction", "detail": result}
 
         tx_hash = result.get("transaction_hash", "")
-        _record_coin_request(sender, grant_amount, wallet_address, tx_hash)
+        _finish_claimed_coin_request(claim_id, tx_hash)
 
         # Send confirmation message back to the agent over WebSocket
         confirmation = {
