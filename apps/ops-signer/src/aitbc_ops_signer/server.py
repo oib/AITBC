@@ -118,6 +118,44 @@ def _may_have_sent(exc: BaseException) -> bool:
     return False
 
 
+def _sign_and_record(
+    signer: Signer,
+    ledger: DailyLedger,
+    row_id: int,
+    *,
+    to: str,
+    amount_units: int,
+) -> str:
+    """Sign and send, then record the tx hash on the ledger row.
+
+    Releases the cap reservation only on a definite refusal. A timeout
+    or lost response after the request left may still have paid: keeping
+    the row spends the cap headroom a phantom commit would have used;
+    deleting it lets a retry storm spend twice
+    (OPS-SIGNER-CAP-RELEASE-AMBIGUOUS-1).
+    """
+    try:
+        tx_hash = signer.sign_and_send(to=to, amount_units=amount_units)
+    except Exception as e:
+        if _may_have_sent(e):
+            log.warning(
+                "sign outcome ambiguous; cap reservation kept for ledger row %s: %s: %s",
+                row_id,
+                type(e).__name__,
+                e,
+            )
+        else:
+            ledger.release(row_id)
+        raise
+    # The send already committed; a ledger write failure must not turn
+    # the answer into "error" — the client would retry a paid transfer.
+    try:
+        ledger.record_tx_hash(row_id, tx_hash)
+    except Exception as e:  # noqa: BLE001 - the tx is real either way
+        log.error("send succeeded but ledger record failed for row %s: %s: %s", row_id, type(e).__name__, e)
+    return tx_hash
+
+
 def handle_request(
     payload: dict,
     *,
@@ -164,30 +202,7 @@ def handle_request(
         except OSError:
             ledger.release(row_id)
             raise Refused("audit_unwritable") from None
-        try:
-            tx_hash = signer.sign_and_send(to=req.to, amount_units=req.amount_units)
-        except Exception as e:
-            # Release the reservation only on a definite refusal. A timeout
-            # or lost response after the request left may still have paid:
-            # keeping the row spends the cap headroom a phantom commit
-            # would have used; deleting it lets a retry storm spend twice
-            # (OPS-SIGNER-CAP-RELEASE-AMBIGUOUS-1).
-            if _may_have_sent(e):
-                log.warning(
-                    "sign outcome ambiguous; cap reservation kept for ledger row %s: %s: %s",
-                    row_id,
-                    type(e).__name__,
-                    e,
-                )
-            else:
-                ledger.release(row_id)
-            raise
-        # The send already committed; a ledger write failure must not turn
-        # the answer into "error" — the client would retry a paid transfer.
-        try:
-            ledger.record_tx_hash(row_id, tx_hash)
-        except Exception as e:  # noqa: BLE001 - the tx is real either way
-            log.error("send succeeded but ledger record failed for row %s: %s: %s", row_id, type(e).__name__, e)
+        tx_hash = _sign_and_record(signer, ledger, row_id, to=req.to, amount_units=req.amount_units)
         result = "signed"
         reason = "-"
         return {"ok": True, "result": result, "tx_hash": tx_hash}
