@@ -105,7 +105,7 @@ def auto_budget_per_day() -> int:
     return _env_ait("COIN_REQUEST_AUTO_BUDGET_PER_DAY", DEFAULT_AUTO_BUDGET_PER_DAY)
 
 
-def agent_db_granted_since(db_path: str, since_iso: str) -> int:
+def agent_db_granted_since(db_path: str, since_iso: str) -> int | None:
     """Same rolling-window sum against the websocket handler's agent SQLite DB.
 
     The /register budget reads CoinRequest rows; REQUEST_COINS grants write
@@ -141,6 +141,10 @@ def ws_budget_allows(db_path: str, amount: int) -> tuple[bool, str]:
     now = datetime.now(UTC).replace(tzinfo=None)
     hour_spent = agent_db_granted_since(db_path, (now - timedelta(hours=1)).isoformat())
     day_spent = agent_db_granted_since(db_path, (now - timedelta(hours=24)).isoformat())
+    if hour_spent is None or day_spent is None:
+        # The ledger could not be read: paying blind is the failure this
+        # budget exists to stop, so park the request for manual review.
+        return False, "the coin-request ledger is unreadable — request parked for manual review"
     metrics_registry.gauge("coin_request_auto_granted_window", "Automatic coin grants in the rolling window", ["window"]).set(
         float(hour_spent), window="hourly"
     )
