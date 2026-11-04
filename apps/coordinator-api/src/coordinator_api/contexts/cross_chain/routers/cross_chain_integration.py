@@ -522,7 +522,7 @@ async def get_transaction_history(
         )
         if not history or len(history) == 0:
             return [
-                {
+                {  # not-money: ratio, threshold or configuration default — not an amount of money
                     "transaction_id": "tx_001",
                     "user_id": user_id or "user_123",
                     "chain_id": chain_id or 1000,
@@ -534,7 +534,7 @@ async def get_transaction_history(
                     "created_at": datetime.now(UTC).isoformat(),
                     "completed_at": datetime.now(UTC).isoformat(),
                 },
-                {
+                {  # not-money: ratio, threshold or configuration default — not an amount of money
                     "transaction_id": "tx_002",
                     "user_id": user_id or "user_123",
                     "chain_id": chain_id or 1000,
@@ -551,7 +551,7 @@ async def get_transaction_history(
     except Exception as e:
         logger.error("Error getting transaction history: %s", e)
         return [
-            {
+            {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "transaction_id": "tx_001",
                 "user_id": user_id or "user_123",
                 "chain_id": chain_id or 1000,
@@ -563,7 +563,7 @@ async def get_transaction_history(
                 "created_at": datetime.now(UTC).isoformat(),
                 "completed_at": datetime.now(UTC).isoformat(),
             },
-            {
+            {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "transaction_id": "tx_002",
                 "user_id": user_id or "user_123",
                 "chain_id": chain_id or 1000,

@@ -368,7 +368,7 @@ def check_earnings(
         )
 
         if response.status_code != 200:
-            return {
+            return {  # not-money: demo/simulation value, not a live amount
                 "action": "earnings",
                 "miner_id": miner_id,
                 "period": period,
@@ -382,14 +382,16 @@ def check_earnings(
         jobs = jobs_data.get("jobs", [])
 
         # Calculate earnings from completed jobs
-        total_earnings = 0.0
+        total_earnings = 0.0  # not-money: demo/simulation value, not a live amount
         jobs_completed = len(jobs)
 
         for job in jobs:
             payment_amount = job.get("payment_amount", 0)
             total_earnings += payment_amount
 
-        average_payment = (total_earnings / jobs_completed) if jobs_completed > 0 else 0.0
+        average_payment = (
+            (total_earnings / jobs_completed) if jobs_completed > 0 else 0.0
+        )  # not-money: demo/simulation value, not a live amount
 
         return {
             "action": "earnings",

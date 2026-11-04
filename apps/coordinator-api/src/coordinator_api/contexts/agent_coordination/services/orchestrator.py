@@ -122,7 +122,7 @@ class AgentOrchestrator:
         self.failed_plans: list[OrchestrationPlan] = []
         self.resource_allocations: dict[str, list[ResourceAllocation]] = {}
         self.resource_utilization: dict[ResourceType, float] = {}
-        self.orchestration_metrics = {
+        self.orchestration_metrics = {  # not-money: strategy/score computation, not a settled amount
             "total_tasks": 0,
             "successful_tasks": 0,
             "failed_tasks": 0,

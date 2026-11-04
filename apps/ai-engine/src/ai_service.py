@@ -83,7 +83,7 @@ class SimpleAITradingEngine:
     def analyze_market(self, symbol: str) -> dict[str, Any]:
         """Simple market analysis"""
         # Generate realistic-looking analysis
-        current_price = np.random.uniform(0.001, 0.01)
+        current_price = np.random.uniform(0.001, 0.01)  # not-money: synthetic/demo data, not a live amount
         price_change = np.random.uniform(-0.05, 0.05)
 
         return {
@@ -94,7 +94,7 @@ class SimpleAITradingEngine:
             "rsi": np.random.uniform(30, 70),
             "macd": np.random.uniform(-0.01, 0.01),
             "volatility": np.random.uniform(0.01, 0.05),
-            "ai_predictions": {
+            "ai_predictions": {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "price_prediction": {
                     "predicted_change": np.random.uniform(-0.02, 0.02),
                     "confidence": np.random.uniform(0.7, 0.9),

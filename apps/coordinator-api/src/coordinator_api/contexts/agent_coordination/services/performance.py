@@ -112,7 +112,7 @@ class MetaLearningEngine:
         base_time = 2.0
         complexity_multiplier = len(model.base_algorithms) * 0.5
         training_time = base_time * complexity_multiplier
-        computational_cost = training_time * 10.0
+        computational_cost = training_time * 10.0  # not-money: strategy/score computation, not a settled amount
         meta_accuracy = 0.75 + len(model.adaptation_targets) * 0.05
         adaptation_speed = 0.8 + len(model.meta_features) * 0.02
         generalization = 0.7 + len(model.task_distributions) * 0.03
@@ -575,7 +575,7 @@ class PerformanceOptimizer:
         best_score = 0.0
         for candidate in candidates:
             expected_improvement = candidate.get("expected_improvement", 0.0)
-            resource_cost = candidate.get("resource_cost", 1.0)
+            resource_cost = candidate.get("resource_cost", 1.0)  # not-money: strategy/score computation, not a settled amount
             implementation_complexity = candidate.get("complexity", 0.5)
             score = expected_improvement * 0.6 - resource_cost * 0.2 - implementation_complexity * 0.2
             if score > best_score:
@@ -597,7 +597,12 @@ class PerformanceOptimizer:
 
     def calculate_improvements(self, baseline: dict[str, float], optimized: dict[str, float]) -> dict[str, float]:
         """Calculate performance improvements"""
-        improvements = {"overall": 0.0, "resource": 0.0, "cost": 0.0, "efficiency": 0.0}
+        improvements = {
+            "overall": 0.0,
+            "resource": 0.0,
+            "cost": 0.0,
+            "efficiency": 0.0,
+        }  # not-money: strategy/score computation, not a settled amount
         baseline_total = sum(baseline.values())
         optimized_total = sum(optimized.values())
         improvements["overall"] = (optimized_total - baseline_total) / baseline_total if baseline_total > 0 else 0.0
@@ -608,21 +613,23 @@ class PerformanceOptimizer:
         )
         baseline_cost = self.calculate_cost(baseline)
         optimized_cost = self.calculate_cost(optimized)
-        improvements["cost"] = (baseline_cost - optimized_cost) / baseline_cost if baseline_cost > 0 else 0.0
+        improvements["cost"] = (
+            (baseline_cost - optimized_cost) / baseline_cost if baseline_cost > 0 else 0.0
+        )  # not-money: strategy/score computation, not a settled amount
         improvements["efficiency"] = improvements["overall"] + improvements["resource"] + improvements["cost"]
         return improvements
 
     def calculate_cost(self, performance: dict[str, float]) -> float:
         """Calculate cost based on resource usage"""
-        cpu_cost = performance.get("cpu_cores", 1.0) * 10.0
-        memory_cost = performance.get("memory_gb", 2.0) * 2.0
-        gpu_cost = performance.get("gpu_count", 0.0) * 100.0
-        storage_cost = performance.get("storage_gb", 50.0) * 0.1
+        cpu_cost = performance.get("cpu_cores", 1.0) * 10.0  # not-money: strategy/score computation, not a settled amount
+        memory_cost = performance.get("memory_gb", 2.0) * 2.0  # not-money: strategy/score computation, not a settled amount
+        gpu_cost = performance.get("gpu_count", 0.0) * 100.0  # not-money: strategy/score computation, not a settled amount
+        storage_cost = performance.get("storage_gb", 50.0) * 0.1  # not-money: strategy/score computation, not a settled amount
         return cpu_cost + memory_cost + gpu_cost + storage_cost
 
     async def tune_hyperparameters(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Tune hyperparameters for performance optimization"""
-        return {
+        return {  # not-money: strategy/score computation, not a settled amount
             "technique": "hyperparameter_tuning",
             "target_metric": target_metric.value,
             "parameters": {"learning_rate": 0.001, "batch_size": 64, "dropout_rate": 0.1, "weight_decay": 0.0001},
@@ -633,7 +640,7 @@ class PerformanceOptimizer:
 
     async def optimize_architecture(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Optimize model architecture"""
-        return {
+        return {  # not-money: strategy/score computation, not a settled amount
             "technique": "architecture_optimization",
             "target_metric": target_metric.value,
             "architecture": {"layers": [256, 128, 64], "activations": ["relu", "relu", "tanh"], "normalization": "batch_norm"},
@@ -644,7 +651,7 @@ class PerformanceOptimizer:
 
     async def select_algorithm(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Select optimal algorithm"""
-        return {
+        return {  # not-money: strategy/score computation, not a settled amount
             "technique": "algorithm_selection",
             "target_metric": target_metric.value,
             "algorithm": "transformer",
@@ -655,7 +662,7 @@ class PerformanceOptimizer:
 
     async def optimize_data_pipeline(self, target_metric: PerformanceMetric, analysis: dict[str, Any]) -> dict[str, Any]:
         """Optimize data processing pipeline"""
-        return {
+        return {  # not-money: strategy/score computation, not a settled amount
             "technique": "data_optimization",
             "target_metric": target_metric.value,
             "optimizations": {"data_augmentation": True, "batch_normalization": True, "early_stopping": True},

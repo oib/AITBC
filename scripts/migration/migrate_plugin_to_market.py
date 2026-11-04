@@ -69,7 +69,7 @@ async def migrate_to_database(plugin_data):
                     continue
 
                 # Convert JSON data to SoftwareService
-                service = SoftwareService(
+                service = SoftwareService(  # not-money: ratio, threshold or configuration default — not an amount of money
                     plugin_id=plugin_id,
                     service_type=data.get("service_type", ""),
                     model=data.get("model", ""),

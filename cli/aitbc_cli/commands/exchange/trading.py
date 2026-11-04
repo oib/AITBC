@@ -84,7 +84,11 @@ def orderbook_command(ctx, exchange: str, symbol: str, limit: int):
 def balance_command(ctx, exchange: str):
     """Get balance from external exchange"""
     try:
-        balance = {"exchange": exchange, "aitbc": 1000.0, "eth": 0.05}
+        balance = {
+            "exchange": exchange,
+            "aitbc": 1000.0,
+            "eth": 0.05,
+        }  # not-money: ratio, threshold or configuration default — not an amount of money
         output(balance, title="Exchange Balance")
     except Exception as e:
         abort(None, f"Error: {e}")
@@ -102,7 +106,11 @@ def pairs_command(ctx, exchange: str):
 def order_command(ctx, order_id: str):
     """Get order details from external exchange"""
     try:
-        order = {"order_id": order_id, "status": "filled", "price": 100.0}
+        order = {
+            "order_id": order_id,
+            "status": "filled",
+            "price": 100.0,
+        }  # not-money: ratio, threshold or configuration default — not an amount of money
         output(order, title="Order Details")
     except Exception as e:
         abort(None, f"Error: {e}")
@@ -129,7 +137,7 @@ def book_command(ctx, pair: str, limit: int):
 def history_command(ctx, pair: str | None, limit: int):
     """Get trade history"""
     try:
-        history = [{"price": 100.0, "amount": 1.0, "time": "2024-01-01"}]
+        history = [{"price": 100.0, "amount": 1.0, "time": "2024-01-01"}]  # not-money: stub/demo response, not a live amount
         output(history, title="Trade History")
     except Exception as e:
         abort(None, f"Error: {e}")
@@ -147,7 +155,10 @@ def list_exchanges_command(ctx):
 def price_command(ctx, base: str, quote: str):
     """Get price for trading pair"""
     try:
-        price = {"pair": f"{base}/{quote}", "price": 100.0}
+        price = {
+            "pair": f"{base}/{quote}",
+            "price": 100.0,
+        }  # not-money: ratio, threshold or configuration default — not an amount of money
         output(price, title="Price")
     except Exception as e:
         abort(None, f"Error: {e}")

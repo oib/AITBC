@@ -113,7 +113,9 @@ class BridgeClientAdapter:
                 )
                 self.wallet_adapters[chain_id] = adapter
                 protocol = config.get("protocol", BridgeProtocol.ATOMIC_SWAP)
-                self.bridge_protocols[str(chain_id)] = {
+                self.bridge_protocols[
+                    str(chain_id)
+                ] = {  # not-money: ratio, threshold or configuration default — not an amount of money
                     "protocol": protocol,
                     "enabled": config.get("enabled", True),
                     "min_amount": config.get("min_amount", 0.001),

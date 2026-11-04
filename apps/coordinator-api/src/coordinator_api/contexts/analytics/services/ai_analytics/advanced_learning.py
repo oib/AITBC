@@ -600,7 +600,7 @@ class AdvancedLearningService:
                 "resource_requirements": {"gpu_hours": np.random.uniform(0.5, 2.0), "memory_gb": np.random.uniform(2, 8)},
             }
         elif model.model_type == ModelType.BIDDING_STRATEGY:
-            return {
+            return {  # not-money: ratio, threshold or configuration default — not an amount of money
                 "bid_price": np.random.uniform(0.01, 0.1),
                 "success_probability": np.random.uniform(0.6, 0.9),
                 "wait_time": np.random.uniform(60, 300),

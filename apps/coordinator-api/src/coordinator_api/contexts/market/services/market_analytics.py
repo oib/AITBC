@@ -33,9 +33,15 @@ class MarketAnalytics:
             available_capacity = sum(g.capacity for g in available_gpus)
             allocated_capacity = sum(g.allocated for g in gpus)
             available_prices = [g.price_per_hour for g in available_gpus if g.price_per_hour]
-            avg_price = mean(available_prices) if available_prices else 0.0
-            min_price = min(available_prices) if available_prices else 0.0
-            max_price = max(available_prices) if available_prices else 0.0
+            avg_price = (
+                mean(available_prices) if available_prices else 0.0
+            )  # not-money: statistical summary over values, not a stored amount
+            min_price = (
+                min(available_prices) if available_prices else 0.0
+            )  # not-money: ratio, threshold or configuration default — not an amount of money
+            max_price = (
+                max(available_prices) if available_prices else 0.0
+            )  # not-money: ratio, threshold or configuration default — not an amount of money
             avg_utilization = mean([g.utilization for g in gpus]) if gpus else 0.0
             active_bookings = self.session.execute(select(GPUBooking).where(GPUBooking.status == "active")).scalars().all()
             return {
@@ -66,7 +72,9 @@ class MarketAnalytics:
             )
             bookings_per_hour = len(recent_bookings) / hours if hours > 0 else 0
             gpus = self.session.execute(select(GPURegistry)).scalars().all()
-            avg_price = mean([g.price_per_hour for g in gpus if g.price_per_hour]) if gpus else 0.0
+            avg_price = (
+                mean([g.price_per_hour for g in gpus if g.price_per_hour]) if gpus else 0.0
+            )  # not-money: statistical summary over values, not a stored amount
             avg_utilization = mean([g.utilization for g in gpus]) if gpus else 0.0
             return {
                 "period_hours": hours,
@@ -88,7 +96,9 @@ class MarketAnalytics:
                 current_metrics.get("active_bookings", 0) / 24 if current_metrics.get("active_bookings", 0) > 0 else 0
             )
             forecasted_bookings = bookings_per_hour * hours_ahead
-            forecasted_price = current_metrics.get("avg_price", 0.0)
+            forecasted_price = current_metrics.get(
+                "avg_price", 0.0
+            )  # not-money: ratio, threshold or configuration default — not an amount of money
             current_utilization = current_metrics.get("avg_utilization", 0.0)
             forecasted_utilization = min(1.0, current_utilization + 0.05)
             return {

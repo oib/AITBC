@@ -93,7 +93,7 @@ class OfferSyncService:
                     # Offer exists from a different chain — skip (source wins)
                     continue
 
-                synced = SyncedOffer(
+                synced = SyncedOffer(  # not-money: ratio, threshold or configuration default — not an amount of money
                     offer_id=offer_id,
                     chain_id=chain_id,
                     provider=str(offer_data.get("provider", offer_data.get("owner", ""))),

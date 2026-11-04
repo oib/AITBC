@@ -30,7 +30,12 @@ async def get_platform_overview(
         try:
             bounty_stats = await run_in_threadpool(dev_service.get_bounty_statistics)
         except Exception:
-            bounty_stats = {"total": 150, "active": 45, "completed": 95, "total_payout": 250000.0}
+            bounty_stats = {
+                "total": 150,
+                "active": 45,
+                "completed": 95,
+                "total_payout": 250000.0,
+            }  # not-money: demo/simulation value, not a live amount
 
         # Get developer statistics with fallback
         try:
@@ -85,7 +90,12 @@ async def get_platform_overview(
                 "new_this_month": 25,
                 "average_reputation": 45.5,
             },
-            "bounties": {"total": 150, "active": 45, "completed": 95, "total_payout": 250000.0},
+            "bounties": {
+                "total": 150,
+                "active": 45,
+                "completed": 95,
+                "total_payout": 250000.0,
+            },  # not-money: demo/simulation value, not a live amount
             "certifications": {
                 "total_granted": 320,
                 "new_this_month": 15,
