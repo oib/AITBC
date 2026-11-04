@@ -366,7 +366,11 @@ async def optimize_inference(
 
 
 @app.post("/v1/gpu/queue")
-async def queue_gpu_job(request: QueueJobRequest, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]) -> dict[str, Any]:
+async def queue_gpu_job(
+    request: QueueJobRequest,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+) -> dict[str, Any]:
     """Enqueue a dynamic-priority GPU job"""
     job = await svc.queue_job(request.gpu_id, request.client_id, request.priority, request.payload)
     return {
@@ -381,7 +385,11 @@ async def queue_gpu_job(request: QueueJobRequest, svc: Annotated[EdgeGPUService,
 
 @app.get("/v1/gpu/queue/{gpu_id}")
 async def list_gpu_queue(
-    gpu_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)], status: str | None = None, limit: int = 100
+    gpu_id: str,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    status: str | None = None,
+    limit: int = 100,
+    authenticated: Annotated[dict[str, Any] | None, Depends(require_gpu_api_key)] = None,
 ) -> dict[str, Any]:
     """List GPU jobs ordered by priority"""
     jobs = await svc.list_queued_jobs(gpu_id, status=status, limit=limit)
@@ -402,7 +410,11 @@ async def list_gpu_queue(
 
 
 @app.post("/v1/gpu/queue/{gpu_id}/next")
-async def next_gpu_queue(gpu_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]) -> dict[str, Any]:
+async def next_gpu_queue(
+    gpu_id: str,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+) -> dict[str, Any]:
     """Pop the highest-priority queued job for a GPU"""
     job = await svc.get_next_queued_job(gpu_id)
     if not job:
@@ -422,7 +434,9 @@ async def next_gpu_queue(gpu_id: str, svc: Annotated[EdgeGPUService, Depends(get
 
 @app.post("/v1/gpu/queue/{job_id}/complete")
 async def complete_gpu_queue(
-    job_id: str, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]
+    job_id: str,
+    svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
 ) -> dict[str, Any] | tuple[dict[str, Any], int]:
     """Mark a running GPU job as completed"""
     job = await svc.complete_job(job_id)
@@ -673,7 +687,11 @@ async def register_miner(
 
 
 @app.post("/v1/miners/heartbeat")
-async def miner_heartbeat(heartbeat_data: dict[str, Any], session: Annotated[AsyncSession, Depends(get_session_dep)]):
+async def miner_heartbeat(
+    heartbeat_data: dict[str, Any],
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
+):
     """Send miner heartbeat"""
     from sqlalchemy import update
 
