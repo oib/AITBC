@@ -91,12 +91,12 @@ ALLOWLIST_SUBSTRINGS = {
 }
 
 
-def _should_exclude(path: Path, exclude: set[str]) -> bool:
-    """Return True if a path should be skipped."""
-    for part in path.parts:
+def _should_exclude(rel_path: Path, exclude: set[str]) -> bool:
+    """Return True if a path relative to the scan root should be skipped."""
+    for part in rel_path.parts:
         if part in exclude:
             return True
-        if any(part.endswith(suffix) for suffix in (".pyc", ".pyo", ".lock")):
+        if any(part.endswith(suffix) for suffix in (".pyc", ".pyo", ".lock", ".egg-info")):
             return True
     return False
 
@@ -150,7 +150,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Scan source code for hardcoded secrets/API keys")
     parser.add_argument("--root", default=os.environ.get("REPO_ROOT", str(Path(__file__).resolve().parents[2])))
     parser.add_argument("--exclude", action="append", default=[], help="Additional path components to exclude")
-    parser.add_argument("--extensions", default="py,js,ts,sh,yml,yaml,toml,cfg,ini,json,txt,env")
+    parser.add_argument("--extensions", default="py,js,ts,sh,yml,yaml,toml,cfg,ini,json,txt,env,service,conf,md")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -164,7 +164,7 @@ def main() -> int:
     for path in root.rglob("*"):
         if path.is_dir():
             continue
-        if _should_exclude(path, exclude):
+        if _should_exclude(path.relative_to(root), exclude):
             continue
         if path.suffix.lstrip(".") not in extensions and path.name not in {"Dockerfile", ".env"}:
             continue
