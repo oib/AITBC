@@ -516,11 +516,20 @@ class RemoteAttestationService:
                 ).first()
                 if row is not None:
                     return row if isinstance(row, datetime) else row[0]
+                # Tip fallback is allowed ONLY when the tip IS the parent —
+                # a lagging attester whose tip has moved past the parent must
+                # not derive a round from the wrong block (#1058 rework).
                 tip = session.exec(
-                    select(Block.timestamp).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+                    select(Block.timestamp, Block.hash)
+                    .where(Block.chain_id == self._chain_id)
+                    .order_by(text("height DESC"))
+                    .limit(1)
                 ).first()
                 if tip is not None:
-                    return tip if isinstance(tip, datetime) else tip[0]
+                    tip_ts = tip[0] if not isinstance(tip, datetime) else tip
+                    tip_hash = tip[1] if not isinstance(tip, datetime) else None
+                    if tip_hash == parent_hash:
+                        return tip_ts
         except Exception:
             return None
         return None
