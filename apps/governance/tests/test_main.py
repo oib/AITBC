@@ -116,7 +116,8 @@ def test_stake_tokens(client):
         "/v1/governance/stake", json={"staker_address": "0x1234567890abcdef", "amount": 1000, "lock_period_days": 30}
     )
     # May fail without database setup, but endpoint should exist
-    assert response.status_code in [200, 500]
+    # Unsigned writes now get 403 (#1091); 200/500 cover the signed-path outcome space.
+    assert response.status_code in [200, 403, 500]
 
 
 def test_get_voting_power(client):
@@ -132,12 +133,11 @@ def test_delegate_voting_power(client):
         "/v1/governance/delegate",
         json={"delegator_address": "0x1234567890abcdef", "delegate_address": "0x0987654321fedcba", "amount": 500},
     )
-    # May fail without database setup, but endpoint should exist
-    assert response.status_code in [200, 500]
+    assert response.status_code in [200, 403, 500]
 
 
 def test_execute_proposal(client):
     """Test proposal execution endpoint"""
     response = client.post("/v1/governance/proposals/test_prop_123/execute")
-    # May fail without database setup, but endpoint should exist
-    assert response.status_code in [200, 404, 500]
+    # Unsigned execute gets 403 (#1091); the endpoint still exists behind the signature gate
+    assert response.status_code in [200, 403, 404, 500]

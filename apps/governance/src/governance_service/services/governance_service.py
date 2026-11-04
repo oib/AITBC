@@ -501,16 +501,29 @@ class GovernanceService:
             if key in vote_data and vote_data[key] is not None:
                 vote_data[key] = _parse_datetime(vote_data[key])
 
-        # Normalise numeric fields to Decimal so the SQLAlchemy/PostgreSQL path
-        # does not mix float and Decimal.
-        for key in ("voting_power", "voting_power_used", "power_at_snapshot", "delegated_power_at_snapshot", "vote_weight"):
-            if key in vote_data and vote_data[key] is not None:
-                vote_data[key] = Decimal(str(vote_data[key]))
-
         # Client-signed on-chain submission (GAP-50) — not a Vote column.
         signed_tx = vote_data.pop("signed_tx", None)
 
+        # Client-supplied weight fields are advisory at best and a forgery
+        # vector at worst (#1091): power always comes from the server-side
+        # snapshot below, never from the request.
+        for key in ("voting_power", "voting_power_used", "power_at_snapshot", "delegated_power_at_snapshot", "vote_weight"):
+            vote_data.pop(key, None)
+
         voter_id = vote_data.get("voter_id") or "anonymous"
+
+        # One vote per voter per proposal — repeats used to stack weight (#1091).
+        proposal_status = await self.get_proposal(vote_data.get("proposal_id"))
+        if proposal_status is None:
+            raise ValueError(f"Proposal not found: {vote_data.get('proposal_id')}")
+        if proposal_status.status != ProposalStatus.ACTIVE:
+            raise ValueError(f"Proposal is not active (status: {proposal_status.status})")
+        existing_vote = await self.session.execute(
+            select(Vote).where(Vote.proposal_id == vote_data.get("proposal_id"), Vote.voter_id == voter_id)
+        )
+        if existing_vote.scalars().first() is not None:
+            raise ValueError(f"voter {voter_id} has already voted on proposal {vote_data.get('proposal_id')}")
+
         existing_profile = await self.get_profile(voter_id)
         if not existing_profile:
             await self.session.execute(
