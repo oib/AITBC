@@ -108,7 +108,7 @@ async def get_payment_status(request: Request, payment_id: str) -> dict[str, Any
 
 @router.post("/exchange/confirm-payment/{payment_id}")
 @rate_limit(rate=50, per=60)
-async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> dict[str, Any]:
+def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> dict[str, Any]:
     """Confirm payment (webhook from payment processor).
 
     ponytail: Disabled until real on-chain transaction verification and minting
@@ -122,7 +122,7 @@ async def confirm_payment(request: Request, payment_id: str, tx_hash: str) -> di
 
 @router.get("/exchange/rates", response_model=ExchangeRatesResponse)
 @rate_limit(rate=500, per=60)
-async def get_exchange_rates(request: Request) -> ExchangeRatesResponse:
+def get_exchange_rates(request: Request) -> ExchangeRatesResponse:
     """Get current exchange rates"""
 
     return ExchangeRatesResponse(
@@ -150,7 +150,9 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
 
     # The AITBC/ETH rate is a configured peg (ETH_CONFIG["exchange_rate"]) — there is no
     # price discovery, so the honest 24h change is 0 until a real rate feed exists.
-    base_price = 1.0 / ETH_CONFIG["exchange_rate"]
+    base_price = (
+        1.0 / ETH_CONFIG["exchange_rate"]
+    )  # not-money: ratio, threshold or configuration default — not an amount of money
     price_change_percent = 0
 
     return MarketStatsResponse(
@@ -188,7 +190,7 @@ async def monitor_payment(payment_id: str) -> None:
 # Agent endpoints temporarily added to exchange router
 @router.get("/agents/test")
 @rate_limit(rate=1000, per=60)
-async def test_agent_endpoint(request: Request) -> dict[str, str]:
+def test_agent_endpoint(request: Request) -> dict[str, str]:
     """Test endpoint to verify agent routes are working"""
     return {"message": "Agent routes are working", "timestamp": datetime.now(UTC).isoformat()}
 

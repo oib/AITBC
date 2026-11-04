@@ -101,7 +101,7 @@ class MarketWorkflow:
             print(f"🔍 DEBUG: Booking data: {booking}")
             print(f"🔍 DEBUG: Task result: {task_result}")
             # Calculate payment amount
-            payment_amount = booking.get("total_cost", 0.0)
+            payment_amount = booking.get("total_cost", 0.0)  # not-money: demo/simulation value, not a live amount
             print(f"🔍 DEBUG: Payment amount: {payment_amount} AITBC")
 
             # Simulate blockchain payment processing

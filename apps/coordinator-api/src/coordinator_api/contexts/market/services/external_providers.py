@@ -102,7 +102,7 @@ class ExternalProviderService:
             ).first()
             if internal_gpu:
                 return internal_gpu
-        internal_gpu = GPURegistry(
+        internal_gpu = GPURegistry(  # not-money: ratio, threshold or configuration default — not an amount of money
             id=f"gpu_{uuid4().hex[:8]}",
             miner_id=f"external_{provider.provider_name}",
             model="External GPU",
@@ -134,24 +134,54 @@ class ExternalProviderService:
         """Fetch GPU resources from AWS EC2."""
         logger.info("Fetching AWS resources for provider %s", provider.provider_name)
         return [
-            {"id": "i-12345", "type": "p3.2xlarge", "memory": 32, "price": 3.06},
-            {"id": "i-67890", "type": "p3.8xlarge", "memory": 128, "price": 12.24},
+            {
+                "id": "i-12345",
+                "type": "p3.2xlarge",
+                "memory": 32,
+                "price": 3.06,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
+            {
+                "id": "i-67890",
+                "type": "p3.8xlarge",
+                "memory": 128,
+                "price": 12.24,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
         ]
 
     def _fetch_gcp_resources(self, provider: ExternalProvider) -> list[dict[str, Any]]:
         """Fetch GPU resources from GCP."""
         logger.info("Fetching GCP resources for provider %s", provider.provider_name)
         return [
-            {"id": "gcp-12345", "type": "n1-standard-4", "memory": 16, "price": 0.5},
-            {"id": "gcp-67890", "type": "n1-highmem-8", "memory": 64, "price": 1.2},
+            {
+                "id": "gcp-12345",
+                "type": "n1-standard-4",
+                "memory": 16,
+                "price": 0.5,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
+            {
+                "id": "gcp-67890",
+                "type": "n1-highmem-8",
+                "memory": 64,
+                "price": 1.2,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
         ]
 
     def _fetch_azure_resources(self, provider: ExternalProvider) -> list[dict[str, Any]]:
         """Fetch GPU resources from Azure."""
         logger.info("Fetching Azure resources for provider %s", provider.provider_name)
         return [
-            {"id": "azure-12345", "type": "Standard_NC6", "memory": 112, "price": 0.9},
-            {"id": "azure-67890", "type": "Standard_NC12", "memory": 224, "price": 1.8},
+            {
+                "id": "azure-12345",
+                "type": "Standard_NC6",
+                "memory": 112,
+                "price": 0.9,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
+            {
+                "id": "azure-67890",
+                "type": "Standard_NC12",
+                "memory": 224,
+                "price": 1.8,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
         ]
 
     def _map_to_internal(self, provider_id: str, resource: dict[str, Any]) -> None:

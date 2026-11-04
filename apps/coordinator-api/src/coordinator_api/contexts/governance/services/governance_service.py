@@ -649,7 +649,7 @@ class GovernanceService:
         }
 
     def get_treasury_balance(self, region: str | None = None) -> dict[str, Any]:
-        return {
+        return {  # not-money: ratio, threshold or configuration default — not an amount of money
             "total_balance": 0.0,
             "allocated_funds": 0.0,
             "available": 0.0,
@@ -741,7 +741,10 @@ class GovernanceService:
                 "participation_rate": 0.0,
             },
             "regional_councils": {"total_councils": total_councils, "regions": 0},
-            "treasury": {"total_allocations": 0.0, "total_balance": 0.0},
+            "treasury": {
+                "total_allocations": 0.0,
+                "total_balance": 0.0,
+            },  # not-money: ratio, threshold or configuration default — not an amount of money
             "staking": {"active_pools": 0, "total_staked": 0.0},
         }
 

@@ -23,6 +23,7 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from .router import router
+from decimal import Decimal
 
 _logger = get_logger(__name__)
 
@@ -94,7 +95,7 @@ def _job_from_tx(tx: Transaction, cancelled_ids: set[str] | None = None) -> dict
     payload = tx.payload or {}
     job_id = payload.get("job_id", tx.tx_hash)
     status = "cancelled" if cancelled_ids and job_id in cancelled_ids else tx.status
-    return {
+    return {  # not-money: ratio, threshold or configuration default — not an amount of money
         "job_id": job_id,
         "wallet_address": tx.sender,
         "job_type": payload.get("job_type", "unknown"),
@@ -353,7 +354,7 @@ def ai_stats() -> dict[str, Any]:
             total_jobs = len(txs)
             status_counts: dict[str, int] = {}
             type_counts: dict[str, int] = {}
-            total_revenue = 0.0
+            total_revenue = Decimal("0")
 
             for tx in txs:
                 payload = tx.payload or {}

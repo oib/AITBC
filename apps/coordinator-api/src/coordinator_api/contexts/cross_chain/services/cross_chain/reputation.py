@@ -260,7 +260,7 @@ class CrossChainReputationService:
             ChainNetwork.AVALANCHE: 43114,
             ChainNetwork.FANTOM: 250,
         }
-        self.stake_rewards = {
+        self.stake_rewards = {  # not-money: demo/simulation value, not a live amount
             ReputationTier.BRONZE: 0.05,
             ReputationTier.SILVER: 0.08,
             ReputationTier.GOLD: 0.12,

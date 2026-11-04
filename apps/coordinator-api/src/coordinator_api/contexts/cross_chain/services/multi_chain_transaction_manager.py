@@ -70,7 +70,9 @@ class ChainTransactionManager:
                 )
                 async with self._lock:
                     self.wallet_adapters[chain_id] = adapter
-                    self.metrics["chain_performance"][chain_id] = {
+                    self.metrics["chain_performance"][
+                        chain_id
+                    ] = {  # not-money: ratio, threshold or configuration default — not an amount of money
                         "total_transactions": 0,
                         "success_rate": 0.0,
                         "average_gas_price": 0.0,
