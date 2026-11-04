@@ -313,6 +313,21 @@ def _kick_bridge_poll() -> None:
         logger.warning("Could not touch bridge kick file %s: %s", _BRIDGE_KICK_FILE, exc)
 
 
+def _kick_for_ip(ip: str) -> dict[str, Any]:
+    """Rate-limit a poll kick per client IP — shared by /poll-request and the
+    deposit estimate's demand signal (#1079). Prunes the map so one /64 cannot
+    grow it without bound."""
+    now = time.monotonic()
+    for stale_ip in [k for k, ts in _kick_last_by_ip.items() if now - ts >= _KICK_COOLDOWN_SECONDS]:
+        del _kick_last_by_ip[stale_ip]
+    elapsed = now - _kick_last_by_ip.get(ip, 0.0)
+    if elapsed < _KICK_COOLDOWN_SECONDS:
+        return {"kicked": False, "retry_after_seconds": int(_KICK_COOLDOWN_SECONDS - elapsed)}
+    _kick_last_by_ip[ip] = now
+    _kick_bridge_poll()
+    return {"kicked": True, "burst_window_seconds": 60, "polls": 3}
+
+
 @bridge_router.post("/poll-request")
 def bridge_request_poll(request: Request) -> dict[str, Any]:
     """Public kick: ask the bridge monitor to poll ETH now.
@@ -323,17 +338,7 @@ def bridge_request_poll(request: Request) -> dict[str, Any]:
     in-wallet scanner, admin-only) this triggers the crediting monitor.
     """
     ip = client_ip_for_rate_limit(request)
-    now = time.monotonic()
-    # Prune entries past the cooldown on every call: the old map kept every
-    # IP that ever kicked forever, and one IPv6 /64 supplies unlimited IPs.
-    for stale_ip in [k for k, ts in _kick_last_by_ip.items() if now - ts >= _KICK_COOLDOWN_SECONDS]:
-        del _kick_last_by_ip[stale_ip]
-    elapsed = now - _kick_last_by_ip.get(ip, 0.0)
-    if elapsed < _KICK_COOLDOWN_SECONDS:
-        return {"kicked": False, "retry_after_seconds": int(_KICK_COOLDOWN_SECONDS - elapsed)}
-    _kick_last_by_ip[ip] = now
-    _kick_bridge_poll()
-    return {"kicked": True, "burst_window_seconds": 60, "polls": 3}
+    return _kick_for_ip(ip)
 
 
 @bridge_router.post("/poll")
@@ -389,7 +394,7 @@ async def get_bridge_price() -> dict[str, Any]:
 
 
 @bridge_router.post("/deposit")
-async def bridge_deposit(body: dict[str, Any]) -> dict[str, Any]:
+async def bridge_deposit(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Calculate bridge deposit instructions and estimate."""
     try:
         eth_amount = Decimal(str(body.get("eth_amount", 0)))
@@ -432,9 +437,9 @@ async def bridge_deposit(body: dict[str, Any]) -> dict[str, Any]:
     transaction_data_hex = "0x" + ait_address.encode("utf-8").hex()
 
     # Strongest demand signal there is: someone just asked where to send ETH.
-    # Kick the monitor's burst window so the deposit settles without waiting
-    # for the slow safety-net cadence.
-    _kick_bridge_poll()
+    # The kick still goes through the per-IP cooldown (#1079) — an estimate
+    # call cannot bypass /poll-request's rate limit.
+    _kick_for_ip(client_ip_for_rate_limit(request))
 
     return {
         "status": "ready",
