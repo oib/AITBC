@@ -110,3 +110,24 @@ def test_close_without_wallet_posts_no_signature() -> None:
         result = CliRunner().invoke(governance, ["close", "--proposal-id", "prop_4"])
     assert result.exit_code == 0, result.output
     assert captured["json"] is None
+
+
+def test_propose_signs_body_and_binds_proposer() -> None:
+    captured: dict = {}
+    with (
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_client(captured)),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(MagicMock(), "c")),
+        patch("aitbc_cli.commands.governance._get_governance_account", return_value={"balance": 5}),
+        patch("aitbc_cli.commands.governance._sign_governance_tx", return_value={"signed": True}),
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        result = CliRunner().invoke(
+            governance,
+            ["propose", "--title", "t", "--description", "d", "--proposer-id", "profile-name"],
+        )
+    assert result.exit_code == 0, result.output
+    body = captured["json"]
+    assert body["proposer_id"] == ADDR
+    unsigned = {k: v for k, v in body.items() if k != "signature"}
+    assert _verify(ADDR, body["signature"], unsigned)
