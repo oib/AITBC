@@ -5309,13 +5309,6 @@
           ]
         },
         {
-          "public": "/api/v2/coordinator/v1/market/gpu/bid",
-          "upstream": "/v1/market/gpu/bid",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
           "public": "/api/v2/coordinator/v1/market/gpu/list",
           "upstream": "/v1/market/gpu/list",
           "methods": [
