@@ -10,11 +10,14 @@ from aitbc.aitbc_logging import get_logger
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from ....auth import AuthDep
 from ..services.manager import AgentIdentityManager
 from ....storage.db import get_session
+from ...infrastructure.domain.user import Wallet
 from ..domain.agent_identity import (
+    AgentIdentity,
     AgentWallet,
     CrossChainMappingResponse,
     IdentityStatus,
@@ -30,14 +33,46 @@ def get_identity_manager(session: Annotated[Session, Depends(get_session)]) -> A
     return AgentIdentityManager(session)
 
 
+def _caller_wallets(session: Session, user: dict[str, Any]) -> set[str]:
+    """Wallet addresses the authenticated caller controls (users.id -> wallets)."""
+    sub = str(user.get("sub") or "")
+    if not sub:
+        return set()
+    return {str(w.address).lower() for w in session.exec(select(Wallet).where(Wallet.user_id == sub)).all() if w.address}
+
+
+def _require_owned_identity(session: Session, agent_id: str, user: dict[str, Any]) -> AgentIdentity:
+    """Load the identity and require the caller to own it (or be admin) (#1070)."""
+    identity = session.exec(select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)).first()
+    if identity is None:
+        raise HTTPException(status_code=404, detail="Agent identity not found")
+    if user.get("role") == "admin":
+        return identity
+    if str(identity.owner_address).lower() in _caller_wallets(session, user):
+        return identity
+    raise HTTPException(status_code=403, detail="not the identity owner")
+
+
+def _require_address_or_admin(session: Session, user: dict[str, Any], address: Any) -> None:
+    """The caller must control `address` through its wallets, or be admin (#1070)."""
+    if user.get("role") == "admin":
+        return
+    if str(address or "").lower() not in _caller_wallets(session, user):
+        raise HTTPException(status_code=403, detail="address is not one of the caller's wallets")
+
+
 # Identity Management Endpoints
 
 
 @router.post("/identities", response_model=dict[str, Any])
 async def create_agent_identity(
-    request: dict[str, Any], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    request: dict[str, Any],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> JSONResponse:
     """Create a new agent identity with cross-chain mappings"""
+    _require_address_or_admin(session, user, request.get("owner_address"))
     try:
         result = await manager.create_agent_identity(
             owner_address=request["owner_address"],
@@ -105,9 +140,14 @@ async def get_agent_identity(
 
 @router.put("/identities/{agent_id}", response_model=dict[str, Any])
 async def update_agent_identity(
-    agent_id: str, request: dict[str, Any], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    request: dict[str, Any],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Update agent identity and related components"""
+    _require_owned_identity(session, agent_id, user)
     try:
         result = await manager.update_agent_identity(agent_id, request)
         if not result.get("update_successful", True):
@@ -121,9 +161,14 @@ async def update_agent_identity(
 
 @router.post("/identities/{agent_id}/deactivate", response_model=dict[str, Any])
 async def deactivate_agent_identity(
-    agent_id: str, request: dict[str, Any], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    request: dict[str, Any],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Deactivate an agent identity across all chains"""
+    _require_owned_identity(session, agent_id, user)
     try:
         reason = request.get("reason", "")
         success = await manager.deactivate_agent_identity(agent_id, reason)
@@ -141,9 +186,14 @@ async def deactivate_agent_identity(
 
 @router.post("/identities/{agent_id}/cross-chain/register", response_model=dict[str, Any])
 async def register_cross_chain_identity(
-    agent_id: str, request: dict[str, Any], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    request: dict[str, Any],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Register cross-chain identity mappings"""
+    _require_owned_identity(session, agent_id, user)
     try:
         chain_mappings = request["chain_mappings"]
         verifier_address = request.get("verifier_address")
@@ -194,8 +244,11 @@ async def update_cross_chain_mapping(
     chain_id: int,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Update cross-chain mapping for a specific chain"""
+    _require_owned_identity(session, agent_id, user)
     try:
         new_address = request.get("new_address")
         verifier_address = request.get("verifier_address")
@@ -227,8 +280,11 @@ async def verify_cross_chain_identity(
     chain_id: int,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Verify identity on a specific blockchain"""
+    _require_address_or_admin(session, user, request.get("verifier_address"))
     try:
         # Get identity ID
         identity = await manager.core.get_identity_by_agent_id(agent_id)
@@ -260,9 +316,14 @@ async def verify_cross_chain_identity(
 
 @router.post("/identities/{agent_id}/migrate", response_model=dict[str, Any])
 async def migrate_agent_identity(
-    agent_id: str, request: dict[str, Any], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    request: dict[str, Any],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Migrate agent identity from one chain to another"""
+    _require_owned_identity(session, agent_id, user)
     try:
         result = await manager.migrate_agent_identity(
             agent_id, request["from_chain"], request["to_chain"], request["new_address"], request.get("verifier_address")
@@ -277,9 +338,14 @@ async def migrate_agent_identity(
 
 @router.post("/identities/{agent_id}/wallets", response_model=dict[str, Any])
 async def create_agent_wallet(
-    agent_id: str, request: dict[str, Any], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    request: dict[str, Any],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Create an agent wallet on a specific blockchain"""
+    _require_owned_identity(session, agent_id, user)
     try:
         wallet = await manager.wallet_adapter.create_agent_wallet(
             agent_id, request["chain_id"], request.get("owner_address", "")
@@ -321,8 +387,11 @@ async def execute_wallet_transaction(
     chain_id: int,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Execute a transaction from agent wallet"""
+    _require_owned_identity(session, agent_id, user)
     try:
         from decimal import Decimal
 
@@ -387,9 +456,14 @@ async def get_all_agent_wallets(
 
 @router.post("/identities/{agent_id}/wallets/{chain_id}/export", response_model=dict[str, Any])
 def export_agent_wallet(
-    agent_id: str, chain_id: int, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    chain_id: int,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Export agent wallet data for backup or migration"""
+    _require_owned_identity(session, agent_id, user)
     try:
         from sqlalchemy import select
 
@@ -427,9 +501,14 @@ def export_agent_wallet(
 
 @router.delete("/identities/{agent_id}/wallets/{chain_id}", response_model=dict[str, Any])
 def delete_agent_wallet(
-    agent_id: str, chain_id: int, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    chain_id: int,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Delete an agent wallet"""
+    _require_owned_identity(session, agent_id, user)
     try:
         from sqlalchemy import select
 
@@ -468,12 +547,15 @@ def sign_message(
     chain_id: int,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Sign a message with agent wallet.
 
     ponytail: Disabled until secure encrypted-key signing is implemented.
     The previous implementation returned a SHA-256 hash, not a valid signature.
     """
+    _require_owned_identity(session, agent_id, user)
     raise HTTPException(
         status_code=501,
         detail="Agent wallet signing is disabled until secure key custody is implemented",
@@ -485,9 +567,13 @@ def sign_message(
 
 @router.post("/identities/{agent_id}/sync-reputation", response_model=dict[str, Any])
 async def sync_agent_reputation(
-    agent_id: str, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    agent_id: str,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Sync agent reputation across all chains"""
+    _require_owned_identity(session, agent_id, user)
     try:
         result = await manager.sync_agent_reputation(agent_id)
         return result
@@ -535,8 +621,11 @@ async def export_agent_identity(
     agent_id: str,
     request: dict[str, Any] | None,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Export agent identity data for backup or migration"""
+    _require_owned_identity(session, agent_id, user)
     try:
         format_type = (request or {}).get("format", "json")
         result = await manager.export_agent_identity(agent_id, format_type)
@@ -547,9 +636,13 @@ async def export_agent_identity(
 
 @router.post("/identities/import", response_model=dict[str, Any])
 async def import_agent_identity(
-    export_data: dict[str, Any], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    export_data: dict[str, Any],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Import agent identity data from backup or migration"""
+    _require_address_or_admin(session, user, (export_data.get("identity") or {}).get("owner_address"))
     try:
         result = await manager.import_agent_identity(export_data)
         return result
@@ -560,8 +653,12 @@ async def import_agent_identity(
 @router.post("/registry/cleanup-expired", response_model=dict[str, Any])
 async def cleanup_expired_verifications(
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Clean up expired verification records"""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="admin only")
     try:
         cleaned_count = await manager.registry.cleanup_expired_verifications()
         return {"cleaned_verifications": cleaned_count, "timestamp": datetime.now(UTC).isoformat()}
@@ -571,9 +668,17 @@ async def cleanup_expired_verifications(
 
 @router.post("/identities/batch-verify", response_model=list[dict[str, Any]])
 async def batch_verify_identities(
-    verifications: list[dict[str, Any]], manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
+    verifications: list[dict[str, Any]],
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> list[dict[str, Any]]:
     """Batch verify multiple identities"""
+    wallets = _caller_wallets(session, user)
+    if user.get("role") != "admin":
+        for v in verifications:
+            if str(v.get("verifier_address") or "").lower() not in wallets:
+                raise HTTPException(status_code=403, detail="verifier_address is not one of the caller's wallets")
     try:
         results = await manager.registry.batch_verify_identities(verifications)
         return results
