@@ -56,6 +56,38 @@ class TestHttpCallAuth:
 
     @patch("aitbc_cli.commands.http.AITBCHTTPClient")
     @patch("aitbc_cli.commands.http.get_config")
+    def test_configured_key_not_sent_to_url_override(self, mock_get_config, mock_http_class, runner):
+        """#1098: --url retargets the request; a configured key must not leak to it."""
+        from aitbc_cli.commands.http import http
+
+        mock_get_config.return_value = SimpleNamespace(api_key="configured-secret", blockchain_rpc_api_key=None)
+        client = mock_http_class.return_value
+        client.get.return_value = {"ok": True}
+
+        result = runner.invoke(http, ["call", "blockchain-rpc", "height", "--url", "http://attacker.example:9"])
+
+        assert result.exit_code == 0
+        kwargs = mock_http_class.call_args.kwargs
+        assert "api_key" not in kwargs
+        assert "Authorization" not in (kwargs.get("headers") or {})
+
+    @patch("aitbc_cli.commands.http.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.http.get_config")
+    def test_explicit_api_key_still_sent_to_url_override(self, mock_get_config, mock_http_class, runner):
+        """#1098: an explicit --api-key is the caller's own choice for a custom URL."""
+        from aitbc_cli.commands.http import http
+
+        mock_get_config.return_value = SimpleNamespace(api_key="configured-secret")
+        client = mock_http_class.return_value
+        client.get.return_value = {"ok": True}
+
+        result = runner.invoke(http, ["call", "blockchain-rpc", "height", "--url", "http://10.0.0.9:1", "--api-key", "K"])
+
+        assert result.exit_code == 0
+        assert mock_http_class.call_args.kwargs["api_key"] == "K"
+
+    @patch("aitbc_cli.commands.http.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.http.get_config")
     def test_auth_trading_explicit_api_key_uses_trading_header(self, mock_get_config, mock_http_class, runner):
         """--auth trading --api-key K sends K as X-Trading-Api-Key — the only
         sensible reading of an explicit key with an explicit trading auth."""
