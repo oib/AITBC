@@ -12,7 +12,12 @@ echo "== readback $PH $(date '+%F %T %Z') / $(date -u '+%T UTC') ua=$N"
 for c in FLIP STAY; do for p in ${!c}; do
   printf '%s %-38s ' $c $p; curl -s -m 15 -o /dev/null -A "$N-$c" -w '%{http_code} %{time_total}s\n' "$F$p"; done; done
 sleep 2
-f=$(ssh -o BatchMode=yes hub1 "sudo -n grep -c -- '$N-FLIP' /var/log/nginx/access.log"); s=$(ssh -o BatchMode=yes hub1 "sudo -n grep -c -- '$N-STAY' /var/log/nginx/access.log")
+f=$(ssh -o BatchMode=yes hub1 "sudo -n grep -c -- '$N-FLIP' /var/log/nginx/access.log || true"); s=$(ssh -o BatchMode=yes hub1 "sudo -n grep -c -- '$N-STAY' /var/log/nginx/access.log || true")
 nf=$(echo $FLIP | wc -w)
 echo "hub1 served FLIP=$f/$nf STAY=$s"
-case $PH in forward) [ "$f" = "$nf" ] && [ "$s" = 0 ] && echo PASS || echo FAIL;; *) [ "$f" = 0 ] && [ "$s" = 0 ] && echo PASS || echo FAIL;; esac
+case $PH in
+  forward) [ "$f" = "$nf" ] && [ "$s" = 0 ] && rc=0 || rc=1;;
+  *)       [ "$f" = 0 ] && [ "$s" = 0 ] && rc=0 || rc=1;;
+esac
+[ "$rc" = 0 ] && echo PASS || echo FAIL
+exit "$rc"
