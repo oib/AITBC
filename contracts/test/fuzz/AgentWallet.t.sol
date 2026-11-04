@@ -41,11 +41,11 @@ contract AgentWalletFuzzTest is Test {
     function testFuzz_RegisterAgent(address agentAddr, uint256 limit) public {
         vm.assume(agentAddr != address(0));
 
-        vm.prank(agentOwner);
+        vm.prank(agentAddr);
         wallet.registerAgent(agentAddr, limit);
 
         (address agentOwner_, , uint256 spendingLimit, uint256 totalSpent, bool isActive) = wallet.agents(agentAddr);
-        assertEq(agentOwner_, agentOwner);
+        assertEq(agentOwner_, agentAddr);
         assertEq(spendingLimit, limit);
         assertEq(totalSpent, 0);
         assertTrue(isActive);
@@ -57,10 +57,10 @@ contract AgentWalletFuzzTest is Test {
     }
 
     function testFuzz_RegisterAgentRejectsDuplicate(uint256 limit) public {
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, limit);
 
-        vm.prank(owner);
+        vm.prank(agent);
         vm.expectRevert("Agent already registered");
         wallet.registerAgent(agent, limit);
     }
@@ -68,7 +68,7 @@ contract AgentWalletFuzzTest is Test {
     function testFuzz_Deposit(uint256 amount, uint256 limit) public {
         amount = bound(amount, 1, 400_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, limit);
 
         vm.startPrank(funder);
@@ -83,7 +83,7 @@ contract AgentWalletFuzzTest is Test {
     function testFuzz_DepositRevertsIfInactive(uint256 amount) public {
         amount = bound(amount, 1, 1_000 * 10**18);
 
-        vm.startPrank(agentOwner);
+        vm.startPrank(agent);
         wallet.registerAgent(agent, 0);
         wallet.deactivateAgent(agent);
         vm.stopPrank();
@@ -98,7 +98,7 @@ contract AgentWalletFuzzTest is Test {
     function testFuzz_Withdraw(uint256 amount) public {
         amount = bound(amount, 1, 400_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, 0);
 
         vm.startPrank(funder);
@@ -106,20 +106,20 @@ contract AgentWalletFuzzTest is Test {
         wallet.deposit(agent, amount);
         vm.stopPrank();
 
-        uint256 ownerBefore = token.balanceOf(agentOwner);
-        vm.prank(agentOwner);
+        uint256 ownerBefore = token.balanceOf(agent);
+        vm.prank(agent);
         wallet.withdraw(agent, amount);
 
-        assertEq(token.balanceOf(agentOwner), ownerBefore + amount);
+        assertEq(token.balanceOf(agent), ownerBefore + amount);
         (, uint256 balance, , , ) = wallet.agents(agent);
         assertEq(balance, 0);
     }
 
     function testFuzz_WithdrawOnlyAgentOwner(address caller, uint256 amount) public {
-        vm.assume(caller != agentOwner && caller != address(0));
+        vm.assume(caller != agent && caller != address(0));
         amount = bound(amount, 1, 1_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, 0);
 
         vm.startPrank(funder);
@@ -136,7 +136,7 @@ contract AgentWalletFuzzTest is Test {
         deposit = bound(deposit, 1, 100_000 * 10**18);
         extra = bound(extra, 1, 100_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, 0);
 
         vm.startPrank(funder);
@@ -144,7 +144,7 @@ contract AgentWalletFuzzTest is Test {
         wallet.deposit(agent, deposit);
         vm.stopPrank();
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         vm.expectRevert("Insufficient balance");
         wallet.withdraw(agent, deposit + extra);
     }
@@ -153,7 +153,7 @@ contract AgentWalletFuzzTest is Test {
         amount = bound(amount, 1, 100_000 * 10**18);
         limit = bound(limit, amount, 200_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, limit);
 
         vm.startPrank(funder);
@@ -183,7 +183,7 @@ contract AgentWalletFuzzTest is Test {
         amount = bound(amount, 2, 100_000 * 10**18);
         limit = bound(limit, 1, amount - 1);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, limit);
 
         vm.startPrank(funder);
@@ -199,7 +199,7 @@ contract AgentWalletFuzzTest is Test {
     function testFuzz_MicroTransactionInsufficientBalance(uint256 amount) public {
         amount = bound(amount, 1, 100_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, type(uint256).max);
 
         vm.prank(agent);
@@ -210,7 +210,7 @@ contract AgentWalletFuzzTest is Test {
     function testFuzz_MicroTransactionRejectsZeroRecipient(uint256 amount) public {
         amount = bound(amount, 1, 1_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, amount);
 
         vm.startPrank(funder);
@@ -227,7 +227,7 @@ contract AgentWalletFuzzTest is Test {
         vm.assume(caller != agent);
         amount = bound(amount, 1, 1_000 * 10**18);
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, amount);
 
         vm.prank(caller);
@@ -240,7 +240,7 @@ contract AgentWalletFuzzTest is Test {
         amount = bound(amount, 1, 1_000 * 10**18);
         uint256 limit = amount * n;
 
-        vm.prank(agentOwner);
+        vm.prank(agent);
         wallet.registerAgent(agent, limit);
 
         vm.startPrank(funder);
