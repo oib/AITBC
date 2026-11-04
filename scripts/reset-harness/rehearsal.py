@@ -374,6 +374,16 @@ def _check_authority_custody(root: Path, genesis: Path | None = None) -> None:
     if not isinstance(parameters, dict):
         raise _fail(f"{genesis} carries a non-object parameters field")
     have = _keystore_private_keys(keys)
+    missing, n = _custody_misses(parameters, have)
+    if missing:
+        raise _fail(f"genesis authority custody missing from {key_file}:\n  - " + "\n  - ".join(missing))
+    print(f"[+] authority custody: {n} genesis authority addresses have verified private keys in keystore/keys.json")
+
+
+def _custody_misses(parameters: dict, have: dict[str, str]) -> tuple[list[str], int]:
+    """(missing descriptions, checked count): one entry per baked authority
+    address whose keystore private key is absent, empty, malformed or
+    derives a different address."""
     missing: list[str] = []
     n = 0
     for name in AUTHORITY_PARAMETERS:
@@ -392,9 +402,7 @@ def _check_authority_custody(root: Path, genesis: Path | None = None) -> None:
                     missing.append(f"{name} {addr}: keystore private_key is malformed (not a valid secret)")
                 elif derived != addr.lower():
                     missing.append(f"{name} {addr}: keystore private_key derives {derived} — custody of a different address")
-    if missing:
-        raise _fail(f"genesis authority custody missing from {key_file}:\n  - " + "\n  - ".join(missing))
-    print(f"[+] authority custody: {n} genesis authority addresses have verified private keys in keystore/keys.json")
+    return missing, n
 
 
 def _derive_key_address(private_key: str) -> str | None:
