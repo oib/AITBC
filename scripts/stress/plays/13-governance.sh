@@ -48,7 +48,9 @@ if [ $rc -eq 0 ] && [ -n "$tx" ]; then
 elif [ $rc -ne 0 ]; then
   # Only a lifecycle refusal counts: pre-quorum/not-executor/not-succeeded.
   # A random failure must not log expected_refusal (#992).
-  if printf '%s' "$out" | grep -qiE "not.*succeed|quorum|executor|not.*execut|not.*active|status"; then
+  # The accepted refusal strings are the governance service's own lifecycle
+  # answers — "status" matched nearly every error message (#992 audit).
+  if printf '%s' "$out" | grep -qiE "cannot execute|not.*succeed|voting period has ended|execution window|not an executor|quorum"; then
     jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"execute refused (pre-quorum or not an executor)\",\"proposal\":\"$prop\"}"
     echo "execute refused (pre-quorum or not an executor; expected): proposal $prop"
   else
