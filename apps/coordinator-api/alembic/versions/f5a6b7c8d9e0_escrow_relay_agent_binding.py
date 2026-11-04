@@ -19,34 +19,31 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "escrow_relay",
-        sa.Column("buyer_agent_id", sa.String(length=128), nullable=True),
-        if_not_exists=True,
-    )
-    op.add_column(
-        "escrow_relay",
-        sa.Column("provider_agent_id", sa.String(length=128), nullable=True),
-        if_not_exists=True,
-    )
-    op.create_index(
-        "ix_escrow_relay_buyer_agent_id",
-        "escrow_relay",
-        ["buyer_agent_id"],
-        unique=False,
-        if_not_exists=True,
-    )
-    op.create_index(
-        "ix_escrow_relay_provider_agent_id",
-        "escrow_relay",
-        ["provider_agent_id"],
-        unique=False,
-        if_not_exists=True,
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "escrow_relay" not in inspector.get_table_names():
+        return
+    existing = {c["name"] for c in inspector.get_columns("escrow_relay")}
+    if "buyer_agent_id" not in existing:
+        op.add_column("escrow_relay", sa.Column("buyer_agent_id", sa.String(length=128), nullable=True))
+    if "provider_agent_id" not in existing:
+        op.add_column("escrow_relay", sa.Column("provider_agent_id", sa.String(length=128), nullable=True))
+    indexes = {idx["name"] for idx in inspector.get_indexes("escrow_relay")}
+    if "ix_escrow_relay_buyer_agent_id" not in indexes:
+        op.create_index("ix_escrow_relay_buyer_agent_id", "escrow_relay", ["buyer_agent_id"], unique=False)
+    if "ix_escrow_relay_provider_agent_id" not in indexes:
+        op.create_index("ix_escrow_relay_provider_agent_id", "escrow_relay", ["provider_agent_id"], unique=False)
 
 
 def downgrade() -> None:
     op.drop_index("ix_escrow_relay_provider_agent_id", table_name="escrow_relay", if_exists=True)
     op.drop_index("ix_escrow_relay_buyer_agent_id", table_name="escrow_relay", if_exists=True)
-    op.drop_column("escrow_relay", "provider_agent_id", if_exists=True)
-    op.drop_column("escrow_relay", "buyer_agent_id", if_exists=True)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "escrow_relay" not in inspector.get_table_names():
+        return
+    existing = {c["name"] for c in inspector.get_columns("escrow_relay")}
+    if "provider_agent_id" in existing:
+        op.drop_column("escrow_relay", "provider_agent_id")
+    if "buyer_agent_id" in existing:
+        op.drop_column("escrow_relay", "buyer_agent_id")
