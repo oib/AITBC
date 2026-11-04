@@ -14,7 +14,7 @@ opw="STRESS_OPERATOR_WALLET_${HOST}"; OPERATOR_WALLET="${!opw:-$OPERATOR_WALLET}
 OPERATOR_WALLET_PATH="${STRESS_OPERATOR_WALLET_PATH:-/var/lib/aitbc/wallets/${OPERATOR_WALLET}.json}"
 AMOUNT="100"; RPC_URL=""; TAG="${STRESS_TAG:-}"
 while [ $# -gt 0 ]; do case "$1" in
-  --host) HOST="$2"; shift 2;;
+  --host) HOST="$2"; HOST_ARG="$2"; shift 2;;
   --chain) CHAIN="$2"; shift 2;;
   --wallet) WALLET="$2"; shift 2;;
   --amount) AMOUNT="$2"; shift 2;;
@@ -22,7 +22,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --tag) TAG="$2"; shift 2;;
   *) shift;;
 esac; done
-[ -n "$RPC_URL" ] || RPC_URL="http://127.0.0.1:8202"
+
 AITBC_BIN="${AITBC_BIN:-/usr/local/bin/aitbc}"
 if [ -z "${STRESS_STATE_DIR:-}" ]; then
   if [ -d /var/lib/aitbc ] && [ -w /var/lib/aitbc ]; then STATE_DIR=/var/lib/aitbc/stress-state
@@ -62,14 +62,23 @@ ok() { jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$
 # the IDE/ops host. On any other host, rpc-level checks must go over the
 # fleet URLs. Override per host with STRESS_RPC_<host> (dots → underscores).
 stress_rpc_url() {  # stress_rpc_url <host> → rpc base URL
-  local h="$1" var="STRESS_RPC_${h//./_}"
-  echo "${!var:-https://${h}.aitbc.bubuit.net}"
+  local h="$1"
+  local var="STRESS_RPC_${h//./_}"
+  local val="${!var-}"
+  echo "${val:-https://${h}.aitbc.bubuit.net}"
 }
 stress_ssh() {  # stress_ssh <host> <cmd...> — local when we're on it
   local h="$1"; shift
   if [ "$(hostname -s)" = "$h" ] || [ "$(hostname)" = "$h" ]; then bash -c "$*";
   else ssh "$h" "$*"; fi
 }
+
+# --host alone (no --rpc-url) retargets the RPC endpoint through the fleet
+# map so the evidence label and the actual destination agree (#994). An
+# explicit --rpc-url always wins.
+if [ -z "$RPC_URL" ]; then
+  if [ -n "${HOST_ARG:-}" ]; then RPC_URL="$(stress_rpc_url "$HOST_ARG")"; else RPC_URL="http://127.0.0.1:8202"; fi
+fi
 
 # ---------------------------------------------------------------- rpc/cli
 rpc_get() { curl -sf --max-time 15 "$RPC_URL$1"; }
