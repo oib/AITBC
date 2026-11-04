@@ -115,6 +115,7 @@ serial_acquire() {  # mkdir-based lock on the local state dir (hub copy via ssh)
     ssh hub "mkdir -p /var/lib/aitbc/stress-state && mkdir /var/lib/aitbc/stress-state/serial.lock 2>/dev/null" || {
       echo "SERIAL_WAIT: serial play in flight on hub"; return 75; }
     ssh hub "echo '{\"coder\":\"${CODER:-?}\",\"play\":\"${0##*/}\",\"ts\":\"$(now)\"}' > /var/lib/aitbc/stress-state/serial.lock/owner"
+    SERIAL_HELD=1
     return 0
   fi
   if ! mkdir "$target" 2>/dev/null; then
@@ -123,9 +124,11 @@ serial_acquire() {  # mkdir-based lock on the local state dir (hub copy via ssh)
     else echo "SERIAL_WAIT: serial play in flight ($(cat "$target/owner" 2>/dev/null))"; return 75; fi
   fi
   echo "{\"coder\":\"${CODER:-?}\",\"play\":\"${0##*/}\",\"ts\":\"$(now)\"}" > "$target/owner"
+  SERIAL_HELD=1
   return 0
 }
 serial_release() {
+  [ "${SERIAL_HELD:-0}" = 1 ] || return 0
   if [ "${STRESS_SERIAL_REMOTE:-}" = "hub" ]; then
     ssh hub 'rm -f /var/lib/aitbc/stress-state/serial.lock/owner; rmdir /var/lib/aitbc/stress-state/serial.lock 2>/dev/null' || true
   else rm -f "$LOCK_DIR/owner" 2>/dev/null; rmdir "$LOCK_DIR" 2>/dev/null || rm -rf "$LOCK_DIR"; fi
