@@ -2,7 +2,7 @@
 
 # `aitbc agent-wallet rebalance`
 
-Rebalance an agent wallet by reinvesting the specified earnings.
+Simulate rebalance (no on-chain tx). Use coordinator spend sessions for real caps.
 
 ## Usage
 
