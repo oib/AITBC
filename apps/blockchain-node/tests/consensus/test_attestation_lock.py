@@ -311,3 +311,109 @@ async def test_untraceable_schedule_stays_permissive(monkeypatch):
     await svc._handle_request(_timed_header(100, "0xaaaa", proposer_addr, ts))
 
     assert broker.published
+
+
+@pytest.mark.asyncio
+async def test_lagging_tip_mismatch_stays_permissive(monkeypatch, tmp_path):
+    """#1058 rework: the tip fallback may only fire when the tip IS the parent.
+    A lagging attester (parent block absent, tip hash != parent_hash) must not
+    derive a round from the wrong block and refuse the honest proposer — the
+    schedule becomes untraceable and the path stays permissive."""
+    from contextlib import contextmanager
+    from datetime import UTC, datetime, timedelta
+
+    from aitbc_chain.base_models import Block
+    from aitbc_chain.metadata import chain_metadata
+    from aitbc_chain.consensus import multi_validator_poa as mvpoa
+    from sqlmodel import Session, create_engine
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    engine = create_engine(f"sqlite:///{tmp_path}/chain.db")
+    chain_metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(
+            Block(
+                chain_id="test-chain",
+                height=50,
+                hash="0x" + "99" * 32,  # the tip — NOT the parent hash
+                parent_hash="0x" + "00" * 32,
+                proposer=our_addr,
+                timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                tx_count=0,
+            )
+        )
+        session.commit()
+
+    @contextmanager
+    def factory():
+        with Session(engine) as s:
+            yield s
+            s.commit()
+
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+    svc._session_factory = factory  # real _parent_timestamp, real DB
+    assert svc._parent_timestamp("0x" + "aa" * 32) is None  # tip hash != parent
+
+    # a schedule that WOULD refuse proposer_addr if it could be derived
+    class _Sched:
+        def select_proposer(self, height, round_number=0):
+            return our_addr
+
+    monkeypatch.setattr(mvpoa, "get_consensus", lambda chain_id: _Sched())
+
+    block_ts = datetime(2026, 1, 1, tzinfo=UTC) + timedelta(seconds=10)
+    await svc._handle_request(_timed_header(100, "0xaaaa", proposer_addr, block_ts))
+    assert broker.published  # permissive — honest proposer not refused
+
+
+@pytest.mark.asyncio
+async def test_tip_matching_parent_drives_schedule(monkeypatch, tmp_path):
+    """When the tip IS the parent, the tip timestamp drives the round — the
+    scheduled check still fires through the real _parent_timestamp."""
+    from contextlib import contextmanager
+    from datetime import UTC, datetime, timedelta
+
+    from aitbc_chain.base_models import Block
+    from aitbc_chain.metadata import chain_metadata
+    from aitbc_chain.consensus import multi_validator_poa as mvpoa
+    from sqlmodel import Session, create_engine
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    parent_hash = "0x" + "77" * 32
+    engine = create_engine(f"sqlite:///{tmp_path}/chain.db")
+    chain_metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(
+            Block(
+                chain_id="test-chain",
+                height=99,
+                hash=parent_hash,  # tip == parent
+                parent_hash="0x" + "00" * 32,
+                proposer=our_addr,
+                timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                tx_count=0,
+            )
+        )
+        session.commit()
+
+    @contextmanager
+    def factory():
+        with Session(engine) as s:
+            yield s
+            s.commit()
+
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+    svc._session_factory = factory
+    pts = svc._parent_timestamp(parent_hash)
+    assert pts is not None and pts.replace(tzinfo=None) == datetime(2026, 1, 1)
+
+    class _Sched:
+        def select_proposer(self, height, round_number=0):
+            return our_addr  # not the claimed proposer → refuse
+
+    monkeypatch.setattr(mvpoa, "get_consensus", lambda chain_id: _Sched())
+
+    h = _timed_header(100, "0xaaaa", proposer_addr, datetime(2026, 1, 1, tzinfo=UTC) + timedelta(seconds=10))
+    h["header"]["parent_hash"] = parent_hash
+    await svc._handle_request(h)
+    assert not broker.published  # schedule was derivable → wrong proposer refused
