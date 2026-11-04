@@ -42,7 +42,6 @@
       1 apps/blockchain-node/src/aitbc_chain/rpc/bridge.py
       3 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
       5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_settlement_sweeper.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/staking.py
       2 apps/blockchain-node/src/aitbc_chain/rpc/sync.py
       3 apps/blockchain-node/src/aitbc_chain/rpc/transactions.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/utils.py
@@ -80,6 +79,8 @@
       1 apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py
       1 apps/coordinator-api/src/coordinator_api/contexts/market/services/bond_slashing.py
       1 apps/coordinator-api/src/coordinator_api/contexts/market/services/global_market_integration.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_relay.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
       1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py
       1 apps/coordinator-api/src/coordinator_api/contexts/portfolio/routers/portfolio.py
       1 apps/coordinator-api/src/coordinator_api/contexts/rewards/routers/rewards.py
@@ -91,7 +92,6 @@
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py
       1 apps/ffmpeg/main.py
       2 apps/governance/src/governance_service/services/governance_service.py
-      1 apps/gpu/src/gpu_service/main.py
       1 apps/hermes_agent/main.py
       1 apps/market/src/market_service/services/market_job_sweeper.py
       5 apps/market/src/market_service/services/market_service.py
@@ -129,7 +129,6 @@
       1 cli/aitbc_cli/commands/transactions.py
       1 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/bridge.py
-      1 cli/aitbc_cli/commands/wallet/__init__.py
       1 cli/aitbc_cli/commands/wallet/misc.py
       1 cli/aitbc_cli/core/chain_manager.py
       1 cli/aitbc_cli/core/genesis_generator.py
