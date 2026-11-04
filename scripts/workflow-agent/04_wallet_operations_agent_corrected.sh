@@ -2,7 +2,7 @@
 # agent Wallet Operations Script for AITBC Multi-Node Blockchain (Corrected)
 # This script uses agent agents and correct CLI commands for wallet operations
 
-set -e  # Exit on any error
+set -euo pipefail  # Exit on any error, unset var, pipe failure
 
 
 
@@ -48,32 +48,32 @@ echo "2. Creating wallets on both nodes using correct CLI commands..."
 echo "Creating client-wallet on aitbc..."
 cd /opt/aitbc
 source venv/bin/activate
-echo "aitbc123" | ./aitbc-cli wallet create client-wallet 2>/dev/null || echo "client-wallet may already exist"
+echo "aitbc123" | scripts/aitbc-cli wallet create --name client-wallet 2>/dev/null || echo "client-wallet may already exist"
 
 # Create user wallet on aitbc
 echo "Creating user-wallet on aitbc..."
-echo "aitbc123" | ./aitbc-cli wallet create user-wallet 2>/dev/null || echo "user-wallet may already exist"
+echo "aitbc123" | scripts/aitbc-cli wallet create --name user-wallet 2>/dev/null || echo "user-wallet may already exist"
 
 # Create miner wallet on ${NODE1_HOST} (via SSH)
 echo "Creating miner-wallet on aitbc1..."
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && echo "aitbc123" | ./aitbc-cli wallet create miner-wallet' 2>/dev/null || echo "miner-wallet may already exist"
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && echo "aitbc123" | scripts/aitbc-cli wallet create --name miner-wallet' 2>/dev/null || echo "miner-wallet may already exist"
 
 echo "✅ Wallet creation completed"
 
 # 3. List created wallets
 echo "3. Listing created wallets..."
 echo "=== Wallets on aitbc ==="
-./aitbc-cli wallet list
+scripts/aitbc-cli wallet list
 
 echo ""
 echo "=== Wallets on ${NODE1_HOST} ==="
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet list'
 
 # 4. Get wallet addresses
 echo "4. Getting wallet addresses..."
-CLIENT_ADDR=$(./aitbc-cli wallet list | grep "client-wallet:" | awk '{print $2}')
-USER_ADDR=$(./aitbc-cli wallet list | grep "user-wallet:" | awk '{print $2}')
-MINER_ADDR=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list | grep "miner-wallet:" | awk "{print \$2}"')
+CLIENT_ADDR=$(scripts/aitbc-cli wallet list | grep "client-wallet:" | awk '{print $2}')
+USER_ADDR=$(scripts/aitbc-cli wallet list | grep "user-wallet:" | awk '{print $2}')
+MINER_ADDR=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet list | grep "miner-wallet:" | awk "{print \$2}"')
 
 echo "Client Wallet Address: $CLIENT_ADDR"
 echo "User Wallet Address: $USER_ADDR"
@@ -83,13 +83,13 @@ echo "Miner Wallet Address: $MINER_ADDR"
 echo "5. Checking wallet balances..."
 echo "=== Current Wallet Balances ==="
 echo "Client Wallet:"
-./aitbc-cli wallet balance client-wallet
+scripts/aitbc-cli wallet balance client-wallet
 
 echo "User Wallet:"
-./aitbc-cli wallet balance user-wallet
+scripts/aitbc-cli wallet balance user-wallet
 
 echo "Miner Wallet (on ${NODE1_HOST}):"
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance miner-wallet'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance miner-wallet'
 
 # 6. Fund wallets from genesis (if genesis wallet exists)
 echo "6. Funding wallets from genesis authority..."
@@ -103,11 +103,11 @@ if [ -f "/var/lib/aitbc/keystore/aitbcgenesis.json" ]; then
 
     # Fund client wallet with 1000 AIT
     echo "Funding client wallet with 1000 AIT..."
-    ./aitbc-cli wallet send aitbcgenesis $CLIENT_ADDR 1000 aitbc123 2>/dev/null || echo "Client wallet funding completed"
+    scripts/aitbc-cli wallet send aitbcgenesis $CLIENT_ADDR 1000 aitbc123 2>/dev/null || echo "Client wallet funding completed"
 
     # Fund user wallet with 500 AIT
     echo "Funding user wallet with 500 AIT..."
-    ./aitbc-cli wallet send aitbcgenesis $USER_ADDR 500 aitbc123 2>/dev/null || echo "User wallet funding completed"
+    scripts/aitbc-cli wallet send aitbcgenesis $USER_ADDR 500 aitbc123 2>/dev/null || echo "User wallet funding completed"
 
     echo "⏳ Waiting for transactions to confirm..."
     sleep 10
@@ -119,20 +119,20 @@ fi
 echo "7. Verifying wallet balances after funding..."
 echo "=== Updated Wallet Balances ==="
 echo "Client Wallet:"
-./aitbc-cli wallet balance client-wallet
+scripts/aitbc-cli wallet balance client-wallet
 
 echo "User Wallet:"
-./aitbc-cli wallet balance user-wallet
+scripts/aitbc-cli wallet balance user-wallet
 
 echo "Miner Wallet (on ${NODE1_HOST}):"
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance miner-wallet'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance miner-wallet'
 
 # 8. Execute cross-node transaction
 echo "8. Executing cross-node transaction..."
 
 if [ ! -z "$CLIENT_ADDR" ] && [ ! -z "$MINER_ADDR" ]; then
     echo "Sending 200 AIT from client wallet to miner wallet (cross-node)..."
-    ./aitbc-cli wallet send client-wallet $MINER_ADDR 200 aitbc123 2>/dev/null || echo "Cross-node transaction completed"
+    scripts/aitbc-cli wallet send client-wallet $MINER_ADDR 200 aitbc123 2>/dev/null || echo "Cross-node transaction completed"
 
     echo "⏳ Waiting for cross-node transaction to confirm..."
     sleep 15
@@ -143,23 +143,23 @@ fi
 # 9. Monitor transaction confirmation
 echo "9. Monitoring transaction confirmation..."
 echo "=== Recent Transactions ==="
-./aitbc-cli wallet transactions client-wallet --limit 5
+scripts/aitbc-cli wallet transactions client-wallet --limit 5
 
 echo ""
 echo "=== Transactions on ${NODE1_HOST} ==="
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet transactions miner-wallet --limit 5'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet transactions miner-wallet --limit 5'
 
 # 10. Verify final wallet balances
 echo "10. Verifying final wallet balances..."
 echo "=== Final Wallet Balances ==="
 echo "Client Wallet:"
-./aitbc-cli wallet balance client-wallet
+scripts/aitbc-cli wallet balance client-wallet
 
 echo "User Wallet:"
-./aitbc-cli wallet balance user-wallet
+scripts/aitbc-cli wallet balance user-wallet
 
 echo "Miner Wallet (on ${NODE1_HOST}):"
-ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance miner-wallet'
+ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && scripts/aitbc-cli wallet balance miner-wallet'
 
 # 11. Test wallet switching
 echo "11. Testing wallet switching..."
