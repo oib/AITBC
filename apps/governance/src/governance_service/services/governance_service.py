@@ -885,6 +885,15 @@ class GovernanceService:
                 tx_hash = result.get("tx_hash") or result.get("transaction_hash")
                 block_height = result.get("block_height")
 
+            # v0.10.1: Parameter automation must apply BEFORE the proposal is marked
+            # executed — a failed apply used to leave an "executed" proposal whose
+            # change never landed.
+            automation_result = None
+            if proposal.proposal_type == "parameter_change" and proposal.proposal_value:
+                automation_result = await self._apply_parameter_change(proposal)
+                if not automation_result.get("applied"):
+                    raise ValueError(f"parameter apply failed: {automation_result}")
+
             # Update proposal status
             proposal.status = ProposalStatus.EXECUTED
             proposal.executed_at = datetime.now(UTC)
@@ -899,12 +908,6 @@ class GovernanceService:
                     **proposal.proposal_metadata,
                     "execution_block_height": block_height,
                 }
-
-            # v0.10.1: Parameter automation — apply parameter changes to the target service
-            # after successful proposal execution. Only applies for parameter_change proposals.
-            automation_result = None
-            if proposal.proposal_type == "parameter_change" and proposal.proposal_value:
-                automation_result = await self._apply_parameter_change(proposal)
 
             # Log execution success
             execution_log.status = "completed"
