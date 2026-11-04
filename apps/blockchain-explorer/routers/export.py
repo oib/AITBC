@@ -17,6 +17,37 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+def _write_csv(output: io.StringIO, results: list, type: str) -> None:
+    """Write search results as CSV rows into `output`."""
+    writer = csv.writer(output)
+    if type == "transactions":
+        writer.writerow(["Hash", "Type", "From", "To", "Amount", "Fee", "Timestamp"])
+        for tx in results:
+            writer.writerow(
+                [
+                    sanitize_csv_value(tx.get("hash", "")),
+                    sanitize_csv_value(tx.get("type", "")),
+                    sanitize_csv_value(tx.get("from", "")),
+                    sanitize_csv_value(tx.get("to", "")),
+                    sanitize_csv_value(tx.get("amount", "")),
+                    sanitize_csv_value(tx.get("fee", "")),
+                    sanitize_csv_value(tx.get("timestamp", "")),
+                ]
+            )
+    else:  # blocks
+        writer.writerow(["Height", "Hash", "Validator", "Transactions", "Timestamp"])
+        for block in results:
+            writer.writerow(
+                [
+                    sanitize_csv_value(block.get("height", "")),
+                    sanitize_csv_value(block.get("hash", "")),
+                    sanitize_csv_value(block.get("validator", "")),
+                    sanitize_csv_value(block.get("tx_count", "")),
+                    sanitize_csv_value(block.get("timestamp", "")),
+                ]
+            )
+
+
 @router.get("/api/export/search")
 def export_search(format: str = "csv", type: str = "transactions", data: str = "") -> StreamingResponse:
     """Export search results"""
@@ -32,35 +63,7 @@ def export_search(format: str = "csv", type: str = "transactions", data: str = "
 
         if format == "csv":
             output = io.StringIO()
-            if type == "transactions":
-                writer = csv.writer(output)
-                writer.writerow(["Hash", "Type", "From", "To", "Amount", "Fee", "Timestamp"])
-                for tx in results:
-                    writer.writerow(
-                        [
-                            sanitize_csv_value(tx.get("hash", "")),
-                            sanitize_csv_value(tx.get("type", "")),
-                            sanitize_csv_value(tx.get("from", "")),
-                            sanitize_csv_value(tx.get("to", "")),
-                            sanitize_csv_value(tx.get("amount", "")),
-                            sanitize_csv_value(tx.get("fee", "")),
-                            sanitize_csv_value(tx.get("timestamp", "")),
-                        ]
-                    )
-            else:  # blocks
-                writer = csv.writer(output)
-                writer.writerow(["Height", "Hash", "Validator", "Transactions", "Timestamp"])
-                for block in results:
-                    writer.writerow(
-                        [
-                            sanitize_csv_value(block.get("height", "")),
-                            sanitize_csv_value(block.get("hash", "")),
-                            sanitize_csv_value(block.get("validator", "")),
-                            sanitize_csv_value(block.get("tx_count", "")),
-                            sanitize_csv_value(block.get("timestamp", "")),
-                        ]
-                    )
-
+            _write_csv(output, results, type)
             output.seek(0)
             return StreamingResponse(
                 io.BytesIO(output.getvalue().encode()),
