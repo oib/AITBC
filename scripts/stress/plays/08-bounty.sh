@@ -62,7 +62,7 @@ addr=$(python3 -c "import json;print(json.load(open('$WFILE')).get('address','')
 [ -n "$addr" ] || fail resolve "no address in $WFILE"
 
 if [ -z "$BOUNTY_ID" ]; then
-  spend_guard "$AMOUNT" || true
+  spend_guard "${STRESS_REWARD:-360000}" || true
   BOUNTY_ID="stress-bounty-$(hostname -s)-$(date +%s)"
   resp=$(call /rpc/bounty/deploy \
     "{\"bounty_id\":\"$BOUNTY_ID\",\"user_address\":\"$addr\",\"reward_amount\":${STRESS_REWARD:-360000},\"chain_id\":\"$CHAIN\"}" 2>&1) \

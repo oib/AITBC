@@ -9,7 +9,7 @@ serial_check || exit 75
 
 addr=$(wallet_addr || true)
 [ -n "$addr" ] || fail resolve "no address for wallet $WALLET"
-spend_guard "$AMOUNT" || true
+spend_guard "$(python3 -c "print(int(float('${STRESS_PRICE:-0.001}')*36000000))")" || true
 
 desc="stress-1 offer $(date +%s)"
 out=$("$AITBC_BIN" --output=json market offer --service-type ollama --model-or-variant "${STRESS_MODEL:-llama3.2:3b}" \
