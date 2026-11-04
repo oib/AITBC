@@ -118,10 +118,13 @@ def migrate_wallets(wallet_dir: Path) -> None:
         except Exception as e:
             print(f"skip {path}: cannot derive address ({e})", file=sys.stderr)
             continue
-        if (
-            data.get("address")
-            and data["address"].lower().replace("aitbc1", "").replace("ait1", "") != evm_address[2:].lower()
-        ):
+        # Normalise the stored side the same way as the derived side: the
+        # ait1/aitbc1 strip is for legacy spellings, and a 0x wallet kept its
+        # prefix so it always read as a mismatch (#936).
+        stored_body = (
+            data["address"].lower().removeprefix("0x").replace("aitbc1", "").replace("ait1", "") if data.get("address") else ""
+        )
+        if stored_body and stored_body != evm_address[2:].lower():
             print(
                 f"warning {path}: stored address {data['address']} does not match derived {evm_address}; keeping original in backup",
                 file=sys.stderr,
