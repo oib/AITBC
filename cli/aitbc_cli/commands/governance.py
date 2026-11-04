@@ -99,6 +99,23 @@ def _wallet_signer(
         raise click.ClickException(str(e)) from e
 
 
+def _sign_body(private_key: str, payload: dict) -> str:
+    """secp256k1 signature over the canonical JSON of ``payload``.
+
+    Matches the governance service's write-route check (#1091): keccak256 of
+    the sorted compact JSON encoding, signed by the caller's wallet. Used so
+    the CLI's signed write bodies pass the route gate (#1131).
+    """
+    import json as _json
+
+    from eth_keys import keys
+    from eth_utils import keccak
+
+    msg = _json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    pk = keys.PrivateKey(bytes.fromhex(str(private_key).removeprefix("0x")))
+    return pk.sign_msg_hash(keccak(msg)).to_hex()
+
+
 def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AITBCHTTPClient:
     """Create an HTTP client for the governance service."""
     import os
@@ -239,6 +256,8 @@ def propose(
                     "voting_ends_block": height + voting_days * blocks_per_day,
                 },
             )
+        if signer:
+            proposal_data["signature"] = _sign_body(private_key, {k: v for k, v in proposal_data.items() if k != "signature"})
         result = client.post("/v1/governance/proposals", json=proposal_data)
         output(result, resolve_output_format(ctx, format))
     except json.JSONDecodeError:
@@ -325,6 +344,9 @@ def vote(
                 },
                 account=account,
             )
+        if signer:
+            vote_data["voter_id"] = voter_address
+            vote_data["signature"] = _sign_body(private_key, {k: v for k, v in vote_data.items() if k != "signature"})
         result = client.post("/v1/governance/votes", json=vote_data)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
@@ -419,6 +441,10 @@ def execute(
             }
         if executor_address:
             query = f"?executor_address={executor_address}"
+        if signer:
+            body = body or {}
+            body["caller_address"] = executor_address
+            body["signature"] = _sign_body(private_key, {"action": "execute", "proposal_id": proposal_id})
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}", json=body)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
@@ -435,13 +461,31 @@ def execute(
   aitbc governance close --proposal-id prop-123 --output json"""
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
+@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the close request (required by the service)")
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def close(ctx, proposal_id: str, format: str):
+def close(
+    ctx,
+    proposal_id: str,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Close a governance proposal and tally the final votes."""
     try:
         client = _get_client(ctx)
-        result = client.post(f"/v1/governance/proposals/{proposal_id}/close")
+        body: dict | None = None
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
+        if signer:
+            signer_address, private_key = signer
+            body = {
+                "caller_address": signer_address,
+                "signature": _sign_body(private_key, {"action": "close", "proposal_id": proposal_id}),
+            }
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/close", json=body)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
