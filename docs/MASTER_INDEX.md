@@ -306,14 +306,14 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/agent-msg-send.md](cli/commands/agent-msg-send.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-register-identity.md](cli/commands/agent-register-identity.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-register.md](cli/commands/agent-register.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-distribute.md](cli/commands/agent-staking-distribute.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-performance.md](cli/commands/agent-staking-performance.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-stake.md](cli/commands/agent-staking-stake.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-status.md](cli/commands/agent-staking-status.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/agent-staking-unbond.md](cli/commands/agent-staking-unbond.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/agent-staking-distribute.md](cli/commands/agent-staking-distribute.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/agent-staking-performance.md](cli/commands/agent-staking-performance.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/agent-staking-stake.md](cli/commands/agent-staking-stake.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/agent-staking-status.md](cli/commands/agent-staking-status.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/agent-staking-unbond.md](cli/commands/agent-staking-unbond.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/agent-status.md](cli/commands/agent-status.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-subscribe.md](cli/commands/agent-subscribe.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/agent-task-hire.md](cli/commands/agent-task-hire.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -378,12 +378,12 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/bond-status.md](cli/commands/bond-status.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bond-top-up.md](cli/commands/bond-top-up.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bootstrap-bootstrap-env.md](cli/commands/bootstrap-bootstrap-env.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/bounty-deploy.md](cli/commands/bounty-deploy.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/bounty-dispute.md](cli/commands/bounty-dispute.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/bounty-expire.md](cli/commands/bounty-expire.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/bounty-status.md](cli/commands/bounty-status.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/bounty-submit.md](cli/commands/bounty-submit.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/bounty-verify.md](cli/commands/bounty-verify.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/bounty-deploy.md](cli/commands/bounty-deploy.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/bounty-dispute.md](cli/commands/bounty-dispute.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/bounty-expire.md](cli/commands/bounty-expire.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/bounty-status.md](cli/commands/bounty-status.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/bounty-submit.md](cli/commands/bounty-submit.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/bounty-verify.md](cli/commands/bounty-verify.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/brand-list.md](cli/commands/brand-list.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/brand-show.md](cli/commands/brand-show.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
@@ -596,7 +596,7 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/ipfs-unpin.md](cli/commands/ipfs-unpin.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/ipfs-upload.md](cli/commands/ipfs-upload.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/liquidity-build-claim.md](cli/commands/liquidity-build-claim.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/liquidity-build-deposit.md](cli/commands/liquidity-build-deposit.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/liquidity-build-deposit.md](cli/commands/liquidity-build-deposit.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/liquidity-build-withdraw.md](cli/commands/liquidity-build-withdraw.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/liquidity-stake.md](cli/commands/liquidity-stake.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/list.md](cli/commands/list.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -765,7 +765,7 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/simulate-run.md](cli/commands/simulate-run.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/simulate-status.md](cli/commands/simulate-status.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/simulate-wallets.md](cli/commands/simulate-wallets.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/stake.md](cli/commands/stake.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/stake.md](cli/commands/stake.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/start.md](cli/commands/start.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/stop.md](cli/commands/stop.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/sync-bulk.md](cli/commands/sync-bulk.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -819,7 +819,7 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/transactions-search.md](cli/commands/transactions-search.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/transactions-send.md](cli/commands/transactions-send.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/transactions-status.md](cli/commands/transactions-status.md) | [cli/commands/README.md](cli/commands/README.md) |
-| [cli/commands/unstake.md](cli/commands/unstake.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/unstake.md](cli/commands/unstake.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/update.md](cli/commands/update.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/version.md](cli/commands/version.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/wallet-address.md](cli/commands/wallet-address.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -968,7 +968,7 @@ Inbound markdown links per document (top referrers).
 | [features/6-agent-coordination.md](features/6-agent-coordination.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +38 more |
 | [features/7-trading.md](features/7-trading.md) | [FEATURES.md](FEATURES.md), [cli/commands/exchange-add-liquidity.md](cli/commands/exchange-add-liquidity.md), [cli/commands/exchange-create-pair.md](cli/commands/exchange-create-pair.md), +44 more |
 | [features/8-edge-gpu.md](features/8-edge-gpu.md) | [FEATURES.md](FEATURES.md), [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), +38 more |
-| [features/9-wallet.md](features/9-wallet.md) | [FEATURES.md](FEATURES.md), [cli/commands/liquidity-stake.md](cli/commands/liquidity-stake.md), [cli/commands/stake.md](cli/commands/stake.md), +42 more |
+| [features/9-wallet.md](features/9-wallet.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), +51 more |
 | [features/add-nodes-edges.md](features/add-nodes-edges.md) | [features/3-market.md](features/3-market.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [features/advertise-to-market.md](features/advertise-to-market.md) | [cli/commands/market-offer.md](cli/commands/market-offer.md), [features/8-edge-gpu.md](features/8-edge-gpu.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +1 more |
 | [features/agent-messaging-paths.md](features/agent-messaging-paths.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +28 more |
@@ -1182,7 +1182,7 @@ Inbound markdown links per document (top referrers).
 | [reference/backend.md](reference/backend.md) | [README.md](README.md) |
 | [reference/cli-rpc-route-map.md](reference/cli-rpc-route-map.md) | [reference/README.md](reference/README.md) |
 | [reference/faq.md](reference/faq.md) | [blockchain/governance/openclaw-dao-governance.md](blockchain/governance/openclaw-dao-governance.md) |
-| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +465 more |
+| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +480 more |
 | [reference/mcp-tool-inventory.md](reference/mcp-tool-inventory.md) | [reference/README.md](reference/README.md) |
 | [reference/packages.md](reference/packages.md) | [README.md](README.md) |
 | [reference/record-types.md](reference/record-types.md) | [README.md](README.md), [reference/README.md](reference/README.md) |
@@ -1499,7 +1499,7 @@ Inbound markdown links per document (top referrers).
 | [releases/v0.9/v0.9.0_overview.md](releases/v0.9/v0.9.0_overview.md) | [releases/v0.9/v0.9.0_AGENTS.md](releases/v0.9/v0.9.0_AGENTS.md), [releases/v0.9/v0.9.0_agent-a.md](releases/v0.9/v0.9.0_agent-a.md), [releases/v0.9/v0.9.0_agent-b.md](releases/v0.9/v0.9.0_agent-b.md) |
 | [releases/v0.9/v0.9.0_suggestions.md](releases/v0.9/v0.9.0_suggestions.md) | — |
 | [releases/v1.0/v1.0.0_suggestions.md](releases/v1.0/v1.0.0_suggestions.md) | — |
-| [scenarios/01_wallet_basics.md](scenarios/01_wallet_basics.md) | [cli/commands/liquidity-stake.md](cli/commands/liquidity-stake.md), [cli/commands/stake.md](cli/commands/stake.md), [cli/commands/unstake.md](cli/commands/unstake.md), +13 more |
+| [scenarios/01_wallet_basics.md](scenarios/01_wallet_basics.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +22 more |
 | [scenarios/02_transaction_sending.md](scenarios/02_transaction_sending.md) | [cli/commands/transactions-send.md](cli/commands/transactions-send.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [reference/record-types.md](reference/record-types.md), +4 more |
 | [scenarios/03_genesis_deployment.md](scenarios/03_genesis_deployment.md) | [scenarios/02_transaction_sending.md](scenarios/02_transaction_sending.md), [scenarios/04_messaging_basics.md](scenarios/04_messaging_basics.md), [scenarios/05_island_creation.md](scenarios/05_island_creation.md), +1 more |
 | [scenarios/04_messaging_basics.md](scenarios/04_messaging_basics.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +31 more |
@@ -1513,7 +1513,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/13_mining_setup.md](scenarios/13_mining_setup.md) | [scenarios/12_reputation_management.md](scenarios/12_reputation_management.md), [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/15_blockchain_monitoring.md](scenarios/15_blockchain_monitoring.md) | [scenarios/16_agent_registration.md](scenarios/16_agent_registration.md), [scenarios/51_multi_validator_poa_soak.md](scenarios/51_multi_validator_poa_soak.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/16_agent_registration.md](scenarios/16_agent_registration.md) | [scenarios/15_blockchain_monitoring.md](scenarios/15_blockchain_monitoring.md), [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), [scenarios/45_agent_msg_workflow.md](scenarios/45_agent_msg_workflow.md), +1 more |
-| [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md) | [cli/commands/governance-aggregate-votes.md](cli/commands/governance-aggregate-votes.md), [cli/commands/governance-close.md](cli/commands/governance-close.md), [cli/commands/governance-execute-cross-chain.md](cli/commands/governance-execute-cross-chain.md), +16 more |
+| [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +24 more |
 | [scenarios/18_analytics_collection.md](scenarios/18_analytics_collection.md) | [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), [scenarios/19_security_setup.md](scenarios/19_security_setup.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/19_security_setup.md](scenarios/19_security_setup.md) | [scenarios/18_analytics_collection.md](scenarios/18_analytics_collection.md), [scenarios/20_cross_chain_transfer.md](scenarios/20_cross_chain_transfer.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/20_cross_chain_transfer.md](scenarios/20_cross_chain_transfer.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +29 more |
@@ -1573,11 +1573,11 @@ Inbound markdown links per document (top referrers).
 | [scenarios/80_required_flags.md](scenarios/80_required_flags.md) | [scenarios/README.md](scenarios/README.md) |
 | [scenarios/81_wallet_options.md](scenarios/81_wallet_options.md) | [scenarios/README.md](scenarios/README.md) |
 | [scenarios/82_moneypath_options.md](scenarios/82_moneypath_options.md) | [scenarios/README.md](scenarios/README.md) |
-| [scenarios/83_stake_options.md](scenarios/83_stake_options.md) | [cli/commands/liquidity-stake.md](cli/commands/liquidity-stake.md), [cli/commands/stake.md](cli/commands/stake.md), [cli/commands/unstake.md](cli/commands/unstake.md), +5 more |
+| [scenarios/83_stake_options.md](scenarios/83_stake_options.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +14 more |
 | [scenarios/84_last_options.md](scenarios/84_last_options.md) | [scenarios/README.md](scenarios/README.md) |
 | [scenarios/85_secret_forms.md](scenarios/85_secret_forms.md) | [scenarios/README.md](scenarios/README.md) |
-| [scenarios/86_bounty_lifecycle.md](scenarios/86_bounty_lifecycle.md) | [decisions/v1-v9-live-exercise-waivers.md](decisions/v1-v9-live-exercise-waivers.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [scenarios/87_agent_staking.md](scenarios/87_agent_staking.md), +1 more |
-| [scenarios/87_agent_staking.md](scenarios/87_agent_staking.md) | [cli/commands/stake.md](cli/commands/stake.md), [cli/commands/unstake.md](cli/commands/unstake.md), [decisions/v1-v9-live-exercise-waivers.md](decisions/v1-v9-live-exercise-waivers.md), +4 more |
+| [scenarios/86_bounty_lifecycle.md](scenarios/86_bounty_lifecycle.md) | [cli/commands/bounty-deploy.md](cli/commands/bounty-deploy.md), [cli/commands/bounty-dispute.md](cli/commands/bounty-dispute.md), [cli/commands/bounty-expire.md](cli/commands/bounty-expire.md), +8 more |
+| [scenarios/87_agent_staking.md](scenarios/87_agent_staking.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +12 more |
 | [scenarios/88_bridge_island_lock_release.md](scenarios/88_bridge_island_lock_release.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/README.md](scenarios/README.md) | [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +71 more |
 | [scenarios/_TEMPLATE.md](scenarios/_TEMPLATE.md) | [scenarios/README.md](scenarios/README.md) |

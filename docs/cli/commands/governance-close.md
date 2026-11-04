@@ -15,6 +15,10 @@ aitbc governance close [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--proposal-id` | text | — | yes | The Proposal id. |
+| `--wallet` | text | — | no | Wallet to sign the close request (required by the service) |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

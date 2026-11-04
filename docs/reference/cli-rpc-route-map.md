@@ -49,7 +49,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc agent-staking stake` | `/rpc/agent-staking/stake` | `create_agent_stake_route` (agent_economy.py) | —
 | `aitbc agent-staking status` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
 | `aitbc agent-staking unbond` | `/rpc/agent-staking/stake/` | `create_agent_stake_route` (agent_economy.py) | —
-| `aitbc agent-staking unbond` | `/rpc/agent-staking/stake/{stake_id}/unbond` | `unbond_agent_stake_route` (agent_economy.py) | —
+| `aitbc agent-staking unbond` | `/rpc/agent-staking/stake/{stake_id}/unbond` | `unbond_agent_stake_route` (agent_economy.py) | `STAKE_UNBOND`
 | `aitbc blockchain block` | `/rpc/blocks/` | — | —
 | `aitbc blockchain block` | `/rpc/blocks/{block_height}` | `get_block_route` (core.py) | —
 | `aitbc blockchain consensus slashing-history` | `/rpc/consensus/slashing-history` | `consensus_slashing_history_route` (consensus.py) | —
@@ -238,6 +238,8 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet bridge withdraw` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet liquidity-claim` | `/rpc/chain` | — | —
 | `aitbc wallet liquidity-claim` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
+| `aitbc wallet liquidity-stake` | `/rpc/account/` | — | —
+| `aitbc wallet liquidity-stake` | `/rpc/account/{hex_address}` | `get_account_route` (core.py) | —
 | `aitbc wallet rewards` | `/rpc/liquidity/stakes/` | — | —
 | `aitbc wallet send` | `/rpc/account/` | — | —
 | `aitbc wallet send` | `/rpc/account/{sender_address}` | `get_account_route` (core.py) | —
