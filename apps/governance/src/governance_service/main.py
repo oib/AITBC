@@ -61,6 +61,43 @@ def _unsigned(body: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in body.items() if k != "signature"}
 
 
+def _bind_actor(actor: str, aliases: dict[str, Any]) -> None:
+    """Every identity field in a signed body must be absent or equal
+    (case-insensitive) to the signing address — otherwise a signer can
+    attribute its write to any account (#1091 validator return)."""
+    for field, value in aliases.items():
+        if value and str(value).lower() != actor.lower():
+            raise HTTPException(status_code=403, detail=f"{field} does not match the signing address")
+
+
+_SIGNED_TTL_SECONDS = 300
+_seen_signatures: dict[str, float] = {}
+
+
+def _check_fresh(payload: dict[str, Any], signature: str | None) -> None:
+    """Replay window: the signed body must carry a timestamp within
+    TTL, and one signature may be used once (#1091)."""
+    import time as _t
+
+    now = _t.time()
+    ts = payload.get("timestamp")
+    if ts is None:
+        raise HTTPException(status_code=403, detail="signed timestamp required")
+    try:
+        if abs(now - float(ts)) > _SIGNED_TTL_SECONDS:
+            raise HTTPException(status_code=403, detail="signed timestamp outside the freshness window")
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="invalid signed timestamp") from None
+    if signature and signature in _seen_signatures:
+        raise HTTPException(status_code=403, detail="signature already used")
+    # prune then record
+    for k, exp in list(_seen_signatures.items()):
+        if exp < now:
+            _seen_signatures.pop(k, None)
+    if signature:
+        _seen_signatures[signature] = now + _SIGNED_TTL_SECONDS
+
+
 configure_logging(level="INFO", service_name="governance", to_file=True)
 logger = get_logger(__name__)
 
@@ -172,12 +209,12 @@ async def get_profile(profile_id: str, svc: Annotated[GovernanceService, Depends
 @app.post("/v1/governance/profiles")
 async def create_profile(profile_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new governance profile"""
-    _require_signature(
-        str(profile_data.get("caller_address") or profile_data.get("user_id") or ""),
-        profile_data.get("signature"),
-        _unsigned(profile_data),
-    )
-    return await svc.create_profile(_unsigned(profile_data))
+    actor = str(profile_data.get("caller_address") or "")
+    _bind_actor(actor, {"user_id": profile_data.get("user_id")})
+    _require_signature(actor, profile_data.get("signature"), _unsigned(profile_data))
+    profile_data = _unsigned(profile_data)
+    profile_data["user_id"] = actor
+    return await svc.create_profile(profile_data)
 
 
 @app.get("/v1/governance/proposals")
@@ -200,16 +237,11 @@ async def get_proposal(proposal_id: str, svc: Annotated[GovernanceService, Depen
 @app.post("/v1/governance/proposals")
 async def create_proposal(proposal_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new proposal"""
-    _require_signature(
-        str(
-            proposal_data.get("proposer_address")
-            or proposal_data.get("proposer_id")
-            or proposal_data.get("caller_address")
-            or ""
-        ),
-        proposal_data.get("signature"),
-        _unsigned(proposal_data),
-    )
+    actor = str(proposal_data.get("proposer_address") or "")
+    _bind_actor(actor, {"proposer_id": proposal_data.get("proposer_id")})
+    _require_signature(actor, proposal_data.get("signature"), _unsigned(proposal_data))
+    proposal_data = _unsigned(proposal_data)
+    proposal_data["proposer_id"] = actor
     return await svc.create_proposal(proposal_data)
 
 
@@ -226,13 +258,13 @@ async def get_votes(
 @app.post("/v1/governance/votes")
 async def create_vote(vote_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new vote"""
-    _require_signature(
-        str(vote_data.get("voter_address") or vote_data.get("voter_id") or ""),
-        vote_data.get("signature"),
-        _unsigned(vote_data),
-    )
+    actor = str(vote_data.get("voter_address") or "")
+    _bind_actor(actor, {"voter_id": vote_data.get("voter_id")})
+    _require_signature(actor, vote_data.get("signature"), _unsigned(vote_data))
+    vote_data = _unsigned(vote_data)
+    vote_data["voter_id"] = actor
     try:
-        return await svc.create_vote(_unsigned(vote_data))
+        return await svc.create_vote(vote_data)
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
 
@@ -395,6 +427,7 @@ class StakeRequest(_SignedBody):
     staker_address: str
     amount: Decimal
     lock_period_days: int
+    timestamp: float
 
 
 @app.post("/v1/governance/stake")
@@ -403,11 +436,9 @@ async def stake_tokens(
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Stake tokens for enhanced voting power"""
-    _require_signature(
-        request.staker_address,
-        request.signature,
-        _unsigned(request.model_dump(mode="json")),
-    )
+    unsigned = _unsigned(request.model_dump(mode="json"))
+    _require_signature(request.staker_address, request.signature, unsigned)
+    _check_fresh(unsigned, request.signature)
     staker_address = request.staker_address
     amount = request.amount
     lock_period_days = request.lock_period_days
@@ -443,6 +474,7 @@ class DelegateRequest(_SignedBody):
     delegator_address: str
     delegate_address: str
     amount: Decimal
+    timestamp: float
 
 
 @app.post("/v1/governance/delegate")
@@ -451,11 +483,9 @@ async def delegate_voting_power(
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
 ):
     """Delegate voting power to another address"""
-    _require_signature(
-        request.delegator_address,
-        request.signature,
-        _unsigned(request.model_dump(mode="json")),
-    )
+    unsigned = _unsigned(request.model_dump(mode="json"))
+    _require_signature(request.delegator_address, request.signature, unsigned)
+    _check_fresh(unsigned, request.signature)
     delegator_address = request.delegator_address
     delegate_address = request.delegate_address
     amount = request.amount
