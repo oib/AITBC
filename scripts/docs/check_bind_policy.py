@@ -44,8 +44,10 @@ NON_LIVE = ("legacy", "not-implemented", "without a listening port")
 HEADING_RE = re.compile(r"^##+\s*(.+?)\s*$")
 # A table row whose cells include a 4-digit port and a bind address.
 BIND_ROW_RE = re.compile(r"^\|\s*([A-Za-z][^|]*?)\s*\|(.+)$")
-BIND_ALL_RE = re.compile(r"`0\.0\.0\.0`")
-PORT_CELL_RE = re.compile(r"^\s*(\d{4})\s*$")
+# Bind-all spellings seen in SERVICE_PORTS.md: `0.0.0.0`, `::`, `[::]`, `*`.
+BIND_ALL_RE = re.compile(r"`(?:0\.0\.0\.0|\[::\]|::|\*)`")
+# Port cells carry the real port number, not always four digits (25, 800, 18080).
+PORT_CELL_RE = re.compile(r"^\s*(\d{1,5})\s*$")
 
 
 def canon(name: str) -> str:
