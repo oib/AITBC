@@ -218,3 +218,18 @@ def test_proposer_id_not_the_signer_refused(client: TestClient) -> None:
     body["signature"] = _sign(signer, body)
     r = client.post("/v1/governance/proposals", json=body)
     assert r.status_code == 403
+
+
+def test_case_variant_of_same_voter_cannot_vote_twice(client: TestClient, proposal_id: str) -> None:
+    """Checksum and lowercase forms of one address are one voter."""
+    voter = keys.PrivateKey(b"\x0c" * 32)
+    checksum = voter.public_key.to_checksum_address()
+
+    first = {"proposal_id": proposal_id, "voter_address": checksum, "vote_type": "for"}
+    first["signature"] = _sign(voter, first)
+    assert client.post("/v1/governance/votes", json=first).status_code == 200
+
+    second = {"proposal_id": proposal_id, "voter_address": checksum.lower(), "vote_type": "against"}
+    second["signature"] = _sign(voter, second)
+    again = client.post("/v1/governance/votes", json=second)
+    assert again.status_code == 400 and "already voted" in again.text
