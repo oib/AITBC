@@ -84,7 +84,7 @@ the same values.
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
 | Bridge Lock (`BRIDGE_LOCK`) | Lock funds for cross-chain transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
-| Bridge Confirm (`BRIDGE_CONFIRM`) | Confirm and release cross-chain transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
+| Bridge Confirm (`BRIDGE_CONFIRMATIONS`) | Confirm and release cross-chain transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
 | Bridge Unlock — CLI `unlock`, on-chain `BRIDGE_REFUND` (`refund_transfer`) | Refund a pending bridge transfer | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
 | Get Transfer (`get_transfer`) | Get transfer status by ID | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
 | List Pending Transfers (`list_pending_transfers`) | List pending bridge transfers | [docs/releases/v0.7/v0.7.0_change.log](../releases/v0.7/v0.7.0_change.log) | ✅ | v0.7.0 |
