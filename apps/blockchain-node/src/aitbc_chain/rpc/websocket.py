@@ -11,6 +11,7 @@ from aitbc.security import RateLimiter
 from ..config import settings
 from ..gossip import gossip_broker
 from ..gossip.gossip_auth import (
+    channel_scope,
     create_challenge,
     is_public_topic,
     is_restricted_topic,
@@ -127,7 +128,13 @@ async def gossip_websocket(websocket: WebSocket) -> None:
 
         # If this is a restricted topic, require authentication before any publish.
         if settings.gossip_auth_enabled and is_restricted_topic(topic):
-            challenge, challenge_ts = create_challenge()
+            issued = create_challenge(client_ip)
+            if issued is None:
+                gossip_auth_rejected_total.labels(reason="challenge_rate_limited").inc()
+                await websocket.send_json({"error": "Challenge rate limited"})
+                await websocket.close(code=1008)
+                return
+            challenge, challenge_ts = issued
             await websocket.send_json({"type": "auth_challenge", "challenge": challenge, "timestamp": challenge_ts})
 
         subscription = await gossip_broker.subscribe(topic, max_queue_size=100)
@@ -197,7 +204,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         await websocket.send_json({"error": "Challenge expired"})
                         await websocket.close(code=1008)
                         break
-                    if verify_challenge(client_challenge, claimed, client_ts, signature):
+                    if verify_challenge(client_challenge, claimed, client_ts, signature, channel_scope(topic)):
                         if not authorized:
                             gossip_authenticated_connections.labels(address=claimed).inc()
                         authorized = True

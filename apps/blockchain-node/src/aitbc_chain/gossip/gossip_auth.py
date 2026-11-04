@@ -18,8 +18,9 @@ import time
 import uuid
 from typing import Any
 
-from aitbc.crypto.consensus_signing import sign_consensus_message, verify_consensus_message
+from aitbc.crypto.consensus_signing import canonical_json, sign_consensus_message, verify_consensus_message
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.security import RateLimiter
 
 from ..config import settings
 
@@ -77,35 +78,120 @@ def is_validator(address: str) -> bool:
     return canonical_address(address) in get_validator_addresses()
 
 
-def create_challenge() -> tuple[str, float]:
-    """Create a new auth challenge."""
-    return uuid.uuid4().hex, time.time()
+# Pending single-use challenges: {challenge: (expiry, client_ip)}.
+# In-memory and per-process BY DESIGN (#1128): only the process that minted
+# a challenge can verify it, and a restart drops the set — clients simply
+# re-handshake. There is deliberately no shared store.
+_PENDING_CHALLENGES: dict[str, tuple[float, str]] = {}
+
+# Bound on pending challenges. When full, the OLDEST-UNUSED entry is evicted
+# so a fresh legitimate challenge always gets in; combined with the per-IP
+# mint limit below, a single flooding source can neither fill the table nor
+# evict anyone else's fresh challenge.
+_MAX_PENDING_CHALLENGES = 4096
+
+# Per-client-IP mint limiter for challenge issuers (GET /gossip/challenge
+# and the ws auth_challenge frame). Unauthenticated endpoints would
+# otherwise let an attacker churn the pending set.
+_challenge_mint_rate = RateLimiter(rate=20, per=60)
 
 
-def build_auth_message(challenge: str, address: str, timestamp: float) -> dict[str, Any]:
-    """Build the canonical message that must be signed."""
-    return {
+def create_challenge(client_ip: str = "") -> tuple[str, float] | None:
+    """Mint a single-use challenge, or None when the issuer is rate-limited.
+
+    The challenge is bound to this process and expires after
+    ``gossip_auth_challenge_ttl`` seconds; it is consumed on first
+    successful verify (#1128).
+    """
+    if client_ip and not _challenge_mint_rate.is_allowed(f"challenge:{client_ip}"):
+        return None
+    now = time.time()
+    if len(_PENDING_CHALLENGES) >= _MAX_PENDING_CHALLENGES:
+        oldest = min(_PENDING_CHALLENGES, key=lambda c: _PENDING_CHALLENGES[c][0])
+        _PENDING_CHALLENGES.pop(oldest, None)
+    challenge = uuid.uuid4().hex
+    _PENDING_CHALLENGES[challenge] = (now + settings.gossip_auth_challenge_ttl, client_ip)
+    return challenge, now
+
+
+def _scope_payload(channel: str, message: Any) -> bytes:
+    """Canonical bytes for a publish scope: channel + canonical message."""
+    payload = message if isinstance(message, dict) else {"message": message}
+    return channel.encode("utf-8") + b":" + canonical_json(payload)
+
+
+def publish_scope(channel: str, message: Any) -> str:
+    """Scope for a publish authorization: keccak256(channel:canonical(message))."""
+    from eth_utils import keccak
+
+    return "0x" + keccak(_scope_payload(channel, message)).hex()
+
+
+def channel_scope(channel: str) -> str:
+    """Scope for a websocket connection authorization: keccak256("channel:"+channel)."""
+    from eth_utils import keccak
+
+    return "0x" + keccak(("channel:" + channel).encode("utf-8")).hex()
+
+
+def build_auth_message(challenge: str, address: str, timestamp: float, scope: str = "") -> dict[str, Any]:
+    """Build the canonical message that must be signed.
+
+    ``scope`` binds the signature to exactly one payload/topic (#1128):
+    ``publish_scope(channel, message)`` for relay publishes and
+    ``channel_scope(channel)`` for websocket connections. An empty scope
+    reproduces the legacy unbound signature — only accepted while
+    ``gossip_auth_require_scope`` is off.
+    """
+    message: dict[str, Any] = {
         "challenge": challenge,
         "address": canonical_address(address),
         "timestamp": timestamp,
     }
+    if scope:
+        message["scope"] = scope
+    return message
 
 
-def sign_challenge(challenge: str, address: str, timestamp: float, private_key: str) -> str:
+def sign_challenge(challenge: str, address: str, timestamp: float, private_key: str, scope: str = "") -> str:
     """Sign an auth challenge with a validator private key."""
-    message = build_auth_message(challenge, address, timestamp)
+    message = build_auth_message(challenge, address, timestamp, scope)
     return sign_consensus_message(message, private_key)
 
 
-def verify_challenge(challenge: str, address: str, timestamp: float, signature: str) -> bool:
+def verify_challenge(
+    challenge: str,
+    address: str,
+    timestamp: float,
+    signature: str,
+    scope: str = "",
+) -> bool:
     """Verify a challenge response from a claimed validator.
 
-    Also rejects messages that are outside the configured challenge TTL to
-    protect against replay of old challenges.
+    The challenge must have been minted by THIS process and is consumed on
+    first successful verify — a second use, even inside the TTL window,
+    fails (#1128). ``scope`` is the caller-derived binding for what is
+    being authorized; when ``gossip_auth_require_scope`` is off (rolling
+    rollout), a signature made without scope is still accepted, while a
+    scoped signature is always checked strictly.
     """
+    if settings.gossip_auth_require_scope and not scope:
+        return False  # scoped era: unbound signatures are not accepted
+    pending = _PENDING_CHALLENGES.get(challenge)
+    if pending is None:
+        return False  # unknown or already consumed
+    if pending[0] < time.time():
+        _PENDING_CHALLENGES.pop(challenge, None)
+        return False
     if not is_validator(address):
         return False
     if abs(time.time() - timestamp) > settings.gossip_auth_challenge_ttl:
         return False
-    message = build_auth_message(challenge, address, timestamp)
-    return verify_consensus_message(message, signature, address)
+    ok = verify_consensus_message(build_auth_message(challenge, address, timestamp, scope), signature, address)
+    if not ok and scope and not settings.gossip_auth_require_scope:
+        # Rollout compat: accept a legacy unscoped signature while the flag
+        # is off so old and new nodes keep gossiping mid-restart (#1128).
+        ok = verify_consensus_message(build_auth_message(challenge, address, timestamp), signature, address)
+    if ok:
+        _PENDING_CHALLENGES.pop(challenge, None)
+    return ok
