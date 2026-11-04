@@ -412,9 +412,21 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
 
         require(_arbitrators.length >= minArbitrators && _arbitrators.length <= maxArbitrators, "Invalid arbitrator count");
 
+        // A re-assignment mid-arbitration keeps the old votes but lets the
+        // caller swap the panel (#1108): only a fresh or escalated dispute may
+        // be assigned a panel.
+        require(
+            dispute.arbitratorCount == 0 || dispute.status == DisputeStatus.Escalated,
+            "Arbitrators already assigned"
+        );
         for (uint256 i = 0; i < _arbitrators.length; i++) {
             require(authorizedArbitrators[_arbitrators[i]], "Arbitrator not authorized");
             require(_arbitrators[i] != dispute.initiator && _arbitrators[i] != dispute.respondent, "Conflict of interest");
+            // Duplicates count as one arbitrator with two votes on the same
+            // dispute — reject them (#1108).
+            for (uint256 j = i + 1; j < _arbitrators.length; j++) {
+                require(_arbitrators[i] != _arbitrators[j], "Duplicate arbitrator");
+            }
         }
 
         dispute.arbitratorCount = _arbitrators.length;
@@ -450,6 +462,7 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             }
         }
         require(isAssigned, "Arbitrator not assigned");
+        require(_confidence <= 100, "Confidence exceeds 100");  // #1108: unbounded confidence let one vote outweigh the whole panel
 
         arbitrationVotes[_disputeId].push(ArbitrationVote({
             disputeId: _disputeId,
@@ -493,6 +506,15 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         dispute.escalationLevel++;
         dispute.isEscalated = true;
         dispute.status = DisputeStatus.Escalated;
+
+        // Reset the vote slate for the new round (#1108): the old votes and
+        // hasVoted flags otherwise carry into the escalated arbitration —
+        // panel members could never vote again and stale votes would count.
+        for (uint256 i = 0; i < arbitrationVotes[_disputeId].length; i++) {
+            hasVoted[_disputeId][arbitrationVotes[_disputeId][i].arbitrator] = false;
+        }
+        delete arbitrationVotes[_disputeId];
+        dispute.arbitratorCount = 0;
 
         escalations[_disputeId] = EscalationRecord({
             disputeId: _disputeId,
@@ -545,6 +567,20 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         emit ArbitratorRevoked(_arbitrator, _reason);
     }
 
+    /**
+     * @dev Resolves a dispute on the votes cast once the deadline has passed
+     * (#1108). Requiring every assigned arbitrator to vote meant one silent
+     * panel member froze the dispute forever; past the deadline any caller
+     * may close it. Zero votes resolves for the respondent (no compensation).
+     */
+    function resolveDisputeAfterDeadline(
+        uint256 _disputeId
+    ) external disputeExists(_disputeId) validStatus(_disputeId, DisputeStatus.ArbitrationInProgress) nonReentrant {
+        Dispute storage dispute = disputes[_disputeId];
+        require(block.timestamp > dispute.arbitrationDeadline, "Deadline has not passed");
+        _resolveDispute(_disputeId);
+    }
+
     // Internal functions
 
     function _resolveDispute(uint256 _disputeId) internal {
@@ -595,6 +631,17 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         }
 
         dispute.resolutionReason = initiatorWins ? "Evidence and reasoning support initiator" : "Evidence and reasoning support respondent";
+
+        // The decision must move funds, not just a flag (#1108): when the
+        // rental-side dispute record exists (filed through disputeRental) the
+        // rental's resolveDispute pays the winner from the agreement escrow.
+        // This contract must own the rental (onlyOwner there) for the call to
+        // land. A dispute filed only on the panel — with no rental-side
+        // record — still resolves, just without the payout leg.
+        AIPowerRental.DisputeInfo memory di = aiPowerRental.getDisputeInfo(dispute.agreementId);
+        if (di.exists && !di.resolved) {
+            aiPowerRental.resolveDispute(dispute.agreementId, dispute.resolutionAmount, !initiatorWins);
+        }
 
         emit DisputeResolved(_disputeId, dispute.winner, dispute.resolutionAmount, dispute.resolutionReason);
     }
