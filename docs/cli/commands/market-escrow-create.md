@@ -15,8 +15,10 @@ aitbc market escrow create [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--job-id` | text | — | yes | Coordinator job ID. |
-| `--buyer` | text | — | yes | The Buyer. |
-| `--provider` | text | — | yes | The Provider. |
+| `--buyer` | text | — | no | Buyer payment address (or use --buyer-agent-id). |
+| `--provider` | text | — | no | Provider payment address (or use --provider-agent-id). |
+| `--buyer-agent-id` | text | — | no | Resolve buyer address via agent-identity API. |
+| `--provider-agent-id` | text | — | no | Resolve provider address via agent-identity API. |
 | `--amount` | decimal | — | no | Amount of AIT. |
 | `--wallet` | text | — | no | Wallet name to sign the escrow lock |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
@@ -26,7 +28,7 @@ aitbc market escrow create [OPTIONS]
 ## Examples
 
 ```bash
-aitbc market escrow create --job-id <job_id> --buyer <buyer> --provider <provider>
+aitbc market escrow create --job-id <job_id>
 ```
 
 ## Related
