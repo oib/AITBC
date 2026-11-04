@@ -5,16 +5,25 @@ Uses in-memory broadcasting to share messages between nodes
 
 import argparse
 import asyncio
+import json
 from typing import Any
 
 import uvicorn
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+
+from .gossip_auth import (
+    create_challenge,
+    is_public_topic,
+    is_restricted_topic,
+    verify_challenge,
+)
 
 configure_logging(level="INFO", service_name="blockchain-p2p", to_file=True)
 logger = get_logger(__name__)
@@ -65,32 +74,77 @@ class SimpleBroadcast:
 broadcast = SimpleBroadcast()
 
 
-async def gossip_endpoint(request: Any) -> dict[str, str]:
+async def gossip_challenge(request: Any) -> JSONResponse:
+    """Issue a challenge for publishers of validator-restricted topics.
+
+    Same pattern as the node's /rpc/gossip/ws (#1065): the client signs
+    {challenge, address, timestamp} with its validator key and posts the
+    signature with the message.
+    """
+    challenge, ts = create_challenge()
+    return JSONResponse({"challenge": challenge, "timestamp": ts})
+
+
+def _publisher_authenticated(data: Any) -> bool:
+    """True when the body carries a valid validator challenge response."""
+    try:
+        return bool(
+            verify_challenge(
+                str(data.get("challenge", "")),
+                str(data.get("address", "")),
+                float(data.get("timestamp", 0)),
+                str(data.get("signature", "")),
+            )
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+async def gossip_endpoint(request: Any) -> JSONResponse:
     """HTTP endpoint for publishing gossip messages"""
     try:
         data = await request.json()
-        channel = data.get("channel", "blockchain")
-        message = data.get("message")
-        if message:
-            await broadcast.publish(channel, message)
-            logger.info("Published to %s: %s...", channel, str(message)[:50])
-            return {"status": "published", "channel": channel}
-        else:
-            return {"status": "error", "message": "No message provided"}
-    except Exception as e:
-        logger.error("Error publishing: %s", e)
-        return {"status": "error", "message": str(e)}
+    except Exception:
+        return JSONResponse({"status": "error", "message": "Invalid JSON"}, status_code=400)
+    channel = str(data.get("channel", "blockchain"))
+    message = data.get("message")
+    if not message:
+        return JSONResponse({"status": "error", "message": "No message provided"}, status_code=400)
+    # Publishing to validator-restricted topics (blocks.*, pbft.*,
+    # consensus.*) needs the signed challenge; unknown channels are
+    # rejected outright — the relay used to publish anything to
+    # anyone (#1065).
+    if is_restricted_topic(channel):
+        if not _publisher_authenticated(data):
+            return JSONResponse(
+                {"status": "error", "message": "Validator auth required"},
+                status_code=401,
+            )
+    elif not is_public_topic(channel):
+        return JSONResponse({"status": "error", "message": "Unknown gossip channel"}, status_code=403)
+    await broadcast.publish(channel, message)
+    logger.info("Published to %s: %s...", channel, str(message)[:50])
+    return JSONResponse({"status": "published", "channel": channel})
 
 
 async def websocket_endpoint(websocket: WebSocket) -> None:
     """WebSocket endpoint for real-time gossip"""
-    await websocket.accept()
     channel = websocket.query_params.get("channel", "blockchain")
+    # Restricted topics need the validator challenge on SUBSCRIBE too —
+    # publish-side auth alone leaves the streams readable (#1065). The
+    # caller fetches a challenge from GET /gossip/challenge and signs it.
+    if is_restricted_topic(channel) and not _publisher_authenticated(websocket.query_params):
+        await websocket.close(code=1008)
+        logger.warning("Rejected unauthenticated restricted subscribe: %s", channel)
+        return
+    await websocket.accept()
     logger.info("WebSocket connected to channel: %s", channel)
     try:
-        async with broadcast.subscribe(channel) as subscriber:  # type: ignore[attr-defined]
+        # subscribe() is a coroutine returning the async context manager —
+        # awaiting it is what makes delivery actually work (#1065).
+        async with await broadcast.subscribe(channel) as subscriber:
             async for message in subscriber:
-                await websocket.send_text(message)
+                await websocket.send_text(message if isinstance(message, str) else json.dumps(message))
     except Exception as e:
         logger.error("WebSocket error: %s", e)
     finally:
@@ -99,7 +153,11 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
 def create_app() -> Starlette:
     """Create the Starlette application"""
-    routes = [Route("/gossip", gossip_endpoint, methods=["POST"]), WebSocketRoute("/ws", websocket_endpoint)]
+    routes = [
+        Route("/gossip", gossip_endpoint, methods=["POST"]),
+        Route("/gossip/challenge", gossip_challenge, methods=["GET"]),
+        WebSocketRoute("/ws", websocket_endpoint),
+    ]
     middleware = [
         Middleware(
             CORSMiddleware,
