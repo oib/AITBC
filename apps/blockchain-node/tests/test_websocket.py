@@ -236,3 +236,38 @@ def test_gossip_websocket_bad_auth_response_still_closes(monkeypatch: pytest.Mon
             with pytest.raises(WebSocketDisconnect) as excinfo:
                 websocket.receive_json()
             assert excinfo.value.code == 1008
+
+
+def test_gossip_websocket_scoped_auth_and_replay_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1128: a valid scoped auth_response is accepted once; replay fails."""
+    from aitbc_chain.gossip import gossip_auth
+
+    key = "33" * 32
+    from eth_keys import keys
+
+    address = keys.PrivateKey(bytes.fromhex(key)).public_key.to_checksum_address()
+    monkeypatch.setattr(settings, "gossip_auth_enabled", True)
+    monkeypatch.setattr(settings, "gossip_auth_require_scope", False)
+    monkeypatch.setattr(settings, "validator_set", f'[{{"address": "{address}"}}]')
+
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/gossip/ws?topic=blocks.test") as websocket:
+            challenge = websocket.receive_json()
+            assert challenge["type"] == "auth_challenge"
+            scope = gossip_auth.channel_scope("blocks.test")
+            signature = gossip_auth.sign_challenge(challenge["challenge"], address, challenge["timestamp"], key, scope)
+            response = {
+                "type": "auth_response",
+                "address": address,
+                "signature": signature,
+                "timestamp": challenge["timestamp"],
+                "challenge": challenge["challenge"],
+            }
+            websocket.send_json(response)
+            ok = websocket.receive_json()
+            assert ok.get("type") == "auth_ok"
+            # replay of the identical response: the challenge was consumed
+            websocket.send_json(response)
+
+            msg = websocket.receive_json()
+            assert "error" in msg or msg.get("type") != "auth_ok"

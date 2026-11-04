@@ -14,7 +14,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from ...config import settings
 from .._internal import _message_id
-from ..gossip_auth import build_auth_message
+from ..gossip_auth import build_auth_message, channel_scope
 from .base import GossipBackend, TopicSubscription
 
 
@@ -194,7 +194,9 @@ class WebsocketGossipBackend(GossipBackend):
 
         challenge = data.get("challenge", "")
         timestamp = data.get("timestamp", 0.0)
-        message = build_auth_message(challenge, proposer_id, timestamp)
+        # Scope-bound signature (#1128): this auth covers exactly this
+        # connection's topic — it cannot be replayed for another.
+        message = build_auth_message(challenge, proposer_id, timestamp, channel_scope(topic))
         signature = sign_consensus_message(message, proposer_key)
 
         await ws.send(
