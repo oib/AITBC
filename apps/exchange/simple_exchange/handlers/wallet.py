@@ -24,6 +24,10 @@ def wallet_auth_headers() -> dict[str, str]:
     /etc/aitbc/blockchain-secrets.env, which this unit already loads.
     """
     key = os.getenv("WALLET_API_KEY") or os.getenv("COORDINATOR_API_KEY", "")
+    if not key and os.getenv("AITBC_ENV", "").lower() == "production":
+        # An empty key made this port an open submission proxy for the wallet
+        # daemon (#1079): refuse rather than call without credentials.
+        raise RuntimeError("WALLET_API_KEY/COORDINATOR_API_KEY unset — refusing unauthenticated wallet call")
     return {"X-API-Key": key} if key else {}
 
 
