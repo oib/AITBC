@@ -64,3 +64,17 @@ def test_play07_guards_the_stake_not_the_default(tmp_path):
     play = Path(LIB).parent.joinpath("plays/07-agent-staking.sh").read_text()
     assert 'spend_guard "$STAKE_AMT"' in play
     assert 'spend_guard "$AMOUNT"' not in play
+
+
+def test_play06_guards_the_offer_price_units(tmp_path):
+    """Play-06 must guard the offer's real spend (price x 36M units)."""
+    play = Path(LIB).parent.joinpath("plays/06-market.sh").read_text()
+    assert 'spend_guard "$AMOUNT"' not in play
+    assert "STRESS_PRICE" in play.split("spend_guard", 1)[1].splitlines()[0]
+
+
+def test_play08_guards_the_bounty_reward(tmp_path):
+    """Play-08 must guard the deployed reward amount, not the --amount default."""
+    play = Path(LIB).parent.joinpath("plays/08-bounty.sh").read_text()
+    assert 'spend_guard "${STRESS_REWARD:-360000}"' in play
+    assert 'spend_guard "$AMOUNT"' not in play
