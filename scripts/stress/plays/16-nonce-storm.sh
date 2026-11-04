@@ -26,13 +26,10 @@ tx=$("$AITBC_BIN" --output=json transactions list --limit 5 2>/dev/null | python
 if [ -n "$tx" ]; then bh=$(wait_seal "$tx" 2>/dev/null || true); [ -n "${bh:-}" ] && echo "storm winner sealed: $tx h$bh"; fi
 # Phantom-occupancy probe: a fresh resubmit must be admitted.
 probe=$("$AITBC_BIN" --output=json transactions send --from "$WALLET" --to "$addr" --amount 0.000001 --fee 0.02 "${PW_ARGS[@]}" ${RPC_URL:+--rpc-url "$RPC_URL"} 2>&1 || true)
-case "$probe" in
-  *0x*) jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"ok\",\"probe\":\"resubmit admitted\"}";;
-  *occupied*|*replay*) fail storm "phantom occupancy: $probe";;
-  *mempool*full*|*rate*limit*|*insufficient*|*nonce*|*duplicate*|*too*low*|*quota*)
-    # Only a known node refusal string counts as a legit no-admit; anything
-    # else is a new failure mode and must fail, not masquerade as expected.
-    jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"$probe\"}";;
+case "$(refusal_class "$probe")" in
+  ok) jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"ok\",\"probe\":\"resubmit admitted\"}";;
+  phantom) fail storm "phantom occupancy: $probe";;
+  expected) jsonl "$RUN_LOG" "{\"ts\":\"$(now)\",\"script\":\"${0##*/}\",\"host\":\"$HOST\",\"status\":\"expected_refusal\",\"reason\":\"$probe\"}";;
   *) fail storm "unrecognised resubmit outcome: $probe";;
 esac
 ok no_tx

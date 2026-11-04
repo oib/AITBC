@@ -123,6 +123,21 @@ spend_guard() {  # spend_guard <units> — cumulative 100k cap per wallet
   echo $(( cur + n )) > "$SPEND_FILE"
 }
 
+
+# refusal_class <outcome> — classify a resubmit/refusal outcome for plays that
+# expect a refusal (#992): prints one of ok|phantom|expected|unknown. Matching
+# is case-insensitive and restricted to the node's real refusal vocabulary —
+# anything else must fail, not log expected_refusal.
+refusal_class() {
+  local lc; lc=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$lc" in
+    *0x*) echo ok;;
+    *occupied*|*replay*) echo phantom;;
+    *mempool*full*|*rate*limit*|*insufficient*|*nonce*|*duplicate*|*too*low*|*quota*) echo expected;;
+    *) echo unknown;;
+  esac
+}
+
 # ---------------------------------------------------------------- serial lane
 serial_acquire() {  # mkdir-based lock on the local state dir (hub copy via ssh)
   local target="$LOCK_DIR"
