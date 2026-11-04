@@ -6,11 +6,12 @@ import hashlib
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...models import Miner
 from ...repositories.miner_repository import MinerRepository
 from ..deps import db_session_dep, get_miner_from_token, redis_dep
 
@@ -50,9 +51,19 @@ async def register_miner(
     session: Annotated[AsyncSession, Depends(db_session_dep)],
     redis: Annotated[Redis, Depends(redis_dep)],
 ) -> dict[str, Any]:
-    """Register a miner with the pool hub."""
+    """Register a miner with the pool hub.
+
+    First registration is open (the submitted api key becomes the miner's
+    credential). Re-registering an existing miner_id requires the same api
+    key — otherwise anyone could overwrite another miner's address, price
+    and payout wallet (#1083).
+    """
     repo = MinerRepository(session, redis)
     api_key_hash = hashlib.sha256(data.api_key.encode()).hexdigest()
+
+    existing = await session.get(Miner, data.miner_id)
+    if existing is not None and existing.api_key_hash != api_key_hash:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id already registered")
 
     miner = await repo.register_miner(
         data.miner_id,
