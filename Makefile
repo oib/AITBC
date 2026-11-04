@@ -10,7 +10,7 @@ PYTHON ?= $(shell \
 	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
 	else command -v python3; fi)
 
-.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money bandit typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance test-migrations-slow test-required test-nightly test-suite-parity live-dry-run openapi openapi-check version-check ci
+.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money bandit typecheck test test-smoke test-shell test-integration test-e2e test-apps test-cli test-governance test-migrations-slow test-required test-nightly test-suite-parity live-dry-run openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, fail on any finding (the CI lint gate)"
@@ -20,6 +20,7 @@ help:
 	@echo "make typecheck       mypy over all clean apps (the CI type gate)"
 	@echo "make test            unit tests (fast, no external services)"
 	@echo "make test-smoke      smoke tests (import production modules, no services)"
+	@echo "make test-shell      sandboxed shell regression tests (no services)"
 	@echo "make test-integration integration tests (requires coordinator/blockchain services)"
 	@echo "make test-e2e        end-to-end workflow tests (requires a running environment)"
 	@echo "make test-apps       coordinator and blockchain-node app tests"
@@ -104,6 +105,15 @@ test-governance:
 # the default gates stay fast; this is the only way it runs.
 test-migrations-slow:
 	$(PYTHON) -m pytest apps/coordinator-api/tests/integration/test_migrations.py -m slow -q
+
+# Sandboxed shell regression tests (link-systemd, update.sh, memory-monitor,
+# energy rate refresher). They build their fixtures in scratch dirs and need
+# no services; without a caller a later regression would go unseen (#1001).
+test-shell:
+	bash scripts/testing/test_disabled_services_guard.sh
+	bash scripts/testing/test_link_systemd_preserve.sh
+	bash scripts/testing/test_memory_monitor.sh
+	bash scripts/testing/test_native_energy_rate_refresh.sh
 
 # The required PR gate — one pytest run over every suite classified `fast`
 # in scripts/ci/test_suites.py, plus the repo-root hygiene modules and the
