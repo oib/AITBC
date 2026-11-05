@@ -71,6 +71,20 @@
       "reason": "Hub chain.db escrow row status=locked carrying unsealed lock_tx_hash 0xdd14af1ff11d4bd6d34b95543ac82929c82f9525b9c41740d23718a8de1aa8f9, 360,000 units, buyer 0x08aB8011 (operator test wallet) -> provider 0xdeaDDeAD… — leftover of #765; no transaction carries that hash or job_id, so no funds were ever locked on-chain. Bookkeeping-only per operator ruling 2026-11-02 (card 3A); the coordinator payment row is repaired by the #765 deploy.",
       "declared_by": "operator",
       "declared_at": "2026-11-02"
+    },
+    {
+      "job_id": "fleet-smoke-nov4-escrow-1793831384",
+      "kind": "test-artifact",
+      "reason": "Nov-4 fleet smoke lock, block 17904 (tx 0x76e78b48a7fc0a0e), 360,000 units, buyer 0x08aB8011 (operator test wallet) -> genesis 0x4aF8F36d. No release/refund leg, no escrow row; operator ruling 2026-11-05 (card 2A): whitelist as a known artifact.",
+      "declared_by": "operator",
+      "declared_at": "2026-11-05"
+    },
+    {
+      "job_id": "fleet-smoke-cli-login-1793832016",
+      "kind": "test-artifact",
+      "reason": "Nov-4 fleet smoke lock, block 17912 (tx 0x4e68d0a6c7be0401), 360,000 units, buyer 0x08aB8011 (operator test wallet) -> genesis 0x4aF8F36d. No release/refund leg, no escrow row; operator ruling 2026-11-05 (card 2A): whitelist as a known artifact.",
+      "declared_by": "operator",
+      "declared_at": "2026-11-05"
     }
   ]
 }
