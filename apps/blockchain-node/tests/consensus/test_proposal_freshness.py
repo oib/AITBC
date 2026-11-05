@@ -81,6 +81,21 @@ class TestPeerBaseUrl:
         assert peer_base_url("redis://127.0.0.1:6379/0") is None
         assert peer_base_url("not a url") is None
 
+    # #1160: a service-path prefix before the ws suffix must survive — the
+    # island RPC lives behind an /island/ route, not on the bare origin.
+    def test_island_prefix_preserved(self):
+        assert peer_base_url("wss://node1.example/island/rpc/gossip/ws") == "https://node1.example/island"
+
+    def test_island_prefix_preserved_ws(self):
+        assert peer_base_url("ws://10.1.2.3:8302/island/rpc/gossip/ws") == "http://10.1.2.3:8302/island"
+
+    def test_subscribe_ws_prefix_preserved(self):
+        assert peer_base_url("wss://node1.example/island/rpc/subscribe/ws") == "https://node1.example/island"
+
+    def test_deep_prefix_preserved_and_trailing_slash_stripped(self):
+        assert peer_base_url("wss://node1.example/a/b/rpc/gossip/ws") == "https://node1.example/a/b"
+        assert peer_base_url("wss://node1.example/island//rpc/gossip/ws") == "https://node1.example/island"
+
 
 class TestChecker:
     @pytest.mark.asyncio
@@ -100,6 +115,24 @@ class TestChecker:
         result = await checker.check(100, "0xsame")
         assert result.verdict is FreshnessVerdict.STALE
         assert result.peer_url == "https://b.example"
+        assert result.peer_height == 104
+
+    @pytest.mark.asyncio
+    async def test_island_peer_ahead_reports_prefixed_url(self):
+        # #1160: the pull must go to the island RPC path, not the bare origin.
+        async def fetch(base: str):
+            return {
+                "https://node1.example/island": {"height": 104, "hash": "0xb4"},
+            }[base]
+
+        checker = ProposalFreshnessChecker(
+            chain_id="c",
+            peer_urls=["wss://node1.example/island/rpc/gossip/ws"],
+            fetch=fetch,
+        )
+        result = await checker.check(100, "0xsame")
+        assert result.verdict is FreshnessVerdict.STALE
+        assert result.peer_url == "https://node1.example/island"
         assert result.peer_height == 104
 
     @pytest.mark.asyncio
