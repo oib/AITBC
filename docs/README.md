@@ -243,7 +243,6 @@ Library and tooling READMEs that sit beside their code:
   [errors](../packages/py/aitbc-errors/README.md).
 - Tooling: [scripts](../scripts/README.md),
   [workflow](../scripts/workflow/README.md),
-  [workflow-agent](../scripts/workflow-agent/README.md),
   [mcp-server](../mcp-server/README.md),
   [tests](../tests/README.md) and
   [verification](../tests/verification/README.md).
