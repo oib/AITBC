@@ -97,6 +97,33 @@ def test_replayed_stake_body_refused(client: TestClient) -> None:
     assert replay.status_code == 403, replay.text
 
 
+def test_replay_store_survives_restart(client: TestClient) -> None:
+    """#1132: the used-signature set is a table, so a process restart cannot
+    reopen the window — the consumed signature is still refused."""
+    import asyncio
+
+    from sqlalchemy import func, select
+
+    from governance_service import storage
+    from governance_service.domain.governance import UsedSignature
+
+    staker = keys.PrivateKey(b"\x0d" * 32)
+    body = _signed_stake(staker)
+    assert client.post("/v1/governance/stake", json=body).status_code == 200
+
+    async def _stored() -> int:
+        async with storage.get_session() as s:
+            return (
+                await s.execute(
+                    select(func.count()).select_from(UsedSignature).where(UsedSignature.signature == body["signature"])
+                )
+            ).scalar_one()
+
+    assert asyncio.run(_stored()) == 1
+    replay = client.post("/v1/governance/stake", json=body)
+    assert replay.status_code == 403, replay.text
+
+
 def test_stale_stake_timestamp_refused(client: TestClient) -> None:
     staker = keys.PrivateKey(b"\x06" * 32)
     body = _signed_stake(staker, timestamp=1.0)
