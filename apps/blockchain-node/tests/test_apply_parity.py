@@ -364,6 +364,25 @@ def _cases() -> list[dict[str, Any]]:
         lambda: _tx(BUYER, PROVIDER, 100, "UNKNOWN_LEGACY_TYPE", {"action": "software_offer", "offer_id": "sw-1"}),
         BUYER_KEY,
     )
+    # v21 (#1142): session lifecycle types are sequential-only — below their
+    # activation they apply as generic transfers on the sequential path, and
+    # the pure path must refuse to model them at every tested version.
+    add(
+        "agent_session_grant",
+        lambda: _tx(
+            BUYER,
+            PROVIDER,
+            0,
+            "AGENT_SESSION_GRANT",
+            {"session_id": "s-par-1", "agent_address": PROVIDER, "daily_cap": 100, "ops": ["wallet.execute"]},
+        ),
+        BUYER_KEY,
+    )
+    add(
+        "agent_session_revoke",
+        lambda: _tx(BUYER, PROVIDER, 0, "AGENT_SESSION_REVOKE", {"session_id": "s-par-1"}),
+        BUYER_KEY,
+    )
     add(
         "governance_propose",
         lambda: _tx(

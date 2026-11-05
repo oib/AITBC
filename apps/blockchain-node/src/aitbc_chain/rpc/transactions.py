@@ -259,6 +259,29 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                     if existing_bond is not None and existing_bond.status != "active":
                         raise ValueError(f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active")
 
+        # v21 (AGENT-SPEND-B-1, #1142): refuse at the door what apply would
+        # refuse — session lifecycle shape errors and session-bound spend
+        # violations. Same verdict function apply runs at block_version of the
+        # next height; admission stays inert below the gate.
+        from ..state.state_transition import get_block_version_for_height as _gbv_v21
+
+        _head_v21 = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+        _next_height_v21 = (_head_v21 or 0) + 1
+        if _gbv_v21(_next_height_v21) >= 21:
+            from ..state.agent_spend import agent_spend_verdict
+
+            spend_error = agent_spend_verdict(
+                session,
+                chain_id,
+                _to_ait_address(tx_data["from"]),
+                tx_type,
+                tx_data.get("payload"),
+                tx_data.get("amount", 0),
+                _next_height_v21,
+            )
+            if spend_error:
+                raise ValueError(spend_error)
+
         # MSG-1: a payload claiming the forum namespace must be a valid
         # envelope — refuse it at the door so the signer hears why before
         # paying the fee. Opaque MESSAGE payloads (bridge internals, other
