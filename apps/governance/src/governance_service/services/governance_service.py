@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from ..clients.blockchain import BlockchainClient
 from ..config import settings
@@ -246,8 +246,8 @@ class GovernanceService:
         result = await self.session.execute(
             update(Proposal)
             .where(
-                Proposal.proposal_id == proposal.proposal_id,
-                Proposal.status != ProposalStatus.EXECUTED,
+                col(Proposal.proposal_id) == proposal.proposal_id,
+                col(Proposal.status) != ProposalStatus.EXECUTED,
             )
             .values(**values)
         )
@@ -693,7 +693,8 @@ class GovernanceService:
                 )
 
         if quorum_met and threshold_met:
-            return await self.update_proposal_status(proposal_id, ProposalStatus.SUCCEEDED)
+            updated = await self.update_proposal_status(proposal_id, ProposalStatus.SUCCEEDED)
+            return updated if updated is not None else proposal
 
         if not voting_ended:
             raise ValueError(
@@ -702,7 +703,8 @@ class GovernanceService:
                 f"{approval_rate:.2%} approval (threshold {proposal.passing_threshold:.0%})"
             )
 
-        return await self.update_proposal_status(proposal_id, ProposalStatus.DEFEATED)
+        updated = await self.update_proposal_status(proposal_id, ProposalStatus.DEFEATED)
+        return updated if updated is not None else proposal
 
     async def get_treasury(self) -> DaoTreasury | None:
         """Get DAO treasury"""
