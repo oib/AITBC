@@ -132,6 +132,16 @@ integration, compromised-session negatives.
 - `contracts/test/fuzz/AgentWallet.t.sol`
 - `apps/blockchain-node/tests/test_guardian_contract.py` (library behavior only)
 
+## Sepolia AgentWallet C1 rehearsal (#1143 / #1149)
+
+The Sepolia deployment at `contracts/deployments-agent-wallet-sepolia.json`
+(Phase C1 @ `c610d0f10`) uses **`registerManagedAgent` without an on-chain agent
+consent step** (#1149). Operator ruling **1149B**: acceptable for **Sepolia
+rehearsal only** — a third party can front-run an agent address and become policy
+owner (squatter can `withdraw` deposits; the agent can still spend up to the
+squatter’s lifetime cap). **Do not use this build on mainnet v1** until #1149
+closes with a consent mechanism (agent signature or propose/accept).
+
 ---
 
 *Operator-owned row · AGENT-WALLET-AA-1 / #1136*
