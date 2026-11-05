@@ -1098,6 +1098,10 @@ class ChainSettings(BaseSettings):
     # block's height and round. Setting this False restores the pre-v0.25.6
     # behaviour, where any validator's proposal was prepared.
     consensus_enforce_proposer_schedule: bool = True
+    # Refuse attest_requests that carry no proposer_signature. Default off so
+    # peers still sending unsigned requests stay attestable during the
+    # rollout; arm once every proposer runs the code that signs (#1058).
+    consensus_require_signed_attest_request: bool = False
     # Pre-proposal freshness gate: before building a block, compare the local
     # head with every GOSSIP_MESH_PEER_URLS peer's /rpc/head. A peer ahead (or
     # disagreeing at our height) blocks the proposal; per-peer query timeout
