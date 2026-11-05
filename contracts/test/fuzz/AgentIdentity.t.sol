@@ -46,12 +46,14 @@ contract AgentIdentityFuzzTest is Test {
         assertEq(identity.getThemePreference(wallet), bytes32(0));
     }
 
-    function testFuzz_RegisterAgentOnlyOwner(address caller, bytes32 name) public {
-        vm.assume(caller != owner);
+    function testFuzz_RegisterAgentAnyCallerNamesItself(address caller, bytes32 name) public {
+        vm.assume(caller != address(0));
 
+        // #1123: agents name themselves — the old owner-only gate meant only
+        // the contract owner could ever hold a name.
         vm.prank(caller);
-        vm.expectRevert("not owner");
         identity.registerAgent(name);
+        assertEq(identity.agentName(caller), name);
     }
 
     function testFuzz_RegisterAgentAsOwner(bytes32 name) public {
