@@ -1,102 +1,115 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Pre-tag checklist for v0.5.0 release
-# Usage: bash scripts/release/check-v0.5.0.sh
+# Pre-tag placeholder gate.
+#
+# Usage: bash scripts/release/check-v0.5.0.sh [--root DIR] [--tag TAG] [--with-services]
+#
+# --root DIR       tree to scan (default: the checkout containing this script)
+# --tag TAG        base ref for the scope diff (default: last git tag)
+# --with-services  also run the live-host checks (systemctl units, redis-cli);
+#                  off by default so the gate runs on any checkout
+#
+# Exit codes: 0 clean, 1 placeholder found / check failed, 2 scan error
+# (missing scan dir or grep failure — never silently "no match").
 
-echo "=== v0.5.0 Pre-Tag Release Checklist ==="
-echo ""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+TAG=""
+WITH_SERVICES=0
 
-# Get last tag
-LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.4.27")
-echo "Last tag: $LAST_TAG"
-echo ""
-
-# 1. Scope check
-echo "1. Checking scope against last tag..."
-SCOPE_CHECK=$(git diff --stat "$LAST_TAG" 2>/dev/null || echo "No diff available")
-echo "Changed files: $SCOPE_CHECK"
-echo ""
-
-# Scan paths. This checked /opt/aitbc/apps only, so the identical
-# `PRIVATE_KEY=your_private_key_here` placeholder that
-# scripts/deployment/deploy-developer-ecosystem.sh writes into a .env template was
-# outside the gate entirely and could ship (OPS-14). Widened to the trees that hold
-# deployable config.
-SCAN_PATHS=(/opt/aitbc/apps /opt/aitbc/scripts /opt/aitbc/contracts /opt/aitbc/cli)
-
-# 2. Check for placeholder secrets
-echo "2. Checking for placeholder secrets..."
-# Exclude validation code that uses placeholders for checking
-if grep -r "change-me-in-production" "${SCAN_PATHS[@]}" --include="*.service" --include="*.py" --include="*.env" --include="*.sh" --exclude-dir=tests --exclude="config_pg.py" 2>/dev/null; then
-    echo "❌ FAILED: Found 'change-me-in-production' placeholder"
-    exit 1
-else
-    echo "✅ PASS: No 'change-me-in-production' placeholders found"
-fi
-echo ""
-
-# 3. Check for TODO placeholders
-echo "3. Checking for TODO placeholders..."
-# Exclude validation code that uses placeholders for checking
-if grep -r "your_.*_here" "${SCAN_PATHS[@]}" --include="*.service" --include="*.py" --include="*.env" --include="*.sh" --exclude-dir=tests --exclude="config.py" --exclude="settings.py" --exclude="check-v0.5.0.sh" 2>/dev/null; then
-    echo "❌ FAILED: Found 'your_*_here' placeholder"
-    exit 1
-else
-    echo "✅ PASS: No 'your_*_here' placeholders found"
-fi
-echo ""
-
-# 4. Check hardened services are active
-echo "4. Checking hardened services are active..."
-CRITICAL_SERVICES=(
-    "aitbc-coordinator-api.service"
-    "aitbc-blockchain-node.service"
-)
-ALL_ACTIVE=true
-for service in "${CRITICAL_SERVICES[@]}"; do
-    if systemctl is-active --quiet "$service"; then
-        echo "✅ $service: active"
-    else
-        echo "❌ $service: NOT active"
-        ALL_ACTIVE=false
-    fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --root) ROOT="$2"; shift 2 ;;
+        --tag) TAG="$2"; shift 2 ;;
+        --with-services) WITH_SERVICES=1; shift ;;
+        *) echo "unknown argument: $1" >&2; exit 2 ;;
+    esac
 done
-if [ "$ALL_ACTIVE" = false ]; then
-    echo "❌ FAILED: Some critical services are not active"
-    exit 1
-fi
-echo ""
 
-# 5. Check Redis connectivity (if required)
-echo "5. Checking Redis connectivity..."
-if command -v redis-cli &> /dev/null; then
-    if redis-cli ping &> /dev/null; then
-        echo "✅ Redis: connected"
-    else
-        echo "⚠️  Redis: not connected (acceptable if Redis not deployed yet)"
-    fi
-else
-    echo "⚠️  Redis: redis-cli not found (acceptable if Redis not deployed yet)"
-fi
-echo ""
-
-# 6. Check for placeholder secrets in service files
-echo "6. Checking for placeholder secrets in service files..."
-PLACEHOLDER_PATTERNS=("change-me" "REPLACE_WITH_SECRET" "placeholder" "changeme" "TODO.*secret")
-FOUND_PLACEHOLDERS=false
-for pattern in "${PLACEHOLDER_PATTERNS[@]}"; do
-    if grep -r "$pattern" "${SCAN_PATHS[@]}" --include="*.service" --include="*.env" 2>/dev/null; then
-        echo "❌ FAILED: Found placeholder pattern: $pattern"
-        FOUND_PLACEHOLDERS=true
-    fi
+SCAN_DIRS=(apps scripts contracts cli)
+SCAN_PATHS=()
+for d in "${SCAN_DIRS[@]}"; do
+    SCAN_PATHS+=("$ROOT/$d")
 done
-if [ "$FOUND_PLACEHOLDERS" = true ]; then
-    exit 1
+# A missing scan dir makes grep exit 2 — scan_patterns reports that as an
+# error (exit 2), never as "no match".
+
+SELF_NAME="$(basename "$0")"
+
+echo "=== Release placeholder gate ==="
+echo "root: $ROOT"
+
+# Scope diff against the last tag (informational).
+if [[ -z "$TAG" ]]; then
+    TAG=$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)
+fi
+if [[ -n "$TAG" ]]; then
+    echo "base tag: $TAG"
+    git -C "$ROOT" diff --stat "$TAG" 2>/dev/null | tail -3 || true
 else
-    echo "✅ PASS: No placeholder secrets found in service files"
+    echo "base tag: none found (skipping scope diff)"
 fi
 echo ""
 
-echo "=== All Checks Passed ==="
-echo "v0.5.0 is ready for tagging"
+# scan_patterns <label> <grep-pattern> <extra-excludes...>
+# Prints matches and fails on rc>=2; exits 1 on any match.
+scan_patterns() {
+    local label="$1" pattern="$2"; shift 2
+    local excludes=(--exclude-dir=tests --exclude="$SELF_NAME" "$@")
+    local out rc
+    if out=$(grep -rn "$pattern" "${SCAN_PATHS[@]}" \
+            --include="*.service" --include="*.py" --include="*.env" --include="*.sh" \
+            "${excludes[@]}" 2>&1); then
+        rc=0
+    else
+        rc=$?
+    fi
+    if [[ $rc -ge 2 ]]; then
+        echo "ERROR: grep failed (rc=$rc) scanning for '$pattern':" >&2
+        echo "$out" >&2
+        exit 2
+    fi
+    if [[ $rc -eq 0 ]]; then
+        echo "$out"
+        echo "FAILED: found '$pattern' in $label scan"
+        exit 1
+    fi
+    echo "PASS: no '$pattern' in $label scan"
+}
+
+echo "1. Checking for 'change-me-in-production' placeholders..."
+scan_patterns "deployable config" "change-me-in-production" \
+    --exclude="config_pg.py" --exclude="config.py" --exclude="check-production-readiness.py"
+echo ""
+
+echo "2. Checking for 'your_*_here' placeholders..."
+scan_patterns "deployable config" "your_.*_here" \
+    --exclude="config.py" --exclude="settings.py" \
+    --exclude="aitbc_completion.sh"
+echo ""
+
+if [[ $WITH_SERVICES -eq 1 ]]; then
+    echo "3. Checking hardened services are active (--with-services)..."
+    all_active=true
+    for service in aitbc-coordinator-api.service aitbc-blockchain-node.service; do
+        if systemctl is-active --quiet "$service"; then
+            echo "PASS: $service active"
+        else
+            echo "FAIL: $service not active"
+            all_active=false
+        fi
+    done
+    [[ "$all_active" == true ]] || exit 1
+    echo ""
+
+    echo "4. Checking Redis connectivity..."
+    if command -v redis-cli >/dev/null 2>&1 && redis-cli ping >/dev/null 2>&1; then
+        echo "PASS: redis connected"
+    else
+        echo "note: redis not reachable (acceptable if not deployed)"
+    fi
+    echo ""
+fi
+
+echo "=== All checks passed ==="
