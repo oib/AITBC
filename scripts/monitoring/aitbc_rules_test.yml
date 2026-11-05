@@ -1275,6 +1275,16 @@ tests:
         eval_time: 15m
         exp_samples: []
 
+  # Island chain.db: degraded share must not fire (db label filter, #1145).
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_attestation_arrival_share{instance="node1:9100", db="/var/lib/aitbc/data/bc-2-island-1/chain.db"}'
+        values: '0x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AttestationArrivalDegraded"}
+        eval_time: 40m
+        exp_samples: []
+
   # ---- MON-2 backup freshness alerts -------------------------------------
   # time() in promtool tests counts from test t=0, so a "stale" series is a
   # small constant and a "fresh" one a constant larger than any test time

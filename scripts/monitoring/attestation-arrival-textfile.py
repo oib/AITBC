@@ -9,9 +9,11 @@ holds ONLY the remote attestations that arrived before sealing (the
 proposer's own is implicit and never listed), so a validator absent from
 the list was too late or never arrived.
 
-Reads the last ``AITBC_ATTESTATION_WINDOW_BLOCKS`` blocks of every chain.db
-found under ``AITBC_DATA_DIR`` (or the explicit ``AITBC_CHAIN_DB``),
-read-only. The validator set is the union of proposers and attesting
+Reads the last ``AITBC_ATTESTATION_WINDOW_BLOCKS`` blocks of every production
+chain.db found under ``AITBC_DATA_DIR`` (or the explicit ``AITBC_CHAIN_DB``),
+read-only. Paths under ``data/*island*/chain.db`` are skipped — island chains
+use a different validator set and must not be scored with bc-2 VALIDATOR_SET
+(#1145). The validator set is the union of proposers and attesting
 validators seen in the window unless ``AITBC_ATTESTATION_VALIDATORS``
 pins it. A validator-set rotation mixes two eras inside one window for a
 few runs — the alerting rule's ``for:`` absorbs that transient.
@@ -79,6 +81,22 @@ class ArrivalStats(NamedTuple):
     consecutive_missed: dict[str, int]
 
 
+def is_island_chain_db(path: str) -> bool:
+    """True for follower island chain stores (bc-2-island-*, etc.).
+
+    They use a different validator set than production bc-2. Scoring them with
+    VALIDATOR_SET from blockchain.env false-fires Attestation* on the fleet
+    (#1145).
+    """
+    norm = os.path.normpath(path).replace("\\", "/")
+    marker = "/data/"
+    idx = norm.find(marker)
+    if idx == -1:
+        return "island" in os.path.basename(norm).lower()
+    chain_dir = norm[idx + len(marker) :].split("/", 1)[0]
+    return "island" in chain_dir.lower()
+
+
 def _is_sqlite_db(path: str) -> bool:
     """True for real SQLite files — zero-byte strays and non-db files that
     land in the scan path (probe artifacts) get skipped, never opened."""
@@ -96,7 +114,9 @@ def find_chain_dbs(data_dir: str) -> list[str]:
     pin still fails strict."""
     dbs = []
     for p in sorted(glob.glob(os.path.join(data_dir, "data", "*", "chain.db"))):
-        if _is_sqlite_db(p):
+        if is_island_chain_db(p):
+            print(f"attestation-arrival: skipping island chain.db {p}", file=sys.stderr)
+        elif _is_sqlite_db(p):
             dbs.append(p)
         else:
             print(f"attestation-arrival: skipping non-sqlite glob hit {p}", file=sys.stderr)
@@ -308,6 +328,9 @@ def main() -> int:
             print("attestation-arrival: no chain.db found to read", file=sys.stderr)
             results[db] = None
             rc = 1
+            continue
+        if is_island_chain_db(db):
+            print(f"attestation-arrival: skipping island chain.db {db}", file=sys.stderr)
             continue
         stats = read_db(db, window, validators)
         results[db] = stats

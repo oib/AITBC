@@ -160,6 +160,46 @@ def test_empty_set_share_is_one(tmp_path):
     assert s.arrival_share == 1.0
 
 
+def test_find_chain_dbs_skips_island(tmp_path):
+    root = tmp_path / "var" / "lib" / "aitbc"
+    main_db = root / "data" / "bc-2" / "chain.db"
+    island_db = root / "data" / "bc-2-island-1" / "chain.db"
+    main_db.parent.mkdir(parents=True)
+    island_db.parent.mkdir(parents=True)
+    for p in (main_db, island_db):
+        con = sqlite3.connect(p)
+        con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+        con.commit()
+        con.close()
+    found = exporter.find_chain_dbs(str(root))
+    assert str(main_db) in found
+    assert str(island_db) not in found
+
+
+def test_main_skips_explicit_island_db(tmp_path, monkeypatch):
+    island = tmp_path / "data" / "bc-2-island-1" / "chain.db"
+    island.parent.mkdir(parents=True)
+    con = sqlite3.connect(island)
+    con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+    _block(con, 1, A, _atts(B))
+    con.commit()
+    con.close()
+    outdir = tmp_path / "out"
+    outdir.mkdir()
+    monkeypatch.setenv("AITBC_CHAIN_DB", str(island))
+    monkeypatch.setenv("AITBC_TEXTFILE_DIR", str(outdir))
+    monkeypatch.setenv("AITBC_ATTESTATION_VALIDATORS", "0xMAIN1,0xMAIN2,0xMAIN3,0xMAIN4")
+    assert exporter.main() == 0
+    text = (outdir / "aitbc_attestation_arrival.prom").read_text()
+    metric_lines = [ln for ln in text.splitlines() if ln and not ln.startswith("#")]
+    assert not any(str(island) in ln for ln in metric_lines)
+
+
+def test_is_island_chain_db():
+    assert exporter.is_island_chain_db("/var/lib/aitbc/data/bc-2-island-1/chain.db")
+    assert not exporter.is_island_chain_db("/var/lib/aitbc/data/bc-2/chain.db")
+
+
 def test_main_writes_prom(tmp_path, monkeypatch):
     db = _db(tmp_path)
     outdir = tmp_path / "out"
