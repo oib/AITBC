@@ -622,3 +622,80 @@ esac
         for line in stat_log.read_text().splitlines():
             mode, _name = line.split(None, 1)
             assert int(mode, 8) & 0o077 == 0, f"world/group-readable mid-run: {line}"
+
+
+def _populate_svcdir(env):
+    svc = env.tmp / "svcdir"
+    svc.mkdir(exist_ok=True)
+    (svc / "live-state.json").write_text("{}")
+    return svc
+
+
+def test_varlib_tar_rc1_churn_is_warning_not_failure(env):
+    """#1157: tar rc 1 ('file changed as we read it' on live state) must warn
+    and keep the readable archive, not fail the whole unit."""
+    _populate_svcdir(env)
+    churn_tar = """#!/bin/sh
+case "$*" in
+  czf*varlib-state.tar.gz*)
+    /usr/bin/tar "$@"
+    exit 1;;
+esac
+exec /usr/bin/tar "$@"
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "tar").write_text(churn_tar)
+    (bin_dir / "tar").chmod(0o755)
+
+    r = _run(env)
+    log = _log(env)
+    assert r.returncode == 0
+    assert "files changed during archive" in log
+    assert "varlib-state catch-all: OK" in log
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert (today / "varlib-state.tar.gz").exists()
+
+
+def test_varlib_tar_rc2_still_fails(env):
+    """#1157: a real tar failure (rc >= 2) stays an error and fails the run."""
+    _populate_svcdir(env)
+    fail_tar = """#!/bin/sh
+case "$*" in
+  czf*varlib-state.tar.gz*) exit 2;;
+esac
+exec /usr/bin/tar "$@"
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "tar").write_text(fail_tar)
+    (bin_dir / "tar").chmod(0o755)
+
+    r = _run(env)
+    log = _log(env)
+    assert r.returncode != 0
+    assert "varlib-state catch-all FAILED (tar rc=2)" in log
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert not (today / "varlib-state.tar.gz").exists()
+
+
+def test_varlib_tar_rc1_with_unreadable_archive_still_fails(env):
+    """#1157: churn tolerance must not rescue a broken archive — rc 1 with an
+    unreadable result is still a failure."""
+    _populate_svcdir(env)
+    bad_tar = """#!/bin/sh
+case "$*" in
+  czf*varlib-state.tar.gz*)
+    printf 'NOTGZIP' > "$2"
+    exit 1;;
+esac
+exec /usr/bin/tar "$@"
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "tar").write_text(bad_tar)
+    (bin_dir / "tar").chmod(0o755)
+
+    r = _run(env)
+    log = _log(env)
+    assert r.returncode != 0
+    assert "varlib-state catch-all FAILED" in log
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert not (today / "varlib-state.tar.gz").exists()
