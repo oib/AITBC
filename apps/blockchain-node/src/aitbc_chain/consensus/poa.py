@@ -835,6 +835,13 @@ class PoAProposer:
                 session, next_height, parent_hash, timestamp, processed_txs, proposer
             )
             self._logger.debug("[PROPOSE:%s] phase=assemble_block done %.3fs", chain, time.time() - _t3)
+            # v0.7.2: sign the canonical block header here, before the gates —
+            # the attest_request built inside _run_consensus_gates carries
+            # block.signature as its proposer_signature, so it must exist at
+            # request-build time, not only post-commit (#1156). The signed
+            # message is the fixed 7-field header; block_metadata stamped
+            # after signing stays valid.
+            block.signature = self._sign_block_hash_for(proposer, block)
             metadata_dict: dict[str, Any] = {}
             _t4 = time.time()
             self._propose_phase = "consensus_gates"
@@ -857,9 +864,6 @@ class PoAProposer:
             metadata_dict["state_transition_version"] = get_block_version_for_height(next_height)
             block.block_metadata = json.dumps(metadata_dict)
 
-            # v0.7.2: Sign the canonical block header so the same signature is
-            # valid for both PoA consensus and bridge proof verification.
-            block.signature = self._sign_block_hash_for(proposer, block)
             self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
             _t5 = time.time()
             self._propose_phase = "broadcast"
