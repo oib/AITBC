@@ -86,9 +86,10 @@ async function main() {
     chainId: "11155111",
     timestamp: new Date().toISOString(),
     txHash,
-    gitCommit: process.env.AITBC_DEPLOY_COMMIT || "c610d0f10",
+    gitCommit: process.env.AITBC_DEPLOY_COMMIT || "1ff11a641",
     note:
-      "Phase C1 (#1143). Rehearsal-only: registerManagedAgent has no agent consent (#1149); operator 1149B accepted squatter risk on Sepolia.",
+      process.env.AITBC_DEPLOY_NOTE ||
+      "Phase C1 (#1143) + #1149 consent (propose/accept managed registration). Sepolia rehearsal.",
   };
 
   let record = [];
