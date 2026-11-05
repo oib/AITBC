@@ -161,7 +161,10 @@ async function main() {
     );
     console.log("✅ VIP staking pool created");
 
-    // Create initial reward pool
+    // Create initial reward pool — pools pull their backing at creation,
+    // so the deployer must hold and approve the tokens first.
+    const aiToken = await ethers.getContractAt("AIToken", aiTokenAddress);
+    await aiToken.approve(rewardDistributor.address, ethers.parseEther("50000"));
     await rewardDistributor.createRewardPoolWithDescription(
       aiTokenAddress,
       ethers.parseEther("50000"),
