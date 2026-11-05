@@ -48,6 +48,10 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
         bool isActive;
         address allocatedBy;
         uint256 createdAt;
+        // Set once the allocation's outstanding amount has been counted into
+        // reservedByToken. Allocations created before reserve tracking read as
+        // false and are counted lazily on first release.
+        bool reserveCounted;
     }
 
     // Mappings
@@ -55,6 +59,11 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
     mapping(uint256 => FundAllocation) public allocations;
     mapping(string => uint256[]) public categoryAllocations;
     mapping(address => uint256[]) public recipientAllocations;
+
+    // Tokens earmarked for unreleased allocations. New allocations reserve
+    // against the balance; legacy allocations are counted in lazily on first
+    // release (see FundAllocation.reserveCounted).
+    mapping(address => uint256) public reservedByToken;
 
     // Counters
     uint256 public categoryCounter;
@@ -240,10 +249,13 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
             revert InsufficientBudget(category, amount, availableBudget);
         }
 
-        // Check treasury balance
+        // Check treasury balance net of funds already reserved for
+        // unreleased allocations
         uint256 treasuryBalance = treasuryToken.balanceOf(address(this));
-        if (amount > treasuryBalance) {
-            revert InsufficientBalance(amount, treasuryBalance);
+        uint256 reserved = reservedByToken[address(treasuryToken)];
+        uint256 unreservedBalance = treasuryBalance > reserved ? treasuryBalance - reserved : 0;
+        if (amount > unreservedBalance) {
+            revert InsufficientBalance(amount, unreservedBalance);
         }
 
         // Create allocation
@@ -260,8 +272,11 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
             isCompleted: false,
             isActive: true,
             allocatedBy: msg.sender,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            reserveCounted: true
         });
+
+        reservedByToken[address(treasuryToken)] += amount;
 
         // Update budget category
         budgetCategory.allocatedAmount += amount;
@@ -299,10 +314,13 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
             revert InsufficientBudget(category, amount, availableBudget);
         }
 
-        // Check treasury balance
+        // Check treasury balance net of funds already reserved for
+        // unreleased allocations
         uint256 treasuryBalance = treasuryToken.balanceOf(address(this));
-        if (amount > treasuryBalance) {
-            revert InsufficientBalance(amount, treasuryBalance);
+        uint256 reserved = reservedByToken[address(treasuryToken)];
+        uint256 unreservedBalance = treasuryBalance > reserved ? treasuryBalance - reserved : 0;
+        if (amount > unreservedBalance) {
+            revert InsufficientBalance(amount, unreservedBalance);
         }
 
         // Create allocation with custom vesting
@@ -319,8 +337,11 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
             isCompleted: false,
             isActive: true,
             allocatedBy: msg.sender,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            reserveCounted: true
         });
+
+        reservedByToken[address(treasuryToken)] += amount;
 
         // Update budget category
         budgetCategory.allocatedAmount += amount;
@@ -353,6 +374,14 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
             revert NotAuthorized();
         }
 
+        // Lazy migration: allocations created before reserve tracking have
+        // reserveCounted == false; count their outstanding amount into the
+        // reserve on first touch so it is not released or withdrawn twice.
+        if (!allocation.reserveCounted) {
+            allocation.reserveCounted = true;
+            reservedByToken[address(treasuryToken)] += allocation.totalAmount - allocation.releasedAmount;
+        }
+
         // Calculate vested amount
         uint256 vestedAmount = calculateVestedAmount(allocation);
         uint256 releasableAmount = vestedAmount - allocation.releasedAmount;
@@ -364,6 +393,11 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
         // Update allocation
         allocation.releasedAmount += releasableAmount;
         allocation.lastRelease = block.timestamp;
+
+        // Free the released amount from the reserve. Saturating: a
+        // governanceSweep may already have consumed part of the reserve.
+        uint256 reserved = reservedByToken[address(treasuryToken)];
+        reservedByToken[address(treasuryToken)] = releasableAmount >= reserved ? 0 : reserved - releasableAmount;
 
         // Update budget category spent amount
         budgetCategories[allocation.category].spentAmount += releasableAmount;
@@ -484,14 +518,39 @@ contract TreasuryManager is ITreasuryManager, Ownable, ReentrancyGuard, Pausable
     }
 
     /**
-     * @dev Emergency withdraw from treasury
+     * @dev Emergency withdraw from treasury. For the treasury token the amount
+     * is capped at the balance not reserved for unreleased allocations;
+     * governanceWithdraw is the DAO-only escape path for reserved funds.
      */
     function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
+        if (token == address(treasuryToken)) {
+            uint256 balance = treasuryToken.balanceOf(address(this));
+            uint256 reserved = reservedByToken[token];
+            uint256 unreservedBalance = balance > reserved ? balance - reserved : 0;
+            if (amount > unreservedBalance) {
+                revert InsufficientBalance(amount, unreservedBalance);
+            }
+        }
         if (token == address(treasuryToken)) {
             treasuryToken.safeTransfer(msg.sender, amount);
         } else {
             IERC20(token).safeTransfer(msg.sender, amount);
         }
+        emit TreasuryWithdrawn(msg.sender, amount);
+    }
+
+    /**
+     * @dev DAO-only escape path: sweep any token including amounts reserved
+     * for unreleased allocations. Sweeping the treasury token consumes the
+     * reserve first so reservedByToken never exceeds the balance.
+     */
+    function governanceWithdraw(address token, uint256 amount) external {
+        if (msg.sender != daoGovernance) revert NotAuthorized();
+        if (token == address(treasuryToken)) {
+            uint256 reserved = reservedByToken[token];
+            reservedByToken[token] = amount >= reserved ? 0 : reserved - amount;
+        }
+        IERC20(token).safeTransfer(msg.sender, amount);
         emit TreasuryWithdrawn(msg.sender, amount);
     }
 
