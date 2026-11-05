@@ -16,6 +16,7 @@ contract AgentWalletPolicyTest is Test {
     MockTokenPolicy public token;
     address public policyOwner = address(0xA11CE);
     address public agent = address(0xBEEF);
+    address public squatter = address(0xBAD);
     address public payee = address(0xCAFE);
     address public otherPayee = address(0xDEAD);
 
@@ -25,9 +26,21 @@ contract AgentWalletPolicyTest is Test {
         token.transfer(address(this), 1_000_000 ether);
     }
 
+    function _registerManaged(
+        address _policyOwner,
+        uint256 _lifetimeLimit,
+        uint256 _periodLimit,
+        uint256 _periodDuration
+    ) internal {
+        vm.startPrank(_policyOwner);
+        wallet.proposeManagedAgentRegistration(agent, _lifetimeLimit, _periodLimit, _periodDuration);
+        vm.stopPrank();
+        vm.prank(agent);
+        wallet.acceptManagedAgentRegistration(agent);
+    }
+
     function testManagedAgentPolicyOwnerCanWithdraw() public {
-        vm.prank(policyOwner);
-        wallet.registerManagedAgent(agent, 100 ether, 10 ether, 1 days);
+        _registerManaged(policyOwner, 100 ether, 10 ether, 1 days);
 
         token.approve(address(wallet), 50 ether);
         wallet.deposit(agent, 50 ether);
@@ -38,8 +51,7 @@ contract AgentWalletPolicyTest is Test {
     }
 
     function testAgentCannotWithdrawManagedWallet() public {
-        vm.prank(policyOwner);
-        wallet.registerManagedAgent(agent, 100 ether, 10 ether, 1 days);
+        _registerManaged(policyOwner, 100 ether, 10 ether, 1 days);
 
         token.approve(address(wallet), 10 ether);
         wallet.deposit(agent, 10 ether);
@@ -49,9 +61,30 @@ contract AgentWalletPolicyTest is Test {
         wallet.withdraw(agent, 1 ether);
     }
 
-    function testAllowlistBlocksUnknownRecipient() public {
+    function testSquatterProposalDoesNotRegisterWithoutAccept() public {
+        vm.prank(squatter);
+        wallet.proposeManagedAgentRegistration(agent, 100 ether, 0, 0);
+        (address owner,,,,) = wallet.agents(agent);
+        assertEq(owner, address(0));
+        (,,,, bool active) = wallet.pendingManagedRegistration(agent);
+        assertTrue(active);
+
+        vm.prank(agent);
+        wallet.cancelManagedAgentProposal(agent);
+        (,,,, active) = wallet.pendingManagedRegistration(agent);
+        assertFalse(active);
+    }
+
+    function testOnlyAgentCanAccept() public {
         vm.prank(policyOwner);
-        wallet.registerManagedAgent(agent, 100 ether, 0, 0);
+        wallet.proposeManagedAgentRegistration(agent, 100 ether, 0, 0);
+        vm.prank(squatter);
+        vm.expectRevert("Only agent can accept");
+        wallet.acceptManagedAgentRegistration(agent);
+    }
+
+    function testAllowlistBlocksUnknownRecipient() public {
+        _registerManaged(policyOwner, 100 ether, 0, 0);
         vm.prank(policyOwner);
         wallet.setAllowlistRequired(agent, true);
         vm.prank(policyOwner);
@@ -70,8 +103,7 @@ contract AgentWalletPolicyTest is Test {
     }
 
     function testPeriodCapResetsAfterWindow() public {
-        vm.prank(policyOwner);
-        wallet.registerManagedAgent(agent, 100 ether, 3 ether, 1 hours);
+        _registerManaged(policyOwner, 100 ether, 3 ether, 1 hours);
 
         token.approve(address(wallet), 10 ether);
         wallet.deposit(agent, 10 ether);
