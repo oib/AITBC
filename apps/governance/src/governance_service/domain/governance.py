@@ -9,7 +9,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, Numeric, String
+from sqlalchemy import DateTime, Float, Numeric, String
 from sqlmodel import JSON, Column, Field, Index
 
 from .base import GovernanceBase
@@ -242,6 +242,23 @@ class DaoTreasury(GovernanceBase, table=True):
     asset_breakdown: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+
+
+class UsedSignature(GovernanceBase, table=True):
+    """One-shot signatures already consumed by a signed write route (#1132).
+
+    The replay window used to live in a process-local dict, so a service
+    restart reopened it: a captured signed stake/delegate body could be
+    posted again inside the TTL. Persisting the signature makes the check
+    survive restarts; ``expires_at`` carries the same window the in-memory
+    map did.
+    """
+
+    __tablename__ = "used_signatures"
+
+    signature: str = Field(primary_key=True)
+    expires_at: float = Field(sa_column=Column(Float, nullable=False))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class TransparencyReport(GovernanceBase, table=True):

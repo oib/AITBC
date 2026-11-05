@@ -80,10 +80,22 @@ def test_upgrade_head_converts_money_columns_to_numeric(tmp_path: Path) -> None:
 def test_downgrade_base_roundtrip(tmp_path: Path) -> None:
     db_path = tmp_path / "gov_migrations.db"
     _run_alembic(tmp_path, "upgrade", "head")
-    _run_alembic(tmp_path, "downgrade", "-1")  # 004 -> 003: Float again
+    _run_alembic(tmp_path, "downgrade", "003")  # 005/004 -> 003: Float again
     assert "FLOAT" in _column_types(db_path, "dao_treasury").get("total_balance", "")
     _run_alembic(tmp_path, "upgrade", "head")
     assert "FLOAT" not in _column_types(db_path, "dao_treasury").get("total_balance", "")
+
+
+def test_used_signatures_table_created(tmp_path: Path) -> None:
+    """005 gives the replay store a durable home (#1132)."""
+    db_path = tmp_path / "gov_migrations.db"
+    _run_alembic(tmp_path, "upgrade", "head")
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        cols = {r[1] for r in con.execute("SELECT * FROM pragma_table_info('used_signatures')")}
+    finally:
+        con.close()
+    assert {"signature", "expires_at", "created_at"} <= cols
 
 
 def test_converted_column_compiles_as_postgresql_numeric() -> None:
