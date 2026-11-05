@@ -1004,3 +1004,59 @@ class AIJobCancellation(ChainBase, table=True):
     chain_id: str = Field(index=True)
     tx_hash: str = Field(index=True)
     cancelled_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AgentSpendSession(ChainBase, table=True):
+    """On-chain agent spend session credential (AGENT-SPEND-B-1, #1142).
+
+    Written only by apply at ``block_version >= 21`` via ``AGENT_SESSION_GRANT``
+    (create) and ``AGENT_SESSION_REVOKE`` (set ``revoked_height``); every value
+    is derived from the signed payload or the block height, so the table is a
+    pure function of sealed history and sits in the v21 committed fingerprint
+    set. There are no ``_at`` columns: expiry and revocation are heights, not
+    wall-clock stamps.
+
+    A sender is *session-bound* while at least one row for its address has
+    ``revoked_height IS NULL`` — from then on every ``TRANSFER``/``ESCROW_LOCK``
+    it signs must name a live ``payload.session_id`` and fit the daily cap. The
+    agent can always unbind itself: ``AGENT_SESSION_REVOKE`` accepts the
+    session's owner or the agent address as signer, so a squatter grant cannot
+    lock the victim out.
+    """
+
+    __tablename__ = "agent_spend_session"
+    __table_args__ = (
+        Index("idx_agent_spend_session_agent", "chain_id", "agent_address"),
+        {"extend_existing": True},
+    )
+
+    chain_id: str = Field(primary_key=True)
+    session_id: str = Field(primary_key=True, max_length=128)
+    agent_id: str = Field(default="", max_length=128)
+    agent_address: str = Field(sa_column=Column(AccountAddress(), nullable=False))
+    owner_address: str = Field(sa_column=Column(AccountAddress(), nullable=False))
+    # Compute-units per day-bucket (block_height // 1290 ≈ 24 h at 67 s/block —
+    # the same block-"day" the governance timelock uses).
+    daily_cap: int = Field(default=0, sa_type=BigInteger)
+    ops: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    expires_at_height: int | None = Field(default=None)
+    revoked_height: int | None = Field(default=None)
+    created_height: int = Field(default=0)
+
+
+class AgentSpendLedger(ChainBase, table=True):
+    """On-chain spent counter for one (session, day-bucket) pair.
+
+    Written only by apply at ``block_version >= 21`` inside the same database
+    transaction that debits the sender, so the daily cap is atomic with the
+    spend. ``spent`` is in compute-units and counts the tx ``value`` only —
+    the fee is protocol burn, not spend policy.
+    """
+
+    __tablename__ = "agent_spend_ledger"
+
+    chain_id: str = Field(primary_key=True)
+    session_id: str = Field(primary_key=True, max_length=128)
+    day: int = Field(primary_key=True)
+    spent: int = Field(default=0, sa_type=BigInteger)
+    last_height: int = Field(default=0)

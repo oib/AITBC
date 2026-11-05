@@ -96,12 +96,25 @@ COMMITTED_TABLES_V15: tuple[str, ...] = tuple(t for t in COMMITTED_TABLES if t !
 # frozen: sealed pre-v18 blocks replay over the V15 set byte-for-byte.
 COMMITTED_TABLES_V18: tuple[str, ...] = tuple(t for t in COMMITTED_TABLES_V15 if t != "stake")
 
+# v21 (AGENT-SPEND-B-1, #1142): the on-chain agent spend session and its
+# daily ledger join the committed set. Both are written only inside apply
+# (GRANT/REVOKE lifecycle, gated-spend charge) as pure functions of the
+# sealed tx and block height — no RPC writer exists — so the aux check stays
+# verifiable. The earlier sets stay frozen: sealed pre-v21 blocks replay
+# over their own set byte-for-byte.
+COMMITTED_TABLES_V21: tuple[str, ...] = COMMITTED_TABLES_V18 + (
+    "agent_spend_ledger",
+    "agent_spend_session",
+)
+
 
 def committed_tables_for_version(block_version: int | None) -> tuple[str, ...]:
     """Committed table set for a block version. ``None`` yields the v14 set —
     the historical default — so unversioned callers keep byte-identical
     behaviour on already-recorded eras; consensus paths must pass the sealed
     or computed block version."""
+    if block_version is not None and block_version >= 21:
+        return COMMITTED_TABLES_V21
     if block_version is not None and block_version >= 18:
         return COMMITTED_TABLES_V18
     if block_version is not None and block_version >= 15:

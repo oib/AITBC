@@ -436,6 +436,14 @@ SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         "BOND_RELEASE",
         "BOND_SLASH",
         "BRIDGE_WITHDRAW",
+        # v21 (AGENT-SPEND-B-1, #1142): session lifecycle txs write
+        # agent_spend_session, and session-bound TRANSFER/ESCROW_LOCK spends
+        # charge agent_spend_ledger — side-table writes the delta map cannot
+        # model. The block-level parallel paths are already bounded to
+        # v2-v8, so no v21 block reaches here; these entries keep direct
+        # per-tx callers on the sequential fallback too.
+        "AGENT_SESSION_GRANT",
+        "AGENT_SESSION_REVOKE",
     }
 )
 
