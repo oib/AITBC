@@ -471,7 +471,6 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         require(block.timestamp >= stake.endTime + unbondingPeriod, "Unbonding period not ended");
 
         uint256 totalAmount = stake.amount;
-        uint256 totalRewards = stake.accumulatedRewards;
 
         // Apply early unbonding penalty if applicable
         uint256 penalty = 0;
@@ -488,16 +487,21 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         // Update staking pool
         _updateStakingPool(stake.agentWallet, msg.sender, stake.amount, false);
 
-        // Transfer tokens back to staker
+        // Transfer tokens back to staker. The early-exit penalty goes to the
+        // owner/treasury — it used to stay in the contract, inflating the
+        // balance with funds nobody could withdraw (#1112).
         if (totalAmount > 0) {
             require(paymentToken.transfer(msg.sender, totalAmount), "Stake transfer failed");
         }
-
-        if (totalRewards > 0) {
-            require(paymentToken.transfer(msg.sender, totalRewards), "Rewards transfer failed");
+        if (penalty > 0) {
+            require(paymentToken.transfer(owner(), penalty), "Penalty transfer failed");
         }
 
-        emit StakeCompleted(_stakeId, msg.sender, totalAmount, totalRewards);
+        // accumulatedRewards is informational only: stake-level APY accrual
+        // has no funding source, so paying it here would drain other
+        // stakers' principal (#1112). Funded rewards flow exclusively through
+        // distributeAgentEarnings -> pendingRewards -> claimPoolRewards.
+        emit StakeCompleted(_stakeId, msg.sender, totalAmount, 0);
         emit StakeUnbonded(_stakeId, msg.sender, totalAmount, penalty);
     }
 
@@ -863,11 +867,12 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         stake.accumulatedRewards += currentRewards;
         stake.lastRewardTime = block.timestamp;
 
-        // Auto-compound if enabled
-        if (stake.autoCompound && currentRewards >= minStakeAmount) {
-            stake.amount += currentRewards;
-            stake.accumulatedRewards = 0;
-        }
+        // Auto-compound used to fold currentRewards into stake.amount, which
+        // inflated principal beyond the funded deposits: the staking pool
+        // shares only ever received the deposit, so unbonding subtracted more
+        // than was staked and underflowed for a sole staker (#1112). Rewards
+        // stay in accumulatedRewards (informational — unfunded); principal
+        // only ever grows via addToStake, which funds and pool-accounts it.
     }
 
     function _getAgentTier(address _agentWallet) internal view returns (PerformanceTier) {
