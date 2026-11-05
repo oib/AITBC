@@ -175,6 +175,32 @@ class RemoteAttestationService:
                 )
                 return
 
+        # The schedule check proves the claimed name, not authorship: a
+        # forged request naming the scheduled proposer passed it anyway
+        # (#1058). The request must carry the proposer's block signature.
+        # A present-but-invalid signature is always refused; an absent one
+        # only once consensus_require_signed_attest_request is armed — old
+        # peers send unsigned requests until their code lands, so unsigned
+        # stays attestable (and counted) during the rollout.
+        proposer_signature = request.get("proposer_signature")
+        if proposer_signature:
+            try:
+                sig_ok = verify_block_signature(header, proposer_signature, proposer)
+            except Exception:
+                sig_ok = False
+            if not sig_ok:
+                logger.info(
+                    "Attestation refusal: bad proposer_signature at height %s from %s",
+                    height_int,
+                    proposer[:18],
+                )
+                return
+        elif getattr(settings, "consensus_require_signed_attest_request", False):
+            logger.info("Attestation refusal: unsigned attest_request at height %s", height_int)
+            return
+        else:
+            count_v9_would_reject("attest_unsigned_request")
+
         # v9: before signing, verify every transaction in the request —
         # sender signature (except the shared internal allowlist) and nonce
         # order against this validator's own state at the block's parent.
@@ -576,6 +602,11 @@ class RemoteAttestationService:
             "aux_state_root": getattr(block, "aux_state_root", None) or "",
         }
         request: dict[str, Any] = {"header": header, "timestamp": time.time()}
+        # Carry the proposer's own block signature: attesters verify it
+        # against the scheduled proposer before signing or locking, so a
+        # forged request can no longer attest an invented block (#1058).
+        if getattr(block, "signature", None):
+            request["proposer_signature"] = block.signature
         if transactions is not None:
             # Bind the tx set to the signed header: the attester recomputes
             # the block hash from these fields plus the declared tx-hash set,
