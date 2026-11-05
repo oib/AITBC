@@ -318,15 +318,17 @@ describe("EscrowService High-Priority Tests", function () {
       const depositorBalanceBefore = await token.balanceOf(depositor.address);
       const tx = await escrow.connect(depositor).refundEscrow(0, "not delivered");
 
+      // #1107: the refund returns amount + platformFee for every escrow type,
+      // not just ProtectedCompute — the depositor paid both up front.
       await expect(tx)
         .to.emit(escrow, "EscrowRefunded")
-        .withArgs(0, depositor.address, escrowAmount, "not delivered");
+        .withArgs(0, depositor.address, totalAmount, "not delivered");
 
       const account = await escrow.getEscrowAccount(0);
       expect(account.isRefunded).to.equal(true);
 
       const depositorBalanceAfter = await token.balanceOf(depositor.address);
-      expect(depositorBalanceAfter - depositorBalanceBefore).to.equal(escrowAmount);
+      expect(depositorBalanceAfter - depositorBalanceBefore).to.equal(totalAmount);
     });
 
     it("Should not refund after release time", async function () {
@@ -473,6 +475,10 @@ describe("EscrowService High-Priority Tests", function () {
 
       await escrow.connect(stranger).voteEmergencyRelease(0, true);
       await escrow.connect(arbiter).voteEmergencyRelease(0, true);
+
+      // Approval only arms the release; the timelock executor performs it
+      // (timelock is 0 here, so it is callable immediately).
+      await escrow.executeEmergencyRelease(0);
 
       const account = await escrow.getEscrowAccount(0);
       expect(account.isReleased).to.equal(true);
