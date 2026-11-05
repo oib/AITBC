@@ -134,14 +134,15 @@ integration, compromised-session negatives.
 
 ## Sepolia AgentWallet C1 rehearsal (#1143 / #1149)
 
-The first Sepolia deployment (`contracts/deployments-agent-wallet-sepolia.json`,
-Phase C1 @ `c610d0f10`) shipped **`registerManagedAgent` without agent consent**
-(operator **1149B**, rehearsal-only). **Mainnet v1** must use a build with **`proposeManagedAgentRegistration` +
-`acceptManagedAgentRegistration`** (agent EOA must accept; #1149) — not the
-rehearsal bytecode at `0x2F66f3…`.
+Two Sepolia deployments are recorded in `contracts/deployments-agent-wallet-sepolia.json`:
 
-Until redeploy, treat **`0x2F66f3…` on Sepolia** as carrying the known squatter
-risk documented in the 1149B ledger entry.
+| Address | Git | Managed registration |
+|---------|-----|----------------------|
+| `0x2F66f3eb7e6E31aa8A9Bdbb60f557854FBb9ad5e` | `c610d0f10` | **No agent consent** (1149B squatter risk — legacy rehearsal only) |
+| `0x5e595F5112450276980958e3e197F0307aa371c5` | `1ff11a641` | **`proposeManagedAgentRegistration` + `acceptManagedAgentRegistration`** (#1149) |
+
+**Mainnet v1** must ship the consent API (`1ff11a641` lineage), not the pre-consent
+bytecode at `0x2F66f3…`. For new Sepolia rehearsal, prefer **`0x5e595F…`**.
 
 ---
 
