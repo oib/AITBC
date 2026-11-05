@@ -100,12 +100,11 @@ SKIP_DIRS = ("scripts/service-management/lib",)
 # is the same defect V23-99 exists to fix, arriving from the other direction. Guarding the
 # twelve lines is the real repair and belongs with someone who can run a two-node topology;
 # these scripts ssh to `<node1>` and cannot be exercised from a shop node. They do take -u.
+# (The two workflow-agent scripts named here were retired and deleted, #1042/#1043.)
 SKIP_SETTINGS: dict[str, tuple[str, ...]] = {
     "scripts/deployment/update.sh": ("set -e",),
     "scripts/deployment/setup.sh": ("set -u", "set -o pipefail"),
     "scripts/deployment/deploy.sh": ("set -u", "set -o pipefail"),
-    "scripts/workflow-agent/02_genesis_authority_setup_agent.sh": ("set -o pipefail",),
-    "scripts/workflow-agent/05_complete_workflow_agent.sh": ("set -o pipefail",),
     # Sourced helpers should not flip the caller's shell options.
     "scripts/utils/agent_followup.sh": ("set -e", "set -u", "set -o pipefail"),
     # env_config.sh is documented "Source this file:" — variable defaults
