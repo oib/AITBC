@@ -10,5 +10,17 @@
     "txHash": "0x9865d666ba1582fec4646d1610fafd744c95454a8e5747c1fadf25ea2bff492e",
     "gitCommit": "c610d0f10",
     "note": "Phase C1 (#1143). Operator go deploy + 1149B: rehearsal-only; registerManagedAgent lacks agent consent (#1149) — fix before mainnet v1."
+  },
+  {
+    "contract": "AgentWallet",
+    "address": "0x5e595F5112450276980958e3e197F0307aa371c5",
+    "deployer": "0x5f659B20a89279c815B5b8b98b423E26E2737032",
+    "paymentToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-05T09:47:36.953Z",
+    "txHash": "0xb48444dae6a20a0063334e3c3b523b80e1d3680064348a8adfbf878963c501c4",
+    "gitCommit": "1ff11a641",
+    "note": "Phase C1 + #1149 consent (propose/accept managed registration). Operator go deploy consent; use this address for post-1149 Sepolia rehearsal; pre-consent bytecode remains at 0x2F66f3…."
   }
 ]
