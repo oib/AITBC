@@ -115,9 +115,11 @@ contract GovernanceAgentWallet is Ownable {
     ) public onlyAuthorized onlyActiveAgent {
         require(!agentState.votedProposals[proposalId], "Already voted");
 
-        // Check reputation requirement
+        // Reputation is sourced from the DAO's agent wallet record — the
+        // caller can no longer self-set the gate it is checked against
+        // (#1120).
         require(
-            agentState.reputation >= votingStrategy.minReputationToVote,
+            _daoReputation() >= votingStrategy.minReputationToVote,
             "Insufficient reputation"
         );
 
@@ -154,14 +156,25 @@ contract GovernanceAgentWallet is Ownable {
     }
 
     /**
-     * @dev Update agent reputation
-     * @param newReputation New reputation score
+     * @dev Reputation held by this wallet in the DAO's agent registry — the
+     *      only reputation source the vote gate reads.
      */
-    function updateReputation(uint256 newReputation) external onlyAuthorized {
-        uint256 oldReputation = agentState.reputation;
-        agentState.reputation = newReputation;
+    function daoReputation() external view returns (uint256) {
+        return _daoReputation();
+    }
 
-        emit ReputationUpdated(oldReputation, newReputation);
+    function _daoReputation() internal view returns (uint256) {
+        ( , , uint256 reputation, , , ) = dao.agentWallets(address(this));
+        return reputation;
+    }
+
+    /**
+     * @dev Withdraw governance tokens held by this wallet — tokens sent here
+     *      for voting power used to be stranded forever (#1120).
+     */
+    function withdrawTokens(address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "zero to");
+        require(governanceToken.transfer(to, amount), "transfer failed");
     }
 
     /**
@@ -223,7 +236,7 @@ contract GovernanceAgentWallet is Ownable {
     function canVote(uint256 proposalId) external view returns (bool) {
         if (!agentState.isActive) return false;
         if (agentState.votedProposals[proposalId]) return false;
-        if (agentState.reputation < votingStrategy.minReputationToVote) return false;
+        if (_daoReputation() < votingStrategy.minReputationToVote) return false;
 
         return true;
     }
