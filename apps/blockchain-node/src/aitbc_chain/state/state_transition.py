@@ -54,6 +54,12 @@ from .gpu_resources import (
     gpu_deregister_error,
     retired_gpu_error,
 )
+from .agent_spend import (
+    AGENT_SESSION_TX_TYPES,
+    agent_spend_verdict,
+    apply_agent_session_tx,
+    charge_agent_spend,
+)
 from .pure_state_transition import _carried_receipt_record
 from .v9_policy import count_v9_would_reject, v9_signature_verdict
 from .v13_policy import count_v13_shadow_checked, count_v13_would_reject
@@ -98,7 +104,10 @@ def _is_zero_value_tx_type(tx_type: str, block_version: int) -> bool:
     GPU_DEREGISTER joins the set from v10 only: below it the name has no consensus meaning and a block carrying it
     replays as the plain transfer it always was.
     """
-    return tx_type in _ZERO_VALUE_TX_TYPES or (block_version >= 10 and tx_type == "GPU_DEREGISTER")
+    if tx_type in _ZERO_VALUE_TX_TYPES or (block_version >= 10 and tx_type == "GPU_DEREGISTER"):
+        return True
+    # v21: session lifecycle txs move no value — the owner pays only the fee.
+    return block_version >= 21 and tx_type in AGENT_SESSION_TX_TYPES
 
 
 def _chain_parameter_value(session: Session, chain_id: str, parameter: str, block_height: int | None = None) -> str | None:
@@ -969,6 +978,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v21_threshold = getattr(settings, "state_transition_v21_height", None)
+    if v21_threshold and height >= v21_threshold:
+        return 21
     v20_threshold = getattr(settings, "state_transition_v20_height", None)
     if v20_threshold and height >= v20_threshold:
         return 20
@@ -1880,6 +1892,24 @@ class StateTransition:
                         False,
                         f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active",
                     )
+        if block_version >= 21:
+            # v21 (AGENT-SPEND-B-1, #1142): on-chain agent spend sessions.
+            # Grant/revoke lifecycle checks plus session-bound TRANSFER and
+            # ESCROW_LOCK enforcement (live session, op allowed, daily cap
+            # fits). Read-only — the ledger charge lives in apply. Runs last
+            # like the other door checks: signature and nonce are already
+            # verified, so ``sender`` here is the authenticated signer.
+            spend_error = agent_spend_verdict(
+                session,
+                chain_id,
+                sender_addr,
+                tx_type,
+                tx_data.get("payload"),
+                value,
+                block_height,
+            )
+            if spend_error:
+                return (False, spend_error)
         return (True, "Transaction validated successfully")
 
     def apply_transaction(
@@ -2285,6 +2315,14 @@ class StateTransition:
             ok, msg = self.handle_gpu_allocation(session, chain_id, allocation_data)
             if not ok:
                 return (False, msg)
+        if block_version >= 21:
+            # v21 (AGENT-SPEND-B-1, #1142): apply the validated session effects
+            # — grant/revoke writes the session row, a gated spend charges the
+            # day's ledger. Both land in this same apply transaction as the
+            # balance debit above, so the daily cap is atomic with the spend.
+            if tx_type in AGENT_SESSION_TX_TYPES:
+                apply_agent_session_tx(session, chain_id, tx_type, tx_data.get("payload") or {}, sender_addr, block_height)
+            charge_agent_spend(session, chain_id, tx_type, tx_data.get("payload"), value, block_height)
         self._processed_tx_hashes.add(tx_hash)
         if sender_addr is not None:
             self._processed_nonces[sender_addr] = sender_account.nonce  # type: ignore[union-attr]
