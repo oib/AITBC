@@ -119,6 +119,20 @@ describe("PaymentProcessor", function () {
           )
       ).to.be.revertedWith("Not authorized payer");
     });
+
+    it("Should reject escrow to unauthorized beneficiary (#1155)", async function () {
+      await expect(
+        paymentProcessor
+          .connect(payer)
+          .createEscrow(
+            stranger.address,
+            paymentAmount,
+            0,
+            ESCROW_TYPE.Standard,
+            ethers.encodeBytes32String("manual")
+          )
+      ).to.be.revertedWith("Recipient not authorized");
+    });
   });
 
   describe("releaseEscrow", function () {

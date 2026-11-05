@@ -480,6 +480,7 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         bytes32 _releaseCondition
     ) external onlyAuthorizedPayer sufficientBalance(msg.sender, _amount) sufficientAllowance(msg.sender, _amount) nonReentrant whenNotPaused returns (uint256) {
         require(_beneficiary != address(0), "Invalid beneficiary");
+        require(authorizedPayees[_beneficiary], "Recipient not authorized");
         require(_amount >= minPaymentAmount, "Amount below minimum");
 
         uint256 escrowId = paymentCounter++;
