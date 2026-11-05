@@ -13,7 +13,8 @@ import json
 from fastapi import Body, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import delete, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
@@ -71,12 +72,13 @@ def _bind_actor(actor: str, aliases: dict[str, Any]) -> None:
 
 
 _SIGNED_TTL_SECONDS = 300
-_seen_signatures: dict[str, float] = {}
 
 
-def _check_fresh(payload: dict[str, Any], signature: str | None) -> None:
+async def _check_fresh(payload: dict[str, Any], signature: str | None) -> None:
     """Replay window: the signed body must carry a timestamp within
-    TTL, and one signature may be used once (#1091)."""
+    TTL, and one signature may be used once (#1091). The used-signature
+    store is a table, not process memory, so a restart cannot reopen
+    the window (#1132)."""
     import time as _t
 
     now = _t.time()
@@ -88,14 +90,18 @@ def _check_fresh(payload: dict[str, Any], signature: str | None) -> None:
             raise HTTPException(status_code=403, detail="signed timestamp outside the freshness window")
     except (TypeError, ValueError):
         raise HTTPException(status_code=403, detail="invalid signed timestamp") from None
-    if signature and signature in _seen_signatures:
-        raise HTTPException(status_code=403, detail="signature already used")
-    # prune then record
-    for k, exp in list(_seen_signatures.items()):
-        if exp < now:
-            _seen_signatures.pop(k, None)
-    if signature:
-        _seen_signatures[signature] = now + _SIGNED_TTL_SECONDS
+    if not signature:
+        return
+    from .domain.governance import UsedSignature
+
+    async with get_session() as session:
+        await session.execute(delete(UsedSignature).where(UsedSignature.expires_at <= now))  # type: ignore[arg-type]
+        session.add(UsedSignature(signature=signature, expires_at=now + _SIGNED_TTL_SECONDS))
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(status_code=403, detail="signature already used") from None
 
 
 configure_logging(level="INFO", service_name="governance", to_file=True)
@@ -438,7 +444,7 @@ async def stake_tokens(
     """Stake tokens for enhanced voting power"""
     unsigned = _unsigned(request.model_dump(mode="json"))
     _require_signature(request.staker_address, request.signature, unsigned)
-    _check_fresh(unsigned, request.signature)
+    await _check_fresh(unsigned, request.signature)
     staker_address = request.staker_address
     amount = request.amount
     lock_period_days = request.lock_period_days
@@ -485,7 +491,7 @@ async def delegate_voting_power(
     """Delegate voting power to another address"""
     unsigned = _unsigned(request.model_dump(mode="json"))
     _require_signature(request.delegator_address, request.signature, unsigned)
-    _check_fresh(unsigned, request.signature)
+    await _check_fresh(unsigned, request.signature)
     delegator_address = request.delegator_address
     delegate_address = request.delegate_address
     amount = request.amount
