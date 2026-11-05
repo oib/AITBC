@@ -36,7 +36,7 @@ contract AgentWalletPolicyTest is Test {
         wallet.proposeManagedAgentRegistration(agent, _lifetimeLimit, _periodLimit, _periodDuration);
         vm.stopPrank();
         vm.prank(agent);
-        wallet.acceptManagedAgentRegistration(agent);
+        wallet.acceptManagedAgentRegistration(agent, policyOwner);
     }
 
     function testManagedAgentPolicyOwnerCanWithdraw() public {
@@ -80,7 +80,7 @@ contract AgentWalletPolicyTest is Test {
         wallet.proposeManagedAgentRegistration(agent, 100 ether, 0, 0);
         vm.prank(squatter);
         vm.expectRevert("Only agent can accept");
-        wallet.acceptManagedAgentRegistration(agent);
+        wallet.acceptManagedAgentRegistration(agent, policyOwner);
     }
 
     function testAllowlistBlocksUnknownRecipient() public {
@@ -134,5 +134,35 @@ contract AgentWalletPolicyTest is Test {
         vm.prank(agent);
         vm.expectRevert("Purpose too long");
         wallet.executeMicroTransaction(payee, 1 wei, string(longPurpose));
+    }
+    // #1151: the accept must be bound to the intended policy owner — a
+    // front-running proposal must not swap who the agent accepts.
+    function testFrontRunProposalCannotSwapPolicyOwner() public {
+        vm.prank(policyOwner);
+        wallet.proposeManagedAgentRegistration(agent, 100 ether, 10 ether, 1 days);
+        vm.prank(squatter);
+        wallet.proposeManagedAgentRegistration(agent, 1 ether, 0, 0);
+
+        vm.prank(agent);
+        vm.expectRevert("Proposal not from expected policy owner");
+        wallet.acceptManagedAgentRegistration(agent, policyOwner);
+
+        vm.prank(agent);
+        wallet.acceptManagedAgentRegistration(agent, squatter);
+        assertEq(wallet.agentPolicyOwner(agent), squatter);
+    }
+
+    // #1151: self-registration supersedes a pending proposal — the orphaned
+    // entry is cleared instead of lingering as a fake live offer.
+    function testSelfRegistrationDropsPendingProposal() public {
+        vm.prank(policyOwner);
+        wallet.proposeManagedAgentRegistration(agent, 100 ether, 0, 0);
+        vm.prank(agent);
+        wallet.registerAgent(agent, 50 ether);
+
+        (,,,, bool active) = wallet.pendingManagedRegistration(agent);
+        assertFalse(active);
+        (address owner,,,,) = wallet.agents(agent);
+        assertEq(owner, agent);
     }
 }
