@@ -75,6 +75,10 @@ def peer_base_url(gossip_url: str) -> str | None:
 
     ``wss://hub1.example/rpc/gossip/ws`` → ``https://hub1.example``;
     ``ws://10.0.0.1:8202/rpc/gossip/ws`` → ``http://10.0.0.1:8202``.
+    A service-path prefix before the ws suffix is preserved:
+    ``wss://node1.example/island/rpc/gossip/ws`` → ``https://node1.example/island``
+    so the freshness check and bulk pull hit the island RPC (the nginx
+    ``/island/`` route), not the main one (#1160).
     Returns None for URLs that are not ws/wss or carry no host.
     """
     try:
@@ -89,7 +93,13 @@ def peer_base_url(gossip_url: str) -> str | None:
         return None
     if not parsed.netloc:
         return None
-    return f"{scheme}://{parsed.netloc}"
+    prefix = parsed.path
+    for suffix in ("/rpc/gossip/ws", "/rpc/subscribe/ws"):
+        if prefix.endswith(suffix):
+            prefix = prefix[: -len(suffix)]
+            break
+    prefix = prefix.rstrip("/")
+    return f"{scheme}://{parsed.netloc}{prefix}"
 
 
 class ProposalFreshnessChecker:
