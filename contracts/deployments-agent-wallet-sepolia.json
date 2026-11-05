@@ -1,0 +1,14 @@
+[
+  {
+    "contract": "AgentWallet",
+    "address": "0x2F66f3eb7e6E31aa8A9Bdbb60f557854FBb9ad5e",
+    "deployer": "0x5f659B20a89279c815B5b8b98b423E26E2737032",
+    "paymentToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-05T06:38:00Z",
+    "txHash": "0x9865d666ba1582fec4646d1610fafd744c95454a8e5747c1fadf25ea2bff492e",
+    "gitCommit": "c610d0f10",
+    "note": "Phase C1 (#1143). Operator go deploy + 1149B: rehearsal-only; registerManagedAgent lacks agent consent (#1149) — fix before mainnet v1."
+  }
+]
