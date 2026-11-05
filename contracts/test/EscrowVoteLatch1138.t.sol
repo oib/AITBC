@@ -229,4 +229,82 @@ contract EscrowVoteLatch1138Test is Test {
         vm.expectRevert("Arbiter not authorized before request");
         escrow.voteEmergencyRelease(id, true);
     }
+
+    // #1153: an expired unfinalized request can be retried — fresh round,
+    // fresh tallies, fresh snapshots under the current arbiter epoch.
+
+    /// The finding: an expired vote used to brick the emergency path
+    /// forever. Now a second request succeeds after the deadline.
+    function test_RetryAfterExpiredRequestSucceeds() public {
+        uint256 id = _createStandard();
+        _request(id);
+        vm.prank(arb1);
+        escrow.voteEmergencyRelease(id, true);
+        vm.prank(arb2);
+        escrow.voteEmergencyRelease(id, false);
+
+        // Deadline passes with no quorum — the request dies but the escrow
+        // must not.
+        vm.warp(block.timestamp + escrow.emergencyReleaseDelay() + 1);
+        vm.prank(depositor);
+        escrow.requestEmergencyRelease(id, "retry");
+
+        // Tallies fully reset: nothing carried over.
+        (, , , , , , , uint256 totalVotes, , , ) = _emergency(id);
+        assertEq(totalVotes, 0);
+
+        // Voters may vote again on the new round — arb1's round-1 vote did
+        // not carry.
+        vm.prank(arb1);
+        escrow.voteEmergencyRelease(id, true);
+        vm.prank(arb2);
+        escrow.voteEmergencyRelease(id, true);
+        vm.prank(arb3);
+        escrow.voteEmergencyRelease(id, true);
+        (, , , , , , , , bool approved, , ) = _emergency(id);
+        assertTrue(approved);
+    }
+
+    /// While a request is still live, a second one reverts.
+    function test_ReRequestBeforeDeadlineReverts() public {
+        uint256 id = _createStandard();
+        _request(id);
+        vm.prank(depositor);
+        vm.expectRevert("Emergency release already requested");
+        escrow.requestEmergencyRelease(id, "too soon");
+    }
+
+    /// An approved request is final — deadline or not, it cannot reopen.
+    function test_NoReRequestWhileApproved() public {
+        uint256 id = _createStandard();
+        _request(id);
+        vm.prank(arb1);
+        escrow.voteEmergencyRelease(id, true);
+        vm.prank(arb2);
+        escrow.voteEmergencyRelease(id, true);
+        vm.prank(arb3);
+        escrow.voteEmergencyRelease(id, true);
+
+        vm.warp(block.timestamp + escrow.emergencyReleaseDelay() + 1);
+        vm.prank(depositor);
+        vm.expectRevert("Emergency release already requested");
+        escrow.requestEmergencyRelease(id, "reopen?");
+    }
+
+    /// Arbiters authorized after the FIRST request but before the retry
+    /// legitimately count on the new request — the epoch snapshot is
+    /// per-request, not per-escrow (#1153 + #1152).
+    function test_RetryAdmitsArbiterAuthorizedBetweenRequests() public {
+        uint256 id = _createStandard();
+        _request(id);
+        escrow.authorizeArbiter(colluder);
+
+        vm.warp(block.timestamp + escrow.emergencyReleaseDelay() + 1);
+        vm.prank(depositor);
+        escrow.requestEmergencyRelease(id, "retry");
+
+        vm.prank(colluder);
+        escrow.voteEmergencyRelease(id, true);
+        // The vote counted (no revert) — nothing else needed for the pin.
+    }
 }
