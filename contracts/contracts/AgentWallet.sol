@@ -33,6 +33,14 @@ contract AgentWallet is Ownable, ReentrancyGuard {
         string purpose;
     }
 
+    struct PendingManagedRegistration {
+        address policyOwner;
+        uint256 lifetimeLimit;
+        uint256 periodLimit;
+        uint256 periodDurationSeconds;
+        bool active;
+    }
+
     // State Variables
     uint256 public txCounter;
     mapping(address => Agent) public agents;
@@ -48,6 +56,7 @@ contract AgentWallet is Ownable, ReentrancyGuard {
     mapping(address => bool) public allowlistRequired;
     mapping(address => mapping(address => bool)) public allowedRecipient;
     mapping(address => uint256) public periodDurationSeconds;
+    mapping(address => PendingManagedRegistration) public pendingManagedRegistration;
     uint256 public constant MAX_PURPOSE_BYTES = 256;
 
     // Events
@@ -58,6 +67,14 @@ contract AgentWallet is Ownable, ReentrancyGuard {
     event SpendingLimitUpdated(address indexed agent, uint256 newLimit);
     event MicroTransactionExecuted(uint256 indexed txId, address indexed agent, address indexed recipient, uint256 amount, string purpose);
     event ManagedAgentRegistered(address indexed agent, address indexed policyOwner);
+    event ManagedAgentProposalCreated(
+        address indexed agent,
+        address indexed policyOwner,
+        uint256 lifetimeLimit,
+        uint256 periodLimit,
+        uint256 periodDurationSeconds
+    );
+    event ManagedAgentProposalCancelled(address indexed agent, address indexed cancelledBy);
     event RecipientAllowlistUpdated(address indexed agent, address indexed recipient, bool allowed);
     event AllowlistEnforcementUpdated(address indexed agent, bool required);
 
@@ -78,6 +95,30 @@ contract AgentWallet is Ownable, ReentrancyGuard {
             return explicitOwner;
         }
         return agents[_agent].owner;
+    }
+
+    function _finalizeManagedAgentRegistration(
+        address _agent,
+        address _policyOwner,
+        uint256 _lifetimeLimit,
+        uint256 _periodLimit,
+        uint256 _periodDurationSeconds_
+    ) internal {
+        agentPolicyOwner[_agent] = _policyOwner;
+        agents[_agent] = Agent({
+            owner: _agent,
+            balance: 0,
+            spendingLimit: _lifetimeLimit,
+            totalSpent: 0,
+            isActive: true
+        });
+        periodSpendLimit[_agent] = _periodLimit;
+        periodDurationSeconds[_agent] = _periodDurationSeconds_;
+        if (_periodLimit > 0 && _periodDurationSeconds_ > 0) {
+            periodWindowEnd[_agent] = block.timestamp + _periodDurationSeconds_;
+        }
+        emit ManagedAgentRegistered(_agent, _policyOwner);
+        emit AgentRegistered(_agent, _policyOwner);
     }
 
     function _rollPeriod(address _agent) internal {
@@ -126,10 +167,9 @@ contract AgentWallet is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Register an agent whose spending policy is controlled by a distinct owner (Phase C1).
-     * The agent EOA executes micro-txs; the policy owner manages limits and allowlists.
+     * @dev Policy owner proposes managed-agent terms; the agent must accept (#1149).
      */
-    function registerManagedAgent(
+    function proposeManagedAgentRegistration(
         address _agent,
         uint256 _lifetimeLimit,
         uint256 _periodLimit,
@@ -137,21 +177,49 @@ contract AgentWallet is Ownable, ReentrancyGuard {
     ) external {
         require(_agent != address(0), "Invalid agent address");
         require(agents[_agent].owner == address(0), "Agent already registered");
-        agentPolicyOwner[_agent] = msg.sender;
-        agents[_agent] = Agent({
-            owner: _agent,
-            balance: 0,
-            spendingLimit: _lifetimeLimit,
-            totalSpent: 0,
-            isActive: true
+        pendingManagedRegistration[_agent] = PendingManagedRegistration({
+            policyOwner: msg.sender,
+            lifetimeLimit: _lifetimeLimit,
+            periodLimit: _periodLimit,
+            periodDurationSeconds: _periodDurationSeconds_,
+            active: true
         });
-        periodSpendLimit[_agent] = _periodLimit;
-        periodDurationSeconds[_agent] = _periodDurationSeconds_;
-        if (_periodLimit > 0 && _periodDurationSeconds_ > 0) {
-            periodWindowEnd[_agent] = block.timestamp + _periodDurationSeconds_;
-        }
-        emit ManagedAgentRegistered(_agent, msg.sender);
-        emit AgentRegistered(_agent, msg.sender);
+        emit ManagedAgentProposalCreated(
+            _agent,
+            msg.sender,
+            _lifetimeLimit,
+            _periodLimit,
+            _periodDurationSeconds_
+        );
+    }
+
+    function cancelManagedAgentProposal(address _agent) external {
+        PendingManagedRegistration storage pending = pendingManagedRegistration[_agent];
+        require(pending.active, "No pending proposal");
+        require(
+            msg.sender == _agent || msg.sender == pending.policyOwner,
+            "Not agent or policy owner"
+        );
+        delete pendingManagedRegistration[_agent];
+        emit ManagedAgentProposalCancelled(_agent, msg.sender);
+    }
+
+    /**
+     * @dev Agent accepts pending terms — only the agent EOA can activate (#1149 / #1101 parity).
+     */
+    function acceptManagedAgentRegistration(address _agent) external {
+        require(msg.sender == _agent, "Only agent can accept");
+        require(agents[_agent].owner == address(0), "Agent already registered");
+        PendingManagedRegistration memory pending = pendingManagedRegistration[_agent];
+        require(pending.active, "No pending proposal");
+        delete pendingManagedRegistration[_agent];
+        _finalizeManagedAgentRegistration(
+            _agent,
+            pending.policyOwner,
+            pending.lifetimeLimit,
+            pending.periodLimit,
+            pending.periodDurationSeconds
+        );
     }
 
     function setRecipientAllowed(address _agent, address _recipient, bool _allowed) external onlyPolicyOwner(_agent) {
