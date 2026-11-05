@@ -296,6 +296,19 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+  # Production assert/print gate, same baseline+ratchet shape as c901. It used
+  # to run nowhere and also skipped whole trees when the checkout path merely
+  # contained a directory named like a skip entry; the scan is now relative to
+  # ROOT and this hook is what actually runs it.
+  - repo: local
+    hooks:
+      - id: assert-print-ratchet
+        name: assert-print-ratchet
+        entry: python3 scripts/check_no_assert_print.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
   - repo: local
     hooks:
       - id: fake-async-ratchet
