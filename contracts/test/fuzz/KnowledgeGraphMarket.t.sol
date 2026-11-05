@@ -80,12 +80,13 @@ contract KnowledgeGraphMarketFuzzTest is Test {
         uint256 creatorBefore = token.balanceOf(creator);
         vm.startPrank(buyer);
         token.approve(address(market), price);
-        market.purchaseGraph(id);
+        market.purchaseGraph(id, type(uint256).max);
         vm.stopPrank();
 
-        uint256 fee = (price * 250) / 10000;
-        assertEq(token.balanceOf(creator), creatorBefore + price - fee);
-        assertEq(token.balanceOf(address(market)), fee);
+        // Payment is escrowed: the market holds the full price, the creator is
+        // paid only on key delivery.
+        assertEq(token.balanceOf(creator), creatorBefore);
+        assertEq(token.balanceOf(address(market)), price);
         assertTrue(market.hasPurchased(id, buyer));
         (, , , , , uint256 totalSales, ) = market.graphs(id);
         assertEq(totalSales, 1);
@@ -99,7 +100,7 @@ contract KnowledgeGraphMarketFuzzTest is Test {
 
         vm.prank(buyer);
         vm.expectRevert("Graph inactive");
-        market.purchaseGraph(id);
+        market.purchaseGraph(id, type(uint256).max);
     }
 
     function testFuzz_PurchaseRejectsOwnGraph() public {
@@ -110,7 +111,7 @@ contract KnowledgeGraphMarketFuzzTest is Test {
         vm.startPrank(creator);
         token.approve(address(market), 1e18);
         vm.expectRevert("Cannot buy own graph");
-        market.purchaseGraph(id);
+        market.purchaseGraph(id, type(uint256).max);
         vm.stopPrank();
     }
 
@@ -122,9 +123,9 @@ contract KnowledgeGraphMarketFuzzTest is Test {
 
         vm.startPrank(buyer);
         token.approve(address(market), price * 2);
-        market.purchaseGraph(id);
+        market.purchaseGraph(id, type(uint256).max);
         vm.expectRevert("Already purchased");
-        market.purchaseGraph(id);
+        market.purchaseGraph(id, type(uint256).max);
         vm.stopPrank();
     }
 
@@ -136,7 +137,7 @@ contract KnowledgeGraphMarketFuzzTest is Test {
 
         vm.startPrank(buyer);
         token.approve(address(market), 1e18);
-        market.purchaseGraph(id);
+        market.purchaseGraph(id, type(uint256).max);
         vm.stopPrank();
 
         vm.prank(creator);
@@ -155,7 +156,7 @@ contract KnowledgeGraphMarketFuzzTest is Test {
 
         vm.startPrank(buyer);
         token.approve(address(market), price);
-        market.purchaseGraph(id);
+        market.purchaseGraph(id, type(uint256).max);
         vm.stopPrank();
 
         vm.prank(caller);
