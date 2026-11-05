@@ -191,6 +191,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
 
   describe("RewardDistributor", function () {
     it("Should create reward pools", async function () {
+      await aiToken.approve(rewardDistributor.target, REWARD_AMOUNT);
       await rewardDistributor.createRewardPool(aiToken.target, REWARD_AMOUNT);
 
       const poolBalance = await rewardDistributor.getPoolBalance(1);
@@ -198,10 +199,9 @@ describe("Phase 4 Modular Smart Contracts", function () {
     });
 
     it("Should distribute rewards", async function () {
+      // createRewardPool pulls REWARD_AMOUNT from the caller at creation.
+      await aiToken.approve(rewardDistributor.target, REWARD_AMOUNT);
       await rewardDistributor.createRewardPool(aiToken.target, REWARD_AMOUNT);
-
-      // Deposit tokens to reward distributor
-      await aiToken.connect(deployer).transfer(rewardDistributor.target, REWARD_AMOUNT);
 
       const recipients = [user1.address, user2.address];
       const amounts = [ethers.parseEther("500"), ethers.parseEther("500")];
@@ -213,10 +213,8 @@ describe("Phase 4 Modular Smart Contracts", function () {
     });
 
     it("Should claim rewards", async function () {
+      await aiToken.approve(rewardDistributor.target, REWARD_AMOUNT);
       await rewardDistributor.createRewardPool(aiToken.target, REWARD_AMOUNT);
-
-      // Deposit tokens to reward distributor
-      await aiToken.connect(deployer).transfer(rewardDistributor.target, REWARD_AMOUNT);
 
       const recipients = [user1.address];
       const amounts = [ethers.parseEther("500")];
@@ -416,8 +414,10 @@ describe("Phase 4 Modular Smart Contracts", function () {
       // Update agent performance
       await performanceAggregator.updateAgentPerformance(user1.address, 8000);
 
-      // Create performance-based reward
-      await rewardDistributor.createPerformanceReward(user1.address, ethers.parseEther("100"));
+      // Create performance-based reward backed by a funded pool
+      await aiToken.approve(rewardDistributor.target, ethers.parseEther("1000"));
+      await rewardDistributor.createRewardPool(aiToken.target, ethers.parseEther("1000"));
+      await rewardDistributor.createPerformanceReward(user1.address, ethers.parseEther("100"), 1);
 
       // createPerformanceReward records a pending reward; it does not
       // credit userTotalRewards until distributePerformanceReward runs.

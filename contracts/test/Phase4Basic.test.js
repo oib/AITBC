@@ -4,10 +4,15 @@ const { ethers } = await network.getOrCreate();
 
 describe("Phase 4 Modular Smart Contracts - Basic Tests", function () {
   let deployer, user1;
-  let contractRegistry, treasuryManager, rewardDistributor;
+  let contractRegistry, treasuryManager, rewardDistributor, aiToken;
 
   beforeEach(async function () {
     [deployer, user1] = await ethers.getSigners();
+
+    // Deploy AIToken — reward pools now pull real tokens at creation.
+    const AIToken = await ethers.getContractFactory("AIToken");
+    aiToken = await AIToken.deploy(ethers.parseEther("1000000"));
+    await aiToken.waitForDeployment();
 
     // Deploy ContractRegistry
     const ContractRegistry = await ethers.getContractFactory("ContractRegistry");
@@ -94,7 +99,8 @@ describe("Phase 4 Modular Smart Contracts - Basic Tests", function () {
     });
 
     it("Should create reward pool", async function () {
-      await rewardDistributor.createRewardPool(deployer.address, ethers.parseEther("1000"));
+      await aiToken.approve(rewardDistributor.getAddress(), ethers.parseEther("1000"));
+      await rewardDistributor.createRewardPool(await aiToken.getAddress(), ethers.parseEther("1000"));
 
       const poolBalance = await rewardDistributor.getPoolBalance(1);
       expect(poolBalance).to.equal(ethers.parseEther("1000"));
@@ -116,7 +122,8 @@ describe("Phase 4 Modular Smart Contracts - Basic Tests", function () {
       await treasuryManager.createBudgetCategory("rewards", ethers.parseEther("1000"));
 
       // Create reward pool
-      await rewardDistributor.createRewardPool(deployer.address, ethers.parseEther("500"));
+      await aiToken.approve(rewardDistributor.getAddress(), ethers.parseEther("500"));
+      await rewardDistributor.createRewardPool(await aiToken.getAddress(), ethers.parseEther("500"));
 
       // Verify both contracts are working
       const budget = await treasuryManager.getBudgetBalance("rewards");

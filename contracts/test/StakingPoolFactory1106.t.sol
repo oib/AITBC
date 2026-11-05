@@ -52,6 +52,10 @@ contract StakingPoolFactory1106Test is Test {
 
         uint256 poolId = factory.createPool("p", 1000, 30 days);
         assertEq(poolId, 1);
+        // Reward pools are funded at creation now (#1105): the factory must
+        // hold a reward float on top of staked principal or the best-effort
+        // rewards leg silently skips claim creation.
+        token.transfer(address(factory), STAKE);
         token.transfer(staker, STAKE);
         vm.prank(staker);
         token.approve(address(factory), STAKE);
@@ -87,9 +91,7 @@ contract StakingPoolFactory1106Test is Test {
         vm.prank(staker);
         factory.unstakeFromPool(1, STAKE);
         uint256 claimId = _claimIdOf(staker);
-        (, , , uint256 amount, , , ) = distributor.rewardClaims(claimId);
-        token.transfer(address(distributor), amount * 2); // top the float up
-        vm.prank(staker);
+        vm.prank(staker); // pool was funded at creation; no top-up needed
         distributor.claimReward(claimId);
         assertGt(token.balanceOf(staker), STAKE, "staker nets principal + rewards");
     }
