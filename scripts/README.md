@@ -28,8 +28,8 @@ override.
 - `docs/` — `gen_master_index.py` regenerates `docs/MASTER_INDEX.md`.
 - `migration/` — one-off data/schema migration helpers.
 - `reset-harness/` — rehearsal/rollback harness for chain resets.
-- `setup/`, `service-management/`, `services/`, `agent/`,
-  `workflow-agent/` — per-service install and workflow helpers.
+- `setup/`, `service-management/`, `services/`, `agent/` —
+  per-service install and workflow helpers.
 - `dev/`, `development/` — dev-node tooling.
 - `utils/` — misc utilities.
 - `release/`, `templates/`, `config/`, `notifications/`, `zk/`,
