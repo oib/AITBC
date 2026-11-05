@@ -19,11 +19,20 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
     uint256 public minStakeAmount;
     uint256 public unbondingPeriod = 7 days;
 
+    // Voting Parameters
+    uint256 public minVotingPeriod = 1 days;
+    // Quorum as percent of totalStaked snapshotted at proposal creation.
+    uint256 public quorumPercentage = 10;
+
     struct Staker {
         uint256 amount;
         uint256 unbondingAmount;
         uint256 unbondingCompleteTime;
         uint256 lastStakeTime;
+        // Stake backing a vote is locked until the voted proposal ends —
+        // otherwise a voter could vote, immediately unstake, and keep the
+        // tally.
+        uint256 votingLockUntil;
     }
 
     mapping(address => Staker) public stakers;
@@ -43,6 +52,9 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         uint256 endTime;
         bool executed;
         bool canceled;
+        uint256 quorum; // participation required, snapshotted at creation
+        address target;
+        bytes callData;
         mapping(address => bool) hasVoted;
     }
 
@@ -85,6 +97,7 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         Staker storage staker = stakers[msg.sender];
         require(_amount > 0 && staker.amount >= _amount, "Invalid amount");
         require(staker.unbondingAmount == 0, "Unbonding already in progress");
+        require(block.timestamp >= staker.votingLockUntil, "Voting lock active");
 
         staker.amount -= _amount;
         staker.unbondingAmount = _amount;
@@ -108,7 +121,19 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
     // --- Proposals & Voting ---
 
     function createProposal(string calldata _region, string calldata _descriptionHash, uint256 _votingPeriod) external returns (uint256) {
+        return _createProposal(_region, _descriptionHash, _votingPeriod, address(0), "");
+    }
+
+    /// Proposal carrying a real execution payload: on success,
+    /// executeProposal performs target.call(callData).
+    function createProposalExec(string calldata _region, string calldata _descriptionHash, uint256 _votingPeriod, address _target, bytes calldata _callData) external returns (uint256) {
+        require(_target != address(0), "No target");
+        return _createProposal(_region, _descriptionHash, _votingPeriod, _target, _callData);
+    }
+
+    function _createProposal(string calldata _region, string calldata _descriptionHash, uint256 _votingPeriod, address _target, bytes memory _callData) internal returns (uint256) {
         require(stakers[msg.sender].amount >= minStakeAmount, "Must be staked to propose");
+        require(_votingPeriod >= minVotingPeriod, "Voting period too short");
 
         // If regional, must be a council member
         if (bytes(_region).length > 0) {
@@ -123,6 +148,9 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         p.descriptionHash = _descriptionHash;
         p.startTime = block.timestamp;
         p.endTime = block.timestamp + _votingPeriod;
+        p.quorum = (totalStaked * quorumPercentage) / 100;
+        p.target = _target;
+        p.callData = _callData;
 
         emit ProposalCreated(p.id, msg.sender, _region, _descriptionHash);
         return p.id;
@@ -143,6 +171,9 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         }
 
         p.hasVoted[msg.sender] = true;
+        if (p.endTime > stakers[msg.sender].votingLockUntil) {
+            stakers[msg.sender].votingLockUntil = p.endTime;
+        }
 
         if (_support) {
             p.forVotes += weight;
@@ -157,11 +188,16 @@ contract DAOGovernance is Ownable, ReentrancyGuard {
         Proposal storage p = proposals[_proposalId];
         require(block.timestamp > p.endTime, "Voting not ended");
         require(!p.executed && !p.canceled, "Already executed or canceled");
+        require(p.forVotes + p.againstVotes >= p.quorum, "Quorum not reached");
         require(p.forVotes > p.againstVotes, "Proposal defeated");
 
         p.executed = true;
-        // The actual execution logic (e.g., transferring treasury funds) would happen here
-        // Usually involves calling other contracts via target[] and callData[] arrays.
+        // Real execution path: exec proposals carry a target + calldata and
+        // the call must succeed. Plain proposals record the mandate only.
+        if (p.target != address(0)) {
+            (bool ok, ) = p.target.call(p.callData);
+            require(ok, "Proposal execution failed");
+        }
 
         emit ProposalExecuted(_proposalId);
     }
