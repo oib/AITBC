@@ -5,6 +5,7 @@ import argparse
 import glob
 import hashlib
 import json
+import os
 import shutil
 import socket
 import sqlite3
@@ -14,23 +15,25 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-REPO_DIR = Path("/opt/aitbc")
+REPO_DIR = Path(os.environ.get("CHAIN_REGEN_REPO_DIR", "/opt/aitbc"))
 BLOCKCHAIN_SRC = REPO_DIR / "apps" / "blockchain-node" / "src"
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 if str(BLOCKCHAIN_SRC) not in sys.path:
     sys.path.insert(0, str(BLOCKCHAIN_SRC))
 
-from aitbc_chain.config import ChainSettings  # noqa: E402
+from aitbc.utils import reset_guard  # noqa: E402
 from aitbc_chain.models import Account, Block, Transaction  # noqa: E402
 from aitbc_chain.state.merkle_patricia_trie import StateManager  # noqa: E402
 from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
 from sqlmodel import Session, create_engine, select  # noqa: E402
 
 SERVICE_NAME = "aitbc-blockchain-node.service"
-DATA_ROOT = Path("/var/lib/aitbc/data")
-BACKUP_ROOT = Path("/var/lib/aitbc/backups/mpt-regeneration")
-ENV_FILES = [Path("/etc/aitbc/blockchain.env"), Path("/etc/aitbc/node.env")]
+DATA_ROOT = Path(os.environ.get("CHAIN_REGEN_DATA_ROOT", "/var/lib/aitbc/data"))
+BACKUP_ROOT = Path(os.environ.get("CHAIN_REGEN_BACKUP_ROOT", "/var/lib/aitbc/backups/mpt-regeneration"))
+ENV_DIR = Path(os.environ.get("CHAIN_REGEN_ENV_DIR", "/etc/aitbc"))
+ENV_FILES = [ENV_DIR / "blockchain.env", ENV_DIR / "node.env"]
+SYSTEMD_DIR = Path(os.environ.get("CHAIN_REGEN_SYSTEMD_DIR", "/etc/systemd/system"))
 
 
 def _run(command: list[str], check: bool = False) -> subprocess.CompletedProcess[str]:
@@ -85,16 +88,14 @@ def _allocation_digest(genesis: dict[str, Any]) -> str | None:
 
 
 def _live_db_files(chain_id: str) -> list[Path]:
+    # DATA_ROOT/mempool.db* is shared by every chain on the host — reset removes
+    # only the target chain's own files.
     chain_dir = DATA_ROOT / chain_id
     files = [
         chain_dir / "chain.db",
         chain_dir / "chain.db-wal",
         chain_dir / "chain.db-shm",
         chain_dir / "chain.db-journal",
-        DATA_ROOT / "mempool.db",
-        DATA_ROOT / "mempool.db-wal",
-        DATA_ROOT / "mempool.db-shm",
-        DATA_ROOT / "mempool.db-journal",
         chain_dir / "mempool.db",
         chain_dir / "mempool.db-wal",
         chain_dir / "mempool.db-shm",
@@ -195,8 +196,7 @@ def _db_snapshot(chain_id: str, db_path: Path) -> dict[str, Any]:
 
 
 def snapshot(chain_id: str, service_name: str) -> dict[str, Any]:
-    settings = ChainSettings()
-    db_path = settings.get_db_path(chain_id)
+    db_path = DATA_ROOT / chain_id / "chain.db"
     genesis_path = DATA_ROOT / chain_id / "genesis.json"
     genesis = _load_genesis(genesis_path)
     data: dict[str, Any] = {
@@ -253,9 +253,52 @@ def backup(chain_id: str, service_name: str, backup_root: Path, timestamp: str |
     return manifest
 
 
-def reset(chain_id: str, service_name: str, yes: bool, force: bool) -> dict[str, Any]:
+def _assert_scratch(chain_id: str, *extra_targets: Path) -> None:
+    """Scratch-only gate for the mutating commands (same contract as reset_guard's
+    legacy tools): AITBC_RESET_SCRATCH set, every target under it, chain not live."""
+    try:
+        reset_guard.assert_scratch_targets(DATA_ROOT, *extra_targets)
+        reset_guard.assert_not_live_chain(chain_id)
+    except reset_guard.ResetGuardError as exc:
+        raise SystemExit(f"reset-guard: {exc}") from exc
+
+
+def _verified_backup_manifest(manifest_path: Path, chain_id: str) -> dict[str, Any]:
+    """Load a backup() manifest and prove it still backs this chain.
+
+    Refuses unless the manifest parses, names this chain and this host, and
+    every listed backup file is present with its recorded sha256.
+    """
+    if not manifest_path.exists():
+        raise SystemExit(f"backup manifest not found: {manifest_path}")
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"backup manifest unreadable: {manifest_path}: {exc}") from exc
+    if manifest.get("chain_id") != chain_id:
+        raise SystemExit(f"backup manifest chain_id {manifest.get('chain_id')!r} does not match {chain_id!r}: {manifest_path}")
+    if manifest.get("host") != socket.gethostname():
+        raise SystemExit(
+            f"backup manifest host {manifest.get('host')!r} does not match {socket.gethostname()!r}: {manifest_path}"
+        )
+    files = manifest.get("files")
+    if not isinstance(files, list) or not files:
+        raise SystemExit(f"backup manifest lists no files: {manifest_path}")
+    for entry in files:
+        backup_file = Path(str(entry.get("backup", "")))
+        expected = entry.get("sha256")
+        if not backup_file.exists() or not expected:
+            raise SystemExit(f"backup manifest entry missing file or sha256: {entry}")
+        if _sha256_file(backup_file) != expected:
+            raise SystemExit(f"backup file sha256 mismatch: {backup_file}")
+    return manifest
+
+
+def reset(chain_id: str, service_name: str, yes: bool, force: bool, backup_manifest: Path) -> dict[str, Any]:
     if not yes:
         raise SystemExit("reset requires --yes")
+    _assert_scratch(chain_id)
+    _verified_backup_manifest(backup_manifest, chain_id)
     service = _service_state(service_name)
     if service["active"] == "active" and not force:
         raise SystemExit(f"{service_name} is active; stop it first or pass --force")
@@ -267,7 +310,8 @@ def reset(chain_id: str, service_name: str, yes: bool, force: bool) -> dict[str,
 
 
 def set_role(chain_id: str, service_name: str, role: str) -> dict[str, Any]:
-    dropin_dir = Path("/etc/systemd/system") / f"{service_name}.d"
+    dropin_dir = SYSTEMD_DIR / f"{service_name}.d"
+    _assert_scratch(chain_id, dropin_dir)
     dropin_path = dropin_dir / "mpt-regeneration.conf"
     if role == "clear":
         if dropin_path.exists():
@@ -331,6 +375,7 @@ def main() -> int:
     reset_parser = subparsers.add_parser("reset")
     reset_parser.add_argument("--yes", action="store_true")
     reset_parser.add_argument("--force", action="store_true")
+    reset_parser.add_argument("--backup-manifest", type=Path, required=True)
 
     verify_parser = subparsers.add_parser("verify")
     verify_parser.add_argument("--require-nonzero-root", action="store_true")
@@ -345,7 +390,7 @@ def main() -> int:
     elif args.command == "backup":
         print_json(backup(args.chain_id, args.service_name, args.backup_root, args.timestamp))
     elif args.command == "reset":
-        print_json(reset(args.chain_id, args.service_name, args.yes, args.force))
+        print_json(reset(args.chain_id, args.service_name, args.yes, args.force, args.backup_manifest))
     elif args.command == "verify":
         result = verify(args.chain_id, args.service_name, args.require_nonzero_root)
         print_json(result)
