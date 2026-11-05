@@ -31,6 +31,20 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     /// createProtectedRental. Existing unprotected rentals are unaffected.
     bool public requireProtectedRentals;
 
+    /// @dev Basis points of `price` withheld from the provider when the
+    /// rental completes without a proven withinSLA performance submission
+    /// (#1113). The withheld share is refunded to the consumer.
+    uint256 public slaPenaltyBps = 5000;
+    /// @dev Grace period after endTime during which the provider may still
+    /// submit performance. Completing inside the window with no submission
+    /// reverts; after it, a missing submission settles at the penalty rate.
+    uint256 public performanceSubmissionWindow = 3 days;
+    /// @dev Total tokens paid out of each agreement's deposit (provider +
+    /// platform fee + consumer refund + dispute award). The contract holds
+    /// pooled funds, so the dispute cap is measured against this per-
+    /// agreement accounting rather than the raw balance (#1113).
+    mapping(uint256 => uint256) public agreementPaidOut;
+
     // Structs
     struct RentalAgreement {
         uint256 agreementId;
@@ -533,11 +547,33 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
         require(block.timestamp >= agreement.endTime, "Rental period not ended");
 
+        // #1113: a missing performance submission gets a grace window —
+        // completing inside it would let the consumer cut off a provider
+        // who is still inside the submission period.
+        if (agreement.performance.lastUpdateTime == 0) {
+            require(
+                block.timestamp >= agreement.endTime + performanceSubmissionWindow,
+                "Performance submission window open"
+            );
+        }
+
         agreement.status = RentalStatus.Completed;
 
-        // Process payment to provider
-        uint256 providerAmount = agreement.price;
+        // #1113: payment follows the SLA result. withinSLA pays the full
+        // price; a proven-false or never-submitted SLA pays the provider
+        // price*(10000-slaPenaltyBps)/10000 and refunds the withheld share
+        // to the consumer. The platform fee always goes to the owner.
+        uint256 providerAmount;
+        uint256 consumerRefund;
+        if (agreement.performance.withinSLA) {
+            providerAmount = agreement.price;
+        } else {
+            providerAmount = (agreement.price * (10000 - slaPenaltyBps)) / 10000;
+            consumerRefund = agreement.price - providerAmount;
+        }
         uint256 platformFeeAmount = agreement.platformFee;
+
+        agreementPaidOut[_agreementId] += providerAmount + platformFeeAmount + consumerRefund;
 
         if (providerAmount > 0) {
             require(
@@ -550,6 +586,13 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             require(
                 paymentToken.transfer(owner(), platformFeeAmount),
                 "Platform fee transfer failed"
+            );
+        }
+
+        if (consumerRefund > 0) {
+            require(
+                paymentToken.transfer(agreement.consumer, consumerRefund),
+                "Consumer refund failed"
             );
         }
 
@@ -570,9 +613,12 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     {
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
 
+        // #1113: disputes are only meaningful while the deposit is still
+        // held. A Completed agreement has already paid out its full deposit;
+        // letting it be disputed enabled a second payout drawn from other
+        // agreements' pooled funds.
         require(
-            agreement.status == RentalStatus.Active ||
-            agreement.status == RentalStatus.Completed,
+            agreement.status == RentalStatus.Active,
             "Cannot dispute this agreement"
         );
 
@@ -704,13 +750,25 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         uint256 _agreementId,
         uint256 _resolutionAmount,
         bool _resolveInFavorOfProvider
-    ) external onlyOwner agreementExists(_agreementId) {
+    ) external onlyOwner agreementExists(_agreementId) nonReentrant {
         require(disputes[_agreementId].exists, "No dispute exists");
         require(!disputes[_agreementId].resolved, "Dispute already resolved");
 
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
+
+        // #1113: the award is capped at this agreement's own unspent
+        // deposit — the token balance is pooled across agreements, so an
+        // uncapped amount would pay out of strangers' escrow. Whatever the
+        // winner does not take is refunded to the consumer (the depositor),
+        // so no remainder is stranded in the pool.
+        uint256 deposit = agreement.price + agreement.platformFee;
+        uint256 paidOut = agreementPaidOut[_agreementId];
+        uint256 unspent = paidOut < deposit ? deposit - paidOut : 0;
+        require(_resolutionAmount <= unspent, "Resolution exceeds agreement funds");
+
         disputes[_agreementId].resolved = true;
         disputes[_agreementId].resolutionAmount = _resolutionAmount;
+        agreementPaidOut[_agreementId] = deposit;
 
         address winner = _resolveInFavorOfProvider ? agreement.provider : agreement.consumer;
 
@@ -718,6 +776,14 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             require(
                 paymentToken.transfer(winner, _resolutionAmount),
                 "Resolution payment failed"
+            );
+        }
+
+        uint256 remainder = unspent - _resolutionAmount;
+        if (remainder > 0) {
+            require(
+                paymentToken.transfer(agreement.consumer, remainder),
+                "Remainder refund failed"
             );
         }
 
@@ -769,6 +835,26 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     function updatePlatformFee(uint256 _newFee) external onlyOwner {
         require(_newFee <= 1000, "Fee too high"); // Max 10%
         platformFeePercentage = _newFee;
+    }
+
+    /**
+     * @dev Sets the SLA penalty withheld from the provider on an unproven or
+     * failed SLA at completion, in basis points of the agreement price.
+     * @param _bps Penalty in basis points (0-10000)
+     */
+    function updateSLAPenaltyBps(uint256 _bps) external onlyOwner {
+        require(_bps <= 10000, "Penalty too high");
+        slaPenaltyBps = _bps;
+    }
+
+    /**
+     * @dev Sets the post-endTime window for performance submission before a
+     * missing submission settles at the penalty rate.
+     * @param _window Window in seconds (1 hour - 30 days)
+     */
+    function updatePerformanceSubmissionWindow(uint256 _window) external onlyOwner {
+        require(_window >= 1 hours && _window <= 30 days, "Window out of range");
+        performanceSubmissionWindow = _window;
     }
 
     /**
