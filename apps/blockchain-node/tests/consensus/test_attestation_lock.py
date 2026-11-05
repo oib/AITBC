@@ -498,3 +498,109 @@ async def test_unsigned_request_shadow_until_armed(monkeypatch):
 
     assert broker.published
     assert svc.attestation_lock(100, 60.0)[0] == "0xffff"
+
+
+@pytest.mark.asyncio
+async def test_published_request_carries_verifying_proposer_signature(monkeypatch):
+    """#1156: the attest_request carries ``proposer_signature`` populated at
+    request-build time, verifiable against the scheduled proposer's key —
+    not only stamped post-commit."""
+    from aitbc.crypto.consensus_signing import sign_block_hash, verify_block_signature
+
+    class _Sub:
+        async def get(self):
+            import asyncio
+
+            await asyncio.sleep(60)
+
+        def close(self):
+            pass
+
+    our_addr, our_key, proposer_addr, proposer_key = _keys()
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+    broker.subscribe = lambda *a, **k: _async_return(_Sub())
+
+    block = SimpleNamespace(
+        chain_id="test-chain",
+        height=100,
+        hash="0x" + "ab" * 32,
+        parent_hash="0x" + "99" * 32,
+        proposer=proposer_addr,
+        state_root="0xroot",
+        bridge_state_root="",
+        aux_state_root="",
+        timestamp=None,
+        signature="",
+    )
+    # Signed exactly the way PoAProposer._sign_block_hash_for signs.
+    block.signature = sign_block_hash(block, proposer_key)
+
+    await svc.collect_attestations(block, min_count=1, timeout=0.05)
+
+    reqs = [m for topic, m in broker.published if topic == svc._request_topic]
+    assert reqs, "no attest_request was published"
+    sig = reqs[0].get("proposer_signature")
+    assert sig == block.signature
+    assert verify_block_signature(reqs[0]["header"], sig, proposer_addr)
+
+
+async def _async_return(value):
+    return value
+
+
+@pytest.mark.asyncio
+async def test_signature_stamped_before_consensus_gates(monkeypatch):
+    """#1156: ``block.signature`` exists when ``_run_consensus_gates`` runs —
+    the attest_request published inside the gates carries it as
+    ``proposer_signature``. Reverting the stamp to post-gates (the #1058
+    regression that stalled the fleet at h18796) must fail this pin."""
+    from contextlib import contextmanager
+    from datetime import UTC, datetime
+
+    @contextmanager
+    def _null_session():
+        yield None
+
+    config = ProposerConfig(
+        chain_id="test-chain",
+        proposer_id="test-node",
+        interval_seconds=1,
+        max_block_size_bytes=1000,
+        max_txs_per_block=100,
+    )
+    proposer = PoAProposer(config=config, session_factory=_null_session)
+
+    block = SimpleNamespace()
+    block.block_metadata = ""
+
+    head = SimpleNamespace()
+    head.timestamp = datetime.now(UTC)
+
+    captured: dict = {}
+
+    async def _gates(_session, _block, _hash, *_args, **_kwargs):
+        captured["signature"] = _block.signature
+        return True
+
+    async def _passes_early_gates(*_args, **_kwargs):
+        return SimpleNamespace()
+
+    async def _broadcast(*_args, **_kwargs):
+        return True
+
+    monkeypatch.setattr(proposer, "_passes_early_gates", _passes_early_gates)
+    monkeypatch.setattr(proposer, "_resolve_proposal_head", lambda *_: (head, 1, b"parent", 1))
+    monkeypatch.setattr(proposer, "_select_round_proposer", lambda *_: ("0x" + "0" * 40, 0))
+    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: ([], {}, {}))
+    monkeypatch.setattr(proposer, "_process_proposal_txs", lambda *_: ([], set(), True))
+    monkeypatch.setattr(proposer, "_reject_if_all_invalid", lambda *_: False)
+    monkeypatch.setattr(proposer, "_assemble_proposal_block", lambda *_: (block, b"fake-block-hash"))
+    monkeypatch.setattr(proposer, "_run_consensus_gates", _gates)
+    monkeypatch.setattr(proposer, "_sign_block_hash_for", lambda *_: "sig")
+    monkeypatch.setattr(proposer, "_commit_and_record_block", lambda *_: None)
+    monkeypatch.setattr(proposer, "_broadcast_block", _broadcast)
+
+    result = await proposer._propose_block()
+
+    assert result is True
+    assert captured["signature"] == "sig", "block reached consensus gates unsigned"
