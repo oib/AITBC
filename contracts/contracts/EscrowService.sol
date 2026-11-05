@@ -880,6 +880,10 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(emergency.requestTime > 0, "No emergency release requested");
         require(block.timestamp <= emergency.votingDeadline, "Voting deadline passed");
         require(!emergency.hasVoted[msg.sender], "Already voted");
+        // Once quorum+threshold is reached the decision is final: further
+        // votes could only re-stamp approvalTime (delaying the timelock) or
+        // flip the tally below threshold while isApproved stayed true.
+        require(!emergency.isApproved, "Emergency release already approved");
 
         emergency.hasVoted[msg.sender] = true;
         emergency.totalVotes++;
@@ -896,9 +900,13 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             uint256 approvalPercentage = (emergency.votesFor * BASIS_POINTS) / emergency.totalVotes;
 
             if (approvalPercentage >= emergencyReleaseVotingThreshold) {
-                emergency.isApproved = true;
-                emergency.approvalTime = block.timestamp;
-                emit EmergencyReleaseApproved(_escrowId, emergency.votesFor, emergency.votesAgainst, true);
+                // Latch: approvalTime is stamped once, at the first vote that
+                // reaches quorum+threshold. isApproved can never be unset here.
+                if (!emergency.isApproved) {
+                    emergency.isApproved = true;
+                    emergency.approvalTime = block.timestamp;
+                    emit EmergencyReleaseApproved(_escrowId, emergency.votesFor, emergency.votesAgainst, true);
+                }
             }
         }
     }
