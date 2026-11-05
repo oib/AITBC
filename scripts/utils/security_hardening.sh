@@ -14,12 +14,15 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PRODUCTION_ENV="/opt/aitbc/apps/coordinator-api/.env.production"
+PRODUCTION_ENV="${PRODUCTION_ENV:-/opt/aitbc/apps/coordinator-api/.env.production}"
+SECURE_DIR="${SECURE_DIR:-/opt/aitbc/secure}"
+API_KEYS_FILE="$SECURE_DIR/api_keys.txt"
+BLOCKCHAIN_SECRETS_ENV="${BLOCKCHAIN_SECRETS_ENV:-/etc/aitbc/blockchain-secrets.env}"
 # The unit is aitbc-coordinator-api; "aitbc-coordinator" does not exist (V23-98). Its one
 # use is the closing "Restart services: systemctl restart $SERVICE_NAME" instruction, so
 # the last thing this script told an operator to run failed with "Unit not found".
 SERVICE_NAME="aitbc-coordinator-api"
-LOG_FILE="/var/log/aitbc-security-hardening.log"
+LOG_FILE="${LOG_FILE:-/var/log/aitbc-security-hardening.log}"
 
 # Logging function
 log() {
@@ -55,12 +58,16 @@ generate_api_keys() {
     MINER_KEY=$(openssl rand -hex 16)
     ADMIN_KEY=$(openssl rand -hex 16)
     WALLET_PASSWORD=$(openssl rand -hex 32)
+    WALLET_IMPORT_PASSWORD="$WALLET_PASSWORD"
 
     log "Generated secure API keys"
     success "API keys generated successfully"
 
-    # Save keys securely
-    cat > /opt/aitbc/secure/api_keys.txt << EOF
+    # Save keys securely (record only — update_production_env reads the shell
+    # variables directly; sourcing this file would strip the quotes and write
+    # "[key]" literals into the env).
+    mkdir -p "$SECURE_DIR"
+    cat > "$API_KEYS_FILE" << EOF
 # AITBC Production API Keys - Generated $(date)
 # Keep this file secure and restricted!
 CLIENT_API_KEYS=["$CLIENT_KEY"]
@@ -69,8 +76,18 @@ ADMIN_API_KEYS=["$ADMIN_KEY"]
 WALLET_IMPORT_PASSWORD="$WALLET_PASSWORD"
 EOF
 
-    chmod 600 /opt/aitbc/secure/api_keys.txt
-    success "API keys saved to /opt/aitbc/secure/api_keys.txt"
+    chmod 600 "$API_KEYS_FILE"
+    success "API keys saved to $API_KEYS_FILE"
+}
+
+# Replace KEY=... in FILE (default $PRODUCTION_ENV) or append it when absent.
+_upsert_env() {
+    local key="$1" value="$2" file="${3:-$PRODUCTION_ENV}"
+    if grep -q "^${key}=" "$file"; then
+        sed -i "s|^${key}=.*|${key}=${value}|" "$file"
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$file"
+    fi
 }
 
 # Update production environment
@@ -82,35 +99,33 @@ update_production_env() {
         cp /opt/aitbc/apps/coordinator-api/.env "$PRODUCTION_ENV"
     fi
 
-    # Update API keys in production env
-    if [[ -f /opt/aitbc/secure/api_keys.txt ]]; then
-        source /opt/aitbc/secure/api_keys.txt
-
-        sed -i "s/CLIENT_API_KEYS=.*/CLIENT_API_KEYS=$CLIENT_API_KEYS/" "$PRODUCTION_ENV"
-        sed -i "s/MINER_API_KEYS=.*/MINER_API_KEYS=$MINER_API_KEYS/" "$PRODUCTION_ENV"
-        sed -i "s/ADMIN_API_KEYS=.*/ADMIN_API_KEYS=$ADMIN_API_KEYS/" "$PRODUCTION_ENV"
-
+    # Update API keys in production env. The values are already shell variables
+    # from generate_api_keys — write them with printf/sed, never `source` the
+    # keys file (bash would strip the quotes and the coordinator would store
+    # "[key]" with brackets).
+    if [[ -z "${CLIENT_KEY:-}" || -z "${MINER_KEY:-}" || -z "${ADMIN_KEY:-}" ]]; then
+        warning "API key variables unset — skipping key update (run generate_api_keys first)"
+    else
+        _upsert_env "CLIENT_API_KEYS" "[\"$CLIENT_KEY\"]"
+        _upsert_env "MINER_API_KEYS" "[\"$MINER_KEY\"]"
+        _upsert_env "ADMIN_API_KEYS" "[\"$ADMIN_KEY\"]"
         success "Production environment updated with secure API keys"
     fi
 
     # Wallet import password belongs in the shared secrets env, not the coordinator file
-    BLOCKCHAIN_SECRETS_ENV="/etc/aitbc/blockchain-secrets.env"
     if [[ -n "${WALLET_IMPORT_PASSWORD:-}" ]]; then
         if [[ ! -f "$BLOCKCHAIN_SECRETS_ENV" ]]; then
-            mkdir -p /etc/aitbc
+            mkdir -p "$(dirname "$BLOCKCHAIN_SECRETS_ENV")"
             touch "$BLOCKCHAIN_SECRETS_ENV"
         fi
-        if grep -q "^WALLET_IMPORT_PASSWORD=" "$BLOCKCHAIN_SECRETS_ENV"; then
-            sed -i "s/^WALLET_IMPORT_PASSWORD=.*/WALLET_IMPORT_PASSWORD=$WALLET_IMPORT_PASSWORD/" "$BLOCKCHAIN_SECRETS_ENV"
-        else
-            echo "WALLET_IMPORT_PASSWORD=$WALLET_IMPORT_PASSWORD" >> "$BLOCKCHAIN_SECRETS_ENV"
-        fi
+        _upsert_env "WALLET_IMPORT_PASSWORD" "$WALLET_IMPORT_PASSWORD" "$BLOCKCHAIN_SECRETS_ENV"
         chmod 600 "$BLOCKCHAIN_SECRETS_ENV"
         success "Wallet import password configured in $BLOCKCHAIN_SECRETS_ENV"
     fi
 
-    # Set production-specific settings
-    cat >> "$PRODUCTION_ENV" << EOF
+    # Set production-specific settings (idempotent: the marker block is appended once)
+    if ! grep -q "^# Production Security Settings" "$PRODUCTION_ENV"; then
+        cat >> "$PRODUCTION_ENV" << EOF
 
 # Production Security Settings
 ENV=production
@@ -121,6 +136,7 @@ RATE_LIMIT_MINER_HEARTBEAT=60
 RATE_LIMIT_CLIENT_SUBMIT=30
 CORS_ORIGINS=["https://aitbc.bubuit.net"]
 EOF
+    fi
 
     success "Production security settings applied"
 }
@@ -270,12 +286,14 @@ security_audit() {
 main() {
     log "Starting AITBC Production Security Hardening..."
 
+    # Check privileges before creating anything.
+    check_root
+
     # Create directories
-    mkdir -p /opt/aitbc/secure
+    mkdir -p "$SECURE_DIR"
     mkdir -p /opt/aitbc/scripts
 
     # Execute security measures
-    check_root
     generate_api_keys
     update_production_env
     setup_security_headers
@@ -300,10 +318,17 @@ main() {
     echo "   3. Run production tests"
     echo "   4. Monitor system performance"
     echo
-    echo "🔑 API Keys Location: /opt/aitbc/secure/api_keys.txt"
-    echo "📊 Health Logs: /var/log/aitbc-health.log"
+    echo "🔑 API Keys Location: $API_KEYS_FILE"
+    echo "📊 Health Logs: /var/log/aitbc/health_check_cron.log"
     echo "🔒 Security Log: $LOG_FILE"
+    echo
+    echo "🔑 Generated keys (shown once — also in $API_KEYS_FILE):"
+    echo "   CLIENT_API_KEY=$CLIENT_KEY"
+    echo "   MINER_API_KEY=$MINER_KEY"
+    echo "   ADMIN_API_KEY=$ADMIN_KEY"
 }
 
-# Run main function
-main "$@"
+# Run main function only when executed, not when sourced by tests.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
