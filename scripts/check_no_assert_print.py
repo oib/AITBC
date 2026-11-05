@@ -6,10 +6,15 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCAN_DIRS = ["aitbc", "apps", "cli", "aitbc/agent_bridge/src"]
+BASELINE = ROOT / "scripts" / "ci" / "assert-print-baseline.txt"
+# Directories that are never production service code. Compared against the
+# path *relative to ROOT* — matching on absolute parts used to let a checkout
+# living under e.g. /x/tests/ or /x/venv/ disable the whole gate.
 SKIP_DIRS = {
     "tests",
+    "test",
     "examples",
+    "example",
     "scripts",
     "migrations",
     "alembic",
@@ -17,7 +22,23 @@ SKIP_DIRS = {
     "__pycache__",
     ".venv",
     "venv",
+    "env",
+    ".env",
     "site-packages",
+    "node_modules",
+    ".git",
+    "data",
+    "docs",
+    "tasks",
+    "contracts",
+    "website",
+    ".github",
+    ".gitea",
+    "dist",
+    "build",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
 }
 
 
@@ -67,40 +88,95 @@ class _AssertPrintVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def _should_scan(path: Path) -> bool:
-    parts = path.parts
-    for part in parts:
+def _should_scan(rel: Path) -> bool:
+    # Compare parts *relative to ROOT*: testing the absolute path meant a
+    # checkout living under e.g. /x/tests/ or /x/venv/ scanned nothing at all.
+    for part in rel.parts:
         if part in SKIP_DIRS:
             return False
-    if path.name.startswith("test_") or path.name.startswith("tests_"):
+    if rel.name.startswith("test_") or rel.name.startswith("tests_"):
         return False
-    return path.suffix == ".py"
+    return rel.suffix == ".py"
 
 
-def main() -> int:
-    found = 0
-    for rel in SCAN_DIRS:
-        base = ROOT / rel
-        if not base.exists():
+def _iter_python_files() -> list[Path]:
+    files: list[Path] = []
+    for path in ROOT.rglob("*.py"):
+        try:
+            rel_path = path.relative_to(ROOT)
+        except ValueError:
             continue
-        for path in base.rglob("*.py"):
-            if not _should_scan(path):
-                continue
-            try:
-                tree = ast.parse(path.read_text(), str(path))
-            except SyntaxError:
-                print(f"syntax error in {path}")
-                return 2
-            visitor = _AssertPrintVisitor(allow_print_in_main=True)
-            visitor.visit(tree)
-            for lineno, kind in visitor.violations:
-                print(f"{path}:{lineno}: {kind}")
-                found += 1
-    if found:
-        print(f"Found {found} production assert/print violation(s)")
+        if _should_scan(rel_path):
+            files.append(path)
+    return sorted(files)
+
+
+def _scan() -> tuple[dict[str, int], list[str]]:
+    """Return (violations per file, error lines)."""
+    per_file: dict[str, int] = {}
+    errors: list[str] = []
+    for path in _iter_python_files():
+        try:
+            tree = ast.parse(path.read_text(), str(path))
+        except SyntaxError:
+            errors.append(f"syntax error in {path}")
+            continue
+        visitor = _AssertPrintVisitor(allow_print_in_main=True)
+        visitor.visit(tree)
+        if visitor.violations:
+            rel = path.relative_to(ROOT).as_posix()
+            per_file[rel] = per_file.get(rel, 0) + len(visitor.violations)
+    return per_file, errors
+
+
+def _read_baseline() -> dict[str, int]:
+    baseline: dict[str, int] = {}
+    if not BASELINE.is_file():
+        return baseline
+    for line in BASELINE.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        count_s, _, path = line.partition(" ")
+        try:
+            baseline[path.strip()] = int(count_s)
+        except ValueError:
+            continue
+    return baseline
+
+
+def main(argv: list[str]) -> int:
+    if "--update" in argv:
+        per_file, errors = _scan()
+        for err in errors:
+            print(err)
+        lines = [f"{count:6d} {path}" for path, count in sorted(per_file.items())]
+        BASELINE.write_text("\n".join(lines) + ("\n" if lines else ""))
+        print(f"baseline updated: {BASELINE} ({sum(per_file.values())} violations in {len(per_file)} files)")
+        return 1 if errors else 0
+
+    per_file, errors = _scan()
+    for err in errors:
+        print(err)
+    if errors:
+        return 2
+
+    baseline = _read_baseline()
+    new_violations = {p: c for p, c in per_file.items() if c > baseline.get(p, 0)}
+    if new_violations:
+        total = 0
+        for path in sorted(new_violations):
+            count = per_file[path]
+            allowed = baseline.get(path, 0)
+            total += count - allowed
+            print(f"{path}: {count} assert/print violation(s) (baseline allows {allowed})")
+        print(f"Found {total} new production assert/print violation(s)")
         return 1
+
+    remaining = sum(baseline.values()) - sum(min(c, baseline[p]) for p, c in per_file.items() if p in baseline)
+    print(f"OK: no new assert/print violations ({sum(per_file.values())} known, baseline {remaining} stale entries)")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
