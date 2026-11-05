@@ -3,13 +3,20 @@
 
 This script applies security hardening directives to all .service files
 while preserving existing functionality. It creates .bak backups.
+
+The target tree defaults to /opt/aitbc and can be pointed at a scratch copy
+with --root or AITBC_HARDEN_ROOT — only apps/*/*.service and scripts/*/*.service
+(the unit directories) are scanned.
 """
 
+import argparse
+import os
 import re
 import shutil
 from pathlib import Path
+from typing import Any
 
-REPO_ROOT = Path("/opt/aitbc")
+REPO_ROOT = Path(os.environ.get("AITBC_HARDEN_ROOT", "/opt/aitbc"))
 
 # Standard security directives to add (safe for most services)
 SECURITY_DIRECTIVES = [
@@ -86,7 +93,9 @@ def insert_after_section_header(content: str, section_name: str, new_lines: list
         # Check if we're entering a section
         if stripped.startswith("[") and stripped.endswith("]"):
             if in_target_section:
-                # We found the next section, insert before this line
+                # End of the target section: keep this header and everything
+                # after it verbatim — dropping the tail used to erase [Install].
+                result.extend(lines[i:])
                 break
             if stripped == f"[{section_name}]":
                 in_target_section = True
@@ -97,7 +106,7 @@ def insert_after_section_header(content: str, section_name: str, new_lines: list
         if in_target_section:
             # Track directives and empty lines in this section
             if stripped == "":
-                # Skip empty lines for now, we'll re-add them
+                result.append(line)
                 continue
             # This is a directive in our target section
             last_directive_in_section = len(result)
@@ -115,7 +124,10 @@ def insert_after_section_header(content: str, section_name: str, new_lines: list
     insertion = ["", "# Security hardening (v0.5.0)"]
     insertion.extend(new_lines)
 
-    return "\n".join(result[:insert_pos] + insertion + result[insert_pos:])
+    out = "\n".join(result[:insert_pos] + insertion + result[insert_pos:])
+    if content.endswith("\n") and not out.endswith("\n"):
+        out += "\n"
+    return out
 
 
 def add_directives(content: str, directives: list[tuple[str, str]]) -> str:
@@ -218,7 +230,7 @@ def add_protect_system(content: str, service_name: str) -> tuple[str, list[str]]
     return content, changes
 
 
-def harden_service_file(path: Path) -> dict[str, any]:
+def harden_service_file(path: Path) -> dict[str, Any]:
     """Harden a single service file. Returns change report."""
     service_name = path.name
     original = path.read_text()
@@ -264,9 +276,31 @@ def harden_service_file(path: Path) -> dict[str, any]:
     }
 
 
-def main():
-    repo = Path("/opt/aitbc")
-    service_files = sorted(repo.rglob("*.service"))
+# Unit files live one directory deep under apps/ and scripts/; a bare rglob
+# would also rewrite copies in docs/, data/, venv/ or stray backup dirs.
+UNIT_DIRS = ("apps", "scripts")
+
+
+def iter_service_files(repo: Path) -> list[Path]:
+    files: list[Path] = []
+    for top in UNIT_DIRS:
+        base = repo / top
+        if base.is_dir():
+            files.extend(base.glob("*/*.service"))
+    return sorted(files)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=REPO_ROOT,
+        help="tree to scan (default: AITBC_HARDEN_ROOT or /opt/aitbc)",
+    )
+    args = parser.parse_args()
+    repo = args.root
+    service_files = iter_service_files(repo)
 
     print(f"Found {len(service_files)} service files to harden")
     print("=" * 60)
