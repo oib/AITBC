@@ -188,6 +188,21 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     mapping(bytes32 => uint256) public conditionEscrows;
     mapping(address => bool) public authorizedOracles;
     mapping(address => bool) public authorizedArbiters;
+    // Arbiter-set epoch: every authorize/revoke bumps arbiterEpoch and the
+    // address's authorizedArbiterEpoch records when it last changed. A vote
+    // on an emergency request only counts when the arbiter was authorized
+    // before the request opened — a timestamp cannot order two writes inside
+    // one block, a counter can (#1152: owner could otherwise authorize a
+    // colluder mid-vote and force the release).
+    uint256 public arbiterEpoch;
+    mapping(address => uint256) public authorizedArbiterEpoch;
+    // Per-request snapshots of the emergency knobs, taken when the request
+    // opens: the owner can retune the globals at will, but only future
+    // requests see the new values (#1152).
+    mapping(uint256 => uint256) internal emergencySnapshotQuorum;
+    mapping(uint256 => uint256) internal emergencySnapshotThreshold;
+    mapping(uint256 => uint256) internal emergencySnapshotTimelock;
+    mapping(uint256 => uint256) internal emergencySnapshotArbiterEpoch;
 
     // Arrays for tracking
     uint256[] public activeEscrows;
@@ -862,6 +877,15 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         emergencyReleases[_escrowId].isApproved = false;
         emergencyReleases[_escrowId].isExecuted = false;
 
+        // Freeze the emergency parameters for this request (#1152): quorum,
+        // threshold and timelock changes by the owner apply to future
+        // requests only — an open vote is evaluated under the rules it
+        // started with.
+        emergencySnapshotQuorum[_escrowId] = emergencyReleaseQuorum;
+        emergencySnapshotThreshold[_escrowId] = emergencyReleaseVotingThreshold;
+        emergencySnapshotTimelock[_escrowId] = emergencyReleaseTimelock;
+        emergencySnapshotArbiterEpoch[_escrowId] = arbiterEpoch;
+
         emit EmergencyReleaseRequested(_escrowId, msg.sender, _reason, block.timestamp + emergencyReleaseDelay);
     }
 
@@ -878,6 +902,14 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         EmergencyRelease storage emergency = emergencyReleases[_escrowId];
 
         require(emergency.requestTime > 0, "No emergency release requested");
+        // The arbiter set is frozen at the request: a vote only counts when
+        // the caller was authorized before the request opened — otherwise the
+        // owner could authorize a colluder mid-vote and force approval (#1152).
+        require(
+            authorizedArbiterEpoch[msg.sender] != 0 &&
+                authorizedArbiterEpoch[msg.sender] <= emergencySnapshotArbiterEpoch[_escrowId],
+            "Arbiter not authorized before request"
+        );
         require(block.timestamp <= emergency.votingDeadline, "Voting deadline passed");
         require(!emergency.hasVoted[msg.sender], "Already voted");
         // Once quorum+threshold is reached the decision is final: further
@@ -894,12 +926,13 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             emergency.votesAgainst++;
         }
 
-        // Check if voting is complete and approved
-        if (emergency.totalVotes >= emergencyReleaseQuorum) {
+        // Check if voting is complete and approved — evaluated under the
+        // quorum/threshold snapshot frozen when the request opened (#1152).
+        if (emergency.totalVotes >= emergencySnapshotQuorum[_escrowId]) {
             // Calculate approval percentage
             uint256 approvalPercentage = (emergency.votesFor * BASIS_POINTS) / emergency.totalVotes;
 
-            if (approvalPercentage >= emergencyReleaseVotingThreshold) {
+            if (approvalPercentage >= emergencySnapshotThreshold[_escrowId]) {
                 // Latch: approvalTime is stamped once, at the first vote that
                 // reaches quorum+threshold. isApproved can never be unset here.
                 if (!emergency.isApproved) {
@@ -931,7 +964,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         require(emergency.isApproved, "Emergency release not approved");
         require(!emergency.isExecuted, "Emergency release already executed");
         require(
-            block.timestamp >= emergency.approvalTime + emergencyReleaseTimelock,
+            block.timestamp >= emergency.approvalTime + emergencySnapshotTimelock[_escrowId],
             "Emergency release timelock not elapsed"
         );
 
@@ -1067,7 +1100,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
      * @param newTimelock Time lock after approval before execution
      */
     function setEmergencyReleaseTimelock(uint256 newTimelock) external onlyOwner {
-        require(newTimelock >= 0, "Timelock cannot be negative");
+        require(newTimelock > 0, "Timelock must be positive");
         require(newTimelock <= 24 hours, "Timelock too long");
         emergencyReleaseTimelock = newTimelock;
     }
@@ -1079,6 +1112,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     function authorizeArbiter(address _arbiter) external onlyOwner {
         require(_arbiter != address(0), "Invalid arbiter address");
         authorizedArbiters[_arbiter] = true;
+        authorizedArbiterEpoch[_arbiter] = ++arbiterEpoch;
     }
 
     /**
@@ -1087,6 +1121,8 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
      */
     function revokeArbiter(address _arbiter) external onlyOwner {
         authorizedArbiters[_arbiter] = false;
+        authorizedArbiterEpoch[_arbiter] = 0;
+        arbiterEpoch++;
     }
 
     // Internal functions

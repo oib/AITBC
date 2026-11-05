@@ -157,4 +157,76 @@ contract EscrowVoteLatch1138Test is Test {
         (, , , , , , , , bool approvedAfter, , ) = _emergency(id);
         assertTrue(approvedAfter);
     }
+
+    // #1152: the owner cannot force an emergency release — params are
+    // snapshotted at the request and the arbiter set is frozen by the
+    // arbiter-epoch counter.
+
+    address colluder = makeAddr("colluder");
+
+    /// Kill sequence from the finding: lower quorum + authorize a colluder
+    /// mid-vote + zero timelock. Every step now fails or is inert for the
+    /// open request.
+    function test_OwnerCannotForceReleaseWithNewArbiter() public {
+        uint256 id = _createStandard();
+        _request(id);
+        escrow.setEmergencyReleaseQuorum(1);
+        escrow.authorizeArbiter(colluder);
+
+        // The colluder was authorized after the request opened — the vote
+        // does not count.
+        vm.prank(colluder);
+        vm.expectRevert("Arbiter not authorized before request");
+        escrow.voteEmergencyRelease(id, true);
+    }
+
+    /// Retuned globals apply only to future requests: the open vote is
+    /// evaluated under its snapshot, including the timelock at execution.
+    function test_SnapshotParamsSurviveOwnerRetune() public {
+        uint256 id = _createStandard();
+        _request(id);
+        escrow.setEmergencyReleaseQuorum(1);
+        escrow.setEmergencyReleaseVotingThreshold(51);
+        escrow.setEmergencyReleaseTimelock(2 hours);
+
+        // Quorum snapshot is 3 — a single vote approves nothing.
+        vm.prank(arb1);
+        escrow.voteEmergencyRelease(id, true);
+        (, , , , , , , , bool approved, , ) = _emergency(id);
+        assertFalse(approved);
+
+        vm.prank(arb2);
+        escrow.voteEmergencyRelease(id, true);
+        vm.prank(arb3);
+        escrow.voteEmergencyRelease(id, true);
+        (, , , , , , , , , , uint256 approvalTime) = _emergency(id);
+
+        // Timelock snapshot is 1 hour — the retuned 2 hours is ignored.
+        vm.warp(approvalTime + 1 hours);
+        escrow.executeEmergencyRelease(id);
+        assertEq(token.balanceOf(beneficiary), AMOUNT);
+    }
+
+    /// A zero timelock would make approval immediately executable — the
+    /// setter now rejects it outright.
+    function test_TimelockFloorRejectsZero() public {
+        vm.expectRevert("Timelock must be positive");
+        escrow.setEmergencyReleaseTimelock(0);
+    }
+
+    /// Revoking clears the epoch; re-authorizing after the request
+    /// opened does not restore a vote on it.
+    function test_ReauthorizedArbiterAfterRequestCannotVote() public {
+        uint256 id = _createStandard();
+        _request(id);
+        escrow.revokeArbiter(arb4);
+        vm.prank(arb4);
+        vm.expectRevert("Not authorized arbiter");
+        escrow.voteEmergencyRelease(id, true);
+
+        escrow.authorizeArbiter(arb4);
+        vm.prank(arb4);
+        vm.expectRevert("Arbiter not authorized before request");
+        escrow.voteEmergencyRelease(id, true);
+    }
 }
