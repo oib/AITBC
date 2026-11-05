@@ -466,7 +466,8 @@ describe("EscrowService High-Priority Tests", function () {
 
       await escrow.setEmergencyReleaseQuorum(2);
       await escrow.setEmergencyReleaseVotingThreshold(51);
-      await escrow.setEmergencyReleaseTimelock(0);
+      // #1152: the timelock floor is >0 — use 1s and advance past it.
+      await escrow.setEmergencyReleaseTimelock(1);
 
       await escrow.authorizeArbiter(stranger.address);
       await escrow.authorizeArbiter(arbiter.address);
@@ -476,8 +477,8 @@ describe("EscrowService High-Priority Tests", function () {
       await escrow.connect(stranger).voteEmergencyRelease(0, true);
       await escrow.connect(arbiter).voteEmergencyRelease(0, true);
 
-      // Approval only arms the release; the timelock executor performs it
-      // (timelock is 0 here, so it is callable immediately).
+      // Approval only arms the release; the timelock executor performs it.
+      await time.increase(1);
       await escrow.executeEmergencyRelease(0);
 
       const account = await escrow.getEscrowAccount(0);
