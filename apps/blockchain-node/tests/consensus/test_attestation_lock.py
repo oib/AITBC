@@ -417,3 +417,84 @@ async def test_tip_matching_parent_drives_schedule(monkeypatch, tmp_path):
     h["header"]["parent_hash"] = parent_hash
     await svc._handle_request(h)
     assert not broker.published  # schedule was derivable → wrong proposer refused
+
+
+# #1058 residual: the request must carry the proposer's block signature —
+# the schedule check proves the claimed name, not authorship.
+# ---------------------------------------------------------------------------
+
+
+def _signed_request(height: int, block_hash: str, signer_key: str, proposer_addr: str, ts) -> dict:
+    """A timed request signed with ``signer_key`` while claiming ``proposer_addr``."""
+    from aitbc.crypto.consensus_signing import sign_block_hash
+
+    req = _timed_header(height, block_hash, proposer_addr, ts)
+    req["proposer_signature"] = sign_block_hash(req["header"], signer_key)
+    return req
+
+
+@pytest.mark.asyncio
+async def test_signed_request_from_scheduled_proposer_is_attested(monkeypatch):
+    from datetime import timedelta
+
+    our_addr, our_key, proposer_addr, proposer_key = _keys()
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+    parent_ts = _schedule(monkeypatch, proposer_addr)
+
+    req = _signed_request(100, "0xcccc", proposer_key, proposer_addr, parent_ts + timedelta(seconds=10))
+    await svc._handle_request(req)
+
+    assert broker.published
+    assert svc.attestation_lock(100, 60.0)[0] == "0xcccc"
+
+
+@pytest.mark.asyncio
+async def test_forged_signature_other_key_is_refused(monkeypatch):
+    """A request naming the scheduled proposer but signed by another key is
+    forged — no attestation, no lock (#1058 done_when)."""
+    from datetime import timedelta
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    forger_key = "0x" + "77" * 32
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+    parent_ts = _schedule(monkeypatch, proposer_addr)
+
+    req = _signed_request(100, "0xdddd", forger_key, proposer_addr, parent_ts + timedelta(seconds=10))
+    await svc._handle_request(req)
+
+    assert not broker.published
+    assert svc.attestation_lock(100, 60.0) is None
+
+
+@pytest.mark.asyncio
+async def test_unsigned_request_refused_once_armed(monkeypatch):
+    """After consensus_require_signed_attest_request is armed an unsigned
+    request is the unproven-forgery case — refused."""
+    from datetime import timedelta
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+    parent_ts = _schedule(monkeypatch, proposer_addr)
+    monkeypatch.setattr(settings, "consensus_require_signed_attest_request", True)
+
+    await svc._handle_request(_timed_header(100, "0xeeee", proposer_addr, parent_ts + timedelta(seconds=10)))
+
+    assert not broker.published
+    assert svc.attestation_lock(100, 60.0) is None
+
+
+@pytest.mark.asyncio
+async def test_unsigned_request_shadow_until_armed(monkeypatch):
+    """Rollout: old peers send unsigned requests — before arming they stay
+    attestable but are counted, never silently accepted."""
+    from datetime import timedelta
+
+    our_addr, our_key, proposer_addr, _ = _keys()
+    svc, broker = _service(monkeypatch, our_addr, our_key, proposer_addr)
+    parent_ts = _schedule(monkeypatch, proposer_addr)
+    monkeypatch.setattr(settings, "consensus_require_signed_attest_request", False)
+
+    await svc._handle_request(_timed_header(100, "0xffff", proposer_addr, parent_ts + timedelta(seconds=10)))
+
+    assert broker.published
+    assert svc.attestation_lock(100, 60.0)[0] == "0xffff"
