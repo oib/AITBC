@@ -15,7 +15,6 @@ Typical usage from the repo root:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
@@ -39,7 +38,8 @@ from aitbc.utils.units import ait_to_units
 from aitbc_chain.config import ChainSettings
 from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.base_models import Account, Block
-from aitbc_chain.state.state_root_utils import compute_state_root_full
+from aitbc_chain.genesis_builder import GenesisBuildError, build_genesis_doc, empty_bridge_root
+from aitbc.crypto.signature_recovery import canonical_address
 
 
 def _service_keys_file() -> Path:
@@ -99,11 +99,6 @@ def _wallet_addresses(wallet_dir: Path) -> set[str]:
     return addrs
 
 
-def _compute_genesis_hash(chain_id: str, timestamp: datetime) -> str:
-    payload = f"{chain_id}|0|0x00|{timestamp.isoformat()}".encode()
-    return "0x" + hashlib.sha256(payload).hexdigest()
-
-
 def _build_allocations(
     node_env: dict[str, str],
     blockchain_env: dict[str, str],
@@ -131,14 +126,15 @@ def _build_allocations(
     return allocations
 
 
-def _seed_chain_db(chain_id: str, genesis_address: str, allocations: list[dict[str, object]]) -> tuple[str, str] | None:
-    """Insert accounts and block 0, then compute and store the state root.
+def _seed_chain_db(chain_id: str, genesis_doc: dict) -> None:
+    """Insert accounts and block 0 exactly as the loader builds them from genesis.json.
 
-    Returns (block_hash, state_root), or None if the state root failed.
+    The block row mirrors ``poa._ensure_genesis_block``: proposer ``genesis``,
+    the document's ``genesis_hash``/``state_root``/``timestamp``, the empty
+    bridge trie root and the allocations in ``block_metadata``.
     """
-    from sqlmodel import select
-
-    block_hash = _compute_genesis_hash(chain_id, GENESIS_TIMESTAMP)
+    allocations = genesis_doc["allocations"]
+    timestamp = datetime.fromisoformat(genesis_doc["timestamp"])
 
     with session_scope() as session:
         for alloc in allocations:
@@ -147,36 +143,26 @@ def _seed_chain_db(chain_id: str, genesis_address: str, allocations: list[dict[s
                     chain_id=chain_id,
                     address=alloc["address"],
                     balance=alloc["balance"],
-                    nonce=0,
+                    nonce=int(alloc.get("nonce", 0)),
                 )
             )
         session.add(
             Block(
                 chain_id=chain_id,
                 height=0,
-                hash=block_hash,
+                hash=genesis_doc["genesis_hash"],
                 parent_hash="0x00",
-                proposer=genesis_address,
-                timestamp=GENESIS_TIMESTAMP,
+                proposer="genesis",
+                timestamp=timestamp,
                 tx_count=0,
-                state_root=None,
+                state_root=genesis_doc["state_root"],
+                bridge_state_root=empty_bridge_root(),
+                block_metadata=json.dumps({"allocations": allocations}),
             )
         )
         session.commit()
-        print(f"[+] Created block 0: {block_hash}")
-
-    with session_scope() as session:
-        state_root = compute_state_root_full(session, chain_id)
-        if not state_root:
-            print("[!] Failed to compute state root", file=sys.stderr)
-            return None
-        block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == 0)).one()
-        block.state_root = state_root
-        session.add(block)
-        session.commit()
-        print(f"[+] State root: {state_root}")
-
-    return block_hash, state_root
+        print(f"[+] Created block 0: {genesis_doc['genesis_hash']}")
+        print(f"[+] State root: {genesis_doc['state_root']}")
 
 
 def main() -> int:
@@ -224,6 +210,22 @@ def main() -> int:
         print("[!] " + derived_key_error(derived, override=ALLOW_DERIVED_ENV), file=sys.stderr)
         return 1
 
+    # Canonical EIP-55 spelling and the loader-valid document in one step:
+    # build_genesis_doc recomputes state_root and genesis_hash with the same
+    # code the node's _verify_genesis_claims runs, so the file it emits is
+    # bootstrap-able by construction.
+    try:
+        for alloc in allocations:
+            alloc["address"] = canonical_address(str(alloc["address"]), strict=True)
+        genesis_doc = build_genesis_doc(
+            chain_id=chain_id,
+            allocations=allocations,
+            timestamp=GENESIS_TIMESTAMP.isoformat(),
+        )
+    except (ValueError, GenesisBuildError) as exc:
+        print(f"[!] genesis document refused: {exc}", file=sys.stderr)
+        return 1
+
     if data_dir.exists():
         ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         backup = data_dir.with_name(f"{data_dir.name}-pre-0x-migration-{ts}")
@@ -245,31 +247,9 @@ def main() -> int:
     init_db()
     print("[+] Database initialized")
 
-    seeded = _seed_chain_db(chain_id, genesis_address, allocations)
-    if seeded is None:
-        return 1
-    block_hash, state_root = seeded
+    _seed_chain_db(chain_id, genesis_doc)
 
-    genesis_data = {
-        "chain_id": chain_id,
-        "block": {
-            "height": 0,
-            "hash": block_hash,
-            "parent_hash": "0x00",
-            "proposer": "genesis",
-            "timestamp": GENESIS_TIMESTAMP.isoformat(),
-            "tx_count": 0,
-            "chain_id": chain_id,
-            "state_root": state_root,
-            "metadata": {
-                "chain_type": "mainnet",
-                "purpose": "production",
-                "consensus_algorithm": "poa",
-            },
-        },
-        "allocations": allocations,
-    }
-    genesis_json.write_text(json.dumps(genesis_data, indent=2))
+    genesis_json.write_text(json.dumps(genesis_doc, indent=2))
     os.chmod(genesis_json, 0o644)
     print(f"[+] Wrote {genesis_json}")
     print("[+] Done. Start the blockchain node to begin block production.")
