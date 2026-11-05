@@ -56,6 +56,9 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
         uint256 finalAmount;
         bool isDistributed;
         uint256 distributedAt;
+        // Pool the reward pays out of; 0 marks rewards created before pools
+        // were required (they can never become claims).
+        uint256 poolId;
     }
 
     // Mappings
@@ -67,6 +70,12 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
     mapping(address => mapping(address => uint256)) public userTokenRewards; // user => token => amount
     mapping(uint256 => uint256[]) public poolClaims;
     mapping(address => uint256[]) public agentPerformanceRewards;
+
+    // Token amounts earmarked for reward pools: incremented by totalRewards
+    // when a pool is created (the tokens are pulled at creation), decremented
+    // by claim.amount on each claimReward. emergencyWithdraw may only take
+    // the balance above this reserve so pool backing cannot be drained.
+    mapping(address => uint256) public reservedByToken;
 
     // Counters
     uint256 public poolCounter;
@@ -95,6 +104,7 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
     error PoolNotFound(uint256 poolId);
     error PoolNotActive(uint256 poolId);
     error InsufficientPoolBalance(uint256 poolId, uint256 requested, uint256 available);
+    error InsufficientBalance(uint256 requested, uint256 available);
     error ClaimNotFound(uint256 claimId);
     error ClaimAlreadyUsed(uint256 claimId);
     error InvalidRecipient(address recipient);
@@ -223,6 +233,11 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
             description: ""
         });
 
+        // Fund the pool at creation: the bookkeeping totalRewards is only
+        // ever backed by tokens actually held by this contract.
+        IERC20(token).safeTransferFrom(msg.sender, address(this), totalRewards);
+        reservedByToken[token] += totalRewards;
+
         activePoolIds.push(poolId);
 
         emit RewardPoolCreated(poolId, token, totalRewards, "");
@@ -242,6 +257,7 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
         whenNotPaused
         validAmount(totalRewards)
         nonReentrant
+        returns (uint256)
     {
         if (token == address(0)) revert InvalidToken(token);
 
@@ -258,9 +274,14 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
             description: description
         });
 
+        // Fund the pool at creation (see createRewardPool).
+        IERC20(token).safeTransferFrom(msg.sender, address(this), totalRewards);
+        reservedByToken[token] += totalRewards;
+
         activePoolIds.push(poolId);
 
         emit RewardPoolCreated(poolId, token, totalRewards, description);
+        return poolId;
     }
 
     /**
@@ -293,29 +314,35 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
         // Create claims and update user balances
         for (uint256 i = 0; i < recipients.length; i++) {
             if (amounts[i] > 0) {
-                uint256 claimId = ++claimCounter;
-
-                rewardClaims[claimId] = RewardClaim({
-                    claimId: claimId,
-                    poolId: poolId,
-                    recipient: recipients[i],
-                    amount: amounts[i],
-                    claimedAt: 0,
-                    isClaimed: false,
-                    merkleProof: bytes32(0)
-                });
-
-                userClaims[recipients[i]].push(claimId);
-                userTotalRewards[recipients[i]] += amounts[i];
-                userTokenRewards[recipients[i]][pool.token] += amounts[i];
-                poolClaims[poolId].push(claimId);
+                _createClaim(poolId, recipients[i], amounts[i]);
             }
         }
 
-        // Update pool
-        pool.distributedRewards += totalAmount;
-
         emit RewardsDistributed(poolId, recipients.length, totalAmount);
+    }
+
+    /**
+     * @dev Create a claim against a pool and update all bookkeeping.
+     * Caller must have already verified pool balance covers the amount.
+     */
+    function _createClaim(uint256 poolId, address recipient, uint256 amount) internal returns (uint256 claimId) {
+        claimId = ++claimCounter;
+
+        rewardClaims[claimId] = RewardClaim({
+            claimId: claimId,
+            poolId: poolId,
+            recipient: recipient,
+            amount: amount,
+            claimedAt: 0,
+            isClaimed: false,
+            merkleProof: bytes32(0)
+        });
+
+        userClaims[recipient].push(claimId);
+        userTotalRewards[recipient] += amount;
+        userTokenRewards[recipient][rewardPools[poolId].token] += amount;
+        poolClaims[poolId].push(claimId);
+        rewardPools[poolId].distributedRewards += amount;
     }
 
     /**
@@ -340,6 +367,7 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
         // Update pool
         RewardPool storage pool = rewardPools[claim.poolId];
         pool.claimedRewards += claim.amount;
+        reservedByToken[pool.token] -= claim.amount;
 
         // Calculate claim fee
         uint256 fee = (claim.amount * CLAIM_FEE_PERCENTAGE) / BASIS_POINTS;
@@ -359,11 +387,12 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
     /**
      * @dev Create performance-based reward
      */
-    function createPerformanceReward(address agent, uint256 baseAmount)
+    function createPerformanceReward(address agent, uint256 baseAmount, uint256 poolId)
         external
         onlyAuthorized
         whenNotPaused
         validAmount(baseAmount)
+        validPool(poolId)
         nonReentrant
     {
         if (agent == address(0)) revert InvalidRecipient(agent);
@@ -393,7 +422,8 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
             performanceMultiplier: performanceMultiplier,
             finalAmount: finalAmount,
             isDistributed: false,
-            distributedAt: 0
+            distributedAt: 0,
+            poolId: poolId
         });
 
         agentPerformanceRewards[agent].push(rewardId);
@@ -419,8 +449,21 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
         reward.isDistributed = true;
         reward.distributedAt = block.timestamp;
 
-        // Update user rewards
-        userTotalRewards[reward.agent] += reward.finalAmount;
+        if (reward.poolId != 0) {
+            // Turn the reward into a real claim against its pool so the
+            // agent can actually be paid (previously this only bumped
+            // userTotalRewards — a counter nothing could pay out).
+            RewardPool storage pool = rewardPools[reward.poolId];
+            uint256 availableBalance = pool.totalRewards - pool.distributedRewards;
+            if (reward.finalAmount > availableBalance) {
+                revert InsufficientPoolBalance(reward.poolId, reward.finalAmount, availableBalance);
+            }
+            _createClaim(reward.poolId, reward.agent, reward.finalAmount);
+        } else {
+            // Legacy rewards created before pools were required have no
+            // backing pool; keep the counter-only behaviour for them.
+            userTotalRewards[reward.agent] += reward.finalAmount;
+        }
 
         emit PerformanceRewardDistributed(rewardId, reward.agent, reward.finalAmount);
     }
@@ -551,6 +594,13 @@ contract RewardDistributor is IRewardDistributor, Ownable, ReentrancyGuard, Paus
      */
     function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
         if (token == address(0)) revert InvalidToken(token);
+
+        // Pool-backing tokens are reserved: only the surplus above
+        // reservedByToken may leave through this path.
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        uint256 reserved = reservedByToken[token];
+        uint256 unreserved = balance > reserved ? balance - reserved : 0;
+        if (amount > unreserved) revert InsufficientBalance(amount, unreserved);
 
         IERC20(token).safeTransfer(msg.sender, amount);
     }

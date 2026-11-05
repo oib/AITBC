@@ -476,12 +476,14 @@ contract StakingPoolFactory is IStakingPoolFactory, Ownable, ReentrancyGuard, Pa
             // unstake with rewards reverted and locked the principal. A
             // distributor-side failure must still never lock the
             // principal, so the whole leg is best-effort (#1106).
-            try rewardDistributor.createRewardPool(address(stakingToken), rewards) returns (uint256 rewardPoolId) {
-                address[] memory recipients = new address[](1);
-                recipients[0] = msg.sender;
-                uint256[] memory amounts = new uint256[](1);
-                amounts[0] = rewards;
-                try rewardDistributor.distributeRewards(rewardPoolId, recipients, amounts) {} catch {}
+            try stakingToken.approve(address(rewardDistributor), rewards) {
+                try rewardDistributor.createRewardPool(address(stakingToken), rewards) returns (uint256 rewardPoolId) {
+                    address[] memory recipients = new address[](1);
+                    recipients[0] = msg.sender;
+                    uint256[] memory amounts = new uint256[](1);
+                    amounts[0] = rewards;
+                    try rewardDistributor.distributeRewards(rewardPoolId, recipients, amounts) {} catch {}
+                } catch {}
             } catch {}
         }
 
