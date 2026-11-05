@@ -182,7 +182,7 @@ describe("AgentMarketplaceV2", function () {
     it("Should purchase a call", async function () {
       const providerBalance = await paymentToken.balanceOf(provider.address);
 
-      await market.connect(consumer).purchaseCall(capabilityId);
+      await market.connect(consumer).purchaseCall(capabilityId, ethers.parseEther("1000000"));
 
       const newProviderBalance = await paymentToken.balanceOf(provider.address);
       expect(newProviderBalance).to.be.gt(providerBalance);
@@ -190,7 +190,7 @@ describe("AgentMarketplaceV2", function () {
 
     it("Should emit CapabilityPurchased event", async function () {
       await expect(
-        market.connect(consumer).purchaseCall(capabilityId)
+        market.connect(consumer).purchaseCall(capabilityId, ethers.parseEther("1000000"))
       ).to.emit(market, "CapabilityPurchased");
     });
 
@@ -204,7 +204,7 @@ describe("AgentMarketplaceV2", function () {
       );
 
       await expect(
-        market.connect(consumer).purchaseCall(capabilityId)
+        market.connect(consumer).purchaseCall(capabilityId, ethers.parseEther("1000000"))
       ).to.be.revertedWith("Capability inactive");
     });
 
@@ -218,12 +218,12 @@ describe("AgentMarketplaceV2", function () {
       );
 
       await expect(
-        market.connect(consumer).purchaseCall(capabilityId)
+        market.connect(consumer).purchaseCall(capabilityId, ethers.parseEther("1000000"))
       ).to.be.revertedWith("Not available for single call");
     });
 
     it("Should track total calls and revenue", async function () {
-      await market.connect(consumer).purchaseCall(capabilityId);
+      await market.connect(consumer).purchaseCall(capabilityId, ethers.parseEther("1000000"));
 
       const capability = await market.capabilities(capabilityId);
       expect(capability.totalCalls).to.equal(1);
@@ -244,7 +244,7 @@ describe("AgentMarketplaceV2", function () {
     });
 
     it("Should subscribe to capability", async function () {
-      const tx = await market.connect(consumer).subscribeToCapability(capabilityId);
+      const tx = await market.connect(consumer).subscribeToCapability(capabilityId, ethers.parseEther("1000000"));
       const receipt = await tx.wait();
 
       expect(receipt).to.not.be.undefined;
@@ -252,7 +252,7 @@ describe("AgentMarketplaceV2", function () {
 
     it("Should emit SubscriptionCreated event", async function () {
       await expect(
-        market.connect(consumer).subscribeToCapability(capabilityId)
+        market.connect(consumer).subscribeToCapability(capabilityId, ethers.parseEther("1000000"))
       ).to.emit(market, "SubscriptionCreated");
     });
 
@@ -266,7 +266,7 @@ describe("AgentMarketplaceV2", function () {
       );
 
       await expect(
-        market.connect(consumer).subscribeToCapability(capabilityId)
+        market.connect(consumer).subscribeToCapability(capabilityId, ethers.parseEther("1000000"))
       ).to.be.revertedWith("Capability inactive");
     });
 
@@ -280,12 +280,12 @@ describe("AgentMarketplaceV2", function () {
       );
 
       await expect(
-        market.connect(consumer).subscribeToCapability(capabilityId)
+        market.connect(consumer).subscribeToCapability(capabilityId, ethers.parseEther("1000000"))
       ).to.be.revertedWith("Subscriptions not enabled");
     });
 
     it("Should check subscription validity", async function () {
-      const tx = await market.connect(consumer).subscribeToCapability(capabilityId);
+      const tx = await market.connect(consumer).subscribeToCapability(capabilityId, ethers.parseEther("1000000"));
       await tx.wait();
 
       // Subscription creates a valid subscription that can be checked
@@ -363,7 +363,7 @@ describe("AgentMarketplaceV2", function () {
       const receipt = await tx.wait();
       capabilityId = receipt.logs[0].args[0];
 
-      await market.connect(consumer).purchaseCall(capabilityId);
+      await market.connect(consumer).purchaseCall(capabilityId, ethers.parseEther("1000000"));
 
       const ownerBalance = await paymentToken.balanceOf(deployer.address);
       await market.connect(deployer).withdrawPlatformFees();
