@@ -55,12 +55,19 @@ def parse(body):
     return data if isinstance(data, dict) else None
 
 
-OWNERS = ("A", "B", "C", "operator")
+OWNERS = ("A", "B", "C", "D", "operator")
 
 
 def scoped(names, scope):
     """The labels of one exclusive scope (owner/..., state/...) among names."""
     return sorted(n for n in names if n.startswith(scope + "/"))
+
+
+# Operator, 4 Nov 2026: owner/A|B|C labels were removed from the open issues and must not come back through
+# sync push. The register keeps the owner field and the row card still shows it; only the A/B/C label is dropped.
+# owner/operator and owner/D (5 Nov 2026) are pushed for filter lanes.
+PUSH_OWNER_LABELS = False
+PUSH_OWNER_LABEL_OWNERS = frozenset({"operator", "D"})
 
 
 def expected_labels(row, names):
@@ -69,7 +76,11 @@ def expected_labels(row, names):
     needs-verify (the legacy label 58, or state/needs-verify) wins while the row is open; state/working is kept
     while the row is ready (coders set it, the register has no such field); otherwise held when not ready, else ready.
     A closed row carries no state label."""
-    owner = f"owner/{row['owner']}" if row.get("owner") in OWNERS else None
+    owner = (
+        f"owner/{row['owner']}"
+        if row.get("owner") in OWNERS and (PUSH_OWNER_LABELS or row.get("owner") in PUSH_OWNER_LABEL_OWNERS)
+        else None
+    )
     if row.get("status") == "closed":
         return owner, None
     if "needs-verify" in names or "state/needs-verify" in names:
