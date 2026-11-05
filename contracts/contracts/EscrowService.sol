@@ -107,7 +107,6 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         string reason;
         uint256 requestTime;
         uint256 votingDeadline;
-        mapping(address => bool) hasVoted;
         uint256 votesFor;
         uint256 votesAgainst;
         uint256 totalVotes;
@@ -203,6 +202,11 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => uint256) internal emergencySnapshotThreshold;
     mapping(uint256 => uint256) internal emergencySnapshotTimelock;
     mapping(uint256 => uint256) internal emergencySnapshotArbiterEpoch;
+    // Per-escrow request round + per-round voter stamps: hasVoted was a
+    // bool that could never be reset for a retry; the round counter makes
+    // votes from an expired request expire with it (#1153).
+    mapping(uint256 => uint256) internal emergencyRequestRound;
+    mapping(uint256 => mapping(address => uint256)) internal emergencyVotedRound;
 
     // Arrays for tracking
     uint256[] public activeEscrows;
@@ -863,9 +867,18 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
 
         EmergencyRelease storage emergency = emergencyReleases[_escrowId];
-        require(emergency.requestTime == 0, "Emergency release already requested");
+        // A request whose vote expired unfinalized can be retried (#1153):
+        // an approved or executed request is final and can never reopen.
+        require(
+            emergency.requestTime == 0 ||
+                (block.timestamp > emergency.votingDeadline && !emergency.isApproved && !emergency.isExecuted),
+            "Emergency release already requested"
+        );
 
-        // Initialize emergency release without nested mapping
+        // Initialize emergency release without nested mapping. On a
+        // re-request the round counter bumps and every tally resets — old
+        // votes cannot carry into the new request (#1153).
+        emergencyRequestRound[_escrowId]++;
         emergencyReleases[_escrowId].escrowId = _escrowId;
         emergencyReleases[_escrowId].initiator = msg.sender;
         emergencyReleases[_escrowId].reason = _reason;
@@ -876,6 +889,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         emergencyReleases[_escrowId].totalVotes = 0;
         emergencyReleases[_escrowId].isApproved = false;
         emergencyReleases[_escrowId].isExecuted = false;
+        emergencyReleases[_escrowId].approvalTime = 0;
 
         // Freeze the emergency parameters for this request (#1152): quorum,
         // threshold and timelock changes by the owner apply to future
@@ -911,13 +925,19 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             "Arbiter not authorized before request"
         );
         require(block.timestamp <= emergency.votingDeadline, "Voting deadline passed");
-        require(!emergency.hasVoted[msg.sender], "Already voted");
+        // Votes are keyed to the request round, not a resettable flag —
+        // an arbiter who voted on an expired request may vote again on the
+        // retry, but only once per round (#1153).
+        require(
+            emergencyVotedRound[_escrowId][msg.sender] != emergencyRequestRound[_escrowId],
+            "Already voted"
+        );
         // Once quorum+threshold is reached the decision is final: further
         // votes could only re-stamp approvalTime (delaying the timelock) or
         // flip the tally below threshold while isApproved stayed true.
         require(!emergency.isApproved, "Emergency release already approved");
 
-        emergency.hasVoted[msg.sender] = true;
+        emergencyVotedRound[_escrowId][msg.sender] = emergencyRequestRound[_escrowId];
         emergency.totalVotes++;
 
         if (_vote) {
