@@ -218,9 +218,10 @@ describe("AgentStaking High-Priority Tests", function () {
       const stakeAfter = await agentStaking.getStake(stakeId);
       expect(stakeAfter[6]).to.equal(2); // status = COMPLETED
 
-      // Verify staker received stake amount (900 after penalty) + rewards
+      // #1112: accumulatedRewards is unfunded — the staker receives the
+      // penalized principal only; funded rewards go through claimPoolRewards.
       const balanceAfter = await paymentToken.balanceOf(staker.address);
-      expect(balanceAfter).to.be.greaterThan(balanceBefore + ethers.parseEther("900"));
+      expect(balanceAfter).to.equal(balanceBefore + ethers.parseEther("900"));
     });
 
     it("Should apply early unbonding penalty if completed within 30 days", async function () {
@@ -239,10 +240,11 @@ describe("AgentStaking High-Priority Tests", function () {
       const tx = await agentStaking.connect(staker).completeUnbonding(stakeId);
       const receipt = await tx.wait();
 
-      // Verify penalty was applied (10% of 1000 AITBC = 100 AITBC)
+      // Verify penalty was applied (10% of 1000 AITBC = 100 AITBC) and the
+      // penalty went to the owner — #1112: no unfunded rewards are paid.
       const balanceAfter = await paymentToken.balanceOf(staker.address);
-      const expectedBalance = balanceBefore + ethers.parseEther("900") + accumulatedRewards; // 1000 - 100 penalty + rewards
-      expect(balanceAfter).to.be.closeTo(expectedBalance, ethers.parseEther("0.01"));
+      const expectedBalance = balanceBefore + ethers.parseEther("900"); // 1000 - 100 penalty
+      expect(balanceAfter).to.equal(expectedBalance);
     });
   });
 });
