@@ -10,7 +10,7 @@ genesis" for most gates.** The version-resolution code treats `0`/falsy
 thresholds as *inactive* — the rule never activates. Only the `>=`-style
 non-version gates (`bridge_lock_leaf_v2_height`, `escrow_fee_sweep_pass_min_height`)
 treat `0` as "on". The uniform bc-2 value is therefore **`1`**: every produced
-block (heights >= 1) resolves to the newest armed ruleset — v19 on this
+block (heights >= 1) resolves to the newest armed ruleset — v21 on this
 build — on both the producer and the replay path. Proven empirically by the
 `gates1` profile.
 
@@ -39,23 +39,25 @@ Env names are the pydantic field names uppercased (`STATE_TRANSITION_V9_HEIGHT`,
 | `state_transition_v17_height` | 8900 (code-pinned, `config.py:946`) | — | truthy `and h >= t` | 1 | v17 inactive — unsigned `STAKE_LOCK`/`STAKE_RELEASE`/`BOUNTY_*` stay rejected as `missing_signature` even with `payload.auth`; HTLC/AUTO_STAKE rejected at every version | `state_transition.py` cascade; field `config.py:946` (BNT-1 revival) |
 | `state_transition_v18_height` | 9600 (code-pinned, `config.py:958`) | 9600 — armed fleet-wide 2026-10-28, live on bc-2 | truthy `and h >= t` | 1 | v18 inactive — apply stays nondeterministic: `secrets.token_hex` liquidity stake ids and `datetime.now(UTC)` on the apply path (locked_until, accrual, bond verdict) instead of tx-hash-derived ids and the sealed header timestamp | `state_transition.py` cascade top (`:967-969`); field `config.py:958` (v14-aux-root-nondeterminism remediation) |
 | `state_transition_v19_height` | None (`config.py:994`; unset = unarmed) | 0 — not set on the fleet (no `STATE_TRANSITION_V19_HEIGHT` in the hub's node env files, 2 Nov) | truthy `and h >= t` | 1 | v19 inactive — a `BOND_LOCK` top-up on a bond whose row is not `status=active` is still admitted and raises `amount` while the row keeps its terminal status (the stranded-funds bug, BOND-LOCK-TOPUP-SLASHED-1 #782) | `state_transition.py:972-973`; refusal `state_transition.py:1842-1857` (`block_version >= 19`), admission `rpc/transactions.py:243-261`; field `config.py:994` |
+| `state_transition_v20_height` | None (unset = unarmed) | 18200 — armed fleet-wide, live on bc-2 | truthy `and h >= t` | 1 | v20 inactive — unsigned `value` may diverge from signed `amount` (#1066) and a `BOND_LOCK` signer need not be the payload provider nor bounded lock_days (#1067) | `state_transition.py:1384-1391`, `:1853-1868` (`block_version >= 20`); field `config.py` after v19 |
+| `state_transition_v21_height` | None (unset = unarmed) | 0 — not set on the fleet; operator pin 22000 named on #1142 for the bc-2 restart wave | truthy `and h >= t` | 1 | v21 inactive — `AGENT_SESSION_*` replay as generic transfers; session-bound `TRANSFER`/`ESCROW_LOCK` need no `payload.session_id`; no `agent_spend_ledger` charge (AGENT-SPEND-B-1 #1142) | `state_transition.py` cascade top, validate tail + apply tail (`block_version >= 21`), admission `rpc/transactions.py`; `agent_spend.py`; field `config.py` after v20 |
 
 Replay-path readers: `get_block_version` (`state_transition.py:906-955`)
 checks the v8 switch first (`:923-924`), then walks v7..v2 with `> 0 and
 height >= t`, stamp wins below v8.
 Producer-path readers: `get_block_version_for_height`
-(`state_transition.py:958-1014`) walks v19..v9 on truthiness, v8..v3 on
+(`state_transition.py:958-1014`) walks v21..v9 on truthiness, v8..v3 on
 `> 0`, and has the v2 special tail (`if t > 0 and h < t: return 1;
 return 2` — with t=0 the `return 2` always hits). The two tails disagree
 under all-zero: replay v1, producer v2 — a produced block would not replay
 under the rules it was built with. `gates1` removes the divergence: both
-paths resolve **1** at height 0 and **19** at every height >= 1.
+paths resolve **1** at height 0 and **21** at every height >= 1.
 
 ### Producer-side stamp
 
 - `poa.py:786` — new blocks stamp
   `block_metadata.state_transition_version = get_block_version_for_height(next_height)`;
-  under `gates1` every produced block (h >= 1) stamps **19**.
+  under `gates1` every produced block (h >= 1) stamps **21**.
 - `poa.py:1153, 1265, 2126` — block building uses the same function; the
   `>= 14` at `:1265` gates aux-root production.
 - `remote_attestation.py:183` — `>= 9` check on produced heights.
@@ -118,9 +120,9 @@ consensus: inherit live values unless the release decides otherwise.
 - **h0:** replay `get_block_version` = 1, producer `for_height` = 1 — agree.
   Genesis is prebuilt, not produced, so this only matters for replaying a
   supplied block 0.
-- **h1+:** both paths = **19**. A producer-built block (stamped 19) is
+- **h1+:** both paths = **21**. A producer-built block (stamped 21) is
   accepted by the replay path at the same height; an unstamped or mis-stamped
-  (stamp=1) block also resolves 19 — stamps cannot downgrade post-v8 blocks.
+  (stamp=1) block also resolves 21 — stamps cannot downgrade post-v8 blocks.
 - **v14 aux-root from block 1:** the v14 rule requires `aux_state_root` on
   import (`sync_block_import.py:801`) and refuses unreadable bridge leaves
   (`state_transition.py:1445`) — both live on the empty h1 block; recorded in

@@ -7,6 +7,8 @@ Inverted index: each `V9_METRIC_KNOWN_TX_TYPES` record type → the
 
 | Record type | Test files |
 |---|---|
+| `AGENT_SESSION_GRANT` | — |
+| `AGENT_SESSION_REVOKE` | — |
 | `AI_JOB` | [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
 | `BOND_LOCK` | [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |
 | `BOND_RELEASE` | [test_v9_type_coverage_replay.py](../../tests/unit/test_v9_type_coverage_replay.py) |

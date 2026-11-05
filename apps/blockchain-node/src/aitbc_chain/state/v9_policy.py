@@ -128,6 +128,10 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         "RECEIPT_CLAIM",
         "IPFS_SUBSCRIPTION",
         "EXCHANGE",
+        # v21 (AGENT-SPEND-B-1, #1142) — apply recognizes both below the gate
+        # too, where they replay as generic transfers like every unknown name.
+        "AGENT_SESSION_GRANT",
+        "AGENT_SESSION_REVOKE",
     }
 )
 

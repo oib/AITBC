@@ -1007,6 +1007,17 @@ class ChainSettings(BaseSettings):
     # on every host together with the validator restart wave.
     state_transition_v19_height: int | None = None
     state_transition_v20_height: int | None = None
+    # v21 (AGENT-SPEND-B-1, #1142): on-chain agent spend sessions. At/after
+    # this height ``AGENT_SESSION_GRANT``/``AGENT_SESSION_REVOKE`` manage the
+    # ``agent_spend_session`` table, session-bound senders must name a live
+    # ``payload.session_id`` on TRANSFER/ESCROW_LOCK, and spends accrue to the
+    # ``agent_spend_ledger`` day bucket (height // 1290) inside the same apply
+    # transaction. Both tables join the committed fingerprint set at v21.
+    # ``None`` (the default) keeps the rule unarmed: the activation height is
+    # a separate operator pin, set on every host together with the validator
+    # restart wave — a mid-rollout mixed set would apply different session
+    # rules and fork.
+    state_transition_v21_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
