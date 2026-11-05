@@ -505,7 +505,7 @@ groups:
 - name: aitbc-attestation-arrival
   rules:
   - alert: AttestationArrivalDegraded
-    expr: aitbc_attestation_arrival_share < 0.97
+    expr: aitbc_attestation_arrival_share{db!~".*island.*"} < 0.97
     for: 30m
     labels:
       severity: warning
@@ -520,7 +520,7 @@ groups:
         that validator's connectivity and the proposer journal 'Attestation arrival:'
         lines.
   - alert: AttestationValidatorSilent
-    expr: aitbc_attestation_consecutive_missed{validator!="genesis"} >= 20
+    expr: aitbc_attestation_consecutive_missed{db!~".*island.*",validator!="genesis"} >= 20
     for: 10m
     labels:
       severity: warning
