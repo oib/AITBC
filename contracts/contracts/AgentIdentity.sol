@@ -38,9 +38,11 @@ contract AgentIdentity {
     }
 
     /**
-     * @notice Register or update an agent name.
+     * @notice Register or update the caller's agent name. Agents name
+     *      themselves; the owner-only gate meant only the contract owner
+     *      could ever hold a name.
      */
-    function registerAgent(bytes32 name) external onlyOwner {
+    function registerAgent(bytes32 name) external {
         agentName[msg.sender] = name;
     }
 
