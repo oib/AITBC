@@ -54,14 +54,12 @@ contract AgentMemory is Ownable, ReentrancyGuard {
         // Verify ZK Proof if provided and verifier is set
         if (_zkProofHash != bytes32(0) && address(zkVerifier) != address(0)) {
             require(_proof.length > 0, "Proof required for hash");
-            // Parse proof from bytes and verify
-            // Note: This is a simplified version - actual implementation would need proper proof parsing
-            bool isValid = zkVerifier.verifyReceiptProof(
-                [uint(0), uint(0)], // a
-                [[uint(0), uint(0)], [uint(0), uint(0)]], // b
-                [uint(0), uint(0)], // c
-                [uint256(_zkProofHash)] // publicSignals
-            );
+            // The proof bytes carry the Groth16 points: abi.encode(a, b, c).
+            // The hash being proven stays the public signal. Zeroed points
+            // used to be passed here, so no caller proof was ever checked.
+            (uint[2] memory a, uint[2][2] memory b, uint[2] memory c) =
+                abi.decode(_proof, (uint[2], uint[2][2], uint[2]));
+            bool isValid = zkVerifier.verifyReceiptProof(a, b, c, [uint256(_zkProofHash)]);
             require(isValid, "ZK Proof verification failed");
         }
 
