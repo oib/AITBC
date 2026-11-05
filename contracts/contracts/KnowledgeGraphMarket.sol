@@ -93,10 +93,16 @@ contract KnowledgeGraphMarket is Ownable, ReentrancyGuard {
         hasPurchased[_id][msg.sender] = true;
 
         Purchase storage p = purchases[_id][msg.sender];
+        // A refunded purchase leaves the slot populated (refunded=true,
+        // delivered=false, delivered key intact); re-purchasing must reset it
+        // or the new escrow would be undeliverable (#1154).
         p.graphId = _id;
         p.buyer = msg.sender;
         p.timestamp = block.timestamp;
         p.paid = graph.price;
+        p.delivered = false;
+        p.refunded = false;
+        p.encryptedKey = "";
 
         emit GraphPurchased(_id, msg.sender, graph.price);
     }
