@@ -31,6 +31,8 @@ OPEN_LOCKS = {
     "ipfs_rental_20260910144545_e01131a8": 36_000_000,
     "sw_job_20260910203053_207d09b8": 60_500,
     "edge-test-002": 36_000,
+    "fleet-smoke-nov4-escrow-1793831384": 360_000,
+    "fleet-smoke-cli-login-1793832016": 360_000,
 }
 
 
