@@ -139,7 +139,7 @@ Two Sepolia deployments are recorded in `contracts/deployments-agent-wallet-sepo
 | Address | Git | Managed registration |
 |---------|-----|----------------------|
 | `0x2F66f3eb7e6E31aa8A9Bdbb60f557854FBb9ad5e` | `c610d0f10` | **No agent consent** (1149B squatter risk — legacy rehearsal only) |
-| `0x5e595F5112450276980958e3e197F0307aa371c5` | `1ff11a641` | **`proposeManagedAgentRegistration` + `acceptManagedAgentRegistration`** (#1149) |
+| `0x5e595F5112450276980958e3e197F0307aa371c5` | `1ff11a641` | **`proposeManagedAgentRegistration` + `acceptManagedAgentRegistration(agent, expectedPolicyOwner)`** (#1149) |
 
 **Mainnet v1** must ship the consent API (`1ff11a641` lineage), not the pre-consent
 bytecode at `0x2F66f3…`. For new Sepolia rehearsal, prefer **`0x5e595F…`**.

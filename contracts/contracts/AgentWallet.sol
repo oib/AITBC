@@ -162,6 +162,12 @@ contract AgentWallet is Ownable, ReentrancyGuard {
             totalSpent: 0,
             isActive: true
         });
+        // Self-registration supersedes any managed proposal — drop it so a
+        // stale entry cannot be mistaken for a live offer to accept (#1151).
+        if (pendingManagedRegistration[_agent].active) {
+            delete pendingManagedRegistration[_agent];
+            emit ManagedAgentProposalCancelled(_agent, _agent);
+        }
 
         emit AgentRegistered(_agent, msg.sender);
     }
@@ -207,11 +213,18 @@ contract AgentWallet is Ownable, ReentrancyGuard {
     /**
      * @dev Agent accepts pending terms — only the agent EOA can activate (#1149 / #1101 parity).
      */
-    function acceptManagedAgentRegistration(address _agent) external {
+    function acceptManagedAgentRegistration(address _agent, address _expectedPolicyOwner) external {
         require(msg.sender == _agent, "Only agent can accept");
         require(agents[_agent].owner == address(0), "Agent already registered");
         PendingManagedRegistration memory pending = pendingManagedRegistration[_agent];
         require(pending.active, "No pending proposal");
+        // Bind the accept to the proposal the agent intends — without this a
+        // front-running proposeManagedAgentRegistration swaps the pending
+        // policy owner and the agent accepts the attacker's terms (#1151).
+        require(
+            pending.policyOwner == _expectedPolicyOwner,
+            "Proposal not from expected policy owner"
+        );
         delete pendingManagedRegistration[_agent];
         _finalizeManagedAgentRegistration(
             _agent,
