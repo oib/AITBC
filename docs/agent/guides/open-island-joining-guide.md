@@ -274,20 +274,13 @@ NODE_URL=http://hub.aitbc.bubuit.net/ aitbc agent-msg send \
   --wallet agent-agent
 ```
 
-## Advanced Setup with agent Scripts
+## Automated Setup Scripts
 
-For automated setup using agent:
-
-```bash
-cd /opt/aitbc/scripts/workflow-agent
-
-# Run pre-flight setup
-./01_preflight_setup_agent.sh
-
-# Run follower node setup (modified for hub)
-# Edit 03_follower_node_setup_agent.sh to use hub.aitbc.bubuit.net
-./03_follower_node_setup_agent.sh
-```
+The `scripts/workflow-agent/` suite was retired (#1042, #1043): its `agent`
+CLI does not exist, so every step silently fell back to manual commands —
+including a keystore and chain-data wipe with a fixed password on any host
+missing the CLI, and "completed" reports written without measuring anything.
+Use the manual steps in this guide; there is no supported scripted path.
 
 ## Troubleshooting
 
