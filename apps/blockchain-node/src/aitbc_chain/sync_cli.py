@@ -2,21 +2,42 @@
 """
 Standalone bulk sync utility for fast catch-up.
 Usage: python -m aitbc_chain.sync_cli --source http://<peer>:8202 [--batch-size 100]
+
+For island chains (or any chain whose unit env files carry chain-specific
+settings like VALIDATOR_SET), pass --env-file so the settings singleton
+loads them before the first import of aitbc_chain.config:
+
+    python -m aitbc_chain.sync_cli --source https://peer/island \
+        --env-file /etc/aitbc/blockchain-island.env --env-file /etc/aitbc/node-island.env
 """
 
 import argparse
 import asyncio
 import os
 
-from aitbc_chain.config import settings
-from aitbc_chain.database import init_db, session_scope
-from aitbc_chain.logger import get_logger
-from aitbc_chain.sync import ChainSync
-
 from aitbc.aitbc_logging import configure_logging
 
 configure_logging(level="INFO", service_name="blockchain-sync", to_file=True)
-logger = get_logger(__name__)
+
+
+def _apply_env_files(env_files: list[str]) -> None:
+    """Merge --env-file paths into AITBC_CHAIN_ENV_FILE before config import.
+
+    aitbc_chain.config reads its env file list at import time, so this must
+    run before any aitbc_chain.* import. Paths are comma-joined after any
+    existing AITBC_CHAIN_ENV_FILE value; pydantic-settings gives later files
+    precedence, so the unit's env file overrides blockchain.env where they
+    overlap (e.g. the island's VALIDATOR_SET). When the var is unset the
+    implicit /etc/aitbc/blockchain.env default is prepended — setting the
+    var at all replaces that default.
+    """
+    if not env_files:
+        return
+    existing = os.environ.get("AITBC_CHAIN_ENV_FILE")
+    if existing is None:
+        existing = "/etc/aitbc/blockchain.env"
+    merged = [p for p in (existing + "," + ",".join(env_files)).split(",") if p]
+    os.environ["AITBC_CHAIN_ENV_FILE"] = ",".join(merged)
 
 
 async def main() -> None:
@@ -27,7 +48,26 @@ async def main() -> None:
     )
     parser.add_argument("--batch-size", type=int, default=100, help="Blocks per batch")
     parser.add_argument("--poll-interval", type=float, default=0.2, help="Seconds between batches")
+    parser.add_argument(
+        "--env-file",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Env file to load into chain settings before startup (repeatable); "
+        "use the unit's env files for island chains, e.g. /etc/aitbc/blockchain-island.env",
+    )
     args = parser.parse_args()
+
+    _apply_env_files(args.env_file)
+
+    # Imported lazily: aitbc_chain.config snapshots env files at import time,
+    # so settings must not exist before --env-file is applied.
+    from aitbc_chain.config import settings
+    from aitbc_chain.database import init_db, session_scope
+    from aitbc_chain.logger import get_logger
+    from aitbc_chain.sync import ChainSync
+
+    logger = get_logger(__name__)
 
     # Ensure the chain DB schema is up to date (adds missing columns such as
     # block.signature to existing DBs). create_all only handles new tables.
