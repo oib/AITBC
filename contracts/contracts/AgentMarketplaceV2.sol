@@ -120,10 +120,13 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Purchase a single call of a capability
      */
-    function purchaseCall(uint256 _capabilityId) external nonReentrant whenNotPaused capabilityExists(_capabilityId) {
+    function purchaseCall(uint256 _capabilityId, uint256 _maxPrice) external nonReentrant whenNotPaused capabilityExists(_capabilityId) {
         Capability storage cap = capabilities[_capabilityId];
         require(cap.isActive, "Capability inactive");
         require(cap.pricePerCall > 0, "Not available for single call");
+        // A price raised between quote and purchase can never cost the buyer
+        // more than _maxPrice (#1109).
+        require(cap.pricePerCall <= _maxPrice, "Price above maxPrice");
 
         uint256 platformFee = (cap.pricePerCall * platformFeePercentage) / 10000;
         uint256 providerAmount = cap.pricePerCall - platformFee;
@@ -145,10 +148,11 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Subscribe to an agent capability for 30 days
      */
-    function subscribeToCapability(uint256 _capabilityId) external nonReentrant whenNotPaused capabilityExists(_capabilityId) returns (uint256) {
+    function subscribeToCapability(uint256 _capabilityId, uint256 _maxPrice) external nonReentrant whenNotPaused capabilityExists(_capabilityId) returns (uint256) {
         Capability storage cap = capabilities[_capabilityId];
         require(cap.isActive, "Capability inactive");
         require(cap.isSubscriptionEnabled, "Subscriptions not enabled");
+        require(cap.subscriptionPrice <= _maxPrice, "Price above maxPrice");
 
         uint256 platformFee = (cap.subscriptionPrice * platformFeePercentage) / 10000;
         uint256 providerAmount = cap.subscriptionPrice - platformFee;
@@ -181,11 +185,17 @@ contract AgentMarketplaceV2 is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @dev Check if a subscription is still active and valid
+     * @dev Check if the caller holds a live subscription for the given
+     *      capability. Bound to the service id and the subscriber — a
+     *      subscription for capability A can no longer be presented as access
+     *      to capability B (#1109).
      */
-    function checkSubscription(uint256 _subscriptionId) external view returns (bool) {
+    function checkSubscription(uint256 _capabilityId, uint256 _subscriptionId) external view returns (bool) {
         Subscription memory sub = subscriptions[_subscriptionId];
-        return sub.isActive && (block.timestamp < sub.expiryTimestamp);
+        return sub.capabilityId == _capabilityId
+            && sub.subscriberAgent == msg.sender
+            && sub.isActive
+            && (block.timestamp < sub.expiryTimestamp);
     }
 
     /**
