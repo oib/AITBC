@@ -226,6 +226,153 @@ def _is_bond_burn(address: str) -> bool:
     return canonical_address(address) == _BOND_BURN_ADDRESS
 
 
+# v22 (BOND-RELEASE-001, BOND-LOCK-TOPUP-PROVIDER-MISMATCH, #1166/#1167):
+# compile-time protocol constant — no env, config or chain parameter may
+# influence it (spec v2.2 §4.4). Every bond becomes releasable no later
+# than created_at + this horizon, regardless of top-up count.
+PROTOCOL_MAX_LOCK_DURATION = timedelta(days=3650)
+
+
+def bond_tx_verdict(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    payload: Any,
+    sender: str,
+    recipient: str,
+    value: Any,
+    *,
+    block_version: int,
+    block_time: datetime | None,
+    block_height: int | None = None,
+) -> str | None:
+    """v22 bond authorization verdict — None when the op may proceed.
+
+    Shared by ``validate_transaction``, mempool admission and (as
+    defense-in-depth) ``_handle_bond_transaction``. Pure function of
+    (tx, persisted rows, sealed ``block_time``): no wall-clock, env or
+    node-local reads. Inert below ``block_version 22`` and for
+    ``BOND_SLASH`` (authority-gated, unchanged).
+
+    Enforces spec v2.2: mandatory ``payload.provider`` bound to the
+    signer AND the persisted ``bond.provider``; absolute lock ceiling
+    ``min(now + lock_days, created_at + PROTOCOL_MAX_LOCK_DURATION)``;
+    post-ceiling and NULL-expiry refusals; zero-mutation hard rejects.
+    """
+    if block_version < 22 or tx_type not in ("BOND_LOCK", "BOND_RELEASE"):
+        return None
+    payload = payload if isinstance(payload, dict) else {}
+    bond_id = payload.get("bond_id")
+    if not bond_id:
+        return "missing bond_id in payload"
+    provider = payload.get("provider")
+    if not provider:
+        return "missing provider in payload"
+    sender_addr = _to_ait_address(sender or "")
+    if _to_ait_address(provider or "") != sender_addr:
+        return "not signed by the bond provider"
+    now = _bond_verdict_now(block_time)
+    if tx_type == "BOND_LOCK":
+        return _bond_lock_verdict(session, chain_id, bond_id, payload, sender_addr, recipient, value, now=now)
+    return _bond_release_verdict(session, chain_id, bond_id, sender_addr, recipient, value, now=now)
+
+
+def _bond_verdict_now(block_time: datetime | None) -> datetime:
+    """Sealed block time (UTC-normalized); wall-clock only for non-consensus callers."""
+    now = block_time if block_time is not None else datetime.now(UTC)
+    return now if now.tzinfo is not None else now.replace(tzinfo=UTC)
+
+
+def _bond_lock_verdict(
+    session: Session,
+    chain_id: str,
+    bond_id: str,
+    payload: dict[str, Any],
+    sender_addr: str,
+    recipient: str,
+    value: Any,
+    *,
+    now: datetime,
+) -> str | None:
+    """v22 BOND_LOCK verdict: escrow recipient, positive int value, bounded
+    lock_days, then new-bond or persisted-provider top-up rules."""
+    if not _is_bond_escrow(_to_ait_address(recipient or "")):
+        return "recipient is not the bond escrow address"
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        return "non-positive lock value"
+    try:
+        lock_days = int(payload.get("lock_days", 30))
+    except (TypeError, ValueError, OverflowError):
+        return "BOND_LOCK refused: invalid lock_days"
+    if not 1 <= lock_days <= 3650:
+        return "BOND_LOCK refused: lock_days out of range (1-3650)"
+    existing = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
+    if existing is None:
+        return None
+    return _bond_topup_verdict(existing, bond_id, sender_addr, value, now=now)
+
+
+def _bond_topup_verdict(existing: Bond, bond_id: str, sender_addr: str, value: int, *, now: datetime) -> str | None:
+    """v22 top-up rules on an existing bond row: active status, persisted
+    provider binding, absolute ceiling from immutable created_at, int64 bound."""
+    if existing.status != "active":
+        return f"BOND_LOCK top-up refused: bond {bond_id} is {existing.status}, not active"
+    if _to_ait_address(existing.provider or "") != sender_addr:
+        return "BOND_LOCK top-up refused: signer is not the bond provider"
+    created = existing.created_at or now
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
+    if now >= created + PROTOCOL_MAX_LOCK_DURATION:
+        return f"BOND_LOCK refused: bond {bond_id} lock horizon exhausted"
+    if existing.amount + value > 2**63 - 1:
+        return "BOND_LOCK refused: bond amount overflow"
+    return None
+
+
+def _bond_release_verdict(
+    session: Session,
+    chain_id: str,
+    bond_id: str,
+    sender_addr: str,
+    recipient: str,
+    value: Any,
+    *,
+    now: datetime,
+) -> str | None:
+    """v22 BOND_RELEASE verdict: provider recipient, zero value, active bond,
+    persisted-provider binding, expiry/amount/escrow sufficiency."""
+    if _to_ait_address(recipient or "") != sender_addr:
+        return "recipient must be the provider"
+    if value != 0:
+        return "must have value=0"
+    bond = session.exec(
+        select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
+    ).first()
+    if not bond:
+        return f"unknown or inactive bond {bond_id}"
+    if _to_ait_address(bond.provider or "") != sender_addr:
+        return "not signed by the bond provider"
+    return _bond_release_row_verdict(session, chain_id, bond, bond_id, now)
+
+
+def _bond_release_row_verdict(session: Session, chain_id: str, bond: Bond, bond_id: str, now: datetime) -> str | None:
+    """Expiry (NULL fails closed), positive amount, escrow sufficiency."""
+    if bond.locked_until is None:
+        return "no lock expiry recorded"
+    locked_until = bond.locked_until
+    if locked_until.tzinfo is None:
+        locked_until = locked_until.replace(tzinfo=UTC)
+    if now < locked_until:
+        return f"lock period for {bond_id} has not expired"
+    if bond.amount <= 0:
+        return "bond has nothing to release"
+    escrow = session.get(Account, (chain_id, _BOND_ESCROW_ADDRESS))
+    escrow_balance = escrow.balance if escrow is not None else 0
+    if escrow_balance < bond.amount:
+        return f"escrow balance {escrow_balance} below release amount {bond.amount}"
+    return None
+
+
 def _escrow_address(job_id: str) -> str:
     """Derive a deterministic escrow address for a job (S-4).
 
@@ -978,6 +1125,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v22_threshold = getattr(settings, "state_transition_v22_height", None)
+    if v22_threshold and height >= v22_threshold:
+        return 22
     v21_threshold = getattr(settings, "state_transition_v21_height", None)
     if v21_threshold and height >= v21_threshold:
         return 21
@@ -1327,6 +1477,7 @@ class StateTransition:
         block_height: int | None = None,
         *,
         skip_dedup: bool = False,
+        block_time: datetime | None = None,
     ) -> tuple[bool, str]:
         """
         Validate a transaction before applying state changes.
@@ -1892,6 +2043,28 @@ class StateTransition:
                         False,
                         f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active",
                     )
+        if tx_type in ("BOND_LOCK", "BOND_RELEASE") and block_version >= 22:
+            # v22 (BOND-RELEASE-001, BOND-LOCK-TOPUP-PROVIDER-MISMATCH,
+            # #1166/#1167): persisted-provider ownership, mandatory
+            # payload.provider binding, absolute lock ceiling, NULL
+            # fail-closed. Hard reject — validate False means zero
+            # mutation (no fee, no nonce). Read-only verdict; placed with
+            # the other BOND checks, before any account-ensuring branch
+            # that could apply to these types (none exist).
+            bond_error = bond_tx_verdict(
+                session,
+                chain_id,
+                tx_type,
+                tx_data.get("payload"),
+                sender_addr,
+                recipient_addr,
+                value,
+                block_version=block_version,
+                block_time=block_time,
+                block_height=block_height,
+            )
+            if bond_error:
+                return (False, bond_error)
         if block_version >= 21:
             # v21 (AGENT-SPEND-B-1, #1142): on-chain agent spend sessions.
             # Grant/revoke lifecycle checks plus session-bound TRANSFER and
@@ -1954,7 +2127,14 @@ class StateTransition:
         """
         logger.info("apply_transaction called for tx %s, tx_data keys: %s", tx_hash, list(tx_data.keys()))
         is_valid, error_msg = self.validate_transaction(
-            session, chain_id, tx_data, tx_hash, block_version=block_version, block_height=block_height, skip_dedup=skip_dedup
+            session,
+            chain_id,
+            tx_data,
+            tx_hash,
+            block_version=block_version,
+            block_height=block_height,
+            skip_dedup=skip_dedup,
+            block_time=block_time,
         )
         if not is_valid:
             return (False, error_msg)
@@ -2585,16 +2765,44 @@ class StateTransition:
         now = (
             block_time if (block_version is not None and block_version >= 18 and block_time is not None) else datetime.now(UTC)
         )
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=UTC)
         if tx_type == "BOND_LOCK":
             if not _is_bond_escrow(recipient_addr):
                 return "recipient is not the bond escrow address"
             if value <= 0:
                 return "non-positive lock value"
             lock_days = int(payload.get("lock_days", 30))
-            locked_until = now + timedelta(days=lock_days)
             # Reuse an existing active bond with the same id if it exists (top-up).
             existing = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
+            if block_version is not None and block_version >= 22:
+                # v22: absolute ceiling anchored on the immutable created_at —
+                # min(now + lock_days, created_at + PROTOCOL_MAX_LOCK_DURATION).
+                # Post-ceiling top-ups refused. Unreachable for consensus
+                # transactions (validate rejects first); defense for
+                # non-consensus callers of this handler.
+                created = (existing.created_at if existing is not None else now) or now
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=UTC)
+                ceiling = created + PROTOCOL_MAX_LOCK_DURATION
+                if existing is not None and now >= ceiling:
+                    return "bond lock horizon exhausted"
+                locked_until = min(now + timedelta(days=lock_days), ceiling)
+            else:
+                locked_until = now + timedelta(days=lock_days)
             if existing:
+                if block_version is not None and block_version >= 22:
+                    # v22 defense-in-depth: the shared verdict already refused
+                    # these for consensus txs; keep apply honest for callers
+                    # that bypass validate.
+                    if existing.status != "active":
+                        return f"BOND_LOCK top-up refused: bond {bond_id} is {existing.status}, not active"
+                    if sender_addr != _to_ait_address(existing.provider or ""):
+                        return "top-up signer is not the bond provider"
+                    if _to_ait_address(payload.get("provider") or "") != _to_ait_address(existing.provider or ""):
+                        return "top-up provider does not match bond provider"
+                    if existing.amount + value > 2**63 - 1:
+                        return "BOND_LOCK refused: bond amount overflow"
                 existing.amount += value
                 existing.locked_until = locked_until
                 existing.updated_at = now
@@ -2628,12 +2836,21 @@ class StateTransition:
             ).first()
             if not bond:
                 return f"unknown or inactive bond {bond_id}"
+            if block_version is not None and block_version >= 22:
+                # v22: the persisted provider is authoritative — matching
+                # payload.provider proved nothing (BOND-RELEASE-001).
+                if sender_addr != _to_ait_address(bond.provider or ""):
+                    return "not signed by the bond provider"
             if bond.locked_until:
                 locked_until = bond.locked_until
                 if locked_until.tzinfo is None:
                     locked_until = locked_until.replace(tzinfo=UTC)
                 if now < locked_until:
                     return f"lock period for {bond_id} has not expired"
+            elif block_version is not None and block_version >= 22:
+                # v22: NULL expiry fails closed; pre-v22 NULL rows stayed
+                # immediately releasable for replay compatibility.
+                return "no lock expiry recorded"
             release_amount = bond.amount
             if release_amount <= 0:
                 return "bond has nothing to release"

@@ -259,6 +259,34 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                     if existing_bond is not None and existing_bond.status != "active":
                         raise ValueError(f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active")
 
+        if tx_type in ("BOND_LOCK", "BOND_RELEASE"):
+            # v22 (BOND-RELEASE-001, BOND-LOCK-TOPUP-PROVIDER-MISMATCH,
+            # #1166/#1167): refuse at the door what apply refuses — the
+            # same shared verdict, judged at the version a block at the
+            # next height would use. block_time is the door's advisory
+            # estimate; the sealed block_time is authoritative at apply.
+            # Below the activation height admission is unchanged.
+            from ..state.state_transition import bond_tx_verdict, get_block_version_for_height as _gbv_v22
+
+            _head_v22 = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+            _next_height_v22 = (_head_v22 or 0) + 1
+            _version_v22 = _gbv_v22(_next_height_v22)
+            if _version_v22 >= 22:
+                bond_error = bond_tx_verdict(
+                    session,
+                    chain_id,
+                    tx_type,
+                    tx_data.get("payload"),
+                    tx_data.get("from", ""),
+                    tx_data.get("to", ""),
+                    tx_data.get("value", tx_data.get("amount", 0)),
+                    block_version=_version_v22,
+                    block_time=datetime.now(UTC),
+                    block_height=_next_height_v22,
+                )
+                if bond_error:
+                    raise ValueError(bond_error)
+
         # v21 (AGENT-SPEND-B-1, #1142): refuse at the door what apply would
         # refuse — session lifecycle shape errors and session-bound spend
         # violations. Same verdict function apply runs at block_version of the
