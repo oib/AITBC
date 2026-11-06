@@ -5,10 +5,17 @@ import "forge-std/Test.sol";
 import "../contracts/CrossChainBridge.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract OwnerSafeMockToken is ERC20 {
     constructor() ERC20("Mock Token", "MTK") {
         _mint(msg.sender, 1_000_000 * 10**18);
+    }
+}
+
+contract BigSupplyMockToken is ERC20 {
+    constructor() ERC20("Big Token", "BMT") {
+        _mint(msg.sender, 10_000_000 * 10**18);
     }
 }
 
@@ -409,5 +416,96 @@ contract CrossChainBridgeOwnerSafeTest is Test {
         uint256 before = sourceToken.balanceOf(user);
         _exec(address(bridge), abi.encodeCall(CrossChainBridge.cancelBridge, (requestId, "timed out")));
         assertEq(sourceToken.balanceOf(user), before + amount);
+    }
+
+    // ---------- 6. BRIDGE-RESIDUALS-1 pins (#1210 / #795 residual) ----------
+
+    function _initiate(IERC20 token, uint256 amount, uint256 targetChain, address to)
+        internal
+        returns (uint256)
+    {
+        vm.startPrank(user);
+        token.approve(address(bridge), amount * 2);
+        uint256 id = bridge.initiateBridge(address(token), address(token), amount, targetChain, to);
+        vm.stopPrank();
+        return id;
+    }
+
+    /// @dev Every confirmer must sign the SAME lockTxHash: a quorum cannot be
+    /// assembled across two different lock hashes (#795 residual — the last
+    /// confirmer's hash used to win the stored field).
+    function test_ConfirmBridge_RejectsLockHashMismatch() public {
+        uint256 amount = 100 * 10**18;
+        uint256 requestId = _initiate(sourceToken, amount, TARGET_CHAIN, recipient);
+
+        bytes32 hashA = keccak256("lock-tx-A");
+        bytes32 hashB = keccak256("lock-tx-B");
+
+        vm.prank(validator1);
+        bridge.confirmBridge(requestId, hashA, _signValidator(V1_PK, requestId, hashA));
+
+        // validator2 signs a DIFFERENT lock hash — must revert, not count.
+        vm.prank(validator2);
+        vm.expectRevert("Confirmations must agree on lock tx hash");
+        bridge.confirmBridge(requestId, hashB, _signValidator(V2_PK, requestId, hashB));
+
+        // the stored hash is still hashA; agreeing confirmers proceed.
+        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.PENDING));
+        vm.prank(validator2);
+        bridge.confirmBridge(requestId, hashA, _signValidator(V2_PK, requestId, hashA));
+        vm.prank(validator3);
+        bridge.confirmBridge(requestId, hashA, _signValidator(V3_PK, requestId, hashA));
+        (, , , , , st, ) = bridge.getBridgeRequest(requestId);
+        assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.CONFIRMED));
+    }
+
+    /// @dev MAX_BRIDGE_AMOUNT is now enforced: a token whose bridgeLimit
+    /// exceeds the global cap still cannot bridge above 1M tokens.
+    function test_InitiateBridge_MaxAmountEnforced() public {
+        BigSupplyMockToken big = new BigSupplyMockToken();
+        // bridgeLimit above MAX_BRIDGE_AMOUNT so only the global cap binds.
+        bridge.addSupportedToken(address(big), 5_000_000 * 10**18, 0, false);
+        big.transfer(user, 5_000_000 * 10**18);
+
+        uint256 tooMuch = 1_000_001 * 10**18; // MAX_BRIDGE_AMOUNT + 1 token
+        vm.startPrank(user);
+        big.approve(address(bridge), tooMuch);
+        vm.expectRevert("Amount exceeds max bridge amount");
+        bridge.initiateBridge(address(big), address(big), tooMuch, TARGET_CHAIN, recipient);
+        vm.stopPrank();
+
+        // exactly at the cap is allowed (bridgeLimit 5M > cap).
+        uint256 atCap = 1_000_000 * 10**18;
+        _initiate(big, atCap, TARGET_CHAIN, recipient);
+    }
+
+    /// @dev Documents ACTUAL behavior (pinned, not fixed): the bridge fee is
+    /// forwarded to feeRecipient at initiateBridge and cancelBridge refunds
+    /// principal only — a deposit to a never-relayed target (e.g. the seeded
+    /// chain 1 with no bridge contract) forfeits the fee on cancel.
+    function test_CancelBridge_FeeForfeitIsActualBehavior() public {
+        // 0.5% fee token so the forfeiture is observable.
+        OwnerSafeMockToken feeToken = new OwnerSafeMockToken();
+        bridge.addSupportedToken(address(feeToken), 500_000 * 10**18, 50, false);
+        feeToken.transfer(user, 100_000 * 10**18);
+
+        uint256 amount = 1_000 * 10**18;
+        uint256 expectedFee = (amount * 50) / 10_000;
+        uint256 userBefore = feeToken.balanceOf(user);
+        uint256 feeBefore = feeToken.balanceOf(feeRecipient);
+
+        uint256 requestId = _initiate(feeToken, amount, TARGET_CHAIN, recipient);
+        assertEq(feeToken.balanceOf(feeRecipient), feeBefore + expectedFee);
+
+        // Never relayed (seeded chain 1 has no bridgeContract) → cancel after timeout.
+        vm.warp(block.timestamp + 24 hours + 1);
+        vm.prank(user);
+        bridge.cancelBridge(requestId, "target never relayed");
+
+        // Principal returned; fee is NOT — it stays with feeRecipient.
+        assertEq(feeToken.balanceOf(user), userBefore - expectedFee);
+        assertEq(feeToken.balanceOf(feeRecipient), feeBefore + expectedFee);
+        assertEq(feeToken.balanceOf(address(bridge)), amount - amount); // amount refunded, fee already left
     }
 }
