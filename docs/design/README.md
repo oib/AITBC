@@ -8,6 +8,7 @@ designs themselves.
 |---|---|
 | [bridge-state-root-grandfathering.md](bridge-state-root-grandfathering.md) | Design + audit tooling on main; no consensus code |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Unvendored starter template — not wired to any gate |
+| [gossip-ws-chain-demux.md](gossip-ws-chain-demux.md) | Design only (RPC-GOSSIP-CHAIN-DEMUX-1); consensus-adjacent — megaplan sign-off required before implementation |
 | [escrow-anomaly-remedies.md](escrow-anomaly-remedies.md) | Options paper — nothing proposed for execution |
 | [escrow-rebuild-from-chain.md](escrow-rebuild-from-chain.md) | Design — not implemented |
 | [eth7-escrowed-sell-flow.md](eth7-escrowed-sell-flow.md) | Phase 1 implemented (ETH-10) |
