@@ -17,7 +17,32 @@ block below the activation height hashes exactly as before.
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import UTC, datetime
+
+
+def _hash_timestamp(timestamp: datetime | str) -> str:
+    """Render the timestamp term of the block-hash preimage.
+
+    The proposer hashes ``datetime.now(UTC).isoformat()`` — tz-aware,
+    ``+00:00``. Stored and served block timestamps are naive UTC (SQLite
+    drops tzinfo), so a naive input is read as UTC and rendered with the
+    offset; that rewrite is the only one — aware strings stay verbatim and
+    unparseable strings pass through, keeping every historical preimage
+    byte-identical. Without this a bulk-pulled v20+ block recomputes a
+    different hash than the proposer signed (#1164).
+    """
+    if isinstance(timestamp, datetime):
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=UTC)
+        return timestamp.isoformat()
+    ts = str(timestamp)
+    try:
+        parsed = datetime.fromisoformat(ts)
+    except ValueError:
+        return ts
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC).isoformat()
+    return ts
 
 
 def compute_block_hash(
@@ -31,7 +56,7 @@ def compute_block_hash(
     bridge_state_root: str | None = None,
     aux_state_root: str | None = None,
 ) -> str:
-    ts = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
+    ts = _hash_timestamp(timestamp)
     preimage = (
         f"{chain_id}|{height}|{parent_hash}|{ts}"
         f"|{'|'.join(sorted(tx_hashes))}"
