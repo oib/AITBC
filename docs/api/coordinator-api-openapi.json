@@ -2168,6 +2168,16 @@
               }
             }
           },
+          "403": {
+            "description": "only the GPU owner or an admin may delete it / force delete requires an admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "GPU {gpu_id} not found",
             "content": {

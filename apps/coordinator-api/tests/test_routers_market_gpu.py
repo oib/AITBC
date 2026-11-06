@@ -786,3 +786,132 @@ def test_gpu_purchase_resolves_buyer_address_from_agent_id(
     pd = captured["payment_data"]
     assert pd.buyer_address.lower() == BUYER.lower()
     assert pd.buyer_agent_id == BUYER_AGENT
+
+
+# --- CE-004/CE-005: booking squatting expiry + delete_gpu IDOR ---
+
+
+@pytest.fixture
+def admin_token() -> str:
+    return create_access_token("admin1", "admin")
+
+
+@pytest.mark.unit
+def test_book_gpu_binds_calling_client(client, client_token, available_gpu, pricing_engine_override, db_session):
+    """CE-004: the booking row records who booked it, so they can release it."""
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/book",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"duration_hours": 1},
+    )
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    assert booking.client_id == "client1"
+    # The booker can now release their own hold.
+    rel = client.post(f"/v1/market/gpu/{available_gpu}/release", headers={"Authorization": f"Bearer {client_token}"})
+    assert rel.status_code == 200
+
+
+@pytest.mark.unit
+def test_book_gpu_stale_unpaid_hold_expires(
+    client, client_token, miner_token, available_gpu, pricing_engine_override, db_session
+):
+    """CE-004: an unpaid hold older than the TTL frees the GPU for the next booker."""
+    from datetime import timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/book",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"duration_hours": 1},
+    )
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    # Fresh hold still blocks a second booking.
+    resp2 = client.post(
+        f"/v1/market/gpu/{available_gpu}/book",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"duration_hours": 1},
+    )
+    assert resp2.status_code == 409
+    # Age the hold past the TTL with no payment recorded.
+    booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    db_session.add(booking)
+    db_session.commit()
+    # The next gated access expires it lazily and the GPU is bookable again.
+    resp3 = client.post(
+        f"/v1/market/gpu/{available_gpu}/book",
+        headers={"Authorization": f"Bearer {miner_token}"},
+        json={"duration_hours": 1},
+    )
+    assert resp3.status_code == 201, resp3.text
+    db_session.refresh(booking)
+    assert booking.status == "expired"
+    gpu = db_session.get(GPURegistry, available_gpu)
+    assert gpu.status == "booked"  # re-booked by the second caller
+
+
+@pytest.mark.unit
+def test_book_gpu_stale_paid_hold_survives(client, client_token, available_gpu, pricing_engine_override, db_session):
+    """CE-004: a hold with a funded payment does not expire."""
+    from datetime import timedelta
+
+    from aitbc_shared import JobPayment
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/book",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"duration_hours": 1},
+    )
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    db_session.add(booking)
+    db_session.add(
+        JobPayment(
+            id="pay_" + booking.id,
+            job_id=booking.id,
+            amount=Decimal("1.0"),
+            status="escrowed",
+        )
+    )
+    db_session.commit()
+    # Paid hold: a second booking attempt still conflicts and the hold survives.
+    resp2 = client.post(
+        f"/v1/market/gpu/{available_gpu}/book",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"duration_hours": 1},
+    )
+    assert resp2.status_code == 409
+    db_session.refresh(booking)
+    assert booking.status == "active"
+
+
+@pytest.mark.unit
+def test_delete_gpu_requires_owner_or_admin(client, miner_token, miner_b_token, admin_token, available_gpu, db_session):
+    """CE-005: a non-owner non-admin cannot delete another miner's listing."""
+    resp = client.delete(f"/v1/market/gpu/{available_gpu}", headers={"Authorization": f"Bearer {miner_b_token}"})
+    assert resp.status_code == 403
+    assert db_session.get(GPURegistry, available_gpu) is not None
+    resp = client.delete(f"/v1/market/gpu/{available_gpu}", headers={"Authorization": f"Bearer {miner_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, available_gpu) is None
+
+
+@pytest.mark.unit
+def test_delete_gpu_force_requires_admin(client, miner_token, admin_token, db_session):
+    """CE-005: force-deleting a booked GPU is admin-only, even for the owner."""
+    gpu_id = _booked_gpu(client, miner_token, db_session)
+    resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {miner_token}"})
+    assert resp.status_code == 403
+    assert db_session.get(GPURegistry, gpu_id) is not None
+    resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, gpu_id) is None
