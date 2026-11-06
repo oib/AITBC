@@ -1,7 +1,6 @@
 """Transaction routes — transaction by hash, transaction search, transaction details."""
 
 import json
-from pathlib import Path
 from typing import Any
 
 import aiosqlite
@@ -11,10 +10,9 @@ from fastapi import APIRouter, HTTPException
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
 
-from aitbc.utils.chain_id import resolve_chain_id
-from chain_client import default_chain_id, get_transaction, rpc_url_for
+from chain_client import chain_db_path, default_chain_id, get_transaction, rpc_url_for
 from .common import like_pattern
-from validation import validate_tx_hash
+from validation import clamp_page_limit, validate_tx_hash
 
 logger = get_logger(__name__)
 
@@ -30,25 +28,37 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        db_path = chain_db_path()
 
-        if chain_db_path.exists():
-            async with aiosqlite.connect(str(chain_db_path)) as conn:
+        if db_path is not None:
+            async with aiosqlite.connect(str(db_path)) as conn:
                 cursor = await conn.cursor()
 
-                # Search for transaction by hash (case-insensitive, with or without 0x prefix)
+                # Canonical storage is 0x-prefixed lowercase hex
+                # (mempool.compute_tx_hash), so exact-match candidates hit the
+                # tx_hash index. The legacy case-insensitive scan stays as a
+                # fallback for any non-canonical row (PI-EX-001).
+                bare_hash = clean_hash.lower()
                 await cursor.execute(
                     """
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
-                    WHERE lower(replace(tx_hash, '0x', '')) = ?
+                    WHERE tx_hash IN (?, ?)
                 """,
-                    (clean_hash.lower(),),
+                    (f"0x{bare_hash}", bare_hash),
                 )
 
                 result = await cursor.fetchone()
+                if result is None:
+                    await cursor.execute(
+                        """
+                        SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
+                        FROM "transaction"
+                        WHERE lower(replace(tx_hash, '0x', '')) = ?
+                    """,
+                        (bare_hash,),
+                    )
+                    result = await cursor.fetchone()
 
             if result:
                 tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = result
@@ -86,13 +96,12 @@ async def api_search_transactions(
     limit: int = 100,
 ) -> dict[str, Any]:
     """Search transactions by address or node ID in blockchain database"""
+    limit = clamp_page_limit(limit)
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        db_path = chain_db_path()
 
-        if chain_db_path.exists():
-            async with aiosqlite.connect(str(chain_db_path)) as conn:
+        if db_path is not None:
+            async with aiosqlite.connect(str(db_path)) as conn:
                 cursor = await conn.cursor()
 
                 # Search for transactions where sender, recipient, or payload contains the address

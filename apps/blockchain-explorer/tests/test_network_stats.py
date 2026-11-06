@@ -46,7 +46,7 @@ def chain_db_fixture(tmp_path: Path, monkeypatch) -> Path:
     )
     conn.commit()
     conn.close()
-    monkeypatch.setattr(analytics, "_chain_db_path", lambda: db)
+    monkeypatch.setattr(analytics, "chain_db_path", lambda: db)
     return db
 
 
@@ -63,7 +63,7 @@ def test_network_stats_supply_and_anchors(chain_db):
 
 
 def test_network_stats_no_db_path_is_503(monkeypatch):
-    monkeypatch.setattr(analytics, "_chain_db_path", lambda: None)
+    monkeypatch.setattr(analytics, "chain_db_path", lambda: None)
     with pytest.raises(HTTPException) as excinfo:
         asyncio.run(analytics.api_network_stats())
     assert excinfo.value.status_code == 503
@@ -75,7 +75,7 @@ def test_network_stats_db_without_table_is_503(tmp_path, monkeypatch):
     conn.execute("CREATE TABLE account (chain_id VARCHAR, balance BIGINT)")
     conn.commit()
     conn.close()
-    monkeypatch.setattr(analytics, "_chain_db_path", lambda: db)
+    monkeypatch.setattr(analytics, "chain_db_path", lambda: db)
     with pytest.raises(HTTPException) as excinfo:
         asyncio.run(analytics.api_network_stats())
     assert excinfo.value.status_code == 503
@@ -84,7 +84,7 @@ def test_network_stats_db_without_table_is_503(tmp_path, monkeypatch):
 def test_network_stats_unreadable_db_is_503(tmp_path, monkeypatch):
     db = tmp_path / "chain.db"
     db.write_bytes(b"not a sqlite database")
-    monkeypatch.setattr(analytics, "_chain_db_path", lambda: db)
+    monkeypatch.setattr(analytics, "chain_db_path", lambda: db)
     with pytest.raises(HTTPException) as excinfo:
         asyncio.run(analytics.api_network_stats())
     assert excinfo.value.status_code == 503
@@ -94,7 +94,7 @@ def test_network_stats_db_path_oserror_is_503(monkeypatch):
     def _raise(*_args, **_kwargs):
         raise PermissionError("[REDACTED simulated permission denied]")
 
-    monkeypatch.setattr(analytics, "_chain_db_path", _raise)
+    monkeypatch.setattr(analytics, "chain_db_path", _raise)
     with pytest.raises(HTTPException) as excinfo:
         asyncio.run(analytics.api_network_stats())
     assert excinfo.value.status_code == 503
