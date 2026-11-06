@@ -36,18 +36,20 @@ class Settings(ServiceSettings):
 
     # Governance voting parameters (block-based; wall-clock depends on the
     # fleet's real cadence — ~67s/block on bc-2, so read the estimates below
-    # as defaults-only. Live bc-2 overrides: voting via env, timelock via
-    # chain parameter = 1290 (~21.5h at fleet cadence).
+    # as defaults-only. Live bc-2 overrides voting via env; timelock default
+    # matches the live value (#758).
     voting_period_blocks: int = Field(default=7200)  # ~4h at a hypothetical 2s cadence; ~5 days at bc-2's ~67s/block
     quorum_percent: float = Field(default=30.0)
     approval_percent: float = Field(default=50.0)
     timelock_blocks: int = Field(
-        default=43200
-    )  # ~24h at a hypothetical 2s cadence; ~30 days at ~67s — live bc-2 override is 1290 (~21.5h)
+        default=1290
+    )  # ~24h at bc-2's ~67s/block cadence (#758); was 43200, sized "~24h" for a hypothetical 2s cadence (~30 days live)
     snapshot_delay_blocks: int = Field(default=100)  # blocks before voting starts
 
     # v0.7.4: Emergency proposal parameters
-    emergency_timelock_blocks: int = Field(default=7200)  # ~4h at a hypothetical 2s cadence; ~5 days at ~67s
+    emergency_timelock_blocks: int = Field(
+        default=215
+    )  # ~4h at bc-2's ~67s/block cadence (#758); was 7200 ("~4h" sized for a hypothetical 2s cadence, ~5.7 days live — already longer than the live 1290 normal timelock)
     emergency_quorum_percent: float = Field(default=80.0)  # 80% quorum for emergency
     emergency_voting_period_blocks: int = Field(default=3600)  # ~2h voting (vs 4h normal)
     emergency_approval_percent: float = Field(default=66.67)  # 2/3 supermajority
