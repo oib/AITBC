@@ -149,6 +149,9 @@ Operator procedures for the live fleet:
   **applied on hub 16 Oct 2026** (zone `messaging_rpc` covering
   `/rpc/messaging/*` and `/explorer-api/api/messages*`); follower
   `0.0.0.0:8202` binds remain uncovered.
+- [Explorer API nginx limits](ops/explorer-api-nginx-limits.md) — the
+  `explorer_api` `limit_req` zone on the generic `/explorer-api/` read
+  surface (PI-EX-001 nginx layer) — **applied on hub 6 Nov 2026**.
 - [Messaging spam economics](features/messaging-spam-economics.md) —
   MSG-9 measured storage growth, the cost model for spam at the current
   fee, and ranked non-consensus mitigations (report only).
