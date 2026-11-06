@@ -133,6 +133,19 @@ class WebsocketGossipBackend(GossipBackend):
         async with self._connect_lock(topic):
             await self._ensure_connection_unsafe(topic)
 
+    def _auth_scope(self, topic: str) -> str:
+        """Auth scope this dialer signs for ``topic`` (#1159 Phase-B prep).
+
+        ``gossip_auth_require_chain_scope`` off → legacy chain-less scope
+        (accepted by old and new servers mid-rollout). On → the canonical
+        ``channel:<chain>:<topic>`` scope; an unbound dial falls back to
+        this node's own ``settings.chain_id``, matching how the server
+        resolves a missing ``?chain=`` on a single-chain host.
+        """
+        if not settings.gossip_auth_require_chain_scope:
+            return channel_scope(topic)
+        return channel_scope(topic, self._chain_id or settings.chain_id)
+
     def _build_url(self, topic: str) -> str:
         """Dial URL for ``topic`` — base query params preserved, ``chain``
         included when the backend is chain-bound (#1159)."""
@@ -225,8 +238,12 @@ class WebsocketGossipBackend(GossipBackend):
         challenge = data.get("challenge", "")
         timestamp = data.get("timestamp", 0.0)
         # Scope-bound signature (#1128): this auth covers exactly this
-        # connection's topic — it cannot be replayed for another.
-        message = build_auth_message(challenge, proposer_id, timestamp, channel_scope(topic))
+        # connection's topic — it cannot be replayed for another. While
+        # ``gossip_auth_require_chain_scope`` is off the signature stays on
+        # the legacy chain-less scope so pre-#1159 servers keep accepting
+        # it; once the Phase-B gate flips, every dialer signs the canonical
+        # chain-bound scope matching the server's verification (#1159).
+        message = build_auth_message(challenge, proposer_id, timestamp, self._auth_scope(topic))
         signature = sign_consensus_message(message, proposer_key)
 
         await ws.send(

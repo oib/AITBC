@@ -69,3 +69,36 @@ def test_build_url_omits_chain_when_unbound():
     """Legacy single-chain dials keep the pre-#1159 URL shape."""
     url = _url_for("wss://node.example:8302/rpc", None)
     assert "chain=" not in urlsplit(url).query
+
+
+# --- Phase-B prep: client chain-bound signing behind the off flag (#1159) ---
+
+
+def test_auth_scope_is_legacy_while_flag_off(monkeypatch):
+    """Default rollout state: dialers keep signing the chain-less scope so
+    pre-#1159 servers keep accepting them."""
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "gossip_auth_require_chain_scope", False)
+    backend = WebsocketGossipBackend("wss://node.example:8302/rpc", chain_id="bc-2")
+    assert backend._auth_scope("blocks") == channel_scope("blocks")
+
+
+def test_auth_scope_binds_chain_when_flag_on(monkeypatch):
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "gossip_auth_require_chain_scope", True)
+    monkeypatch.setattr(settings, "chain_id", "bc-1")
+    backend = WebsocketGossipBackend("wss://node.example:8302/rpc", chain_id="bc-2")
+    assert backend._auth_scope("blocks") == channel_scope("blocks", "bc-2")
+
+
+def test_auth_scope_unbound_dial_uses_node_chain_when_flag_on(monkeypatch):
+    """A chain-less dial resolves like the server does on a single-chain
+    host: the node's own chain_id."""
+    from aitbc_chain.config import settings
+
+    monkeypatch.setattr(settings, "gossip_auth_require_chain_scope", True)
+    monkeypatch.setattr(settings, "chain_id", "bc-1")
+    backend = WebsocketGossipBackend("wss://node.example:8302/rpc")
+    assert backend._auth_scope("blocks") == channel_scope("blocks", "bc-1")
