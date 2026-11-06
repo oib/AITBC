@@ -321,21 +321,22 @@ def test_repair_parent_v22_plain_transfer(tmp_path):
 
 
 def test_repair_parent_v22_rejected_tx_leaves_no_phantom(tmp_path):
-    """v22: a sealed-block tx that fails apply must not leave a phantom
-    sender account behind — the pre-apply insert is gated off at v22+."""
-    ghost = derive_ethereum_address("0x" + "99" * 32)  # never seeded
+    """v22 R1: a sealed-block tx that fails apply must not leave a phantom
+    sender account behind. Positive cost from a never-seen sender fails on
+    the virtual (0,0) balance read — signature is valid so the rejection is
+    the balance check, not auth."""
+    ghost_key = "0x" + "99" * 32
+    ghost = derive_ethereum_address(ghost_key)
     tx = _signed_tx(
         nonce=0,
         tx_type="TRANSFER",
-        amount=0,
-        fee=0,
+        amount=10,
+        fee=DEFAULT_TX_FEE_UNITS,
         to=ADDR_B,
         tx_hash="0x" + "88" * 32,
-        **{"from": ghost},
     )
-    # Re-sign under the ghost key is impossible (unknown key) — but repair
-    # replays recorded rows, not signatures; validate/apply must still reject
-    # the missing sender deterministically.
+    tx["from"] = ghost
+    tx["signature"] = sign_transaction_data(tx, ghost_key)
     engine = _engine(tmp_path, "fixture.db")
     _seed_lagging(engine, include_b=False, version=22)
     # Parent claims the pre-tx root: the tx failed at seal time, so the
@@ -355,3 +356,38 @@ def test_repair_parent_v22_rejected_tx_leaves_no_phantom(tmp_path):
         assert proposer._reapply_parent_block(session, bound) is False
         assert session.get(Account, (CHAIN, ghost)) is None
         assert session.get(Account, (CHAIN, ADDR_B)) is None
+
+
+def test_repair_parent_v22_zero_cost_unknown_sender(tmp_path):
+    """R1: a v22 parent carrying a successful zero-cost tx from a
+    never-seen sender must repair — validate reads the sender as virtual
+    (0,0), apply materializes it at nonce=1, and the recomputed root
+    matches the committed parent root."""
+    ghost_key = "0x" + "88" * 32
+    ghost = derive_ethereum_address(ghost_key)
+    tx = _signed_tx(
+        nonce=0,
+        tx_type="TRANSFER",
+        amount=0,
+        fee=0,
+        to=ADDR_B,
+        tx_hash="0x" + "66" * 32,
+    )
+    tx["from"] = ghost
+    tx["signature"] = sign_transaction_data(tx, ghost_key)
+    root = _correct_root(tmp_path, [tx], include_b=False, version=22)
+
+    engine = _engine(tmp_path, "fixture.db")
+    _seed_lagging(engine, include_b=False, version=22)
+    parent = _parent_block(1, root, [tx], version=22)
+    _record_parent(engine, parent, [tx])
+
+    proposer = _proposer(engine)
+    with Session(engine) as session:
+        bound = session.exec(select(Block).where(Block.chain_id == CHAIN, Block.height == 1)).one()
+        assert proposer._reapply_parent_block(session, bound) is True
+        session.commit()
+
+    accounts = _accounts(engine)
+    assert accounts[ghost] == (0, 1)
+    assert accounts[ADDR_B] == (0, 0)
