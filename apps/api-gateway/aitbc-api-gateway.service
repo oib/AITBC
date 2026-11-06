@@ -10,7 +10,12 @@ WorkingDirectory=/opt/aitbc/apps/api-gateway
 Environment="PATH=/opt/aitbc/venv/bin"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/api-gateway/src:/opt/aitbc"
 Environment=API_GATEWAY_BIND_HOST=0.0.0.0
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn api_gateway.main:app --host ${API_GATEWAY_BIND_HOST} --port 8201 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --no-access-log --log-level critical
+# --proxy-headers + --forwarded-allow-ips 127.0.0.1: only the local nginx peer
+# may assert client identity; request.client.host then carries the post-realip
+# address and the rate limiter keys per real client instead of one global
+# 127.0.0.1 bucket (R9-4). XFF entries are walked right-to-left for the first
+# untrusted host, so injected left-hand entries cannot mint fresh buckets.
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn api_gateway.main:app --host ${API_GATEWAY_BIND_HOST} --port 8201 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --no-access-log --log-level critical --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 RestartSec=10
 # Security hardening (v0.5.0)
