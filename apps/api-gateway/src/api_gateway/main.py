@@ -9,6 +9,8 @@ Routes requests to microservices
 import asyncio  # noqa: E402
 import hmac  # noqa: E402
 import os  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
 from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: E402
 from typing import Any, TypeVar  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
@@ -81,6 +83,15 @@ REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "true").lower() == "true"
 # Applied to the catch-all proxy route below, which fronts every backend service.
 # slowapi syntax, e.g. "100/minute", "20/second".
 RATE_LIMIT = os.getenv("API_GATEWAY_RATE_LIMIT", "100/minute")
+# Coarse per-IP ceiling evaluated BEFORE verify_auth (GW-RATELIMIT-PRE-AUTH-1,
+# #1211): FastAPI resolves dependencies before the slowapi-wrapped handler
+# runs, so unauthenticated floods used to 401 inside verify_auth without ever
+# reaching the identity-keyed bucket. This dependency is declared ahead of
+# `authenticated` on the proxy route so it counts first; authed requests then
+# still get the tighter per-identity post-auth bucket. Keyed on the same
+# post-realip client address as #1189 — only the local nginx peer may assert
+# forwarding headers (uvicorn proxy_headers / forwarded_allow_ips=127.0.0.1).
+PREAUTH_RATE_LIMIT = os.getenv("API_GATEWAY_PREAUTH_RATE_LIMIT", "300/minute")
 COORDINATOR_URL = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
 # Coordinator-owned sub-families of /v1/market — the rest (jobs, offers,
 # ratings, ipfs, match, ...) belongs to the market service on :8102.
@@ -261,6 +272,58 @@ def verify_auth(
     # Bearer carried the gateway credential, not a service token — do not leak it upstream.
     request.state.gateway_bearer_auth = not gateway_key and bool(bearer)
     return True
+
+
+class _PreAuthIpLimiter:
+    """Fixed-window per-IP counter for the pre-auth bucket.
+
+    In-memory per process — the same tradeoff slowapi's default storage
+    makes. Windows are keyed on the post-realip client address.
+    """
+
+    _PERIODS = {"second": 1.0, "minute": 60.0, "hour": 3600.0, "day": 86400.0}
+    _MAX_KEYS = 100_000
+
+    def __init__(self) -> None:
+        self._windows: dict[str, tuple[float, int]] = {}
+        self._lock = threading.Lock()
+
+    @classmethod
+    def _parse(cls, spec: str) -> tuple[int, float]:
+        count_text, _, period_text = spec.partition("/")
+        unit = period_text.strip().lower().rstrip("s") or "minute"
+        return int(count_text), cls._PERIODS.get(unit, 60.0)
+
+    def check(self, key: str, spec: str) -> bool:
+        """Record one hit for ``key``; return False when over ``spec``."""
+        limit, period = self._parse(spec)
+        now = time.monotonic()
+        with self._lock:
+            if len(self._windows) > self._MAX_KEYS:
+                self._windows = {k: v for k, v in self._windows.items() if now - v[0] < period}
+            start, count = self._windows.get(key, (now, 0))
+            if now - start >= period:
+                start, count = now, 0
+            count += 1
+            self._windows[key] = (start, count)
+        return count <= limit
+
+
+_PREAUTH_LIMITER = _PreAuthIpLimiter()
+
+
+def pre_auth_ip_limit(request: Request) -> None:
+    """Coarse per-IP rate limit evaluated before gateway auth.
+
+    Unauthenticated floods used to 401 inside ``verify_auth`` without ever
+    reaching the slowapi limiter — FastAPI resolves dependencies before the
+    wrapped handler runs. Declared before ``authenticated`` on the proxy
+    route so this bucket counts first; the identity-keyed post-auth bucket
+    is unchanged.
+    """
+    key = request.client.host if request.client else "unknown"
+    if not _PREAUTH_LIMITER.check(key, PREAUTH_RATE_LIMIT):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded")
 
 
 circuit_breaker_state: dict[str, dict[str, object]] = {
@@ -528,13 +591,22 @@ def resolve_v1_route(path: str) -> tuple[str, str] | None:
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 @rate_limit(RATE_LIMIT)
-async def proxy_request(path: str, request: Request, authenticated: Annotated[bool, Depends(verify_auth)]) -> Response:
+async def proxy_request(
+    path: str,
+    request: Request,
+    _pre_auth: Annotated[None, Depends(pre_auth_ip_limit)],
+    authenticated: Annotated[bool, Depends(verify_auth)],
+) -> Response:
     """Proxy request to appropriate microservice with rate limiting and circuit breaker.
 
     The rate_limit decorator must sit below @app.api_route so slowapi wraps the handler
     before FastAPI registers it. It was previously defined but applied to nothing, so the
     limiter, its 429 handler and app.state.limiter were all wired up while every request
     passed unthrottled.
+
+    ``_pre_auth`` is declared before ``authenticated`` deliberately: FastAPI solves
+    dependencies in signature order, so the per-IP pre-auth bucket counts the request
+    before ``verify_auth`` can 401 it — the gap B's live-tier probe found (#1211).
     """
     resolved = _resolve_target(path)
     if isinstance(resolved, JSONResponse):
