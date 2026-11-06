@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-04
+**Last Updated**: 2026-11-06
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1510
+- **Markdown files under docs/**: 1511
 
 | Directory | Files | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 42 | Operational runbooks and key handling |
+| [ops](ops/) | 43 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
@@ -1139,6 +1139,7 @@ Inbound markdown links per document (top referrers).
 | [ops/escrow-routing.md](ops/escrow-routing.md) | [README.md](README.md) |
 | [ops/escrow-settlement-ops.md](ops/escrow-settlement-ops.md) | [README.md](README.md) |
 | [ops/exchange-public-endpoints.md](ops/exchange-public-endpoints.md) | [README.md](README.md) |
+| [ops/explorer-api-nginx-limits.md](ops/explorer-api-nginx-limits.md) | [README.md](README.md) |
 | [ops/failover-runbook.md](ops/failover-runbook.md) | [README.md](README.md), [ops/proposer-failover-runbook.md](ops/proposer-failover-runbook.md) |
 | [ops/faucet-runbook.md](ops/faucet-runbook.md) | [README.md](README.md) |
 | [ops/first-sweep-observation.md](ops/first-sweep-observation.md) | [README.md](README.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [scenarios/README.md](scenarios/README.md) |
