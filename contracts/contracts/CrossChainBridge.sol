@@ -72,6 +72,11 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
     struct Validator {
         address validatorAddress;
         bool isActive;
+        // Reserved for a future weighted-quorum design (#795 residual):
+        // stored and emitted but deliberately unused in confirmation
+        // counting — confirmBridge tallies one vote per validator. Kept in
+        // the API (param + ValidatorAdded event) for tooling stability; do
+        // not read it as a live weight until weighted quorum ships.
         uint256 weight;
         uint256 lastValidation;
         uint256 totalValidations;
@@ -185,6 +190,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         require(targetToken != address(0), "Invalid target token");
         require(recipient != address(0), "Invalid recipient");
         require(amount > 0, "Amount must be greater than 0");
+        require(amount <= MAX_BRIDGE_AMOUNT, "Amount exceeds max bridge amount");
         require(targetChainId != block.chainid, "Same chain bridging not allowed");
 
         // Calculate bridge fee
@@ -259,7 +265,12 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         bytes32 messageHash = keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid));
         require(_verifySignature(messageHash, signature, msg.sender), "Invalid signature");
 
-        // Record confirmation
+        // Record confirmation. Every confirmer must sign the SAME lock tx
+        // hash — each signature binds (requestId, lockTxHash, chainId), so
+        // without this check a quorum could be assembled across two
+        // different lock hashes with the last confirmer's value winning
+        // (#795 residual, BRIDGE-RESIDUALS-1).
+        require(request.confirmations == 0 || request.lockTxHash == lockTxHash, "Confirmations must agree on lock tx hash");
         request.hasConfirmed[msg.sender] = true;
         request.confirmations++;
         request.lockTxHash = lockTxHash;
