@@ -9,13 +9,17 @@ proper edge wallet without changing the CLI path.
 from typing import Any
 
 from fastapi import APIRouter, status
+
+from aitbc.auth import AuthDep
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
 
 @router.get("/balance")
-def edge_gpu_balance() -> JSONResponse:
+def edge_gpu_balance(
+    _user: AuthDep,
+) -> JSONResponse:
     """Placeholder for the edge GPU/wallet balance endpoint."""
     return JSONResponse(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -27,7 +31,7 @@ def edge_gpu_balance() -> JSONResponse:
 
 
 @router.post("/transfer")
-def edge_gpu_transfer(payload: dict[str, Any]) -> JSONResponse:
+def edge_gpu_transfer(_user: AuthDep, payload: dict[str, Any]) -> JSONResponse:
     """Placeholder for the edge GPU/wallet transfer endpoint."""
     _ = payload
     return JSONResponse(

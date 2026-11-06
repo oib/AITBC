@@ -171,6 +171,13 @@ class TestRouteReturns501:
 
         from aitbc_edge.routers import database as database_router
 
+        # The flag tests above importlib.reload the service module, which
+        # rebinds SyncNotImplementedError. If the routers package was already
+        # imported (e.g. by another test module), this module object is
+        # cached and its ``except`` still references the pre-reload class —
+        # reload it so the handler sees the current exception type.
+        importlib.reload(database_router)
+
         monkeypatch.setattr(svc_module, "ALLOW_SIMULATED_SYNC", False)
 
         fake = FakeSession(FakeDb())
@@ -185,7 +192,13 @@ class TestRouteReturns501:
         app.include_router(database_router.router)
         client = TestClient(app)
 
-        response = client.post("/db_1/sync")
+        # #1205: the route now requires a fleet JWT before it reaches the service.
+        from aitbc.auth import create_access_token
+
+        response = client.post(
+            "/db_1/sync",
+            headers={"Authorization": f"Bearer {create_access_token('sync-test', 'client')}"},
+        )
 
         assert response.status_code == 501
         assert "not implemented" in response.json()["detail"]

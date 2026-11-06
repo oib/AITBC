@@ -3,6 +3,8 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from aitbc.auth import AuthDep
 from pydantic import BaseModel, Field
 
 from ..services.island_service import IslandService
@@ -40,7 +42,7 @@ def get_island_service() -> IslandService:
 
 @router.post("/join")
 async def join_island(
-    request: JoinIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
+    _user: AuthDep, request: JoinIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
 ) -> dict[str, Any]:
     """Join an island"""
     result = await svc.join_island(
@@ -56,7 +58,7 @@ async def join_island(
 
 @router.post("/leave")
 async def leave_island(
-    request: LeaveIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
+    _user: AuthDep, request: LeaveIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
 ) -> dict[str, Any]:
     """Leave an island"""
     result = await svc.leave_island(request.island_id)
@@ -64,14 +66,16 @@ async def leave_island(
 
 
 @router.get("/")
-async def list_islands(svc: Annotated[IslandService, Depends(get_island_service)]) -> dict[str, Any]:
+async def list_islands(_user: AuthDep, svc: Annotated[IslandService, Depends(get_island_service)]) -> dict[str, Any]:
     """List all islands"""
     islands = await svc.list_islands()
     return {"islands": islands, "total": len(islands)}
 
 
 @router.get("/{island_id}")
-async def get_island(island_id: str, svc: Annotated[IslandService, Depends(get_island_service)]) -> dict[str, Any]:
+async def get_island(
+    _user: AuthDep, island_id: str, svc: Annotated[IslandService, Depends(get_island_service)]
+) -> dict[str, Any]:
     """Get island details"""
     island = await svc.get_island(island_id)
     if island is None:
@@ -81,7 +85,7 @@ async def get_island(island_id: str, svc: Annotated[IslandService, Depends(get_i
 
 @router.get("/by-region/{region}")
 async def list_memberships_by_region(
-    region: str, svc: Annotated[IslandService, Depends(get_island_service)]
+    _user: AuthDep, region: str, svc: Annotated[IslandService, Depends(get_island_service)]
 ) -> dict[str, Any]:
     """List island memberships for a specific region (multi-region edge nodes)."""
     memberships = await svc.list_memberships_by_region(region)
@@ -104,7 +108,7 @@ async def list_memberships_by_region(
 
 @router.post("/bridge")
 async def request_bridge(
-    request: BridgeRequestRequest, svc: Annotated[IslandService, Depends(get_island_service)]
+    _user: AuthDep, request: BridgeRequestRequest, svc: Annotated[IslandService, Depends(get_island_service)]
 ) -> dict[str, Any]:
     """Request bridge to another island"""
     result = await svc.request_bridge(request.target_island_id)
