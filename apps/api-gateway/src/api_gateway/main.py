@@ -590,4 +590,14 @@ if __name__ == "__main__":
     import uvicorn
 
     # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-    uvicorn.run(app, host="0.0.0.0", port=8201, log_level="critical", access_log=False)  # nosec B104
+    # proxy_headers matches the unit: only localhost peers (nginx) may assert
+    # client identity, so the rate limiter keys on the post-realip address.
+    uvicorn.run(
+        app,
+        host="0.0.0.0",  # nosec B104
+        port=8201,
+        log_level="critical",
+        access_log=False,
+        proxy_headers=True,
+        forwarded_allow_ips="127.0.0.1",
+    )
