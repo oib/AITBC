@@ -116,7 +116,7 @@ def test_metric_non_loopback_url_refused(runner):
         result = runner.invoke(
             prom.prometheus,
             obj={"output_format": "json"},
-            args=["metric", "--name", "x", "--url", "http://10.1.223.93:9009/metrics"],
+            args=["metric", "--name", "x", "--url", "http://192.0.2.93:9009/metrics"],
         )
     assert result.exit_code != 0
     assert "loopback" in result.output
@@ -128,7 +128,7 @@ def test_metric_non_loopback_needs_allow_remote(runner):
         result = runner.invoke(
             prom.prometheus,
             obj={"output_format": "json"},
-            args=["metric", "--name", "v9_would_reject_total", "--url", "http://10.1.223.93:9009/metrics", "--allow-remote"],
+            args=["metric", "--name", "v9_would_reject_total", "--url", "http://192.0.2.93:9009/metrics", "--allow-remote"],
         )
     assert result.exit_code == 0, result.output
     get.assert_called_once()

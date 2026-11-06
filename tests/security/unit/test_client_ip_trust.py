@@ -1,7 +1,7 @@
 """Security pins — client-IP trust boundary (#1177, PI-API-001).
 
 ``get_client_ip`` decides whose bucket a rate limit lands in and whose
-identity lands in audit logs. The hub nginx chain is: client → ns2 edge
+identity lands in audit logs. The hub nginx chain is: client → edge
 (``$realip_remote_addr``) → hub nginx (``X-Real-IP`` + rightmost XFF append)
 → uvicorn. Anything a client can write into XFF *before* the trusted append
 is attacker-controlled; these pins lock the precedence that makes forged

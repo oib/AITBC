@@ -81,7 +81,17 @@ PER_HOST_FQDN = re.compile(
 # was never built; the island pair appears only as endpoints in `trade
 # register-chain` examples. Neither names a machine. Add a name here only after
 # checking the same way.
-ALLOWED_FQDN_SUFFIXES: tuple[str, ...] = ()
+#
+# The two suffixes below cover recorded mainnet replay fixtures
+# (`apps/blockchain-node/tests/golden/cases/stream/*.json`): the endpoint
+# hostname is verbatim on-chain tx payload extracted by `extract_real.py` —
+# immutable chain history that any chain reader can see, not prose. Scrubbing
+# it would falsify the fixture (signatures cover the payload). Everything else
+# must still scrub or placeholder.
+ALLOWED_FQDN_SUFFIXES: tuple[str, ...] = (
+    "node2.aitbc.bubuit.net",
+    "node2.hub2.aitbc.bubuit.net",
+)
 
 # Every in-scope address already present in the repo, collapsed to its /24. These
 # are textbook and documentation values (RFC 1918 examples, RFC 5737 blocks, the

@@ -74,7 +74,7 @@ class TestHealthUrlGuard:
         "url",
         [
             "http://127.0.0.1:9/health",
-            "http://10.1.223.136/ffmpeg/health",
+            "http://192.0.2.136/ffmpeg/health",
             "http://192.168.1.5:8230/health",
             "http://169.254.169.254/latest/meta-data/",
             "http://[::1]:8000/health",

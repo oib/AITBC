@@ -5,7 +5,7 @@
 # job `blackbox-incus-proxy` in prometheus.yml picks a module per target
 # via the target's `module` label -> __param_module relabel.
 #
-# The failure mode this watches (netcup island-ipfs wedge, 13 Sep 2026):
+# The failure mode this watches (island-ipfs wedge, 13 Sep 2026):
 # a forkproxy device accepts a fresh TCP connection then FINs it ~1ms
 # later without ever dialling the backend, while pre-existing relayed
 # connections keep working. Neither connect-only nor a send-only step can
