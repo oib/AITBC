@@ -1,0 +1,25 @@
+[Unit]
+Description=AITBC security-suite nightly tier (#1213)
+Documentation=https://github.com/oib/AITBC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs the four-tier security suite against a checkout at /opt/aitbc:
+# offline pins (unit/integration/config), read-only live edge probes, and
+# mutation spot-checks. Repo-side wiring per #1196 comment 16932.
+#
+# Optional env file for the live rate-limit probe — operator-provisioned,
+# never committed. Without it the probe SKIPs cleanly:
+#   /etc/aitbc/security-nightly.env  (AITBC_LIVE_GATEWAY_KEY=..., AITBC_LIVE_BASE_URL=...)
+EnvironmentFile=-/etc/aitbc/security-nightly.env
+Environment=PYTHON=/opt/aitbc/venv/bin/python
+ExecStart=/bin/bash /opt/aitbc/scripts/security/nightly-security.sh
+SyslogIdentifier=aitbc-security-nightly
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/aitbc

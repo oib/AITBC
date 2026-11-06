@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly AITBC security-suite run (#1213)
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+# 04:30 UTC daily — after the 03:00 offline nightly so results don't race
+# for the same checkout/venv caches.
+OnCalendar=*-*-* 04:30:00 UTC
+Persistent=true
+Unit=aitbc-security-nightly.service
+
+[Install]
+WantedBy=timers.target
