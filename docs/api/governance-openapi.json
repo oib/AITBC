@@ -689,6 +689,16 @@
               }
             }
           },
+          "403": {
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Proposal not found",
             "content": {
@@ -1271,6 +1281,16 @@
               }
             }
           },
+          "403": {
+            "description": "{field} does not match the signing address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Proposal not found",
             "content": {
@@ -1305,6 +1325,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SignedCallRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1347,6 +1384,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SignedCallRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1381,6 +1435,16 @@
                       "title": "Error"
                     }
                   }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "{field} does not match the signing address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1511,6 +1575,39 @@
             },
             "type": "array",
             "title": "Target Chains"
+          },
+          "caller_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caller Address"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
           }
         },
         "type": "object",
@@ -1519,6 +1616,46 @@
         ],
         "title": "PropagateRequest",
         "description": "Request body for cross-chain proposal propagation."
+      },
+      "SignedCallRequest": {
+        "properties": {
+          "caller_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caller Address"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "title": "SignedCallRequest",
+        "description": "Signed caller envelope for cross-chain governance routes (#1178)."
       },
       "StakeRequest": {
         "properties": {
