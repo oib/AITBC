@@ -1571,8 +1571,12 @@ class StateTransition:
                     return (False, f"{tx_type} payload must include stake_id")
             # Ensure the pool reserve/treasury/emission accounts and the sender
             # and recipient accounts exist before the generic recipient check.
-            _ensure_account(session, chain_id, sender_addr)
-            _ensure_account(session, chain_id, _to_ait_address(tx_data.get("to") or ""))
+            # v22 (CONSENSUS-STATE-001, #1169): validation is read-only — a
+            # rejected tx must not leave account rows behind; apply creates
+            # them on its success paths instead.
+            if block_version < 22:
+                _ensure_account(session, chain_id, sender_addr)
+                _ensure_account(session, chain_id, _to_ait_address(tx_data.get("to") or ""))
         if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}:
             # Pre-registered credit transactions do not require a sender account or
             # nonce. The state update is applied off-chain by the RPC call that
@@ -1933,7 +1937,10 @@ class StateTransition:
             if value <= 0:
                 return (False, "IPFS_SUBSCRIPTION requires value > 0")
             # Ensure recipient (island treasury) exists so the payment can be credited.
-            _ensure_account(session, chain_id, recipient_addr)
+            # v22 (CONSENSUS-STATE-001, #1169): read-only validation — apply
+            # ensures the recipient on its success path.
+            if block_version < 22:
+                _ensure_account(session, chain_id, recipient_addr)
         if tx_type == "GPU_REGISTER":
             payload = tx_data.get("payload") or {}
             if not payload.get("gpu_id"):
