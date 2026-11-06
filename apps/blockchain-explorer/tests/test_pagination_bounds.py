@@ -181,6 +181,21 @@ def test_tx_search_huge_limit_capped(client, chain_db):
     assert len(resp.json()["transactions"]) == MAX_PAGE_LIMIT
 
 
+@pytest.mark.parametrize("offset", [-1, 10001, 999999999])
+def test_tx_search_offset_rejected(client, chain_db, offset):
+    """/api/transactions/search ignored offset entirely — out-of-range must 400."""
+    _insert_blocks(chain_db, 3, with_txs=True)
+    resp = client.get("/api/transactions/search", params={"address": "0xsender", "offset": offset})
+    assert resp.status_code == 400
+
+
+def test_tx_search_offset_pages_results(client, chain_db):
+    _insert_blocks(chain_db, 5, with_txs=True)
+    resp = client.get("/api/transactions/search", params={"address": "0xsender", "limit": 2, "offset": 4})
+    assert resp.status_code == 200
+    assert len(resp.json()["transactions"]) == 1
+
+
 def test_blocks_by_address_limit_capped(client, chain_db):
     from validation import MAX_PAGE_LIMIT
 
