@@ -139,8 +139,19 @@ async def verify_api_key(request: Request, credentials: HTTPAuthorizationCredent
 
 
 def get_client_ip(request: Request) -> str:
-    """Get client IP address, accounting for proxies."""
+    """Get client IP address, accounting for proxies.
+
+    The hub nginx vhost sets ``X-Real-IP`` to the realip-resolved client and
+    appends that same address as the LAST ``X-Forwarded-For`` entry; anything
+    earlier in the XFF chain is client-supplied and spoofable (#1177). Prefer
+    X-Real-IP, then the rightmost XFF hop, then the direct peer.
+    """
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        last = forwarded.split(",")[-1].strip()
+        if last:
+            return last
     return request.client.host if request.client else "unknown"

@@ -599,7 +599,15 @@ server {
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
+    # Generic explorer read API (blocks, tx-search, analytics, alerts,
+    # search). PI-EX-001 / #1176: per-client-IP limit_req so an anonymous
+    # client cannot fan unbounded reads into the explorer's chain-DB pool.
+    # Keys on $binary_remote_addr AFTER realip resolution — the bucket is
+    # the real client asserted by the trusted edge, not a spoofable header.
+    # Zone deployed as /etc/nginx/conf.d/aitbc-explorer-limits.conf.
     location /explorer-api/ {
+        limit_req zone=explorer_api burst=50 nodelay;
+        limit_req_status 429;
         proxy_pass http://blockchain_explorer/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -1060,5 +1068,12 @@ server {
 # /explorer-api/api/messages* locations above all draw from this one bucket.
 #
 # limit_req_zone $binary_remote_addr zone=messaging_rpc:10m rate=5r/s;
+#
+# ── http context: explorer read-API rate zone (PI-EX-001 / #1176) ──
+# Deployed on the hub as /etc/nginx/conf.d/aitbc-explorer-limits.conf
+# (applied 6 Nov 2026). Covers the generic /explorer-api/ location; the
+# three /api/messages* exact locations keep their own messaging_rpc zone.
+#
+# limit_req_zone $binary_remote_addr zone=explorer_api:10m rate=10r/s;
 # proxy_cache_path /var/cache/nginx/exchange-api levels=1:2
 #                  keys_zone=exchange_api_cache:10m max_size=50m inactive=60s;
