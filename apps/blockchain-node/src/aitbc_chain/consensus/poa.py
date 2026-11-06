@@ -693,11 +693,15 @@ class PoAProposer:
         # covers an exception mid-loop: a bare begin_nested() would leave the
         # savepoint open. Failure exits still roll back explicitly — a clean
         # `with` exit would release the savepoint over half-applied work.
+        repair_version = get_block_version(parent, parent.height)
         with session.begin_nested() as repair:
             for tx_rec in tx_recs:
                 sender = _to_ait_address(tx_rec.sender or "")
                 recipient = _to_ait_address(tx_rec.recipient or "")
-                if sender:
+                # v22 (CONSENSUS-STATE-001, #1169): no pre-apply sender insert —
+                # apply_transaction owns account creation on its success paths,
+                # matching the importer and build paths.
+                if sender and repair_version < 22:
                     _ensure_account(session, chain_id, sender)
                 # Do not create the recipient account here, matching the import
                 # path (sync_block_import) and the build path below:
@@ -727,7 +731,6 @@ class PoAProposer:
                         "payload": tx_rec.payload or {},
                         "signature": "",
                     }
-                block_version = get_block_version(parent, parent.height)
                 # skip_dedup: these txs are already recorded in the transaction
                 # table — that is where we loaded them from — so the admission
                 # replay check would reject the re-apply it exists to perform.
@@ -736,7 +739,7 @@ class PoAProposer:
                     chain_id,
                     tx_data,
                     tx_rec.tx_hash,
-                    block_version=block_version,
+                    block_version=repair_version,
                     block_height=parent.height,
                     block_time=parent.timestamp,
                     skip_dedup=True,

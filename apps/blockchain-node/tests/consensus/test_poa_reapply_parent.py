@@ -88,7 +88,7 @@ def _engine(tmp_path, name: str):
     return engine
 
 
-def _seed_lagging(engine, *, include_b: bool = True) -> None:
+def _seed_lagging(engine, *, include_b: bool = True, version: int = VERSION) -> None:
     """The pre-parent account state: sender at nonce 1 (one earlier tx), no
     zero-address row — exactly the account set a lagging proposer holds."""
     with Session(engine) as session:
@@ -104,13 +104,13 @@ def _seed_lagging(engine, *, include_b: bool = True) -> None:
                 proposer="genesis",
                 timestamp=T0,
                 tx_count=0,
-                block_metadata=json.dumps({"state_transition_version": VERSION}),
+                block_metadata=json.dumps({"state_transition_version": version}),
             )
         )
         session.commit()
 
 
-def _parent_block(height: int, state_root: str | None, txs: list[dict[str, Any]]) -> Block:
+def _parent_block(height: int, state_root: str | None, txs: list[dict[str, Any]], version: int = VERSION) -> Block:
     return Block(
         chain_id=CHAIN,
         height=height,
@@ -120,7 +120,7 @@ def _parent_block(height: int, state_root: str | None, txs: list[dict[str, Any]]
         timestamp=T0 + timedelta(seconds=70),
         tx_count=len(txs),
         state_root=state_root,
-        block_metadata=json.dumps({"state_transition_version": VERSION}),
+        block_metadata=json.dumps({"state_transition_version": version}),
         signature="",
     )
 
@@ -166,17 +166,17 @@ def _proposer(engine) -> PoAProposer:
     return PoAProposer(config=config, session_factory=factory)
 
 
-def _correct_root(tmp_path, txs: list[dict[str, Any]], *, include_b: bool = True) -> str:
+def _correct_root(tmp_path, txs: list[dict[str, Any]], *, include_b: bool = True, version: int = VERSION) -> str:
     """The root the canonical parent carries: apply-only, no pre-creation —
     the same semantics the committing proposer used."""
     engine = _engine(tmp_path, "expected.db")
-    _seed_lagging(engine, include_b=include_b)
+    _seed_lagging(engine, include_b=include_b, version=version)
     st = StateTransition()
     with Session(engine) as session:
         for tx in txs:
             data = dict(tx)
             data["value"] = data["amount"]
-            ok, err = st.apply_transaction(session, CHAIN, data, data["tx_hash"], block_version=VERSION, block_height=1)
+            ok, err = st.apply_transaction(session, CHAIN, data, data["tx_hash"], block_version=version, block_height=1)
             assert ok, f"fixture tx must apply: {err}"
         session.flush()
         root = compute_state_root_full(session, CHAIN)
@@ -296,3 +296,62 @@ def test_exception_mid_repair_releases_savepoint(tmp_path, monkeypatch):
         assert session.in_nested_transaction() is False
         assert session.new == set() or all(not isinstance(o, Account) for o in session.new)
         assert _accounts(engine) == before
+
+
+def test_repair_parent_v22_plain_transfer(tmp_path):
+    """v22 (CONSENSUS-STATE-001, #1169): repair still converges when the
+    sender pre-apply insert is gone — apply_transaction owns creation."""
+    tx = _signed_tx(nonce=1, tx_type="TRANSFER", amount=250, to=ADDR_B, tx_hash="0x" + "77" * 32)
+    root = _correct_root(tmp_path, [tx], include_b=False, version=22)
+
+    engine = _engine(tmp_path, "fixture.db")
+    _seed_lagging(engine, include_b=False, version=22)
+    parent = _parent_block(1, root, [tx], version=22)
+    _record_parent(engine, parent, [tx])
+
+    proposer = _proposer(engine)
+    with Session(engine) as session:
+        bound = session.exec(select(Block).where(Block.chain_id == CHAIN, Block.height == 1)).one()
+        assert proposer._reapply_parent_block(session, bound) is True
+        session.commit()
+
+    accounts = _accounts(engine)
+    assert accounts[ADDR_B] == (250, 0)
+    assert accounts[ADDR_A] == (10**9 - 250 - DEFAULT_TX_FEE_UNITS, 2)
+
+
+def test_repair_parent_v22_rejected_tx_leaves_no_phantom(tmp_path):
+    """v22: a sealed-block tx that fails apply must not leave a phantom
+    sender account behind — the pre-apply insert is gated off at v22+."""
+    ghost = derive_ethereum_address("0x" + "99" * 32)  # never seeded
+    tx = _signed_tx(
+        nonce=0,
+        tx_type="TRANSFER",
+        amount=0,
+        fee=0,
+        to=ADDR_B,
+        tx_hash="0x" + "88" * 32,
+        **{"from": ghost},
+    )
+    # Re-sign under the ghost key is impossible (unknown key) — but repair
+    # replays recorded rows, not signatures; validate/apply must still reject
+    # the missing sender deterministically.
+    engine = _engine(tmp_path, "fixture.db")
+    _seed_lagging(engine, include_b=False, version=22)
+    # Parent claims the pre-tx root: the tx failed at seal time, so the
+    # committed root equals the lagging state root.
+    with Session(engine) as session:
+        from aitbc_chain.state.state_root_utils import compute_state_root_full
+
+        root = compute_state_root_full(session, CHAIN)
+    parent = _parent_block(1, root, [tx], version=22)
+    _record_parent(engine, parent, [tx])
+
+    proposer = _proposer(engine)
+    with Session(engine) as session:
+        bound = session.exec(select(Block).where(Block.chain_id == CHAIN, Block.height == 1)).one()
+        # apply fails (no sender account) -> repair cannot converge -> False,
+        # and the savepoint leaves zero account rows behind.
+        assert proposer._reapply_parent_block(session, bound) is False
+        assert session.get(Account, (CHAIN, ghost)) is None
+        assert session.get(Account, (CHAIN, ADDR_B)) is None

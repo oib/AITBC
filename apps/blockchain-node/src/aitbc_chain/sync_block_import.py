@@ -760,7 +760,13 @@ class BlockImportMixin(SyncBase):
                     raw_from = tx_data.get("from", "")
                     if raw_from not in {"bridge_release", "bridge_refund"}:
                         sender_acct = session.get(Account, (self._chain_id, sender_addr))
-                        if sender_acct is None and block_version >= 2:
+                        # v22 (CONSENSUS-STATE-001, #1169): no pre-apply sender
+                        # insert — a tx that validate/apply rejects must leave
+                        # zero mutation, and a phantom account row is committed
+                        # state. apply_transaction creates accounts only on its
+                        # success paths; a same-block-earlier credit is already
+                        # visible via session.get above.
+                        if sender_acct is None and 2 <= block_version < 22:
                             sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
                             session.add(sender_acct)
                             session.flush()
