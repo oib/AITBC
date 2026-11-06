@@ -166,7 +166,10 @@ def _apply_tx_preamble(session: Session, chain_id: str, tx_data: dict[str, Any],
     sender_acct = None
     if raw_from not in _PSEUDO_SENDERS:
         sender_acct = session.get(Account, (chain_id, sender_addr))
-        if sender_acct is None and block_version >= 2:
+        # v22 (CONSENSUS-STATE-001, #1169): mirrors sync_block_import — the
+        # pre-apply sender insert is gone at v22+ so a rejected tx cannot
+        # leave a phantom account.
+        if sender_acct is None and 2 <= block_version < 22:
             sender_acct = Account(chain_id=chain_id, address=sender_addr, balance=0, nonce=0)
             session.add(sender_acct)
             session.flush()
