@@ -517,7 +517,8 @@ server {
 
     # ── Exchange API (simple_exchange :8106) ─────────────────────
     # Wallet's own /v1/exchange/* endpoints stay reachable via the
-    # /exchange/ prefix below (wallet_service fronts its whole app there).
+    # /exchange/v1/(exchange|bridge|receipts) prefixes below
+    # (wallet_service fronts its whole app there — see #1200).
 
     location /v1/exchange/ {
         proxy_pass http://exchange_service/v1/exchange/;
@@ -770,8 +771,32 @@ server {
 
 
 
-    location /exchange/ {
-        proxy_pass http://wallet_service/;
+    # #1200 (R10-WALLET-EXPOSE-1): the blanket /exchange/ -> wallet_service/
+    # prefix exposed the wallet app's entire API publicly — /exchange/v1/wallets
+    # admin CRUD, /exchange/v1/rpc JSON-RPC, /exchange/v1/receipts, and the
+    # admin deposit verify/complete mutations — and WALLET_AUTH_ENABLED=false
+    # fleet-wide means the app layer does not compensate. Replaced by exact
+    # prefixes for the public exchange-facing subset only; all other
+    # /exchange/* paths now fall through to the static catch-all (404).
+
+    # Admin deposit verify/complete stay operator-only, same policy as the
+    # enumerable bridge lists above.
+    location ~ ^/exchange/v1/exchange/deposits/[^/]+/(verify|complete)/?$ {
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+        rewrite ^/exchange/(.*)$ /$1 break;
+        proxy_pass http://wallet_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    # Public exchange-facing wallet routes only.
+    location ~ ^/exchange/v1/(exchange|bridge|receipts)(/|$) {
+        rewrite ^/exchange/(.*)$ /$1 break;
+        proxy_pass http://wallet_service;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
