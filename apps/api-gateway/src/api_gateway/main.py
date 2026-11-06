@@ -17,6 +17,7 @@ import httpx  # noqa: E402
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
+from starlette.datastructures import Headers  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.env_compat import market_getenv  # noqa: E402
@@ -454,24 +455,43 @@ def _resolve_target(path: str) -> tuple[str, str] | JSONResponse:
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not found"})
 
 
+# RFC 7230 §6.1 hop-by-hop headers — connection-specific, never forwarded.
+# Anything the Connection header nominates joins this set per-request.
+_HOP_BY_HOP_HEADERS = frozenset(
+    {
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailer",
+        "transfer-encoding",
+        "upgrade",
+    }
+)
+
+
+def _strip_hop_by_hop(headers: Headers) -> dict[str, str]:
+    """Drop hop-by-hop headers plus any header names Connection nominates.
+
+    Takes the multi-dict, not a collapsed dict: duplicate ``Connection``
+    headers each nominate their own tokens, and ``dict(headers)`` would
+    keep only the first value.
+    """
+    nominated = {
+        token.strip().lower() for value in headers.getlist("connection") for token in value.split(",") if token.strip()
+    }
+    drop = _HOP_BY_HOP_HEADERS | nominated
+    return {k: v for k, v in headers.items() if k.lower() not in drop}
+
+
 def _upstream_headers(response: httpx.Response) -> dict[str, str]:
     """Response headers safe to forward to the client.
 
     Framing and hop-by-hop headers describe the upstream connection, not
     this one — forwarding them produces malformed responses (nginx 502).
     """
-    hop_by_hop = {
-        "content-length",
-        "content-encoding",
-        "transfer-encoding",
-        "connection",
-        "keep-alive",
-        "server",
-        "date",
-        "te",
-        "trailer",
-        "upgrade",
-    }
+    hop_by_hop = _HOP_BY_HOP_HEADERS | {"content-length", "content-encoding", "server", "date"}
     return {k: v for k, v in response.headers.items() if k.lower() not in hop_by_hop}
 
 
@@ -527,7 +547,11 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
         )
     client = app.state.http_client
     try:
-        headers = dict(request.headers)
+        # Hop-by-hop headers (TE/CL, Connection, Upgrade, ...) describe this
+        # connection, not the upstream one — forwarding them verbatim made
+        # httpx emit a TE+CL conflict and every chunked /api/ request 400.
+        # PI-API-006.
+        headers = _strip_hop_by_hop(request.headers)
         headers.pop("host", None)
         headers.pop("content-length", None)
         # Ask upstreams for identity encoding — httpx transparently decodes a
