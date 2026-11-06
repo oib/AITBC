@@ -1018,6 +1018,17 @@ class ChainSettings(BaseSettings):
     # restart wave — a mid-rollout mixed set would apply different session
     # rules and fork.
     state_transition_v21_height: int | None = None
+    # v22 (BOND-RELEASE-001, BOND-LOCK-TOPUP-PROVIDER-MISMATCH, #1166/#1167):
+    # bond ownership bound to the persisted provider (mandatory
+    # payload.provider == signer == bond.provider), the absolute lock
+    # ceiling ``min(now + lock_days, created_at + 3650d)`` with
+    # post-ceiling top-ups refused, and NULL locked_until failing closed
+    # on release. The 3650-day horizon is a compile-time protocol
+    # constant (PROTOCOL_MAX_LOCK_DURATION) — never env/config-driven.
+    # ``None`` (the default) keeps the rule unarmed: the activation
+    # height is a separate operator pin, set on every host together with
+    # the validator restart wave.
+    state_transition_v22_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
