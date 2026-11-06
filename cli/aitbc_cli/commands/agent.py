@@ -33,12 +33,13 @@ logger = get_logger(__name__)
 def _build_ws_url(base_url: str, sender: str, token: str | None = None) -> str:
     """Build WebSocket endpoint URL from HTTP base URL, sender agent ID, and optional token.
 
-    ``token`` today is the coordinator API key / a user JWT. The signed-envelope
-    roadmap (agent-signed-envelopes.md) replaces this with an agent JWT fetched
-    via the coordinator's agent login endpoint (Phase B1, server-side) —
-    ``?token=<agent JWT>`` — and eventually a signed first-frame hello so the
-    socket binds to the wallet identity rather than a shared key. Until that
-    endpoint exists the API-key token stays the only option.
+    ``token`` is a JWT: an agent JWT minted via the coordinator's agent login
+    endpoint (Phase B1), an operator/admin session JWT (``is_admin`` bypasses
+    stream binding), or an explicit ``--api-key`` value. The shared
+    COORDINATOR_API_KEY is never valid here — post-#1181 the WS endpoint is
+    JWT-only and the shared key was the cross-agent impersonation vector
+    (CLI-AGENT-WS-TOKEN-FALLBACK-1). Longer term a signed first-frame hello
+    binds the socket to the wallet identity — see agent-signed-envelopes.md.
     """
     ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://")
     url = f"{ws_url}/api/v1/agent/messages/stream?agent_id={sender}"
@@ -64,13 +65,32 @@ async def _consume_connection_frame(ctx, ws, timeout: int, ws_endpoint: str) -> 
         return False
 
 
+def _ws_session_token() -> str | None:
+    """Best stored session JWT for WS auth, or None.
+
+    ``get_admin_token`` prefers the ``admin`` credential slot and falls back
+    to ``client``; admin/operator-role JWTs resolve to an ``is_admin``
+    principal that bypasses per-agent stream binding. A plain client JWT
+    still authenticates but binds to its subject — it only opens a stream
+    whose ``agent_id`` matches. The shared API key is deliberately not a
+    candidate: the WS endpoint no longer accepts it (CLI-AGENT-WS-TOKEN-FALLBACK-1).
+    """
+    try:
+        from ..auth import AuthManager
+
+        return AuthManager().get_admin_token()
+    except Exception as e:
+        info(f"Stored session credential unusable ({e}) — WS auth needs an agent or admin JWT")
+        return None
+
+
 def _ws_auth_token(
     ctx,
     base_url: str,
     sender: str,
     wallet_name: str | None,
     password: str | None,
-    fallback_token: str | None,
+    explicit_token: str | None,
     password_file: str | None = None,
     password_stdin: bool = False,
 ) -> str | None:
@@ -78,32 +98,32 @@ def _ws_auth_token(
 
     When a signing wallet is configured (--wallet/AITBC_DEFAULT_WALLET)
     and sender is identity-bound to it, mints an agent JWT via the Phase B1
-    login endpoint so the stream authenticates as that agent. Any failure —
-    no wallet configured, agent not registered/bound to the wallet, or a
-    coordinator without the login endpoint — falls back to
-    fallback_token (the shared API key), keeping pre-B1 coordinators and
-    unsigned setups working.
+    login endpoint so the stream authenticates as that agent. Otherwise an
+    explicit ``--api-key`` value wins, then the stored session JWT
+    (admin/operator role preferred). There is no shared-key fallback — the
+    endpoint rejects it with 1008 since #1181.
     """
     try:
         signing = load_signing_wallet(
             ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
         )
     except Exception as e:
-        info(f"Wallet login unavailable ({e}) — falling back to the shared API key token")
-        return fallback_token
-    if signing is None:
-        return fallback_token
-    address, private_key = signing
-    client = AITBCHTTPClient(base_url=base_url, timeout=10)
-    binding_error = check_registry_binding(client, sender, address)
-    if binding_error:
-        info(f"{binding_error} — falling back to the shared API key token")
-        return fallback_token
-    token = agent_login_token(client, sender, address, private_key)
-    if token is None:
-        info("Agent login endpoint did not issue a token — falling back to the shared API key token")
-        return fallback_token
-    return token
+        info(f"Wallet login unavailable ({e})")
+        signing = None
+    if signing is not None:
+        address, private_key = signing
+        client = AITBCHTTPClient(base_url=base_url, timeout=10)
+        binding_error = check_registry_binding(client, sender, address)
+        if not binding_error:
+            token = agent_login_token(client, sender, address, private_key)
+            if token is not None:
+                return token
+            info("Agent login endpoint did not issue a token")
+        else:
+            info(binding_error)
+    if explicit_token:
+        return explicit_token
+    return _ws_session_token()
 
 
 def _default_wallet_name() -> str | None:
@@ -437,12 +457,18 @@ def ping(
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
     # With a configured wallet the stream authenticates as the bound agent via
-    # an agent JWT (?token=<jwt>); otherwise the shared API key / user JWT is
-    # used. Longer term the stream binds via a signed first-frame hello —
-    # see _build_ws_url.
-    api_key = (ctx.obj.get("api_key") if ctx.obj else None) or config.api_key
+    # an agent JWT (?token=<jwt>); otherwise an explicit --api-key or the
+    # stored session JWT is used. The shared config.api_key is never sent —
+    # the WS endpoint rejects it (CLI-AGENT-WS-TOKEN-FALLBACK-1).
     token = _ws_auth_token(
-        ctx, base_url, sender, wallet, password, api_key, password_file=password_file, password_stdin=password_stdin
+        ctx,
+        base_url,
+        sender,
+        wallet,
+        password,
+        ctx.obj.get("api_key") if ctx.obj else None,
+        password_file=password_file,
+        password_stdin=password_stdin,
     )
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
 
@@ -536,11 +562,18 @@ def request_coins(
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url).rstrip("/")
     # With a configured wallet the stream authenticates as the bound agent via
-    # an agent JWT (the same wallet receives the coins); otherwise the shared
-    # API key token is used. See _ws_auth_token.
-    api_key = (ctx.obj.get("api_key") if ctx.obj else None) or config.api_key
+    # an agent JWT (the same wallet receives the coins); otherwise an explicit
+    # --api-key or the stored session JWT is used — never the shared
+    # config.api_key (CLI-AGENT-WS-TOKEN-FALLBACK-1). See _ws_auth_token.
     token = _ws_auth_token(
-        ctx, base_url, sender, wallet, password, api_key, password_file=password_file, password_stdin=password_stdin
+        ctx,
+        base_url,
+        sender,
+        wallet,
+        password,
+        ctx.obj.get("api_key") if ctx.obj else None,
+        password_file=password_file,
+        password_stdin=password_stdin,
     )
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
 
