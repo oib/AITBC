@@ -62,6 +62,18 @@ async def _gossip_ws_close(websocket: WebSocket, code: int | None = None) -> Non
         pass
 
 
+async def _gossip_ws_send_json(websocket: WebSocket, payload: object) -> None:
+    """send_json bounded by _GOSSIP_WS_OP_TIMEOUT.
+
+    A peer that stops reading (no RST/FIN — NAT churn, firewall) would
+    otherwise park a gossip forwarder on send_json forever, wedging the
+    handler and the per-IP connection slot (RPC-GOSSIP-SENDJSON-UNBOUNDED-1).
+    On timeout asyncio.wait_for cancels the send; callers treat it like any
+    other send failure and unwind so _gossip_ip_connections is released.
+    """
+    await asyncio.wait_for(websocket.send_json(payload), timeout=_GOSSIP_WS_OP_TIMEOUT)
+
+
 def _gossip_client_ip(websocket: WebSocket) -> str:
     """Return the remote client IP for the gossip websocket.
 
@@ -150,11 +162,13 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             issued = create_challenge(client_ip)
             if issued is None:
                 gossip_auth_rejected_total.labels(reason="challenge_rate_limited").inc()
-                await websocket.send_json({"error": "Challenge rate limited"})
+                await _gossip_ws_send_json(websocket, {"error": "Challenge rate limited"})
                 await _gossip_ws_close(websocket, code=1008)
                 return
             challenge, challenge_ts = issued
-            await websocket.send_json({"type": "auth_challenge", "challenge": challenge, "timestamp": challenge_ts})
+            await _gossip_ws_send_json(
+                websocket, {"type": "auth_challenge", "challenge": challenge, "timestamp": challenge_ts}
+            )
 
         subscription = await gossip_broker.subscribe(topic, max_queue_size=100)
 
@@ -162,7 +176,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             try:
                 async for message in subscription:
                     try:
-                        await websocket.send_json(message)
+                        await _gossip_ws_send_json(websocket, message)
                     except Exception:
                         break
             except Exception as e:
@@ -175,7 +189,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     raw = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
                 except asyncio.TimeoutError:
                     try:
-                        await websocket.send_json({"type": "ping", "timestamp": time.time()})
+                        await _gossip_ws_send_json(websocket, {"type": "ping", "timestamp": time.time()})
                     except Exception:
                         break
                     continue
@@ -184,25 +198,25 @@ async def gossip_websocket(websocket: WebSocket) -> None:
 
                 if len(raw) > settings.gossip_max_message_size:
                     gossip_oversized_message_total.inc()
-                    await websocket.send_json({"error": "Message too large"})
+                    await _gossip_ws_send_json(websocket, {"error": "Message too large"})
                     await _gossip_ws_close(websocket, code=1009)
                     break
 
                 if not _gossip_msg_rate.is_allowed(f"{client_ip}:{topic}"):
                     gossip_rate_limited_total.labels(reason="message_rate").inc()
-                    await websocket.send_json({"error": "Rate limit exceeded"})
+                    await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
                     continue
 
                 try:
                     data = json.loads(raw)
                 except json.JSONDecodeError:
-                    await websocket.send_json({"error": "Invalid JSON"})
+                    await _gossip_ws_send_json(websocket, {"error": "Invalid JSON"})
                     continue
 
                 # Handle authentication handshake.
                 if data.get("type") == "auth_response":
                     if not settings.gossip_auth_enabled:
-                        await websocket.send_json({"type": "auth_ok", "note": "auth not required"})
+                        await _gossip_ws_send_json(websocket, {"type": "auth_ok", "note": "auth not required"})
                         continue
                     claimed = data.get("address", "")
                     signature = data.get("signature", "")
@@ -210,17 +224,17 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     client_ts = data.get("timestamp", 0.0)
                     if not is_validator(claimed):
                         gossip_auth_rejected_total.labels(reason="not_validator").inc()
-                        await websocket.send_json({"error": "Not a validator"})
+                        await _gossip_ws_send_json(websocket, {"error": "Not a validator"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
                     if client_challenge != challenge:
                         gossip_auth_rejected_total.labels(reason="challenge_mismatch").inc()
-                        await websocket.send_json({"error": "Challenge mismatch"})
+                        await _gossip_ws_send_json(websocket, {"error": "Challenge mismatch"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
                     if abs(time.time() - client_ts) > settings.gossip_auth_challenge_ttl:
                         gossip_auth_rejected_total.labels(reason="challenge_expired").inc()
-                        await websocket.send_json({"error": "Challenge expired"})
+                        await _gossip_ws_send_json(websocket, {"error": "Challenge expired"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
                     if verify_challenge(client_challenge, claimed, client_ts, signature, channel_scope(topic)):
@@ -229,24 +243,24 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         authorized = True
                         authorized_address = claimed
                         gossip_auth_accepted_total.labels(address=claimed).inc()
-                        await websocket.send_json({"type": "auth_ok", "address": claimed})
+                        await _gossip_ws_send_json(websocket, {"type": "auth_ok", "address": claimed})
                         continue
                     else:
                         gossip_auth_rejected_total.labels(reason="invalid_signature").inc()
-                        await websocket.send_json({"error": "Invalid signature"})
+                        await _gossip_ws_send_json(websocket, {"error": "Invalid signature"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
 
                 # Publishing path.
                 if is_restricted_topic(topic) and not authorized:
                     gossip_auth_rejected_total.labels(reason="unauthorized_publish").inc()
-                    await websocket.send_json({"error": "Validator authentication required"})
+                    await _gossip_ws_send_json(websocket, {"error": "Validator authentication required"})
                     await _gossip_ws_close(websocket, code=1008)
                     break
 
                 if not is_public_topic(topic) and not authorized:
                     gossip_auth_rejected_total.labels(reason="unauthorized_topic").inc()
-                    await websocket.send_json({"error": "Topic not authorized"})
+                    await _gossip_ws_send_json(websocket, {"error": "Topic not authorized"})
                     await _gossip_ws_close(websocket, code=1008)
                     break
 
@@ -274,7 +288,10 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             await asyncio.gather(*pending, return_exceptions=True)
             for task in done:
                 exc = None if task.cancelled() else task.exception()
-                if isinstance(exc, WebSocketDisconnect):
+                if isinstance(exc, (WebSocketDisconnect, asyncio.TimeoutError)):
+                    # TimeoutError = bounded send_json hit _GOSSIP_WS_OP_TIMEOUT
+                    # on a peer that stopped reading — same teardown as a
+                    # disconnect (#1165).
                     logger.info("WebSocket gossip subscriber disconnected: topic=%s", topic)
                 elif exc is not None:
                     logger.error("WebSocket gossip error for topic %s: %s", topic, exc)

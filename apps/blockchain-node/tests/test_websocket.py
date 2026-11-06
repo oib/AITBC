@@ -375,6 +375,50 @@ async def test_gossip_websocket_hung_close_still_releases_ip_count(monkeypatch: 
 
 
 @pytest.mark.asyncio
+async def test_gossip_websocket_hung_send_still_releases_ip_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1165: a peer that stops reading must not park the broker->client forwarder.
+
+    ``send_json`` is bounded by ``_GOSSIP_WS_OP_TIMEOUT``; without the bound a
+    hung send leaves the forwarder (and the per-IP slot) wedged forever. The
+    client side stays connected (receive hangs) so the broker->client send is
+    the path under test; subscription.close() must still run on unwind.
+    """
+    monkeypatch.setattr(websocket_module, "_GOSSIP_WS_OP_TIMEOUT", 0.05)
+    ip = "198.51.100.25"
+    websocket_module._gossip_ip_connections.pop(ip, None)
+    closed: list[bool] = []
+
+    class _Subscription:
+        def __aiter__(self):
+            async def _gen():
+                yield {"type": "test"}
+                await asyncio.Event().wait()
+
+            return _gen()
+
+        def close(self) -> None:
+            closed.append(True)
+
+    async def _subscribe(topic: str, max_queue_size: int = 100) -> _Subscription:
+        return _Subscription()
+
+    monkeypatch.setattr(websocket_module.gossip_broker, "subscribe", _subscribe)
+
+    ws = _gossip_ws(ip)
+    ws.accept = _noop  # type: ignore[method-assign]
+    ws.receive_text = _hang_forever  # type: ignore[method-assign]
+    ws.send_json = _hang_forever  # type: ignore[method-assign]
+    ws.close = _noop  # type: ignore[method-assign]
+
+    try:
+        await asyncio.wait_for(websocket_module.gossip_websocket(ws), timeout=5.0)
+        assert websocket_module._gossip_ip_connections.get(ip, 0) == 0
+        assert closed == [True]
+    finally:
+        websocket_module._gossip_ip_connections.pop(ip, None)
+
+
+@pytest.mark.asyncio
 async def test_gossip_websocket_hung_accept_still_releases_ip_count(monkeypatch: pytest.MonkeyPatch) -> None:
     """#1158: a client that never completes the accept handshake must not strand the count."""
     monkeypatch.setattr(websocket_module, "_GOSSIP_WS_OP_TIMEOUT", 0.05)
