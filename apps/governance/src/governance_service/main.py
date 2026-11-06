@@ -332,6 +332,21 @@ async def submit_transaction(
     action = transaction_data.get("action")
     if transaction_type != "governance":
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for governance service"})
+    # PI-API-002 (#1178): this relay bypassed the caller-signature scheme the
+    # dedicated routes enforce (#1091) — forged propose/vote/execute passed
+    # with it. Require the same signed caller + freshness window, and bind the
+    # claimed actor field for the action being submitted.
+    caller = str(transaction_data.get("caller_address") or "")
+    action_aliases: dict[str, tuple[str, ...]] = {
+        "propose": ("proposer_id", "proposer_address", "proposer"),
+        "vote": ("voter_id", "voter_address", "voter"),
+        "execute": ("executor_address", "executor_id", "executor"),
+    }
+    _bind_actor(caller, {k: transaction_data.get(k) for k in action_aliases.get(str(action), ())})
+    unsigned_tx = _unsigned(transaction_data)
+    _require_signature(caller, transaction_data.get("signature"), unsigned_tx)
+    await _check_fresh(unsigned_tx, transaction_data.get("signature"))
+    transaction_data = unsigned_tx
     try:
         if action == "propose":
             proposal = await svc.create_proposal(transaction_data)
@@ -582,6 +597,36 @@ class PropagateRequest(BaseModel):
     """Request body for cross-chain proposal propagation."""
 
     target_chains: list[str]
+    # PI-API-002 (#1178): caller signature fields — optional on the model so
+    # construction stays compatible, enforced by the route handler.
+    caller_address: str | None = None
+    signature: str | None = None
+    timestamp: float | None = None
+
+
+class SignedCallRequest(BaseModel):
+    """Signed caller envelope for cross-chain governance routes (#1178)."""
+
+    caller_address: str | None = None
+    signature: str | None = None
+    timestamp: float | None = None
+
+
+def _signed_call_body(request: BaseModel | None) -> dict[str, Any]:
+    return request.model_dump() if request is not None else {}
+
+
+async def _require_cross_chain_signature(body: dict[str, Any]) -> str:
+    """PI-API-002 (#1178): propagate / aggregate-votes / execute-cross-chain
+    used to accept any caller — the submitted on-chain tx claims
+    ``from = proposal.proposer_id`` yet nothing proved the caller held that
+    key. Require the same caller signature + freshness window as the
+    dedicated write routes (#1091)."""
+    caller = str(body.get("caller_address") or "")
+    unsigned_body = {k: v for k, v in body.items() if k != "signature"}
+    _require_signature(caller, body.get("signature"), unsigned_body)
+    await _check_fresh(unsigned_body, body.get("signature"))
+    return caller
 
 
 @app.post("/v1/governance/proposals/{proposal_id}/propagate")
@@ -601,6 +646,12 @@ async def propagate_proposal(
     proposal = await svc.get_proposal(proposal_id)
     if not proposal:
         return JSONResponse(status_code=404, content={"error": "Proposal not found"})  # type: ignore[return-value]
+
+    # The propagated tx claims from = proposal.proposer_id, so the caller
+    # must sign as that proposer — a third party cannot trigger propagation
+    # under someone else's identity (#1178).
+    caller = await _require_cross_chain_signature(_signed_call_body(request))
+    _bind_actor(caller, {"proposer_id": proposal.proposer_id})
 
     propagated_to: list[str] = []
     failed: list[str] = []
@@ -649,6 +700,7 @@ async def propagate_proposal(
 async def aggregate_votes(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
+    request: SignedCallRequest | None = None,
 ) -> dict[str, Any]:
     """Aggregate votes for a proposal from all chains (v0.7.4 §B2).
 
@@ -656,6 +708,7 @@ async def aggregate_votes(
     deployment, this would also query each registered chain for votes
     cast on this proposal and merge them into the hub chain's tally.
     """
+    await _require_cross_chain_signature(_signed_call_body(request))
     votes = await svc.list_votes(proposal_id=proposal_id)
     total_for = sum(1 for v in votes if v.get("vote_type") == "for" or v.get("vote_type") == "yes")  # type: ignore[attr-defined,misc]
     total_against = sum(1 for v in votes if v.get("vote_type") == "against" or v.get("vote_type") == "no")  # type: ignore[attr-defined,misc]
@@ -676,6 +729,7 @@ async def aggregate_votes(
 async def execute_cross_chain(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
+    request: SignedCallRequest | None = None,
 ) -> dict[str, Any]:
     """Execute a proposal on all chains after approval (v0.7.4 §B2).
 
@@ -688,6 +742,10 @@ async def execute_cross_chain(
     proposal = await svc.get_proposal(proposal_id)
     if not proposal:
         return JSONResponse(status_code=404, content={"error": "Proposal not found"})  # type: ignore[return-value]
+    # The executed tx claims executor = proposal.proposer_id — bind the
+    # caller to that identity (#1178).
+    caller = await _require_cross_chain_signature(_signed_call_body(request))
+    _bind_actor(caller, {"proposer_id": proposal.proposer_id})
     if proposal.status not in ("passed", "executed"):
         return JSONResponse(  # type: ignore[return-value]
             status_code=400,
