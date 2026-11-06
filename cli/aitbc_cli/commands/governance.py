@@ -16,6 +16,7 @@ is enabled in its config.
 
 import builtins
 import json
+import time
 import uuid
 from typing import Any
 
@@ -683,9 +684,25 @@ def proposal_show(ctx, proposal_id: str, format: str):
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--target-chains", required=True, help="Comma-separated list of target chain IDs")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet that signs the call — must be the proposal's proposer_address (service-enforced, #1178)",
+)
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def propagate(ctx, proposal_id: str, target_chains: str, format: str):
+def propagate(
+    ctx,
+    proposal_id: str,
+    target_chains: str,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Propagate a governance proposal to a comma-separated list of target chains."""
     try:
         chains = [c.strip() for c in target_chains.split(",") if c.strip()]
@@ -693,9 +710,16 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
             abort(ctx, "--target-chains must specify at least one chain ID")
             return
         client = _get_client(ctx)
+        body: dict[str, Any] = {"target_chains": chains}
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
+        if signer:
+            signer_address, private_key = signer
+            body["caller_address"] = signer_address
+            body["timestamp"] = time.time()
+            body["signature"] = _sign_body(private_key, {k: v for k, v in body.items() if k != "signature"})
         result = client.post(
             f"/v1/governance/proposals/{proposal_id}/propagate",
-            json={"target_chains": chains},
+            json=body,
         )
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
@@ -713,13 +737,35 @@ def propagate(ctx, proposal_id: str, target_chains: str, format: str):
   aitbc governance aggregate-votes --proposal-id prop-123 --output json""",
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet that signs the call (service-enforced caller signature, #1178)",
+)
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def aggregate_votes(ctx, proposal_id: str, format: str):
+def aggregate_votes(
+    ctx,
+    proposal_id: str,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Aggregate and tally votes for a proposal (informational only — votes are advisory, V-7)."""
     try:
         client = _get_client(ctx)
-        result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes")
+        body: dict[str, Any] = {}
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
+        if signer:
+            signer_address, private_key = signer
+            body["caller_address"] = signer_address
+            body["timestamp"] = time.time()
+            body["signature"] = _sign_body(private_key, {k: v for k, v in body.items() if k != "signature"})
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/aggregate-votes", json=body)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -736,13 +782,35 @@ def aggregate_votes(ctx, proposal_id: str, format: str):
   aitbc governance execute-cross-chain --proposal-id prop-123 --output json""",
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet that signs the call — must be the proposal's proposer_address (service-enforced, #1178)",
+)
+@wallet_password_options
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def execute_cross_chain(ctx, proposal_id: str, format: str):
+def execute_cross_chain(
+    ctx,
+    proposal_id: str,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    format: str,
+):
     """Execute a governance proposal across target chains."""
     try:
         client = _get_client(ctx)
-        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute-cross-chain")
+        body: dict[str, Any] = {}
+        signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
+        if signer:
+            signer_address, private_key = signer
+            body["caller_address"] = signer_address
+            body["timestamp"] = time.time()
+            body["signature"] = _sign_body(private_key, {k: v for k, v in body.items() if k != "signature"})
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute-cross-chain", json=body)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
