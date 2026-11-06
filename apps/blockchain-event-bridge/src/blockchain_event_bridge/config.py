@@ -43,7 +43,13 @@ class Settings(ServiceSettings):
 
     # Event subscription filters
     subscribe_blocks: bool = Field(default=True)
-    subscribe_transactions: bool = Field(default=True)
+    # CE-009: the gossip "transactions" topic is PUBLIC_GOSSIP_TOPICS —
+    # unauthenticated, so forged events would reach the coordinator/agent
+    # action handlers with the bridge's service bearer (confused deputy).
+    # Transaction data still reaches handlers via authenticated block
+    # events, so the public subscription stays off unless explicitly
+    # re-enabled for a future authenticated variant.
+    subscribe_transactions: bool = Field(default=False)
     subscribe_contracts: bool = Field(default=False)  # Phase 2
 
     # Smart contract addresses (Phase 2)
