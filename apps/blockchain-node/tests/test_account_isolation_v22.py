@@ -115,7 +115,7 @@ def _roots_after_apply(
         for tx in txs:
             data = dict(tx)
             data.setdefault("value", data.get("amount", 0))
-            st.apply_transaction(session, CHAIN, data, data["tx_hash"], block_version=version, block_height=height)
+            st.apply_transaction_guarded(session, CHAIN, data, data["tx_hash"], block_version=version, block_height=height)
         session.flush()
         root = compute_state_root_full(session, CHAIN)
         aux = side_root_shadow.committed_fingerprint(session.connection().connection, version)["fingerprint"]
@@ -477,3 +477,87 @@ def test_v22_activation_boundary_across_heights(fixture_db):
     assert r2.accepted, f"v22 block must import: {r2.reason}"
     acct = _account(engine, ghost)
     assert acct is not None and acct.nonce == 1 and acct.balance == 0
+
+
+def test_v22_two_txs_same_unknown_sender_in_one_block(fixture_db):
+    """A's same-sender check: two zero-cost txs from one never-seen sender
+    in a single v22 block — tx2 must observe tx1's materialized account
+    (nonce=1), not a second virtual (0,0)."""
+    engine, factory = fixture_db
+    ghost_key = "0x" + "66" * 32
+    ghost = derive_ethereum_address(ghost_key)
+    tx1 = _tx(ghost, ghost_key, ADDR_B, 0, 0, "TRANSFER", "0x" + "b2" * 32, fee=0)
+    tx2 = _tx(ghost, ghost_key, ADDR_B, 0, 1, "TRANSFER", "0x" + "b3" * 32, fee=0)
+    result = _import(engine, factory, [tx1, tx2], 22)
+    assert result.accepted, f"v22 two-tx unknown-sender block must import: {result.reason}"
+    acct = _account(engine, ghost)
+    assert acct is not None and acct.nonce == 2 and acct.balance == 0
+    assert _tx_status(engine, tx1["tx_hash"]) == "confirmed"
+    assert _tx_status(engine, tx2["tx_hash"]) == "confirmed"
+
+
+def test_v22_dispatch_failure_leaves_no_sender_row(fixture_db, monkeypatch):
+    """A's adjudication pin: validate-pass -> dispatch-False must leave
+    zero mutation at v22 — the ensured sender row rolls back with the
+    tx savepoint, and the block still imports with matching roots."""
+    from aitbc_chain.state import state_transition as st_mod
+
+    engine, factory = fixture_db
+
+    def _fail_register(self, session, chain_id, gpu_data):
+        return (False, "injected dispatch failure")
+
+    monkeypatch.setattr(st_mod.StateTransition, "handle_gpu_registration", _fail_register)
+    ghost_key = "0x" + "77" * 32
+    ghost = derive_ethereum_address(ghost_key)
+    tx = _tx(
+        ghost,
+        ghost_key,
+        ADDR_B,
+        0,
+        0,
+        "GPU_REGISTER",
+        "0x" + "b4" * 32,
+        fee=0,
+        payload={"gpu_id": "gpu-x", "miner_id": "m1", "model": "m", "memory_gb": 8, "price_per_hour": "1.0"},
+    )
+    result = _import(engine, factory, [tx], 22)
+    assert result.accepted, f"block must import: {result.reason}"
+    assert _account(engine, ghost) is None, "dispatch-failed tx left a committed sender row"
+    assert _tx_status(engine, tx["tx_hash"]) == "failed"
+
+
+def test_v22_dispatch_exception_leaves_no_committed_state(fixture_db, monkeypatch):
+    """A's adjudication: a handler that RAISES after the v22 ensure must not
+    commit the sender row or any partial mutation — the tx savepoint rolls
+    back and the block import aborts with the whole transaction undone."""
+    from aitbc_chain.state import state_transition as st_mod
+
+    engine, factory = fixture_db
+
+    def _raise_register(self, session, chain_id, gpu_data):
+        raise RuntimeError("injected dispatch exception")
+
+    monkeypatch.setattr(st_mod.StateTransition, "handle_gpu_registration", _raise_register)
+    ghost_key = "0x" + "88" * 32
+    ghost = derive_ethereum_address(ghost_key)
+    tx = _tx(
+        ghost,
+        ghost_key,
+        ADDR_B,
+        0,
+        0,
+        "GPU_REGISTER",
+        "0x" + "b5" * 32,
+        fee=0,
+        payload={"gpu_id": "gpu-y", "miner_id": "m2", "model": "m", "memory_gb": 8, "price_per_hour": "1.0"},
+    )
+    # Roots are irrelevant — the block must be rejected before they matter.
+    sync = ChainSync(factory, chain_id=CHAIN, validate_signatures=False)
+    block = _block([tx], "0x" + "00" * 32, "0x" + "00" * 32, 22)
+    try:
+        sync.import_block(block, transactions=[tx])
+    except Exception:
+        pass
+    assert _account(engine, ghost) is None, "dispatch exception left a committed sender row"
+    assert _account(engine, ADDR_A).balance == 10**9, "partial mutation survived the abort"

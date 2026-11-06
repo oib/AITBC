@@ -303,7 +303,7 @@ def apply_block(
     tx_outputs: list[dict[str, Any]] = []
     for tx_data in txs:
         sender_addr, recipient_addr = _apply_tx_preamble(session, chain_id, tx_data, block_version)
-        success, reason = st.apply_transaction(
+        success, reason = st.apply_transaction_guarded(
             session,
             chain_id,
             tx_data,

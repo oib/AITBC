@@ -176,7 +176,9 @@ def _correct_root(tmp_path, txs: list[dict[str, Any]], *, include_b: bool = True
         for tx in txs:
             data = dict(tx)
             data["value"] = data["amount"]
-            ok, err = st.apply_transaction(session, CHAIN, data, data["tx_hash"], block_version=version, block_height=1)
+            ok, err = st.apply_transaction_guarded(
+                session, CHAIN, data, data["tx_hash"], block_version=version, block_height=1
+            )
             assert ok, f"fixture tx must apply: {err}"
         session.flush()
         root = compute_state_root_full(session, CHAIN)
@@ -279,6 +281,9 @@ def test_exception_mid_repair_releases_savepoint(tmp_path, monkeypatch):
             pass
 
         def apply_transaction(self, *args, **kwargs):
+            raise RuntimeError("boom mid-repair")
+
+        def apply_transaction_guarded(self, *args, **kwargs):
             raise RuntimeError("boom mid-repair")
 
     monkeypatch.setattr(poa_mod, "get_state_transition", lambda: _Raising())
