@@ -176,13 +176,13 @@ def _topic_targets_other_chain(topic: str, chain_id: str) -> bool:
     return any(other != chain_id and topic.endswith("." + other) for other in _connectable_chain_ids())
 
 
-def _backend_from_url(url: str) -> GossipBackend | None:
+def _backend_from_url(url: str, chain_id: str | None = None) -> GossipBackend | None:
     """Build a gossip backend from a ``GOSSIP_BACKENDS`` URL by scheme."""
     scheme = url.split("://", 1)[0].lower() if "://" in url else url.strip().lower()
     if scheme in {"redis", "rediss"}:
         return BroadcastGossipBackend(url)
     if scheme in {"wss", "ws"}:
-        return WebsocketGossipBackend(url)
+        return WebsocketGossipBackend(url, chain_id=chain_id)
     if scheme in {"memory", "inmemory", "local"}:
         # Per-process only — a dev/test hatch, never a cross-node bus.
         return InMemoryGossipBackend()
@@ -202,7 +202,7 @@ def _backend_for_chain(chain_id: str) -> GossipBackend | None:
     peer_urls = settings.mesh_peer_urls_for_chain(chain_id)
     if not local_url:
         return None
-    local = _backend_from_url(local_url)
+    local = _backend_from_url(local_url, chain_id=chain_id)
     if local is None:
         return None
     if not peer_urls:
@@ -212,7 +212,7 @@ def _backend_for_chain(chain_id: str) -> GossipBackend | None:
         name = _peer_name(url)
         if name in peers:
             return None
-        peers[name] = WebsocketGossipBackend(url)
+        peers[name] = WebsocketGossipBackend(url, chain_id=chain_id)
     return MeshGossipBackend(local, peers)
 
 

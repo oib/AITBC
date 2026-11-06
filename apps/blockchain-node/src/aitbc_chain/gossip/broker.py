@@ -210,7 +210,7 @@ def create_backend(
     if backend in {"websocket", "wss", "ws"}:
         if not websocket_url:
             raise ValueError("Websocket backend requires a gossip_websocket_url setting")
-        return WebsocketGossipBackend(websocket_url)
+        return WebsocketGossipBackend(websocket_url, chain_id=settings.chain_id)
     if backend == "mesh":
         if not broadcast_url:
             raise ValueError("Mesh backend requires a gossip_broadcast_url setting for the local bus")
@@ -220,7 +220,7 @@ def create_backend(
             name = _peer_name(url)
             if name in peers:
                 raise ValueError(f"Duplicate mesh peer URL: {url}")
-            peers[name] = WebsocketGossipBackend(url)
+            peers[name] = WebsocketGossipBackend(url, chain_id=settings.chain_id)
         return MeshGossipBackend(BroadcastGossipBackend(broadcast_url), peers)
     raise ValueError(f"Unsupported gossip backend '{backend_type}'")
 
