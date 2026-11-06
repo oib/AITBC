@@ -254,6 +254,15 @@ def call_http(
     """Call an AITBC HTTP endpoint by service name and path."""
     service = _normalize_service_name(service)
 
+    # An absolute URL in PATH would retarget the request while
+    # ``suppress_stored`` only watches --url — stored credentials would ride
+    # to whatever host the path names (PI-SDK-04). --url is the retarget
+    # flag; PATH stays a path.
+    if path.startswith(("http://", "https://")):
+        raise click.ClickException(
+            "PATH must be relative to the service base URL; use --url to retarget the request to another host"
+        )
+
     base_url: str | None
     if url:
         base_url = url
