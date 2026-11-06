@@ -8,6 +8,28 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _restore_aitbc_sys_modules():
+    """_load() swaps real aitbc modules for bare ModuleType fakes; without
+    restoration they leak into every later test in the same pytest process
+    (the mega-suite's 'unknown location' import failures, #1194)."""
+    keys = (
+        "aitbc",
+        "aitbc.network",
+        "aitbc.crypto",
+        "aitbc.crypto.signature_recovery",
+    )
+    saved = {k: sys.modules.get(k) for k in keys}
+    yield
+    for k, v in saved.items():
+        if v is None:
+            sys.modules.pop(k, None)
+        else:
+            sys.modules[k] = v
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "apps/agent-coordinator/src"
