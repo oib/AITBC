@@ -195,16 +195,19 @@ def _bearer_token(request: Request) -> str | None:
 async def resolve_request_principal(request: Request) -> AgentPrincipal | None:
     """Resolve any credential on the request to a principal, or ``None``.
 
-    Order: signed headers → shared key (``X-Api-Key``, ``?token=``, or a
-    Bearer carrying the key itself) → Bearer JWT. A credential that fails to
-    resolve falls through to the next kind rather than poisoning the request.
+    Order: signed headers → shared key (``X-Api-Key`` or a Bearer carrying
+    the key itself) → Bearer JWT. A credential that fails to resolve falls
+    through to the next kind rather than poisoning the request.
+
+    PI-API-004 (#1181): the shared key is never accepted via ``?token=`` —
+    a URL-borne credential lands in proxy logs, browser history and
+    Referer headers. Query-param tokens resolve as JWTs only.
     """
     principal = await signed_headers_principal(request)
     if principal is not None:
         return principal
     for candidate in (
         request.headers.get("X-Api-Key"),
-        request.query_params.get("token"),
         _bearer_token(request),
     ):
         principal = shared_key_principal(candidate)
@@ -216,13 +219,12 @@ async def resolve_request_principal(request: Request) -> AgentPrincipal | None:
 async def resolve_ws_principal(token: str | None) -> AgentPrincipal | None:
     """Resolve the WS ``?token=`` credential to a principal, or ``None``.
 
-    Shared key → the fixed ``hub-coordinator`` operator identity; JWT → the
-    ``agent_id`` claim (verified against the registry binding), or the
-    operator identity for admin/operator tokens without one.
+    PI-API-004 (#1181): JWT only — the shared coordinator key is never
+    accepted via a query parameter (URL-borne credentials leak into logs
+    and history, and the shared key resolves to the cross-agent
+    ``hub-coordinator`` identity). Operator tooling uses an admin/operator
+    JWT instead.
     """
-    principal = shared_key_principal(token)
-    if principal is not None:
-        return principal
     return await jwt_principal(token)
 
 

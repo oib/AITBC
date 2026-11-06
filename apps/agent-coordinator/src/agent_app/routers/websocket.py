@@ -47,27 +47,24 @@ async def _reject_ws(websocket: WebSocket, reason: str) -> None:
 async def _bind_ws_principal(websocket: WebSocket, agent_id: str, principal: AgentPrincipal) -> bool:
     """Check the ``agent_id`` query param against the token-resolved principal.
 
-    ``enforce`` rejects a mismatch outright (the stream is the agent's
-    authenticated channel). ``advisory`` logs ``ws_binding_mismatch`` and
-    allows — the deployed default stays non-breaking. ``disabled`` skips the
-    check entirely. The operator/shared-key principal (``hub-coordinator``) is
-    bound like any other: in enforce it may only open hub-coordinator's own
-    streams — other agents must connect with their own login JWT.
+    PI-API-004 (#1181): the binding is enforced in EVERY signature mode —
+    ``disabled``/``advisory`` no longer open cross-agent streams; a mismatch
+    is logged and rejected. ``is_admin`` principals (operator/admin JWT)
+    bypass the match so hub tooling keeps working, matching
+    ``authorize_agent_scope``.
     """
-    if principal.agent_id == agent_id:
+    if principal.is_admin or principal.agent_id == agent_id:
         return True
     mode = settings.agent_msg_signature_mode
-    if mode == "enforce":
-        await _reject_ws(websocket, "agent_id does not match the authenticated principal")
-        return False
-    if mode == "advisory":
-        logger.warning(
-            "ws_binding_mismatch agent_id=%s principal=%s auth_type=%s",
-            agent_id,
-            principal.agent_id,
-            principal.auth_type,
-        )
-    return True
+    logger.warning(
+        "ws_binding_mismatch agent_id=%s principal=%s auth_type=%s mode=%s",
+        agent_id,
+        principal.agent_id,
+        principal.auth_type,
+        mode,
+    )
+    await _reject_ws(websocket, "agent_id does not match the authenticated principal")
+    return False
 
 
 @router.websocket("/messages/stream")
