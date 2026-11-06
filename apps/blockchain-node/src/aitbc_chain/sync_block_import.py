@@ -797,7 +797,7 @@ class BlockImportMixin(SyncBase):
                     elif "value" not in tx_data and "amount" in tx_data:
                         tx_data["value"] = tx_data["amount"]
                     state_transition = get_state_transition()
-                    success, error_msg = state_transition.apply_transaction(
+                    success, error_msg = state_transition.apply_transaction_guarded(
                         session,
                         self._chain_id,
                         tx_data,
