@@ -74,7 +74,7 @@ def _initialize_prometheus() -> None:
     try:
         import os
 
-        host = os.environ.get("AITBC_NODE_METRICS_HOST", "0.0.0.0")
+        host = os.environ.get("AITBC_NODE_METRICS_HOST", "127.0.0.1")
         port = int(os.environ.get("AITBC_NODE_METRICS_PORT", 9009))
         server = ThreadingHTTPServer((host, port), _MetricsHandler)
         server.daemon_threads = True
