@@ -9,6 +9,7 @@ After migration is complete, duplicated code will be removed.
 
 import asyncio
 import os
+import re
 import subprocess
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -25,6 +26,20 @@ from .security import AgentAuditor, AgentSecurityManager, AuditEventType, Securi
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+
+# CE-003: instance_id is composed from user-supplied deployment_name and
+# target_environment, then interpolated into a systemd unit file path,
+# unit contents, and SyslogIdentifier. Anything outside this charset can
+# inject directives (newline) or traverse the unit-file path (slash).
+_SAFE_UNIT_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
+
+
+def _validate_unit_component(value: str, field: str) -> str:
+    """Reject values unsafe for interpolation into systemd units/paths."""
+    if not isinstance(value, str) or not _SAFE_UNIT_COMPONENT_RE.match(value):
+        raise ValueError(f"invalid {field}: must be 1-63 chars of [A-Za-z0-9._-], starting alphanumeric")
+    return value
 
 
 def zk_integration_mock_enabled() -> bool:
@@ -306,6 +321,7 @@ class AgentDeploymentManager:
         self, workflow_id: str, deployment_name: str, deployment_config: dict[str, Any]
     ) -> AgentDeploymentConfig:
         """Create deployment configuration for agent workflow"""
+        _validate_unit_component(deployment_name, "deployment_name")
         config = AgentDeploymentConfig(workflow_id=workflow_id, deployment_name=deployment_name, **deployment_config)
         self.session.add(config)
         (await run_in_threadpool(self.session.commit))
@@ -321,6 +337,7 @@ class AgentDeploymentManager:
 
     async def deploy_agent_workflow(self, deployment_config_id: str, target_environment: str = "production") -> dict[str, Any]:
         """Deploy agent workflow to target environment"""
+        _validate_unit_component(target_environment, "target_environment")
         try:
             config = await run_in_threadpool(self.session.get, AgentDeploymentConfig, deployment_config_id)
             if not config:
@@ -374,7 +391,7 @@ class AgentDeploymentManager:
     ) -> dict[str, Any]:
         """Create individual deployment instance"""
         try:
-            instance_id = f"{config.deployment_name}-{environment}-{instance_number}"
+            instance_id = _validate_unit_component(f"{config.deployment_name}-{environment}-{instance_number}", "instance_id")
             instance = AgentDeploymentInstance(
                 deployment_id=config.id,
                 instance_id=instance_id,
@@ -453,9 +470,13 @@ class AgentDeploymentManager:
 
     async def _deploy_agent_systemd(self, instance: AgentDeploymentInstance, config: AgentDeploymentConfig) -> None:
         """Deploy agent instance using systemd service asynchronously."""
+        # CE-003: instance_id reaches the unit-file path and contents —
+        # re-validate here so rows written before validation existed cannot
+        # inject directives or traverse /etc/systemd/system.
+        _validate_unit_component(instance.instance_id, "instance_id")
         service_name = f"aitbc-agent-{instance.instance_id}"
         service_file = f"/etc/systemd/system/{service_name}.service"
-        service_content = f'[Unit]\nDescription=AITBC Agent Instance {instance.instance_id}\nDocumentation=https://github.com/aitbc/blockchain\nAfter=network.target aitbc-blockchain-node.service\nRequires=aitbc-blockchain-node.service\n\n[Service]\nType=simple\nUser=root\nGroup=root\nWorkingDirectory=/opt/aitbc\nEnvironmentFile=/etc/aitbc/.env\nEnvironment="AGENT_ID={instance.instance_id}"\nEnvironment="AGENT_PORT={instance.port}"\nEnvironment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-agent-sdk/src:/opt/aitbc"\nEnvironment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"\nExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py\n\nRestart=always\nRestartSec=10\nStandardOutput=journal\nStandardError=journal\nSyslogIdentifier=AgentInstance-{instance.instance_id}\n\n# Security settings\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\n\n[Install]\nWantedBy=multi-user.target\n'
+        service_content = f'[Unit]\nDescription=AITBC Agent Instance {instance.instance_id}\nDocumentation=https://github.com/aitbc/blockchain\nAfter=network.target aitbc-blockchain-node.service\nRequires=aitbc-blockchain-node.service\n\n[Service]\nType=simple\nUser=aitbc\nGroup=aitbc\nWorkingDirectory=/opt/aitbc\nEnvironmentFile=/etc/aitbc/.env\nEnvironment="AGENT_ID={instance.instance_id}"\nEnvironment="AGENT_PORT={instance.port}"\nEnvironment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-agent-sdk/src:/opt/aitbc"\nEnvironment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"\nExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-daemon/aitbc-agent-daemon-wrapper.py\n\nRestart=always\nRestartSec=10\nStandardOutput=journal\nStandardError=journal\nSyslogIdentifier=AgentInstance-{instance.instance_id}\n\n# Security settings\nNoNewPrivileges=true\nPrivateTmp=true\nProtectHome=true\n\n[Install]\nWantedBy=multi-user.target\n'
 
         async def _exec(cmd: list[str]) -> None:
             proc = await asyncio.create_subprocess_exec(
@@ -626,6 +647,7 @@ class AgentDeploymentManager:
         try:
             instance = await run_in_threadpool(self.session.get, AgentDeploymentInstance, instance_id)
             if instance:
+                _validate_unit_component(instance.instance_id, "instance_id")
                 service_name = f"aitbc-agent-{instance.instance_id}"
                 service_file = f"/etc/systemd/system/{service_name}.service"
                 try:
