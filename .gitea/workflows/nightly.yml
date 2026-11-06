@@ -42,3 +42,15 @@ jobs:
 
       - name: Full offline suite
         run: make test-nightly
+
+      - name: Security suite nightly tier
+        # Four-tier security suite (#1213, layout #1196 c16932): offline
+        # pins, read-only live probes, mutation spot-checks. The live
+        # rate-limit probe needs AITBC_LIVE_GATEWAY_KEY — provisioned as a
+        # repo secret by the operator; SKIPs cleanly when unset. Note the
+        # Actions unit is disabled by policy, so this step is dormant until
+        # the operator enables it; the systemd timer pair under
+        # scripts/security/ is the always-on path.
+        env:
+          AITBC_LIVE_GATEWAY_KEY: ${{ secrets.AITBC_LIVE_GATEWAY_KEY }}
+        run: bash scripts/security/nightly-security.sh
