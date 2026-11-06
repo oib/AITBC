@@ -138,6 +138,23 @@ def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
         abort(None, f"Error executing transfer: {e}")
 
 
+def _edge_auth_headers() -> dict[str, str]:
+    """Bearer header for the edge API (#1205).
+
+    Edge requires a fleet JWT on every /v1 route. Prefer the stored admin
+    credential (falls back to the client slot inside get_admin_token) — edge
+    node operations are operator actions, and serve-object access is scoped
+    to the token's ``sub`` server-side.
+    """
+    try:
+        from ..auth import AuthManager
+
+        token = AuthManager().get_admin_token()
+    except Exception:
+        token = None
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
 def get_edge_client():
     """Get Edge API HTTP client.
 
@@ -149,7 +166,7 @@ def get_edge_client():
         base_url = config.edge_api_host.rstrip("/")
     else:
         base_url = f"http://{config.edge_api_host}:{config.edge_api_port}"
-    return httpx.Client(base_url=base_url, timeout=30.0)
+    return httpx.Client(base_url=base_url, timeout=30.0, headers=_edge_auth_headers())
 
 
 @edge.group(

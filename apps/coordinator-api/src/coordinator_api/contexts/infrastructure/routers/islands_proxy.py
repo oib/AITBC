@@ -19,12 +19,23 @@ router = APIRouter(prefix="/islands", tags=["islands"])
 EDGE_API_BASE_URL = "http://127.0.0.1:8111/v1"
 
 
+def _forward_auth(request: Request) -> dict[str, str]:
+    """Forward the caller's Authorization header to edge-api.
+
+    Edge requires a fleet JWT on every /v1 route (#1205); the proxy does not
+    mint credentials, it passes the caller's through so edge sees the real
+    identity. No header -> edge answers 401, which surfaces here unchanged.
+    """
+    auth = request.headers.get("authorization")
+    return {"Authorization": auth} if auth else {}
+
+
 @router.get("/")
 @rate_limit(rate=100, per=60)
 async def list_islands(request: Request) -> dict[str, Any]:
     """List all islands (proxied to edge-api)"""
     try:
-        response = await SharedHttpClient.get(f"{EDGE_API_BASE_URL}/islands/", timeout=10.0)
+        response = await SharedHttpClient.get(f"{EDGE_API_BASE_URL}/islands/", headers=_forward_auth(request), timeout=10.0)
         response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]
     except httpx.HTTPStatusError as exc:
@@ -38,7 +49,9 @@ async def list_islands(request: Request) -> dict[str, Any]:
 async def get_island(island_id: str, request: Request) -> dict[str, Any]:
     """Get island details (proxied to edge-api)"""
     try:
-        response = await SharedHttpClient.get(f"{EDGE_API_BASE_URL}/islands/{island_id}", timeout=10.0)
+        response = await SharedHttpClient.get(
+            f"{EDGE_API_BASE_URL}/islands/{island_id}", headers=_forward_auth(request), timeout=10.0
+        )
         response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]
     except httpx.HTTPStatusError as exc:
@@ -55,7 +68,9 @@ async def join_island(request: Request) -> dict[str, Any]:
     """Join an island (proxied to edge-api)"""
     try:
         body = await request.json()
-        response = await SharedHttpClient.post(f"{EDGE_API_BASE_URL}/islands/join", json=body, timeout=10.0)
+        response = await SharedHttpClient.post(
+            f"{EDGE_API_BASE_URL}/islands/join", json=body, headers=_forward_auth(request), timeout=10.0
+        )
         response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]
     except httpx.HTTPStatusError as exc:
@@ -70,7 +85,9 @@ async def leave_island(request: Request) -> dict[str, Any]:
     """Leave an island (proxied to edge-api)"""
     try:
         body = await request.json()
-        response = await SharedHttpClient.post(f"{EDGE_API_BASE_URL}/islands/leave", json=body, timeout=10.0)
+        response = await SharedHttpClient.post(
+            f"{EDGE_API_BASE_URL}/islands/leave", json=body, headers=_forward_auth(request), timeout=10.0
+        )
         response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]
     except httpx.HTTPStatusError as exc:
@@ -85,7 +102,9 @@ async def request_bridge(request: Request) -> dict[str, Any]:
     """Request bridge to another island (proxied to edge-api)"""
     try:
         body = await request.json()
-        response = await SharedHttpClient.post(f"{EDGE_API_BASE_URL}/islands/bridge", json=body, timeout=10.0)
+        response = await SharedHttpClient.post(
+            f"{EDGE_API_BASE_URL}/islands/bridge", json=body, headers=_forward_auth(request), timeout=10.0
+        )
         response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]
     except httpx.HTTPStatusError as exc:

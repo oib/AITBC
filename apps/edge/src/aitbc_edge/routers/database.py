@@ -3,6 +3,8 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from aitbc.auth import AuthDep
 from pydantic import BaseModel
 
 from ..services.database_service import SYNC_NOT_IMPLEMENTED, DatabaseService, SyncNotImplementedError
@@ -25,7 +27,7 @@ def get_database_service() -> DatabaseService:
 
 @router.post("/init")
 async def init_database(
-    request: InitDatabaseRequest, svc: Annotated[DatabaseService, Depends(get_database_service)]
+    _user: AuthDep, request: InitDatabaseRequest, svc: Annotated[DatabaseService, Depends(get_database_service)]
 ) -> dict[str, Any]:
     """Initialize edge database"""
     result = await svc.init_database(request.database_id, request.island_id, request.capacity_gb)
@@ -34,6 +36,7 @@ async def init_database(
 
 @router.get("/")
 async def list_databases(
+    _user: AuthDep,
     svc: Annotated[DatabaseService, Depends(get_database_service)],
     island_id: str | None = None,
 ) -> dict[str, Any]:
@@ -43,7 +46,9 @@ async def list_databases(
 
 
 @router.get("/{database_id}")
-async def get_database(database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]) -> dict[str, Any]:
+async def get_database(
+    _user: AuthDep, database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]
+) -> dict[str, Any]:
     """Get database details"""
     db = await svc.get_database(database_id)
     if db is None:
@@ -52,7 +57,9 @@ async def get_database(database_id: str, svc: Annotated[DatabaseService, Depends
 
 
 @router.delete("/{database_id}")
-async def delete_database(database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]) -> dict[str, str]:
+async def delete_database(
+    _user: AuthDep, database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]
+) -> dict[str, str]:
     """Delete database"""
     success = await svc.delete_database(database_id)
     if success:
@@ -62,7 +69,9 @@ async def delete_database(database_id: str, svc: Annotated[DatabaseService, Depe
 
 
 @router.post("/{database_id}/sync")
-async def sync_database(database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]) -> dict[str, Any]:
+async def sync_database(
+    _user: AuthDep, database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]
+) -> dict[str, Any]:
     """Sync database from source. Not implemented — see ``SYNC_NOT_IMPLEMENTED``.
 
     501 is the honest answer: the route is defined, the functionality is not.

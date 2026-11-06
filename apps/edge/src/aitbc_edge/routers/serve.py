@@ -3,6 +3,8 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from aitbc.auth import AuthDep
 from pydantic import BaseModel, Field
 
 from ..config import settings
@@ -30,9 +32,23 @@ def get_serve_service() -> ServeService:
     return ServeService()
 
 
+def _owner_scope(user: dict[str, Any]) -> str | None:
+    """Owner filter for serve-object access.
+
+    ``None`` means unrestricted (admin role, matching the #1188 ownership
+    model's admin bypass); otherwise the caller's JWT ``sub`` scopes every
+    list/read/cancel to requests they submitted (#1205).
+    """
+    if user.get("role") == "admin":
+        return None
+    return str(user.get("sub") or "")
+
+
 @router.post("/requests")
 async def submit_compute_request(
-    request: SubmitComputeRequest, svc: Annotated[ServeService, Depends(get_serve_service)]
+    request: SubmitComputeRequest,
+    user: AuthDep,
+    svc: Annotated[ServeService, Depends(get_serve_service)],
 ) -> Any:
     """Submit compute request (v0.6.6: optional payment verification)"""
     # v0.6.6: verify payment before serving (feature-flagged)
@@ -51,34 +67,43 @@ async def submit_compute_request(
         escrow = await rpc_client.verify_escrow(escrow_key)
         if not escrow or escrow.get("status") != "locked":
             raise HTTPException(status_code=402, detail="Payment required: escrow not locked")
-    result = await svc.submit_compute_request(request.gpu_id, request.model_name, request.input_data, request.priority)
+    result = await svc.submit_compute_request(
+        request.gpu_id,
+        request.model_name,
+        request.input_data,
+        request.priority,
+        owner_id=str(user.get("sub") or ""),
+    )
     return result
 
 
 @router.get("/requests")
 async def list_compute_requests(
+    user: AuthDep,
     svc: Annotated[ServeService, Depends(get_serve_service)],
     gpu_id: str | None = None,
     status: str | None = None,
 ) -> dict[str, Any]:
-    """List compute requests, optionally filtered"""
-    requests = await svc.list_compute_requests(gpu_id, status)
+    """List compute requests, optionally filtered — own requests only unless admin."""
+    requests = await svc.list_compute_requests(gpu_id, status, owner_id=_owner_scope(user))
     return {"requests": requests, "total": len(requests)}
 
 
 @router.get("/requests/{request_id}")
-async def get_compute_request(request_id: str, svc: Annotated[ServeService, Depends(get_serve_service)]) -> Any:
-    """Get compute request details"""
-    req = await svc.get_compute_request(request_id)
+async def get_compute_request(request_id: str, user: AuthDep, svc: Annotated[ServeService, Depends(get_serve_service)]) -> Any:
+    """Get compute request details — own requests only unless admin."""
+    req = await svc.get_compute_request(request_id, owner_id=_owner_scope(user))
     if req is None:
         raise HTTPException(status_code=404, detail=f"Request {request_id} not found")
     return req
 
 
 @router.post("/requests/{request_id}/cancel")
-async def cancel_compute_request(request_id: str, svc: Annotated[ServeService, Depends(get_serve_service)]) -> dict[str, str]:
-    """Cancel compute request"""
-    success = await svc.cancel_compute_request(request_id)
+async def cancel_compute_request(
+    request_id: str, user: AuthDep, svc: Annotated[ServeService, Depends(get_serve_service)]
+) -> dict[str, str]:
+    """Cancel compute request — own requests only unless admin."""
+    success = await svc.cancel_compute_request(request_id, owner_id=_owner_scope(user))
     if success:
         return {"message": f"Request {request_id} cancelled"}
     else:
@@ -86,9 +111,9 @@ async def cancel_compute_request(request_id: str, svc: Annotated[ServeService, D
 
 
 @router.get("/requests/{request_id}/result")
-async def get_compute_result(request_id: str, svc: Annotated[ServeService, Depends(get_serve_service)]) -> Any:
-    """Get compute result"""
-    result = await svc.get_compute_result(request_id)
+async def get_compute_result(request_id: str, user: AuthDep, svc: Annotated[ServeService, Depends(get_serve_service)]) -> Any:
+    """Get compute result — own requests only unless admin."""
+    result = await svc.get_compute_result(request_id, owner_id=_owner_scope(user))
     if result is None:
         raise HTTPException(status_code=404, detail=f"Result for request {request_id} not found")
     return result

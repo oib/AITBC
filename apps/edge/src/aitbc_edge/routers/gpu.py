@@ -3,6 +3,8 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from aitbc.auth import AuthDep
 from pydantic import BaseModel
 
 from ..services.gpu_service import GPUService
@@ -23,6 +25,7 @@ def get_gpu_service() -> GPUService:
 
 @router.get("/")
 async def list_gpus(
+    _user: AuthDep,
     svc: Annotated[GPUService, Depends(get_gpu_service)],
     architecture: str | None = None,
     edge_optimized: bool | None = None,
@@ -34,7 +37,7 @@ async def list_gpus(
 
 
 @router.get("/{gpu_id}")
-async def get_gpu_listing(gpu_id: str, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
+async def get_gpu_listing(_user: AuthDep, gpu_id: str, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
     """Get GPU listing details"""
     gpu = await svc.get_gpu_listing(gpu_id)
     if gpu is None:
@@ -43,7 +46,9 @@ async def get_gpu_listing(gpu_id: str, svc: Annotated[GPUService, Depends(get_gp
 
 
 @router.delete("/{gpu_id}")
-async def remove_gpu_listing(gpu_id: str, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> dict[str, str]:
+async def remove_gpu_listing(
+    _user: AuthDep, gpu_id: str, svc: Annotated[GPUService, Depends(get_gpu_service)]
+) -> dict[str, str]:
     """Remove GPU listing"""
     success = await svc.remove_gpu_listing(gpu_id)
     if success:
@@ -53,7 +58,7 @@ async def remove_gpu_listing(gpu_id: str, svc: Annotated[GPUService, Depends(get
 
 
 @router.post("/scan")
-async def scan_gpus(request: ScanGPUsRequest, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
+async def scan_gpus(_user: AuthDep, request: ScanGPUsRequest, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
     """Scan GPUs for a miner"""
     result = await svc.scan_gpus(request.miner_id)
     return result
@@ -61,6 +66,7 @@ async def scan_gpus(request: ScanGPUsRequest, svc: Annotated[GPUService, Depends
 
 @router.get("/{gpu_id}/metrics")
 async def get_gpu_metrics(
+    _user: AuthDep,
     gpu_id: str,
     svc: Annotated[GPUService, Depends(get_gpu_service)],
     limit: int = 100,
@@ -71,7 +77,7 @@ async def get_gpu_metrics(
 
 
 @router.post("/advertise")
-async def advertise_to_market(svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
+async def advertise_to_market(_user: AuthDep, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
     """Advertise this edge node's GPU capabilities to the market (v0.6.6)."""
     result = await svc.advertise_to_market()
     return result
