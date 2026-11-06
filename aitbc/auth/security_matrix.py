@@ -167,7 +167,10 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/ipfs*": AuthLevel.ANY,
     "/v1/inference*": AuthLevel.ANY,
     "/v1/agents*": AuthLevel.ANY,
-    "/v1/agent-performance*": AuthLevel.ANY,
+    # PI-API-016: agent-performance handlers enforce per-agent ownership
+    # (AgentIdentity owner wallet or admin); the matrix floor keeps
+    # unauthenticated callers out and restricts to customer roles.
+    "/v1/agent-performance*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/multi-modal-rl*": AuthLevel.ANY,
     "/v1/edge-gpu*": AuthLevel.ANY,
     "/v1/bounty*": AuthLevel.ANY,
