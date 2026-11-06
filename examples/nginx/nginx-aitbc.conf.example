@@ -745,8 +745,32 @@ server {
 
     # ── Exchange API (Bridge, Price, History) ─────────────────────
 
-    location /v1/bridge/ {
-        proxy_pass http://wallet_service/v1/bridge/;
+    # #1202 (R10-BRIDGE-EXPOSE-1): scoping review of the former blanket
+    # /v1/bridge/ -> wallet_service/ prefix. The public subset is large by
+    # design: the exchange page (website/exchange.js) and the wallet CLI
+    # bridge/sell commands (--hub-url https://hub.aitbc.bubuit.net, documented
+    # in docs/scenarios/81_wallet_options.md) legitimately use most routes,
+    # including admin-keyed reads (float, settlements, sell/*) from remote
+    # shop nodes. WALLET_API_KEY is not provisioned fleet-wide and
+    # WALLET_AUTH_ENABLED=false, so nginx cannot key-check those routes;
+    # they stay public pending the app-auth env change (see #1200 thread).
+    # What nginx CAN enforce today: the two ops-only admin routes with zero
+    # remote callers (/poll, /polling) drop to loopback; the enumerable
+    # /deposits|/withdrawals indexes were already loopback-only above.
+
+    location ~ ^/v1/bridge/(poll|polling)(/|$) {
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+        proxy_pass http://wallet_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    location ~ ^/v1/bridge/ {
+        proxy_pass http://wallet_service;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
