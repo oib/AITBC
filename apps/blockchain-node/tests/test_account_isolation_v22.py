@@ -77,12 +77,22 @@ def fixture_db(tmp_path, monkeypatch):
     return engine, factory
 
 
-def _tx(sender: str, key: str, to: str, amount: int, nonce: int, tx_type: str, tx_hash: str, payload=None) -> dict[str, Any]:
+def _tx(
+    sender: str,
+    key: str,
+    to: str,
+    amount: int,
+    nonce: int,
+    tx_type: str,
+    tx_hash: str,
+    payload=None,
+    fee: int = DEFAULT_TX_FEE_UNITS,
+) -> dict[str, Any]:
     tx: dict[str, Any] = {
         "from": sender,
         "to": to,
         "amount": amount,
-        "fee": DEFAULT_TX_FEE_UNITS,
+        "fee": fee,
         "nonce": nonce,
         "payload": payload or {},
         "type": tx_type,
@@ -94,7 +104,7 @@ def _tx(sender: str, key: str, to: str, amount: int, nonce: int, tx_type: str, t
 
 
 def _roots_after_apply(
-    engine, txs: list[dict[str, Any]], version: int, *, precreate: set[str] | None = None
+    engine, txs: list[dict[str, Any]], version: int, *, precreate: set[str] | None = None, height: int = 1
 ) -> tuple[str | None, str]:
     """Simulate the importer outcome on clean state: optional legacy sender
     pre-creation, then apply each tx (success or failure), read roots, roll back."""
@@ -105,7 +115,7 @@ def _roots_after_apply(
         for tx in txs:
             data = dict(tx)
             data.setdefault("value", data.get("amount", 0))
-            st.apply_transaction(session, CHAIN, data, data["tx_hash"], block_version=version, block_height=1)
+            st.apply_transaction(session, CHAIN, data, data["tx_hash"], block_version=version, block_height=height)
         session.flush()
         root = compute_state_root_full(session, CHAIN)
         aux = side_root_shadow.committed_fingerprint(session.connection().connection, version)["fingerprint"]
@@ -113,13 +123,21 @@ def _roots_after_apply(
     return root, aux
 
 
-def _block(txs: list[dict[str, Any]], state_root: str | None, aux: str | None, version: int) -> dict[str, Any]:
-    timestamp = (T0 + timedelta(seconds=60)).isoformat()
+def _block(
+    txs: list[dict[str, Any]],
+    state_root: str | None,
+    aux: str | None,
+    version: int,
+    *,
+    height: int = 1,
+    parent_hash: str = "0x" + "00" * 32,
+) -> dict[str, Any]:
+    timestamp = (T0 + timedelta(seconds=60 * height)).isoformat()
     block: dict[str, Any] = {
         "chain_id": CHAIN,
-        "height": 1,
+        "height": height,
         "hash": "",
-        "parent_hash": "0x" + "00" * 32,
+        "parent_hash": parent_hash,
         "proposer": ADDR_A,
         "timestamp": timestamp,
         "tx_count": len(txs),
@@ -135,7 +153,7 @@ def _block(txs: list[dict[str, Any]], state_root: str | None, aux: str | None, v
 
     block["hash"] = compute_block_hash(
         CHAIN,
-        1,
+        height,
         block["parent_hash"],
         timestamp,
         [str(tx.get("tx_hash", "")) for tx in txs],
@@ -147,10 +165,10 @@ def _block(txs: list[dict[str, Any]], state_root: str | None, aux: str | None, v
     return block
 
 
-def _import(engine, factory, txs, version, *, precreate=None):
-    root, aux = _roots_after_apply(engine, txs, version, precreate=precreate)
+def _import(engine, factory, txs, version, *, precreate=None, height=1, parent_hash="0x" + "00" * 32):
+    root, aux = _roots_after_apply(engine, txs, version, precreate=precreate, height=height)
     sync = ChainSync(factory, chain_id=CHAIN, validate_signatures=False)
-    return sync.import_block(_block(txs, root, aux, version), transactions=txs)
+    return sync.import_block(_block(txs, root, aux, version, height=height, parent_hash=parent_hash), transactions=txs)
 
 
 def _account(engine, address: str) -> Account | None:
@@ -272,3 +290,190 @@ def test_v21_validate_still_ensures_for_replay(tmp_path):
         ok, _err = st.validate_transaction(session, CHAIN, tx, tx["tx_hash"], block_version=21, block_height=1)
         assert ok is False  # still rejected (no balance) — but the row was ensured
         assert session.get(Account, (CHAIN, ADDR_C)) is not None
+
+
+# --- R1 completion: virtual (0,0) sender reads at v22 ------------------------
+#
+# The ratified contract (consensus-state-001-v22-contract.md §3/F4,
+# implementation-review-checklist.md §3) requires a missing sender Account
+# to read as virtual balance=0/nonce=0 — identical outcomes to the pre-v22
+# importer pre-create — with the row materializing only on apply success.
+# dd8f81fe9 removed the phantom on rejection but kept "Sender account not
+# found" rejection, which silently became R2. These tests pin R1.
+
+KEY_B = "0x" + "33" * 32
+
+
+def test_v22_validate_virtual_sender_reads(tmp_path):
+    """Core R1 pin: validate_transaction at v22 treats a missing sender as
+    (0,0) — a zero-cost tx validates TRUE while creating no Account row."""
+    engine = create_engine(f"sqlite:///{tmp_path}/virt.db")
+    chain_metadata.create_all(engine)
+    with Session(engine) as session:
+        st = StateTransition()
+        tx = _tx(ADDR_C, KEY_C, ADDR_B, 0, 0, "TRANSFER", "0x" + "a1" * 32, fee=0)
+        ok, err = st.validate_transaction(session, CHAIN, tx, tx["tx_hash"], block_version=22, block_height=1)
+        assert ok, f"zero-cost unknown-sender tx must validate at v22: {err}"
+        assert session.get(Account, (CHAIN, ADDR_C)) is None, "validate must stay read-only"
+
+
+def test_v22_zero_cost_unknown_sender_import_succeeds(fixture_db):
+    """R1: a sealed v22 block carrying a zero-cost tx from a never-seen
+    sender imports, applies, and materializes the account at nonce=1 —
+    the same committed outcome v21 produced via the phantom row."""
+    engine, factory = fixture_db
+    tx = _tx(ADDR_C, KEY_C, ADDR_B, 0, 0, "TRANSFER", "0x" + "a2" * 32, fee=0)
+    result = _import(engine, factory, [tx], 22)
+    assert result.accepted, f"v22 zero-cost unknown-sender block must import: {result.reason}"
+    acct = _account(engine, ADDR_C)
+    assert acct is not None, "apply success must materialize the sender account"
+    assert acct.nonce == 1 and acct.balance == 0
+    assert _tx_status(engine, tx["tx_hash"]) == "confirmed"
+
+
+def test_v21_zero_cost_unknown_sender_import_succeeds(fixture_db):
+    """Historical pin: the same tx at v21 succeeds through the legacy
+    pre-create path with the identical resulting account (nonce=1)."""
+    engine, factory = fixture_db
+    tx = _tx(ADDR_C, KEY_C, ADDR_B, 0, 0, "TRANSFER", "0x" + "a3" * 32, fee=0)
+    result = _import(engine, factory, [tx], 21, precreate={ADDR_C})
+    assert result.accepted, f"v21 zero-cost unknown-sender block must import: {result.reason}"
+    acct = _account(engine, ADDR_C)
+    assert acct is not None and acct.nonce == 1 and acct.balance == 0
+
+
+def test_v22_unknown_sender_positive_value_rejected(fixture_db):
+    """R1: virtual balance 0 cannot cover a positive cost — rejected, no row."""
+    engine, factory = fixture_db
+    tx = _tx(ADDR_C, KEY_C, ADDR_B, 10, 0, "TRANSFER", "0x" + "a4" * 32, fee=0)
+    result = _import(engine, factory, [tx], 22)
+    assert result.accepted, f"block must import: {result.reason}"
+    assert _account(engine, ADDR_C) is None
+    assert _tx_status(engine, tx["tx_hash"]) == "failed"
+
+
+def test_v22_unknown_sender_invalid_nonce_rejected(fixture_db):
+    """R1: virtual nonce is 0 — a tx carrying nonce=5 fails the nonce
+    check with no account row."""
+    engine, factory = fixture_db
+    tx = _tx(ADDR_C, KEY_C, ADDR_B, 0, 5, "TRANSFER", "0x" + "a5" * 32, fee=0)
+    result = _import(engine, factory, [tx], 22)
+    assert result.accepted, f"block must import: {result.reason}"
+    assert _account(engine, ADDR_C) is None
+    assert _tx_status(engine, tx["tx_hash"]) == "failed"
+
+
+def test_v22_unknown_sender_bad_signature_rejected(fixture_db):
+    """R1: a tx claiming ADDR_C but signed by KEY_A fails signature
+    verification before any account logic — no row."""
+    engine, factory = fixture_db
+    tx = _tx(ADDR_C, KEY_A, ADDR_B, 0, 0, "TRANSFER", "0x" + "a6" * 32, fee=0)
+    result = _import(engine, factory, [tx], 22)
+    assert result.accepted, f"block must import: {result.reason}"
+    assert _account(engine, ADDR_C) is None
+    assert _tx_status(engine, tx["tx_hash"]) == "failed"
+
+
+def test_v22_existing_sender_zero_cost_succeeds(fixture_db):
+    """R1: an existing zero-balance sender's zero-cost tx still succeeds —
+    virtual reads only apply when the row is absent."""
+    engine, factory = fixture_db
+    tx = _tx(ADDR_B, KEY_B, ADDR_A, 0, 0, "TRANSFER", "0x" + "a7" * 32, fee=0)
+    result = _import(engine, factory, [tx], 22)
+    assert result.accepted, f"v22 existing-sender zero-cost block must import: {result.reason}"
+    acct = _account(engine, ADDR_B)
+    assert acct is not None and acct.nonce == 1 and acct.balance == 0
+    assert _tx_status(engine, tx["tx_hash"]) == "confirmed"
+
+
+def test_v22_proposer_includes_zero_cost_unknown_sender(fixture_db, monkeypatch):
+    """R1a proposer parity: _process_txs_sequential must not skip a valid
+    zero-cost tx whose sender is absent from account_map — it applies it
+    and the account materializes, matching the importer outcome."""
+    from types import SimpleNamespace
+
+    from aitbc_chain.config import settings
+    from aitbc_chain.consensus.poa import PoAProposer, ProposerConfig
+
+    engine, factory = fixture_db
+    monkeypatch.setattr(settings, "state_transition_v22_height", 1)
+    tx = _tx(ADDR_C, KEY_C, ADDR_B, 0, 0, "TRANSFER", "0x" + "a8" * 32, fee=0)
+    pending = SimpleNamespace(tx_hash=tx["tx_hash"], content=dict(tx))
+    config = ProposerConfig(
+        chain_id=CHAIN,
+        proposer_id=ADDR_A,
+        interval_seconds=5,
+        max_block_size_bytes=1_000_000,
+        max_txs_per_block=100,
+    )
+
+    @contextmanager
+    def session_factory():
+        with Session(engine) as session:
+            yield session
+            session.commit()
+
+    proposer = PoAProposer(config=config, session_factory=session_factory)
+    with Session(engine) as session:
+        processed, _changed, ok = proposer._process_txs_sequential(
+            session,
+            [pending],
+            {},  # account_map: sender unknown — the R1 case
+            {},
+            next_height=1,
+            timestamp=T0 + timedelta(seconds=60),
+        )
+        assert ok, "proposer must process the tx, not abort the block"
+        assert [t.tx_hash for t in processed] == [tx["tx_hash"]]
+        acct = session.get(Account, (CHAIN, ADDR_C))
+        assert acct is not None and acct.nonce == 1 and acct.balance == 0
+        session.commit()
+    # Importer agreement is pinned by
+    # test_v22_zero_cost_unknown_sender_import_succeeds: same tx shape,
+    # same resulting account (nonce=1, balance=0).
+
+
+def test_v22_validate_ipfs_subscription_read_only(tmp_path):
+    """T14: IPFS_SUBSCRIPTION validate at v22 creates no recipient or
+    sender rows even though the pre-v22 code ensured the treasury."""
+    engine = create_engine(f"sqlite:///{tmp_path}/ipfs.db")
+    chain_metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(Account(chain_id=CHAIN, address=ADDR_A, balance=10**9, nonce=0))
+        st = StateTransition()
+        before = {a.address for a in session.exec(select(Account)).all()}
+        tx = _tx(
+            ADDR_A,
+            KEY_A,
+            ADDR_B,
+            100,
+            0,
+            "IPFS_SUBSCRIPTION",
+            "0x" + "b1" * 32,
+            {"months": 1},
+        )
+        st.validate_transaction(session, CHAIN, tx, tx["tx_hash"], block_version=22, block_height=1)
+        after = {a.address for a in session.exec(select(Account)).all()}
+        assert after == before, f"validate created accounts at v22: {after - before}"
+
+
+def test_v22_activation_boundary_across_heights(fixture_db):
+    """T17: a v21 block followed by a v22 block in one chain — the v21
+    segment keeps phantom semantics, the v22 segment applies virtual
+    reads. The zero-cost unknown-sender tx only succeeds post-activation."""
+    engine, factory = fixture_db
+    # Height 1 @ v21: rejected tx leaves the historical phantom row.
+    bad21 = _tx(ADDR_C, KEY_C, ADDR_B, 10, 0, "TRANSFER", "0x" + "c3" * 32)
+    r1 = _import(engine, factory, [bad21], 21, precreate={ADDR_C}, height=1)
+    assert r1.accepted, f"v21 block must import: {r1.reason}"
+    assert _account(engine, ADDR_C) is not None, "v21 phantom semantics must be preserved"
+
+    # Height 2 @ v22: a DIFFERENT fresh sender's zero-cost tx succeeds via
+    # virtual reads and materializes at nonce=1.
+    ghost_key = "0x" + "55" * 32
+    ghost = derive_ethereum_address(ghost_key)
+    good22 = _tx(ghost, ghost_key, ADDR_B, 0, 0, "TRANSFER", "0x" + "c4" * 32, fee=0)
+    r2 = _import(engine, factory, [good22], 22, height=2, parent_hash=r1.block_hash or "")
+    assert r2.accepted, f"v22 block must import: {r2.reason}"
+    acct = _account(engine, ghost)
+    assert acct is not None and acct.nonce == 1 and acct.balance == 0

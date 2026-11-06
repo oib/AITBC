@@ -1721,8 +1721,19 @@ class StateTransition:
                 return (False, f"Invalid payload auth signature for transaction {tx_hash}")
         sender_account = session.get(Account, (chain_id, sender_addr))
         if not sender_account:
-            return (False, f"Sender account not found: {sender_addr}")
-        expected_nonce = sender_account.nonce if sender_account.nonce is not None else 0
+            if block_version < 22:
+                return (False, f"Sender account not found: {sender_addr}")
+            # v22 R1 (CONSENSUS-STATE-001): a missing sender reads as a
+            # virtual (balance=0, nonce=0) account — the same values the
+            # pre-v22 importer pre-create produced. Validation stays
+            # read-only; apply_transaction materializes the row only on
+            # the success path.
+            sender_nonce = 0
+            sender_balance = 0
+        else:
+            sender_nonce = sender_account.nonce if sender_account.nonce is not None else 0
+            sender_balance = sender_account.balance
+        expected_nonce = sender_nonce
         tx_nonce = tx_data.get("nonce", 0)
         if tx_nonce != expected_nonce:
             return (False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}")
@@ -1849,10 +1860,10 @@ class StateTransition:
                     escrow_bal = escrow_account.balance if escrow_account else 0
                     return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
                 # The settlement authority pays only the fee, not the value.
-                if sender_account.balance < fee:
-                    return (False, f"Insufficient balance for fee: {sender_account.balance} < {fee}")
-            elif sender_account.balance < total_cost:
-                return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
+                if sender_balance < fee:
+                    return (False, f"Insufficient balance for fee: {sender_balance} < {fee}")
+            elif sender_balance < total_cost:
+                return (False, f"Insufficient balance for {sender_addr}: {sender_balance} < {total_cost}")
         elif tx_type == "ESCROW_FEE_SWEEP" and block_version >= 11:
             # v11: the settlement authority sweeps a settled escrow's custody
             # residue to the governed fee recipient. No lock lookup — the
@@ -1889,10 +1900,10 @@ class StateTransition:
                 escrow_bal = escrow_account.balance if escrow_account else 0
                 return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
             # The settlement authority pays only the fee, not the value.
-            if sender_account.balance < fee:
-                return (False, f"Insufficient balance for fee: {sender_account.balance} < {fee}")
-        elif sender_account.balance < total_cost:
-            return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
+            if sender_balance < fee:
+                return (False, f"Insufficient balance for fee: {sender_balance} < {fee}")
+        elif sender_balance < total_cost:
+            return (False, f"Insufficient balance for {sender_addr}: {sender_balance} < {total_cost}")
         # v0.25.5: recipient accounts are created on first credit during
         # block execution, so a release/refund/transfer to a never-before-seen
         # address is valid and becomes deterministic after mining.
@@ -2146,6 +2157,12 @@ class StateTransition:
         if not is_valid:
             return (False, error_msg)
         sender_addr = _to_ait_address(tx_data.get("from") or "")
+        if block_version >= 22 and sender_addr and tx_data.get("from") not in {"bridge_release", "bridge_refund"}:
+            # v22 R1 (CONSENSUS-STATE-001): validation passed, so the sender
+            # materializes now — the same committed row the pre-v22 importer
+            # pre-create produced, but only on the success path. A rejected
+            # tx never reaches this line and leaves no phantom account.
+            _ensure_account(session, chain_id, sender_addr)
         recipient_addr = _to_ait_address(tx_data.get("to") or "")
         tx_record = session.exec(
             select(Transaction).where(Transaction.chain_id == chain_id, Transaction.tx_hash == tx_hash)
