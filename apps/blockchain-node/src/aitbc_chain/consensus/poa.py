@@ -734,7 +734,7 @@ class PoAProposer:
                 # skip_dedup: these txs are already recorded in the transaction
                 # table — that is where we loaded them from — so the admission
                 # replay check would reject the re-apply it exists to perform.
-                success, msg = state_transition.apply_transaction(
+                success, msg = state_transition.apply_transaction_guarded(
                     session,
                     chain_id,
                     tx_data,
@@ -2292,7 +2292,7 @@ class PoAProposer:
                     tx_data_for_transition = tx.content.copy()
                     tx_data_for_transition["nonce"] = 0
                     tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
-                    success, error_msg = state_transition.apply_transaction(
+                    success, error_msg = state_transition.apply_transaction_guarded(
                         session,
                         self._config.chain_id,
                         tx_data_for_transition,
@@ -2402,7 +2402,7 @@ class PoAProposer:
                         sender_account.nonce if sender_account and sender_account.nonce is not None else 0
                     )
                 tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
-                success, error_msg = state_transition.apply_transaction(
+                success, error_msg = state_transition.apply_transaction_guarded(
                     session,
                     self._config.chain_id,
                     tx_data_for_transition,
