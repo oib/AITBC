@@ -117,16 +117,16 @@ pins, staleness gate, payout cap) in two profiles:
 | surface | current design | rehearsal evidence | missing / undecided |
 |---|---|---|---|
 | Constructor & fee recipient | `constructor(address _feeRecipient)` only; script refuses deployer-as-recipient and asserts owner=Safe, paused, no validators/tokens | Local dry run + BR-9 Sepolia deploy + ETH-3 | Mainnet fee recipient undecided (operator) |
-| Validator set | `addValidator`/`removeValidator` are `onlyOwner` → Safe-managed flat list; `weight` is stored but each confirmation counts 1; per-chain `chainValidators` is a separate list | ETH-3 exercised owner calls through the Safe | Mainnet validator list undecided; BR-2/BR-3's chain-held validator set is **not** what this contract does — a param-driven set is a contract change |
-| Confirmation binding | `confirmBridge` counts each confirmer and lets each overwrite `request.lockTxHash` — threshold can be reached on *different* lock hashes (defect 3 below) | Read on `origin/main`, untested | Honest-validator assumption; fix is an audit decision |
+| Validator set | `addValidator`/`removeValidator` are `onlyOwner` → Safe-managed flat list; `weight` is stored/emitted but reserved — each confirmation counts 1 (see defects below); per-chain `chainValidators` is a separate list | ETH-3 exercised owner calls through the Safe | Mainnet validator list undecided; BR-2/BR-3's chain-held validator set is **not** what this contract does — a param-driven set is a contract change |
+| Confirmation binding | `confirmBridge` now requires every confirmer to sign the SAME `lockTxHash` (`confirmations == 0 || lockTxHash == stored`) — fixed in code, pending redeploy (#1210) | forge pin `test_ConfirmBridge_RejectsLockHashMismatch` | Was: threshold reachable on different lock hashes, last confirmer wins |
 | Supported tokens | None at deploy; Safe calls `addSupportedToken` (bridgeLimit, feePercentage ≤ MAX_FEE 5%, whitelist flag) | Post-deploy assert probes `supportedTokens(Safe)` | Token list + per-token `bridgeLimit` undecided (operator) |
-| Lock cap | Per-token `bridgeLimit` via `withinBridgeLimit`; `MAX_BRIDGE_AMOUNT` (1M) is declared but **never enforced** — see defects below | n/a | Cap values undecided; dead constant reported |
+| Lock cap | Per-token `bridgeLimit` via `withinBridgeLimit` **plus** the global `MAX_BRIDGE_AMOUNT` (1M) cap, now enforced in `initiateBridge` (#1210) | forge pin `test_InitiateBridge_MaxAmountEnforced` | Cap values undecided |
 | Pause / emergencyWithdraw | `pause`/`unpause`/`emergencyPause`/`emergencyWithdraw` all `onlyOwner` → Safe; emergencyWithdraw sweeps to `owner()` (the Safe) | ETH-3 ran both end-to-end through the Safe on Sepolia | Mainnet pause drill not scheduled |
-| Confirmations / finality | Contract: `minConfirmations` per chain (default 3; mainnet chain seeded at 12) counts *validator* confirms. Monitor: `BRIDGE_CONFIRMATIONS` env ≥12 mainnet (preflight knob) | ETH-3 ran the 3-confirmation path | Block-finality policy on mainnet undecided (operator) |
+| Confirmations / finality | Contract: owner-set `requiredConfirmations` bounded to the live validator set and clamped at confirm time (`setRequiredConfirmations`, `503e08e53`) — the dead per-chain `minConfirmations` lookup is gone. Monitor: `BRIDGE_CONFIRMATIONS` env ≥12 mainnet (preflight knob) | ETH-3 ran the 3-confirmation path; forge pins for quorum clamp | Block-finality policy on mainnet undecided (operator) |
 | Owner / signer hygiene | Deployer disposable and unfunded-after; Safe 2-of-3 owns everything; rehearsal keys lived in a keys dir, never on a node | BR-9/BR-11 + ETH-3 | Mainnet signers unnamed; hardware-key requirement undecided (operator) |
 | Upgrade story | **None.** The contract is immutable — no proxy. A defect means redeploy + Safe re-point + operator env work | — | Accepted risk or audit decision (operator) |
 | Monitoring before funds | authority-balance exporter + `AuthorityFloat*`/`BridgeAuthorityAccountMoved`/`SellEscrowFloat*` (SD-5), bridge-monitor stuck-payout/queue/low-float alerts, preflight script | Rules exist and are promtool-tested | `sell_escrow` watch needs its `AITBC_WATCH_ACCOUNTS` entry (operator env); validator-liveness monitor does not exist |
-| Seeded chain | Constructor seeds `supportedChains[1]` active with `minConfirmations=12` and no bridge contract | Deploy script asserts validators/tokens empty; the seeded chain is by design | On a Sepolia deploy the seeded id is still `1` — harmless config data, noted |
+| Seeded chain | Constructor seeds `supportedChains[1]` active (avgBlockTime 12) with no bridge contract — deposits to it can never be relayed, so they are only exitable via `cancelBridge` (fee forfeit, see defects) | Deploy script asserts validators/tokens empty; the seeded chain is by design | On a Sepolia deploy the seeded id is still `1` — harmless config data, noted |
 
 ## Go/no-go table
 
@@ -145,39 +145,39 @@ pins, staleness gate, payout cap) in two profiles:
 | 11 | BR-2/BR-3 chain-held validator set | repo | **not in this contract** | contract change or accepted design |
 | 12 | Pause drill on the real deployment | operator | not scheduled | executed pause/unpause through the Safe |
 
-### Known defects (reported, not fixed here)
+### Known defects (status after #795 / #1210)
 
-- `CrossChainBridge.sol:27` — `MAX_BRIDGE_AMOUNT` (1M tokens) is declared
-  but never enforced: `initiateBridge` (line ~164) checks only the
-  per-token `bridgeLimit`. Proposed fix (not applied): either add
-  `require(amount <= MAX_BRIDGE_AMOUNT)` beside the per-token cap, or
-  delete the constant. Decide with the audit question.
-- `validators[].weight` is stored but never used in confirmation
-  counting (`confirmBridge` line ~259 increments by 1) — weighted
-  validators are a contract change if mainnet wants them.
-- `confirmBridge` (lines ~258–260): every confirmer counts toward the
-  threshold AND overwrites `request.lockTxHash` with the hash *they*
-  signed — nothing checks that confirmers agree on the same lock hash.
-  Each signature is bound to `(requestId, lockTxHash, chainid)`, so each
-  validator is bound to the hash it chose, but the validators are not
-  bound to each other: the 2-of-3 threshold can be reached on two
-  different lock hashes, with the last confirmer's value winning the
-  stored field. This relies on validators being honest and agreeing.
-  Proposed fix (not applied — audit decision): require the supplied
-  `lockTxHash` to equal the first confirmation's stored value
-  (`request.confirmations == 0 || request.lockTxHash == lockTxHash`),
-  or track confirmations per hash.
-- `confirmBridge` quorum (forge-reproduced on node2, issue #795):
-  `quorum` is a constant 3 — the per-chain `minConfirmations` lookup for
-  the current chain always returns 0 and is never used, so a two-validator
-  deployment can never reach confirmation quorum.
-- A `CONFIRMED` request on its own chain can be neither completed nor
-  cancelled (forge-reproduced): tokens locked by it exit only via the
-  owner's `emergencyWithdraw`.
-- A deposit to the seeded chain 1 forfeits the fee on `cancelBridge`
-  (forge-reproduced): the refund path does not return the fee portion.
-- The fix for all three is a contract change plus a Safe redeploy; it is
-  held behind the mainnet deployment decision (#795).
+All contract fixes below are **in code on `origin/main`, pending the Safe
+redeploy** — the deployed instance predates them. None is live-exploitable
+today because no mainnet deployment exists yet.
+
+- `MAX_BRIDGE_AMOUNT` (1M tokens) — **fixed in code** (#1210):
+  `initiateBridge` now enforces `amount <= MAX_BRIDGE_AMOUNT` beside the
+  per-token `bridgeLimit`. Pin: `test_InitiateBridge_MaxAmountEnforced`.
+- `validators[].weight` — **deliberately retained, reserved** (#1210):
+  stored and emitted but unused in confirmation counting. Kept in the API
+  (`addValidator` param + `ValidatorAdded` event) because the rehearsal
+  script (`contracts/scripts/rehearsal/roundtrip.js`) and tests already
+  call it; weighted quorum, if wanted, is a separate contract change.
+- `confirmBridge` lock-hash agreement — **fixed in code** (#1210): every
+  confirmer must now sign the same `lockTxHash`
+  (`request.confirmations == 0 || request.lockTxHash == lockTxHash`).
+  Pin: `test_ConfirmBridge_RejectsLockHashMismatch`.
+- `confirmBridge` quorum — **fixed in `503e08e53`**: owner-set
+  `requiredConfirmations` clamped to `[1, activeValidators.length]` at set
+  time and re-clamped at confirm time; the dead per-chain
+  `minConfirmations` lookup is removed from the decision path.
+- `CONFIRMED` exit — **fixed in `503e08e53`**: `cancelBridge` accepts a
+  CONFIRMED request past `confirmedAt + COMPLETION_TIMEOUT` (24h), caller
+  sender-or-owner, principal-only refund.
+- **Open product decision — fee forfeit on cancel** (documented actual
+  behavior, pinned by `test_CancelBridge_FeeForfeitIsActualBehavior`):
+  `initiateBridge` forwards the fee to `feeRecipient` immediately and
+  `cancelBridge` refunds principal only, so a deposit to a never-relayed
+  target (e.g. the seeded chain 1, which has no `bridgeContract`) loses
+  the fee. Whether to refund fees for structurally-unrelayable targets is
+  a product decision for the gated batch — the pin locks current behavior
+  either way.
 
 ## Recovery notes
 
