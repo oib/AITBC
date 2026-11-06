@@ -811,6 +811,50 @@ class TestWsAuthToken:
         ):
             assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", "w1", None, "api-key") == "agent.jwt"
 
+    # --- CLI-AGENT-WS-TOKEN-FALLBACK-1 (#1209): no shared-key fallback -------
+
+    def test_falls_back_to_stored_session_jwt(self):
+        """No wallet + no explicit token → stored admin/session JWT, never a
+        shared API key (the endpoint rejects it with 1008 post-#1181)."""
+        from aitbc_cli.commands import agent
+
+        with (
+            patch.object(agent, "load_signing_wallet", return_value=None),
+            patch.object(agent, "_ws_session_token", return_value="session.jwt"),
+        ):
+            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", None, None, None) == "session.jwt"
+
+    def test_explicit_token_beats_stored_session(self):
+        from aitbc_cli.commands import agent
+
+        with (
+            patch.object(agent, "load_signing_wallet", return_value=None),
+            patch.object(agent, "_ws_session_token", return_value="session.jwt"),
+        ):
+            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", None, None, "explicit.jwt") == "explicit.jwt"
+
+    def test_no_credential_returns_none(self):
+        """Nothing configured → no token at all; the server rejects cleanly
+        rather than the CLI sending a credential it shouldn't."""
+        from aitbc_cli.commands import agent
+
+        with (
+            patch.object(agent, "load_signing_wallet", return_value=None),
+            patch.object(agent, "_ws_session_token", return_value=None),
+        ):
+            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", None, None, None) is None
+
+    def test_shared_key_is_not_consulted(self):
+        """config.api_key must never reach the WS path — pin that the call
+        sites no longer feed it: _ws_auth_token has no config lookup."""
+        import inspect
+
+        from aitbc_cli.commands import agent
+
+        src = inspect.getsource(agent._ws_auth_token) + inspect.getsource(agent._ws_session_token)
+        assert "config.api_key" not in src
+        assert "COORDINATOR_API_KEY" not in src
+
     def test_ping_accepts_wallet_option(self, runner):
         from aitbc_cli.commands.agent import messaging
 
