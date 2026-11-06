@@ -10,7 +10,7 @@ from aitbc_chain.rpc import websocket as websocket_module
 from aitbc.security import RateLimiter
 from fastapi.testclient import TestClient
 import pytest
-from starlette.websockets import WebSocketDisconnect
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 
 @pytest.fixture(autouse=True)
@@ -303,3 +303,92 @@ def test_gossip_websocket_unscoped_auth_flag_on_rejected(monkeypatch: pytest.Mon
 
     assert _try(False).get("type") == "auth_ok"
     assert "error" in _try(True)
+
+
+def _gossip_ws_scope(client_ip: str) -> dict:
+    return {
+        "type": "websocket",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/rpc/gossip/ws",
+        "raw_path": b"/rpc/gossip/ws",
+        "query_string": b"topic=transactions",
+        "root_path": "",
+        "headers": [],
+        "client": (client_ip, 4444),
+        "server": ("testserver", 80),
+        "subprotocols": [],
+    }
+
+
+async def _empty_receive() -> dict:
+    return {"type": "websocket.disconnect"}
+
+
+async def _empty_send(message: dict) -> None:
+    return None
+
+
+def _gossip_ws(client_ip: str) -> WebSocket:
+    return WebSocket(_gossip_ws_scope(client_ip), receive=_empty_receive, send=_empty_send)
+
+
+async def _noop(*args: object, **kwargs: object) -> None:
+    return None
+
+
+async def _receive_disconnect() -> str:
+    raise WebSocketDisconnect()
+
+
+async def _send_json_noop(message: dict) -> None:
+    return None
+
+
+async def _hang_forever(*args: object, **kwargs: object) -> None:
+    await asyncio.Event().wait()
+
+
+@pytest.mark.asyncio
+async def test_gossip_websocket_hung_close_still_releases_ip_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1158: a client that vanishes during teardown close must not strand the count.
+
+    ``websocket.close()`` is bounded by ``asyncio.wait_for``; without the
+    bound a hung close leaves ``_gossip_ip_connections`` inflated forever.
+    """
+    monkeypatch.setattr(websocket_module, "_GOSSIP_WS_OP_TIMEOUT", 0.05)
+    ip = "198.51.100.23"
+    websocket_module._gossip_ip_connections.pop(ip, None)
+
+    ws = _gossip_ws(ip)
+    ws.accept = _noop  # type: ignore[method-assign]
+    ws.receive_text = _receive_disconnect  # type: ignore[method-assign]
+    ws.send_json = _send_json_noop  # type: ignore[method-assign]
+    ws.close = _hang_forever  # type: ignore[method-assign]
+
+    try:
+        await asyncio.wait_for(websocket_module.gossip_websocket(ws), timeout=5.0)
+        assert websocket_module._gossip_ip_connections.get(ip, 0) == 0
+    finally:
+        websocket_module._gossip_ip_connections.pop(ip, None)
+
+
+@pytest.mark.asyncio
+async def test_gossip_websocket_hung_accept_still_releases_ip_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1158: a client that never completes the accept handshake must not strand the count."""
+    monkeypatch.setattr(websocket_module, "_GOSSIP_WS_OP_TIMEOUT", 0.05)
+    ip = "198.51.100.24"
+    websocket_module._gossip_ip_connections.pop(ip, None)
+
+    ws = _gossip_ws(ip)
+    ws.accept = _hang_forever  # type: ignore[method-assign]
+    ws.receive_text = _receive_disconnect  # type: ignore[method-assign]
+    ws.send_json = _send_json_noop  # type: ignore[method-assign]
+    ws.close = _noop  # type: ignore[method-assign]
+
+    try:
+        await asyncio.wait_for(websocket_module.gossip_websocket(ws), timeout=5.0)
+        assert websocket_module._gossip_ip_connections.get(ip, 0) == 0
+    finally:
+        websocket_module._gossip_ip_connections.pop(ip, None)

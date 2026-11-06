@@ -47,6 +47,20 @@ _gossip_msg_rate = RateLimiter(
     per=60,
 )
 
+# Bound on websocket accept/close so a vanished client cannot wedge the
+# handler before the per-IP counter is released (#1158).
+_GOSSIP_WS_OP_TIMEOUT = 10.0
+
+
+async def _gossip_ws_close(websocket: WebSocket, code: int | None = None) -> None:
+    try:
+        if code is None:
+            await asyncio.wait_for(websocket.close(), timeout=_GOSSIP_WS_OP_TIMEOUT)
+        else:
+            await asyncio.wait_for(websocket.close(code=code), timeout=_GOSSIP_WS_OP_TIMEOUT)
+    except Exception:  # nosec
+        pass
+
 
 def _gossip_client_ip(websocket: WebSocket) -> str:
     """Return the remote client IP for the gossip websocket.
@@ -104,7 +118,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     """
     topic = websocket.query_params.get("topic")
     if not topic:
-        await websocket.close(code=1008)
+        await _gossip_ws_close(websocket, code=1008)
         return
 
     client_ip = _gossip_client_ip(websocket)
@@ -112,7 +126,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     # Connection-level source limit.
     if _gossip_ip_connections.get(client_ip, 0) >= settings.gossip_max_concurrent_connections_per_ip:
         logger.warning("Gossip websocket connection limit for %s", client_ip)
-        await websocket.close(code=1008)
+        await _gossip_ws_close(websocket, code=1008)
         return
     _gossip_ip_connections[client_ip] = _gossip_ip_connections.get(client_ip, 0) + 1
     gossip_open_connections.inc()
@@ -123,7 +137,12 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     authorized_address: str | None = None
 
     try:
-        await websocket.accept()
+        try:
+            await asyncio.wait_for(websocket.accept(), timeout=_GOSSIP_WS_OP_TIMEOUT)
+        except TimeoutError:
+            logger.warning("Gossip websocket accept timed out for %s", client_ip)
+            await _gossip_ws_close(websocket, code=1011)
+            return
         logger.info("WebSocket gossip subscriber connected: topic=%s client=%s", topic, client_ip)
 
         # If this is a restricted topic, require authentication before any publish.
@@ -132,7 +151,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             if issued is None:
                 gossip_auth_rejected_total.labels(reason="challenge_rate_limited").inc()
                 await websocket.send_json({"error": "Challenge rate limited"})
-                await websocket.close(code=1008)
+                await _gossip_ws_close(websocket, code=1008)
                 return
             challenge, challenge_ts = issued
             await websocket.send_json({"type": "auth_challenge", "challenge": challenge, "timestamp": challenge_ts})
@@ -166,7 +185,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 if len(raw) > settings.gossip_max_message_size:
                     gossip_oversized_message_total.inc()
                     await websocket.send_json({"error": "Message too large"})
-                    await websocket.close(code=1009)
+                    await _gossip_ws_close(websocket, code=1009)
                     break
 
                 if not _gossip_msg_rate.is_allowed(f"{client_ip}:{topic}"):
@@ -192,17 +211,17 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     if not is_validator(claimed):
                         gossip_auth_rejected_total.labels(reason="not_validator").inc()
                         await websocket.send_json({"error": "Not a validator"})
-                        await websocket.close(code=1008)
+                        await _gossip_ws_close(websocket, code=1008)
                         break
                     if client_challenge != challenge:
                         gossip_auth_rejected_total.labels(reason="challenge_mismatch").inc()
                         await websocket.send_json({"error": "Challenge mismatch"})
-                        await websocket.close(code=1008)
+                        await _gossip_ws_close(websocket, code=1008)
                         break
                     if abs(time.time() - client_ts) > settings.gossip_auth_challenge_ttl:
                         gossip_auth_rejected_total.labels(reason="challenge_expired").inc()
                         await websocket.send_json({"error": "Challenge expired"})
-                        await websocket.close(code=1008)
+                        await _gossip_ws_close(websocket, code=1008)
                         break
                     if verify_challenge(client_challenge, claimed, client_ts, signature, channel_scope(topic)):
                         if not authorized:
@@ -215,20 +234,20 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     else:
                         gossip_auth_rejected_total.labels(reason="invalid_signature").inc()
                         await websocket.send_json({"error": "Invalid signature"})
-                        await websocket.close(code=1008)
+                        await _gossip_ws_close(websocket, code=1008)
                         break
 
                 # Publishing path.
                 if is_restricted_topic(topic) and not authorized:
                     gossip_auth_rejected_total.labels(reason="unauthorized_publish").inc()
                     await websocket.send_json({"error": "Validator authentication required"})
-                    await websocket.close(code=1008)
+                    await _gossip_ws_close(websocket, code=1008)
                     break
 
                 if not is_public_topic(topic) and not authorized:
                     gossip_auth_rejected_total.labels(reason="unauthorized_topic").inc()
                     await websocket.send_json({"error": "Topic not authorized"})
-                    await websocket.close(code=1008)
+                    await _gossip_ws_close(websocket, code=1008)
                     break
 
                 try:
@@ -244,18 +263,32 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     metrics_registry.increment("gossip_broker_publish_failed_total")
                     continue
 
+        from asyncio import create_task, wait
+
+        broker_task = create_task(_forward_broker_to_client())
+        client_task = create_task(_forward_client_to_broker())
         try:
-            await asyncio.gather(_forward_broker_to_client(), _forward_client_to_broker())
+            done, pending = await wait([broker_task, client_task], return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            for task in done:
+                exc = None if task.cancelled() else task.exception()
+                if isinstance(exc, WebSocketDisconnect):
+                    logger.info("WebSocket gossip subscriber disconnected: topic=%s", topic)
+                elif exc is not None:
+                    logger.error("WebSocket gossip error for topic %s: %s", topic, exc)
         except WebSocketDisconnect:
             logger.info("WebSocket gossip subscriber disconnected: topic=%s", topic)
         except Exception as e:
             logger.error("WebSocket gossip error for topic %s: %s", topic, e)
         finally:
+            for task in (broker_task, client_task):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(broker_task, client_task, return_exceptions=True)
             subscription.close()
-            try:
-                await websocket.close()
-            except Exception:  # nosec
-                pass
+            await _gossip_ws_close(websocket)
     finally:
         _gossip_ip_connections[client_ip] = max(0, _gossip_ip_connections.get(client_ip, 1) - 1)
         gossip_open_connections.dec()
