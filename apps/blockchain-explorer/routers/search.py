@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from aitbc.aitbc_logging import get_logger
 
 from chain_client import USE_DATA_LAYER, default_chain_id, get_data_layer, rpc_url_for
+from validation import check_page_offset, clamp_page_limit
 
 logger = get_logger(__name__)
 
@@ -28,6 +29,8 @@ async def search_transactions(
     chain_id: str | None = None,
 ) -> dict[str, Any]:
     """Advanced transaction search"""
+    limit = clamp_page_limit(limit)
+    offset = check_page_offset(offset)
     try:
         if USE_DATA_LAYER:
             # Use data layer with toggle support
@@ -91,6 +94,8 @@ async def search_blocks(
     chain_id: str | None = None,
 ) -> dict[str, Any]:
     """Advanced block search"""
+    limit = clamp_page_limit(limit)
+    offset = check_page_offset(offset)
     try:
         if USE_DATA_LAYER:
             # Use data layer with toggle support

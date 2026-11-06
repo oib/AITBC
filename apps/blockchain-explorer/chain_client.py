@@ -12,7 +12,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils import format_ait
 from aitbc.utils.chain_id import resolve_chain_id
 
-from validation import validate_chain_id
+from validation import check_page_offset, clamp_page_limit, validate_chain_id
 
 logger = get_logger(__name__)
 
@@ -29,6 +29,7 @@ __all__ = [
     "default_chain_id",
     "rpc_url_for",
     "get_data_layer",
+    "chain_db_path",
     "normalize_block",
     "get_chain_head",
     "get_transaction",
@@ -61,6 +62,19 @@ def rpc_url_for(chain: str) -> str:
     if chain == "ait-mainnet":
         return os.getenv("MAINNET_RPC_URL", BLOCKCHAIN_RPC_URL)
     return BLOCKCHAIN_RPC_URL
+
+
+def chain_db_path() -> Path | None:
+    """Path to the local chain database, or None when it does not exist.
+
+    Single source for the ``/var/lib/aitbc/data/<chain>/chain.db`` lookup the
+    routers and this module all duplicated inline (PI-EX-001 cleanup — also
+    gives tests one monkeypatch point).
+    """
+    path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
+    if not path.exists():
+        path = Path("/var/lib/aitbc/data/chain.db")
+    return path if path.exists() else None
 
 
 def __getattr__(name: str) -> Any:
@@ -110,12 +124,9 @@ async def get_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str
         logger.warning("Invalid chain_id format")
         return {}
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-
-        if chain_db_path.exists():
-            async with aiosqlite.connect(str(chain_db_path)) as conn:
+        db_path = chain_db_path()
+        if db_path is not None:
+            async with aiosqlite.connect(str(db_path)) as conn:
                 cursor = await conn.cursor()
 
                 await cursor.execute(
@@ -169,12 +180,9 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
         return {}
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-
-        if chain_db_path.exists():
-            async with aiosqlite.connect(str(chain_db_path)) as conn:
+        db_path = chain_db_path()
+        if db_path is not None:
+            async with aiosqlite.connect(str(db_path)) as conn:
                 cursor = await conn.cursor()
 
                 # Get block data
@@ -255,14 +263,16 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
 async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset: int = 0) -> list[dict[str, Any]]:
     """Get latest blocks from blockchain DB via RPC"""
     chain_id = chain_id or default_chain_id()
+    # PI-EX-001: bound before the value reaches SQL LIMIT/OFFSET or the RPC
+    # fallback's height arithmetic — callers include the public route and the
+    # export route, so the clamp lives here as well as at the edge.
+    limit = clamp_page_limit(limit)
+    offset = check_page_offset(offset)
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-
-        if chain_db_path.exists():
-            async with aiosqlite.connect(str(chain_db_path)) as conn:
+        db_path = chain_db_path()
+        if db_path is not None:
+            async with aiosqlite.connect(str(db_path)) as conn:
                 cursor = await conn.cursor()
 
                 # Get latest blocks with offset
