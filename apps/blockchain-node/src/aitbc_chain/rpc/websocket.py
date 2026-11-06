@@ -9,7 +9,16 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from aitbc.security import RateLimiter
 
 from ..config import settings
-from ..gossip import gossip_broker
+from ..gossip import (
+    BroadcastGossipBackend,
+    GossipBackend,
+    GossipBroker,
+    InMemoryGossipBackend,
+    MeshGossipBackend,
+    WebsocketGossipBackend,
+    gossip_broker,
+)
+from ..gossip._internal import _peer_name
 from ..gossip.gossip_auth import (
     channel_scope,
     create_challenge,
@@ -38,8 +47,18 @@ logger = get_logger(__name__)
 # connection per chain, and keying on node_id alone dropped all but the last.
 _active_subscribers: dict[tuple[str, str], WebSocket] = {}
 
-# Per-source-IP connection count for the public gossip websocket.
-_gossip_ip_connections: dict[str, int] = {}
+# Per-(client_ip, chain_id) connection count for the public gossip websocket.
+# Keying on the chain as well keeps one chain's connection budget from being
+# consumed by another chain's clients (#1159).
+_gossip_ip_connections: dict[tuple[str, str], int] = {}
+
+# Lazily-created per-chain brokers for chains this process serves beyond
+# ``settings.chain_id``. The default chain keeps using the module-global
+# ``gossip_broker`` wired by main.py; every other chain MUST resolve its
+# backend from explicit per-chain config (GOSSIP_BACKENDS entries or
+# chain-tagged GOSSIP_MESH_PEER_URLS) — never the shared default backend,
+# which would route one chain's topics through another chain's bus (#1159).
+_chain_brokers: dict[str, GossipBroker] = {}
 
 # Per (client_ip, topic) message rate limiter.
 _gossip_msg_rate = RateLimiter(
@@ -113,6 +132,105 @@ async def _stream_topic(topic: str, websocket: WebSocket) -> None:
         subscription.close()
 
 
+def _connectable_chain_ids() -> list[str]:
+    """Chains this process can actually serve gossip for.
+
+    A chain is connectable when it is declared in ``supported_chains`` AND
+    has a resolvable backend: the default ``chain_id`` (wired by main.py) or
+    an explicit ``GOSSIP_BACKENDS`` entry. Chains named in
+    ``supported_chains`` without backend config are NOT connectable — the
+    ``?chain=`` param for them is rejected rather than silently routed
+    through another chain's bus (#1159).
+    """
+    backend_chains = set(settings.gossip_backend_map())
+    return [c for c in settings.served_chain_ids() if c == settings.chain_id or c in backend_chains]
+
+
+def _resolve_chain_id(websocket: WebSocket) -> str | None:
+    """Resolve the ``?chain=<id>`` query param to a connectable chain id.
+
+    Returns ``None`` when the request must be rejected: an explicit chain
+    the process does not connectably serve, or a missing param on a host
+    serving multiple chains — there is deliberately no silent default
+    there (#1159). Single-chain hosts keep the legacy behaviour: no param
+    means ``chain_id``.
+    """
+    param = websocket.query_params.get("chain") or websocket.query_params.get("chain_id")
+    connectable = _connectable_chain_ids()
+    if param:
+        return param if param in connectable else None
+    if len(connectable) == 1:
+        return connectable[0]
+    return None
+
+
+def _topic_targets_other_chain(topic: str, chain_id: str) -> bool:
+    """True when ``topic`` is explicitly namespaced to a different connectable chain.
+
+    Only CONNECTABLE chains count: a suffix naming a chain this host does not
+    serve gossip for is just a topic name on this chain's bus, not a cross-chain
+    route. Chain ids may themselves contain dots (``ait-testchain.local``), so
+    the match is on the full ``"." + chain_id`` suffix — never a naive
+    last-segment split.
+    """
+    return any(other != chain_id and topic.endswith("." + other) for other in _connectable_chain_ids())
+
+
+def _backend_from_url(url: str) -> GossipBackend | None:
+    """Build a gossip backend from a ``GOSSIP_BACKENDS`` URL by scheme."""
+    scheme = url.split("://", 1)[0].lower() if "://" in url else url.strip().lower()
+    if scheme in {"redis", "rediss"}:
+        return BroadcastGossipBackend(url)
+    if scheme in {"wss", "ws"}:
+        return WebsocketGossipBackend(url)
+    if scheme in {"memory", "inmemory", "local"}:
+        # Per-process only — a dev/test hatch, never a cross-node bus.
+        return InMemoryGossipBackend()
+    return None
+
+
+def _backend_for_chain(chain_id: str) -> GossipBackend | None:
+    """Resolve the backend for a non-default chain from per-chain config only.
+
+    Resolution order (megaplan §2): a ``GOSSIP_BACKENDS`` ``chain_id:<url>``
+    entry, optionally combined with that chain's tagged ``GOSSIP_MESH_PEER_URLS``
+    into a mesh backend. Chains with tagged peers but no local-bus entry are
+    unserved — a mesh backend cannot be built without its local bus, and
+    falling back to the default backend would leak topics across chains.
+    """
+    local_url = settings.gossip_backend_map().get(chain_id)
+    peer_urls = settings.mesh_peer_urls_for_chain(chain_id)
+    if not local_url:
+        return None
+    local = _backend_from_url(local_url)
+    if local is None:
+        return None
+    if not peer_urls:
+        return local
+    peers: dict[str, GossipBackend] = {}
+    for url in peer_urls:
+        name = _peer_name(url)
+        if name in peers:
+            return None
+        peers[name] = WebsocketGossipBackend(url)
+    return MeshGossipBackend(local, peers)
+
+
+def _broker_for_chain(chain_id: str) -> GossipBroker | None:
+    """Return the GossipBroker serving ``chain_id``, or None if unserved."""
+    if chain_id == settings.chain_id:
+        return gossip_broker
+    broker = _chain_brokers.get(chain_id)
+    if broker is not None:
+        return broker
+    backend = _backend_for_chain(chain_id)
+    if backend is None:
+        return None
+    broker = GossipBroker(backend)
+    _chain_brokers[chain_id] = broker
+    return broker
+
+
 @router.websocket("/gossip/ws")
 async def gossip_websocket(websocket: WebSocket) -> None:
     """Bidirectional WebSocket gossip with validator authentication.
@@ -133,14 +251,29 @@ async def gossip_websocket(websocket: WebSocket) -> None:
         await _gossip_ws_close(websocket, code=1008)
         return
 
-    client_ip = _gossip_client_ip(websocket)
-
-    # Connection-level source limit.
-    if _gossip_ip_connections.get(client_ip, 0) >= settings.gossip_max_concurrent_connections_per_ip:
-        logger.warning("Gossip websocket connection limit for %s", client_ip)
+    chain_id = _resolve_chain_id(websocket)
+    if chain_id is None:
         await _gossip_ws_close(websocket, code=1008)
         return
-    _gossip_ip_connections[client_ip] = _gossip_ip_connections.get(client_ip, 0) + 1
+    if _topic_targets_other_chain(topic, chain_id):
+        logger.warning("Gossip websocket rejected cross-chain topic %s on chain %s", topic, chain_id)
+        await _gossip_ws_close(websocket, code=1008)
+        return
+    broker = _broker_for_chain(chain_id)
+    if broker is None:
+        logger.warning("Gossip websocket rejected: no gossip backend for chain %s", chain_id)
+        await _gossip_ws_close(websocket, code=1008)
+        return
+
+    client_ip = _gossip_client_ip(websocket)
+    conn_key = (client_ip, chain_id)
+
+    # Connection-level source limit, per (ip, chain).
+    if _gossip_ip_connections.get(conn_key, 0) >= settings.gossip_max_concurrent_connections_per_ip:
+        logger.warning("Gossip websocket connection limit for %s on chain %s", client_ip, chain_id)
+        await _gossip_ws_close(websocket, code=1008)
+        return
+    _gossip_ip_connections[conn_key] = _gossip_ip_connections.get(conn_key, 0) + 1
     gossip_open_connections.inc()
 
     challenge: str | None = None
@@ -155,7 +288,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             logger.warning("Gossip websocket accept timed out for %s", client_ip)
             await _gossip_ws_close(websocket, code=1011)
             return
-        logger.info("WebSocket gossip subscriber connected: topic=%s client=%s", topic, client_ip)
+        logger.info("WebSocket gossip subscriber connected: topic=%s chain=%s client=%s", topic, chain_id, client_ip)
 
         # If this is a restricted topic, require authentication before any publish.
         if settings.gossip_auth_enabled and is_restricted_topic(topic):
@@ -170,7 +303,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 websocket, {"type": "auth_challenge", "challenge": challenge, "timestamp": challenge_ts}
             )
 
-        subscription = await gossip_broker.subscribe(topic, max_queue_size=100)
+        subscription = await broker.subscribe(topic, max_queue_size=100)
 
         async def _forward_broker_to_client() -> None:
             try:
@@ -202,7 +335,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     await _gossip_ws_close(websocket, code=1009)
                     break
 
-                if not _gossip_msg_rate.is_allowed(f"{client_ip}:{topic}"):
+                if not _gossip_msg_rate.is_allowed(f"{client_ip}:{chain_id}:{topic}"):
                     gossip_rate_limited_total.labels(reason="message_rate").inc()
                     await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
                     continue
@@ -237,7 +370,14 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         await _gossip_ws_send_json(websocket, {"error": "Challenge expired"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
-                    if verify_challenge(client_challenge, claimed, client_ts, signature, channel_scope(topic)):
+                    if verify_challenge(
+                        client_challenge,
+                        claimed,
+                        client_ts,
+                        signature,
+                        channel_scope(topic, chain_id),
+                        legacy_scope=channel_scope(topic),
+                    ):
                         if not authorized:
                             gossip_authenticated_connections.labels(address=claimed).inc()
                         authorized = True
@@ -265,7 +405,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     break
 
                 try:
-                    await gossip_broker.publish(topic, data)
+                    await broker.publish(topic, data)
                     gossip_messages_published_total.labels(topic=topic).inc()
                 except Exception as e:  # noqa: BLE001 - one bad publish must not close the socket
                     # A broker-side failure (e.g. an ACL-denied topic) loses
@@ -307,7 +447,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             subscription.close()
             await _gossip_ws_close(websocket)
     finally:
-        _gossip_ip_connections[client_ip] = max(0, _gossip_ip_connections.get(client_ip, 1) - 1)
+        _gossip_ip_connections[conn_key] = max(0, _gossip_ip_connections.get(conn_key, 1) - 1)
         gossip_open_connections.dec()
         if authorized_address:
             gossip_authenticated_connections.labels(address=authorized_address).dec()
@@ -361,7 +501,12 @@ async def subscription_websocket(websocket: WebSocket) -> None:
         logger.info("WebSocket subscriber connected: %s (chain=%s, transport=%s)", node_id, chain_id, transport)
         await websocket.send_json({"status": "subscribed", "node_id": node_id, "chain_id": chain_id, "transport": transport})
         topic = f"blocks.{chain_id}"
-        block_subscription = await gossip_broker.subscribe(topic)
+        broker = _broker_for_chain(chain_id)
+        if broker is None:
+            await websocket.send_json({"error": "Unsupported chain"})
+            await websocket.close(code=1008)
+            return
+        block_subscription = await broker.subscribe(topic)
 
         async def _send_blocks() -> None:
             """Send blocks to subscriber."""
