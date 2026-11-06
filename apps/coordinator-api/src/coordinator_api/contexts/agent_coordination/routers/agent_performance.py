@@ -9,13 +9,15 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import desc
-from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlalchemy import desc, func
+from sqlmodel import Session, col, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....auth import AuthDep
+from ....contexts.agent_identity.domain.agent_identity import AgentIdentity
+from ....contexts.infrastructure.domain.user import Wallet
 from ....storage import get_session
 from ..domain.agent_performance import (
     LearningStrategy,
@@ -33,6 +35,40 @@ from ..services.performance import (
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/agent-performance", tags=["agent-performance"])
+
+
+# PI-API-016: these handlers used to run on AuthLevel.ANY with no ownership
+# checks — any JWT could read/write performance state for arbitrary agent_ids
+# and deallocate other tenants' ResourceAllocation rows. Ownership resolves
+# through AgentIdentity (agent_id -> owner_address -> caller wallets), the
+# same model agent-identity routes use (#1070). Admin and api_key callers
+# (role=admin) bypass; meta-learning models carry no owner dimension and are
+# admin-only.
+def _caller_wallets(session: Session, user: dict[str, Any]) -> set[str]:
+    """Wallet addresses the authenticated caller controls (users.id -> wallets)."""
+    sub = str(user.get("sub") or "")
+    if not sub:
+        return set()
+    return {str(w.address).lower() for w in session.exec(select(Wallet).where(Wallet.user_id == sub)).all() if w.address}
+
+
+def _is_admin(user: dict[str, Any]) -> bool:
+    return user.get("role") == "admin"
+
+
+def _require_agent_access(session: Session, user: dict[str, Any], agent_id: str) -> None:
+    """Caller must be admin or control the wallet owning this agent's identity."""
+    if _is_admin(user):
+        return
+    identity = session.exec(select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)).first()
+    if identity is not None and str(identity.owner_address).lower() in _caller_wallets(session, user):
+        return
+    raise HTTPException(status_code=403, detail="not the agent owner")
+
+
+def _require_admin(user: dict[str, Any]) -> None:
+    if not _is_admin(user):
+        raise HTTPException(status_code=403, detail="admin role required")
 
 
 class PerformanceProfileRequest(BaseModel):
@@ -167,10 +203,14 @@ class CapabilityResponse(BaseModel):
 @router.post("/profiles", response_model=PerformanceProfileResponse)
 @rate_limit(rate=20, per=60)
 async def create_performance_profile(
-    request: Request, profile_request: PerformanceProfileRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    profile_request: PerformanceProfileRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> PerformanceProfileResponse:
     """Create agent performance profile"""
-    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
+    _require_agent_access(session, user, profile_request.agent_id)
+    performance_service = AgentPerformanceService(session)
     try:
         profile = await performance_service.create_performance_profile(
             agent_id=profile_request.agent_id,
@@ -203,10 +243,14 @@ async def create_performance_profile(
 @router.get("/profiles/{agent_id}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
 async def get_performance_profile(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Get agent performance profile"""
-    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
+    _require_agent_access(session, user, agent_id)
+    performance_service = AgentPerformanceService(session)
     try:
         profile = await performance_service.get_comprehensive_profile(agent_id)
         if "error" in profile:
@@ -227,10 +271,12 @@ async def update_performance_metrics(
     agent_id: str,
     metrics: dict[str, float],
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     task_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Update agent performance metrics"""
-    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
+    _require_agent_access(session, user, agent_id)
+    performance_service = AgentPerformanceService(session)
     try:
         profile = await performance_service.update_performance_metrics(
             agent_id=agent_id, new_metrics=metrics, task_context=task_context
@@ -251,13 +297,17 @@ async def update_performance_metrics(
 @router.post("/meta-learning/models", response_model=MetaLearningResponse)
 @rate_limit(rate=20, per=60)
 async def create_meta_learning_model(
-    request: Request, model_request: MetaLearningRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    model_request: MetaLearningRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> MetaLearningResponse:
     """Create meta-learning model"""
+    _require_admin(user)
     meta_learning_engine = MetaLearningEngine()
     try:
         model = await meta_learning_engine.create_meta_learning_model(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             model_name=model_request.model_name,
             base_algorithms=model_request.base_algorithms,
             meta_strategy=model_request.meta_strategy,
@@ -289,13 +339,15 @@ async def adapt_model_to_task(
     model_id: str,
     task_data: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     adaptation_steps: int = Query(default=10, ge=1, le=50),
 ) -> dict[str, Any]:
     """Adapt meta-learning model to new task"""
+    _require_admin(user)
     meta_learning_engine = MetaLearningEngine()
     try:
         results = await meta_learning_engine.adapt_to_new_task(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             model_id=model_id,
             task_data=task_data,
             adaptation_steps=adaptation_steps,
@@ -328,13 +380,17 @@ def _allocation_response(allocation: ResourceAllocation) -> ResourceAllocationRe
 @router.post("/resources/allocate", response_model=ResourceAllocationResponse)
 @rate_limit(rate=20, per=60)
 async def allocate_resources(
-    request: Request, allocation_request: ResourceAllocationRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    allocation_request: ResourceAllocationRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> ResourceAllocationResponse:
     """Allocate resources for agent task"""
+    _require_agent_access(session, user, allocation_request.agent_id)
     resource_manager = ResourceManager()
     try:
         allocation = await resource_manager.allocate_resources(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             agent_id=allocation_request.agent_id,
             task_requirements=allocation_request.task_requirements,
             optimization_target=allocation_request.optimization_target,
@@ -351,6 +407,7 @@ async def allocate_resources(
 def list_resource_allocations(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     agent_id: str | None = Query(default=None),
     status: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
@@ -358,7 +415,22 @@ def list_resource_allocations(
     """List resource allocations, optionally filtered by agent or status"""
     try:
         stmt = select(ResourceAllocation).order_by(desc(ResourceAllocation.created_at)).limit(limit)  # type: ignore[arg-type]
+        if not _is_admin(user):
+            # Non-admin callers only see allocations for agents they own.
+            wallets = _caller_wallets(session, user)
+            owned_ids = (
+                {
+                    i.agent_id
+                    for i in session.exec(
+                        select(AgentIdentity).where(func.lower(col(AgentIdentity.owner_address)).in_(wallets))
+                    ).all()
+                }
+                if wallets
+                else set()
+            )
+            stmt = stmt.where(col(ResourceAllocation.agent_id).in_(owned_ids)) if owned_ids else stmt.where(False)
         if agent_id:
+            _require_agent_access(session, user, agent_id)
             stmt = stmt.where(ResourceAllocation.agent_id == agent_id)
         if status:
             stmt = stmt.where(ResourceAllocation.status == status)
@@ -373,7 +445,10 @@ def list_resource_allocations(
 @router.post("/resources/{allocation_id}/deallocate", response_model=ResourceAllocationResponse)
 @rate_limit(rate=20, per=60)
 def deallocate_resource(
-    request: Request, allocation_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    allocation_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> ResourceAllocationResponse:
     """Release a resource allocation"""
     try:
@@ -382,6 +457,7 @@ def deallocate_resource(
         ).scalar_one_or_none()
         if row is None:
             raise HTTPException(status_code=404, detail=f"Allocation {allocation_id} not found")
+        _require_agent_access(session, user, row.agent_id)
         if row.status in ("released", "completed", "failed"):
             raise HTTPException(status_code=409, detail=f"Allocation {allocation_id} is already {row.status}")
         now = datetime.now(UTC)
@@ -404,13 +480,17 @@ def deallocate_resource(
 @router.post("/optimize", response_model=PerformanceOptimizationResponse)
 @rate_limit(rate=20, per=60)
 async def optimize_performance(
-    request: Request, optimization_request: PerformanceOptimizationRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    optimization_request: PerformanceOptimizationRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> PerformanceOptimizationResponse:
     """Optimize agent performance"""
+    _require_agent_access(session, user, optimization_request.agent_id)
     optimizer = PerformanceOptimizer()
     try:
         optimization = await optimizer.optimize_agent_performance(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             agent_id=optimization_request.agent_id,
             target_metric=optimization_request.target_metric,
             current_performance=optimization_request.current_performance,
@@ -437,13 +517,17 @@ async def optimize_performance(
 @router.post("/capabilities", response_model=CapabilityResponse)
 @rate_limit(rate=20, per=60)
 async def create_capability(
-    request: Request, capability_request: CapabilityRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    capability_request: CapabilityRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> CapabilityResponse:
     """Create agent capability"""
-    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
+    _require_agent_access(session, user, capability_request.agent_id)
+    performance_service = AgentPerformanceService(session)
     try:
         capability = await performance_service.create_capability(
-            session=session,  # type: ignore[arg-type]
+            session=session,
             agent_id=capability_request.agent_id,
             capability_name=capability_request.capability_name,
             capability_type=capability_request.capability_type,
@@ -472,10 +556,14 @@ async def create_capability(
 @router.get("/capabilities/{agent_id}", response_model=list[CapabilityResponse])
 @rate_limit(rate=200, per=60)
 async def list_agent_capabilities(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> list[CapabilityResponse]:
     """List all capabilities for an agent"""
-    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
+    _require_agent_access(session, user, agent_id)
+    performance_service = AgentPerformanceService(session)
     try:
         capabilities = await performance_service.list_capabilities(agent_id)
         return [
@@ -502,10 +590,15 @@ async def list_agent_capabilities(
 @router.get("/analytics/{agent_id}")
 @rate_limit(rate=200, per=60)
 async def get_performance_analytics(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)], period_days: int = 30
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
+    period_days: int = 30,
 ) -> dict[str, Any]:
     """Get performance analytics for an agent"""
-    performance_service = AgentPerformanceService(session)  # type: ignore[arg-type]
+    _require_agent_access(session, user, agent_id)
+    performance_service = AgentPerformanceService(session)
     try:
         analytics = await performance_service.get_performance_analytics(agent_id, period_days)
         return analytics
