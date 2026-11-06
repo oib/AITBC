@@ -63,6 +63,12 @@ class BlockchainEventBridge:
             self._tasks.add(task)
             logger.info("Block event subscriber started")
         if self.settings.subscribe_transactions:
+            # CE-009: this topic is unauthenticated gossip — enabling it
+            # re-exposes the forged-event confused-deputy path.
+            logger.warning(
+                "SUBSCRIBE_TRANSACTIONS enabled: transaction gossip events are unauthenticated "
+                "(CE-009) and can trigger coordinator/agent actions with forged payloads"
+            )
             self.transaction_subscriber = TransactionEventSubscriber(self.settings)
             self.transaction_subscriber.set_bridge(self)
             task = create_task_with_logging(self.transaction_subscriber.run(), name="transaction-subscriber")

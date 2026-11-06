@@ -59,3 +59,34 @@ async def test_bridge_handle_transaction_event():
 
     # Should not raise an error even without handlers
     await bridge.handle_transaction_event(tx_data)
+
+
+@pytest.mark.asyncio
+async def test_transaction_subscription_disabled_by_default():
+    """CE-009: the public gossip 'transactions' topic must not be subscribed
+    by default — forged events would reach action handlers unauthenticated."""
+    from blockchain_event_bridge.config import Settings
+
+    settings = Settings(subscribe_blocks=False, subscribe_contracts=False)
+    assert settings.subscribe_transactions is False
+
+    bridge = BlockchainEventBridge(settings)
+    await bridge.start()
+    try:
+        assert bridge.transaction_subscriber is None
+    finally:
+        await bridge.stop()
+
+
+@pytest.mark.asyncio
+async def test_transaction_subscription_explicit_opt_in():
+    """CE-009: the path remains available only as an explicit, warned opt-in."""
+    from blockchain_event_bridge.config import Settings
+
+    settings = Settings(subscribe_blocks=False, subscribe_contracts=False, subscribe_transactions=True)
+    bridge = BlockchainEventBridge(settings)
+    await bridge.start()
+    try:
+        assert bridge.transaction_subscriber is not None
+    finally:
+        await bridge.stop()
