@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1511
+- **Markdown files under docs/**: 1512
 
 | Directory | Files | Description |
 |---|---|---|
@@ -78,7 +78,7 @@ docs/
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 30 | Deployment and infrastructure setup |
-| [design](design/) | 18 | Design documents and decisions |
+| [design](design/) | 19 | Design documents and decisions |
 | [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 29 | New-user onboarding and setup |
@@ -923,6 +923,7 @@ Inbound markdown links per document (top referrers).
 | [design/escrow-rebuild-from-chain.md](design/escrow-rebuild-from-chain.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md) |
 | [design/eth7-escrowed-sell-flow.md](design/eth7-escrowed-sell-flow.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md), [design/eth8-exchange-page.md](design/eth8-exchange-page.md) |
 | [design/eth8-exchange-page.md](design/eth8-exchange-page.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md) |
+| [design/gossip-ws-chain-demux.md](design/gossip-ws-chain-demux.md) | [design/README.md](design/README.md) |
 | [design/key-custody-proposal.md](design/key-custody-proposal.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md), [design/node-held-wallet-access.md](design/node-held-wallet-access.md) |
 | [design/msg1-onchain-messaging.md](design/msg1-onchain-messaging.md) | [contracts/agent-messaging.md](contracts/agent-messaging.md), [design/README.md](design/README.md), [features/messaging-contracts.md](features/messaging-contracts.md) |
 | [design/msg2-votes-moderation.md](design/msg2-votes-moderation.md) | [design/README.md](design/README.md), [design/msg1-onchain-messaging.md](design/msg1-onchain-messaging.md) |
