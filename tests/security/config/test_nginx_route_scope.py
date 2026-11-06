@@ -7,7 +7,7 @@ properties fixed under #1200 (``/exchange/`` wallet-route scope),
 #1193 hardened host-side — a revert of any of them fails here instead of
 silently re-exposing the surface.
 
-Host-managed configs (live hub vhost, ns2 edge realip) are covered by
+Host-managed configs (live hub vhost, edge realip) are covered by
 the live-probe tier, not this file — see the #1196 suite-layout proposal.
 """
 

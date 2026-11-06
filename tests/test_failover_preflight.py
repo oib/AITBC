@@ -48,6 +48,8 @@ def _run(tmp_path, env_over=None, args=(), curl_code="200"):
         f.write_text(body)
         f.chmod(f.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}")
+    env.setdefault("NS3_SSH_TARGET", "stub-edge")
+    env.setdefault("CANARY_BASE_URL", "http://canary.invalid")
     env.update(env_over or {})
     return subprocess.run(["sh", str(SCRIPT), *args], env=env, capture_output=True, text=True, timeout=90)
 
@@ -67,7 +69,7 @@ def test_fail_on_failed_unit(tmp_path):
 def test_fail_on_swap_flag(tmp_path):
     res = _run(tmp_path, {"STUB_SWAP": "500000000"})
     assert res.returncode == 1
-    assert "ns3-swap" in res.stdout
+    assert "perimeter-swap" in res.stdout
 
 
 def test_fail_on_oom(tmp_path):
@@ -79,6 +81,15 @@ def test_fail_on_wrong_sha(tmp_path):
     res = _run(tmp_path, args=("--expected-sha256", "0000ffff"))
     assert res.returncode == 1
     assert "hub-nginx-sha" in res.stdout
+
+
+def test_unset_fleet_targets_report_info_not_fail(tmp_path):
+    """NS3_SSH_TARGET/CANARY_BASE_URL are operator-supplied; unset they must
+    degrade to INFO rows, never a silent PASS or a spurious FAIL."""
+    res = _run(tmp_path, {"NS3_SSH_TARGET": "", "CANARY_BASE_URL": ""})
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "perimeter-swap" in res.stdout and "INFO" in res.stdout
+    assert "hub1-canary" in res.stdout and "INFO" in res.stdout
 
 
 def test_no_mutating_commands_in_script():
