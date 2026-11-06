@@ -2329,19 +2329,31 @@ class PoAProposer:
                     continue
 
                 sender_account = account_map.get(sender)
-                if not sender_account:
+                if not sender_account and block_version >= 22:
+                    # v22 R1 (CONSENSUS-STATE-001): a sender missing from the
+                    # pre-block account map reads live state first — an
+                    # account created earlier in this same block is already
+                    # flushed — then falls back to virtual (0,0), matching
+                    # validate_transaction. apply_transaction materializes
+                    # the row on success, so a valid zero-cost tx from a
+                    # never-seen address is includable, not skipped (R1a).
+                    sender_account = session.get(Account, (self._config.chain_id, sender))
+                    if sender_account is not None:
+                        account_map[sender] = sender_account
+                if not sender_account and block_version < 22:
                     self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
                     _reject(tx, f"sender account not found for {sender}")
                     continue
+                sender_balance = sender_account.balance if sender_account else 0
                 total_cost = value + fee
-                if sender_account.balance < total_cost:
+                if sender_balance < total_cost:
                     self._logger.warning(
                         "[PROPOSE] Skipping tx %s: insufficient balance (has %s, needs %s)",
                         tx.tx_hash,
-                        sender_account.balance,
+                        sender_balance,
                         total_cost,
                     )
-                    _reject(tx, f"insufficient balance (has {sender_account.balance}, needs {total_cost})")
+                    _reject(tx, f"insufficient balance (has {sender_balance}, needs {total_cost})")
                     continue
                 # Resolve canonical tx type and validate governance
                 # payloads before mutating state so we can skip invalid
@@ -2386,7 +2398,9 @@ class PoAProposer:
                 state_transition = get_state_transition()
                 tx_data_for_transition = tx.content.copy()
                 if use_account_nonce_override(tx_data_for_transition, block_version):
-                    tx_data_for_transition["nonce"] = sender_account.nonce
+                    tx_data_for_transition["nonce"] = (
+                        sender_account.nonce if sender_account and sender_account.nonce is not None else 0
+                    )
                 tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
                 success, error_msg = state_transition.apply_transaction(
                     session,
