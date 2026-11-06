@@ -68,7 +68,8 @@ class Settings(ServiceSettings):
     ollama_url: str = "http://localhost:11434"
     island_id: str = "default"
 
-    # JWT auth deferred to v0.7.1 (Bridge Security)
+    # All /v1 routes require a fleet JWT (aitbc.auth AuthDep) since #1205 —
+    # JWT_SECRET arrives via /etc/aitbc/blockchain-secrets.env in the unit.
     # cors_origins retained for cross-origin requests
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
 

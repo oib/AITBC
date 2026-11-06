@@ -20,6 +20,9 @@ Environment="GPU_SERVICE_PORT=8101"
 Environment="APP_PORT=8111"
 # Service-specific secrets (moved from /etc/aitbc/secrets/jwt_secret during v0.5.1 migration)
 EnvironmentFile=/etc/aitbc/%N.env
+# Fleet-wide JWT secret — edge verifies the same Bearer tokens every other
+# service issues (#1205). Created unconditionally by setup.sh credentials step.
+EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 # Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
 # Peers reach this node via EDGE_ADVERTISE_HOST, not this address.
 Environment=APP_HOST=127.0.0.1

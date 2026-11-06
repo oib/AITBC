@@ -3,6 +3,8 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from aitbc.auth import AuthDep
 from pydantic import BaseModel
 
 from ..services.metrics_service import MetricsService
@@ -24,7 +26,7 @@ def get_metrics_service() -> MetricsService:
 
 @router.post("/")
 async def record_metrics(
-    request: RecordMetricsRequest, svc: Annotated[MetricsService, Depends(get_metrics_service)]
+    _user: AuthDep, request: RecordMetricsRequest, svc: Annotated[MetricsService, Depends(get_metrics_service)]
 ) -> dict[str, Any]:
     """Record edge metrics"""
     result = await svc.record_metrics(request.gpu_id, request.metrics)
@@ -33,6 +35,7 @@ async def record_metrics(
 
 @router.get("/")
 async def list_metrics(
+    _user: AuthDep,
     svc: Annotated[MetricsService, Depends(get_metrics_service)],
     gpu_id: str | None = None,
     limit: int = 100,
@@ -43,7 +46,9 @@ async def list_metrics(
 
 
 @router.get("/{metric_id}")
-async def get_metrics(metric_id: str, svc: Annotated[MetricsService, Depends(get_metrics_service)]) -> dict[str, Any]:
+async def get_metrics(
+    _user: AuthDep, metric_id: str, svc: Annotated[MetricsService, Depends(get_metrics_service)]
+) -> dict[str, Any]:
     """Get metric details"""
     metric = await svc.get_metrics(metric_id)
     if metric is None:
@@ -52,7 +57,9 @@ async def get_metrics(metric_id: str, svc: Annotated[MetricsService, Depends(get
 
 
 @router.delete("/{metric_id}")
-async def delete_metrics(metric_id: str, svc: Annotated[MetricsService, Depends(get_metrics_service)]) -> dict[str, str]:
+async def delete_metrics(
+    _user: AuthDep, metric_id: str, svc: Annotated[MetricsService, Depends(get_metrics_service)]
+) -> dict[str, str]:
     """Delete metric"""
     success = await svc.delete_metrics(metric_id)
     if success:

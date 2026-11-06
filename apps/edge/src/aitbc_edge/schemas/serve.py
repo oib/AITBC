@@ -21,6 +21,9 @@ class ComputeRequest(SQLModel, table=True):
     input_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
     priority: str = Field(default="normal")
     status: str = Field(default="queued", index=True)  # queued, running, completed, failed, cancelled
+    # EDGE-AUTHZ-BEFORE-COMMISSIONING (#1205): JWT ``sub`` of the submitter.
+    # NULL on rows predating the column — admin-only until claimed.
+    owner_id: str | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: datetime | None = Field(default=None)

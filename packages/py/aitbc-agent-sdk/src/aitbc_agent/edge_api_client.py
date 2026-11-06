@@ -20,6 +20,9 @@ class EdgeAPIConfig:
     host: str = "localhost"
     port: int = 8103
     timeout: int = 30
+    # Fleet JWT for edge /v1 routes (#1205). Edge rejects unauthenticated
+    # requests with 401; pass the caller's token (agent JWT or session JWT).
+    token: str | None = None
 
 
 class EdgeAPIClient:
@@ -32,7 +35,8 @@ class EdgeAPIClient:
 
     async def __aenter__(self) -> "EdgeAPIClient":
         """Async context manager entry"""
-        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=self.config.timeout)
+        headers = {"Authorization": f"Bearer {self.config.token}"} if self.config.token else None
+        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=self.config.timeout, headers=headers)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
