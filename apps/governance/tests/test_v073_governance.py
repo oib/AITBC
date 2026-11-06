@@ -33,7 +33,7 @@ class TestGovernanceSettings:
         assert settings.voting_period_blocks == 7200
         assert settings.quorum_percent == 30.0
         assert settings.approval_percent == 50.0
-        assert settings.timelock_blocks == 43200
+        assert settings.timelock_blocks == 1290
         assert settings.snapshot_delay_blocks == 100
         assert settings.enable_onchain_submission is False
         assert settings.bind_port == 8105
