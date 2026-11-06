@@ -26,6 +26,7 @@ from aitbc.market.energy_pricing import (
 )
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units, units_to_ait
+from aitbc_shared import JobPayment
 
 from ....auth import AuthDep, MinerDep
 from ....custom_types import Constraints
@@ -197,6 +198,49 @@ def _get_gpu_or_404(session: Session, gpu_id: str) -> GPURegistry:
     if not gpu:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"GPU {gpu_id} not found")
     return gpu
+
+
+# CE-004: book_gpu creates a GPU hold with no payment attached, which let any
+# caller squat every listing indefinitely (gpu.status="booked" blocks the paid
+# buy/quote paths). The hold is now client-bound at creation and expires
+# lazily once it outlives BOOKING_HOLD_TTL without a funded payment recorded
+# against the booking.
+BOOKING_HOLD_TTL = timedelta(minutes=30)
+_PAID_PAYMENT_STATUSES = ("escrowed", "released", "confirmed")
+
+
+def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
+    """Expire an unpaid booking hold past its TTL so the GPU becomes available.
+
+    Lazy reaper: runs on the write paths that gate on ``gpu.status``, so a
+    squatted listing frees itself the next time anyone tries to use it.
+    """
+    if gpu.status != "booked":
+        return
+    booking = (
+        session.execute(select(GPUBooking).where(GPUBooking.gpu_id == gpu.id, GPUBooking.status == "active").limit(1))
+        .scalars()
+        .first()
+    )
+    if booking is None or booking.created_at is None:
+        return
+    created_at = booking.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    if datetime.now(UTC) - created_at < BOOKING_HOLD_TTL:
+        return
+    paid = session.execute(
+        select(JobPayment.id)
+        .where(col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES), JobPayment.job_id == booking.id)
+        .limit(1)
+    ).first()
+    if paid is not None:
+        return
+    booking.status = "expired"
+    gpu.status = "available"
+    session.add(booking)
+    session.add(gpu)
+    session.commit()
 
 
 def _get_energy_oracle(session: Session) -> NativeEnergyOracle | EVMEnergyOracle | None:
@@ -439,6 +483,7 @@ def quote_gpu(
     POST /market/gpu/purchase using the same job_id and energy_quote.
     """
     gpu = _get_gpu_or_404(session, request.gpu_id)
+    _expire_stale_booking(session, gpu)
     if gpu.status != "available":
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
@@ -552,6 +597,11 @@ async def buy_gpu(
     # let a client book a rental on someone else's account.
     if request.buyer_id != user["sub"]:
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="buyer_id does not match authenticated buyer")
+    # CE-004: expire a stale unpaid hold before taking the row lock — the
+    # reaper commits, which would otherwise drop the FOR UPDATE lock early.
+    gpu_preview = session.get(GPURegistry, request.gpu_id)
+    if gpu_preview is not None:
+        _expire_stale_booking(session, gpu_preview)
     # Lock the GPU row while booking: two concurrent purchases could both see
     # "available" and double-book the same GPU.
     gpu = await run_in_threadpool(
@@ -851,6 +901,7 @@ async def book_gpu(
 ) -> dict[str, Any]:
     """Book a GPU with dynamic pricing."""
     gpu = await run_in_threadpool(_get_gpu_or_404, session, gpu_id)
+    _expire_stale_booking(session, gpu)
     if gpu.status != "available":
         raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {gpu_id} is not available")
     if request.duration_hours <= 0:
@@ -880,6 +931,7 @@ async def book_gpu(
     total_cost = duration_dec * current_price
     booking = GPUBooking(
         gpu_id=gpu_id,
+        client_id=user["sub"],
         job_id=request.job_id,
         duration_hours=request.duration_hours,
         total_cost=total_cost,
@@ -910,6 +962,7 @@ async def book_gpu(
 def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
     """Release a booked GPU."""
     gpu = _get_gpu_or_404(session, gpu_id)
+    _expire_stale_booking(session, gpu)
     if gpu.status != "booked":
         return {"status": "already_available", "gpu_id": gpu_id, "message": f"GPU {gpu_id} is already available"}
     booking = (
@@ -945,6 +998,7 @@ def confirm_gpu_booking(
 ) -> dict[str, Any]:
     """Confirm a booking (client ACK)."""
     gpu = _get_gpu_or_404(session, gpu_id)
+    _expire_stale_booking(session, gpu)
     if gpu.status != "booked":
         raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {gpu_id} is not booked")
     booking = session.execute(
@@ -1066,6 +1120,20 @@ def delete_gpu(
 ) -> dict[str, Any]:
     """Delete (unregister) a GPU from the market."""
     gpu = _get_gpu_or_404(session, gpu_id)
+    # CE-005: deleting a listing is owner-or-admin only; force-deleting a
+    # booked GPU is admin-only.
+    caller = user.get("sub")
+    is_admin = user.get("role") == "admin"
+    if gpu.miner_id != caller and not is_admin:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="only the GPU owner or an admin may delete it",
+        )
+    if force and not is_admin:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="force delete requires an admin",
+        )
     if gpu.status == "booked" and (not force):
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
