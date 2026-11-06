@@ -22,6 +22,8 @@ from typing import Any
 import httpx
 from fastapi import APIRouter
 
+from validation import clamp_page_limit
+
 router = APIRouter()
 
 _ALERT_EVENTS = ("prometheus_alert_firing", "prometheus_alert_resolved", "prometheus_alert_still_firing")
@@ -197,6 +199,7 @@ def api_alerts_history(
     state: str | None = None,
 ) -> dict[str, Any]:
     """Watcher event log, newest first. Filters match the CLI's alert-history."""
+    limit = clamp_page_limit(limit)
     if state is not None and state not in ("firing", "resolved", "silenced"):
         state = None
     events = _read_events()
