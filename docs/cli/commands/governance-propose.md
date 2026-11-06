@@ -22,7 +22,7 @@ aitbc governance propose [OPTIONS]
 | `--proposer-address` | text | — | no | Proposer wallet address (for on-chain submission) |
 | `--params` | text | — | no | JSON-encoded parameters for parameter_change proposals |
 | `--execution-payload` | text | — | no | JSON the EXECUTE binds to (v13). Defaults to --params; required for any non-parameter_change proposal |
-| `--voting-days` | integer | `7` | no | Voting period in days |
+| `--voting-days` | integer | — | no | Wall-clock voting window override in days; the sealed block window always uses the service's voting_period_blocks |
 | `--wallet` | text | — | no | Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission) |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
