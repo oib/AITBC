@@ -1,6 +1,5 @@
 """Block routes — latest blocks, non-empty blocks, block by hash, block by address, block by height."""
 
-from pathlib import Path
 from typing import Any
 
 import aiosqlite
@@ -9,9 +8,9 @@ from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
-from aitbc.utils.chain_id import resolve_chain_id
 
 from chain_client import (
+    chain_db_path,
     default_chain_id,
     rpc_url_for,
     get_block,
@@ -19,7 +18,7 @@ from chain_client import (
     normalize_block,
 )
 from .common import like_pattern
-from validation import validate_tx_hash
+from validation import check_page_offset, clamp_page_limit, validate_tx_hash
 
 logger = get_logger(__name__)
 
@@ -33,6 +32,8 @@ async def api_latest_blocks(
     offset: int = 0,
 ) -> dict[str, Any]:
     """API endpoint for latest blocks"""
+    limit = clamp_page_limit(limit)
+    offset = check_page_offset(offset)
     blocks = await get_latest_blocks(limit, chain_id, offset)
     return {"blocks": blocks}
 
@@ -44,15 +45,15 @@ async def api_non_empty_blocks(
     offset: int = 0,
 ) -> dict[str, Any]:
     """API endpoint for non-empty blocks (blocks with transactions)"""
+    limit = clamp_page_limit(limit)
+    offset = check_page_offset(offset)
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        db_path = chain_db_path()
 
-        if not chain_db_path.exists():
+        if db_path is None:
             return {"blocks": []}
 
-        async with aiosqlite.connect(str(chain_db_path)) as conn:
+        async with aiosqlite.connect(str(db_path)) as conn:
             cursor = await conn.cursor()
 
             # Get current chain height
@@ -136,25 +137,36 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        db_path = chain_db_path()
 
-        if chain_db_path.exists():
-            async with aiosqlite.connect(str(chain_db_path)) as conn:
+        if db_path is not None:
+            async with aiosqlite.connect(str(db_path)) as conn:
                 cursor = await conn.cursor()
 
-                # Search for block by hash (case-insensitive, with or without 0x prefix)
+                # Canonical block hashes are 0x-prefixed lowercase hex, so
+                # exact-match candidates hit the hash index; the legacy
+                # case-insensitive scan remains as fallback (PI-EX-001).
+                bare_hash = clean_hash.lower()
                 await cursor.execute(
                     """
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
-                    WHERE lower(replace(hash, '0x', '')) = ?
+                    WHERE hash IN (?, ?)
                 """,
-                    (clean_hash.lower(),),
+                    (f"0x{bare_hash}", bare_hash),
                 )
 
                 result = await cursor.fetchone()
+                if result is None:
+                    await cursor.execute(
+                        """
+                        SELECT height, hash, proposer, timestamp, tx_count, state_root
+                        FROM block
+                        WHERE lower(replace(hash, '0x', '')) = ?
+                    """,
+                        (bare_hash,),
+                    )
+                    result = await cursor.fetchone()
 
                 if result:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
@@ -247,15 +259,14 @@ async def api_blocks_by_address(
     limit: int = 50,
 ) -> dict[str, Any]:
     """Get all blocks that contain transactions referencing a given address"""
+    limit = clamp_page_limit(limit)
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        db_path = chain_db_path()
 
-        if not chain_db_path.exists():
+        if db_path is None:
             return {"blocks": []}
 
-        async with aiosqlite.connect(str(chain_db_path)) as conn:
+        async with aiosqlite.connect(str(db_path)) as conn:
             cursor = await conn.cursor()
 
             search_term = like_pattern(address)
@@ -303,12 +314,10 @@ async def api_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
 
     # Add transactions for this block
     try:
-        chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-        if not chain_db_path.exists():
-            chain_db_path = Path("/var/lib/aitbc/data/chain.db")
+        db_path = chain_db_path()
 
-        if chain_db_path.exists():
-            async with aiosqlite.connect(str(chain_db_path)) as conn:
+        if db_path is not None:
+            async with aiosqlite.connect(str(db_path)) as conn:
                 cursor = await conn.cursor()
 
                 # Get transactions for this block

@@ -3,7 +3,6 @@
 import hashlib
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import aiosqlite
@@ -11,22 +10,14 @@ import httpx
 from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import units_to_ait
 
-from chain_client import USE_DATA_LAYER, default_chain_id, get_data_layer, rpc_url_for
+from chain_client import USE_DATA_LAYER, chain_db_path, default_chain_id, get_data_layer, rpc_url_for
+from validation import clamp_analytics_days, clamp_page_limit
 
 logger = get_logger(__name__)
 
 router = APIRouter()
-
-
-def _chain_db_path() -> Path | None:
-    """Return the configured on-disk chain database, or None if it does not exist."""
-    chain_db_path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
-    if not chain_db_path.exists():
-        chain_db_path = Path("/var/lib/aitbc/data/chain.db")
-    return chain_db_path if chain_db_path.exists() else None
 
 
 def _activity_type_color(tx_type: str) -> str:
@@ -41,12 +32,13 @@ async def api_activity_timeline(
     days: int = 30,
 ) -> dict[str, Any]:
     """Get daily transaction counts for activity timeline chart"""
+    days = clamp_analytics_days(days)
     try:
-        chain_db_path = _chain_db_path()
-        if chain_db_path is None:
+        db_path = chain_db_path()
+        if db_path is None:
             return {"labels": [], "datasets": []}
 
-        async with aiosqlite.connect(str(chain_db_path)) as conn:
+        async with aiosqlite.connect(str(db_path)) as conn:
             cursor = await conn.cursor()
 
             # Get daily transaction counts for the last N days
@@ -120,10 +112,10 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
     read must never look like an empty chain.
     """
     try:
-        chain_db_path = _chain_db_path()
-        if chain_db_path is None:
+        db_path = chain_db_path()
+        if db_path is None:
             raise HTTPException(status_code=503, detail="chain database unavailable")
-        async with aiosqlite.connect(str(chain_db_path)) as conn:
+        async with aiosqlite.connect(str(db_path)) as conn:
             cursor = await conn.cursor()
 
             # Circulating supply: sum of account balances (base units -> AIT)
@@ -215,12 +207,13 @@ async def api_top_addresses(
     limit: int = 20,
 ) -> dict[str, Any]:
     """Get top addresses by transaction count and AIT volume"""
+    limit = clamp_page_limit(limit)
     try:
-        chain_db_path = _chain_db_path()
-        if chain_db_path is None:
+        db_path = chain_db_path()
+        if db_path is None:
             return {"addresses": []}
 
-        async with aiosqlite.connect(str(chain_db_path)) as conn:
+        async with aiosqlite.connect(str(db_path)) as conn:
             cursor = await conn.cursor()
 
             await cursor.execute(
@@ -262,11 +255,11 @@ async def api_top_addresses(
 async def api_provider_reputation(provider_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Compute provider reputation score from blockchain history"""
     try:
-        chain_db_path = _chain_db_path()
-        if chain_db_path is None:
+        db_path = chain_db_path()
+        if db_path is None:
             return {"provider_id": provider_id, "score": 0, "level": "New", "transactions": 0, "days_active": 0}
 
-        async with aiosqlite.connect(str(chain_db_path)) as conn:
+        async with aiosqlite.connect(str(db_path)) as conn:
             cursor = await conn.cursor()
 
             # Find all transactions related to this provider
