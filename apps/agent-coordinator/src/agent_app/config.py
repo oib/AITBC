@@ -155,8 +155,10 @@ class Settings(ServiceSettings):
 
     # v2.0 phase A: agent-message envelope signatures
     # (docs/agent-coordinator/agent-signed-envelopes.md §5/§8). ``disabled`` is
-    # the in-code default — the hub flips to ``advisory``/``enforce`` via env.
-    agent_msg_signature_mode: str = os.getenv("AGENT_MSG_SIGNATURE_MODE", "disabled")
+    # no longer the in-code default — PI-API-004 (#1181) made ``advisory`` the
+    # floor: mismatches are logged fleet-wide by default and ``enforce`` is
+    # opted into via env. WS agent_id binding is enforced regardless of mode.
+    agent_msg_signature_mode: str = os.getenv("AGENT_MSG_SIGNATURE_MODE", "advisory")
     # not-money: a duration in seconds; the envelope timestamp tolerance
     agent_msg_max_skew_seconds: int = int(os.getenv("AGENT_MSG_MAX_SKEW_SECONDS", "300"))
 

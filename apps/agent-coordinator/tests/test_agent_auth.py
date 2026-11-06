@@ -345,6 +345,12 @@ class TestSignedHeaderAuth:
         assert body["agent_id"] == "hub-coordinator"
         assert body["is_admin"] is True
 
+    def test_shared_key_rejected_via_http_query_param(self, client):
+        """PI-API-004 (#1181): ``?token=`` never resolves the shared key on
+        HTTP either — header or Bearer only."""
+        resp = client.get(f"/api/v1/agent/auth/session?token={OPERATOR_KEY}")
+        assert resp.status_code == 401
+
 
 # --------------------------------------------------------------------------- #
 # Inbox / history authorization (enforce)
@@ -518,35 +524,43 @@ class TestWebSocketBinding:
                 pass
         assert raised.value.code == 1008
 
-    def test_shared_key_binds_to_hub_coordinator(self, client, monkeypatch):
-        """The operator key is the fixed identity hub-coordinator — enforce mode
-        refuses it for any other agent_id."""
+    def test_shared_key_rejected_via_query_param(self, client, monkeypatch):
+        """PI-API-004 (#1181): the shared coordinator key is never accepted via
+        ``?token=`` — URL-borne credentials leak into logs/history and resolve
+        to the cross-agent hub-coordinator identity. Operator tooling uses an
+        admin/operator JWT."""
         from agent_app.config import settings
 
         monkeypatch.setattr(settings, "agent_msg_signature_mode", "enforce")
-        with client.websocket_connect(f"{self.URL}?agent_id=hub-coordinator&token={OPERATOR_KEY}") as ws:
-            assert ws.receive_json()["type"] == "connection_established"
         with pytest.raises(WebSocketDisconnect):
-            with client.websocket_connect(f"{self.URL}?agent_id=agent-1&token={OPERATOR_KEY}"):
+            with client.websocket_connect(f"{self.URL}?agent_id=hub-coordinator&token={OPERATOR_KEY}"):
                 pass
 
-    def test_advisory_mismatch_allowed(self, client, monkeypatch):
+    def test_advisory_mismatch_rejected(self, client, monkeypatch):
+        """PI-API-004 (#1181): WS agent_id binding is enforced in every mode —
+        advisory logs the mismatch but still rejects the stream."""
         from agent_app.config import settings
 
         monkeypatch.setattr(settings, "agent_msg_signature_mode", "advisory")
         _register_bound(client, "agent-1", ACCOUNT)
         token = _login(client, "agent-1", ACCOUNT)
-        with client.websocket_connect(f"{self.URL}?agent_id=agent-2&token={token}") as ws:
-            assert ws.receive_json()["type"] == "connection_established"
+        with pytest.raises(WebSocketDisconnect) as raised:
+            with client.websocket_connect(f"{self.URL}?agent_id=agent-2&token={token}"):
+                pass
+        assert raised.value.code == 1008
 
-    def test_disabled_mismatch_allowed(self, client, monkeypatch):
+    def test_disabled_mismatch_rejected(self, client, monkeypatch):
+        """PI-API-004 (#1181): even ``disabled`` signature mode enforces the WS
+        agent_id binding — the stream is the agent's authenticated channel."""
         from agent_app.config import settings
 
         monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
         _register_bound(client, "agent-1", ACCOUNT)
         token = _login(client, "agent-1", ACCOUNT)
-        with client.websocket_connect(f"{self.URL}?agent_id=agent-2&token={token}") as ws:
-            assert ws.receive_json()["type"] == "connection_established"
+        with pytest.raises(WebSocketDisconnect) as raised:
+            with client.websocket_connect(f"{self.URL}?agent_id=agent-2&token={token}"):
+                pass
+        assert raised.value.code == 1008
 
     def test_ws_status_requires_principal(self, client):
         assert client.get("/api/v1/agent/ws/status").status_code == 401
