@@ -25,7 +25,7 @@ def _no_rate_limit(monkeypatch):
     yield
 
 
-def _request(ip: str = "10.9.8.7") -> Request:
+def _request(ip: str = "192.0.2.7") -> Request:
     return Request(
         {
             "type": "http",
@@ -216,7 +216,7 @@ def test_market_listings_rate_limited(monkeypatch):
     monkeypatch.delenv("AITBC_ENABLE_RATE_LIMITING", raising=False)
     monkeypatch.setattr(rpc_market, "metrics_registry", type("M", (), {"increment": staticmethod(lambda *a, **k: None)})())
     monkeypatch.setattr(rpc_market, "_chain_db_path", lambda: Path("/nonexistent/chain.db"))
-    req = _request("10.9.8.9")
+    req = _request("192.0.2.9")
     with pytest.raises(HTTPException) as exc:
         for _ in range(31):
             rpc_market.market_listings(req)

@@ -33,8 +33,10 @@ keeps the public view identical on both sides of the flip.
 
 Convenience: `scripts/ops/failover-preflight.sh` implements most of this
 table (heads scan with re-read on mid-block disagreement, hub1
-unit/cgroup/services reads, ns3 swap, live-site sha, canary) and exits
-non-zero on any FAIL. `aitbc blockchain height` is deliberately not
+unit/cgroup/services reads, edge-host swap, live-site sha, canary) and exits
+non-zero on any FAIL. The swap and canary rows need `NS3_SSH_TARGET` and
+`CANARY_BASE_URL` in the environment (the fleet map stays out of the repo);
+unset they report INFO, not PASS. `aitbc blockchain height` is deliberately not
 used for heads — it has had false-read defects; read the chain db
 directly (`mode=ro`).
 

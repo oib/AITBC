@@ -92,23 +92,23 @@ scrape_configs:
   # negotiation may be listed here.
   #
   # Deliberately not listed:
-  #   at1 node2/blockchain-p2p tcp:0.0.0.0:8200 -> 10.1.223.136:8200 —
+  #   <incus-host> node2/blockchain-p2p tcp:0.0.0.0:8200 -> <node2-addr>:8200 —
   #     nothing listens on the backend port (bc-2 gossip is
   #     redis-brokered; P2P_BIND_PORT is vestigial). The device needs an
   #     ops decision, not a probe that alerts forever.
   #   loopback-bound devices, unreachable from hub (need an exporter on
   #   the incus host itself):
-  #   ns2 ntfy/ntfyproxy          tcp:127.0.0.1:2586
-  #   at1 node0/coordinator-proxy tcp:127.0.0.1:18000
-  #   at1 node1/coordinator-proxy tcp:127.0.0.1:18001
+  #   <edge-perimeter> ntfy/ntfyproxy      tcp:127.0.0.1:2586
+  #   <incus-host> node0/coordinator-proxy tcp:127.0.0.1:18000
+  #   <incus-host> node1/coordinator-proxy tcp:127.0.0.1:18001
   - job_name: 'blackbox-incus-proxy'
     metrics_path: '/probe'
     static_configs:
-      - targets: ['152.53.242.245:4002']   # hub aitbc-island-ipfs-tcp (ns2)
+      - targets: ['152.53.242.245:4002']   # hub aitbc-island-ipfs-tcp (edge perimeter)
         labels:
           module: tcp_ipfs_libp2p
           device: 'hub/aitbc-island-ipfs-tcp'
-      - targets: ['95.216.198.140:4002']   # hub1 aitbc-island-ipfs-tcp (ns3)
+      - targets: ['95.216.198.140:4002']   # hub1 aitbc-island-ipfs-tcp (edge perimeter)
         labels:
           module: tcp_ipfs_libp2p
           device: 'hub1/aitbc-island-ipfs-tcp'

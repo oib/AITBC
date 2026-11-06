@@ -8,11 +8,15 @@
 #        [--soak-node-start "<ActiveEnterTimestamp to require>"]
 # Env: HOSTS="hub hub1 node0 node1 node2"  CHAIN_ID=bc-2
 #      NGINX_SITE=/etc/nginx/sites-enabled/aitbc
+#      NS3_SSH_TARGET=<ssh alias of the edge host to read swap from>
+#      CANARY_BASE_URL=<base URL of the hub1 public vhost>
 set -euo pipefail
 
 HOSTS="${HOSTS:-hub hub1 node0 node1 node2}"
 CHAIN_ID="${CHAIN_ID:-bc-2}"
 NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-enabled/aitbc}"
+NS3_SSH_TARGET="${NS3_SSH_TARGET:-}"
+CANARY_BASE_URL="${CANARY_BASE_URL:-}"
 EXPECTED_SHA=""
 SOAK_NODE_START="${SOAK_NODE_START:-}"
 while [ $# -gt 0 ]; do
@@ -100,13 +104,18 @@ else
   fi
 fi
 
-# --- ns3 swap: a failed read FAILS (empty is not zero)
-swap_raw=$(sshro ns3-root "sudo -n swapon --show=USED --bytes --noheadings")
-if [ -z "$swap_raw" ]; then
-  row "ns3-swap" FAIL "read failed — swap not verified"
+# --- edge-host swap: a failed read FAILS (empty is not zero). The ssh
+# target is operator-supplied — the fleet map lives outside the repo.
+if [ -z "$NS3_SSH_TARGET" ]; then
+  row "perimeter-swap" INFO "NS3_SSH_TARGET unset — swap not verified"
 else
-  used=$(printf '%s\n' "$swap_raw" | awk '{s+=$1} END{print s+0}')
-  if [ "$used" -lt 300000000 ]; then row "ns3-swap" PASS "${used}B"; else row "ns3-swap" FAIL "${used}B (>=300M flag)"; fi
+  swap_raw=$(sshro "$NS3_SSH_TARGET" "sudo -n swapon --show=USED --bytes --noheadings")
+  if [ -z "$swap_raw" ]; then
+    row "perimeter-swap" FAIL "read failed — swap not verified"
+  else
+    used=$(printf '%s\n' "$swap_raw" | awk '{s+=$1} END{print s+0}')
+    if [ "$used" -lt 300000000 ]; then row "perimeter-swap" PASS "${used}B"; else row "perimeter-swap" FAIL "${used}B (>=300M flag)"; fi
+  fi
 fi
 
 # --- hub nginx sha: an unread file FAILS, not a silent pass
@@ -126,13 +135,17 @@ bd=$(sshro hub "stat -c %s /var/lib/aitbc/data/bridge_deposits.db")
 bd1=$(sshro hub1 "stat -c %s /var/lib/aitbc/data/bridge_deposits.db")
 row "bridge-deposits-size" INFO "hub=${bd:-?} hub1=${bd1:-?} (re-snapshot at real cut)"
 
-# --- hub1 public vhost canary
-p=0
-for path in /rpc/head /explorer-api/api/chain/head /explorer-api/health; do
-  code=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "https://hub1.aitbc.bubuit.net$path" || true)
-  [ "$code" = "200" ] && p=$((p + 1))
-done
-[ "$p" = "3" ] && row "hub1-canary" PASS "3/3 200" || row "hub1-canary" FAIL "$p/3 200"
+# --- hub1 public vhost canary (base URL is operator-supplied)
+if [ -z "$CANARY_BASE_URL" ]; then
+  row "hub1-canary" INFO "CANARY_BASE_URL unset — canary skipped"
+else
+  p=0
+  for path in /rpc/head /explorer-api/api/chain/head /explorer-api/health; do
+    code=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$CANARY_BASE_URL$path" || true)
+    [ "$code" = "200" ] && p=$((p + 1))
+  done
+  [ "$p" = "3" ] && row "hub1-canary" PASS "3/3 200" || row "hub1-canary" FAIL "$p/3 200"
+fi
 
 echo "---"
 if [ "$fails" -eq 0 ]; then

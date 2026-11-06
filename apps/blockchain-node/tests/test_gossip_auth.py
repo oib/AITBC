@@ -160,7 +160,7 @@ def test_flood_cannot_evict_fresh_challenge(monkeypatch: pytest.MonkeyPatch) -> 
     for i in range(7):
         assert gossip_auth.create_challenge(f"10.1.{i}.1") is not None
     # a fresh legitimate challenge still mints — oldest flood entry is evicted
-    legit = gossip_auth.create_challenge("10.9.9.9")
+    legit = gossip_auth.create_challenge("192.0.2.9")
     assert legit is not None
     assert legit[0] in gossip_auth._PENDING_CHALLENGES
 
@@ -174,7 +174,7 @@ def test_eviction_removes_oldest_unused(monkeypatch: pytest.MonkeyPatch) -> None
     gossip_auth._PENDING_CHALLENGES["mid"] = (now + 120, "10.0.0.2")
     gossip_auth._PENDING_CHALLENGES["newest"] = (now + 180, "10.0.0.3")
     gossip_auth._PENDING_CHALLENGES["newest2"] = (now + 240, "10.0.0.4")
-    fresh = gossip_auth.create_challenge("10.9.9.9")
+    fresh = gossip_auth.create_challenge("192.0.2.9")
     assert fresh is not None
     assert "oldest" not in gossip_auth._PENDING_CHALLENGES
     assert "newest" in gossip_auth._PENDING_CHALLENGES  # newest survives: evict-oldest, not evict-newest

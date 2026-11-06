@@ -238,7 +238,7 @@ def do_queue(a):
     import time
     import issue_check
 
-    pace = 0.05  # at1 (127.0.0.1, 192.168.0.0/24, public hairpin) and the fleet are in gitea_fleet, so nginx counts no limit key for them
+    pace = 0.05  # the gitea client (loopback, RFC-1918, public hairpin) and the fleet are in gitea_fleet, so nginx counts no limit key for them
     raw, d, rows = load()
     rowof = {x["issue"]: x for x in rows if x.get("issue")}
     time.sleep(pace)
