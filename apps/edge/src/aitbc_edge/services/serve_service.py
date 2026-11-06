@@ -14,7 +14,12 @@ class ServeService:
     """Service for edge serve operations"""
 
     async def submit_compute_request(
-        self, gpu_id: str, model_name: str, input_data: dict[str, Any], priority: str = "normal"
+        self,
+        gpu_id: str,
+        model_name: str,
+        input_data: dict[str, Any],
+        priority: str = "normal",
+        owner_id: str | None = None,
     ) -> dict[str, Any]:
         """Submit compute request"""
         async with get_session() as session:
@@ -27,6 +32,7 @@ class ServeService:
                 input_data=input_data,
                 priority=priority,
                 status="queued",
+                owner_id=owner_id,
             )
             session.add(request)
             await session.commit()
@@ -38,10 +44,17 @@ class ServeService:
                 "message": f"Compute request {request_id} submitted",
             }
 
-    async def get_compute_request(self, request_id: str) -> dict[str, Any] | None:
-        """Get compute request details"""
+    async def get_compute_request(self, request_id: str, owner_id: str | None = None) -> dict[str, Any] | None:
+        """Get compute request details.
+
+        ``owner_id`` restricts the lookup to requests owned by that caller
+        (non-admin path); ``None`` means admin/unrestricted.
+        """
         async with get_session() as session:
-            result = await session.execute(select(ComputeRequest).where(ComputeRequest.request_id == request_id))
+            query = select(ComputeRequest).where(ComputeRequest.request_id == request_id)
+            if owner_id is not None:
+                query = query.where(ComputeRequest.owner_id == owner_id)
+            result = await session.execute(query)
             req = result.scalar_one_or_none()
 
             if req:
@@ -60,10 +73,17 @@ class ServeService:
                 }
             return None
 
-    async def cancel_compute_request(self, request_id: str) -> bool:
-        """Cancel compute request"""
+    async def cancel_compute_request(self, request_id: str, owner_id: str | None = None) -> bool:
+        """Cancel compute request.
+
+        ``owner_id`` restricts the cancel to the caller's own requests;
+        ``None`` means admin/unrestricted.
+        """
         async with get_session() as session:
-            result = await session.execute(select(ComputeRequest).where(ComputeRequest.request_id == request_id))
+            query = select(ComputeRequest).where(ComputeRequest.request_id == request_id)
+            if owner_id is not None:
+                query = query.where(ComputeRequest.owner_id == owner_id)
+            result = await session.execute(query)
             req = result.scalar_one_or_none()
 
             if req and req.status in ["queued", "running"]:
@@ -73,8 +93,17 @@ class ServeService:
                 return True
             return False
 
-    async def list_compute_requests(self, gpu_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
-        """List compute requests, optionally filtered"""
+    async def list_compute_requests(
+        self,
+        gpu_id: str | None = None,
+        status: str | None = None,
+        owner_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """List compute requests, optionally filtered.
+
+        ``owner_id`` restricts results to the caller's own requests;
+        ``None`` means admin/unrestricted.
+        """
         async with get_session() as session:
             query = select(ComputeRequest)
 
@@ -82,6 +111,8 @@ class ServeService:
                 query = query.where(ComputeRequest.gpu_id == gpu_id)
             if status:
                 query = query.where(ComputeRequest.status == status)
+            if owner_id is not None:
+                query = query.where(ComputeRequest.owner_id == owner_id)
 
             result = await session.execute(query)
             requests = result.scalars().all()
@@ -98,9 +129,23 @@ class ServeService:
                 for req in requests
             ]
 
-    async def get_compute_result(self, request_id: str) -> dict[str, Any] | None:
-        """Get compute result"""
+    async def get_compute_result(self, request_id: str, owner_id: str | None = None) -> dict[str, Any] | None:
+        """Get compute result.
+
+        ``owner_id`` restricts the result to requests owned by that caller;
+        ``None`` means admin/unrestricted. Ownership is checked on the parent
+        ComputeRequest — ComputeResult carries no owner column.
+        """
         async with get_session() as session:
+            if owner_id is not None:
+                req_check = await session.execute(
+                    select(ComputeRequest.id).where(
+                        ComputeRequest.request_id == request_id,
+                        ComputeRequest.owner_id == owner_id,
+                    )
+                )
+                if req_check.scalar_one_or_none() is None:
+                    return None
             result = await session.execute(select(ComputeResult).where(ComputeResult.request_id == request_id))
             res = result.scalar_one_or_none()
 
