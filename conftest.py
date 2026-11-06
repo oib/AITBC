@@ -22,6 +22,8 @@ import shutil
 import sys
 import tempfile
 
+import pytest
+
 
 def pytest_addoption(parser):
     """Keep `--reruns` invocations parseable on hosts without the test tier.
@@ -194,6 +196,28 @@ def _deployed_constants_bindings() -> set[str]:
         if bound is not None and _is_deployed_path(str(bound)):
             found.add(f"aitbc.constants.{name} = {bound}")
     return found
+
+
+@pytest.fixture(autouse=True)
+def _reset_trusted_api_key_hosts():
+    """Isolate the process-global API-key trust set between tests.
+
+    ``aitbc_cli.config.get_config()`` registers the configured service hosts
+    as credential targets (PI-SDK-01 guard). That registration is
+    process-global, so without a reset a test that loads config would make
+    every later test's ``AITBCHTTPClient`` refuse credentials bound for the
+    fake hosts those tests use — order-dependent failures across the
+    combined suite. Tests that need trust call ``get_config()`` or
+    ``set_trusted_api_key_hosts()`` themselves, which re-registers.
+    """
+    try:
+        from aitbc.network.client import set_trusted_api_key_hosts
+    except ImportError:
+        yield
+        return
+    set_trusted_api_key_hosts(None)
+    yield
+    set_trusted_api_key_hosts(None)
 
 
 def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
