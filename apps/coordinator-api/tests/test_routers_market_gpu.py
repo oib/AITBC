@@ -856,42 +856,87 @@ def test_book_gpu_stale_unpaid_hold_expires(
     assert gpu.status == "booked"  # re-booked by the second caller
 
 
+def _book_with_job(client, token, gpu_id, job_id=None):
+    body = {"duration_hours": 1}
+    if job_id is not None:
+        body["job_id"] = job_id
+    return client.post(
+        f"/v1/market/gpu/{gpu_id}/book",
+        headers={"Authorization": f"Bearer {token}"},
+        json=body,
+    )
+
+
 @pytest.mark.unit
 def test_book_gpu_stale_paid_hold_survives(client, client_token, available_gpu, pricing_engine_override, db_session):
-    """CE-004: a hold with a funded payment does not expire."""
+    """CE-004/#1199: a hold whose own job carries a funded payment does not expire.
+
+    Production shape: JobPayment.job_id is the Job.id stored on
+    GPUBooking.job_id — never the booking's bk_* primary key.
+    """
     from datetime import timedelta
 
-    from aitbc_shared import JobPayment
     from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
     from sqlmodel import select
 
-    resp = client.post(
-        f"/v1/market/gpu/{available_gpu}/book",
-        headers={"Authorization": f"Bearer {client_token}"},
-        json={"duration_hours": 1},
-    )
+    job = Job(id="job_paid_1", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
+    db_session.add(job)
+    db_session.commit()
+    resp = _book_with_job(client, client_token, available_gpu, job_id=job.id)
     assert resp.status_code == 201, resp.text
     booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    assert booking.job_id == job.id
     booking.created_at = datetime.now(UTC) - timedelta(hours=1)
     db_session.add(booking)
     db_session.add(
         JobPayment(
             id="pay_" + booking.id,
-            job_id=booking.id,
+            job_id=job.id,
             amount=Decimal("1.0"),
             status="escrowed",
         )
     )
     db_session.commit()
     # Paid hold: a second booking attempt still conflicts and the hold survives.
-    resp2 = client.post(
-        f"/v1/market/gpu/{available_gpu}/book",
-        headers={"Authorization": f"Bearer {client_token}"},
-        json={"duration_hours": 1},
-    )
+    resp2 = _book_with_job(client, client_token, available_gpu)
     assert resp2.status_code == 409
     db_session.refresh(booking)
     assert booking.status == "active"
+
+
+@pytest.mark.unit
+def test_book_gpu_stale_foreign_paid_job_does_not_pin_hold(
+    client, client_token, miner_token, available_gpu, pricing_engine_override, db_session
+):
+    """#1199: a caller-supplied job_id pointing at someone else's paid job
+    must not keep this booking alive past the TTL."""
+    from datetime import timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    victim_job = Job(id="job_victim_1", client_id="victim_user", payload={"type": "gpu_compute"}, constraints={})
+    db_session.add(victim_job)
+    db_session.commit()
+    resp = _book_with_job(client, client_token, available_gpu, job_id=victim_job.id)
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    db_session.add(booking)
+    db_session.add(
+        JobPayment(
+            id="pay_victim_1",
+            job_id=victim_job.id,
+            amount=Decimal("1.0"),
+            status="escrowed",
+        )
+    )
+    db_session.commit()
+    # The foreign paid job must not pin the hold: next gated call expires it.
+    resp2 = _book_with_job(client, miner_token, available_gpu)
+    assert resp2.status_code == 201, resp2.text
+    db_session.refresh(booking)
+    assert booking.status == "expired"
 
 
 @pytest.mark.unit
