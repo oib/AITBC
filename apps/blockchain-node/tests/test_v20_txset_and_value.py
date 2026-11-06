@@ -142,6 +142,24 @@ def _import(sync: ChainSync, block_data: dict[str, Any]):
     return sync.import_block(block_data, transactions=block_data["transactions"], skip_state_root_validation=True)
 
 
+def test_hash_timestamp_naive_renders_as_utc():
+    """#1164 unit pin: a naive timestamp and its aware-UTC rendering hash
+    identically; aware and unparseable inputs stay verbatim."""
+    aware = "2026-11-05T16:40:54.010369+00:00"
+    naive = "2026-11-05T16:40:54.010369"
+    assert compute_block_hash("c", 1, "0xp", naive, [], "prop") == compute_block_hash("c", 1, "0xp", aware, [], "prop")
+    # Space-separated SQLite form canonicalizes the same way.
+    assert compute_block_hash("c", 1, "0xp", "2026-11-05 16:40:54.010369", [], "prop") == compute_block_hash(
+        "c", 1, "0xp", aware, [], "prop"
+    )
+    # Aware non-UTC and unparseable strings are not rewritten.
+    other = "2026-11-05T18:40:54.010369+02:00"
+    assert compute_block_hash("c", 1, "0xp", other, [], "prop") != compute_block_hash("c", 1, "0xp", aware, [], "prop")
+    assert compute_block_hash("c", 1, "0xp", "not-a-date", [], "prop") == compute_block_hash(
+        "c", 1, "0xp", "not-a-date", [], "prop"
+    )
+
+
 class TestTxListHashBinding:
     def test_extra_served_tx_rejected_v20(self, session_factory):
         """Header signed over zero txs but one junk tx is served — the signed
@@ -174,6 +192,33 @@ class TestTxListHashBinding:
         # arbitrary hash never recomputed pre-v20 — accepted like before
         result = _import(sync, b)
         assert result.accepted, f"pre-gate block rejected: {result.reason}"
+
+    def test_naive_served_timestamp_recomputes_proposer_hash(self, session_factory):
+        """#1164: the proposer hashes ``datetime.now(UTC).isoformat()``
+        (tz-aware ``+00:00``) but /rpc/blocks-range serves the DB timestamp
+        naive. A bulk-pulled v20+ block must still reproduce its signed hash."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+        tx = _signed_tx()
+        b = _block(1, [tx])
+        b["hash"] = _signed_hash(b, [tx["tx_hash"]])
+        # Serve the way the RPC does: the stored naive UTC rendering.
+        b["timestamp"] = T0.replace(tzinfo=None).isoformat()
+        assert "+" not in b["timestamp"] and "Z" not in b["timestamp"]
+        result = _import(sync, b)
+        assert result.accepted, f"naive-timestamp block rejected: {result.reason}"
+
+    def test_space_separated_served_timestamp_recomputes(self, session_factory):
+        """#1164: a peer may serve the raw SQLite ``YYYY-MM-DD HH:MM:SS.ffffff``
+        form — it parses naive and must land on the same canonical hash."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+        tx = _signed_tx()
+        b = _block(1, [tx])
+        b["hash"] = _signed_hash(b, [tx["tx_hash"]])
+        b["timestamp"] = T0.isoformat().replace("T", " ").replace("+00:00", "")
+        result = _import(sync, b)
+        assert result.accepted, f"space-form timestamp block rejected: {result.reason}"
 
 
 class TestFailedApplyStoredFailed:
