@@ -22,6 +22,7 @@ pytest.importorskip("aitbc.crypto.signature_recovery", reason="signature checks 
 from aitbc.crypto.signature_recovery import verify_signature  # noqa: E402
 
 from aitbc_cli.commands.governance import _sign_body, governance  # noqa: E402
+from aitbc_cli.utils.http_client import NetworkError  # noqa: E402
 
 PK = keys.PrivateKey(b"\x0d" * 32)
 ADDR = PK.public_key.to_checksum_address()
@@ -40,7 +41,7 @@ def _verify(addr: str, sig: str, payload: dict) -> bool:
         return False
 
 
-def _fake_client(captured: dict):
+def _fake_client(captured: dict, status: dict | None = None):
     client = MagicMock()
 
     def _post(path, json=None, **kw):
@@ -48,6 +49,14 @@ def _fake_client(captured: dict):
         return {"ok": True}
 
     client.post = _post
+    client.get = lambda *a, **k: (
+        status
+        if status is not None
+        else {
+            "voting_period_blocks": 7200,
+            "emergency_voting_period_blocks": 3600,
+        }
+    )
     return client
 
 
@@ -139,7 +148,7 @@ def test_propose_signs_body_and_binds_proposer() -> None:
 
 
 def test_propose_tx_payload_carries_block_window() -> None:
-    """_sign_governance_tx gets the real height + voting-days window."""
+    """_sign_governance_tx gets the real height + the service's voting window (#770)."""
     captured: dict = {}
     http = MagicMock()
     http.get = lambda *a, **k: {"height": 100}
@@ -158,9 +167,105 @@ def test_propose_tx_payload_carries_block_window() -> None:
     assert result.exit_code == 0, result.output
     payload = sign_tx.call_args.args[5]
     assert payload["voting_starts_block"] == 100
-    assert payload["voting_ends_block"] == 100 + 2 * 43200
+    # The sealed window is the service's voting_period_blocks (7200 in the
+    # status mock), not voting-days extrapolated at an assumed block cadence.
+    assert payload["voting_ends_block"] == 100 + 7200
     assert payload["proposal_id"].startswith("prop_")
     assert payload["proposer"] == ADDR
+    # --voting-days is a wall-clock override only; it must not leak into the
+    # sealed block window.
+    assert "voting_days" not in payload
+    # And it did reach the service body as an explicit wall-clock override.
+    assert "voting_ends" in captured["json"]
+
+
+def test_propose_block_window_uses_service_status_value() -> None:
+    """The sealed voting_ends_block tracks whatever the service reports (#770)."""
+    captured: dict = {}
+    http = MagicMock()
+    http.get = lambda *a, **k: {"height": 50}
+    with (
+        patch(
+            "aitbc_cli.commands.governance._get_client",
+            return_value=_fake_client(captured, {"voting_period_blocks": 9999, "emergency_voting_period_blocks": 111}),
+        ),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(http, "c")),
+        patch("aitbc_cli.commands.governance._sign_governance_tx") as sign_tx,
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        sign_tx.return_value = {"signed": True}
+        result = CliRunner().invoke(
+            governance,
+            ["propose", "--title", "t", "--description", "d", "--proposer-id", "p"],
+        )
+    assert result.exit_code == 0, result.output
+    assert sign_tx.call_args.args[5]["voting_ends_block"] == 50 + 9999
+    # No --voting-days → no wall-clock override; the service derives it.
+    assert "voting_ends" not in captured["json"]
+
+
+def test_propose_emergency_uses_emergency_window() -> None:
+    captured: dict = {}
+    http = MagicMock()
+    http.get = lambda *a, **k: {"height": 10}
+    with (
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_client(captured)),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(http, "c")),
+        patch("aitbc_cli.commands.governance._sign_governance_tx") as sign_tx,
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        sign_tx.return_value = {"signed": True}
+        result = CliRunner().invoke(
+            governance,
+            ["propose", "--title", "t", "--description", "d", "--proposer-id", "p", "--type", "emergency"],
+        )
+    assert result.exit_code == 0, result.output
+    assert sign_tx.call_args.args[5]["voting_ends_block"] == 10 + 3600
+
+
+def test_propose_refuses_when_status_unreachable() -> None:
+    """No fallback to a guessed cadence — the propose must fail (#770)."""
+    captured: dict = {}
+    client = _fake_client(captured)
+
+    def _boom(*a, **k):
+        raise NetworkError("connection refused")
+
+    client.get = _boom
+    with (
+        patch("aitbc_cli.commands.governance._get_client", return_value=client),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(MagicMock(), "c")),
+        patch("aitbc_cli.commands.governance._sign_governance_tx") as sign_tx,
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        result = CliRunner().invoke(
+            governance,
+            ["propose", "--title", "t", "--description", "d", "--proposer-id", "p"],
+        )
+    assert result.exit_code != 0
+    assert "voting window" in result.output
+    sign_tx.assert_not_called()
+
+
+def test_propose_refuses_when_status_lacks_window() -> None:
+    captured: dict = {}
+    with (
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_client(captured, {"status": "operational"})),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(MagicMock(), "c")),
+        patch("aitbc_cli.commands.governance._sign_governance_tx") as sign_tx,
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        result = CliRunner().invoke(
+            governance,
+            ["propose", "--title", "t", "--description", "d", "--proposer-id", "p"],
+        )
+    assert result.exit_code != 0
+    assert "voting_period_blocks" in result.output
+    sign_tx.assert_not_called()
 
 
 def _fake_http(captured: dict):

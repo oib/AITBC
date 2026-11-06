@@ -87,7 +87,7 @@ aitbc governance list
 
 ### Step 1: Create a Governance Proposal
 
-Create a new proposal via the governance service. `aitbc governance propose` takes a title, description, and a proposer profile ID; the service assigns the proposal ID. The category defaults to `general` and the voting period defaults to 7 days.
+Create a new proposal via the governance service. `aitbc governance propose` takes a title, description, and a proposer profile ID; the service assigns the proposal ID. The category defaults to `general`. The voting window is governed by the service's `voting_period_blocks` (read live from `/v1/governance/status`): the client-signed `GOVERNANCE_PROPOSE` payload seals `voting_ends_block = start_height + voting_period_blocks`, matching what the service stores and enforces (#770). `--voting-days` is only a wall-clock override for the service's `voting_ends` timestamp — it does not change the sealed block window. Proposals sealed before this fix carry `voting_ends_block = start + voting_days × 43200` (a 2 s-block assumption); the chain treats the sealed value as informational and the service's stored value governs execution, so they remain valid as-is.
 
 ```bash
 aitbc governance propose \
