@@ -75,20 +75,34 @@ def _detail_suffix_inner(exc: BaseException) -> str:
 # node's stored credential to whoever controls it.
 _trusted_api_key_hosts: frozenset[str] | None = None
 
+# Header names that carry a credential. The guard must cover every one of
+# them, not just the ``api_key`` kwarg: ``auth_client_kwargs`` emits JWTs
+# as ``Authorization: Bearer`` and the trading path uses
+# ``X-Trading-Api-Key`` — checking only ``api_key`` let those ride to any
+# host (PI-SDK-01).
+_CREDENTIAL_HEADER_NAMES = frozenset({"authorization", "x-api-key", "x-trading-api-key"})
+
 
 def set_trusted_api_key_hosts(hosts: frozenset[str] | None) -> None:
     global _trusted_api_key_hosts
     _trusted_api_key_hosts = hosts
 
 
-def _check_api_key_target(base_url: str, api_key: str | None) -> None:
-    if api_key and _trusted_api_key_hosts is not None:
-        host = urlparse(base_url).hostname or ""
-        if host not in _trusted_api_key_hosts:
-            raise ValueError(
-                f"refusing to send the configured API key to unconfigured host {host!r} "
-                f"(url {base_url!r}); add the service URL to the CLI config to trust it"
-            )
+def _has_credential_headers(headers: dict[str, str]) -> bool:
+    return any(str(name).lower() in _CREDENTIAL_HEADER_NAMES for name in headers)
+
+
+def _check_api_key_target(base_url: str, api_key: str | None = None, headers: dict[str, str] | None = None) -> None:
+    if _trusted_api_key_hosts is None:
+        return
+    if not api_key and not _has_credential_headers(headers or {}):
+        return
+    host = urlparse(base_url).hostname or ""
+    if host not in _trusted_api_key_hosts:
+        raise ValueError(
+            f"refusing to send the configured credential to unconfigured host {host!r} "
+            f"(url {base_url!r}); add the service URL to the CLI config to trust it"
+        )
 
 
 class AITBCHTTPClient:
@@ -133,12 +147,12 @@ class AITBCHTTPClient:
                 the only JWT-authed release path; an open breaker there once
                 rejected the release outright and stranded a locked escrow.
         """
-        _check_api_key_target(base_url, api_key)
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.headers = headers or {}
+        self.headers = dict(headers or {})
         if api_key:
             self.headers["X-API-Key"] = api_key
+        _check_api_key_target(base_url, headers=self.headers)
         self.correlation_id = correlation_id
         self.logger = get_logger(__name__)
         self.session = requests.Session()
@@ -173,6 +187,16 @@ class AITBCHTTPClient:
         if idempotency_key:
             req_headers["Idempotency-Key"] = idempotency_key
         return req_headers
+
+    def _check_request_target(self, url: str, req_headers: dict[str, str]) -> None:
+        """Refuse credentials bound for a host outside the trusted set.
+
+        ``_build_url`` returns absolute endpoints verbatim, so one request
+        can be pointed at a foreign host even when ``base_url`` is trusted —
+        and per-request ``headers=`` can add credentials the client was not
+        built with (PI-SDK-01/PI-SDK-04).
+        """
+        _check_api_key_target(url, headers=req_headers)
 
     def get(
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
@@ -225,6 +249,7 @@ class AITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("GET %s with params=%s", url, params)
@@ -288,6 +313,7 @@ class AITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("POST %s with json=%s", url, json)
@@ -350,6 +376,7 @@ class AITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("PUT %s with json=%s", url, json)
@@ -406,6 +433,7 @@ class AITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("PATCH %s with json=%s", url, json)
@@ -466,6 +494,7 @@ class AITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("DELETE %s with params=%s", url, params)
@@ -546,12 +575,12 @@ class AsyncAITBCHTTPClient:
                 never be rejected by accrued failure state (see the sync
                 client's docstring).
         """
-        _check_api_key_target(base_url, api_key)
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.headers = headers or {}
+        self.headers = dict(headers or {})
         if api_key:
             self.headers["X-API-Key"] = api_key
+        _check_api_key_target(base_url, headers=self.headers)
         self.correlation_id = correlation_id
         self.logger = get_logger(__name__)
 
@@ -601,6 +630,10 @@ class AsyncAITBCHTTPClient:
         if idempotency_key:
             req_headers["Idempotency-Key"] = idempotency_key
         return req_headers
+
+    def _check_request_target(self, url: str, req_headers: dict[str, str]) -> None:
+        """Refuse credentials bound for a host outside the trusted set (see sync client)."""
+        _check_api_key_target(url, headers=req_headers)
 
     async def get(
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
@@ -653,6 +686,7 @@ class AsyncAITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("GET %s with params=%s", url, params)
@@ -718,6 +752,7 @@ class AsyncAITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("POST %s with json=%s", url, json)
@@ -782,6 +817,7 @@ class AsyncAITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("PUT %s with json=%s", url, json)
@@ -842,6 +878,7 @@ class AsyncAITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("PATCH %s with json=%s", url, json)
@@ -904,6 +941,7 @@ class AsyncAITBCHTTPClient:
         self.circuit_breaker.check()
         self.rate_limiter.check()
         req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
 
         if self.enable_logging:
             self.logger.info("DELETE %s with params=%s", url, params)

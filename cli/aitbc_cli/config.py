@@ -1,6 +1,7 @@
 """Configuration module for AITBC CLI"""
 
 import os
+import warnings
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -449,6 +450,27 @@ def get_config(config_file: str | None = None) -> CLIConfig:
         config_file_found = False
 
     if config_file_found:
+        # A ./.aitbc.yaml is picked up from whatever directory the CLI ran
+        # in — a planted file can redirect every service URL (and therefore
+        # every credential target) without any flag (PI-SDK-01). Warn loudly
+        # so the operator knows the config location is ambient, not pinned.
+        try:
+            cwd_config = Path.cwd() / ".aitbc.yaml"
+        except OSError:
+            cwd_config = None
+        if (
+            not config_file
+            and not os.environ.get("AITBC_CONFIG_FILE")
+            and cwd_config is not None
+            and config_path == cwd_config
+        ):
+            warnings.warn(
+                "aitbc: using ./.aitbc.yaml from the current directory; it can redirect "
+                "service URLs and credentials. Set AITBC_CONFIG_FILE or move the config "
+                "to ~/.aitbc.yaml to pin its location.",
+                UserWarning,
+                stacklevel=2,
+            )
         config_data = _load_config_file(config_path)
 
         # Map the documented config-file keys onto CLIConfig init kwargs
