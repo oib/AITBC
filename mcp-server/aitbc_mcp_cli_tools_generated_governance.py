@@ -357,7 +357,12 @@ def aitbc_governance_propose(
             description="JSON the EXECUTE binds to (v13). Defaults to --params; required for any non-parameter_change proposal"
         ),
     ] = None,
-    voting_days: Annotated[int | None, Field(description="Voting period in days")] = None,
+    voting_days: Annotated[
+        int | None,
+        Field(
+            description="Wall-clock voting window override in days; the sealed block window always uses the service's voting_period_blocks"
+        ),
+    ] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)")
     ] = None,

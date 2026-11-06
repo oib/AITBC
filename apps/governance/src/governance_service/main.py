@@ -181,6 +181,7 @@ def governance_status() -> dict[str, Any]:
         "blockchain_rpc_url": settings.blockchain_rpc_url,
         "onchain_submission_enabled": settings.enable_onchain_submission,
         "voting_period_blocks": settings.voting_period_blocks,
+        "emergency_voting_period_blocks": settings.emergency_voting_period_blocks,
         "quorum_percent": settings.quorum_percent,
         "approval_percent": settings.approval_percent,
         "timelock_blocks": settings.timelock_blocks,

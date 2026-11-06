@@ -116,6 +116,62 @@ def _sign_body(private_key: str, payload: dict) -> str:
     return pk.sign_msg_hash(keccak(msg)).to_hex()
 
 
+def _governance_voting_period_blocks(client: AITBCHTTPClient, proposal_type: str) -> int:
+    """Return the service's live voting window in blocks (#770).
+
+    The sealed ``GOVERNANCE_PROPOSE`` payload and the service's stored
+    ``voting_ends_block`` must describe the same window, so the value comes
+    from ``/v1/governance/status`` — never from an assumed block cadence.
+    There is deliberately no fallback: a propose that cannot read the
+    service's window is refused rather than sealing a guessed one.
+    """
+    key = "emergency_voting_period_blocks" if proposal_type == "emergency" else "voting_period_blocks"
+    try:
+        status = client.get("/v1/governance/status")
+    except Exception as e:
+        raise click.ClickException(f"cannot read the governance voting window from /v1/governance/status: {e}") from e
+    value = status.get(key)
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise click.ClickException(
+            f"governance service did not report a usable {key} ({value!r}); refusing to seal a guessed voting window"
+        )
+    return value
+
+
+def _proposal_request_body(
+    *,
+    title: str,
+    description: str,
+    proposal_type: str,
+    category: str,
+    proposer_id: str,
+    proposer_address: str,
+    proposal_value: dict,
+    voting_days: int | None,
+) -> dict:
+    """Assemble the ``/v1/governance/proposals`` request body.
+
+    The wall-clock window is only sent as an explicit ``--voting-days``
+    override; by default the service derives ``voting_ends`` from the same
+    ``voting_period_blocks`` that bound the sealed block window (#770).
+    """
+    from datetime import UTC, datetime, timedelta
+
+    body = {
+        "title": title,
+        "description": description,
+        "proposal_type": proposal_type,
+        "category": category,
+        "proposer_id": proposer_id,
+        "proposer_address": proposer_address,
+        "proposal_value": proposal_value,
+        "voting_starts": datetime.now(UTC).isoformat(),
+    }
+    if voting_days is not None:
+        body["voting_ends"] = (datetime.now(UTC) + timedelta(days=voting_days)).isoformat()
+    return body
+
+
 def _prepare_signed_proposal(
     ctx: click.Context,
     signer_address: str,
@@ -123,6 +179,7 @@ def _prepare_signed_proposal(
     proposer_address: str,
     proposal_data: dict,
     tx_payload: dict,
+    voting_period_blocks: int,
 ) -> None:
     """Bind the proposer to the signer and attach the client-signed
     GOVERNANCE_PROPOSE tx to ``proposal_data`` in place."""
@@ -140,15 +197,15 @@ def _prepare_signed_proposal(
         height = int(http_client.get(f"/rpc/height?chain_id={chain_id}").get("height", 0))
     except Exception:
         height = 0
-    # ~2s block time → ~43200 blocks/day; matches the service's
-    # voting_period_blocks convention.
-    blocks_per_day = 43200
+    # The sealed window is the service's own voting_period_blocks (#770) —
+    # the service re-derives and stores the same value, so the payload can
+    # never disagree with what the service enforces.
     tx_payload.update(
         {
             "proposal_id": proposal_data["proposal_id"],
             "proposer": proposer_address,
             "voting_starts_block": height,
-            "voting_ends_block": height + tx_payload.pop("voting_days") * blocks_per_day,
+            "voting_ends_block": height + voting_period_blocks,
         }
     )
     proposal_data["signed_tx"] = _sign_governance_tx(
@@ -203,7 +260,12 @@ def governance():
     default=None,
     help="JSON the EXECUTE binds to (v13). Defaults to --params; required for any non-parameter_change proposal",
 )
-@click.option("--voting-days", type=int, default=7, help="Voting period in days")
+@click.option(
+    "--voting-days",
+    type=int,
+    default=None,
+    help="Wall-clock voting window override in days; the sealed block window always uses the service's voting_period_blocks",
+)
 @click.option(
     "--wallet",
     "wallet_name",
@@ -231,8 +293,6 @@ def propose(
     format: str,
 ):
     """Create a new governance proposal with title, description, and optional category."""
-    from datetime import UTC, datetime, timedelta
-
     try:
         proposal_value = {}
         if params:
@@ -243,21 +303,17 @@ def propose(
             if not isinstance(execution_payload_value, dict):
                 abort(ctx, "--execution-payload must be a JSON object")
 
-        voting_starts = datetime.now(UTC).isoformat()
-        voting_ends = (datetime.now(UTC) + timedelta(days=voting_days)).isoformat()
-
         client = _get_client(ctx)
-        proposal_data = {
-            "title": title,
-            "description": description,
-            "proposal_type": proposal_type,
-            "category": category,
-            "proposer_id": proposer_id,
-            "proposer_address": proposer_address,
-            "proposal_value": proposal_value,
-            "voting_starts": voting_starts,
-            "voting_ends": voting_ends,
-        }
+        proposal_data = _proposal_request_body(
+            title=title,
+            description=description,
+            proposal_type=proposal_type,
+            category=category,
+            proposer_id=proposer_id,
+            proposer_address=proposer_address,
+            proposal_value=proposal_value,
+            voting_days=voting_days,
+        )
         signer = _wallet_signer(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
         if signer:
             signer_address, private_key = signer
@@ -276,8 +332,8 @@ def propose(
                     "proposal_type": proposal_type,
                     "parameters": proposal_value,
                     "execution_payload": execution_payload_value,
-                    "voting_days": voting_days,
                 },
+                _governance_voting_period_blocks(client, proposal_type),
             )
         if signer:
             proposal_data["signature"] = _sign_body(private_key, {k: v for k, v in proposal_data.items() if k != "signature"})
@@ -287,6 +343,8 @@ def propose(
         abort(ctx, "Invalid JSON in --params")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
+    except click.ClickException:
+        raise
     except Exception as e:
         abort(ctx, f"Error creating proposal: {e}", from_exception=e)
 
