@@ -12,7 +12,7 @@ from aitbc.utils import format_ait
 
 from chain_client import chain_db_path, default_chain_id, get_transaction, rpc_url_for
 from .common import like_pattern
-from validation import clamp_page_limit, validate_tx_hash
+from validation import check_page_offset, clamp_page_limit, validate_tx_hash
 
 logger = get_logger(__name__)
 
@@ -94,9 +94,11 @@ async def api_search_transactions(
     address: str,
     chain_id: str | None = None,
     limit: int = 100,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """Search transactions by address or node ID in blockchain database"""
     limit = clamp_page_limit(limit)
+    offset = check_page_offset(offset)
     try:
         db_path = chain_db_path()
 
@@ -115,9 +117,9 @@ async def api_search_transactions(
                        OR recipient LIKE ? ESCAPE '|'
                        OR payload LIKE ? ESCAPE '|'
                     ORDER BY created_at DESC
-                    LIMIT ?
+                    LIMIT ? OFFSET ?
                 """,
-                    (search_term, search_term, search_term, limit),
+                    (search_term, search_term, search_term, limit, offset),
                 )
 
                 transactions = []
