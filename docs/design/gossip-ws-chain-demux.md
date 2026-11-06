@@ -1,7 +1,11 @@
 # Gossip WS chain demux — `?chain=<id>` on `/rpc/gossip/ws`
 
-Status: **design only** (RPC-GOSSIP-CHAIN-DEMUX-1 / #1159). Consensus-adjacent
-transport change — requires megaplan sign-off before implementation.
+Status: **phase 1 implemented** (RPC-GOSSIP-CHAIN-DEMUX-1 / #1159) —
+`?chain=<id>` + per-chain broker registry + `(ip,chain)` accounting +
+chain-bound auth scope (rollout flag off) + client `?chain=` dialer.
+Consensus-adjacent transport change — Phase B (client chain-bound signing,
+mesh peer-URL migration, `:8302` retirement) remains gated on megaplan
+sign-off and `GOSSIP_AUTH_REQUIRE_CHAIN_SCOPE` flip.
 
 ## Problem
 
