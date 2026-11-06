@@ -229,9 +229,19 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
         created_at = created_at.replace(tzinfo=UTC)
     if datetime.now(UTC) - created_at < BOOKING_HOLD_TTL:
         return
+    # The funded check must follow the booking's own job linkage (#1199):
+    # payments key on Job.id via GPUBooking.job_id, never on the booking's
+    # bk_* primary key, and the job must belong to the booking's client —
+    # book_gpu accepts a caller-supplied job_id, so an unqualified join would
+    # let a stranger's paid job pin this hold forever.
     paid = session.execute(
         select(JobPayment.id)
-        .where(col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES), JobPayment.job_id == booking.id)
+        .join(Job, col(Job.id) == booking.job_id)
+        .where(
+            col(Job.client_id) == booking.client_id,
+            col(JobPayment.job_id) == Job.id,
+            col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
+        )
         .limit(1)
     ).first()
     if paid is not None:
