@@ -503,6 +503,16 @@ class ChainSettings(BaseSettings):
     # keep gossiping mid-restart. Flip on only after every host is on the new
     # build — per the issue, the flip is a separate planned step.
     gossip_auth_require_scope: bool = os.getenv("GOSSIP_AUTH_REQUIRE_SCOPE", "false").lower() in ("1", "true", "yes")
+    # Chain-bound gossip scopes (#1159): channel_scope always includes the
+    # resolved chain_id; while this is off, signatures made against the
+    # legacy chain-less scope are still accepted so old and new nodes keep
+    # gossiping mid-rollout. Flip on only after every dialer signs the
+    # chain-bound scope — the flip is a separate planned step (Phase B gate).
+    gossip_auth_require_chain_scope: bool = os.getenv("GOSSIP_AUTH_REQUIRE_CHAIN_SCOPE", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
     gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))
@@ -1232,9 +1242,90 @@ class ChainSettings(BaseSettings):
         )
         return self
 
+    def served_chain_ids(self) -> list[str]:
+        """Chains this process claims to serve (``supported_chains`` CSV).
+
+        ``supported_chains`` already defaults to ``chain_id`` when empty, so
+        this is never empty on a configured node. Serving a chain still
+        requires a resolvable gossip backend — see ``gossip_backend_map``.
+        """
+        chains = [c.strip() for c in self.supported_chains.split(",") if c.strip()]
+        if not chains and self.chain_id:
+            chains = [self.chain_id]
+        return chains
+
+    def gossip_backend_map(self) -> dict[str, str]:
+        """Parsed ``GOSSIP_BACKENDS`` as ``{chain_id: url}`` (empty entries dropped).
+
+        Entries use the ``chain_id:<url>`` grammar validated by
+        ``validate_gossip_backends``; the URL may itself contain colons
+        (``redis://host:port``), so only the FIRST colon separates the pair.
+        """
+        backends: dict[str, str] = {}
+        for entry in self.gossip_backends.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            chain_id, _, url = entry.partition(":")
+            chain_id = chain_id.strip()
+            url = url.strip()
+            if chain_id and url:
+                backends[chain_id] = url
+        return backends
+
+    @staticmethod
+    def _mesh_peer_chain_tag(entry: str) -> tuple[str | None, str]:
+        """Split a ``GOSSIP_MESH_PEER_URLS`` entry into ``(chain_id, url)``.
+
+        A chain tag is either a ``<chain_id>:`` prefix (mirroring
+        ``GOSSIP_BACKENDS``; the prefix is whatever precedes the first colon
+        when the entry does not start with a URL scheme, so tags for chains
+        this process does not serve are simply never returned) or a
+        ``?chain=<id>`` query parameter in the URL. Untagged entries return
+        ``(None, entry)``. The returned URL keeps its ``?chain=`` query
+        intact — the dialer preserves or re-derives it — while a
+        ``<chain_id>:`` prefix is stripped.
+        """
+        import re
+
+        if not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", entry):
+            prefix, sep, rest = entry.partition(":")
+            if sep and prefix.strip():
+                return prefix.strip(), rest.strip()
+        if "?" in entry or "&" in entry:
+            from urllib.parse import parse_qs, urlsplit
+
+            parts = urlsplit(entry)
+            chain = parse_qs(parts.query).get("chain", [None])[0]
+            if chain:
+                return chain.strip() or None, entry
+        return None, entry
+
+    def mesh_peer_urls_for_chain(self, chain_id: str | None) -> list[str]:
+        """Peer URLs for one chain from ``GOSSIP_MESH_PEER_URLS``.
+
+        ``chain_id=None`` returns only UNTAGGED entries — the default chain's
+        mesh. Tagged entries (``?chain=<id>`` or ``<chain_id>:`` prefix) are
+        consumed by the per-chain broker registry (#1159) and must not leak
+        into another chain's peer set.
+        """
+        urls: list[str] = []
+        for raw in self.gossip_mesh_peer_urls.split(","):
+            entry = raw.strip()
+            if not entry:
+                continue
+            tag, url = self._mesh_peer_chain_tag(entry)
+            if tag == chain_id:
+                urls.append(url)
+        return urls
+
     def mesh_peer_url_list(self) -> list[str]:
-        """Parsed ``GOSSIP_MESH_PEER_URLS`` (empty entries dropped)."""
-        return [u.strip() for u in self.gossip_mesh_peer_urls.split(",") if u.strip()]
+        """Parsed ``GOSSIP_MESH_PEER_URLS`` (empty entries dropped).
+
+        Untagged entries only — chain-tagged peers belong to their own
+        chain's broker registry entry (#1159).
+        """
+        return self.mesh_peer_urls_for_chain(None)
 
     def gpu_retired_id_set(self) -> frozenset[str]:
         """Parsed ``GPU_RETIRED_IDS`` (empty entries dropped)."""

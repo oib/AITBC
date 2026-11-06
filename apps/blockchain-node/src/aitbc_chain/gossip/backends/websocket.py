@@ -35,11 +35,21 @@ class WebsocketGossipBackend(GossipBackend):
         self,
         base_url: str,
         *,
+        chain_id: str | None = None,
         suppress_echo_ttl: float = 5.0,
         ack_timeout: float = 10.0,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._client_id = uuid.uuid4().hex
+        # Chain demux (#1159): an explicit chain_id wins; otherwise a
+        # ``?chain=<id>`` already present in base_url is preserved. Neither
+        # means a legacy single-chain dial with no chain param.
+        from urllib.parse import parse_qs, urlsplit
+
+        base_parts = urlsplit(self._base_url)
+        self._base_parts = base_parts
+        query_chain = parse_qs(base_parts.query).get("chain", [None])[0]
+        self._chain_id = chain_id or (query_chain.strip() if query_chain else None)
         self._ssl_context: ssl.SSLContext | None = None
         if self._base_url.startswith("wss://"):
             self._ssl_context = ssl.create_default_context()
@@ -123,6 +133,26 @@ class WebsocketGossipBackend(GossipBackend):
         async with self._connect_lock(topic):
             await self._ensure_connection_unsafe(topic)
 
+    def _build_url(self, topic: str) -> str:
+        """Dial URL for ``topic`` — base query params preserved, ``chain``
+        included when the backend is chain-bound (#1159)."""
+        from urllib.parse import parse_qsl, urlencode, urlunsplit
+
+        query = dict(parse_qsl(self._base_parts.query))
+        if self._chain_id:
+            query["chain"] = self._chain_id
+        query["topic"] = topic
+        query["client_id"] = self._client_id
+        return urlunsplit(
+            (
+                self._base_parts.scheme,
+                self._base_parts.netloc,
+                self._base_parts.path,
+                urlencode(query),
+                self._base_parts.fragment,
+            )
+        )
+
     async def _ensure_connection_unsafe(self, topic: str) -> None:
         import websockets
 
@@ -132,7 +162,7 @@ class WebsocketGossipBackend(GossipBackend):
         if existing is not None:
             await self._cleanup_websocket_unsafe(topic)
 
-        url = f"{self._base_url}?topic={topic}&client_id={self._client_id}"
+        url = self._build_url(topic)
         try:
             ws = await websockets.connect(
                 url,

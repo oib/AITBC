@@ -127,11 +127,20 @@ def publish_scope(channel: str, message: Any) -> str:
     return "0x" + keccak(_scope_payload(channel, message)).hex()
 
 
-def channel_scope(channel: str) -> str:
-    """Scope for a websocket connection authorization: keccak256("channel:"+channel)."""
+def channel_scope(channel: str, chain_id: str = "") -> str:
+    """Scope for a websocket connection authorization.
+
+    With ``chain_id`` the scope is ``keccak256("channel:"+chain+":"+channel)``
+    — a validator signature minted for one chain can never satisfy another
+    chain's scope (#1159). The ordering and separator are the wire contract:
+    dialers MUST use this exact format. An empty ``chain_id`` reproduces the
+    legacy ``keccak256("channel:"+channel)`` scope, kept for rollout
+    compatibility while ``gossip_auth_require_chain_scope`` is off.
+    """
     from eth_utils import keccak
 
-    return "0x" + keccak(("channel:" + channel).encode("utf-8")).hex()
+    scoped = f"channel:{chain_id}:{channel}" if chain_id else f"channel:{channel}"
+    return "0x" + keccak(scoped.encode("utf-8")).hex()
 
 
 def build_auth_message(challenge: str, address: str, timestamp: float, scope: str = "") -> dict[str, Any]:
@@ -165,6 +174,7 @@ def verify_challenge(
     timestamp: float,
     signature: str,
     scope: str = "",
+    legacy_scope: str = "",
 ) -> bool:
     """Verify a challenge response from a claimed validator.
 
@@ -174,6 +184,12 @@ def verify_challenge(
     being authorized; when ``gossip_auth_require_scope`` is off (rolling
     rollout), a signature made without scope is still accepted, while a
     scoped signature is always checked strictly.
+
+    ``legacy_scope`` (#1159): when the primary scope fails and
+    ``gossip_auth_require_chain_scope`` is off, the signature is retried
+    against the pre-chain-binding scope so old and new dialers keep
+    gossiping mid-rollout. Once the flag flips, only the chain-bound scope
+    is accepted.
     """
     if settings.gossip_auth_require_scope and not scope:
         return False  # scoped era: unbound signatures are not accepted
@@ -188,6 +204,10 @@ def verify_challenge(
     if abs(time.time() - timestamp) > settings.gossip_auth_challenge_ttl:
         return False
     ok = verify_consensus_message(build_auth_message(challenge, address, timestamp, scope), signature, address)
+    if not ok and legacy_scope and legacy_scope != scope and not settings.gossip_auth_require_chain_scope:
+        # Chain-binding rollout compat (#1159): accept a signature made
+        # against the legacy chain-less scope while the flag is off.
+        ok = verify_consensus_message(build_auth_message(challenge, address, timestamp, legacy_scope), signature, address)
     if not ok and scope and not settings.gossip_auth_require_scope:
         # Rollout compat: accept a legacy unscoped signature while the flag
         # is off so old and new nodes keep gossiping mid-restart (#1128).
