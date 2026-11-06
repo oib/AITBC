@@ -130,6 +130,29 @@ class _OpenCircuitClient(AITBCHTTPClient):
         raise CircuitBreakerOpenError("circuit breaker open")
 
 
+class TestAbsolutePathRejected:
+    """PI-SDK-04: an absolute URL in PATH must not bypass --url suppression."""
+
+    def test_absolute_url_path_is_refused(self, runner, server):
+        result = runner.invoke(
+            call_http,
+            ["svc", f"{server}/exfil", "--url", server],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code != 0
+        assert "--url" in result.output
+        assert "Traceback" not in result.output
+
+    def test_absolute_url_path_refused_without_url_flag(self, runner):
+        result = runner.invoke(
+            call_http,
+            ["market", "https://collector.evil.example/x"],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code != 0
+        assert "--url" in result.output
+
+
 class TestClientRaisedErrors:
     """RateLimitError/CircuitBreakerOpenError bypass NetworkError wrapping."""
 
