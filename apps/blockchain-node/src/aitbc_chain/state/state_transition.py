@@ -2546,6 +2546,57 @@ class StateTransition:
         )
         return (True, "Transaction applied successfully")
 
+    def apply_transaction_guarded(
+        self,
+        session: Session,
+        chain_id: str,
+        tx_data: dict[str, Any],
+        tx_hash: str,
+        block_version: int,
+        **kwargs: Any,
+    ) -> tuple[bool, str]:
+        """``apply_transaction`` bracketed in a per-tx savepoint at v22+.
+
+        CONSENSUS-STATE-001 (R1): at ``block_version >= 22`` a transaction
+        whose apply returns ``False`` — or raises — must leave zero
+        mutation. Validation-pass account materialization and any handler
+        residue are rolled back to the savepoint, so importer, proposer,
+        reapply and golden-engine callers all commit identical state for
+        failed txs. Below v22 the call delegates unchanged: historical
+        replay keeps whatever residue the original code committed.
+        ``block_version`` is a required keyword so a caller cannot
+        silently bypass the guard by omitting it.
+        """
+        if block_version < 22:
+            return self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
+        if not session.in_transaction():
+            # Anchor a real outer transaction first so begin_nested() creates a
+            # genuine SAVEPOINT rather than auto-beginning the outer
+            # transaction itself.
+            session.begin()
+        savepoint = session.begin_nested()
+        try:
+            result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
+        except Exception:
+            savepoint.rollback()
+            raise
+        if not result[0]:
+            # Dispatch-failure: roll back to the savepoint. SessionTransaction.
+            # rollback() restores the session snapshot (expunging ORM objects
+            # added inside) as well as the DB writes, so no sender row or
+            # handler residue survives — while the caller still owns the
+            # outer transaction and records the deterministic failed-tx row.
+            savepoint.rollback()
+        # On success the savepoint is deliberately left open: calling
+        # SessionTransaction.commit() here released the SAVEPOINT but the
+        # writes then survived a later session.rollback() under the pysqlite
+        # driver — effectively committing past the caller's transaction
+        # boundary (verified empirically; breaks proposer PBFT-failure
+        # rollback). An open savepoint costs nothing: later txs nest inside
+        # it, a later failure rolls back only to its own savepoint, and the
+        # caller's outer commit/rollback covers everything uniformly.
+        return result
+
     def _handle_ipfs_subscription(
         self,
         session: Session,
