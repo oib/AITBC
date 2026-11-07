@@ -21,7 +21,14 @@ from aitbc.rate_limiting import rate_limit
 
 from ..services import model_registry
 from ..services.zk_health import run_computation_correct_health_check
-from ..services.zk_proofs import zk_proof_service
+from ..services.zk_proofs import (
+    ZK_BUSY_DETAIL,
+    ZK_RETRY_AFTER_SECONDS,
+    ZK_TIMEOUT_DETAIL,
+    ZKBusyError,
+    ZKTimeoutError,
+    zk_proof_service,
+)
 from coordinator_api.contexts.infrastructure.domain import Job
 from coordinator_api.storage import get_session
 
@@ -113,6 +120,17 @@ async def generate_proof(request: Request, req: GenerateProofRequest) -> ProofRe
 
     except HTTPException:
         raise
+    except ZKBusyError as e:
+        # CE-002 (#1171): bounded subprocess slots; shed load instead of queueing it.
+        logging.getLogger(__name__).warning("/zk/generate refused: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=ZK_BUSY_DETAIL,
+            headers={"Retry-After": ZK_RETRY_AFTER_SECONDS},
+        ) from e
+    except ZKTimeoutError as e:
+        logging.getLogger(__name__).error("/zk/generate timed out: %s", e)
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=ZK_TIMEOUT_DETAIL) from e
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 

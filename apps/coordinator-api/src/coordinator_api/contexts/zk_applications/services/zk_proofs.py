@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import tempfile
+import weakref
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -57,6 +58,111 @@ def _node_env() -> dict[str, str]:
     inherited = env.get("NODE_PATH", "")
     env["NODE_PATH"] = f"{SNARKJS_NODE_PATH}{os.pathsep}{inherited}" if inherited else str(SNARKJS_NODE_PATH)
     return env
+
+
+# CE-002 (#1171): every proof, verification and hash below runs a Node subprocess. snarkjs
+# fullProve is seconds-to-minutes of CPU and hundreds of MB of zkey, and each endpoint call
+# used to start its own with no timeout and no limit on how many ran at once, so a handful of
+# authenticated callers (the per-IP rate limit is per worker, and a JWT or miner key is all
+# the auth asks for) could hold the coordinator's cgroup at MemoryMax until it was killed.
+# Three bounds, all env-tunable:
+#   * at most MAX_CONCURRENT subprocesses per worker at a time;
+#   * a caller that cannot get a slot within QUEUE_TIMEOUT is refused (ZKBusyError -> 503)
+#     rather than queued without limit;
+#   * a subprocess that outlives its timeout, or whose caller goes away, is killed and reaped.
+def _env_float(name: str, default: float) -> float:
+    try:
+        value = float(os.getenv(name, ""))
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, ""))
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+ZK_MAX_CONCURRENT = _env_int("COORDINATOR_ZK_MAX_CONCURRENT", 2)
+ZK_QUEUE_TIMEOUT_SECONDS = _env_float("COORDINATOR_ZK_QUEUE_TIMEOUT_SECONDS", 10.0)
+ZK_PROVE_TIMEOUT_SECONDS = _env_float("COORDINATOR_ZK_PROVE_TIMEOUT_SECONDS", 120.0)
+ZK_VERIFY_TIMEOUT_SECONDS = _env_float("COORDINATOR_ZK_VERIFY_TIMEOUT_SECONDS", 30.0)
+ZK_HASH_TIMEOUT_SECONDS = _env_float("COORDINATOR_ZK_HASH_TIMEOUT_SECONDS", 10.0)
+
+
+#: Constant 5xx details: tests/security/test_http_exception_hardening.py refuses an
+#: interpolated detail on any 5xx, and the numbers belong in the log, not the response.
+ZK_BUSY_DETAIL = "ZK proving is at capacity on this node; retry shortly"
+ZK_TIMEOUT_DETAIL = "ZK proof generation exceeded its time limit"
+ZK_RETRY_AFTER_SECONDS = "15"
+
+
+class ZKBusyError(RuntimeError):
+    """No Node subprocess slot became free in time; the caller should retry later."""
+
+
+class ZKTimeoutError(RuntimeError):
+    """A Node subprocess ran past its time limit and was killed."""
+
+
+# asyncio primitives belong to one event loop, so the semaphore is kept per loop.
+_node_slots: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore]" = weakref.WeakKeyDictionary()
+
+
+def _slots() -> asyncio.Semaphore:
+    loop = asyncio.get_running_loop()
+    sem = _node_slots.get(loop)
+    if sem is None:
+        sem = _node_slots[loop] = asyncio.Semaphore(ZK_MAX_CONCURRENT)
+    return sem
+
+
+async def _kill_and_reap(proc: Any) -> None:
+    try:
+        proc.kill()
+    except ProcessLookupError:
+        return
+    except Exception as exc:  # a stand-in process object without kill()
+        logger.warning("could not kill node subprocess: %s", exc)
+        return
+    try:
+        await asyncio.wait_for(proc.wait(), 5)
+    except Exception:
+        logger.warning("node subprocess did not exit after kill")
+
+
+async def _run_node(script_file: str, *, timeout: float, cwd: str | None = None) -> tuple[int, bytes, bytes]:
+    """Run ``node script_file`` under the concurrency and time bounds above.
+
+    Returns ``(returncode, stdout, stderr)``. Raises ``ZKBusyError`` when no slot frees up
+    within the queue timeout and ``ZKTimeoutError`` when the run exceeds ``timeout``; in the
+    second case, and when the calling task is cancelled (client disconnect), the child is
+    killed and reaped first.
+    """
+    sem = _slots()
+    try:
+        await asyncio.wait_for(sem.acquire(), ZK_QUEUE_TIMEOUT_SECONDS)
+    except TimeoutError:
+        raise ZKBusyError(f"all {ZK_MAX_CONCURRENT} ZK subprocess slots busy for {ZK_QUEUE_TIMEOUT_SECONDS:g}s") from None
+    try:
+        kwargs: dict[str, Any] = {"stdout": asyncio.subprocess.PIPE, "stderr": asyncio.subprocess.PIPE, "env": _node_env()}
+        if cwd is not None:
+            kwargs["cwd"] = cwd
+        proc = await asyncio.create_subprocess_exec("node", script_file, **kwargs)
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+        except TimeoutError:
+            await _kill_and_reap(proc)
+            raise ZKTimeoutError(f"node subprocess exceeded {timeout:g}s and was killed") from None
+        except BaseException:
+            await asyncio.shield(_kill_and_reap(proc))
+            raise
+        return int(proc.returncode if proc.returncode is not None else -1), stdout, stderr
+    finally:
+        sem.release()  # noqa: unawaited-async  (asyncio.Semaphore.release is synchronous)
 
 
 def snarkjs_available() -> bool:
@@ -401,6 +507,9 @@ class ZKProofService:
                 "circuit_type": circuit_name,
                 "optimization_level": "phase3_optimized" if "modular" in circuit_name else "baseline",
             }
+        except (ZKBusyError, ZKTimeoutError):
+            # Not "these inputs cannot be proven": the router answers 503/504 instead of 400.
+            raise
         except Exception as e:
             logger.error("Failed to generate %s proof: %s", circuit_name, e)
             return None
@@ -559,16 +668,17 @@ class ZKProofService:
             f.write(script)
             script_file = f.name
         try:
-            proc = await asyncio.create_subprocess_exec(
-                "node",
-                script_file,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.circuits_dir),
-                env=_node_env(),
-            )
-            stdout, stderr = await proc.communicate()
-            if proc.returncode != 0:
+            try:
+                returncode, stdout, stderr = await _run_node(
+                    script_file, timeout=ZK_VERIFY_TIMEOUT_SECONDS, cwd=str(self.circuits_dir)
+                )
+            except ZKBusyError:
+                logger.warning("Proof verification refused: ZK subprocess slots busy")
+                return False, "ZK verifier is busy; retry later"
+            except ZKTimeoutError:
+                logger.error("Proof verification timed out after %gs", ZK_VERIFY_TIMEOUT_SECONDS)
+                return False, "ZK verification timed out"
+            if returncode != 0:
                 error = stderr.decode()
                 logger.error("Proof verification failed: %s", error)
                 return False, error
@@ -627,16 +737,10 @@ class ZKProofService:
             )
             script_file = f.name
         try:
-            proc = await asyncio.create_subprocess_exec(
-                "node",
-                script_file,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.circuits_dir),
-                env=_node_env(),
+            returncode, stdout, stderr = await _run_node(
+                script_file, timeout=ZK_HASH_TIMEOUT_SECONDS, cwd=str(self.circuits_dir)
             )
-            stdout, stderr = await proc.communicate()
-            if proc.returncode != 0:
+            if returncode != 0:
                 raise RuntimeError(f"Poseidon4 computation failed: {stderr.decode()}")
             return int(stdout.decode().strip())
         finally:
@@ -673,16 +777,10 @@ class ZKProofService:
                 f.write(script)
                 script_file = f.name
             try:
-                proc = await asyncio.create_subprocess_exec(
-                    "node",
-                    script_file,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.circuits_dir),
-                    env=_node_env(),
+                returncode, stdout, stderr = await _run_node(
+                    script_file, timeout=ZK_PROVE_TIMEOUT_SECONDS, cwd=str(self.circuits_dir)
                 )
-                stdout, stderr = await proc.communicate()
-                if proc.returncode != 0:
+                if returncode != 0:
                     raise Exception(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {stderr.decode()}")
                 return dict(json.loads(stdout.decode()))
             finally:
@@ -725,15 +823,8 @@ class ZKProofService:
                 f.write(script)
                 script_file = f.name
             try:
-                result = await asyncio.create_subprocess_exec(
-                    "node",
-                    script_file,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    env=_node_env(),
-                )
-                stdout, stderr = await result.communicate()
-                if result.returncode == 0:
+                returncode, stdout, stderr = await _run_node(script_file, timeout=ZK_PROVE_TIMEOUT_SECONDS)
+                if returncode == 0:
                     proof_data: dict[str, Any] = json.loads(stdout.decode())
                     return proof_data
                 else:
