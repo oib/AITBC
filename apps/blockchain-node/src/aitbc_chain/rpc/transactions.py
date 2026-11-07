@@ -135,6 +135,31 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 f"account nonce {sender_account.nonce} + lookahead {lookahead}, got {nonce}"
             )
 
+        # R14-M1 (#1248): a slot held by a terminally apply-rejected tx must
+        # not force the sender to fee-bump (impossible at min_fee=0) or wait
+        # out mempool_entry_ttl. Evict the dead occupant so this submission
+        # takes the slot at any fee. The rejection row is chain.db service
+        # state propagated via block_metadata, so every host sees it.
+        slot_occupant = getattr(mempool, "slot_occupant", None) if mempool is not None else None
+        if slot_occupant is not None:
+            occupant_hash = slot_occupant(chain_id, tx_data["from"], nonce)
+            if occupant_hash:
+                dead = session.exec(
+                    select(Transaction.tx_hash).where(
+                        Transaction.chain_id == chain_id,
+                        Transaction.tx_hash == occupant_hash,
+                        Transaction.status == "rejected",
+                    )
+                ).first()
+                if dead:
+                    mempool.remove(occupant_hash, chain_id)
+                    _logger.info(
+                        "Evicted apply-rejected occupant %s from slot (%s, %d)",
+                        occupant_hash,
+                        tx_data["from"],
+                        nonce,
+                    )
+
         # Refuse here what a proposer would refuse at apply (V-8): a sender outside the on-chain authority for the
         # type. Last, so every earlier rejection keeps its message. Version and parameters are those a block at the
         # next height would apply; this door is shared by REST, gossip ingest and the p2p transport.

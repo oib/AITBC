@@ -260,6 +260,51 @@ def _log_request_outcome(
         )
 
 
+def _evict_rejected_mempool_entries() -> int:
+    """Drop pending entries whose tx_hash has a terminal ``rejected`` row.
+
+    R14-M1 (#1248): apply-rejected transactions keep their (sender, nonce)
+    slot until ``mempool_entry_ttl`` — up to an hour of sender stall, and on
+    the memory backend gossip re-feeds them across restarts. Rejection rows
+    are chain.db service state propagated via block_metadata, so this sweep
+    releases the slot fleet-wide without a mempool-store schema change.
+    """
+    from sqlmodel import select
+
+    from .base_models import Transaction
+    from .database import session_scope
+    from .mempool import get_mempool
+
+    mempool = get_mempool()
+    chains = {settings.chain_id} | {c.strip() for c in settings.supported_chains.split(",") if c.strip()}
+    removed = 0
+    for chain_id in chains:
+        try:
+            pending = mempool.pending_tx_hashes(chain_id)
+            if not pending:
+                continue
+            dead: set[str] = set()
+            hashes = sorted(pending)
+            with session_scope(chain_id) as session:
+                for i in range(0, len(hashes), 500):
+                    chunk = hashes[i : i + 500]
+                    rows = session.exec(
+                        select(Transaction.tx_hash).where(
+                            Transaction.chain_id == chain_id,
+                            Transaction.status == "rejected",
+                            Transaction.tx_hash.in_(chunk),  # type: ignore[attr-defined]
+                        )
+                    ).all()
+                    dead.update(rows)
+            for tx_hash in dead:
+                if mempool.remove(tx_hash, chain_id):
+                    removed += 1
+        except Exception as exc:
+            # One unreachable/foreign chain must not stall the others.
+            _app_logger.debug("Rejected-entry sweep skipped chain %s: %s", chain_id, exc)
+    return removed
+
+
 async def _sweep_mempool_forever() -> None:
     """Periodically drop mempool entries that have aged past the TTL.
 
@@ -278,6 +323,9 @@ async def _sweep_mempool_forever() -> None:
             removed = get_mempool().evict_expired(ttl)
             if removed:
                 _app_logger.info("Mempool sweeper evicted %d entries older than %ds", removed, ttl)
+            rejected_removed = _evict_rejected_mempool_entries()
+            if rejected_removed:
+                _app_logger.info("Mempool sweeper evicted %d apply-rejected entries", rejected_removed)
         except asyncio.CancelledError:
             raise
         except Exception as e:
