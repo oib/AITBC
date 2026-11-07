@@ -41,6 +41,7 @@ import sys
 import tempfile
 import wave
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
@@ -126,12 +127,31 @@ def client(whisper, tmp_path, monkeypatch):
     """
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     monkeypatch.setattr(whisper, "_model", _StubModel())
+    # /transcribe sits behind the #803 per-job access gate; these tests are
+    # about the upload bounds, not auth, so every request carries a token the
+    # patched verifier accepts for job-1.
+    monkeypatch.setattr(
+        "aitbc.shop_gate._verify",
+        AsyncMock(return_value={"job_id": "job-1"}),
+    )
     # No `with`: the context manager runs the lifespan, which would load the model.
     return TestClient(whisper.app)
 
 
+_JOB_HEADERS = {
+    "X-Access-Key": "k0123456789abcdef",
+    "X-Access-Secret": "s",
+    "X-Job-Id": "job-1",
+}
+
+
 def _post(client, data: bytes, filename: str = "clip.wav", **form):
-    return client.post("/transcribe", files={"file": (filename, data, "audio/wav")}, data=form)
+    return client.post(
+        "/transcribe",
+        files={"file": (filename, data, "audio/wav")},
+        data=form,
+        headers=_JOB_HEADERS,
+    )
 
 
 # --- the suffix, which becomes part of a filename -------------------------------
