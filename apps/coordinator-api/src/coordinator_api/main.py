@@ -25,6 +25,7 @@ from aitbc.middleware import (
     PerformanceLoggingMiddleware,
     PrometheusMetricsMiddleware,
     RequestIDMiddleware,
+    RequestValidationMiddleware,
 )
 
 if TYPE_CHECKING:
@@ -622,6 +623,12 @@ class APIMetricsMiddleware:
 
 
 def _add_middleware(app: FastAPI) -> None:
+    exempt = tuple(p.strip() for p in settings.max_request_body_exempt_prefixes.split(",") if p.strip())
+    app.add_middleware(
+        RequestValidationMiddleware,
+        max_request_size=settings.max_request_body_bytes,
+        exempt_prefixes=exempt,
+    )
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PerformanceLoggingMiddleware)
     app.add_middleware(PrometheusMetricsMiddleware)
