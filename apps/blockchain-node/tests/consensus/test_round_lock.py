@@ -30,6 +30,10 @@ def _round_lock_on(monkeypatch):
     monkeypatch.setattr(settings, "attestation_round_lock_enabled", True)
     monkeypatch.setattr(settings, "consensus_proposer_round_seconds", ROUND_SECONDS)
     monkeypatch.setattr(settings, "attestation_round_unlock_window_seconds", 16.0)
+    # Header freshness is #1245's concern (own test file); disable here so
+    # the fixed historical timestamps below stay usable.
+    monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+    monkeypatch.setattr(settings, "attestation_header_future_skew_seconds", 3600.0)
     monkeypatch.setattr(settings, "consensus_require_signed_attest_request", False)
     monkeypatch.setattr(settings, "consensus_enforce_proposer_schedule", False)
     metrics_registry.reset()
