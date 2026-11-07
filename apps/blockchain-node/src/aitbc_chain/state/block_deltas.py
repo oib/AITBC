@@ -200,6 +200,12 @@ CONSENSUS_STATE_TABLES = frozenset(
         "liquidity_pool",
         "liquidity_stake",
         "liquidity_distribution",
+        # v21 agent sessions (#1142): apply-written session/ledger tables —
+        # agent_spend.py states every check reads only these apply-written
+        # tables and both sit in the v21 committed fingerprint set, so rows
+        # must be identical on every node.
+        "agent_spend_session",
+        "agent_spend_ledger",
     }
 )
 

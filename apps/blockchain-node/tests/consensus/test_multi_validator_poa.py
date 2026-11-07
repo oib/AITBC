@@ -193,28 +193,26 @@ class TestConsensusSecurity:
     def test_validate_block_accepts_valid_signature(self):
         """C1: block with valid signature is accepted"""
         from aitbc.crypto.consensus_signing import sign_block_hash
-        from aitbc_chain.consensus.keys import KeyManager
+        from aitbc.crypto.crypto import derive_ethereum_address
+        from eth_keys import keys as eth_keys
 
-        import tempfile
+        # consensus/keys.py was deleted in 56b716151 (unused, broke address
+        # binding) — generate the pair directly and derive the address.
+        private_key_hex = eth_keys.PrivateKey(b"\x33" * 32).to_hex()
+        real_addr = derive_ethereum_address(private_key_hex)
+        # The proposer's address must match the key's derived address
+        self.consensus.add_validator(real_addr, 1000.0)
+        self.consensus.validators[real_addr].role = ValidatorRole.VALIDATOR
+        # Use a valid 32-byte hex block hash (sign_block_hash treats it as a message hash)
+        block_hash = "a" * 64
+        sig = sign_block_hash(block_hash, private_key_hex)
+        from aitbc_chain.models import Block
 
-        # Generate a real key pair — let the address be derived from the public key
-        with tempfile.TemporaryDirectory() as tmpdir:
-            km = KeyManager(keys_dir=tmpdir)
-            kp = km.generate_key_pair()  # address derived from the key
-            # The proposer's address must match the key's derived address
-            real_addr = kp.address
-            self.consensus.add_validator(real_addr, 1000.0)
-            self.consensus.validators[real_addr].role = ValidatorRole.VALIDATOR
-            # Use a valid 32-byte hex block hash (sign_block_hash treats it as a message hash)
-            block_hash = "a" * 64
-            sig = sign_block_hash(block_hash, kp.private_key_hex)
-            from aitbc_chain.models import Block
-
-            block = Mock(spec=Block)
-            block.hash = block_hash
-            block.signature = sig
-            result = self.consensus.validate_block(block, real_addr)
-            assert result is True
+        block = Mock(spec=Block)
+        block.hash = block_hash
+        block.signature = sig
+        result = self.consensus.validate_block(block, real_addr)
+        assert result is True
 
     def test_validate_block_rejects_unsigned_when_required(self):
         """C1: unsigned block rejected when _require_block_signatures=True"""

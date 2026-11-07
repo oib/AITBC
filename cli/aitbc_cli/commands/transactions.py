@@ -38,9 +38,11 @@ DEFAULT_RPC_URL = "http://127.0.0.1:8202"
 # Transaction types whose apply path rejects any nonzero value — mirrors
 # aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES (the node package
 # is not a CLI dependency, so the set is duplicated here).
-_ZERO_VALUE_TX_TYPES = frozenset(
-    {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET", "GPU_DEREGISTER"}
-)
+# GPU_DEREGISTER is deliberately absent: the apply side moved it out of
+# _ZERO_VALUE_TX_TYPES into a block_version >= 10 gate
+# (state_transition.py), so it is not part of the mirrored set. A nonzero
+# amount is still refused at apply; the CLI just no longer pre-empts it.
+_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
 
 
 def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:

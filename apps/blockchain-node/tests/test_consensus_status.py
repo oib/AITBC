@@ -43,7 +43,7 @@ async def test_consensus_status_reports_standard_bft_values(monkeypatch) -> None
 
 @pytest.mark.asyncio
 async def test_consensus_status_three_validators_crash_only(monkeypatch) -> None:
-    """With 3 validators BFT fault tolerance is 0; only one validator can crash."""
+    """With 3 validators BFT fault tolerance is 0; the #1061 quorum formula gives ceil((3+0+1)/2)=2."""
     validator = MagicMock()
     validator.is_active = True
     validator.role = MagicMock()
@@ -69,7 +69,7 @@ async def test_consensus_status_three_validators_crash_only(monkeypatch) -> None
     assert result["mode"] == "MultiValidatorPoA + PBFT"
     assert result["active_validators"] == 3
     assert result["fault_tolerance"] == 0
-    assert result["required_messages"] == 1
+    assert result["required_messages"] == 2
     assert result["min_attestations"] == 1
     assert result["current_view"] == 0
     assert result["current_sequence"] == 0
