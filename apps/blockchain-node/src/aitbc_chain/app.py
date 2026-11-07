@@ -311,6 +311,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # ~40-way concurrency, reintroducing the serialization the conversion
     # removed. Size it for the rpc burst profile.
     to_thread.current_default_thread_limiter().total_tokens = 200
+    # Publish the main loop so sync REST handlers can schedule tx peer
+    # fan-out onto it (#1215) — threadpool workers have no running loop.
+    from .rpc.transactions import set_peer_fanout_loop
+
+    set_peer_fanout_loop(asyncio.get_running_loop())
     # Resolve the chain id before any database file is opened: an unconfigured
     # node must refuse to start rather than fall back to a hard-coded chain.
     # CHAIN_ID (settings.chain_id) is the node's own chain and wins over the

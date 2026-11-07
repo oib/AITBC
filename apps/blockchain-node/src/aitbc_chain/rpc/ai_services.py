@@ -160,6 +160,10 @@ def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
 
         tx_hash = mempool.add(tx_data, chain_id=chain_id)
 
+        from .transactions import _queue_peer_fanout
+
+        _queue_peer_fanout(chain_id, tx_data)
+
         _logger.info("AI job submitted to mempool: tx %s by %s", tx_hash, request.wallet_address)
 
         return {
