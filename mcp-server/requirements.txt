@@ -1,2 +1,7 @@
-mcp>=2.0.0
-pydantic>=2.12.0
+# AITBC MCP server requirements — pinned to the versions resolved in the
+# canonical /opt/aitbc venv (poetry.lock). Regenerate pins when bumping:
+#   /opt/aitbc/venv/bin/pip show mcp pydantic
+# Only third-party imports in mcp-server/*.py are `mcp` and `pydantic`
+# (plus the local `aitbc` package) — verified 2026-11-07, R15-F1.
+mcp==2.1.1
+pydantic==2.13.3
