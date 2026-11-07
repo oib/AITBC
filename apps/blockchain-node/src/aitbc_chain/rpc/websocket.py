@@ -21,6 +21,7 @@ from ..gossip import (
 )
 from ..gossip._internal import _peer_name
 from ..gossip.gossip_auth import (
+    RESTRICTED_GOSSIP_TOPICS,
     channel_scope,
     create_challenge,
     is_public_topic,
@@ -61,7 +62,10 @@ _gossip_ip_connections: dict[tuple[str, str], int] = {}
 # which would route one chain's topics through another chain's bus (#1159).
 _chain_brokers: dict[str, GossipBroker] = {}
 
-# Per (client_ip, topic) message rate limiter.
+# Per (client_ip, chain, topic CLASS) message rate limiter. The class, not the
+# raw topic string, is the key: dotted public subtopics are unbounded, and a
+# bucket per topic string multiplied the budget by the number of topics a
+# client cared to open (#1243). See _gossip_rate_key.
 _gossip_msg_rate = RateLimiter(
     rate=settings.gossip_max_messages_per_minute,
     per=60,
@@ -113,6 +117,31 @@ def _gossip_client_ip(websocket: WebSocket) -> str:
         websocket.client.host if websocket.client else "",
         websocket.headers,
     )
+
+
+def _gossip_rate_class(topic: str) -> str:
+    """Collapse a gossip topic to the bounded class its rate budget is shared in.
+
+    ``public``: every public root (``transactions``/``status``/``mempool`` and
+    any dotted subtopic) — the only topics an unauthenticated client may
+    publish to, so one source gets exactly one public budget however many
+    subtopics it invents. A restricted root keeps its own bucket (``blocks``,
+    ``pbft``, ``consensus``), so a flood on one class cannot starve a
+    validator's consensus traffic. Anything else is ``other`` (reachable only
+    by an authenticated validator, or by an unauthenticated client that is
+    closed on its first message). At most five classes exist per (ip, chain).
+    """
+    if is_public_topic(topic):
+        return "public"
+    for root in RESTRICTED_GOSSIP_TOPICS:
+        if topic == root or topic.startswith(root + "."):
+            return root
+    return "other"
+
+
+def _gossip_rate_key(client_ip: str, chain_id: str, topic: str) -> str:
+    """Key of the per-message rate bucket: identity x chain x topic class (#1243)."""
+    return f"{client_ip}:{chain_id}:{_gossip_rate_class(topic)}"
 
 
 async def _stream_topic(topic: str, websocket: WebSocket) -> None:
@@ -330,7 +359,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     await _gossip_ws_close(websocket, code=1009)
                     break
 
-                if not _gossip_msg_rate.is_allowed(f"{client_ip}:{chain_id}:{topic}"):
+                if not _gossip_msg_rate.is_allowed(_gossip_rate_key(client_ip, chain_id, topic)):
                     gossip_rate_limited_total.labels(reason="message_rate").inc()
                     await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
                     continue
