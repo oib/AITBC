@@ -28,13 +28,23 @@ VOTING_ENDS_BLOCK = PROPOSAL_BLOCK + VOTING_PERIOD
 TIMELOCK = 43_200
 
 
+SEALED_EXECUTION_PAYLOAD = {"action": "parameter_change", "parameter": "p", "value": "v"}
+
+
 class StubBlockchain:
     """Blockchain client stub returning a fixed height, or raising."""
 
-    def __init__(self, height: int | None = None, error: Exception | None = None):
+    def __init__(
+        self,
+        height: int | None = None,
+        error: Exception | None = None,
+        sealed: dict | None = None,
+    ):
         self._height = height
         self._error = error
+        self._sealed = {"execution_payload": dict(SEALED_EXECUTION_PAYLOAD)} if sealed is None else sealed
         self.calls: list[str] = []
+        self.submit_calls: list[dict] = []
 
     async def get_block_height(self, chain_id: str) -> int:
         self.calls.append(chain_id)
@@ -42,6 +52,9 @@ class StubBlockchain:
             raise self._error
         assert self._height is not None
         return self._height
+
+    async def get_sealed_governance_proposal(self, proposal_id: str, chain_id: str | None = None) -> dict | None:
+        return self._sealed
 
 
 def make_proposal(
@@ -367,3 +380,56 @@ class TestExecuteProposalEnforcesTimelockOffChain:
 
         assert result is not None
         assert proposal.status == ProposalStatus.EXECUTED
+
+
+class TestExecuteBindsSealedPayload:
+    """#1214: the service-signed EXECUTE path must carry the PROPOSE-sealed
+    execution_payload — the v13 chain binding rejects any EXECUTE whose
+    payload.execution_payload differs from (or omits) the sealed dict."""
+
+    @pytest.mark.asyncio
+    async def test_service_signed_execute_includes_sealed_execution_payload(self, monkeypatch):
+        monkeypatch.setattr(settings, "enable_onchain_submission", True)
+        monkeypatch.setattr(settings, "proposer_private_key", "0x" + "11" * 32)
+
+        proposal = make_proposal()
+        session = StubSession(proposal)
+        blockchain = StubBlockchain(height=VOTING_ENDS_BLOCK + TIMELOCK)
+
+        async def _capture(**kwargs):
+            blockchain.submit_calls.append(kwargs)
+            return {"tx_hash": "0xexec", "block_height": 999_999}
+
+        blockchain.submit_governance_tx = _capture  # type: ignore[attr-defined]
+        service = GovernanceService(session=session, blockchain_client=blockchain)  # type: ignore[arg-type]
+
+        await service.execute_proposal("prop_v23_18", executor_address="0xexecutor")
+
+        assert len(blockchain.submit_calls) == 1
+        submitted_payload = blockchain.submit_calls[0]["payload"]
+        assert submitted_payload["execution_payload"] == SEALED_EXECUTION_PAYLOAD
+        assert submitted_payload["proposal_id"] == "prop_v23_18"
+
+    @pytest.mark.asyncio
+    async def test_missing_sealed_payload_refuses_before_submit(self, monkeypatch):
+        """No sealed payload → refuse locally rather than relay a tx the chain
+        is guaranteed to reject."""
+        monkeypatch.setattr(settings, "enable_onchain_submission", True)
+        monkeypatch.setattr(settings, "proposer_private_key", "0x" + "11" * 32)
+
+        proposal = make_proposal()
+        session = StubSession(proposal)
+        blockchain = StubBlockchain(height=VOTING_ENDS_BLOCK + TIMELOCK, sealed={})
+
+        async def _capture(**kwargs):
+            blockchain.submit_calls.append(kwargs)
+            return {"tx_hash": "0xexec"}
+
+        blockchain.submit_governance_tx = _capture  # type: ignore[attr-defined]
+        service = GovernanceService(session=session, blockchain_client=blockchain)  # type: ignore[arg-type]
+
+        with pytest.raises(ValueError, match="sealed execution_payload"):
+            await service.execute_proposal("prop_v23_18", executor_address="0xexecutor")
+
+        assert blockchain.submit_calls == []
+        assert proposal.status != ProposalStatus.EXECUTED
