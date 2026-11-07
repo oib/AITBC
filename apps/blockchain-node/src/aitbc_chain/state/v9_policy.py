@@ -132,6 +132,10 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         # too, where they replay as generic transfers like every unknown name.
         "AGENT_SESSION_GRANT",
         "AGENT_SESSION_REVOKE",
+        # Signature-domain type for /ai/job/{id}/cancel (#1055): the cancel
+        # is service-table bookkeeping and never becomes an on-chain tx, but
+        # the name is peer-submittable and must not collapse into _other.
+        "AI_JOB_CANCEL",
     }
 )
 
