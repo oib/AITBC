@@ -39,6 +39,8 @@ from ..metrics import (
     gossip_open_connections,
     gossip_oversized_message_total,
     gossip_rate_limited_total,
+    gossip_ws_open_connections,
+    gossip_ws_rejected_total,
     metrics_registry,
 )
 
@@ -53,6 +55,10 @@ _active_subscribers: dict[tuple[str, str], WebSocket] = {}
 # Keying on the chain as well keeps one chain's connection budget from being
 # consumed by another chain's clients (#1159).
 _gossip_ip_connections: dict[tuple[str, str], int] = {}
+
+# Per-source-IP total across chains, kept alongside the per-(ip, chain) map so
+# the optional aggregate ceiling (GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL) is O(1).
+_gossip_ip_total: dict[str, int] = {}
 
 # Lazily-created per-chain brokers for chains this process serves beyond
 # ``settings.chain_id``. The default chain keeps using the module-global
@@ -245,17 +251,79 @@ def _broker_for_chain(chain_id: str) -> GossipBroker | None:
     return broker
 
 
+def _acquire_ip_connection(conn_key: tuple[str, str]) -> str | None:
+    """Take a connection slot for ``conn_key`` or return the refusal reason.
+
+    ``conn_cap``: the per-(ip, chain) limit. ``conn_cap_total``: the optional
+    per-IP ceiling across chains (``GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL``,
+    0 = off). Nothing is recorded on a refusal.
+    """
+    client_ip = conn_key[0]
+    if _gossip_ip_connections.get(conn_key, 0) >= settings.gossip_max_concurrent_connections_per_ip:
+        return "conn_cap"
+    total_cap = settings.gossip_max_connections_per_ip_total
+    if total_cap > 0 and _gossip_ip_total.get(client_ip, 0) >= total_cap:
+        return "conn_cap_total"
+    _gossip_ip_connections[conn_key] = _gossip_ip_connections.get(conn_key, 0) + 1
+    _gossip_ip_total[client_ip] = _gossip_ip_total.get(client_ip, 0) + 1
+    return None
+
+
 def _release_ip_connection(conn_key: tuple[str, str]) -> None:
-    """Drop one connection from ``conn_key``'s count; delete the entry at zero.
+    """Drop one connection from ``conn_key``'s count; delete entries at zero.
 
     Leaving zero-count entries behind grew ``_gossip_ip_connections`` by one
-    key per distinct (ip, chain) for the process lifetime (#1256, #1159 G4).
+    key per distinct (ip, chain) for the process lifetime (#1256, #1159 G4);
+    the per-IP total map gets the same treatment.
     """
     remaining = _gossip_ip_connections.get(conn_key, 1) - 1
     if remaining > 0:
         _gossip_ip_connections[conn_key] = remaining
     else:
         _gossip_ip_connections.pop(conn_key, None)
+    client_ip = conn_key[0]
+    total = _gossip_ip_total.get(client_ip, 1) - 1
+    if total > 0:
+        _gossip_ip_total[client_ip] = total
+    else:
+        _gossip_ip_total.pop(client_ip, None)
+
+
+def _chain_label(chain_id: str | None) -> str:
+    """Bounded metric label for a chain: a connectable chain id, else "unknown"."""
+    if chain_id and chain_id in _connectable_chain_ids():
+        return chain_id
+    return "unknown"
+
+
+def _note_rejection(chain_id: str | None, topic: str, reason: str) -> None:
+    """Count a refusal on ``gossip_ws_rejected_total`` with bounded labels only."""
+    gossip_ws_rejected_total.labels(chain=_chain_label(chain_id), topic_class=gossip_topic_class(topic), reason=reason).inc()
+
+
+def _auth_rejected(reason: str, chain_id: str, topic: str) -> None:
+    """Existing per-reason auth counter plus the per-chain ``auth`` series."""
+    gossip_auth_rejected_total.labels(reason=reason).inc()
+    _note_rejection(chain_id, topic, "auth")
+
+
+_msg_total_limiter: RateLimiter | None = None
+
+
+def _message_total_allowed(client_ip: str) -> bool:
+    """Optional per-IP message ceiling across chains and classes.
+
+    ``GOSSIP_MAX_MESSAGES_PER_MINUTE_TOTAL`` 0 = off. The limiter is built on
+    first use and rebuilt if the configured rate changes, so the value is read
+    at use time, not frozen at import.
+    """
+    global _msg_total_limiter
+    rate = settings.gossip_max_messages_per_minute_total
+    if rate <= 0:
+        return True
+    if _msg_total_limiter is None or _msg_total_limiter.rate != rate:
+        _msg_total_limiter = RateLimiter(rate=rate, per=60)
+    return _msg_total_limiter.is_allowed(f"total:{client_ip}")
 
 
 async def shutdown_chain_brokers(timeout: float = 5.0) -> None:
@@ -303,28 +371,33 @@ async def gossip_websocket(websocket: WebSocket) -> None:
 
     chain_id = _resolve_chain_id(websocket)
     if chain_id is None:
+        _note_rejection(None, topic, "unknown_chain")
         await _gossip_ws_close(websocket, code=1008)
         return
     if _topic_targets_other_chain(topic, chain_id):
         logger.warning("Gossip websocket rejected cross-chain topic %s on chain %s", topic, chain_id)
+        _note_rejection(chain_id, topic, "cross_chain_topic")
         await _gossip_ws_close(websocket, code=1008)
         return
     broker = _broker_for_chain(chain_id)
     if broker is None:
         logger.warning("Gossip websocket rejected: no gossip backend for chain %s", chain_id)
+        _note_rejection(chain_id, topic, "no_backend")
         await _gossip_ws_close(websocket, code=1008)
         return
 
     client_ip = _gossip_client_ip(websocket)
     conn_key = (client_ip, chain_id)
 
-    # Connection-level source limit, per (ip, chain).
-    if _gossip_ip_connections.get(conn_key, 0) >= settings.gossip_max_concurrent_connections_per_ip:
-        logger.warning("Gossip websocket connection limit for %s on chain %s", client_ip, chain_id)
+    # Connection-level source limit, per (ip, chain) plus the optional per-IP total.
+    refused = _acquire_ip_connection(conn_key)
+    if refused is not None:
+        logger.warning("Gossip websocket connection limit (%s) for %s on chain %s", refused, client_ip, chain_id)
+        _note_rejection(chain_id, topic, refused)
         await _gossip_ws_close(websocket, code=1008)
         return
-    _gossip_ip_connections[conn_key] = _gossip_ip_connections.get(conn_key, 0) + 1
     gossip_open_connections.inc()
+    gossip_ws_open_connections.labels(chain=_chain_label(chain_id)).inc()
 
     challenge: str | None = None
     challenge_ts: float = 0.0
@@ -344,7 +417,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
         if settings.gossip_auth_enabled and is_restricted_topic(topic):
             issued = create_challenge(client_ip)
             if issued is None:
-                gossip_auth_rejected_total.labels(reason="challenge_rate_limited").inc()
+                _auth_rejected("challenge_rate_limited", chain_id, topic)
                 await _gossip_ws_send_json(websocket, {"error": "Challenge rate limited"})
                 await _gossip_ws_close(websocket, code=1008)
                 return
@@ -387,6 +460,12 @@ async def gossip_websocket(websocket: WebSocket) -> None:
 
                 if not _gossip_msg_rate.is_allowed(_gossip_rate_key(client_ip, chain_id, topic)):
                     gossip_rate_limited_total.labels(reason="message_rate").inc()
+                    _note_rejection(chain_id, topic, "rate")
+                    await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
+                    continue
+                if not _message_total_allowed(client_ip):
+                    gossip_rate_limited_total.labels(reason="message_rate_total").inc()
+                    _note_rejection(chain_id, topic, "rate_total")
                     await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
                     continue
 
@@ -406,17 +485,17 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     client_challenge = data.get("challenge", "")
                     client_ts = data.get("timestamp", 0.0)
                     if not is_validator(claimed):
-                        gossip_auth_rejected_total.labels(reason="not_validator").inc()
+                        _auth_rejected("not_validator", chain_id, topic)
                         await _gossip_ws_send_json(websocket, {"error": "Not a validator"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
                     if client_challenge != challenge:
-                        gossip_auth_rejected_total.labels(reason="challenge_mismatch").inc()
+                        _auth_rejected("challenge_mismatch", chain_id, topic)
                         await _gossip_ws_send_json(websocket, {"error": "Challenge mismatch"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
                     if abs(time.time() - client_ts) > settings.gossip_auth_challenge_ttl:
-                        gossip_auth_rejected_total.labels(reason="challenge_expired").inc()
+                        _auth_rejected("challenge_expired", chain_id, topic)
                         await _gossip_ws_send_json(websocket, {"error": "Challenge expired"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
@@ -436,20 +515,20 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         await _gossip_ws_send_json(websocket, {"type": "auth_ok", "address": claimed})
                         continue
                     else:
-                        gossip_auth_rejected_total.labels(reason="invalid_signature").inc()
+                        _auth_rejected("invalid_signature", chain_id, topic)
                         await _gossip_ws_send_json(websocket, {"error": "Invalid signature"})
                         await _gossip_ws_close(websocket, code=1008)
                         break
 
                 # Publishing path.
                 if is_restricted_topic(topic) and not authorized:
-                    gossip_auth_rejected_total.labels(reason="unauthorized_publish").inc()
+                    _auth_rejected("unauthorized_publish", chain_id, topic)
                     await _gossip_ws_send_json(websocket, {"error": "Validator authentication required"})
                     await _gossip_ws_close(websocket, code=1008)
                     break
 
                 if not is_public_topic(topic) and not authorized:
-                    gossip_auth_rejected_total.labels(reason="unauthorized_topic").inc()
+                    _auth_rejected("unauthorized_topic", chain_id, topic)
                     await _gossip_ws_send_json(websocket, {"error": "Topic not authorized"})
                     await _gossip_ws_close(websocket, code=1008)
                     break
@@ -499,6 +578,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     finally:
         _release_ip_connection(conn_key)
         gossip_open_connections.dec()
+        gossip_ws_open_connections.labels(chain=_chain_label(chain_id)).dec()
         if authorized_address:
             gossip_authenticated_connections.labels(address=authorized_address).dec()
 

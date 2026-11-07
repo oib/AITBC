@@ -140,6 +140,31 @@ gossip_messages_published_total = Counter(
     "Total messages published through the public gossip websocket",
     ["topic"],
 )
+# Per-chain view of gossip websocket refusals (#1257, #1159 design v2 G5).
+# Every label set is bounded: ``chain`` is a served chain id or the literal
+# "unknown" (an unserved/missing chain is never echoed back as a label),
+# ``topic_class`` is one of public|blocks|pbft|consensus|other, ``reason`` is
+# one of GOSSIP_REJECT_REASONS.
+GOSSIP_REJECT_REASONS = (
+    "unknown_chain",
+    "cross_chain_topic",
+    "no_backend",
+    "conn_cap",
+    "conn_cap_total",
+    "rate",
+    "rate_total",
+    "auth",
+)
+gossip_ws_rejected_total = Counter(
+    "blockchain_gossip_ws_rejected_total",
+    "Gossip websocket refusals by served chain, topic class and reason",
+    ["chain", "topic_class", "reason"],
+)
+gossip_ws_open_connections = Gauge(
+    "blockchain_gossip_ws_open_connections",
+    "Currently open gossip websocket connections per served chain",
+    ["chain"],
+)
 gossip_tx_rejected_total = Counter(
     "blockchain_gossip_tx_rejected_total",
     "Total gossip-delivered transactions rejected at mempool ingest",

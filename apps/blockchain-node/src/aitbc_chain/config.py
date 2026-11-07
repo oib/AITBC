@@ -528,6 +528,13 @@ class ChainSettings(BaseSettings):
     gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
     gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))
+    # Aggregate per-source-IP ceilings ACROSS every chain this host serves
+    # (#1257, #1159 design v2 D3). The per-chain limits above multiply with the
+    # number of served chains (K x 32 connections, K x 5 x 2000 msg/min per IP);
+    # these cap the sum. 0 = disabled (default), so a single-chain host behaves
+    # exactly as before.
+    gossip_max_connections_per_ip_total: int = int(os.getenv("GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL", "0"))
+    gossip_max_messages_per_minute_total: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE_TOTAL", "0"))
 
     # Multi-chain per island (v0.6.4). Chains hosted on this island.
     # Comma-separated list of chain_ids. If empty, defaults to [chain_id]
