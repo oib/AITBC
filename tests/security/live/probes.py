@@ -30,7 +30,7 @@ Coverage map (what is and is not observable over plain GET):
   fresh bucket and return a proxied response instead. Two-source bucket
   independence was verified manually during #1189; it is not re-probed
   here (single vantage point).
-* ns2 ``realip`` trust scope (#1193) is NOT GET-observable — it lives in
+* Edge ``realip`` trust scope (#1193) is NOT GET-observable — it lives in
   nginx ``$realip_remote_addr`` resolution and access logs. Covered by the
   #1193 live verification record; a log-side check belongs to ops, not
   this suite.
