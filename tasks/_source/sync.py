@@ -332,9 +332,75 @@ def adopt(refs, dry):
         print(f"register written; backup {os.path.basename(bak)}")
 
 
+def _label_targets(refs):
+    """Issue dicts to reconcile: the named refs, or every open issue paged 50 at a time."""
+    if refs:
+        return [tea(f"/issues/{ref.lstrip('#')}") for ref in refs]
+    iss_all, page = [], 1
+    while True:
+        batch = tea(f"/issues?state=open&limit=50&page={page}")
+        if not batch:
+            return iss_all
+        iss_all += batch
+        page += 1
+
+
+def _label_delta(iss):
+    """(row id, issue number, labels to add, labels to remove) or None when the card is absent or already matches."""
+    names = {label["name"] for label in iss.get("labels") or []}
+    card = rowcard.parse(iss.get("body") or "")
+    if not card:
+        return None
+    owner, state = rowcard.expected_labels(card, names)
+    want = {x for x in (owner, state) if x}
+    have = set(rowcard.scoped(names, "owner") + rowcard.scoped(names, "state"))
+    add, rem = sorted(want - have), sorted(have - want)
+    if not add and not rem:
+        return None
+    return card.get("id") or card.get("row") or "?", iss["number"], add, rem
+
+
+def _push_label_delta(number, add, rem, ids):
+    if add:
+        tea(f"/issues/{number}/labels", "POST", {"labels": [ids[x] for x in add]})
+    for x in rem:
+        tea(f"/issues/{number}/labels/{ids[x]}", "DELETE")
+
+
+def labels(refs, dry):
+    """Reconcile owner/state labels from the issue's own aitbc-row card (Gitea-first, no register).
+
+    With the register retired the card in the body is the row. wanted labels come from
+    rowcard.expected_labels: needs-verify wins while open, else held/ready/working by the
+    card's ready field; owner labels pushed only for owner/operator and owner/D
+    (see rowcard.PUSH_OWNER_LABEL_OWNERS). Stray owner/* labels outside that set are
+    removed; labels outside the two scopes
+    are never touched. `refs` narrows to issue numbers; default is every open issue.
+    """
+    iss_all = _label_targets(refs)
+    ids = None
+    changed = 0
+    for iss in iss_all:
+        delta = _label_delta(iss)
+        if not delta:
+            continue
+        rid, number, add, rem = delta
+        changed += 1
+        print(
+            f"{rid} #{number}: {' '.join('+' + x for x in add)} {' '.join('-' + x for x in rem)}".strip()
+            + (" (dry-run)" if dry else "")
+        )
+        if dry:
+            continue
+        ids = ids or label_ids()
+        _push_label_delta(number, add, rem, ids)
+    print(f"labels: {len(iss_all)} issue(s), {changed} changed" + (" (dry-run)" if dry else ""))
+    return changed
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["push", "pull", "diff", "adopt"])
+    ap.add_argument("cmd", choices=["push", "pull", "diff", "adopt", "labels"])
     ap.add_argument("rows", nargs="*")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
@@ -343,6 +409,8 @@ if __name__ == "__main__":
             sys.exit("adopt needs at least one issue number")
         adopt(a.rows, a.dry_run)
         sys.exit(0)
+    if a.cmd == "labels":
+        sys.exit(labels(a.rows, a.dry_run))
     sel = pick(load_rows(), a.rows)
     if a.cmd == "pull":
         sys.exit(pull(sel, a.dry_run))
