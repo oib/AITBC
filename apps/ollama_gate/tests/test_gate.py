@@ -36,7 +36,7 @@ def test_wrong_job_token_is_403(client):
         resp = client.post(
             "/api/generate",
             json={},
-            headers={"X-Access-Key": "k", "X-Access-Secret": "s", "X-Job-Id": "job-B"},
+            headers={"X-Access-Key": "access-key-1", "X-Access-Secret": "s", "X-Job-Id": "job-B"},
         )
     assert resp.status_code == 403
 
