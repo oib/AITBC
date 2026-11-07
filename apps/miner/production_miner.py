@@ -22,6 +22,7 @@ import requests
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.exceptions import NetworkError
+from aitbc.media_guard import ffmpeg_input_guard
 from aitbc.network import AITBCHTTPClient
 
 import ipfs_pinning_sweeper
@@ -665,7 +666,7 @@ def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = N
     fmt = output_format or os.path.splitext(output_path)[1].lstrip(".") or "mp4"
     try:
         result = subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path, "-f", fmt, output_path],
+            ["ffmpeg", "-y", *ffmpeg_input_guard(), "-i", input_path, "-f", fmt, output_path],
             capture_output=True,
             text=True,
             timeout=300,
