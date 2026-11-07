@@ -78,8 +78,9 @@ class TestServiceResolver:
 
 
 class _FakeBackend:
-    def __init__(self, url: str):
+    def __init__(self, url: str, chain_id: str | None = None):
         self.url = url
+        self.chain_id = chain_id
 
     async def start(self) -> None:
         pass

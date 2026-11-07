@@ -27,7 +27,7 @@ async def test_fanout_publishes_envelope_to_each_peer(monkeypatch):
     published: list[tuple[str, str, dict]] = []
 
     class FakeBackend:
-        def __init__(self, url: str):
+        def __init__(self, url: str, chain_id: str | None = None):
             self.url = url
 
         async def start(self) -> None:
@@ -104,7 +104,7 @@ async def test_fanout_with_peers_does_not_warn(monkeypatch):
             warnings.append(msg % args if args else msg)
 
     class FakeBackend:
-        def __init__(self, url: str):
+        def __init__(self, url: str, chain_id: str | None = None):
             self.url = url
 
         async def start(self) -> None:
@@ -133,7 +133,7 @@ async def test_fanout_survives_peer_failure(monkeypatch):
     calls: list[str] = []
 
     class FailingBackend:
-        def __init__(self, url: str):
+        def __init__(self, url: str, chain_id: str | None = None):
             self.url = url
 
         async def start(self) -> None:
@@ -150,7 +150,7 @@ async def test_fanout_survives_peer_failure(monkeypatch):
     monkeypatch.setattr(aitbc_settings, "gossip_mesh_peer_urls", "ws://down:8202/rpc/gossip/ws,ws://up:8202/rpc/gossip/ws")
 
     class MixedBackend:
-        def __init__(self, url: str):
+        def __init__(self, url: str, chain_id: str | None = None):
             self.url = url
 
         async def start(self) -> None:
