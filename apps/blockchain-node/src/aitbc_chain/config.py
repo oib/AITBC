@@ -1039,6 +1039,16 @@ class ChainSettings(BaseSettings):
     # height is a separate operator pin, set on every host together with
     # the validator restart wave.
     state_transition_v22_height: int | None = None
+    # v23 (R12-05-F1/#1232 + R14-06-F1/#1230): escrow obligation bound.
+    # ESCROW_RELEASE/ESCROW_REFUND value is capped by the job's remaining
+    # obligation (Σ ESCROW_LOCK.value − Σ prior release/refund.value,
+    # tx-derived); ESCROW_FEE_SWEEP is capped by custody − remaining
+    # obligation (residue only). Locks/settlements with unparseable value
+    # fail closed as unbounded obligation. ``None`` keeps the rule
+    # unarmed: activation height is an operator pin set fleet-wide with
+    # the restart wave — a mid-rollout mixed set would apply different
+    # settlement rules and fork.
+    state_transition_v23_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its

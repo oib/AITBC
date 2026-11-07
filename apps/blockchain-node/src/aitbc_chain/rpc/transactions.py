@@ -154,6 +154,7 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
                 recipient=tx_data.get("to", ""),
                 payload=tx_data.get("payload"),
                 fee=tx_data.get("fee", 0),
+                value=tx_data.get("value", tx_data.get("amount", 0)) or 0,
             )
             if authority_error:
                 raise ValueError(authority_error)
