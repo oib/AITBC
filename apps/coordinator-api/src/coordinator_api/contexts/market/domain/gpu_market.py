@@ -47,6 +47,11 @@ class GPUBooking(SQLModel, table=True):
     client_id: str = Field(foreign_key="users.id", index=True)
     client_ref: str | None = Field(default=None, index=True)
     job_id: str | None = Field(default=None, index=True)
+    # #1231: the JobPayment created for THIS booking at purchase time.
+    # job_id is shared across sibling bookings on one prepared job, so the
+    # paid-hold expiry check must key on this — not on any paid payment
+    # found via the job. NULL for book_gpu holds (no payment is created).
+    payment_id: str | None = Field(default=None, index=True)
     duration_hours: float = Field(default=0.0)
     total_cost: Decimal = Field(default=Decimal("0.0"), sa_column=Column(Numeric(20, 8), nullable=False))
     status: str = Field(default="active", index=True)  # active, completed, cancelled
