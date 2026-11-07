@@ -40,7 +40,7 @@ class _Finalizer:
     def _known_chains(self) -> list[str]:
         return [CHAIN_ID]
 
-    def _finalizer_pass(self, chain_id: str, relayer_enabled: bool) -> None:
+    def _finalizer_pass(self, chain_id: str, relayer_enabled: bool, deadline: float | None = None) -> None:
         """Stands in for the synchronous sqlite backfill."""
         self.thread_ident = threading.get_ident()
         self.entered.set()
