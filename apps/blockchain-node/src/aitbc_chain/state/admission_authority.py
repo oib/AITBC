@@ -75,6 +75,15 @@ AUTHORITY_OPEN_TX_TYPES = frozenset(
         # Record+fee anchor (trading order buy/sell/cancel): signed by its
         # sender, no apply-path handler, no sender authority — open.
         "EXCHANGE",
+        # v21 agent sessions (#1142): payload-level authority is enforced at
+        # apply (owner/agent signature semantics in agent_spend.py); the door
+        # itself has no sender gate — open like every unsigned-class type.
+        "AGENT_SESSION_GRANT",
+        "AGENT_SESSION_REVOKE",
+        # Signature-domain name for /ai/job/{id}/cancel (#1055); never an
+        # on-chain tx, but peer-submittable — apply replays it as an unknown
+        # name, so the door treats it as open.
+        "AI_JOB_CANCEL",
     }
 )
 
