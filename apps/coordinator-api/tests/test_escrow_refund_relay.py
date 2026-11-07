@@ -501,9 +501,13 @@ class TestEscrowRefundRelay:
         assert resp.json()["refund_tx_hash"] == "0xwinner"
         assert resp.json()["duplicate"] is True
 
-    def test_refund_per_client_hourly_cap(self, client, db_session):
+    def test_refund_per_client_hourly_cap(self, client, db_session, monkeypatch):
         """Director ruling: a per-client hourly cap stops a stolen JWT from
         sweeping locks. Eleven requests on one credential → the last is 429."""
+        # apps/blockchain-node/tests/conftest.py sets AITBC_ENABLE_RATE_LIMITING=false
+        # process-wide at import; this test exists to prove the cap fires, so it
+        # re-enables the limiter for its own run (#1219).
+        monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "true")
         mock_client = _chain_client_mock(get_side_effect=NetworkError("GET failed"))
         headers = _token("cap-user")
         with patch(PATCH_TARGET, return_value=mock_client):
