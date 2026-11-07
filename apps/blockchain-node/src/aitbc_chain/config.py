@@ -1129,10 +1129,15 @@ class ChainSettings(BaseSettings):
     # block's height and round. Setting this False restores the pre-v0.25.6
     # behaviour, where any validator's proposal was prepared.
     consensus_enforce_proposer_schedule: bool = True
-    # Refuse attest_requests that carry no proposer_signature. Default off so
-    # peers still sending unsigned requests stay attestable during the
-    # rollout; arm once every proposer runs the code that signs (#1058).
-    consensus_require_signed_attest_request: bool = False
+    # Refuse attest_requests that carry no proposer_signature: the schedule
+    # check proves the claimed name, not authorship, so an unsigned request
+    # naming the scheduled proposer squats the attestation lock (#1240).
+    # Default on. Proposers sign requests since #1058/#1156 (a build older
+    # than #1156 sends them unsigned), so during a rolling upgrade from such
+    # a build set CONSENSUS_REQUIRE_SIGNED_ATTEST_REQUEST=false until every
+    # validator is upgraded, then drop the override. The live fleet has
+    # carried an explicit =true since 5 Nov 2026.
+    consensus_require_signed_attest_request: bool = True
     # Pre-proposal freshness gate: before building a block, compare the local
     # head with every GOSSIP_MESH_PEER_URLS peer's /rpc/head. A peer ahead (or
     # disagreeing at our height) blocks the proposal; per-peer query timeout
