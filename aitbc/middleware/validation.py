@@ -21,12 +21,22 @@ class RequestValidationMiddleware:
         self,
         app: ASGIApp,
         max_request_size: int = 10 * 1024 * 1024,  # 10MB default
+        exempt_prefixes: tuple[str, ...] = (),
     ) -> None:
         self.app = app
         self.max_request_size = max_request_size
+        self.exempt_prefixes = exempt_prefixes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Routes with their own size governance (e.g. streamed uploads) skip
+        # the buffer-and-cap path entirely — exempting them here keeps a 100MB
+        # upload from being buffered into memory before the route's own
+        # limiter ever sees it (#1234).
+        if scope.get("path", "").startswith(self.exempt_prefixes):
             await self.app(scope, receive, send)
             return
 
