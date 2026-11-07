@@ -13,7 +13,7 @@ import asyncio
 import json
 import sqlite3
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -44,6 +44,8 @@ logger = get_logger(__name__)
 # retried once before it fails closed. The proposer waits
 # ``multi_validator_attestation_timeout_seconds`` plus 0.5 s per missing
 # attestation for answers, so one extra attempt still lands inside that window.
+# #1245: heights of "already signed" memory kept when the tip cannot be read.
+SIGNED_ONCE_MAX_HEIGHTS = 256
 V9_CHECK_ATTEMPTS = 2
 V9_CHECK_RETRY_DELAY_S = 0.5
 
@@ -137,6 +139,23 @@ class RemoteAttestationService:
         self._requests_seen: dict[int, dict[int, float]] = {}
         self._round_locks_loaded = False
         self._round_locks_path = DATA_DIR / "data" / chain_id / "attestation_round_locks.json"
+        # #1245: hashes this node has already signed, per height. The lock
+        # above is renewed by nothing: the first signing of (height, hash)
+        # starts the window and a duplicate request neither renews nor
+        # restarts it. A duplicate inside the window is re-published (the
+        # proposer may have lost the first response); a duplicate after the
+        # window is refused -- the lock has lapsed on purpose and a replay
+        # must not re-arm it. Pruned by height as the tip advances, not by
+        # wall clock, so waiting out a timer does not forget a signing.
+        # Restart clears it, same as the lock; the header freshness bound
+        # covers that gap.
+        self._signed_once: dict[int, set[str]] = {}
+        # Highest local tip the v9 check has read; lets pruning avoid its own DB access.
+        self._tip_height_hint: int | None = None
+
+    def _now_epoch(self) -> float:
+        """Wall clock for header freshness; tests override it."""
+        return time.time()
 
     async def start(self) -> None:
         if self._listener_task is not None:
@@ -195,6 +214,24 @@ class RemoteAttestationService:
         if not header_hash:
             return
 
+        # #1245: a stale or far-future header is refused before it can touch
+        # the lock. The age is read from the signed header, not from when the
+        # request arrived, so retransmitting a captured request refreshes
+        # nothing.
+        header_age = self._header_age_seconds(header)
+        stale_reason = self._header_freshness_refusal(header_age)
+        if stale_reason is not None:
+            metrics_registry.increment(f"attestation_refused_{stale_reason}_total")
+            logger.info(
+                "Attestation refusal: %s at height %s (header age %.1fs, bound %.0fs, future skew %.0fs)",
+                stale_reason,
+                height_int,
+                header_age if header_age is not None else 0.0,
+                float(getattr(settings, "attestation_header_max_age_seconds", 60.0)),
+                float(getattr(settings, "attestation_header_future_skew_seconds", 10.0)),
+            )
+            return
+
         # #1242 round-keyed lock path: tip-height/canonical-parent check and
         # independent round derivation run before any lock evaluation, inside
         # the same await-free section as the signature — the head snapshot
@@ -237,6 +274,19 @@ class RemoteAttestationService:
                     header_hash[:18],
                     height_int,
                     existing[0][:18],
+                )
+                return
+            # #1245: this exact (height, hash) was signed before and its lock
+            # has lapsed -- signing again would re-arm the lock for another
+            # window, so a replayer could keep an attester locked out of a
+            # height indefinitely. Refuse; a duplicate inside the window
+            # (existing is not None) falls through as an idempotent re-publish.
+            if existing is None and header_hash in self._signed_once.get(height_int, ()):
+                metrics_registry.increment("attestation_refused_resign_after_expiry_total")
+                logger.info(
+                    "Attestation refusal: %s at height %s already signed and its lock has lapsed",
+                    header_hash[:18],
+                    height_int,
                 )
                 return
 
@@ -398,10 +448,11 @@ class RemoteAttestationService:
                 int((time.time() - float(request_ts)) * 1000) if isinstance(request_ts, (int, float)) else "unknown"
             )
             logger.info(
-                "Attestation response published: height=%s validator=%s proposer=%s request_age_ms=%s",
+                "Attestation response published: height=%s validator=%s proposer=%s header_age_ms=%s request_age_ms=%s",
                 message["height"],
                 address,
                 proposer,
+                int(header_age * 1000) if header_age is not None else "unknown",
                 request_age_ms,
             )
             return
@@ -481,6 +532,7 @@ class RemoteAttestationService:
                 if tip_row is None:
                     return "not_at_parent"
                 tip_height, tip_hash = tip_row
+                self._tip_height_hint = int(tip_height)
                 if tip_hash != parent_hash:
                     # Late request for the block this validator already
                     # imported: the request's hash IS the local head at that
@@ -606,13 +658,73 @@ class RemoteAttestationService:
             return "check_error"
         return None
 
-    def _record_attestation_lock(self, height: int, block_hash: str, proposer: str) -> None:
+    def _header_age_seconds(self, header: dict[str, Any]) -> float | None:
+        """Seconds between this node's clock and the header's signed
+        timestamp (negative = header is in the future). None when the header
+        carries no parseable timestamp -- headers predate v9 without one."""
+        raw = header.get("timestamp")
+        if raw is None or raw == "":
+            return None
+        try:
+            ts = raw if isinstance(raw, datetime) else datetime.fromisoformat(str(raw))
+        except (TypeError, ValueError):
+            return None
+        if ts.tzinfo is None:
+            # Block timestamps are stored as naive UTC.
+            ts = ts.replace(tzinfo=UTC)
+        return self._now_epoch() - ts.timestamp()
+
+    def _header_freshness_refusal(self, header_age: float | None) -> str | None:
+        """Refusal reason for a stale or future header, else None.
+
+        A header with no timestamp skips the bound (counted): the v9 hash
+        recompute in `_v9_check_transactions` binds the timestamp, so once v9
+        is active a request cannot omit it and still pass.
+        """
+        max_age = float(getattr(settings, "attestation_header_max_age_seconds", 60.0))
+        if max_age <= 0:
+            return None
+        if header_age is None:
+            metrics_registry.increment("attestation_header_timestamp_missing_total")
+            return None
+        if header_age > max_age:
+            return "stale_header"
+        skew = float(getattr(settings, "attestation_header_future_skew_seconds", 10.0))
+        if header_age < -skew:
+            return "future_header"
+        return None
+
+    def _record_attestation_lock(self, height: int, block_hash: str, proposer: str) -> bool:
         """Record that this node's validator key(s) signed block `block_hash`
-        at `height`. Locks expire by wall clock in `attestation_lock`."""
+        at `height`. Locks expire by wall clock in `attestation_lock`.
+
+        #1245: only the FIRST signing of (height, hash) starts the window.
+        A duplicate returns False and leaves the lock untouched, so replaying
+        a request can never extend or re-arm it."""
+        if block_hash in self._signed_once.get(height, ()):
+            return False
         now = time.monotonic()
         window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
         self._attested = {h: e for h, e in self._attested.items() if now - e[2] < 2 * window}
         self._attested[height] = (block_hash, proposer, now)
+        self._signed_once.setdefault(height, set()).add(block_hash)
+        self._prune_signed_once()
+        return True
+
+    def _prune_signed_once(self) -> None:
+        """Forget signings for heights below the local tip; hard-cap the rest.
+
+        Pruned by height, never by wall clock: a replay must not be able to
+        outwait a timer. A height below our own tip is settled, so a rival
+        there no longer matters. The tip is the one the v9 check last read --
+        no extra database access on the attestation path. The cap bounds
+        memory when no tip has been read (shadow mode, no session factory)."""
+        tip_height = self._tip_height_hint
+        if tip_height is not None:
+            self._signed_once = {h: s for h, s in self._signed_once.items() if h >= tip_height}
+        if len(self._signed_once) > SIGNED_ONCE_MAX_HEIGHTS:
+            keep = sorted(self._signed_once)[-SIGNED_ONCE_MAX_HEIGHTS:]
+            self._signed_once = {h: self._signed_once[h] for h in keep}
 
     def attestation_lock(self, height: int, window_seconds: float) -> tuple[str, str] | None:
         """Return ``(block_hash, proposer)`` this validator attested at

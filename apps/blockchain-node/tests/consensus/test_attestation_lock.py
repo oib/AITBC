@@ -31,6 +31,9 @@ def _unsigned_requests_allowed(monkeypatch):
     unsigned, so pin the pre-arming behaviour. The authorship contract lives in
     tests/consensus/test_attestation_squat.py (#1240)."""
     monkeypatch.setattr(settings, "consensus_require_signed_attest_request", False)
+    # #1245: header freshness has its own suite (test_attestation_replay_1245.py);
+    # these requests carry fixed timestamps from the past.
+    monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
 
 
 @pytest.fixture(autouse=True)
