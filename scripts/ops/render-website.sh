@@ -11,6 +11,10 @@
 #   WEBSITE_DOMAIN    e.g. hub.example.net      (fallback: node.env AITBC_HOSTNAME,
 #                                                 then HUB_DISCOVERY_URL)
 #   WEBSITE_CHAIN_ID  e.g. ait-hub.example.net  (fallback: node.env CHAIN_ID)
+#   WEBSITE_BRIDGE_PAYOUT_ADDRESS  0x… payout account shown on bridges.html
+#                                                 (fallback: node.env then
+#                                                 bridge-monitor env
+#                                                 BRIDGE_PAYOUT_ADDRESS)
 #
 # The render step is opt-in: it only runs when /etc/aitbc/website.env exists
 # (see examples/website.env.example). update.sh calls this after every pull, so files
@@ -30,6 +34,7 @@ AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 WEB_DIR="$AITBC_ROOT/website"
 ENV_FILE="${WEBSITE_ENV_FILE:-/etc/aitbc/website.env}"
 NODE_ENV="${NODE_ENV_FILE:-/etc/aitbc/node.env}"
+BRIDGE_ENV="${BRIDGE_ENV_FILE:-/etc/aitbc/aitbc-bridge-monitor.env}"
 STATE_FILE="${STATE_FILE:-/etc/aitbc/.website-rendered.env}"
 
 # Source tokens recognized in the files: the committed defaults plus
@@ -40,6 +45,7 @@ STATE_FILE="${STATE_FILE:-/etc/aitbc/.website-rendered.env}"
 # previously rendered content (update.sh stash/pop preserves it across pulls).
 DEFAULT_DOMAIN="hub.aitbc.bubuit.net"
 DEFAULT_CHAIN_ID="bc-2"
+DEFAULT_PAYOUT_ADDR="0x356ddE1ced333D7F4d40308fef824260ADbA7c4A"
 EXTRA_DOMAINS="hub.example.net"
 
 # Unlikely sentinel used to shield chain-id occurrences while the domain is
@@ -74,6 +80,15 @@ NEW_CHAIN_ID="$(value_of WEBSITE_CHAIN_ID "$ENV_FILE")"
 NEW_DOMAIN="${NEW_DOMAIN:-$DEFAULT_DOMAIN}"
 NEW_CHAIN_ID="${NEW_CHAIN_ID:-$DEFAULT_CHAIN_ID}"
 
+# Bridge payout address rendered into config.js (bridges.html lists recent
+# payouts from it). Same env-fallback pattern as domain/chain-id: website.env
+# wins, then node.env, then the bridge-monitor env that owns the live value,
+# then the committed default.
+NEW_PAYOUT="$(value_of WEBSITE_BRIDGE_PAYOUT_ADDRESS "$ENV_FILE")"
+[ -z "$NEW_PAYOUT" ] && NEW_PAYOUT="$(value_of BRIDGE_PAYOUT_ADDRESS "$NODE_ENV")"
+[ -z "$NEW_PAYOUT" ] && NEW_PAYOUT="$(value_of BRIDGE_PAYOUT_ADDRESS "$BRIDGE_ENV")"
+NEW_PAYOUT="${NEW_PAYOUT:-$DEFAULT_PAYOUT_ADDR}"
+
 # Operator contact line: messages.html carries an aitbc-contact marked
 # region that every render rewrites from CONTACT_EMAIL — emptied when the
 # variable is unset, so adding the address later is an env edit + render,
@@ -92,6 +107,8 @@ fi
     || { echo "Invalid WEBSITE_DOMAIN: $NEW_DOMAIN" >&2; exit 1; }
 [[ "$NEW_CHAIN_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._~-]*$ ]] \
     || { echo "Invalid WEBSITE_CHAIN_ID: $NEW_CHAIN_ID" >&2; exit 1; }
+[[ "$NEW_PAYOUT" =~ ^0x[0-9a-fA-F]{40}$ ]] \
+    || { echo "Invalid WEBSITE_BRIDGE_PAYOUT_ADDRESS: $NEW_PAYOUT" >&2; exit 1; }
 _contact_file="$WEB_DIR/messages.html"
 if [ -f "$_contact_file" ] && grep -q "aitbc-contact:start" "$_contact_file"; then
     if [ -n "$NEW_CONTACT" ]; then
@@ -115,8 +132,10 @@ fi
 # committed defaults.
 CUR_DOMAIN="$(value_of WEBSITE_DOMAIN "$STATE_FILE")"
 CUR_CHAIN_ID="$(value_of WEBSITE_CHAIN_ID "$STATE_FILE")"
+CUR_PAYOUT="$(value_of WEBSITE_BRIDGE_PAYOUT_ADDRESS "$STATE_FILE")"
 CUR_DOMAIN="${CUR_DOMAIN:-$DEFAULT_DOMAIN}"
 CUR_CHAIN_ID="${CUR_CHAIN_ID:-$DEFAULT_CHAIN_ID}"
+CUR_PAYOUT="${CUR_PAYOUT:-$DEFAULT_PAYOUT_ADDR}"
 
 esc() { printf '%s' "$1" | sed 's/\./\\./g'; }  # escape dots for the match side
 
@@ -144,10 +163,22 @@ for d in $EXTRA_DOMAINS; do add_domain "$d"; done
 [ "$CUR_CHAIN_ID" != "$NEW_CHAIN_ID" ]     && TRIGGER_ALTS+=("$(esc "$CUR_CHAIN_ID")")
 [ "$DEFAULT_CHAIN_ID" != "$NEW_CHAIN_ID" ] && TRIGGER_ALTS+=("$(esc "$DEFAULT_CHAIN_ID")")
 
+# Payout-address rewrites (CUR/DEFAULT -> NEW). The address is plain hex —
+# no sentinel shielding needed (it cannot collide with domain/chain forms).
+PAYOUT_EXPRS=()
+add_payout() {  # add_payout <source>
+    [ "$1" = "$NEW_PAYOUT" ] && return
+    PAYOUT_EXPRS+=(-e "${KEEP_GUARD}s#$(esc "$1")#$NEW_PAYOUT#g")
+    TRIGGER_ALTS+=("$(esc "$1")")
+}
+add_payout "$CUR_PAYOUT"
+add_payout "$DEFAULT_PAYOUT_ADDR"
+
 if [ "${#TRIGGER_ALTS[@]}" -eq 0 ]; then
-    printf 'WEBSITE_DOMAIN=%s\nWEBSITE_CHAIN_ID=%s\n' "$NEW_DOMAIN" "$NEW_CHAIN_ID" > "$STATE_FILE"
+    printf 'WEBSITE_DOMAIN=%s\nWEBSITE_CHAIN_ID=%s\nWEBSITE_BRIDGE_PAYOUT_ADDRESS=%s\n' \
+        "$NEW_DOMAIN" "$NEW_CHAIN_ID" "$NEW_PAYOUT" > "$STATE_FILE"
     chmod 644 "$STATE_FILE"
-    echo "Website branding already up to date (domain=$NEW_DOMAIN, chain_id=$NEW_CHAIN_ID)."
+    echo "Website branding already up to date (domain=$NEW_DOMAIN, chain_id=$NEW_CHAIN_ID, payout=$NEW_PAYOUT)."
     exit 0
 fi
 
@@ -167,12 +198,14 @@ for f in $FILES; do
             -e "${KEEP_GUARD}s#$CHAIN_ALT#$PH#g" \
             "${DOMAIN_EXPRS[@]}" \
             -e "${KEEP_GUARD}s#$PH#$NEW_CHAIN_ID#g" \
+            "${PAYOUT_EXPRS[@]}" \
             "$path"
         CHANGED=$((CHANGED + 1))
     fi
 done
 
-printf 'WEBSITE_DOMAIN=%s\nWEBSITE_CHAIN_ID=%s\n' "$NEW_DOMAIN" "$NEW_CHAIN_ID" > "$STATE_FILE"
+printf 'WEBSITE_DOMAIN=%s\nWEBSITE_CHAIN_ID=%s\nWEBSITE_BRIDGE_PAYOUT_ADDRESS=%s\n' \
+    "$NEW_DOMAIN" "$NEW_CHAIN_ID" "$NEW_PAYOUT" > "$STATE_FILE"
 chmod 644 "$STATE_FILE"
 
-echo "Website branding rendered: domain=$NEW_DOMAIN chain_id=$NEW_CHAIN_ID ($CHANGED files updated)."
+echo "Website branding rendered: domain=$NEW_DOMAIN chain_id=$NEW_CHAIN_ID payout=$NEW_PAYOUT ($CHANGED files updated)."
