@@ -30,6 +30,12 @@ NEW_ID = "bc-2"
 DOMAIN = "hub.aitbc.bubuit.net"
 DATED_LINE = "Published: 2026-08-15"
 
+# #1222: bridgePayoutAddress renders from env like domain/chain-id.
+_COMMITTED_CFG = (WEBSITE / "config.js").read_text(encoding="utf-8")
+DEFAULT_PAYOUT = re.search(r"bridgePayoutAddress: '(0x[0-9a-fA-F]{40})'", _COMMITTED_CFG).group(1)
+NEW_PAYOUT = "0x" + "ab" * 20
+FALLBACK_PAYOUT = "0x" + "cd" * 20
+
 
 def _committed_contact() -> str:
     m = re.search(r"mailto:([^\"]+)", (WEBSITE / "messages.html").read_text())
@@ -67,18 +73,30 @@ class TestRenderWebsite(unittest.TestCase):
         # that anchor is what lets the next render migrate the tokens.
         self.state_file.write_text(f"WEBSITE_DOMAIN={DOMAIN}\nWEBSITE_CHAIN_ID={OLD_ID}\n")
 
-    def _write_env(self, chain_id: str, contact: str | None = CONTACT) -> None:
+    def _write_env(
+        self,
+        chain_id: str,
+        contact: str | None = CONTACT,
+        payout: str | None = None,
+    ) -> None:
         lines = [f"WEBSITE_DOMAIN={DOMAIN}", f"WEBSITE_CHAIN_ID={chain_id}"]
         if contact is not None:
             lines.append(f"CONTACT_EMAIL={contact}")
+        if payout is not None:
+            lines.append(f"WEBSITE_BRIDGE_PAYOUT_ADDRESS={payout}")
         self.env_file.write_text("\n".join(lines) + "\n")
 
-    def _render(self, state: Path | None = None) -> subprocess.CompletedProcess:
+    def _render(
+        self,
+        state: Path | None = None,
+        bridge_env: Path | None = None,
+    ) -> subprocess.CompletedProcess:
         env = dict(
             os.environ,
             AITBC_ROOT=str(self.site),
             WEBSITE_ENV_FILE=str(self.env_file),
             NODE_ENV_FILE="/dev/null",
+            BRIDGE_ENV_FILE=str(bridge_env) if bridge_env else "/dev/null",
             STATE_FILE=str(state or self.state_file),
         )
         return subprocess.run(
@@ -180,6 +198,55 @@ class TestRenderWebsite(unittest.TestCase):
             stripped = _without_keep_regions(p.read_text(errors="replace"))
             self.assertNotIn(OLD_ID, stripped, p)
         self.assertIn(f"chainId: '{NEW_ID}'", (WEBSITE / "config.js").read_text())
+
+    # ── #1222: bridgePayoutAddress env rendering ──────────────────────
+
+    def test_payout_address_renders_from_website_env(self) -> None:
+        self._write_env(NEW_ID, payout=NEW_PAYOUT)
+        r = self._render()
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        cfg = (self.site / "website/config.js").read_text()
+        self.assertIn(f"bridgePayoutAddress: '{NEW_PAYOUT}'", cfg)
+        self.assertNotIn(DEFAULT_PAYOUT, cfg)
+        self.assertIn(f"WEBSITE_BRIDGE_PAYOUT_ADDRESS={NEW_PAYOUT}", self.state_file.read_text())
+
+    def test_payout_address_default_when_unset(self) -> None:
+        """No website.env/node.env/bridge-env value → committed default stays."""
+        self._write_env(NEW_ID)
+        r = self._render()
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        cfg = (self.site / "website/config.js").read_text()
+        self.assertIn(f"bridgePayoutAddress: '{DEFAULT_PAYOUT}'", cfg)
+
+    def test_payout_address_falls_back_to_bridge_env(self) -> None:
+        """Unset in website.env → BRIDGE_PAYOUT_ADDRESS from the bridge env."""
+        bridge_env = self.tmp / "aitbc-bridge-monitor.env"
+        bridge_env.write_text(f"BRIDGE_PAYOUT_ADDRESS={FALLBACK_PAYOUT}\n")
+        self._write_env(NEW_ID)
+        r = self._render(bridge_env=bridge_env)
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        cfg = (self.site / "website/config.js").read_text()
+        self.assertIn(f"bridgePayoutAddress: '{FALLBACK_PAYOUT}'", cfg)
+
+    def test_payout_address_re_renders_on_rotation(self) -> None:
+        """A payout-account rotation re-renders even when domain/chain are
+        unchanged — the state file anchors the previously rendered value."""
+        self._write_env(NEW_ID, payout=NEW_PAYOUT)
+        self.assertEqual(self._render().returncode, 0)
+        self._write_env(NEW_ID, payout=FALLBACK_PAYOUT)
+        r = self._render()
+        self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+        cfg = (self.site / "website/config.js").read_text()
+        self.assertIn(f"bridgePayoutAddress: '{FALLBACK_PAYOUT}'", cfg)
+        self.assertNotIn(NEW_PAYOUT, cfg)
+
+    def test_bad_payout_address_refused_before_touching_files(self) -> None:
+        before = _tree_files(self.site / "website")
+        self._write_env(NEW_ID, payout="0xnot-an-address")
+        r = self._render()
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("Invalid WEBSITE_BRIDGE_PAYOUT_ADDRESS", r.stderr)
+        self.assertEqual(before, _tree_files(self.site / "website"))
 
     def test_unset_contact_empties_the_marked_region(self) -> None:
         """Documented design: unset CONTACT_EMAIL empties the aitbc-contact
