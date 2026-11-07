@@ -134,15 +134,19 @@ class WebsocketGossipBackend(GossipBackend):
             await self._ensure_connection_unsafe(topic)
 
     def _auth_scope(self, topic: str) -> str:
-        """Auth scope this dialer signs for ``topic`` (#1159 Phase-B prep).
+        """Auth scope this dialer signs for ``topic`` (#1159, #1255).
 
-        ``gossip_auth_require_chain_scope`` off → legacy chain-less scope
-        (accepted by old and new servers mid-rollout). On → the canonical
-        ``channel:<chain>:<topic>`` scope; an unbound dial falls back to
-        this node's own ``settings.chain_id``, matching how the server
-        resolves a missing ``?chain=`` on a single-chain host.
+        Neither ``gossip_auth_sign_chain_scope`` nor
+        ``gossip_auth_require_chain_scope`` set → legacy chain-less scope
+        (accepted by old and new servers mid-rollout). Either set → the
+        canonical ``channel:<chain>:<topic>`` scope; an unbound dial falls
+        back to this node's own ``settings.chain_id``, matching how the
+        server resolves a missing ``?chain=`` on a single-chain host.
+
+        ``require`` implies ``sign``: a host whose own server side rejects
+        legacy signatures must not hand legacy signatures to its peers.
         """
-        if not settings.gossip_auth_require_chain_scope:
+        if not (settings.gossip_auth_sign_chain_scope or settings.gossip_auth_require_chain_scope):
             return channel_scope(topic)
         return channel_scope(topic, self._chain_id or settings.chain_id)
 
