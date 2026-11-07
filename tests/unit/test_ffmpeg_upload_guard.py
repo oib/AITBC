@@ -37,6 +37,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
@@ -98,12 +99,33 @@ def client(ffmpeg, tmp_path, monkeypatch):
     """
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     monkeypatch.setattr(ffmpeg, "_run_cmd", _fake_run())
+    # /process sits behind the #803 per-job access gate; these tests are about
+    # the upload bounds, not auth, so the verifier accepts job-1.
+    monkeypatch.setattr(
+        "aitbc.shop_gate._verify",
+        AsyncMock(return_value={"job_id": "job-1"}),
+    )
+    # Output is delivered via IPFS and the local file deleted (#799); stub the
+    # pin call so no real kubo is needed.
+    monkeypatch.setattr(ffmpeg, "_ipfs_add_file", lambda path, filename: "bafytestcid")
     # No `with`: the context manager runs the lifespan, which would shell out.
     return TestClient(ffmpeg.app)
 
 
+_JOB_HEADERS = {
+    "X-Access-Key": "k0123456789abcdef",
+    "X-Access-Secret": "s",
+    "X-Job-Id": "job-1",
+}
+
+
 def _post(client, data: bytes, filename: str = "clip.mp4", **form):
-    return client.post("/process", files={"file": (filename, data, "video/mp4")}, data=form)
+    return client.post(
+        "/process",
+        files={"file": (filename, data, "video/mp4")},
+        data=form,
+        headers=_JOB_HEADERS,
+    )
 
 
 # --- the suffix, which becomes part of a filename -------------------------------
@@ -221,11 +243,10 @@ def test_a_body_within_the_header_limit_is_let_through(client, ffmpeg, tmp_path)
 def test_a_completed_request_leaves_no_input_temp_file(client, ffmpeg, tmp_path):
     response = _post(client, b"x" * 4096)
     assert response.status_code == 200
-    # The input spool is unlinked in the endpoint's finally; the output file is
-    # deliberately kept for the caller, which is why it is the one file left.
-    remaining = list(tmp_path.iterdir())
-    assert len(remaining) == 1, f"expected only the kept output file, found {remaining}"
-    assert remaining[0].name == response.json()["output_path"].split("/")[-1]
+    # Both spools are unlinked in the endpoint's finally: input always, output
+    # since #799 moved delivery to IPFS (the CID is the caller-visible handle).
+    assert response.json()["output_cid"] == "bafytestcid"
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_the_output_hash_is_of_the_written_output(client, ffmpeg, tmp_path):
