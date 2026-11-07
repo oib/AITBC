@@ -116,10 +116,10 @@ def _bare_token(node, tok, arg_slots, val_re):
     """
     if arg_slots:
         arg = arg_slots.pop(0)
-        if not val_re.match(tok) and isinstance(arg.type, click.Choice) and tok not in arg.type.choices:
+        if not val_re(tok) and isinstance(arg.type, click.Choice) and tok not in arg.type.choices:
             return tok
         return None
-    if val_re.match(tok):
+    if val_re(tok):
         return None  # a doc-syntax value never resolves as a command
     if getattr(node, "commands", {}):
         return tok
@@ -143,6 +143,14 @@ def _resolve(cmdline):
     # in the walk below (not pre-filtered): removing them here would desync
     # the option-value skip (`--args '--verbose'` keeps a real token).
     _VAL = re.compile(r"^(<.*|.*\]$|.*….*|0x\w*|\d+[\w]*|/.*|[a-f0-9]{6,}$)", re.I)
+    # The docs generator emits bare UPPER_SNAKE positional placeholders
+    # (TX_HASH, DIRECTION, ACTION) — case-sensitive on purpose: the _VAL
+    # regex's re.I would also match real lowercase words.
+    _PLACEHOLDER = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+    def _is_doc_value(tok: str) -> bool:
+        return bool(_VAL.match(tok) or _PLACEHOLDER.match(tok))
+
     toks = [t for t in toks if t]
 
     node = main.cli
@@ -164,7 +172,7 @@ def _resolve(cmdline):
             arg_slots = [p for p in getattr(node, "params", []) if isinstance(p, click.Argument)]
             i += 1
             continue
-        miss = _bare_token(node, t, arg_slots, _VAL)
+        miss = _bare_token(node, t, arg_slots, _is_doc_value)
         if miss:
             return miss, " ".join(path)
         i += 1
