@@ -6,6 +6,7 @@ import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from aitbc.rate_limiting import client_ip_from_peer_and_headers
 from aitbc.security import RateLimiter
 
 from ..config import settings
@@ -94,30 +95,24 @@ async def _gossip_ws_send_json(websocket: WebSocket, payload: object) -> None:
 
 
 def _gossip_client_ip(websocket: WebSocket) -> str:
-    """Return the remote client IP for the gossip websocket.
+    """Return the client IP that keys the gossip connection and rate limits.
 
-    When uvicorn's ``--proxy-headers`` middleware is active it rewrites
-    ``scope["client"]`` for us.  As a defensive fallback we also check the
-    standard forwarded headers, preferring the address appended by the trusted
-    reverse proxy (the right-most entry in ``X-Forwarded-For``) over the
-    immediate TCP peer.
+    The TCP peer is the key unless it is a trusted proxy
+    (``AITBC_TRUSTED_PROXIES``, default loopback — the node's own nginx); only
+    then are ``X-Real-IP`` / the right-most untrusted ``X-Forwarded-For``
+    entry honoured. A client connecting directly can no longer rotate those
+    headers to mint a fresh per-IP connection slot, message bucket and
+    challenge-mint bucket per connection (#1241). Behind uvicorn
+    ``--proxy-headers`` ``scope["client"]`` is already the real client.
+
+    Per-process state: ``_gossip_ip_connections`` and ``_gossip_msg_rate``
+    live in each uvicorn worker's memory, so under ``--workers N`` the
+    effective per-IP ceilings are N x the configured values (#1241).
     """
-    if websocket.client:
-        host = websocket.client.host
-    else:
-        host = "unknown"
-
-    # FastAPI's Headers object is case-insensitive.
-    x_real_ip = websocket.headers.get("x-real-ip")
-    if x_real_ip:
-        return x_real_ip.strip().split(",")[0].strip() or host
-
-    x_forwarded_for = websocket.headers.get("x-forwarded-for")
-    if x_forwarded_for:
-        # The last address was appended by our trusted proxy.
-        return x_forwarded_for.strip().split(",")[-1].strip() or host
-
-    return host
+    return client_ip_from_peer_and_headers(
+        websocket.client.host if websocket.client else "",
+        websocket.headers,
+    )
 
 
 async def _stream_topic(topic: str, websocket: WebSocket) -> None:
