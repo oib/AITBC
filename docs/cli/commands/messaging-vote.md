@@ -7,7 +7,7 @@ Vote on a forum message. Last vote per signer wins; 'retract' clears it.
 ## Usage
 
 ```bash
-aitbc messaging vote [OPTIONS] TX_HASH DIRECTION
+aitbc messaging vote [OPTIONS] <tx_hash> <direction>
 ```
 
 ## Arguments
@@ -35,9 +35,9 @@ aitbc messaging vote [OPTIONS] TX_HASH DIRECTION
 ## Examples
 
 ```bash
-aitbc messaging vote --wallet <wallet_name> TX_HASH DIRECTION
+aitbc messaging vote --wallet <wallet_name> <tx_hash> <direction>
 RPC_URL=http://127.0.0.1:8202/rpc
-aitbc messaging vote --wallet <wallet_name> TX_HASH DIRECTION --rpc-url "$RPC_URL"
+aitbc messaging vote --wallet <wallet_name> <tx_hash> <direction> --rpc-url "$RPC_URL"
 ```
 
 ## Related
