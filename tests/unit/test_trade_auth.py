@@ -80,9 +80,18 @@ class TestGetClient:
         assert client.base_url == "http://trading.test:8104"
         assert client.timeout == 30
 
-    def test_explicit_url_wins(self, trading_env_file) -> None:
-        client = _get_client("http://explicit.test:9999")
-        assert client.base_url == "http://explicit.test:9999"
+    def test_explicit_url_to_untrusted_host_refused(self, trading_env_file) -> None:
+        """PI-SDK-01 (#1180): an explicit URL to a host outside the configured
+        service URLs must not carry the stored trading key — that is the
+        credential-exfil path the audit flagged."""
+        with pytest.raises(ValueError, match="refusing to send the configured credential"):
+            _get_client("http://explicit.test:9999")
+
+    def test_explicit_url_to_trusted_host_wins(self, trading_env_file) -> None:
+        """The configured service host stays usable: an explicit URL that
+        lands on a trusted host overrides the base URL and keeps the key."""
+        client = _get_client("http://trading.test:8104/v2")
+        assert client.base_url == "http://trading.test:8104/v2"
         assert client.headers["X-Trading-Api-Key"] == SYNTHETIC_TRADING_KEY
 
     def test_ctx_obj_config_wins_over_get_config(self, monkeypatch) -> None:
