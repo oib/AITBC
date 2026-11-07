@@ -138,3 +138,72 @@ def test_forwarded_headers_use_realip_peer(nginx_conf: str) -> None:
     for body in bodies:
         if "proxy_set_header X-Real-IP" in body:
             assert "proxy_set_header X-Real-IP $remote_addr;" in body, "a location injects X-Real-IP from a non-realip source"
+
+
+# ── #1204: public-by-policy gated bridge reads get edge key injection ──
+#
+# With WALLET_AUTH_ENABLED=true the wallet app 401s admin routes without
+# X-API-Key. Four bridge routes are public-by-policy (remote shop nodes +
+# exchange UI): settlements, float, sell/config-status, sell/quote. The edge
+# injects the per-host key for exactly those paths on both the /v1/bridge/
+# and /exchange/v1/bridge/ aliases; every other gated route gets no
+# injection and stays 401 publicly.
+
+_KEY_MARKER = "__WALLET_API_KEY__"
+# Literal conf text of the allowlisted path group (escaped for regex use).
+_GATED_PUBLIC_RE = r"settlements\|float\|sell/\(config-status\|quote\)"
+_GATED_PUBLIC_LITERAL = "settlements|float|sell/(config-status|quote)"
+
+
+def _location_body_at(conf: str, location_re: str) -> str:
+    match = re.search(location_re + r"\s*\{(.*?)\n    \}", conf, re.DOTALL)
+    assert match, f"location matching {location_re!r} not found"
+    return match.group(1)
+
+
+def test_bridge_gated_public_reads_key_injected(nginx_conf: str) -> None:
+    body = _location_body_at(nginx_conf, rf"location ~ \^/v1/bridge/\({_GATED_PUBLIC_RE}\)/\?\$")
+    assert f"proxy_set_header X-API-Key {_KEY_MARKER};" in body
+    assert "proxy_pass http://wallet_service;" in body
+
+
+def test_exchange_alias_gated_public_reads_key_injected(nginx_conf: str) -> None:
+    body = _location_body_at(nginx_conf, rf"location ~ \^/exchange/v1/bridge/\({_GATED_PUBLIC_RE}\)/\?\$")
+    assert f"proxy_set_header X-API-Key {_KEY_MARKER};" in body
+    assert "rewrite ^/exchange/(.*)$ /$1 break;" in body
+    assert "proxy_pass http://wallet_service;" in body
+
+
+def test_key_injection_only_on_allowlisted_locations(nginx_conf: str) -> None:
+    """The key directive may appear in exactly the two allowlisted locations —
+    a third injection point would silently widen the keyed surface."""
+    directive = f"proxy_set_header X-API-Key {_KEY_MARKER};"
+    assert nginx_conf.count(directive) == 2, (
+        f"expected the key directive in exactly 2 locations, found {nginx_conf.count(directive)}"
+    )
+
+
+def test_bridge_catchall_has_no_key_injection(nginx_conf: str) -> None:
+    """The /v1/bridge/ catch-all must NOT inject the key — gated routes not
+    on the public allowlist (poll*, future additions) stay 401 publicly."""
+    body = _location_body_at(nginx_conf, r"location ~ \^/v1/bridge/")
+    assert "X-API-Key" not in body
+
+
+def test_exchange_generic_block_has_no_key_injection(nginx_conf: str) -> None:
+    """The generic /exchange/v1/(exchange|bridge|receipts) block must NOT
+    inject — only the four allowlisted bridge paths carry the key."""
+    body = _location_body_at(nginx_conf, r"location ~ \^/exchange/v1/\(exchange\|bridge\|receipts\)\(/\|\$\)")
+    assert "X-API-Key" not in body
+
+
+def test_key_injected_locations_precede_catchalls(nginx_conf: str) -> None:
+    """nginx regex locations match first-hit: the injected locations must
+    sit BEFORE the catch-alls they carve out of, on both prefixes."""
+    injected = nginx_conf.index(f"^/v1/bridge/({_GATED_PUBLIC_LITERAL})")
+    catchall = nginx_conf.index(r"location ~ ^/v1/bridge/ {")
+    assert injected < catchall, "key-injected /v1/bridge/ location must precede the catch-all"
+
+    injected_ex = nginx_conf.index("^/exchange/v1/bridge/(settlements")
+    generic_ex = nginx_conf.index(r"location ~ ^/exchange/v1/(exchange|bridge|receipts)")
+    assert injected_ex < generic_ex, "key-injected /exchange/ bridge location must precede the generic exchange block"
