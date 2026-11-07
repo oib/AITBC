@@ -47,6 +47,29 @@ def _get_governance_account(http_client: AITBCHTTPClient, address: str, chain_id
         return {}
 
 
+def _get_sealed_execution_payload(http_client: AITBCHTTPClient, proposal_id: str, chain_id: str) -> dict:
+    """Fetch the ``execution_payload`` a proposal's GOVERNANCE_PROPOSE sealed (#1214).
+
+    The v13 chain binding requires GOVERNANCE_EXECUTE's ``payload.execution_payload``
+    to equal the dict committed at propose time; signing without it produces a tx
+    the node always rejects. Refuses rather than signs an unbindable EXECUTE.
+    """
+    try:
+        sealed = http_client.get(f"/rpc/governance/sealed-proposal/{proposal_id}", params={"chain_id": chain_id})
+    except Exception as e:
+        raise click.ClickException(f"cannot fetch sealed proposal {proposal_id}: {e}") from e
+    payload = sealed.get("execution_payload")
+    if not isinstance(payload, dict):
+        inner = (sealed.get("payload") or {}).get("execution_payload")
+        payload = inner if isinstance(inner, dict) else None
+    if payload is None:
+        raise click.ClickException(
+            f"proposal {proposal_id} has no sealed execution_payload on {chain_id} — "
+            "an EXECUTE without it is rejected by the v13 binding"
+        )
+    return payload
+
+
 def _sign_governance_tx(
     http_client: AITBCHTTPClient,
     chain_id: str,
@@ -511,6 +534,9 @@ def execute(
                 raise click.ClickException("--executor-address does not match the --wallet address")
             executor_address = executor_address or signer_address
             http_client, chain_id = _governance_rpc(ctx)
+            execute_fields: dict = {"proposal_id": proposal_id, "executor": executor_address}
+            # v13: EXECUTE must carry the execution_payload sealed at PROPOSE (#1214).
+            execute_fields["execution_payload"] = _get_sealed_execution_payload(http_client, proposal_id, chain_id)
             body = {
                 "signed_tx": _sign_governance_tx(
                     http_client,
@@ -518,7 +544,7 @@ def execute(
                     private_key,
                     signer_address,
                     "GOVERNANCE_EXECUTE",
-                    {"proposal_id": proposal_id, "executor": executor_address},
+                    execute_fields,
                 )
             }
         if executor_address:

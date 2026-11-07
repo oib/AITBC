@@ -80,12 +80,24 @@ def test_close_posts_signed_body() -> None:
     assert _verify(ADDR, str(body["signature"]), {"action": "close", "proposal_id": "prop_1"})
 
 
+def _fake_rpc_client(sealed: dict):
+    client = MagicMock()
+    client.get = lambda *a, **k: sealed
+    return client
+
+
+SEALED_PAYLOAD = {"action": "parameter_change", "parameter": "governance_sweep_marker", "value": "stress-1"}
+
+
 def test_execute_posts_signed_body() -> None:
     captured: dict = {}
     with (
         patch("aitbc_cli.commands.governance._get_client", return_value=_fake_client(captured)),
         patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
-        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(MagicMock(), "c")),
+        patch(
+            "aitbc_cli.commands.governance._governance_rpc",
+            return_value=(_fake_rpc_client({"execution_payload": SEALED_PAYLOAD}), "c"),
+        ),
         patch("aitbc_cli.commands.governance._sign_governance_tx", return_value={"signed": True}),
         patch("aitbc_cli.commands.governance.output"),
     ):
@@ -94,6 +106,63 @@ def test_execute_posts_signed_body() -> None:
     body = captured["json"]
     assert body["caller_address"] == ADDR
     assert _verify(ADDR, str(body["signature"]), {"action": "execute", "proposal_id": "prop_2"})
+
+
+def test_execute_signs_sealed_execution_payload() -> None:
+    """#1214: the signed EXECUTE payload must carry the PROPOSE-sealed
+    execution_payload verbatim — the v13 chain binding rejects without it."""
+    captured: dict = {}
+    sign_calls: list[dict] = []
+
+    def _capture_sign(http_client, chain_id, private_key, signer_address, tx_type, payload):
+        sign_calls.append({"tx_type": tx_type, "payload": payload})
+        return {"signed": True}
+
+    with (
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_client(captured)),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch(
+            "aitbc_cli.commands.governance._governance_rpc",
+            return_value=(_fake_rpc_client({"execution_payload": SEALED_PAYLOAD}), "c"),
+        ),
+        patch("aitbc_cli.commands.governance._sign_governance_tx", side_effect=_capture_sign),
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        result = CliRunner().invoke(governance, ["execute", "--proposal-id", "prop_9"])
+    assert result.exit_code == 0, result.output
+    assert len(sign_calls) == 1
+    signed_payload = sign_calls[0]["payload"]
+    assert sign_calls[0]["tx_type"] == "GOVERNANCE_EXECUTE"
+    assert signed_payload["execution_payload"] == SEALED_PAYLOAD
+    assert signed_payload["proposal_id"] == "prop_9"
+    assert signed_payload["executor"] == ADDR
+
+
+def test_execute_refuses_when_proposal_has_no_sealed_payload() -> None:
+    """#1214 refusal path: no sealed execution_payload → abort before signing
+    and before any POST — an unbindable EXECUTE must never be relayed."""
+    captured: dict = {}
+    sign_calls: list[tuple] = []
+
+    def _capture_sign(*a, **k):
+        sign_calls.append(a)
+        return {"signed": True}
+
+    with (
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_client(captured)),
+        patch("aitbc_cli.commands.governance._wallet_signer", return_value=(ADDR, PK.to_hex())),
+        patch(
+            "aitbc_cli.commands.governance._governance_rpc",
+            return_value=(_fake_rpc_client({"proposal_id": "prop_9", "payload": {"proposal_id": "prop_9"}}), "c"),
+        ),
+        patch("aitbc_cli.commands.governance._sign_governance_tx", side_effect=_capture_sign),
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        result = CliRunner().invoke(governance, ["execute", "--proposal-id", "prop_9"])
+    assert result.exit_code != 0
+    assert "execution_payload" in result.output
+    assert sign_calls == []
+    assert "path" not in captured
 
 
 def test_vote_signs_whole_body_and_binds_voter() -> None:

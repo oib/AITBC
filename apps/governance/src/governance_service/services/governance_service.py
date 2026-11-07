@@ -886,18 +886,7 @@ class GovernanceService:
                 tx_hash = result.get("tx_hash") or result.get("transaction_hash")
                 block_height = result.get("block_height")
             elif settings.enable_onchain_submission and settings.proposer_private_key:
-                from aitbc.governance.onchain import build_execute_tx
-
-                payload = build_execute_tx(proposal_id, executor_address, proposal.chain_id)
-                result = await self._blockchain.submit_governance_tx(
-                    tx_type="GOVERNANCE_EXECUTE",
-                    sender=executor_address,
-                    private_key=settings.proposer_private_key,
-                    payload=payload,
-                    chain_id=proposal.chain_id,
-                )
-                tx_hash = result.get("tx_hash") or result.get("transaction_hash")
-                block_height = result.get("block_height")
+                tx_hash, block_height = await self._submit_service_signed_execute(proposal, proposal_id, executor_address)
 
             # v0.10.1: Parameter automation must apply BEFORE the proposal is marked
             # executed — a failed apply used to leave an "executed" proposal whose
@@ -940,6 +929,36 @@ class GovernanceService:
             execution_log.error_message = str(e)
             await self.session.commit()
             raise
+
+    async def _submit_service_signed_execute(
+        self, proposal: Proposal, proposal_id: str, executor_address: str
+    ) -> tuple[str | None, int | None]:
+        """Submit a service-signed GOVERNANCE_EXECUTE for ``proposal_id``.
+
+        v13: the tx payload must carry the ``execution_payload`` sealed at
+        PROPOSE — without it the node rejects the tx (#1214). Refuses locally
+        when the sealed payload cannot be verified rather than relaying a tx
+        the chain is guaranteed to reject.
+        """
+        from aitbc.governance.onchain import build_execute_tx
+
+        payload = build_execute_tx(proposal_id, executor_address, proposal.chain_id)
+        sealed = await self._blockchain.get_sealed_governance_proposal(proposal_id, proposal.chain_id)
+        sealed_payload = (sealed or {}).get("execution_payload")
+        if not isinstance(sealed_payload, dict):
+            raise ValueError(
+                f"Cannot verify sealed execution_payload for proposal {proposal_id} on "
+                f"{proposal.chain_id} — refusing to submit an EXECUTE the v13 binding rejects"
+            )
+        payload["execution_payload"] = sealed_payload
+        result = await self._blockchain.submit_governance_tx(
+            tx_type="GOVERNANCE_EXECUTE",
+            sender=executor_address,
+            private_key=settings.proposer_private_key,
+            payload=payload,
+            chain_id=proposal.chain_id,
+        )
+        return result.get("tx_hash") or result.get("transaction_hash"), result.get("block_height")
 
     async def _enforce_execution_timelock(self, proposal: Proposal) -> None:
         """Refuse execution unless the timelock is provably expired (V23-18).
