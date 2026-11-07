@@ -26,6 +26,14 @@ from aitbc_chain.metrics import metrics_registry
 
 
 @pytest.fixture(autouse=True)
+def _unsigned_requests_allowed(monkeypatch):
+    """These tests cover the attestation-lock mechanics and schedule checks, not request authorship: their requests are
+    unsigned, so pin the pre-arming behaviour. The authorship contract lives in
+    tests/consensus/test_attestation_squat.py (#1240)."""
+    monkeypatch.setattr(settings, "consensus_require_signed_attest_request", False)
+
+
+@pytest.fixture(autouse=True)
 def _reset_metrics():
     metrics_registry.reset()
     yield
