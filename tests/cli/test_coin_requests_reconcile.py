@@ -176,9 +176,9 @@ def test_reopen_clears_a_hash_the_chain_does_not_have(db, chain) -> None:
 
 def test_reopen_refuses_a_request_the_chain_still_has(db, chain) -> None:
     """The whole point. This hash is what stops `/execute` paying a second time."""
-    result = _run("reopen", "--request-id", "req-paid", "--rpc-url", RPC)
+    with pytest.raises(CLIError, match="Refusing to reopen"):
+        _run("reopen", "--request-id", "req-paid", "--rpc-url", RPC)
 
-    assert "Refusing to reopen" in result.output
     assert _hash_of("req-paid") == PAID_HASH
 
 
@@ -186,9 +186,9 @@ def test_reopen_refuses_when_the_chain_cannot_be_reached(db, chain) -> None:
     """An unreachable node must not read as a missing transaction."""
     chain["error"] = RuntimeError("connection refused")
 
-    result = _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
+    with pytest.raises(CLIError, match="could not confirm"):
+        _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
 
-    assert "could not confirm" in result.output
     assert _hash_of("req-lost") == LOST_HASH
 
 

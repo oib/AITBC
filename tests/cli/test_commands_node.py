@@ -86,8 +86,9 @@ class TestNodeCommands:
         mock_load_config.return_value = mock_config
 
         from aitbc_cli.commands.node import node
+        from tests.fixtures.cli_mocks import make_cli_obj
 
-        result = runner.invoke(node, ["list"])
+        result = runner.invoke(node, ["list"], obj=make_cli_obj(output_format="table"))
 
         assert result.exit_code == 0, result.output
         assert "No nodes configured" in result.output
@@ -127,11 +128,19 @@ class TestNodeCommands:
         assert result.exit_code == 0, result.output
         assert "test-island" in result.output
 
-    def test_node_island_leave(self, runner):
+    @patch("aitbc_cli.utils.http_client.AITBCHTTPClient")
+    def test_node_island_leave(self, mock_client_cls, runner):
         """``node island leave`` confirms leaving an island."""
         from aitbc_cli.commands.node import node
+        from tests.fixtures.cli_mocks import make_cli_obj
 
-        result = runner.invoke(node, ["island", "leave", "--island-id", "test-island"])
+        mock_client = MagicMock()
+        mock_client.post.return_value = {"success": True}
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(
+            node, ["island", "leave", "--island-id", "test-island"], obj=make_cli_obj(output_format="table")
+        )
 
         assert result.exit_code == 0, result.output
         assert "Successfully left" in result.output

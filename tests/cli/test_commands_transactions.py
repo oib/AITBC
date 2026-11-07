@@ -132,8 +132,9 @@ class TestTransactionsCommands:
         mock_client.get.return_value = {"transactions": []}
 
         from aitbc_cli.commands.transactions import transactions
+        from tests.fixtures.cli_mocks import make_cli_obj
 
-        result = runner.invoke(transactions, ["pending"])
+        result = runner.invoke(transactions, ["pending"], obj=make_cli_obj(output_format="table"))
 
         assert result.exit_code == 0, result.output
         assert "Pending transactions: 0" in result.output

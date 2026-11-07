@@ -478,7 +478,20 @@ def test_run_job_no_flag_passes_node_wallet_none(monkeypatch):
     captured: dict = {}
     runner = _patch_run_job(monkeypatch, jobs_mod, captured)
 
-    def fake_ollama(ctx, offer, prompt, wallet, pk, max_tokens, stream, output_format, track, node_wallet=None):
+    def fake_ollama(
+        ctx,
+        offer,
+        prompt,
+        wallet,
+        pk,
+        max_tokens,
+        stream,
+        output_format,
+        track,
+        node_wallet=None,
+        buyer_agent_id=None,
+        provider_agent_id=None,
+    ):
         captured["node_wallet"] = node_wallet
 
     monkeypatch.setattr(jobs_mod, "_run_ollama", fake_ollama)
@@ -496,7 +509,20 @@ def test_run_job_explicit_proposer_flag_wins(monkeypatch):
     captured: dict = {}
     runner = _patch_run_job(monkeypatch, jobs_mod, captured)
 
-    def fake_ollama(ctx, offer, prompt, wallet, pk, max_tokens, stream, output_format, track, node_wallet=None):
+    def fake_ollama(
+        ctx,
+        offer,
+        prompt,
+        wallet,
+        pk,
+        max_tokens,
+        stream,
+        output_format,
+        track,
+        node_wallet=None,
+        buyer_agent_id=None,
+        provider_agent_id=None,
+    ):
         captured["node_wallet"] = node_wallet
 
     monkeypatch.setattr(jobs_mod, "_run_ollama", fake_ollama)
