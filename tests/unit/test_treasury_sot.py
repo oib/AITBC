@@ -27,12 +27,19 @@ SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "data", "ta
 
 
 def _iter_repo_files():
-    for p in REPO.rglob("*"):
-        if not p.is_file() or p.suffix in {".pyc", ".png", ".jpg", ".bin", ".lock"}:
-            continue
-        if any(part in SKIP_DIRS for part in p.parts):
-            continue
-        yield p
+    # os.walk with dir pruning: Path.rglob descends into venv/.venv anyway —
+    # filtering parts afterwards still pays the full traversal cost and timed
+    # out on nodes carrying a real virtualenv.
+    import os
+
+    skip_suffixes = {".pyc", ".png", ".jpg", ".bin", ".lock"}
+    for dirpath, dirnames, filenames in os.walk(REPO):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for name in filenames:
+            p = Path(dirpath) / name
+            if p.suffix in skip_suffixes:
+                continue
+            yield p
 
 
 def _hits(literal: str):

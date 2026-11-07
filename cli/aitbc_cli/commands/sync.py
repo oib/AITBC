@@ -70,10 +70,15 @@ def bulk(ctx, source, import_url, batch_size, poll_interval):
         str(poll_interval),
     ]
 
-    # Prepare environment
-    env = {
-        "PYTHONPATH": str(src_dir),
-    }
+    # Prepare environment: keep the caller's env (PATH/HOME/etc.) and put both
+    # the blockchain src dir and the repo root on PYTHONPATH — sync_cli.py
+    # imports the shared `aitbc` package, which lives at the repo root and is
+    # only importable from a source checkout when the repo root is on the path.
+    env = dict(os.environ)
+    pythonpath = [str(src_dir), str(aitbc_root)]
+    if env.get("PYTHONPATH"):
+        pythonpath.append(env["PYTHONPATH"])
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath)
 
     click.echo(f"Running bulk sync from {source} to {import_url} (batch size: {batch_size})")
 

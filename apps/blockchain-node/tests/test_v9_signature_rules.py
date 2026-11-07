@@ -641,6 +641,10 @@ class TestAttesterTxChecks:
             json.dumps([{"address": ADDR_ATTACKER}, {"address": addr_attester}]),
         )
         monkeypatch.setattr(settings, "attestation_lock_enabled", False)
+        # These tests exercise tx admission/signature rules, not proposer
+        # rotation: with the fixture's two validators the schedule names the
+        # attester at height 1, so leave scheduling to its own tests.
+        monkeypatch.setattr(settings, "consensus_enforce_proposer_schedule", False)
         broker = _StubBroker()
         monkeypatch.setattr("aitbc_chain.consensus.remote_attestation.gossip_broker", broker)
         svc = RemoteAttestationService(CHAIN, {addr_attester: key_attester}, session_factory=session_factory)
@@ -683,6 +687,9 @@ class TestAttesterTxChecks:
         req: dict[str, Any] = {"header": header, "timestamp": 0.0}
         if txs is not None:
             req["transactions"] = txs
+        from aitbc.crypto.consensus_signing import sign_block_hash
+
+        req["proposer_signature"] = sign_block_hash(header, KEY_ATTACKER)
         return req
 
     def _unsigned_bound_tx(self) -> dict[str, Any]:
@@ -1284,6 +1291,10 @@ class TestV17Attester:
             json.dumps([{"address": ADDR_ATTACKER}, {"address": addr_attester}]),
         )
         monkeypatch.setattr(settings, "attestation_lock_enabled", False)
+        # These tests exercise tx admission/signature rules, not proposer
+        # rotation: with the fixture's two validators the schedule names the
+        # attester at height 1, so leave scheduling to its own tests.
+        monkeypatch.setattr(settings, "consensus_enforce_proposer_schedule", False)
         broker = _StubBroker()
         monkeypatch.setattr("aitbc_chain.consensus.remote_attestation.gossip_broker", broker)
         svc = RemoteAttestationService(CHAIN, {addr_attester: key_attester}, session_factory=session_factory)
@@ -1315,7 +1326,11 @@ class TestV17Attester:
             header.get("state_root") or "",
             header.get("bridge_state_root") or "",
         )
-        return {"header": header, "timestamp": 0.0, "transactions": txs}
+        req: dict[str, Any] = {"header": header, "timestamp": 0.0, "transactions": txs}
+        from aitbc.crypto.consensus_signing import sign_block_hash
+
+        req["proposer_signature"] = sign_block_hash(header, KEY_ATTACKER)
+        return req
 
     def test_v17_attests_unsigned_stake_lock_with_auth(self, session_factory, attester, monkeypatch):
         svc, broker = attester

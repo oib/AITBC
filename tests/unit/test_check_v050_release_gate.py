@@ -90,8 +90,11 @@ def test_script_does_not_match_itself(tmp_path):
 
 
 def test_default_root_is_checkout_not_opt_aitbc(tmp_path):
-    # --root omitted: ROOT derives from the script location (the worktree),
-    # which is a valid tree here.
+    # --root omitted: ROOT derives from the script location (the checkout
+    # this test file lives in — which may legitimately BE /opt/aitbc on a
+    # deployed node, so assert derivation, not a hardcoded path).
+    import os
+
     proc = subprocess.run(
         ["bash", str(SCRIPT)],
         capture_output=True,
@@ -100,4 +103,5 @@ def test_default_root_is_checkout_not_opt_aitbc(tmp_path):
         cwd=REPO_ROOT,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "/opt/aitbc" not in proc.stdout.split("root:", 1)[1].splitlines()[0]
+    reported = proc.stdout.split("root:", 1)[1].splitlines()[0].strip()
+    assert reported == os.path.realpath(REPO_ROOT)
