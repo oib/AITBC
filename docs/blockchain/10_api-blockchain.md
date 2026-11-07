@@ -222,6 +222,7 @@ Public, machine-readable description of the node for nodes that want to join:
   "public_rpc_url": "https://hub.example.net/rpc",
   "subscription_websocket_url": "wss://hub.example.net/rpc/subscribe/ws",
   "gossip_websocket_url": "wss://hub.example.net/rpc/gossip/ws",
+  "gossip_websocket_urls": { "ait-localnet": "wss://hub.example.net/rpc/gossip/ws?chain=ait-localnet" },
   "gossip_auth_required": true,
   "validators": [ ... ],
   "connection_instructions": "Set default_peer_rpc_url=... "
