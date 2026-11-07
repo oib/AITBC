@@ -22,7 +22,12 @@ from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
-from aitbc.crypto.consensus_signing import sign_consensus_message, verify_block_signature
+from aitbc.constants import DATA_DIR
+from aitbc.crypto.consensus_signing import (
+    sign_consensus_message,
+    verify_block_signature,
+    verify_consensus_message,
+)
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
@@ -56,6 +61,45 @@ def _same_address(a: str, b: str) -> bool:
     return canonical_address(a) == canonical_address(b)
 
 
+class _RoundLockEntry:
+    """One signed (height, round) -> block_hash record (#1242).
+
+    ``signed_at``/``request_seen_at`` are monotonic for live entries; records
+    restored from disk carry wall-clock-derived equivalents so the same U1/U2
+    math applies after a restart.
+    """
+
+    __slots__ = ("block_hash", "proposer", "signed_at", "signed_wall", "request_seen_at", "request_seen_wall")
+
+    def __init__(
+        self,
+        block_hash: str,
+        proposer: str,
+        signed_at: float,
+        signed_wall: float,
+        request_seen_at: float | None,
+        request_seen_wall: float | None,
+    ) -> None:
+        self.block_hash = block_hash
+        self.proposer = proposer
+        self.signed_at = signed_at
+        self.signed_wall = signed_wall
+        self.request_seen_at = request_seen_at
+        self.request_seen_wall = request_seen_wall
+
+
+class _RoundLockVerdict:
+    """Outcome of the shared (height, round) lock transition check."""
+
+    __slots__ = ("permitted", "reason", "block_hash", "proposer")
+
+    def __init__(self, permitted: bool, reason: str | None, block_hash: str = "", proposer: str = "") -> None:
+        self.permitted = permitted
+        self.reason = reason
+        self.block_hash = block_hash
+        self.proposer = proposer
+
+
 class RemoteAttestationService:
     """Collect and serve remote block-header attestations over gossip."""
 
@@ -84,6 +128,15 @@ class RemoteAttestationService:
         # build a rival at the same height — the asymmetric-partition fork
         # mechanism seen live 2026-09-27.
         self._attested: dict[int, tuple[str, str, float]] = {}
+        # #1242 round-keyed lock state — used only when
+        # ``attestation_round_lock_enabled`` is set; the legacy ``_attested``
+        # path above is untouched when it is not.
+        #   _round_locks: (height, round) -> _RoundLockEntry
+        #   _requests_seen: height -> {round: first_seen_mono} — U2 evidence
+        self._round_locks: dict[tuple[int, int], _RoundLockEntry] = {}
+        self._requests_seen: dict[int, dict[int, float]] = {}
+        self._round_locks_loaded = False
+        self._round_locks_path = DATA_DIR / "data" / chain_id / "attestation_round_locks.json"
 
     async def start(self) -> None:
         if self._listener_task is not None:
@@ -142,11 +195,41 @@ class RemoteAttestationService:
         if not header_hash:
             return
 
+        # #1242 round-keyed lock path: tip-height/canonical-parent check and
+        # independent round derivation run before any lock evaluation, inside
+        # the same await-free section as the signature — the head snapshot
+        # cannot move between check and sign.
+        round_lock = self._round_lock_enabled()
+        request_round: int | None = None
+        if round_lock:
+            request_round = self._derive_request_round(header)
+            try:
+                declared_round = int(str(header.get("round")))
+            except (TypeError, ValueError):
+                declared_round = -1
+            if request_round is None or declared_round != request_round:
+                logger.info(
+                    "Round-lock refusal: round mismatch/underivable at height %s — declared=%s derived=%s",
+                    height_int,
+                    header.get("round"),
+                    request_round,
+                )
+                return
+            tip_refusal = self._tip_authorizes(header, height_int, header_hash)
+            if tip_refusal is not None:
+                logger.info(
+                    "Round-lock refusal: %s for %s at height %s",
+                    tip_refusal,
+                    header_hash[:18],
+                    height_int,
+                )
+                return
+
         # Attestation lock: having signed one header at this height, refuse a
         # rival hash for one round window. Double-signing two blocks at h is
         # the equivocation that lets an asymmetric partition become a fork.
         window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
-        if getattr(settings, "attestation_lock_enabled", True):
+        if not round_lock and getattr(settings, "attestation_lock_enabled", True):
             existing = self.attestation_lock(height_int, window)
             if existing is not None and existing[0] != header_hash:
                 logger.info(
@@ -201,6 +284,26 @@ class RemoteAttestationService:
         else:
             count_v9_would_reject("attest_unsigned_request")
 
+        if round_lock and request_round is not None:
+            # The request is authentic (proposer signature verified): record
+            # it as U2 round-advance evidence, then apply the shared U1/U2
+            # transition verdict. Recording before the verdict lets the
+            # current later-round request itself serve as the "subsequent
+            # request" the AD's U2 rule requires.
+            self._record_request_seen(height_int, request_round)
+            verdict = self.round_lock_verdict(height_int, request_round, header_hash)
+            if not verdict.permitted:
+                logger.info(
+                    "Round-lock refusal: %s for %s at height %s round %s (locked %s by %s)",
+                    verdict.reason,
+                    header_hash[:18],
+                    height_int,
+                    request_round,
+                    verdict.block_hash[:18],
+                    verdict.proposer[:18],
+                )
+                return
+
         # v9: before signing, verify every transaction in the request —
         # sender signature (except the shared internal allowlist) and nonce
         # order against this validator's own state at the block's parent.
@@ -235,6 +338,14 @@ class RemoteAttestationService:
                 refusal,
             )
 
+        if round_lock and request_round is not None:
+            # Durable anti-equivocation record BEFORE any signature is
+            # released (#1242 / AD Amendment D): a crash after this point can
+            # never forget that (height, round) is bound to header_hash. A
+            # persistence failure propagates — no signature goes out
+            # unrecorded.
+            self._record_round_lock(height_int, request_round, header_hash, proposer)
+
         for address, private_key in self._validator_keys.items():
             # Do not sign our own block.
             if _same_address(address, proposer):
@@ -252,12 +363,17 @@ class RemoteAttestationService:
                 "state_root": header.get("state_root", ""),
                 "bridge_state_root": header.get("bridge_state_root", ""),
             }
+            if round_lock and request_round is not None:
+                # Amendment A: the round is inside the signed payload, not
+                # transport metadata — changing it invalidates the signature.
+                message["round"] = request_round
             try:
                 signature = sign_consensus_message(message, private_key)
             except Exception as e:
                 logger.warning("Failed to sign attestation: %s", e)
                 continue
-            self._record_attestation_lock(height_int, header_hash, proposer)
+            if not round_lock:
+                self._record_attestation_lock(height_int, header_hash, proposer)
 
             response = {
                 "chain_id": self._chain_id,
@@ -266,6 +382,8 @@ class RemoteAttestationService:
                 "validator": address,
                 "signature": signature,
             }
+            if round_lock and request_round is not None:
+                response["round"] = request_round
             try:
                 await gossip_broker.publish(self._response_topic, response)
             except Exception as e:
@@ -570,6 +688,311 @@ class RemoteAttestationService:
         except Exception:
             return set()
 
+    # ------------------------------------------------------------------
+    # #1242 round-keyed attestation lock (attestation_round_lock_enabled)
+    # ------------------------------------------------------------------
+
+    def _round_lock_enabled(self) -> bool:
+        return bool(getattr(settings, "attestation_round_lock_enabled", False))
+
+    def _round_seconds(self) -> int:
+        return int(float(getattr(settings, "consensus_proposer_round_seconds", 60)))
+
+    def _derive_request_round(self, header: dict) -> int | None:
+        """Independently derive the proposer round for an attest_request header.
+
+        Mirrors the proposer-side derivation exactly: ``proposer_round`` over
+        (sealed parent timestamp, proposed block timestamp, round window).
+        Returns None when either timestamp or the parent row is unavailable —
+        callers must treat that as underivable, never as round 0.
+        """
+        try:
+            ts_raw = header.get("timestamp")
+            block_ts = ts_raw if isinstance(ts_raw, datetime) else datetime.fromisoformat(str(ts_raw))
+        except (TypeError, ValueError):
+            return None
+        parent_ts = self._parent_timestamp(str(header.get("parent_hash", "")))
+        if parent_ts is None:
+            return None
+        try:
+            from .multi_validator_poa import proposer_round
+
+            return proposer_round(parent_ts, block_ts, self._round_seconds())
+        except Exception:
+            return None
+
+    def _collect_round_for_block(self, block: Any) -> int | None:
+        """Round for the block this node is about to attest-collect.
+
+        Same derivation attesters apply to the request header, so the
+        declared round always matches their independent check.
+        """
+        parent_ts = self._parent_timestamp(str(getattr(block, "parent_hash", "") or ""))
+        ts = getattr(block, "timestamp", None)
+        if ts is None or parent_ts is None:
+            return None
+        if isinstance(ts, str):
+            try:
+                ts = datetime.fromisoformat(ts)
+            except ValueError:
+                return None
+        try:
+            from .multi_validator_poa import proposer_round
+
+            return proposer_round(parent_ts, ts, self._round_seconds())
+        except Exception:
+            return None
+
+    def _unlock_window(self) -> float:
+        """U2 protocol-evidence window: the applicable consensus_gates span.
+
+        Defaults to the attestation-collection timeout + 1s margin, plus the
+        PBFT view-change timeout when PBFT is armed. An explicit
+        ``attestation_round_unlock_window_seconds`` wins.
+        """
+        override = float(getattr(settings, "attestation_round_unlock_window_seconds", 0.0) or 0.0)
+        if override > 0:
+            return override
+        window = float(getattr(settings, "multi_validator_attestation_timeout_seconds", 15.0) or 15.0)
+        if getattr(settings, "pbft_consensus_enabled", False):
+            window += float(getattr(settings, "pbft_view_change_timeout", 30) or 0.0)
+        return window + 1.0
+
+    def _local_head(self) -> tuple[int, str] | None:
+        """(height, hash) of the sealed tip, or None."""
+        if self._session_factory is None:
+            return None
+        try:
+            with self._session_factory() as session:
+                row = session.exec(
+                    select(Block.height, Block.hash)
+                    .where(Block.chain_id == self._chain_id)
+                    .order_by(text("height DESC"))
+                    .limit(1)
+                ).first()
+                if row is None:
+                    return None
+                return int(row[0]), str(row[1])
+        except Exception:
+            return None
+
+    def _canonical_hash_at(self, height: int) -> str | None:
+        """The canonical block hash at ``height``, or None when unknown."""
+        if self._session_factory is None:
+            return None
+        try:
+            with self._session_factory() as session:
+                row = session.exec(
+                    select(Block.hash).where(Block.chain_id == self._chain_id).where(Block.height == height)
+                ).first()
+                return str(row[0]) if row is not None else None
+        except Exception:
+            return None
+
+    def _tip_authorizes(self, header: dict, height_int: int, header_hash: str) -> str | None:
+        """Tip-height / canonical-parent authorization for an attest_request.
+
+        Returns a refusal reason, or None when the request may proceed. An
+        ordinary proposal must extend the local tip (``height == tip + 1``
+        and ``parent_hash == tip hash``). Requests at or below the tip are
+        attestable only when the requested hash IS the canonical block at
+        that height — idempotent re-signs and proof-path attestations of
+        decided history. A different hash at a decided height is the
+        stale-height harvest path and is refused. This runs before signing
+        and before any lock mutation, inside the same await-free section, so
+        the head snapshot cannot move between check and signature.
+        """
+        head = self._local_head()
+        if head is None:
+            return "no_local_head"
+        head_height, head_hash = head
+        if height_int == head_height + 1:
+            if str(header.get("parent_hash", "")) != head_hash:
+                return "parent_mismatch"
+            return None
+        if height_int <= head_height:
+            canonical = self._canonical_hash_at(height_int)
+            if canonical is not None and canonical == header_hash:
+                return None
+            return "stale_height_rival" if canonical is not None else "unknown_height"
+        return "future_height"
+
+    def _record_request_seen(self, height: int, round_: int) -> None:
+        """Note the first time an authentic request for (height, round) arrived.
+
+        U2 evidence: a later-round request's existence proves earlier rounds
+        at this height were minted and (once the gates window elapses) are
+        irrevocably closed.
+        """
+        now = time.monotonic()
+        rounds = self._requests_seen.setdefault(height, {})
+        if round_ not in rounds or now < rounds[round_]:
+            rounds[round_] = now
+        if len(self._requests_seen) > 32:
+            keep_above = max(self._requests_seen) - 16
+            self._requests_seen = {h: r for h, r in self._requests_seen.items() if h >= keep_above}
+
+    def _u2_satisfied(
+        self,
+        height: int,
+        locked_round: int,
+        entry: _RoundLockEntry,
+        round_: int,
+        now: float,
+        window: float,
+        unlock_window: float,
+    ) -> bool:
+        """U2 failure evidence for a locked round (AD ruling: full gates window).
+
+        Two routes, either sufficient:
+          fallback — the monotonic lock window elapsed (liveness recovery;
+            never overrides U1 or the tip check);
+          protocol — an attest_request at a strictly later round (up to the
+            round being signed) was observed at this height AND the locked
+            round's full gates window has elapsed since its request was seen
+            (its collection is closed and cannot be counted again).
+        """
+        if now - entry.signed_at >= window:
+            return True
+        if entry.request_seen_at is None:
+            return False
+        rounds = self._requests_seen.get(height) or {}
+        if not any(locked_round < r <= round_ for r in rounds):
+            return False
+        return (now - entry.request_seen_at) >= unlock_window
+
+    def round_lock_verdict(self, height: int, round_: int, block_hash: str) -> _RoundLockVerdict:
+        """Shared U1/U2 transition check for attester signing and proposer suppression.
+
+        Signing (or proposing) ``block_hash`` at ``(height, round_)`` is
+        permitted iff every locked entry at ``height`` binding a DIFFERENT
+        hash has satisfied unlock evidence:
+
+          U1 — ``round_`` is strictly later than the locked round; and
+          U2 — the locked round's failure is evidenced (see ``_u2_satisfied``).
+
+        Both enforcement points call this single function so attester and
+        proposer can never disagree about whether a lock transition is legal.
+        """
+        self._ensure_round_locks_loaded()
+        now = time.monotonic()
+        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        unlock_window = self._unlock_window()
+        for (lh, lr), entry in self._round_locks.items():
+            if lh != height or entry.block_hash == block_hash:
+                continue
+            if round_ <= lr:
+                return _RoundLockVerdict(
+                    False,
+                    f"round_not_advanced:locked_r{lr}_req_r{round_}",
+                    entry.block_hash,
+                    entry.proposer,
+                )
+            if not self._u2_satisfied(height, lr, entry, round_, now, window, unlock_window):
+                return _RoundLockVerdict(False, "round_failure_unproven", entry.block_hash, entry.proposer)
+        return _RoundLockVerdict(True, None)
+
+    def _ensure_round_locks_loaded(self) -> None:
+        if self._round_locks_loaded:
+            return
+        self._round_locks_loaded = True
+        self._load_round_locks()
+
+    def _load_round_locks(self) -> None:
+        """Restore persisted signed (height, round, hash) records (#1242/D).
+
+        Wall-clock timestamps are converted into monotonic-equivalent ages at
+        load so the same U1/U2 math applies after restart. Records older than
+        two lock windows are dropped — they can no longer bind anything.
+        """
+        try:
+            if not self._round_locks_path.exists():
+                return
+            data = json.loads(self._round_locks_path.read_text())
+            if data.get("chain_id") != self._chain_id:
+                return
+            now_mono = time.monotonic()
+            now_wall = time.time()
+            window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+            for rec in data.get("records", []):
+                try:
+                    h, r = int(rec["h"]), int(rec["r"])
+                    signed_wall = float(rec["signed_wall"])
+                    age_wall = now_wall - signed_wall
+                    if age_wall >= 2 * window:
+                        continue
+                    req_wall = rec.get("request_seen_wall")
+                    self._round_locks[(h, r)] = _RoundLockEntry(
+                        str(rec["hash"]),
+                        str(rec.get("proposer", "")),
+                        now_mono - age_wall,
+                        signed_wall,
+                        (now_mono - (now_wall - float(req_wall))) if req_wall is not None else None,
+                        float(req_wall) if req_wall is not None else None,
+                    )
+                except (KeyError, TypeError, ValueError):
+                    continue
+        except Exception as e:
+            logger.warning("Failed to load round-lock records for %s: %s", self._chain_id, e)
+
+    def _persist_round_locks(self) -> None:
+        """Atomically persist signed (height, round, hash) records.
+
+        Temp-file + fsync + rename so a crash cannot leave a torn record.
+        Raises on failure — the caller must not release a signature it could
+        not durably record.
+        """
+        import os
+
+        self._round_locks_path.parent.mkdir(parents=True, exist_ok=True)
+        now_wall = time.time()
+        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        records = []
+        for (h, r), e in self._round_locks.items():
+            if now_wall - e.signed_wall >= 2 * window:
+                continue
+            records.append(
+                {
+                    "h": h,
+                    "r": r,
+                    "hash": e.block_hash,
+                    "proposer": e.proposer,
+                    "signed_wall": e.signed_wall,
+                    "request_seen_wall": e.request_seen_wall,
+                }
+            )
+        payload = json.dumps({"version": 1, "chain_id": self._chain_id, "records": records})
+        tmp = self._round_locks_path.with_name(self._round_locks_path.name + ".tmp")
+        with open(tmp, "w") as f:
+            f.write(payload)
+            f.flush()
+            os.fsync(f.fileno())
+        tmp.replace(self._round_locks_path)
+        try:
+            dir_fd = os.open(str(self._round_locks_path.parent), os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
+
+    def _record_round_lock(self, height: int, round_: int, block_hash: str, proposer: str) -> None:
+        """Record + durably persist that this node signed ``block_hash`` at
+        ``(height, round_)``. Called BEFORE the signature is released; a
+        persistence failure propagates so no signature goes out unrecorded."""
+        self._ensure_round_locks_loaded()
+        now_mono = time.monotonic()
+        now_wall = time.time()
+        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        self._round_locks = {k: e for k, e in self._round_locks.items() if now_mono - e.signed_at < 2 * window}
+        key = (height, round_)
+        if key not in self._round_locks:
+            req_seen = self._requests_seen.get(height, {}).get(round_)
+            req_seen_wall = now_wall - (now_mono - req_seen) if req_seen is not None else None
+            self._round_locks[key] = _RoundLockEntry(block_hash, proposer, now_mono, now_wall, req_seen, req_seen_wall)
+        self._persist_round_locks()
+
     async def collect_attestations(
         self,
         block: Block,
@@ -601,6 +1024,20 @@ class RemoteAttestationService:
             "bridge_state_root": block.bridge_state_root or "",
             "aux_state_root": getattr(block, "aux_state_root", None) or "",
         }
+        # #1242: under the round lock the request declares its round and the
+        # attestation signature covers it. The value is derived exactly the
+        # way attesters derive it (sealed parent ts + block ts + window), so
+        # an honest attester's independent derivation always matches.
+        collect_round: int | None = None
+        if self._round_lock_enabled():
+            collect_round = self._collect_round_for_block(block)
+            if collect_round is None:
+                logger.warning(
+                    "Round-lock enabled but round underivable for height %s — remote attestations will be refused",
+                    block.height,
+                )
+            else:
+                header["round"] = collect_round
         request: dict[str, Any] = {"header": header, "timestamp": time.time()}
         # Carry the proposer's own block signature: attesters verify it
         # against the scheduled proposer before signing or locking, so a
@@ -690,6 +1127,17 @@ class RemoteAttestationService:
                         response.get("height"),
                     )
                     continue
+                if collect_round is not None and response.get("round") != collect_round:
+                    # A response minted for a different round can never count
+                    # toward this round's quorum — even if the hash matches.
+                    logger.info(
+                        "Attestation arrival: height=%s validator=%s arrived_ms=%d outcome=wrong_round response_round=%s",
+                        block.height,
+                        validator,
+                        arrived_ms,
+                        response.get("round"),
+                    )
+                    continue
                 signature = response.get("signature", "")
                 if not validator or not signature:
                     continue
@@ -701,7 +1149,24 @@ class RemoteAttestationService:
                     answered.add(vcanon)
                 outcome = "invalid_signature"
                 try:
-                    if verify_block_signature(header, signature, validator):
+                    if collect_round is not None:
+                        # Round-bound verification: the signed payload includes
+                        # the round, so an old-round signature cannot verify
+                        # against this round's header even on a hash match.
+                        att_msg = {
+                            "chain_id": header.get("chain_id", self._chain_id),
+                            "height": header.get("height", 0),
+                            "hash": header.get("hash", ""),
+                            "parent_hash": header.get("parent_hash", ""),
+                            "proposer": header.get("proposer", ""),
+                            "state_root": header.get("state_root", ""),
+                            "bridge_state_root": header.get("bridge_state_root", ""),
+                            "round": collect_round,
+                        }
+                        sig_ok = verify_consensus_message(att_msg, signature, validator)
+                    else:
+                        sig_ok = verify_block_signature(header, signature, validator)
+                    if sig_ok:
                         dedup_key = vcanon or validator
                         if dedup_key in counted:
                             outcome = "duplicate"
