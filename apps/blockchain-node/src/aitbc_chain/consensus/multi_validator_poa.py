@@ -91,6 +91,7 @@ class MultiValidatorPoA:
 
         # Byzantine fault tolerance tracking
         self.prepare_messages: dict[str, list[dict[str, Any]]] = {}  # validator -> list of prepare messages
+        self.commit_messages: dict[str, list[dict[str, Any]]] = {}  # validator -> list of commit messages (#1235)
         self.consensus_attempts: int = 0
 
         # B3: block signature verification toggle
@@ -343,59 +344,76 @@ class MultiValidatorPoA:
         committed = pbft.state.committed_messages.get(key, [])
         return len(committed) >= pbft.required_messages
 
-    def record_prepare(self, validator: str, block_hash: str, round: int) -> bool:
-        """Record a prepare message from a validator"""
+    def _record_phase_vote(self, store: dict[str, list[dict[str, Any]]], validator: str, block_hash: str, round: int) -> bool:
+        """Record a prepare/commit vote; a same-round conflicting digest is
+        Byzantine evidence and triggers detection immediately."""
         if validator not in self.validators:
             return False
 
-        if validator not in self.prepare_messages:
-            self.prepare_messages[validator] = []
+        if validator not in store:
+            store[validator] = []
 
         # Check for conflicting messages (Byzantine detection)
-        for msg in self.prepare_messages[validator]:
+        for msg in store[validator]:
             if msg["round"] == round and msg["block_hash"] != block_hash:
                 # B4: conflicting message detected — reject and trigger slashing (C2 + C6)
-                self.prepare_messages[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
+                store[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
                 self.detect_byzantine_behavior(validator)
                 return False
 
-        self.prepare_messages[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
+        store[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
 
         return True
 
+    def record_prepare(self, validator: str, block_hash: str, round: int) -> bool:
+        """Record a prepare message from a validator"""
+        return self._record_phase_vote(self.prepare_messages, validator, block_hash, round)
+
+    def record_commit(self, validator: str, block_hash: str, round: int) -> bool:
+        """Record a commit message from a validator (#1235).
+
+        Symmetric to ``record_prepare``: the canonical PBFT slashable
+        offense is committing two different digests at the same round —
+        before this the COMMIT branch deduped silently and left zero
+        slashing evidence.
+        """
+        return self._record_phase_vote(self.commit_messages, validator, block_hash, round)
+
     def detect_byzantine_behavior(self, validator: str) -> bool:
-        """Detect if a validator exhibited Byzantine behavior and apply slashing (B4 / C2)"""
-        if validator not in self.prepare_messages:
-            return False
+        """Detect if a validator exhibited Byzantine behavior and apply slashing (B4 / C2).
 
-        messages = self.prepare_messages[validator]
-        if len(messages) < 2:
-            return False
+        Scans both the prepare and commit vote stores (#1235) — equivocation
+        in either phase is the same slashable offense.
+        """
+        for store in (self.prepare_messages, self.commit_messages):
+            messages = store.get(validator)
+            if not messages or len(messages) < 2:
+                continue
 
-        # Check for conflicting messages in same round
-        rounds: dict[int, set[str]] = {}
-        for msg in messages:
-            if msg["round"] not in rounds:
-                rounds[msg["round"]] = set()
-            rounds[msg["round"]].add(msg["block_hash"])
+            # Check for conflicting messages in same round
+            rounds: dict[int, set[str]] = {}
+            for msg in messages:
+                if msg["round"] not in rounds:
+                    rounds[msg["round"]] = set()
+                rounds[msg["round"]].add(msg["block_hash"])
 
-        # Byzantine if any round has multiple block hashes — slash the offender
-        for round_num, block_hashes in rounds.items():
-            if len(block_hashes) > 1:
-                hashes_list = list(block_hashes)
-                event = self._slashing_manager.detect_double_sign(validator, hashes_list[0], hashes_list[1], round_num)
-                if event is not None and validator in self.validators:
-                    self._slashing_manager.apply_slashing(self.validators[validator], event)
-                    # Deactivate validator once byzantine threshold is reached
-                    if (
-                        self._slashing_manager.get_validator_slash_count(validator, event.condition)
-                        >= settings.consensus_byzantine_threshold
-                    ):
-                        self.validators[validator].is_active = False
-                        # Persist the deactivation — a restart must not clear
-                        # a byzantine verdict and reset the slash history.
-                        self.save_state()
-                return True
+            # Byzantine if any round has multiple block hashes — slash the offender
+            for round_num, block_hashes in rounds.items():
+                if len(block_hashes) > 1:
+                    hashes_list = list(block_hashes)
+                    event = self._slashing_manager.detect_double_sign(validator, hashes_list[0], hashes_list[1], round_num)
+                    if event is not None and validator in self.validators:
+                        self._slashing_manager.apply_slashing(self.validators[validator], event)
+                        # Deactivate validator once byzantine threshold is reached
+                        if (
+                            self._slashing_manager.get_validator_slash_count(validator, event.condition)
+                            >= settings.consensus_byzantine_threshold
+                        ):
+                            self.validators[validator].is_active = False
+                            # Persist the deactivation — a restart must not clear
+                            # a byzantine verdict and reset the slash history.
+                            self.save_state()
+                    return True
 
         return False
 
