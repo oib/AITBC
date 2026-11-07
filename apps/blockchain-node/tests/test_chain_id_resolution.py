@@ -180,8 +180,10 @@ class TestSQLCipherGate:
         engine = get_engine("test-chain", create_ok=True)  # not the pinned default
         assert engine.dialect.dbapi is fake
 
-    def test_flag_on_missing_keyfile_unchanged(self, monkeypatch, tmp_path):
+    def test_flag_on_missing_keyfile_refuses_plaintext(self, monkeypatch, tmp_path):
+        """#1069: flag on + missing key file must fail closed — the old
+        silent plaintext fallback is the bug that was fixed."""
         monkeypatch.setattr(settings, "db_encryption_enabled", True)
         monkeypatch.setattr(settings, "db_encryption_key_path", tmp_path / "missing.key")
-        engine = get_engine("test-chain", create_ok=True)
-        assert engine.dialect.dbapi.__name__ == "sqlite3.dbapi2"
+        with pytest.raises(RuntimeError, match="refusing to fall back to plaintext"):
+            get_engine("test-chain", create_ok=True)
