@@ -53,7 +53,8 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
         self._logger = get_logger(__name__)
         self._max_reorg_depth = max_reorg_depth
         self._validator = validator or ProposerSignatureValidator(
-            [p.strip() for p in settings.trusted_proposers.split(",") if p.strip()]
+            [p.strip() for p in settings.trusted_proposers.split(",") if p.strip()],
+            parent_timestamp_resolver=self._resolve_attestation_parent_timestamp,
         )
         self._validate_signatures = validate_signatures
         self._batch_size = batch_size
@@ -178,3 +179,17 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
                 select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
             ).first()
         return local_block.height if local_block else -1
+
+    def _resolve_attestation_parent_timestamp(self, parent_hash: str) -> Any:
+        """Parent block timestamp for #1242 round-bound attestation checks."""
+        try:
+            from sqlmodel import select
+
+            from .base_models import Block
+
+            with self._session_factory() as session:
+                return session.exec(
+                    select(Block.timestamp).where(Block.chain_id == self._chain_id, Block.hash == parent_hash)
+                ).first()
+        except Exception:
+            return None
