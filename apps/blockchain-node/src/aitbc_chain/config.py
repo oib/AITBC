@@ -1130,6 +1130,20 @@ class ChainSettings(BaseSettings):
     # 0 derives it from the attestation timeout (+1s margin, +PBFT view
     # timeout when PBFT is armed).
     attestation_round_unlock_window_seconds: float = 0.0
+    # #1245: freshness bound on the SIGNED HEADER timestamp (not on request
+    # arrival time, which a replayer controls). An attester refuses a request
+    # whose header timestamp is older than this many seconds, so a captured
+    # request cannot be re-fed to refresh or re-arm the attester lock after
+    # a restart (the header timestamp is hash-bound at v9, so it cannot be
+    # rewritten). 60 s is 3.75x the proposer's longest collection window
+    # (15 s timeout + 0.5 s per missing attestation) -- see the #1245 ledger.
+    # 0 or less disables the check.
+    attestation_header_max_age_seconds: float = 60.0
+    # #1245: how far in the FUTURE a header timestamp may sit relative to this
+    # node's clock before the request is refused. Absorbs honest clock
+    # disagreement between validators; a header from further ahead would
+    # otherwise stay "fresh" for longer than the bound above.
+    attestation_header_future_skew_seconds: float = 10.0
     # Delta-journal undo for non-empty losing fork segments
     # (``state/block_deltas.py``). While False the resolvers escalate a
     # non-empty segment to the operator exactly as before the journal

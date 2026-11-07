@@ -44,6 +44,9 @@ def _shipped_defaults(monkeypatch):
     metrics_registry.reset()
     default = ChainSettings.model_fields["consensus_require_signed_attest_request"].default
     monkeypatch.setattr(settings, "consensus_require_signed_attest_request", default)
+    # #1245: header freshness has its own suite (test_attestation_replay_1245.py);
+    # these requests carry fixed timestamps from the past.
+    monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
     yield
     metrics_registry.reset()
 
