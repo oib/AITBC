@@ -32,6 +32,19 @@ def _chain_demux_settings(monkeypatch: pytest.MonkeyPatch):
     websocket_module._chain_brokers.clear()
 
 
+def _wait_for(predicate, timeout: float = 3.0) -> bool:
+    """Poll until ``predicate()`` holds: the server side of a closed test
+    websocket releases its slot on the app's loop, a beat after the client."""
+    import time
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.02)
+    return predicate()
+
+
 def _publish_on_backend(backend, topic: str, message: dict) -> None:
     """Publish directly to a chain broker's backend from the app's event loop."""
     loop = getattr(gossip_broker, "_app_loop", None)
@@ -123,6 +136,96 @@ def test_ip_counter_isolated_per_chain(monkeypatch: pytest.MonkeyPatch) -> None:
             # Same IP, different chain -> independent counter, accepted.
             with client.websocket_connect("/rpc/gossip/ws?topic=transactions&chain=chain-b", headers=headers):
                 pass
+
+
+def test_ip_counter_entry_removed_at_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1256 (G4): a closed connection leaves no zero-count (ip, chain) key,
+    while a still-open peer on the same key keeps its count."""
+    # Starlette's TestClient peer is the literal host "testclient", not a
+    # trusted proxy, so forwarded headers are ignored and that is the key.
+    key_a = ("testclient", "chain-a")
+    websocket_module._gossip_ip_connections.clear()
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/gossip/ws?topic=transactions&chain=chain-a"):
+            with client.websocket_connect("/rpc/gossip/ws?topic=transactions&chain=chain-a"):
+                assert websocket_module._gossip_ip_connections.get(key_a) == 2
+            assert _wait_for(lambda: websocket_module._gossip_ip_connections.get(key_a) == 1)
+        assert _wait_for(lambda: key_a not in websocket_module._gossip_ip_connections)
+    assert websocket_module._gossip_ip_connections == {}
+
+
+def test_rejected_connections_leave_no_counter_entry() -> None:
+    """Unknown/unbacked chains must not insert (ip, chain) keys."""
+    websocket_module._gossip_ip_connections.clear()
+    with TestClient(create_app()) as client:
+        for bad in ("no-such-chain", "chain-c"):
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(f"/rpc/gossip/ws?topic=transactions&chain={bad}"):
+                    pass
+    assert websocket_module._gossip_ip_connections == {}
+
+
+def test_release_ip_connection_unit() -> None:
+    key = ("198.51.100.1", "chain-a")
+    websocket_module._gossip_ip_connections.clear()
+    websocket_module._gossip_ip_connections[key] = 2
+    websocket_module._release_ip_connection(key)
+    assert websocket_module._gossip_ip_connections[key] == 1
+    websocket_module._release_ip_connection(key)
+    assert key not in websocket_module._gossip_ip_connections
+    websocket_module._release_ip_connection(key)  # already gone: no negative/KeyError
+    assert key not in websocket_module._gossip_ip_connections
+
+
+class _FakeBroker:
+    def __init__(self, behaviour: str = "ok") -> None:
+        self.behaviour = behaviour
+        self.shutdown_calls = 0
+
+    async def shutdown(self) -> None:
+        self.shutdown_calls += 1
+        if self.behaviour == "hang":
+            await asyncio.sleep(60)
+        if self.behaviour == "raise":
+            raise RuntimeError("boom")
+
+
+def test_shutdown_chain_brokers_isolates_failures_and_clears_registry() -> None:
+    """#1256 (G3): every per-chain broker is shut down once; a raising or
+    hanging broker neither blocks the others nor survives in the registry."""
+    brokers = {"c-ok": _FakeBroker(), "c-raise": _FakeBroker("raise"), "c-hang": _FakeBroker("hang")}
+    websocket_module._chain_brokers.update(brokers)  # type: ignore[arg-type]
+    asyncio.run(websocket_module.shutdown_chain_brokers(timeout=0.2))
+    assert all(b.shutdown_calls == 1 for b in brokers.values())
+    assert websocket_module._chain_brokers == {}
+
+
+def test_app_shutdown_closes_chain_brokers() -> None:
+    """The lifespan wires shutdown_chain_brokers: leaving the app context
+    shuts down brokers created while it ran."""
+    fake = _FakeBroker()
+    with TestClient(create_app()):
+        websocket_module._chain_brokers["chain-fake"] = fake  # type: ignore[assignment]
+    assert fake.shutdown_calls == 1
+    assert "chain-fake" not in websocket_module._chain_brokers
+
+
+def test_real_chain_broker_backend_shut_down_with_app() -> None:
+    """End to end with a real lazily-created broker: its backend is shut down."""
+    backend = _chain_backend("chain-a")
+    calls: list[int] = []
+    orig = backend.shutdown
+
+    async def _spy() -> None:
+        calls.append(1)
+        await orig()
+
+    backend.shutdown = _spy  # type: ignore[method-assign]
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/gossip/ws?topic=transactions&chain=chain-a"):
+            pass
+    assert calls == [1]
+    assert websocket_module._chain_brokers == {}
 
 
 def test_topic_namespaced_to_other_chain_rejected() -> None:

@@ -35,6 +35,7 @@ from .rpc.escrow_routes import router as escrow_router
 from .rpc.router import router as rpc_router
 from .rpc.utils import get_supported_chains, set_poa_proposer
 from .rpc.websocket import router as websocket_router
+from .rpc.websocket import shutdown_chain_brokers
 
 from aitbc.aitbc_logging import configure_logging
 from aitbc.async_tasks import create_task_with_logging
@@ -545,6 +546,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 _app_logger.warning("Gossip broker shutdown timed out during shutdown")
             except Exception as exc:
                 _app_logger.warning("Failed to shut down gossip broker: %s", exc)
+            try:
+                await asyncio.wait_for(shutdown_chain_brokers(timeout=4.0), timeout=8.0)
+            except asyncio.TimeoutError:
+                _app_logger.warning("Per-chain gossip broker shutdown timed out during shutdown")
+            except Exception as exc:
+                _app_logger.warning("Failed to shut down per-chain gossip brokers: %s", exc)
             try:
                 await asyncio.wait_for(lease_tracker.stop(), timeout=5.0)
             except asyncio.TimeoutError:
