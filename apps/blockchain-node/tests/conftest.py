@@ -77,6 +77,28 @@ def pin_heights_above(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_gossip_challenge_state():
+    """Give every test a fresh gossip-auth challenge budget.
+
+    ``gossip_auth`` keeps module-global state: the pending-challenge table and
+    the per-IP challenge-mint limiter (20 mints/min). Every ``TestClient``
+    peer is the literal host ``testclient``, so a module that opens dozens of
+    authenticated sockets exhausts the budget for whatever runs next, and
+    ``create_challenge`` then returns ``None`` (``KeyError: 'challenge'`` in an
+    unrelated test). The limiter is correct in production; the tests must not
+    share its bucket. Cleared in place so modules holding a reference to the
+    limiter object keep seeing the live one.
+    """
+    from aitbc_chain.gossip import gossip_auth
+
+    gossip_auth._challenge_mint_rate._requests.clear()
+    gossip_auth._PENDING_CHALLENGES.clear()
+    yield
+    gossip_auth._challenge_mint_rate._requests.clear()
+    gossip_auth._PENDING_CHALLENGES.clear()
+
+
+@pytest.fixture(autouse=True)
 def _allow_test_chain_ids(monkeypatch) -> None:
     """Add the test chain IDs to supported_chains for the duration of each test."""
     existing = {c.strip() for c in settings.supported_chains.split(",") if c.strip()}

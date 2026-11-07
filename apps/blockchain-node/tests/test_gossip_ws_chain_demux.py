@@ -212,6 +212,65 @@ def test_legacy_scope_accepted_until_flag_flips(monkeypatch: pytest.MonkeyPatch)
     assert "error" in msg
 
 
+@pytest.mark.parametrize("server_require", [False, True])
+@pytest.mark.parametrize("dialer_sign", [False, True])
+def test_sign_require_accept_matrix(monkeypatch: pytest.MonkeyPatch, dialer_sign: bool, server_require: bool) -> None:
+    """#1255 accept matrix {dialer sign off,on} x {server require off,on}.
+
+    The dialer's scope comes from the real ``WebsocketGossipBackend._auth_scope``
+    under the dialer's flags; the server then verifies under its own flags.
+    Accepted iff the server is lenient OR the dialer signed the chain scope.
+    The legacy-accept counter moves exactly when the legacy fallback carried
+    the handshake (sign off, require off).
+    """
+    from aitbc_chain.metrics import gossip_auth_legacy_scope_accepted_total as counter
+
+    key, address = _validator_key()
+    monkeypatch.setattr(settings, "gossip_auth_enabled", True)
+    monkeypatch.setattr(settings, "validator_set", f'[{{"address": "{address}"}}]')
+    monkeypatch.setattr(settings, "chain_id", "chain-a")
+
+    # Dialer host: sign flag only (its own require flag stays off).
+    monkeypatch.setattr(settings, "gossip_auth_sign_chain_scope", dialer_sign)
+    monkeypatch.setattr(settings, "gossip_auth_require_chain_scope", False)
+    scope = WebsocketGossipBackend("wss://peer.example/rpc/gossip/ws", chain_id="chain-a")._auth_scope("blocks.test")
+
+    # Server host: require flag only.
+    monkeypatch.setattr(settings, "gossip_auth_sign_chain_scope", False)
+    monkeypatch.setattr(settings, "gossip_auth_require_chain_scope", server_require)
+    before = counter._value.get()
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/gossip/ws?topic=blocks.test&chain=chain-a") as ws:
+            challenge = ws.receive_json()
+            ws.send_json(_auth_response(challenge, address, key, scope))
+            msg = ws.receive_json()
+
+    accepted = msg.get("type") == "auth_ok"
+    assert accepted is (dialer_sign or not server_require)
+    legacy_carried = accepted and not dialer_sign
+    assert counter._value.get() - before == (1 if legacy_carried else 0)
+
+
+@pytest.mark.parametrize(
+    ("sign", "require", "chain_bound"),
+    [(False, False, False), (True, False, True), (False, True, True), (True, True, True)],
+)
+def test_dialer_scope_flag_truth_table(monkeypatch: pytest.MonkeyPatch, sign: bool, require: bool, chain_bound: bool) -> None:
+    """Dialer signs chain scope iff sign OR require (require implies sign);
+    both unset keeps the pre-#1255 legacy behaviour byte-for-byte."""
+    from aitbc_chain.gossip import gossip_auth
+
+    monkeypatch.setattr(settings, "gossip_auth_sign_chain_scope", sign)
+    monkeypatch.setattr(settings, "gossip_auth_require_chain_scope", require)
+    backend = WebsocketGossipBackend("wss://peer.example/rpc/gossip/ws", chain_id="chain-a")
+    expected = gossip_auth.channel_scope("blocks", "chain-a") if chain_bound else gossip_auth.channel_scope("blocks")
+    assert backend._auth_scope("blocks") == expected
+
+
+def test_sign_flag_defaults_off() -> None:
+    assert settings.gossip_auth_sign_chain_scope is False
+
+
 def test_mesh_peer_url_chain_tags(monkeypatch: pytest.MonkeyPatch) -> None:
     """chain-tagged GOSSIP_MESH_PEER_URLS entries route to their own chain only."""
     monkeypatch.setattr(

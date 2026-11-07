@@ -513,6 +513,18 @@ class ChainSettings(BaseSettings):
         "true",
         "yes",
     )
+    # Dialer side of the same rollout (#1255, #1159 design v2 D1): what THIS
+    # node signs when it dials a peer. Split from ``..._require_chain_scope``
+    # (server strictness) so the flip is staged: sign=on fleet-wide first
+    # (servers still accept both), watch ``gossip_auth_legacy_scope_accepted_total``
+    # stay at 0, then require=on. A host with require=on always signs the
+    # chain-bound scope too (see ``WebsocketGossipBackend._auth_scope``) -
+    # signing legacy to require-on peers would only get rejected.
+    gossip_auth_sign_chain_scope: bool = os.getenv("GOSSIP_AUTH_SIGN_CHAIN_SCOPE", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
     gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))

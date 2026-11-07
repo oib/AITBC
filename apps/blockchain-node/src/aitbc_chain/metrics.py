@@ -314,3 +314,11 @@ for _alert_counter in (
     "block_version_stamp_mismatch_total",
 ):
     metrics_registry.increment(_alert_counter, 0.0)
+
+# Gossip auth rollout (#1255, #1159 design v2): signatures accepted ONLY via the
+# legacy chain-less scope fallback. Sign-on fleet-wide, then wait for this to
+# stay at 0 (>= 24 h) before flipping GOSSIP_AUTH_REQUIRE_CHAIN_SCOPE.
+gossip_auth_legacy_scope_accepted_total = Counter(
+    "gossip_auth_legacy_scope_accepted_total",
+    "Gossip auth signatures accepted via the legacy chain-less scope fallback",
+)
