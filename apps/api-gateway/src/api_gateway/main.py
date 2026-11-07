@@ -548,6 +548,28 @@ def _strip_hop_by_hop(headers: Headers) -> dict[str, str]:
     return {k: v for k, v in headers.items() if k.lower() not in drop}
 
 
+def _stamp_forwarding_headers(headers: dict[str, str], request: Request) -> None:
+    """Set the caller's identity on the headers sent upstream, in place.
+
+    ``X-Real-IP`` is overwritten with the address this gateway observed
+    (``request.client.host`` — the TCP peer, or the real client when
+    uvicorn's trusted-peer ``--proxy-headers`` handling already resolved it
+    from the edge nginx). ``X-Forwarded-For`` keeps the incoming chain and
+    appends that address, nginx's ``$proxy_add_x_forwarded_for`` semantics,
+    so the right-most entry is always one this hop vouches for. A
+    client-supplied value of either header is never forwarded as is, which
+    is what let a caller pick its own upstream rate-limit identity.
+    """
+    for name in [k for k in headers if k.lower() in ("x-real-ip", "x-forwarded-for")]:
+        del headers[name]
+    peer = request.client.host if request.client else ""
+    if not peer:
+        return
+    headers["x-real-ip"] = peer
+    incoming = request.headers.get("x-forwarded-for", "").strip()
+    headers["x-forwarded-for"] = f"{incoming}, {peer}" if incoming else peer
+
+
 def _upstream_headers(response: httpx.Response) -> dict[str, str]:
     """Response headers safe to forward to the client.
 
@@ -631,6 +653,9 @@ async def proxy_request(
         headers.pop("accept-encoding", None)
         # The gateway credential never leaves this layer.
         headers.pop("x-gateway-key", None)
+        # Caller identity for the upstream rate limits comes from this hop's
+        # own observation, never from what the client wrote (#1244).
+        _stamp_forwarding_headers(headers, request)
         if getattr(request.state, "gateway_bearer_auth", False):
             headers.pop("authorization", None)
         # Propagate correlation — the middleware sets state.request_id but does

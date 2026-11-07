@@ -4,12 +4,16 @@ A faucet drain does not need many requests to be worthwhile, so `/register` and
 `/execute` carry tighter buckets (30/min and 20/min) on top of the service-wide
 middleware. These tests pin the caller via `X-Real-IP` — the same header the
 shared limiter keys on behind nginx — so each test owns a deterministic bucket
-instead of racing the TestClient default.
+instead of racing the TestClient default. The limiter only reads that header
+from a trusted proxy peer (#1244), so the client below connects as the
+loopback nginx hop, like production.
 """
 
 from __future__ import annotations
 
 import pytest
+
+from fastapi.testclient import TestClient
 
 from aitbc.rate_limiting import reset_rate_limit
 
@@ -30,7 +34,7 @@ def client(bare_client, monkeypatch):
     monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "true")
     for ip in (IP, OTHER_IP):
         reset_rate_limit(ip)
-    yield bare_client
+    yield TestClient(bare_client.app, client=("127.0.0.1", 50000))
     for ip in (IP, OTHER_IP):
         reset_rate_limit(ip)
 
