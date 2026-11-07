@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from aitbc.market import BlockchainRPCClient
-from market_service.domain.market import MarketJobPayment
+from market_service.domain.market import MarketJob, MarketJobPayment
 from market_service.services.market_job_sweeper import MarketJobSweeper
 from market_service.services.market_service import MarketService
 from market_service.storage import get_session_context
@@ -48,12 +48,12 @@ async def test_sweeper_releases_expired_job(sweeper) -> None:
             "buyer_address": "0x" + "11" * 20,
             "provider_address": "0x" + "22" * 20,
             "escrow_contract_id": "escrow-expired",
-            "state": "COMPLETED",
             "expires_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
             "payload": {"cid": "QmTest"},
             "payment": {"amount": "1.0", "status": "escrowed"},
         }
     )
+    await _apply_lifecycle(created["job_id"], state="COMPLETED", escrow_contract_id="escrow-expired")
 
     counts = await sw.sweep_once()
     assert counts["released"] == 1
@@ -74,11 +74,15 @@ async def test_sweeper_refunds_canceled_job(sweeper) -> None:
             "buyer_address": "0x" + "11" * 20,
             "provider_address": "0x" + "22" * 20,
             "escrow_contract_id": "escrow-canceled",
-            "state": "CANCELED",
-            "updated_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
             "payload": {"cid": "QmTest"},
             "payment": {"amount": "1.0", "status": "escrowed"},
         }
+    )
+    await _apply_lifecycle(
+        created["job_id"],
+        state="CANCELED",
+        escrow_contract_id="escrow-canceled",
+        updated_at=(datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None),
     )
 
     counts = await sw.sweep_once()
@@ -108,6 +112,36 @@ def _rpc_over_mock_transport(monkeypatch: pytest.MonkeyPatch, handler) -> Blockc
     return BlockchainRPCClient(rpc_url="http://testnode")
 
 
+async def _apply_lifecycle(
+    job_id: str,
+    *,
+    state: str,
+    escrow_contract_id: str,
+    updated_at: datetime | None = None,
+) -> None:
+    """Set the lifecycle columns the payment path owns.
+
+    ``create_market_job`` ignores caller-supplied state, escrow_contract_id,
+    updated_at and payment.status (#815) — sweeper fixtures drive those
+    columns directly, the way settlement would have left them.
+    """
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None
+        job.state = state
+        job.escrow_contract_id = escrow_contract_id
+        job.payment_status = "escrowed"
+        if updated_at is not None:
+            job.updated_at = updated_at
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment is not None
+        payment.status = "escrowed"
+        payment.escrowed_at = datetime.now(UTC).replace(tzinfo=None)
+        payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
+        session.add_all([job, payment])
+        await session.commit()
+
+
 async def _payment_of(job_id: str) -> MarketJobPayment:
     async with get_session_context() as session:
         result = await session.execute(select(MarketJobPayment).where(col(MarketJobPayment.job_id) == job_id))
@@ -135,12 +169,12 @@ async def test_release_404_is_not_terminal_yet(sweeper, monkeypatch) -> None:
             "buyer_address": "0x" + "33" * 20,
             "provider_address": "0x" + "44" * 20,
             "escrow_contract_id": "escrow-lagging",
-            "state": "COMPLETED",
             "expires_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
             "payload": {"cid": "QmTest"},
             "payment": {"amount": "1.0", "status": "escrowed"},
         }
     )
+    await _apply_lifecycle(created["job_id"], state="COMPLETED", escrow_contract_id="escrow-lagging")
 
     counts = await sw.sweep_once()
     assert counts["failed"] >= 1
@@ -179,11 +213,15 @@ async def test_refund_unsettled_is_not_terminal_yet(sweeper, monkeypatch) -> Non
             "buyer_address": "0x" + "55" * 20,
             "provider_address": "0x" + "66" * 20,
             "escrow_contract_id": "escrow-unsettled",
-            "state": "CANCELED",
-            "updated_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
             "payload": {"cid": "QmTest"},
             "payment": {"amount": "1.0", "status": "escrowed"},
         }
+    )
+    await _apply_lifecycle(
+        created["job_id"],
+        state="CANCELED",
+        escrow_contract_id="escrow-unsettled",
+        updated_at=(datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None),
     )
 
     counts = await sw.sweep_once()
@@ -274,13 +312,15 @@ class TestSettleDeferralBound:
             "payload": {"cid": "QmTest"},
             "payment": {"amount": "1.0", "status": "escrowed", "meta_data": meta},
         }
-        if refund:
-            data["state"] = "CANCELED"
-            data["updated_at"] = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
-        else:
-            data["state"] = "COMPLETED"
+        if not refund:
             data["expires_at"] = (datetime.now(UTC) - timedelta(days=2)).isoformat()
         created = await service.create_market_job(data)
+        await _apply_lifecycle(
+            created["job_id"],
+            state="CANCELED" if refund else "COMPLETED",
+            escrow_contract_id=f"escrow-{job_suffix}",
+            updated_at=(datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None) if refund else None,
+        )
         return created["job_id"]
 
     @pytest.mark.asyncio
