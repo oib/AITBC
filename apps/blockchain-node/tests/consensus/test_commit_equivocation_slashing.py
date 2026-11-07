@@ -2,13 +2,11 @@
 
 PREPARE-phase equivocation is recorded by ``record_prepare`` →
 ``detect_byzantine_behavior`` → ``SlashingManager.detect_double_sign`` →
-``apply_slashing``. The COMMIT branch of ``handle_incoming_message`` dedups
-per-sender with no equivocation recorder, so a validator that commits two
-different digests at the same height:round leaves zero slashing evidence.
-
-This pin asserts the *desired* contract — symmetric detection — and is
-``xfail(strict)`` until the fix lands: it documents the gap, keeps the suite
-green, and fails loudly on XPASS so the marker is removed with the fix.
+``apply_slashing``. The COMMIT branch of ``handle_incoming_message`` now
+records through ``record_commit`` into the same detection path, so a
+validator committing two different digests at the same height:round is
+slashed identically to prepare-phase equivocation — while identical
+retransmits stay deduped and different-round commits stay legal.
 """
 
 from __future__ import annotations
@@ -44,11 +42,6 @@ def _commit(pbft: PBFTConsensus, sender: str, seq: int, view: int, block_hash: s
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True,
-    reason="#1235: commit-phase equivocation has no slashing recorder — "
-    "record_prepare/detect_double_sign is wired to PREPARE only",
-)
 async def test_commit_equivocation_produces_double_sign_slash():
     """A validator committing two different digests in one round must be
     detected and slashed, exactly as prepare-phase equivocation is."""
@@ -81,4 +74,16 @@ async def test_commit_dedup_still_holds_for_identical_messages():
     await pbft.handle_incoming_message(msg)
     await pbft.handle_incoming_message(msg)
     assert len(pbft.state.committed_messages.get("1:0", [])) == 1
+    assert consensus.get_slashing_history() == []
+
+
+@pytest.mark.asyncio
+async def test_commit_different_rounds_do_not_false_positive():
+    """Different-round commits for different digests are legal (view
+    change) — only same-round equivocation is slashable."""
+    consensus = _consensus()
+    member = next(iter(consensus.validators))
+    pbft = PBFTConsensus(consensus, private_key="", chain_id="test-commit-equivocation")
+    await pbft.handle_incoming_message(_commit(pbft, member, 1, 0, "0x" + "44" * 32))
+    await pbft.handle_incoming_message(_commit(pbft, member, 1, 1, "0x" + "55" * 32))
     assert consensus.get_slashing_history() == []

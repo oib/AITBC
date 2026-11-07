@@ -736,6 +736,11 @@ class PBFTConsensus:
             if self._local_validator:
                 await self._maybe_send_commit(key)
         elif message.message_type == PBFTMessageType.COMMIT:
+            # Feed the slashing detector BEFORE the silent duplicate drop —
+            # symmetric to the PREPARE branch (#1235): a same-sender commit
+            # for a different digest at the same round is a double-sign.
+            if settings.consensus_slashing_enabled:
+                self.consensus.record_commit(message.sender, message.block_hash, message.view_number)
             if key not in self.state.committed_messages:
                 self.state.committed_messages[key] = []
             if any(m.sender == message.sender for m in self.state.committed_messages[key]):
