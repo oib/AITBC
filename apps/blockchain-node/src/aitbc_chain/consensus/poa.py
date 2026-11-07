@@ -807,7 +807,7 @@ class PoAProposer:
             if selected is None:
                 return False
             proposer, round_number = selected
-            if await self._honor_attestation_lock(next_height):
+            if await self._honor_attestation_lock(next_height, round_number):
                 return False
             self._propose_phase = "collect_txs"
             _t2 = time.time()
@@ -1056,7 +1056,7 @@ class PoAProposer:
                 quarantine_s,
             )
 
-    async def _honor_attestation_lock(self, next_height: int) -> bool:
+    async def _honor_attestation_lock(self, next_height: int, round_number: int | None = None) -> bool:
         """True while a live attestation lock suppresses this proposal.
 
         If this node's validator keys signed block X at ``next_height`` as an
@@ -1068,16 +1068,44 @@ class PoAProposer:
         it. If no peer can serve X, the proposal is still suppressed until
         the lock expires (one proposer round), which bounds the liveness hit
         when the attested block never materialises.
+
+        Under ``attestation_round_lock_enabled`` (#1242) the suppression
+        decision uses the shared U1/U2 verdict for ``(next_height,
+        round_number)`` — identical rules to the attester-side signing
+        check, so the two enforcement points cannot disagree.
         """
         if self._remote_attestation is None or self._sync_manager is None:
             return False
         if not getattr(settings, "attestation_lock_enabled", True):
             return False
         window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
-        lock = self._remote_attestation.attestation_lock(next_height, window)
-        if lock is None:
-            return False
-        locked_hash, locked_proposer = lock
+        if getattr(settings, "attestation_round_lock_enabled", False):
+            if round_number is None:
+                self._logger.warning(
+                    "[PROPOSE] round lock enabled but no round for height %s — proceeding without suppression",
+                    next_height,
+                )
+                return False
+            # A fresh proposal always has a different hash than anything we
+            # signed, so every locked entry at this height conflicts; the
+            # empty hash can never match an entry's block_hash.
+            verdict = self._remote_attestation.round_lock_verdict(next_height, round_number, "")
+            if verdict.permitted:
+                return False
+            locked_hash, locked_proposer = verdict.block_hash, verdict.proposer
+            self._logger.info(
+                "[PROPOSE] Round-lock suppression at height %s round %s: %s (attested %s by %s)",
+                next_height,
+                round_number,
+                verdict.reason,
+                locked_hash[:18] if locked_hash else "?",
+                locked_proposer[:12] if locked_proposer else "?",
+            )
+        else:
+            lock = self._remote_attestation.attestation_lock(next_height, window)
+            if lock is None:
+                return False
+            locked_hash, locked_proposer = lock
 
         from .proposal_freshness import peer_base_url
 
