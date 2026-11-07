@@ -751,11 +751,18 @@ server {
     # bridge/sell commands (--hub-url https://hub.aitbc.bubuit.net, documented
     # in docs/scenarios/81_wallet_options.md) legitimately use most routes,
     # including admin-keyed reads (float, settlements, sell/*) from remote
-    # shop nodes. WALLET_API_KEY is not provisioned fleet-wide and
-    # WALLET_AUTH_ENABLED=false, so nginx cannot key-check those routes;
-    # they stay public pending the app-auth env change (see #1200 thread).
-    # What nginx CAN enforce today: the two ops-only admin routes with zero
-    # remote callers (/poll, /polling) drop to loopback; the enumerable
+    # shop nodes.
+    #
+    # #1204 (WALLET-AUTH-ENABLE-1): WALLET_AUTH_ENABLED=true fleet-wide, so the
+    # app now enforces X-API-Key on its admin routes. The four admin-keyed
+    # routes that are public-by-policy get the key injected here at the edge —
+    # callers stay keyless, the secret never leaves the edge, and direct
+    # :8108 access still requires it. Live confs carry the real per-host
+    # WALLET_API_KEY inline (root-owned); the __WALLET_API_KEY__ marker below
+    # is a placeholder — deploying it verbatim fails closed (401 on these four
+    # routes only). Every OTHER gated route under /v1/bridge/ — poll,
+    # polling, and anything added later — gets no injection and 401s publicly.
+    # The ops-only /poll|/polling pair stays loopback-only; the enumerable
     # /deposits|/withdrawals indexes were already loopback-only above.
 
     location ~ ^/v1/bridge/(poll|polling)(/|$) {
@@ -767,6 +774,20 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    # Public-by-policy admin-keyed reads: edge injects X-API-Key (#1204).
+    location ~ ^/v1/bridge/(settlements|float|sell/(config-status|quote))/?$ {
+        proxy_set_header X-API-Key __WALLET_API_KEY__;
+        proxy_pass http://wallet_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     location ~ ^/v1/bridge/ {
@@ -815,6 +836,22 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    # #1204: same four public-by-policy admin-keyed bridge reads via the
+    # /exchange/ alias — edge injects X-API-Key, callers stay keyless.
+    location ~ ^/exchange/v1/bridge/(settlements|float|sell/(config-status|quote))/?$ {
+        rewrite ^/exchange/(.*)$ /$1 break;
+        proxy_set_header X-API-Key __WALLET_API_KEY__;
+        proxy_pass http://wallet_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # Public exchange-facing wallet routes only.
