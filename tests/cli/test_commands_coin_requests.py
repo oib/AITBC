@@ -51,8 +51,9 @@ class TestCoinRequestsCommands:
         mock_get_db_session.return_value.__exit__ = MagicMock(return_value=None)
 
         from aitbc_cli.commands.coin_requests import coin_requests
+        from tests.fixtures.cli_mocks import make_cli_obj
 
-        result = runner.invoke(coin_requests, ["list"])
+        result = runner.invoke(coin_requests, ["list"], obj=make_cli_obj(output_format="table"))
 
         assert result.exit_code == 0, result.output
         assert "No coin requests found" in result.output
