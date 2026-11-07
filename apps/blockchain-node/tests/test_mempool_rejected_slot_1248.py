@@ -324,3 +324,101 @@ def test_sweeper_no_pending_is_noop(session, monkeypatch):
     monkeypatch.setattr(settings, "chain_id", CHAIN)
     monkeypatch.setattr(settings, "supported_chains", "")
     assert app_mod._evict_rejected_mempool_entries() == 0
+
+
+@pytest.mark.asyncio
+async def test_import_block_rpc_wiring_persists_and_evicts(tmp_path, monkeypatch):
+    """#1254 wiring pin: ``POST /rpc/importBlock`` must actually run the
+    rejected-tx persistence and mempool eviction — not just define them.
+
+    Drives the real ``rpc_blocks.import_block`` -> ``ChainSync.import_block``
+    path against an isolated sqlite engine, with a signed block whose
+    ``block_metadata`` carries ``rejected_txs``.
+    """
+    from contextlib import contextmanager as _cm
+    from unittest.mock import Mock
+
+    from eth_account import Account as EthAccount
+
+    from aitbc.crypto.consensus_signing import sign_block_hash
+    from aitbc_chain.models import Block as ModelsBlock
+    from aitbc_chain.rpc import blocks as rpc_blocks
+
+    db_path = tmp_path / "wiring.db"
+    engine = create_engine(f"sqlite:///{db_path}", echo=False)
+    chain_metadata.create_all(engine)
+
+    @_cm
+    def _session_scope(*args: Any, **kwargs: Any):
+        with Session(engine) as s:
+            yield s
+
+    monkeypatch.setattr(rpc_blocks, "session_scope", _session_scope)
+
+    genesis_hash = "0x" + "00" * 32
+    with Session(engine) as s:
+        s.add(
+            ModelsBlock(
+                chain_id=CHAIN,
+                height=0,
+                hash=genesis_hash,
+                parent_hash="0x00",
+                proposer="genesis",
+                timestamp=None,
+                tx_count=0,
+            )
+        )
+        s.commit()
+
+    proposer = EthAccount.create()
+    block_hash = "0x" + "11" * 32
+    rejected_entry = {"tx_hash": DEAD_HASH, "sender": SENDER, "nonce": 0, "type": "TRANSFER", "reason": "pin"}
+    block_data = {
+        "chain_id": CHAIN,
+        "height": 1,
+        "hash": block_hash,
+        "parent_hash": genesis_hash,
+        "proposer": proposer.address,
+        "timestamp": "2026-01-01T00:01:00+00:00",
+        "tx_count": 0,
+        "signature": sign_block_hash(block_hash, proposer.key.hex()),
+        "block_metadata": json.dumps({"rejected_txs": [rejected_entry]}),
+    }
+
+    fake_mempool = Mock()
+    fake_mempool.remove.return_value = True
+    monkeypatch.setattr(mempool_mod, "get_mempool", lambda: fake_mempool)
+
+    result = await rpc_blocks.import_block(Mock(), block_data)
+
+    assert result["success"] is True and result["accepted"] is True
+    with Session(engine) as s:
+        row = s.exec(select(Transaction).where(Transaction.chain_id == CHAIN, Transaction.tx_hash == DEAD_HASH)).first()
+    assert row is not None and row.status == "rejected"
+    fake_mempool.remove.assert_called_once_with(DEAD_HASH, CHAIN)
+    engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_sweeper_loop_invokes_rejected_eviction(fresh_mempool, monkeypatch):
+    """#1254 wiring pin: ``_sweep_mempool_forever`` must actually call
+    ``_evict_rejected_mempool_entries`` each tick — the sweeper tests above
+    only prove the helper works when invoked directly."""
+    import asyncio
+
+    from aitbc_chain import app as app_mod
+
+    calls = []
+    monkeypatch.setattr(app_mod, "_evict_rejected_mempool_entries", lambda: calls.append(1) or 0)
+
+    ticks = {"n": 0}
+
+    async def _fake_sleep(_interval: float) -> None:
+        ticks["n"] += 1
+        if ticks["n"] > 1:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await app_mod._sweep_mempool_forever()
+    assert calls == [1]
