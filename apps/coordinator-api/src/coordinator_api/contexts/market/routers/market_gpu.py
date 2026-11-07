@@ -229,21 +229,38 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
         created_at = created_at.replace(tzinfo=UTC)
     if datetime.now(UTC) - created_at < BOOKING_HOLD_TTL:
         return
-    # The funded check must follow the booking's own job linkage (#1199):
-    # payments key on Job.id via GPUBooking.job_id, never on the booking's
-    # bk_* primary key, and the job must belong to the booking's client —
-    # book_gpu accepts a caller-supplied job_id, so an unqualified join would
-    # let a stranger's paid job pin this hold forever.
-    paid = session.execute(
-        select(JobPayment.id)
-        .join(Job, col(Job.id) == booking.job_id)
-        .where(
-            col(Job.client_id) == booking.client_id,
-            col(JobPayment.job_id) == Job.id,
-            col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
-        )
-        .limit(1)
-    ).first()
+    # The funded check must follow the booking's own payment linkage
+    # (#1199, tightened by #1231): purchase-path bookings carry
+    # booking.payment_id — the JobPayment created for THAT booking —
+    # because job_id is shared across sibling bookings on one prepared
+    # job, and a job-level join would let one paid payment protect every
+    # unpaid sibling. Holds created by book_gpu carry no payment_id and
+    # keep the legacy job-linkage check. Either way the job must belong
+    # to the booking's client — book_gpu accepts a caller-supplied
+    # job_id, so an unqualified join would let a stranger's paid job pin
+    # this hold forever.
+    if booking.payment_id:
+        paid = session.execute(
+            select(JobPayment.id)
+            .join(Job, col(Job.id) == JobPayment.job_id)
+            .where(
+                col(JobPayment.id) == booking.payment_id,
+                col(Job.client_id) == booking.client_id,
+                col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
+            )
+            .limit(1)
+        ).first()
+    else:
+        paid = session.execute(
+            select(JobPayment.id)
+            .join(Job, col(Job.id) == booking.job_id)
+            .where(
+                col(Job.client_id) == booking.client_id,
+                col(JobPayment.job_id) == Job.id,
+                col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
+            )
+            .limit(1)
+        ).first()
     if paid is not None:
         return
     booking.status = "expired"
@@ -837,6 +854,7 @@ async def buy_gpu(
             payment_id = None
             payment_status = "failed"
         booking.job_id = job.id
+        booking.payment_id = payment_id
         await run_in_threadpool(session.add, booking)
         await run_in_threadpool(session.commit)
         logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment_id, booking_id)

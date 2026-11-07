@@ -960,3 +960,106 @@ def test_delete_gpu_force_requires_admin(client, miner_token, admin_token, db_se
     resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 200
     assert db_session.get(GPURegistry, gpu_id) is None
+
+
+@pytest.mark.unit
+def test_purchase_sibling_bookings_do_not_share_payment(
+    client, client_token, miner_token, db_session, native_pricing, pricing_engine_override, monkeypatch
+):
+    """#1231: two purchase bookings bound to ONE prepared job_id — the funded
+    payment on booking A must not keep unpaid sibling booking B alive past
+    the TTL. The paid-check keys on GPUBooking.payment_id, not job_id."""
+    from datetime import timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    _seed_energy(db_session)
+    gpu_a = _register_gpu(client, miner_token)
+    gpu_b = _register_gpu(client, miner_token)
+
+    quote_resp = client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={
+            "buyer_id": "client1",
+            "gpu_id": gpu_a,
+            "duration_hours": 1,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert quote_resp.status_code == 200, quote_resp.text
+    quote = quote_resp.json()
+    job_id = quote["job_id"]
+
+    payments = iter(
+        [
+            JobPayment(
+                id="pay_sib_a",
+                job_id=job_id,
+                amount=Decimal("1.0"),
+                status="escrowed",
+                currency="AITBC",
+                payment_method="aitbc_token",
+            ),
+            JobPayment(
+                id="pay_sib_b",
+                job_id=job_id,
+                amount=Decimal("1.0"),
+                status="pending",
+                currency="AITBC",
+                payment_method="aitbc_token",
+            ),
+        ]
+    )
+
+    async def fake_create_payment(self, client_id: str, job_id: str, payment_data) -> JobPayment:
+        payment = next(payments)
+        # Persist like the real service does — the expiry check reads the
+        # job_payments table, not the returned object.
+        self.session.add(payment)
+        self.session.commit()
+        return payment
+
+    monkeypatch.setattr(PaymentService, "create_payment", fake_create_payment)
+
+    for gpu_id in (gpu_a, gpu_b):
+        resp = client.post(
+            "/v1/market/gpu/purchase",
+            headers={"Authorization": f"Bearer {client_token}"},
+            json={
+                "buyer_id": "client1",
+                "gpu_id": gpu_id,
+                "duration_hours": 1,
+                "payment_method": "blockchain",
+                "job_id": job_id,
+                "energy_quote": quote["energy_quote"],
+                "protected": True,
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "purchased"
+
+    bookings = {b.gpu_id: b for b in db_session.exec(select(GPUBooking).where(GPUBooking.job_id == job_id)).all()}
+    assert set(bookings) == {gpu_a, gpu_b}
+    assert bookings[gpu_a].payment_id == "pay_sib_a"
+    assert bookings[gpu_b].payment_id == "pay_sib_b"
+
+    # Age both holds past the TTL.
+    for b in bookings.values():
+        b.created_at = datetime.now(UTC) - timedelta(hours=1)
+        db_session.add(b)
+    db_session.commit()
+
+    # GPU-B's own payment is pending → its hold expires and frees the GPU.
+    resp_b = _book_with_job(client, miner_token, gpu_b)
+    assert resp_b.status_code == 201, resp_b.text
+    db_session.refresh(bookings[gpu_b])
+    assert bookings[gpu_b].status == "expired"
+
+    # GPU-A's own payment is escrowed → its hold survives.
+    resp_a = _book_with_job(client, miner_token, gpu_a)
+    assert resp_a.status_code == 409
+    db_session.refresh(bookings[gpu_a])
+    assert bookings[gpu_a].status == "active"
