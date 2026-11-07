@@ -24,9 +24,12 @@ from typing import Any
 from sqlmodel import Session
 
 from ..base_models import _to_ait_address
+from ..models import Account
 from .state_transition import (
     _authority_parameter_change_error,
+    _escrow_address,
     _escrow_fee_recipient,
+    _escrow_obligation_state,
     _escrow_settlement_authority,
     _governance_executors,
     _v13_shadow_observe,
@@ -99,6 +102,7 @@ def sender_authority_error(
     recipient: str = "",
     payload: Any = None,
     fee: int = 0,
+    value: int = 0,
 ) -> str | None:
     """Why ``sender`` may not send ``tx_type`` under the rules of ``block_version``, or None when it may.
 
@@ -135,6 +139,19 @@ def sender_authority_error(
                 return f"{tx_type} requires a settlement authority: set the escrow_settlement_authority chain parameter"
         elif sender_addr != authority:
             return f"{tx_type} must be signed by settlement authority {authority}, got {sender_addr}"
+        if block_version >= 23:
+            # v23 obligation bound — same rule, same order tail as
+            # validate_transaction (after the authority gate).
+            job_id = (payload or {}).get("job_id", "") if isinstance(payload, dict) else ""
+            if job_id:
+                obligation = _escrow_obligation_state(session, chain_id, job_id)
+                if obligation["remaining"] is None:
+                    return f"{tx_type} for {job_id} has an unbounded obligation (unparseable lock/settlement value) — refusing"
+                if value > obligation["remaining"]:
+                    return (
+                        f"{tx_type} for {job_id} exceeds remaining obligation {obligation['remaining']} "
+                        f"(locked {obligation['obligation']}, settled {obligation['settled']})"
+                    )
     elif tx_type == "ESCROW_FEE_SWEEP" and block_version >= 11:
         # Same checks, same order, same messages as validate_transaction's
         # sweep branch — authority first, then the recipient pin. v11
@@ -149,4 +166,19 @@ def sender_authority_error(
             return "ESCROW_FEE_SWEEP requires a fee recipient: set the escrow_fee_recipient chain parameter"
         if _to_ait_address(recipient or "") != fee_recipient:
             return f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {_to_ait_address(recipient or '')}"
+        if block_version >= 23:
+            # v23 residue-only sweep bound — mirrors validate_transaction.
+            job_id = (payload or {}).get("job_id", "") if isinstance(payload, dict) else ""
+            if job_id:
+                obligation = _escrow_obligation_state(session, chain_id, job_id)
+                if obligation["remaining"] is None:
+                    return f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing"
+                escrow_account = session.get(Account, (chain_id, _escrow_address(job_id)))
+                custody = escrow_account.balance if escrow_account else 0
+                sweepable = custody - obligation["remaining"]
+                if value > sweepable:
+                    return (
+                        f"ESCROW_FEE_SWEEP for {job_id} exceeds residue {sweepable} "
+                        f"(custody {custody} - remaining obligation {obligation['remaining']})"
+                    )
     return None
