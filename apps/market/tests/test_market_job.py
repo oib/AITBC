@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from market_service.domain.market import MarketJob, MarketJobPayment
 from market_service.services.market_service import MarketService
 from market_service.storage import get_session_context
 
@@ -13,6 +15,25 @@ from market_service.storage import get_session_context
 async def service() -> MarketService:
     async with get_session_context() as session:
         yield MarketService(session)
+
+
+async def _mark_escrowed(service: MarketService, job_id: str, escrow_contract_id: str) -> None:
+    """Drive the lifecycle fields the payment path owns.
+
+    ``create_market_job`` deliberately ignores caller-supplied state,
+    escrow_contract_id and payment.status (#815) — tests that need an
+    escrowed job set those columns directly, the way settlement does.
+    """
+    job = await service.session.get(MarketJob, job_id)
+    assert job is not None
+    job.escrow_contract_id = escrow_contract_id
+    job.payment_status = "escrowed"
+    payment = await service.session.get(MarketJobPayment, job.payment_id)
+    assert payment is not None
+    payment.status = "escrowed"
+    payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    service.session.add_all([job, payment])
+    await service.session.commit()
 
 
 @pytest.mark.asyncio
@@ -37,7 +58,9 @@ async def test_create_market_job(service: MarketService) -> None:
     assert result["job_id"]
     assert result["service_type"] == "ipfs"
     assert Decimal(result["payment"]["amount"]) == Decimal("1.5")
-    assert result["payment_status"] == "escrowed"
+    # #815: caller-supplied state/payment.status are ignored — lifecycle is
+    # service-owned, so a fresh job is always pending regardless of input.
+    assert result["payment_status"] == "pending"
 
 
 @pytest.mark.asyncio
@@ -78,6 +101,7 @@ async def test_confirm_and_release_payment(service: MarketService) -> None:
             "payment": {"amount": "1.0", "status": "pending"},
         }
     )
+    await _mark_escrowed(service, created["job_id"], "escrow-123")
 
     await service.confirm_market_job_pin(created["job_id"], size=100)
     fetched = await service.get_market_job(created["job_id"])
@@ -90,7 +114,7 @@ async def test_confirm_and_release_payment(service: MarketService) -> None:
     released = await service.release_market_job_payment(created["job_id"])
     assert released["state"] == "RELEASED"
     assert released["payment_status"] == "released"
-    assert released["tx_hash"] == f"0xrelease_{created['job_id']}"
+    assert released["tx_hash"] == "0xrelease_escrow-123"
 
 
 @pytest.mark.asyncio
@@ -111,6 +135,7 @@ async def test_cancel_and_refund(service: MarketService) -> None:
             "payment": {"amount": "1.0", "status": "escrowed"},
         }
     )
+    await _mark_escrowed(service, created["job_id"], "escrow-456")
 
     canceled = await service.cancel_market_job(created["job_id"], reason="test")
     assert canceled["state"] == "CANCELED"
@@ -119,7 +144,7 @@ async def test_cancel_and_refund(service: MarketService) -> None:
     refunded = await service.refund_market_job_payment(created["job_id"])
     assert refunded["state"] == "REFUNDED"
     assert refunded["payment_status"] == "refunded"
-    assert refunded["refund_tx_hash"] == f"0xrefund_{created['job_id']}"
+    assert refunded["refund_tx_hash"] == "0xrefund_escrow-456"
 
 
 @pytest.mark.asyncio
