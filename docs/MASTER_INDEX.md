@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1515
+- **Markdown files under docs/**: 1516
 
 | Directory | Files | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 46 | Operational runbooks and key handling |
+| [ops](ops/) | 47 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
@@ -1128,6 +1128,7 @@ Inbound markdown links per document (top referrers).
 | [mining/6_monitoring.md](mining/6_monitoring.md) | [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), [mining/3_job-management.md](mining/3_job-management.md), [mining/4_earnings.md](mining/4_earnings.md), +3 more |
 | [mining/7_api-miner.md](mining/7_api-miner.md) | [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), [mining/README.md](mining/README.md) |
 | [mining/README.md](mining/README.md) | — |
+| [ops/backup-assurance.md](ops/backup-assurance.md) | — |
 | [ops/backup-restore.md](ops/backup-restore.md) | [README.md](README.md), [ops/manual-refund-runbook.md](ops/manual-refund-runbook.md) |
 | [ops/bridge-canary-runbook.md](ops/bridge-canary-runbook.md) | [README.md](README.md) |
 | [ops/bridge-funding-source-migration.md](ops/bridge-funding-source-migration.md) | [decisions/README.md](decisions/README.md) |
