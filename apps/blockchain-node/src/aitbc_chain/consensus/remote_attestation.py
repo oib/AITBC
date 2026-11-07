@@ -1284,7 +1284,16 @@ class RemoteAttestationService:
                             outcome = "duplicate"
                         else:
                             counted.add(dedup_key)
-                            attestations.append({"validator": validator, "signature": signature})
+                            attestation_record: dict[str, str] = {
+                                "validator": validator,
+                                "signature": signature,
+                            }
+                            if collect_round is not None:
+                                # Carried for import-side verification: the
+                                # signature covers this round, so verifiers
+                                # rebuild the same round-bound payload.
+                                attestation_record["round"] = str(collect_round)
+                            attestations.append(attestation_record)
                             outcome = f"valid rank={len(attestations)}"
                 except Exception as e:
                     logger.warning("Failed to verify attestation from %s: %s", validator, e)
