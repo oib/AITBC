@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,8 +31,17 @@ class ImportResult:
 class ProposerSignatureValidator:
     """Validates proposer signatures on imported blocks."""
 
-    def __init__(self, trusted_proposers: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        trusted_proposers: list[str] | None = None,
+        *,
+        parent_timestamp_resolver: Callable[[str], Any] | None = None,
+    ) -> None:
         self._trusted = set(trusted_proposers or [])
+        # #1242: resolves a parent_hash to its block timestamp so round-bound
+        # attestations (signed over the 8-field message) can be verified even
+        # when the attestation entry does not carry an explicit "round".
+        self._parent_timestamp_resolver = parent_timestamp_resolver
 
     @property
     def trusted_proposers(self) -> set[str]:
@@ -174,7 +184,6 @@ class ProposerSignatureValidator:
             return (False, f"Insufficient attestations: {len(attestations)} < {min_attestations}")
 
         validator_set = self._load_validator_set() or self._trusted
-        from aitbc.crypto.consensus_signing import verify_block_signature, verify_consensus_message
         from aitbc.crypto.signature_recovery import canonical_address
 
         valid_count = 0
@@ -193,34 +202,83 @@ class ProposerSignatureValidator:
             validator_key = canonical_address(validator)
             if validator_key in seen:
                 continue
-            att_round = att.get("round")
-            if att_round is not None:
-                # #1242: round-bound attestation — the signature covers the
-                # round, so verifiers rebuild the same 8-field payload. A
-                # wrong/missing round simply fails verification.
-                try:
-                    att_msg = {
-                        "chain_id": block_data.get("chain_id", ""),
-                        "height": block_data.get("height", 0),
-                        "hash": block_data.get("hash", ""),
-                        "parent_hash": block_data.get("parent_hash", ""),
-                        "proposer": block_data.get("proposer", ""),
-                        "state_root": block_data.get("state_root", ""),
-                        "bridge_state_root": block_data.get("bridge_state_root", ""),
-                        "round": int(att_round),
-                    }
-                    sig_ok = verify_consensus_message(att_msg, signature, validator)
-                except (TypeError, ValueError):
-                    sig_ok = False
-            else:
-                sig_ok = verify_block_signature(block_data, signature, validator)
-            if sig_ok:
+            if self._attestation_sig_ok(block_data, att, validator):
                 valid_count += 1
                 seen.add(validator_key)
 
         if valid_count < min_attestations:
             return (False, f"Only {valid_count} valid attestations, need {min_attestations}")
         return (True, f"{valid_count} valid attestations")
+
+    def _attestation_sig_ok(self, block_data: dict[str, Any], att: dict[str, Any], validator: str) -> bool:
+        """Verify one attestation entry against the block.
+
+        #1242: round-bound attestations sign an 8-field message that includes
+        the proposer round. Entries sealed before the "round" hint existed
+        still carry round-bound signatures, so when no explicit round is
+        present we derive it from the parent timestamp exactly as attesters
+        do. The legacy 7-field message is always tried as a fallback for
+        mixed-version fleets.
+        """
+        from aitbc.crypto.consensus_signing import verify_block_signature, verify_consensus_message
+
+        signature = att.get("signature", "")
+        rounds: list[int] = []
+        att_round = att.get("round")
+        if att_round is not None:
+            try:
+                rounds.append(int(att_round))
+            except (TypeError, ValueError):
+                pass
+        else:
+            derived = self._derive_attestation_round(block_data)
+            if derived is not None:
+                rounds.append(derived)
+        for rnd in rounds:
+            msg = {
+                "chain_id": block_data.get("chain_id", ""),
+                "height": block_data.get("height", 0),
+                "hash": block_data.get("hash", ""),
+                "parent_hash": block_data.get("parent_hash", ""),
+                "proposer": block_data.get("proposer", ""),
+                "state_root": block_data.get("state_root", ""),
+                "bridge_state_root": block_data.get("bridge_state_root", ""),
+                "round": rnd,
+            }
+            if verify_consensus_message(msg, signature, validator):
+                return True
+        return verify_block_signature(block_data, signature, validator)
+
+    def _derive_attestation_round(self, block_data: dict[str, Any]) -> int | None:
+        """Independently derive the proposer round for this block."""
+        if self._parent_timestamp_resolver is None:
+            return None
+        try:
+            from datetime import datetime
+
+            from .consensus.multi_validator_poa import proposer_round
+
+            block_ts_raw = block_data.get("timestamp")
+            if isinstance(block_ts_raw, str):
+                block_ts = datetime.fromisoformat(block_ts_raw)
+            elif isinstance(block_ts_raw, datetime):
+                block_ts = block_ts_raw
+            else:
+                return None
+            parent_hash = str(block_data.get("parent_hash", "") or "")
+            if not parent_hash:
+                return None
+            parent_ts = self._parent_timestamp_resolver(parent_hash)
+            if parent_ts is None:
+                return None
+            if isinstance(parent_ts, str):
+                parent_ts = datetime.fromisoformat(parent_ts)
+            window = int(getattr(settings, "consensus_proposer_round_seconds", 120) or 120)
+            if window <= 0:
+                return None
+            return proposer_round(parent_ts, block_ts, window)
+        except Exception:
+            return None
 
     def _validate_pbft_certificate(
         self,
