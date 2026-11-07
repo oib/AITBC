@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-06
+**Last Updated**: 2026-11-07
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1512
+- **Markdown files under docs/**: 1515
 
 | Directory | Files | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 43 | Operational runbooks and key handling |
+| [ops](ops/) | 46 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
@@ -1146,6 +1146,7 @@ Inbound markdown links per document (top referrers).
 | [ops/first-sweep-observation.md](ops/first-sweep-observation.md) | [README.md](README.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [scenarios/README.md](scenarios/README.md) |
 | [ops/fleet-wave-runbook.md](ops/fleet-wave-runbook.md) | [README.md](README.md) |
 | [ops/follower-api-key.md](ops/follower-api-key.md) | [README.md](README.md) |
+| [ops/governance-leg-executor-runbook.md](ops/governance-leg-executor-runbook.md) | — |
 | [ops/island-subscription-check.md](ops/island-subscription-check.md) | [README.md](README.md) |
 | [ops/legacy-escrow-residue-payout.md](ops/legacy-escrow-residue-payout.md) | [README.md](README.md) |
 | [ops/manual-refund-runbook.md](ops/manual-refund-runbook.md) | [README.md](README.md) |
@@ -1156,6 +1157,7 @@ Inbound markdown links per document (top referrers).
 | [ops/messaging-series-rollout.md](ops/messaging-series-rollout.md) | [README.md](README.md) |
 | [ops/native-energy-rate-guard-deploy.md](ops/native-energy-rate-guard-deploy.md) | [README.md](README.md) |
 | [ops/node-sepolia-wallets.md](ops/node-sepolia-wallets.md) | [README.md](README.md), [design/key-custody-proposal.md](design/key-custody-proposal.md), [scenarios/59_sepolia_buy_sell_ait.md](scenarios/59_sepolia_buy_sell_ait.md) |
+| [ops/offsite-infra-loss.md](ops/offsite-infra-loss.md) | — |
 | [ops/ops-signer-install-checklist.md](ops/ops-signer-install-checklist.md) | [README.md](README.md), [ops/node-sepolia-wallets.md](ops/node-sepolia-wallets.md) |
 | [ops/ops-signer-runbook.md](ops/ops-signer-runbook.md) | [README.md](README.md), [design/node-held-wallet-access.md](design/node-held-wallet-access.md), [ops/ops-signer-install-checklist.md](ops/ops-signer-install-checklist.md) |
 | [ops/peer-keys.md](ops/peer-keys.md) | [README.md](README.md) |
@@ -1168,6 +1170,7 @@ Inbound markdown links per document (top referrers).
 | [ops/v18-activation-runbook.md](ops/v18-activation-runbook.md) | [README.md](README.md), [design/v14-aux-root-nondeterminism.md](design/v14-aux-root-nondeterminism.md) |
 | [ops/v5-replay-inventory.md](ops/v5-replay-inventory.md) | [README.md](README.md) |
 | [ops/v9-pre-pin-checklist.md](ops/v9-pre-pin-checklist.md) | [README.md](README.md) |
+| [ops/version-gated-activation-runbook.md](ops/version-gated-activation-runbook.md) | — |
 | [ops/website-csp-proposal.md](ops/website-csp-proposal.md) | [README.md](README.md) |
 | [ops/website-version-json.md](ops/website-version-json.md) | [README.md](README.md) |
 | [ops/withdraw-release-runbook.md](ops/withdraw-release-runbook.md) | [README.md](README.md) |
