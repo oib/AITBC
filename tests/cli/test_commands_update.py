@@ -174,7 +174,7 @@ class TestUpdateTempRepo:
         ):
             return runner.invoke(upd.update, argv)
 
-    def test_check_reports_behind_then_no_deploy_advances(self, runner, tmp_path):
+    def test_check_and_no_deploy_are_report_only(self, runner, tmp_path):
         remote, seed, clone, env = _make_remote_and_clone(tmp_path)
         import json
         import subprocess as sp
@@ -184,23 +184,16 @@ class TestUpdateTempRepo:
         sp.run(["git", "-C", str(seed), "commit", "-am", "two"], check=True, capture_output=True, env=env)
         sp.run(["git", "-C", str(seed), "push", "origin", "main"], check=True, capture_output=True, env=env)
 
-        result = self._invoke(runner, tmp_path, ["--check", "--format", "json"])
-        assert result.exit_code == 0, result.output
-        payload = json.loads(result.output)
-        assert payload["before"] == before
-        assert payload["after"] != before
-        assert payload["deployed"] is False
-        assert payload["behind"] == 1
-        # --check must not move HEAD
-        assert _git(clone, "rev-parse", "--short", "HEAD") == before
-
-        result = self._invoke(runner, tmp_path, ["--no-deploy", "--format", "json"])
-        assert result.exit_code == 0, result.output
-        payload = json.loads(result.output)
-        assert payload["before"] == before
-        assert payload["after"] != before
-        assert payload["deployed"] is False
-        assert _git(clone, "rev-parse", "--short", "HEAD") == payload["after"]
+        for flag in (["--check"], ["--no-deploy"]):
+            result = self._invoke(runner, tmp_path, [*flag, "--format", "json"])
+            assert result.exit_code == 0, result.output
+            payload = json.loads(result.output)
+            assert payload["before"] == before
+            assert payload["after"] != before
+            assert payload["deployed"] is False
+            assert payload["behind"] == 1
+            # report-only modes must not move HEAD
+            assert _git(clone, "rev-parse", "--short", "HEAD") == before
         # update.sh was not run
         assert not (tmp_path / "deployed-marker").exists()
         assert not (clone / "deployed-marker").exists()
@@ -224,6 +217,8 @@ class TestUpdateTempRepo:
         sp.run(["git", "-C", str(seed), "push", "origin", "main"], check=True, capture_output=True, env=env)
 
         head = _git(clone, "rev-parse", "--short", "HEAD")
-        result = self._invoke(runner, tmp_path, ["--no-deploy"])
+        # --no-deploy is report-only now; the pull path (and its ff-only
+        # refusal on divergence) only runs on a real update.
+        result = self._invoke(runner, tmp_path, [])
         assert result.exit_code != 0
         assert _git(clone, "rev-parse", "--short", "HEAD") == head

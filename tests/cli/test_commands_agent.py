@@ -62,13 +62,57 @@ class TestAgentCommands:
         """Test that agent request-coins subcommand is registered"""
         assert "request-coins" in agent.commands
 
+    @patch("aitbc_cli.commands.agent.load_signing_wallet")
     @patch("aitbc_cli.commands.agent._resolve_wallet_address")
     @patch("aitbc_cli.commands.agent.websockets")
     @patch("aitbc_cli.commands.agent.get_config")
-    def test_agent_request_coins_no_wallet(self, mock_config, mock_ws, mock_wallet):
-        """Test request-coins exits cleanly when no wallet is found."""
+    def test_agent_request_coins_no_wallet(self, mock_config, mock_ws, mock_wallet, mock_signing):
+        """request-coins without a wallet authenticates via api-key/session JWT (#1181)
+        and still completes the WS exchange."""
+        import json as _json
+
         mock_config.return_value.agent_coordinator_url = "http://hub:8107"
         mock_wallet.return_value = None
+        mock_signing.return_value = None
+
+        frames = iter(
+            [
+                _json.dumps({"type": "connection_established"}),
+                _json.dumps(
+                    {
+                        "type": "handler_acknowledgment",
+                        "handler_results": {
+                            "results": [
+                                {
+                                    "result": {
+                                        "action": "coin_request_received",
+                                        "status": "pending_approval",
+                                        "request_id": "req-1",
+                                        "message": "ok",
+                                    }
+                                }
+                            ]
+                        },
+                    }
+                ),
+            ]
+        )
+
+        class _FakeWS:
+            async def recv(self):
+                return next(frames)
+
+            async def send(self, data):
+                return None
+
+        class _FakeCM:
+            async def __aenter__(self):
+                return _FakeWS()
+
+            async def __aexit__(self, *args):
+                return False
+
+        mock_ws.connect.return_value = _FakeCM()
 
         runner = CliRunner()
         result = runner.invoke(
@@ -77,8 +121,7 @@ class TestAgentCommands:
         )
 
         assert result.exit_code == 0, result.output
-        # WebSocket should not be called since wallet resolution failed
-        mock_ws.connect.assert_not_called()
+        mock_ws.connect.assert_called_once()
 
 
 if __name__ == "__main__":

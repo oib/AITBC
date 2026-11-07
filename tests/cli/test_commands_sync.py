@@ -39,10 +39,12 @@ class TestSyncCommands:
         ]
 
         from aitbc_cli.commands.sync import sync
+        from tests.fixtures.cli_mocks import make_cli_obj
 
         result = runner.invoke(
             sync,
             ["status", "--node-url", "http://localhost:8202", "--hub-url", "http://hub:8202"],
+            obj=make_cli_obj(output_format="table"),
         )
 
         assert result.exit_code == 0, result.output
