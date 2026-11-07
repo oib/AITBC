@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.media_guard import ffmpeg_input_guard  # noqa: E402
 from aitbc.shop_gate import require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
@@ -302,6 +303,9 @@ async def process_video(
             "ffmpeg",
             "-hwaccel",
             _hw_accel,
+            # CE-001 (#1170): the upload is untrusted and FFmpeg sniffs content, so a
+            # playlist named .mp4 would otherwise fetch nested resources of its choosing.
+            *ffmpeg_input_guard(),
             "-i",
             input_path,
             "-c:v",

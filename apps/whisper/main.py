@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.media_guard import pyav_open_options  # noqa: E402
 from aitbc.shop_gate import require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="whisper", to_file=True)
@@ -152,7 +153,7 @@ async def _spool_upload(file: UploadFile, suffix: str) -> str:
     return tmp.name
 
 
-def _audio_seconds(path: str) -> float | None:
+def _probe_duration(path: str) -> float | None:
     """Container duration read from the header, without decoding anything.
 
     ``av`` is faster-whisper's own decoder -- ``faster_whisper.audio.decode_audio``
@@ -161,19 +162,28 @@ def _audio_seconds(path: str) -> float | None:
     ``WhisperModel.transcribe()`` decodes the entire clip into memory before it
     reports ``info.duration``, far too late to refuse the job on those grounds.
 
+    The open carries the CE-001 (#1170) input guard, so a playlist or script that
+    FFmpeg would sniff out of an innocently named upload is refused here instead of
+    being followed to nested resources. It raises for anything the guard or the
+    parser rejects; callers decide what that means.
+
     Returns None when the container carries no duration, which is normal for
     streamed formats; the byte limit is what covers that case.
     """
     import av
 
+    with av.open(path, options=pyav_open_options()) as container:
+        if container.duration is None:
+            return None
+        return container.duration / av.time_base
+
+
+def _audio_seconds(path: str) -> float | None:
+    """``_probe_duration`` that answers None for something it cannot read."""
     try:
-        with av.open(path) as container:
-            if container.duration is None:
-                return None
-            return container.duration / av.time_base
+        return _probe_duration(path)
     except Exception:
-        # Diagnosing the format is not this function's job. Let faster-whisper
-        # fail on it instead -- its error names the actual problem.
+        # Diagnosing the format is not this function's job; see _probe_duration.
         return None
 
 
@@ -195,7 +205,13 @@ async def transcribe(
     tmp_path = await _spool_upload(file, _safe_suffix(file.filename))
 
     try:
-        seconds = _audio_seconds(tmp_path)
+        try:
+            seconds = _probe_duration(tmp_path)
+        except Exception:
+            # Unreadable, or not one of the plain audio/video containers media_guard
+            # allows. faster-whisper would open the same file with no guard at all,
+            # so it never gets to see it (CE-001, #1170).
+            raise HTTPException(status_code=415, detail="Unsupported or unreadable media container") from None
         if seconds is not None and seconds > _MAX_AUDIO_SECONDS:
             raise HTTPException(
                 status_code=413,
