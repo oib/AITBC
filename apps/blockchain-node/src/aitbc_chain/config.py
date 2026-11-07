@@ -1116,6 +1116,20 @@ class ChainSettings(BaseSettings):
     # from a mesh peer and pull it. The lock expires after one round window
     # so an attested block that never materialises cannot stall production.
     attestation_lock_enabled: bool = True
+    # #1242 staged rollout: re-key the attester lock to (height, round), bind
+    # the round into the signed attestation payload, add the tip-height /
+    # canonical-parent check before signing, and persist signed
+    # (height, round, hash) records so a restart cannot forget an
+    # equivocation decision. Off preserves the legacy height-only lock and
+    # the version-gated v9 parent check exactly. Sandbox evaluation only —
+    # production merge stays gated on independent review.
+    attestation_round_lock_enabled: bool = False
+    # U2 failure-evidence window for cross-round signing: after observing a
+    # later-round attest_request at the same height, the locked round's
+    # gates window must fully elapse before a rival hash may be signed.
+    # 0 derives it from the attestation timeout (+1s margin, +PBFT view
+    # timeout when PBFT is armed).
+    attestation_round_unlock_window_seconds: float = 0.0
     # Delta-journal undo for non-empty losing fork segments
     # (``state/block_deltas.py``). While False the resolvers escalate a
     # non-empty segment to the operator exactly as before the journal
