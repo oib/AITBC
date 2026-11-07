@@ -6,7 +6,7 @@ Provides decorators and middleware for API rate limiting
 import asyncio
 import ipaddress
 import os
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from functools import wraps
 from typing import Any
 
@@ -111,8 +111,8 @@ def _valid_ip(value: str) -> str | None:
         return None
 
 
-def _client_ip_for_rate_limit(request: Request) -> str:
-    """Return the client IP to key a rate limit on.
+def client_ip_from_peer_and_headers(peer: str | None, headers: Mapping[str, str]) -> str:
+    """Return the client IP to key a rate limit on, from a peer and headers.
 
     The TCP peer is the only value a client cannot choose, so it is the key
     unless the peer is itself a trusted proxy (``AITBC_TRUSTED_PROXIES``,
@@ -125,23 +125,29 @@ def _client_ip_for_rate_limit(request: Request) -> str:
     skipped and the rewritten peer wins.
 
     Before #1244 any client could write ``X-Real-IP`` / ``X-Forwarded-For``
-    and mint a fresh bucket per request.
+    and mint a fresh bucket per request. ``headers`` must be case-insensitive
+    (Starlette ``Headers`` is). Shared by HTTP requests and the gossip
+    websocket (#1241), which has no ``Request`` object.
     """
-    peer = request.client.host if request.client else ""
     if not peer:
         return "unknown"
     if not _is_trusted_proxy(peer):
         return peer
 
-    real = _valid_ip(request.headers.get("x-real-ip", "").split(",")[0])
+    real = _valid_ip(headers.get("x-real-ip", "").split(",")[0])
     if real:
         return real
 
-    for hop in reversed(request.headers.get("x-forwarded-for", "").split(",")):
+    for hop in reversed(headers.get("x-forwarded-for", "").split(",")):
         candidate = _valid_ip(hop)
         if candidate and not _is_trusted_proxy(candidate):
             return candidate
     return peer
+
+
+def _client_ip_for_rate_limit(request: Request) -> str:
+    """Request-shaped wrapper over :func:`client_ip_from_peer_and_headers`."""
+    return client_ip_from_peer_and_headers(request.client.host if request.client else "", request.headers)
 
 
 def client_ip_for_rate_limit(request: Request) -> str:
