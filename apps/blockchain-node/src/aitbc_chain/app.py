@@ -13,6 +13,7 @@ from typing import Any
 from anyio import to_thread
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 from aitbc.middleware import LegacyPathRewriteMiddleware, setup_cors
+from aitbc.rate_limiting import client_ip_for_rate_limit
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -163,10 +164,10 @@ class RequestLoggingMiddleware:
         path = request.url.path
         query = request.url.query
         path_with_qs = f"{path}?{query}" if query else path
-        client_host = request.client.host if request.client else "unknown"
-        x_forwarded = request.headers.get("x-forwarded-for", "")
-        if x_forwarded:
-            client_host = x_forwarded.split(",")[0].strip() or client_host
+        # Same trusted-proxy derivation as the rate limits: the left-most
+        # X-Forwarded-For entry is client-written and let a caller put any
+        # address into this log (#1244).
+        client_host = client_ip_for_rate_limit(request)
         user_agent = request.headers.get("user-agent", "unknown")
         # An explicit chain_id outside supported_chains can only fail later —
         # unguarded routes resolve it into session_scope, where get_engine

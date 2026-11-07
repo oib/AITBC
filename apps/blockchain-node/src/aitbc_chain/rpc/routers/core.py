@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
 from sqlmodel import select
 
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import client_ip_for_rate_limit, rate_limit
 
 from ...chain_id import resolve_chain_id
 from ...config import settings
@@ -105,10 +105,7 @@ def get_block_route(request: Request, height: int, chain_id: str | None = None) 
 
 
 def _log_legacy_block_caller(request: Request) -> None:
-    client_host = request.client.host if request.client else "unknown"
-    x_forwarded = request.headers.get("x-forwarded-for", "")
-    if x_forwarded:
-        client_host = x_forwarded.split(",")[0].strip() or client_host
+    client_host = client_ip_for_rate_limit(request)
     user_agent = request.headers.get("user-agent", "unknown")
     _logger.info(
         "Legacy /rpc/block called by %s (UA: %s) path=%s",

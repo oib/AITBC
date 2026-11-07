@@ -69,6 +69,17 @@ bind change. The durable fixes, in preference order:
    below on the public path **and** treat the in-app limiter as best-effort
    there.
 
+**In-app backstop (#1244).** The shared limiter (`aitbc/rate_limiting.py`)
+no longer believes `X-Real-IP` / `X-Forwarded-For` from just anyone: it keys
+on the TCP peer and reads those headers only when the peer is in
+`AITBC_TRUSTED_PROXIES` (comma-separated IPs or CIDRs, default
+`127.0.0.1,::1`). Set it to the addresses of the proxy hops that sit in front
+of a service on a non-loopback bind; leave the default behind a loopback
+nginx/gateway. The api-gateway overwrites `X-Real-IP` with the address it
+observed and appends it to `X-Forwarded-For` before proxying, so a client's
+own values never reach an upstream. A rotating-header flood against a
+directly reachable port now lands in one bucket instead of one per request.
+
 Companion document: [messaging-explorer-nginx.md](messaging-explorer-nginx.md)
 applies the same zone to the MSG-4 explorer proxies
 (`/explorer-api/api/messages*`).
