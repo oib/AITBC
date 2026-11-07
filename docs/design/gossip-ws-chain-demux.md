@@ -104,6 +104,23 @@ chain the process supports, with a chain→broker registry inside one process.
   it to include chain so a validator signature for chain A cannot authorize
   publishes on chain B.
 
+**Metrics and aggregate ceilings (#1257).**
+`blockchain_gossip_ws_rejected_total{chain,topic_class,reason}` counts refusals
+(`unknown_chain`, `cross_chain_topic`, `no_backend`, `conn_cap`,
+`conn_cap_total`, `rate`, `rate_total`, `auth`) and
+`blockchain_gossip_ws_open_connections{chain}` the live connections. `chain` is
+a served chain id or the literal `unknown`; an unserved chain string is never
+echoed as a label. The per-chain limits multiply with the number of served
+chains (K): per source IP, up to K x `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP`
+connections and K x 5 x `GOSSIP_MAX_MESSAGES_PER_MINUTE` messages/min.
+`GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL` and `GOSSIP_MAX_MESSAGES_PER_MINUTE_TOTAL`
+cap the sum across chains; both default to 0 (off), so K = 1 is unchanged.
+Rate-bucket headroom: `RateLimiter` tracks at most 100 000 keys and evicts the
+stalest at the cap (the owner gets a fresh window, never a lockout). Each
+source IP holds at most 5 x K bucket keys, so the cap is reached at about
+20 000 distinct active IPs for K = 1 and about 6 600 for K = 3; the aggregate
+message ceiling adds one key per IP in a separate limiter.
+
 ### 6. Migration story (per-island `:8302` units)
 
 Phase A (additive, no behavior change):
