@@ -6,7 +6,14 @@ from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from ..services.zk_proofs import ZKProofService
+from ..services.zk_proofs import (
+    ZK_BUSY_DETAIL,
+    ZK_RETRY_AFTER_SECONDS,
+    ZK_TIMEOUT_DETAIL,
+    ZKBusyError,
+    ZKProofService,
+    ZKTimeoutError,
+)
 
 router = APIRouter(prefix="/ml-zk", tags=["ml-zk"])
 
@@ -58,8 +65,9 @@ async def _prove(circuit_name: str, proof_request: MLProofRequest) -> dict[str, 
     each subscript silenced by a ``type: ignore[index]``. So V23-94's corrected range checks
     would have reported every refused learning rate as a server fault (V23-94).
 
-    There is no ``try`` here because ``generate_proof`` catches its own exceptions and folds
-    them into that same ``None``.
+    ``generate_proof`` catches its own exceptions and folds them into that same ``None``, with
+    one exception: a full or timed-out Node subprocess pool (CE-002, #1171) is not the caller's
+    fault, so ``ZKBusyError`` / ``ZKTimeoutError`` propagate and are answered 503 / 504 here.
     """
     if circuit_name not in zk_service.available_circuits:
         # The detail is a constant because tests/security/test_http_exception_hardening.py
@@ -69,9 +77,17 @@ async def _prove(circuit_name: str, proof_request: MLProofRequest) -> dict[str, 
         logging.getLogger(__name__).error("No usable proving key for circuit '%s'", circuit_name)
         raise HTTPException(status_code=503, detail="This circuit has no usable proving key on this node")
 
-    proof_result = await zk_service.generate_proof(
-        circuit_name=circuit_name, inputs=proof_request.inputs, private_inputs=proof_request.private_inputs
-    )
+    try:
+        proof_result = await zk_service.generate_proof(
+            circuit_name=circuit_name, inputs=proof_request.inputs, private_inputs=proof_request.private_inputs
+        )
+    except ZKBusyError as e:
+        # CE-002 (#1171): bounded subprocess slots; shed load instead of queueing it.
+        logging.getLogger(__name__).warning("ML prove for '%s' refused: %s", circuit_name, e)
+        raise HTTPException(status_code=503, detail=ZK_BUSY_DETAIL, headers={"Retry-After": ZK_RETRY_AFTER_SECONDS}) from e
+    except ZKTimeoutError as e:
+        logging.getLogger(__name__).error("ML prove for '%s' timed out: %s", circuit_name, e)
+        raise HTTPException(status_code=504, detail=ZK_TIMEOUT_DETAIL) from e
     if proof_result is None:
         raise HTTPException(status_code=400, detail=UNPROVABLE_INPUTS)
     return proof_result
@@ -171,7 +187,7 @@ async def verify_ml_inference(request: Request, verification_request: MLVerifyRe
 
 @router.get("/circuits")
 @rate_limit(rate=200, per=60)
-async def list_ml_circuits(request: Request) -> dict[str, Any]:
+async def list_ml_circuits(request: Request) -> dict[str, Any]:  # noqa: fake-async  (static data; the rate_limit wrapper awaits a coroutine)
     """List available ML ZK circuits"""
     circuits = [
         {
