@@ -161,3 +161,10 @@ services, chain state, accounts, transactions, blocks, mempool, bridge,
 GPU, AI jobs, market, escrow, disputes, governance. Read-only tools are the
 default; mutating tools are `dry_run=true`-gated and require
 `confirm=true`. Prefer typed MCP tools over raw SSH when operating a node.
+
+## Issue-ledger signing
+
+Every post on an issue thread — ready comments, respins, deploy evidence,
+ledger notes — opens with the coder stamp (`Coder: A`/`B`/`C`, `Validator:`,
+`Code auditor:`). Coder B also stamps its session replies the same way so
+the operator can tell lanes apart in chat.
