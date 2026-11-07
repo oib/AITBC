@@ -61,7 +61,10 @@ class TestTimeTokenExemption:
         assert _violations_for(tmp_path, source) == [], source
 
     def test_plain_money_annotation_still_flags(self, tmp_path):
-        assert _violations_for(tmp_path, "payout_amount: float = 0.0\n") == ["annotation:payout_amount"]
+        assert _violations_for(tmp_path, "payout_amount: float = 0.0\n") == [
+            "annotation:payout_amount",
+            "float-literal:payout_amount",
+        ]
 
     @pytest.mark.parametrize(
         "name",
@@ -77,7 +80,7 @@ class TestTimeTokenExemption:
         ],
     )
     def test_time_token_under_money_head_still_flags(self, tmp_path, name):
-        assert _violations_for(tmp_path, f"{name}: float = 0.0\n") == [f"annotation:{name}"]
+        assert _violations_for(tmp_path, f"{name}: float = 0.0\n") == [f"annotation:{name}", f"float-literal:{name}"]
 
     @pytest.mark.parametrize(
         "name",
@@ -94,8 +97,11 @@ class TestTimeTokenExemption:
 
     def test_snapshot_name_is_still_money(self, tmp_path):
         """``at``/``last`` stay money: they name amount snapshots, not times."""
-        assert _violations_for(tmp_path, "balance_at: float = 0.0\n") == ["annotation:balance_at"]
-        assert _violations_for(tmp_path, "last_payment: float = 0.0\n") == ["annotation:last_payment"]
+        assert _violations_for(tmp_path, "balance_at: float = 0.0\n") == ["annotation:balance_at", "float-literal:balance_at"]
+        assert _violations_for(tmp_path, "last_payment: float = 0.0\n") == [
+            "annotation:last_payment",
+            "float-literal:last_payment",
+        ]
 
     def test_marker_escape_hatch_unchanged(self, tmp_path):
         source = "# not-money: a ratio kept as float for the wire format\nreward_share: float = 0.0\n"

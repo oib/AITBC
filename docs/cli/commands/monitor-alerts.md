@@ -7,7 +7,7 @@ Configure or query monitoring alerts by name, type, and threshold.
 ## Usage
 
 ```bash
-aitbc monitor alerts [OPTIONS] ACTION
+aitbc monitor alerts [OPTIONS] <action>
 ```
 
 ## Arguments
@@ -28,7 +28,7 @@ aitbc monitor alerts [OPTIONS] ACTION
 ## Examples
 
 ```bash
-aitbc monitor alerts ACTION
+aitbc monitor alerts <action>
 ```
 
 ## Related

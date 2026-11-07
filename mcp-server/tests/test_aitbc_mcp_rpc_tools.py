@@ -194,7 +194,7 @@ def test_cross_chain_swap_sends_signature_and_replay_fields():
         host="node.test",
     )
     body = captured["body"]
-    assert captured["path"] == "cross-chain/swap"
+    assert captured["path"] == "swap"
     assert body["signature"] == "0x" + "ee" * 65
     assert body["issued_at"] == 1760000000
     assert body["nonce"] == "deadbeef"
