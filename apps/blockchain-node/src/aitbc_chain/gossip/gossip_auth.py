@@ -45,6 +45,25 @@ def is_public_topic(topic: str) -> bool:
     return any(topic == exact or topic.startswith(exact + ".") for exact in PUBLIC_GOSSIP_TOPICS)
 
 
+def gossip_topic_class(topic: str) -> str:
+    """Collapse a gossip topic to one of five bounded classes (#1243, #1250).
+
+    ``public``: every public root (``transactions``/``status``/``mempool`` and
+    any dotted subtopic) - the only topics an unauthenticated client may
+    publish to. A restricted root keeps its own class (``blocks``, ``pbft``,
+    ``consensus``). Anything else is ``other``. The result is always one of
+    ``public | blocks | pbft | consensus | other``, so anything keyed on it
+    (rate buckets, metric series) has a fixed-size keyspace however many
+    topic strings a caller invents.
+    """
+    if is_public_topic(topic):
+        return "public"
+    for root in RESTRICTED_GOSSIP_TOPICS:
+        if topic == root or topic.startswith(root + "."):
+            return root
+    return "other"
+
+
 def _parse_validator_set() -> list[Any]:
     """Parse ``VALIDATOR_SET`` from settings into a list of validator records."""
     if not settings.validator_set:
