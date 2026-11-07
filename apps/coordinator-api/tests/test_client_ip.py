@@ -3,7 +3,10 @@
 The hub nginx vhost sets ``X-Real-IP`` to the realip-resolved client and
 appends that address as the LAST ``X-Forwarded-For`` entry. Entries earlier
 in the chain are whatever the client claimed — spoofable. These pins lock
-the precedence: X-Real-IP > rightmost XFF > direct peer.
+the precedence: X-Real-IP > rightmost XFF > direct peer. The forwarding
+headers count only from a trusted proxy peer (#1246), so these requests arrive
+from the loopback nginx/gateway hop; ``tests/security/unit/test_client_ip_trust.py``
+pins the untrusted-peer side.
 """
 
 from starlette.requests import Request
@@ -11,7 +14,7 @@ from starlette.requests import Request
 from coordinator_api.utils.security import get_client_ip
 
 
-def _request(headers: list[tuple[bytes, bytes]], client: tuple[str, int] | None = ("10.0.0.1", 50000)) -> Request:
+def _request(headers: list[tuple[bytes, bytes]], client: tuple[str, int] | None = ("127.0.0.1", 50000)) -> Request:
     return Request(
         {
             "type": "http",
