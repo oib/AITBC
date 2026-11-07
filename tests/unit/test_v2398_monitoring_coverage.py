@@ -334,20 +334,36 @@ def _jobs() -> dict[str, dict]:
     return {job["job_name"]: job for job in config["scrape_configs"]}
 
 
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _scrape_target(job: dict) -> str:
+    """The job's first target as ``host:port`` with loopback spellings unified.
+
+    #1187 bound the metrics exporters to 127.0.0.1 and the fleet-detail scrub
+    # (#1212) removed host literals, so targets may read ``127.0.0.1``,
+    ``localhost`` or ``::1`` — all the same loopback intent.
+    """
+    target = job["static_configs"][0]["targets"][0]
+    host, _, port = target.rpartition(":")
+    host = host.strip("[]")
+    return f"{'127.0.0.1' if host in _LOOPBACK_HOSTS else host}:{port}"
+
+
 @pytest.mark.parametrize("job,port", [("trading", 8104), ("governance", 8105)])
 def test_the_service_is_scraped(job: str, port: int) -> None:
     """Of the six services the health map was missing, these two export /metrics."""
     jobs = _jobs()
 
     assert job in jobs, f"no scrape job for {job}"
-    assert jobs[job]["static_configs"][0]["targets"] == [f"localhost:{port}"]
+    assert _scrape_target(jobs[job]) == f"127.0.0.1:{port}"
     assert jobs[job]["metrics_path"] == "/metrics"
 
 
 def test_the_blockchain_job_targets_a_port_something_binds() -> None:
     """8006 until now, where nothing has ever listened — the same fictional port the stale
     hyphenated script claimed for this service. The RPC process exports the series."""
-    assert _jobs()["blockchain-node"]["static_configs"][0]["targets"] == ["localhost:8202"]
+    assert _scrape_target(_jobs()["blockchain-node"]) == "127.0.0.1:8202"
 
 
 def test_no_scrape_job_points_at_a_service_the_health_map_disagrees_about() -> None:
@@ -355,9 +371,7 @@ def test_no_scrape_job_points_at_a_service_the_health_map_disagrees_about() -> N
     monitored = {service.removeprefix("aitbc-"): _port_of(url) for service, url in _service_endpoints().items()}
 
     for name, job in _jobs().items():
-        target = job["static_configs"][0]["targets"][0]
-        if not target.startswith("localhost:") or name not in monitored:
+        host, _, port = _scrape_target(job).rpartition(":")
+        if host != "127.0.0.1" or name not in monitored:
             continue
-        assert int(target.split(":")[1]) == monitored[name], (
-            f"{name}: prometheus says {target}, health_check.sh says {monitored[name]}"
-        )
+        assert int(port) == monitored[name], f"{name}: prometheus says {port}, health_check.sh says {monitored[name]}"
