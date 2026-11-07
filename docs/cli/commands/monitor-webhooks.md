@@ -7,7 +7,7 @@ Register, list, or remove monitoring webhooks.
 ## Usage
 
 ```bash
-aitbc monitor webhooks [OPTIONS] <action>
+aitbc monitor webhooks [OPTIONS] ACTION
 ```
 
 ## Arguments
@@ -27,7 +27,7 @@ aitbc monitor webhooks [OPTIONS] <action>
 ## Examples
 
 ```bash
-aitbc monitor webhooks <action>
+aitbc monitor webhooks ACTION
 ```
 
 ## Related
