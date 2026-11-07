@@ -23,6 +23,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.security import RateLimiter
 
 from ..config import settings
+from ..metrics import gossip_auth_legacy_scope_accepted_total
 
 # Topics only validators may publish to. Subscribing to these is allowed from
 # anyone, but publishing requires a valid validator signature.
@@ -227,6 +228,8 @@ def verify_challenge(
         # Chain-binding rollout compat (#1159): accept a signature made
         # against the legacy chain-less scope while the flag is off.
         ok = verify_consensus_message(build_auth_message(challenge, address, timestamp, legacy_scope), signature, address)
+        if ok:
+            gossip_auth_legacy_scope_accepted_total.inc()
     if not ok and scope and not settings.gossip_auth_require_scope:
         # Rollout compat: accept a legacy unscoped signature while the flag
         # is off so old and new nodes keep gossiping mid-restart (#1128).
