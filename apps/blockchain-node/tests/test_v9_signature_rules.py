@@ -56,6 +56,13 @@ def session_factory(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_header_freshness_bound(monkeypatch):
+    """The hash-bound header carries the fixed T0 timestamp, years old. Header
+    freshness (#1245) has its own suite: tests/consensus/test_attestation_replay_1245.py."""
+    monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+
+
+@pytest.fixture(autouse=True)
 def _reset_metrics():
     metrics_registry.reset()
     yield
