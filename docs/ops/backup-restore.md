@@ -20,10 +20,19 @@ Per host, in order of what hurts most to lose:
 | redis state | `redis.rdb` | yes — `BGSAVE` + copy |
 
 The nightly timer lands at `/var/backups/aitbc/YYYYMMDD_HHMMSS/` on the same
-host and prunes at `RETENTION_DAYS` (default 30). Two hooks exist but are
-unset fleet-wide: `BACKUP_GPG_RECIPIENT` (encrypt the key-material tarballs)
-and `BACKUP_OFFSITE_SCRIPT` (ship `$BACKUP_DIR` off the host). Both gaps are
-documented in the drill record.
+host and prunes at `RETENTION_DAYS` (default 30).
+
+**Off-host copies (updated 2026-11, R13-00):** the documented
+`BACKUP_OFFSITE_SCRIPT` push hook remains unset fleet-wide — the actual
+offsite mechanism is the **pull model**: `offsite-pull-backups.timer`
+runs on the IDE host (at1) as a *user* unit at 02:30, rsyncs each host's
+latest generation over ssh, verifies a sha256 manifest in-session, and
+lands age-encrypted copies under
+`~/windsurf/aitbc/backups/fleet-nightly/<host>/<gen>/` (KEEP=14
+generations, `pull.log` records each run). On-host `BACKUP_GPG_RECIPIENT`
+encryption of key-material tarballs is still unset — on-host copies are
+root-600 plaintext by design; the offsite copies are the encrypted ones.
+See `docs/ops/offsite-infra-loss.md` for the at1-loss procedure.
 
 **`etc-aitbc.tar.gz` carries live secrets by design.** The env files hold
 production credentials — the coordinator's `RECEIPT_SIGNING_KEY_HEX`, API
