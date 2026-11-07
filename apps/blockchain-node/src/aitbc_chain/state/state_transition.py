@@ -851,6 +851,100 @@ def _escrow_beneficiary(lock_tx: Transaction, tx_type: str) -> str | None:
     return None
 
 
+_ESCROW_SETTLEMENT_TYPES = ("ESCROW_RELEASE", "ESCROW_REFUND")
+
+
+def _escrow_lock_rows(session: Session, chain_id: str, job_id: str) -> list[Transaction]:
+    """All applied ESCROW_LOCK rows for ``job_id``.
+
+    Only ``status='confirmed'`` transactions moved funds — rejected
+    write-backs and failed applies never did and must not count toward
+    the obligation.
+    """
+    return list(
+        session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == chain_id,
+                Transaction.type == "ESCROW_LOCK",
+                Transaction.payload.op("->>")("job_id") == job_id,  # type: ignore
+                Transaction.status == "confirmed",
+            )
+        )
+    )
+
+
+def _escrow_obligation_state(session: Session, chain_id: str, job_id: str, exclude_tx_hash: str = "") -> dict[str, Any]:
+    """v23 obligation accounting for one job's escrow custody.
+
+    ``obligation`` = Σ sealed ``ESCROW_LOCK.value``;
+    ``settled`` = Σ sealed ``ESCROW_RELEASE``/``ESCROW_REFUND``.value
+    (``exclude_tx_hash`` lets a tx be revalidated without counting
+    itself); ``remaining`` = obligation − settled is the most any single
+    release/refund may still pay, and custody beyond it is sweep residue.
+
+    A lock or settlement row whose ``value`` is missing/unparseable marks
+    the state unbounded: ``remaining`` is ``None`` and callers must fail
+    closed rather than under-count what is owed.
+    """
+    obligation = 0
+    unbounded = False
+    for lock in _escrow_lock_rows(session, chain_id, job_id):
+        try:
+            obligation += int(lock.value)
+        except (TypeError, ValueError):
+            unbounded = True
+            break
+    settled = 0
+    if not unbounded:
+        for tx in session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == chain_id,
+                Transaction.type.in_(_ESCROW_SETTLEMENT_TYPES),  # type: ignore
+                Transaction.payload.op("->>")("job_id") == job_id,  # type: ignore
+                Transaction.status == "confirmed",
+            )
+        ):
+            if exclude_tx_hash and tx.tx_hash == exclude_tx_hash:
+                continue
+            try:
+                settled += int(tx.value)
+            except (TypeError, ValueError):
+                unbounded = True
+                break
+    return {
+        "obligation": obligation,
+        "settled": settled,
+        "remaining": None if unbounded else obligation - settled,
+        "unbounded": unbounded,
+    }
+
+
+def _escrow_lock_beneficiaries(session: Session, chain_id: str, job_id: str, tx_type: str) -> tuple[str | None, bool]:
+    """v23 beneficiary resolution across ALL sealed locks for ``job_id``.
+
+    ``ESCROW_RELEASE`` pays each lock's recorded ``provider``;
+    ``ESCROW_REFUND`` pays each lock's ``sender``. Returns
+    ``(beneficiary, ambiguous)`` — more than one distinct beneficiary, or
+    a lock whose beneficiary field is missing, is ambiguous and the caller
+    must refuse rather than guess.
+    """
+    seen: set[str] = set()
+    for lock in _escrow_lock_rows(session, chain_id, job_id):
+        if tx_type == "ESCROW_RELEASE":
+            provider = (lock.payload or {}).get("provider") or ""
+            addr = _to_ait_address(provider) if provider else None
+        elif tx_type == "ESCROW_REFUND":
+            addr = _to_ait_address(lock.sender or "") if lock.sender else None
+        else:
+            return None, True
+        if not addr:
+            return None, True
+        seen.add(addr)
+    if len(seen) == 1:
+        return next(iter(seen)), False
+    return (None, True) if seen else (None, False)
+
+
 def build_escrow_context(
     session: Session, chain_id: str, tx_datas: list[dict[str, Any]], block_height: int | None = None
 ) -> dict[str, dict[str, Any]] | None:
@@ -897,6 +991,38 @@ def build_escrow_context(
             fee_recipient_resolved = True
         return fee_recipient
 
+    # v23 (R12-05-F1/#1232, R14-06-F1/#1230): each context entry carries the
+    # job's obligation state so the pure path can enforce the bound without
+    # a session. Two settlement txs for one job cannot share a single
+    # static ``remaining`` — the second must see the first's settlement —
+    # so such a batch falls back to sequential, which applies the checks
+    # in order. Below v23 the context is bit-for-bit what it always was.
+    v23 = block_height is not None and get_block_version_for_height(block_height) >= 23
+    obligation_cache: dict[str, dict[str, Any]] = {}
+
+    def _obligation_fields(job_id: str) -> dict[str, Any]:
+        if job_id not in obligation_cache:
+            obligation_cache[job_id] = _escrow_obligation_state(session, chain_id, job_id)
+        state = obligation_cache[job_id]
+        return {"remaining_obligation": state["remaining"], "obligation_unbounded": state["unbounded"]}
+
+    if v23:
+        settlement_counts: dict[str, int] = {}
+        for tx_data in tx_datas:
+            tx_type = _tx_type(tx_data)
+            if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"):
+                continue
+            payload = tx_data.get("payload") or {}
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except Exception:
+                    payload = {}
+            job_id = payload.get("job_id") or tx_data.get("job_id") or ""
+            settlement_counts[job_id] = settlement_counts.get(job_id, 0) + 1
+        if any(count > 1 for count in settlement_counts.values()):
+            return None
+
     for tx_data in tx_datas:
         tx_type = _tx_type(tx_data)
         if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"):
@@ -933,25 +1059,40 @@ def build_escrow_context(
             # the sequential path apply its own checks.
             return None
         if tx_type == "ESCROW_FEE_SWEEP":
-            context[job_id] = {
+            entry = {
                 "tx_type": tx_type,
                 "escrow_addr": _escrow_address(job_id) if job_id else "",
                 "settlement_authority": _resolved_authority(),
                 "fee_recipient": _resolved_fee_recipient(),
             }
+            if v23:
+                entry.update(_obligation_fields(job_id))
+            context[job_id] = entry
             continue
         lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
         if lock_tx is None:
             return None
-        context[job_id] = {
+        if v23:
+            # v23: beneficiary resolves across ALL sealed locks; ambiguity
+            # sends the batch sequential where validate_transaction refuses
+            # it identically.
+            expected_beneficiary, beneficiary_ambiguous = _escrow_lock_beneficiaries(session, chain_id, job_id, tx_type)
+            if beneficiary_ambiguous:
+                return None
+        else:
+            expected_beneficiary = _escrow_beneficiary(lock_tx, tx_type)
+        entry = {
             "tx_type": tx_type,
             "lock_version": _get_escrow_lock_block_version(session, chain_id, job_id),
-            "expected_beneficiary": _escrow_beneficiary(lock_tx, tx_type),
+            "expected_beneficiary": expected_beneficiary,
             "escrow_addr": _escrow_address(job_id),
             # The pure path has no DB access — every entry carries the
             # resolved chain-level values.
             "settlement_authority": _resolved_authority(),
         }
+        if v23:
+            entry.update(_obligation_fields(job_id))
+        context[job_id] = entry
     return context
 
 
@@ -1125,6 +1266,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v23_threshold = getattr(settings, "state_transition_v23_height", None)
+    if v23_threshold and height >= v23_threshold:
+        return 23
     v22_threshold = getattr(settings, "state_transition_v22_height", None)
     if v22_threshold and height >= v22_threshold:
         return 22
@@ -1834,9 +1978,37 @@ class StateTransition:
             lock_version = _get_escrow_lock_block_version(session, chain_id, job_id)
             if lock_version is None:
                 lock_version = 2 if block_version < 3 else 3
-            expected_beneficiary = _escrow_beneficiary(lock_tx, tx_type)
+            if block_version >= 23:
+                # v23: the beneficiary is resolved across ALL sealed locks —
+                # multiple locks with distinct payees (or an unresolvable one)
+                # are ambiguous and refuse rather than guess.
+                expected_beneficiary, beneficiary_ambiguous = _escrow_lock_beneficiaries(session, chain_id, job_id, tx_type)
+                if beneficiary_ambiguous:
+                    return (
+                        False,
+                        f"{tx_type} for {job_id} has an ambiguous beneficiary across its locks — refusing to guess",
+                    )
+            else:
+                expected_beneficiary = _escrow_beneficiary(lock_tx, tx_type)
             if expected_beneficiary and _to_ait_address(recipient_addr) != expected_beneficiary:
                 return (False, f"{tx_type} for {job_id} must pay {expected_beneficiary}, got {recipient_addr}")
+            if block_version >= 23:
+                # v23 obligation bound: value may not exceed the job's
+                # remaining obligation (Σ locks − Σ prior settlements).
+                # Custody balance is NOT the bound — third-party transfers
+                # into the escrow address must not raise entitlement.
+                obligation = _escrow_obligation_state(session, chain_id, job_id, exclude_tx_hash=tx_hash)
+                if obligation["remaining"] is None:
+                    return (
+                        False,
+                        f"{tx_type} for {job_id} has an unbounded obligation (unparseable lock/settlement value) — refusing",
+                    )
+                if value > obligation["remaining"]:
+                    return (
+                        False,
+                        f"{tx_type} for {job_id} exceeds remaining obligation {obligation['remaining']} "
+                        f"(locked {obligation['obligation']}, settled {obligation['settled']})",
+                    )
             if block_version >= 3:
                 authority = _escrow_settlement_authority(session, chain_id, block_height)
                 if authority is None:
@@ -1899,6 +2071,23 @@ class StateTransition:
             if escrow_account is None or escrow_account.balance < value:
                 escrow_bal = escrow_account.balance if escrow_account else 0
                 return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
+            if block_version >= 23:
+                # v23: a sweep may take only custody residue — never the
+                # job's outstanding obligation.
+                obligation = _escrow_obligation_state(session, chain_id, job_id, exclude_tx_hash=tx_hash)
+                if obligation["remaining"] is None:
+                    return (
+                        False,
+                        f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing",
+                    )
+                custody = escrow_account.balance if escrow_account else 0
+                sweepable = custody - obligation["remaining"]
+                if value > sweepable:
+                    return (
+                        False,
+                        f"ESCROW_FEE_SWEEP for {job_id} exceeds residue {sweepable} "
+                        f"(custody {custody} - remaining obligation {obligation['remaining']})",
+                    )
             # The settlement authority pays only the fee, not the value.
             if sender_balance < fee:
                 return (False, f"Insufficient balance for fee: {sender_balance} < {fee}")

@@ -221,6 +221,35 @@ def _escrow_release_refund_delta(
             tx_type=tx_type,
             tx_hash=tx_hash,
         )
+    if block_version >= 23:
+        # v23 obligation bound — mirrors validate_transaction. The context
+        # must carry the prefetch obligation state; a missing entry fails
+        # closed because the pure path cannot query the DB.
+        if "remaining_obligation" not in context or context.get("obligation_unbounded"):
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error=f"{tx_type} for {job_id} cannot verify escrow obligation — missing or unbounded context",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+        remaining_obligation = context["remaining_obligation"]
+        if remaining_obligation is not None and value > remaining_obligation:
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error=f"{tx_type} for {job_id} exceeds remaining obligation {remaining_obligation}",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
     if block_version >= 3:
         # The DB-capable context builder resolves the on-chain
         # escrow_settlement_authority parameter (env fallback) once per batch;
@@ -270,6 +299,7 @@ def _escrow_fee_sweep_delta(
     fee: int,
     tx_type: str,
     tx_hash: str,
+    block_version: int,
     escrow_context: dict[str, dict[str, Any]] | None,
 ) -> StateDelta:
     """Validate and compute a v11 ESCROW_FEE_SWEEP delta.
@@ -357,6 +387,40 @@ def _escrow_fee_sweep_delta(
             tx_type=tx_type,
             tx_hash=tx_hash,
         )
+    if block_version >= 23:
+        # v23 residue-only bound — mirrors validate_transaction: the sweep may
+        # take custody minus the job's remaining obligation, never the
+        # obligation itself. Missing/unbounded context fails closed.
+        if "remaining_obligation" not in context or context.get("obligation_unbounded"):
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error=f"ESCROW_FEE_SWEEP for {job_id} cannot verify escrow obligation — missing or unbounded context",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+        remaining_obligation = context["remaining_obligation"]
+        if remaining_obligation is not None:
+            escrow_addr = context.get("escrow_addr") or _escrow_address(job_id)
+            escrow_account = account_map.get(escrow_addr)
+            custody = escrow_account.balance if escrow_account else 0
+            sweepable = custody - remaining_obligation
+            if value > sweepable:
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error=f"ESCROW_FEE_SWEEP for {job_id} exceeds residue {sweepable}",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
     return _escrow_v3_release_refund_delta(account_map, sender, recipient, value, fee, tx_type, tx_hash, job_id, context)
 
 
@@ -853,6 +917,7 @@ def compute_state_delta(
             fee,
             tx_type,
             tx_hash,
+            block_version,
             escrow_context,
         )
 
