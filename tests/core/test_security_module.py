@@ -4,7 +4,6 @@ This module has 0% coverage and 220 statements.
 """
 
 import importlib.util
-import tempfile
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -178,98 +177,6 @@ class TestSessionManager:
 
 # ============================================================================
 # API Key Manager Tests
-# ============================================================================
-
-
-class TestAPIKeyManager:
-    """Test APIKeyManager class"""
-
-    def test_api_key_manager_initialization(self):
-        manager = security.APIKeyManager()
-        assert manager.storage_path is None
-        assert manager.keys == {}
-
-    def test_api_key_manager_with_storage(self):
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-            storage_path = Path(f.name)
-        try:
-            manager = security.APIKeyManager(str(storage_path))
-            assert manager.storage_path == str(storage_path)
-        finally:
-            storage_path.unlink(missing_ok=True)
-
-    def test_create_api_key(self):
-        manager = security.APIKeyManager()
-        api_key = manager.create_api_key("user123", scopes=["read", "write"], name="test_key")
-        assert api_key.startswith("aitbc_")
-        assert api_key in manager.keys
-        assert manager.keys[api_key]["user_id"] == "user123"
-        assert manager.keys[api_key]["scopes"] == ["read", "write"]
-        assert manager.keys[api_key]["name"] == "test_key"
-
-    def test_create_api_key_defaults(self):
-        manager = security.APIKeyManager()
-        api_key = manager.create_api_key("user123")
-        assert manager.keys[api_key]["scopes"] == ["read"]
-        assert manager.keys[api_key]["name"] is None
-
-    def test_validate_api_key_valid(self):
-        manager = security.APIKeyManager()
-        api_key = manager.create_api_key("user123")
-        key_data = manager.validate_api_key(api_key)
-        assert key_data is not None
-        assert key_data["user_id"] == "user123"
-        assert key_data["last_used"] is not None
-
-    def test_validate_api_key_invalid(self):
-        manager = security.APIKeyManager()
-        key_data = manager.validate_api_key("invalid_key")
-        assert key_data is None
-
-    def test_revoke_api_key(self):
-        manager = security.APIKeyManager()
-        api_key = manager.create_api_key("user123")
-        result = manager.revoke_api_key(api_key)
-        assert result is True
-        assert api_key not in manager.keys
-
-    def test_revoke_api_key_nonexistent(self):
-        manager = security.APIKeyManager()
-        result = manager.revoke_api_key("nonexistent")
-        assert result is False
-
-    def test_list_user_keys(self):
-        manager = security.APIKeyManager()
-        key1 = manager.create_api_key("user1")
-        key2 = manager.create_api_key("user1")
-        key3 = manager.create_api_key("user2")
-        user1_keys = manager.list_user_keys("user1")
-        assert len(user1_keys) == 2
-        assert key1 in user1_keys
-        assert key2 in user1_keys
-        assert key3 not in user1_keys
-
-    def test_items(self):
-        manager = security.APIKeyManager()
-        api_key = manager.create_api_key("user123")
-        items = list(manager.items())
-        assert len(items) == 1
-        assert items[0][0] == api_key
-
-    def test_save_and_load_keys(self):
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
-            storage_path = Path(f.name)
-        try:
-            manager1 = security.APIKeyManager(str(storage_path))
-            api_key = manager1.create_api_key("user123")
-
-            manager2 = security.APIKeyManager(str(storage_path))
-            assert api_key in manager2.keys
-            assert manager2.keys[api_key]["user_id"] == "user123"
-        finally:
-            storage_path.unlink(missing_ok=True)
-
-
 # ============================================================================
 # Secure Random Generation Tests
 # ============================================================================

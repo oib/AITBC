@@ -101,6 +101,9 @@ FLAT_LAYOUT_APPS = frozenset(
         # ipfs is a single-daemon wrapper around `kubo`; it has no internal package and only needs
         # a service unit and entry-point script, so the src/ layout would be empty. Triaged.
         "ipfs",
+        # ollama_gate is a single-file nginx-adjacent auth shim (main.py + unit + tests);
+        # no internal package, so src/ would be empty. Triaged.
+        "ollama_gate",
         "whisper",
         "zk-circuits",
     }

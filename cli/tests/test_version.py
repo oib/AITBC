@@ -30,22 +30,20 @@ class TestVersionOutput:
     def test_version_flag_matches_package(self, runner):
         # --version is an eager option: output and exit before the group
         # callback runs, so this never touches config or chain-id detection.
-        import aitbc_cli
-        from aitbc_cli.core.main import cli
+        from aitbc_cli.core.main import _version_display, cli
 
         result = runner.invoke(cli, ["--version"])
         assert result.exit_code == 0
-        assert result.output.strip() == f"aitbc, version {aitbc_cli.__version__}"
+        assert result.output.strip() == f"aitbc, version {_version_display()}"
 
     def test_version_command_matches_package(self, runner):
         # Invoked standalone so the group callback (config load, chain-id
         # probe) never runs — the command itself needs no context.
-        import aitbc_cli
-        from aitbc_cli.core.main import version
+        from aitbc_cli.core.main import _version_display, version
 
         result = runner.invoke(version)
         assert result.exit_code == 0
-        assert f"aitbc, version {aitbc_cli.__version__}" in result.output
+        assert f"aitbc, version {_version_display()}" in result.output
 
 
 class TestCanonicalVersionSource:
