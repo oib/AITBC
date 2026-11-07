@@ -355,6 +355,22 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
         _refuse_retired_gpu(tx_type, tx_data.get("payload"))
 
 
+def _fanout_dial_plan(chain_id: str) -> tuple[list[str], str]:
+    """Peers and the chain to bind the dial to for a tx on ``chain_id`` (#1258).
+
+    A peer serving several chains rejects a dial with no ``?chain=`` (1008), so
+    the fan-out always says which chain it is dialling for. The peer set is the
+    strict #1260 convention (``mesh_peer_urls_for_service``): the default
+    chain's peers are the untagged mesh entries, any other chain's peers are
+    the entries tagged for it, with no union. A non-default chain with no
+    tagged peers therefore has an empty set and the caller's no-peers warning
+    fires, instead of routing the tx through the default chain's peers.
+    """
+    from ..config import settings
+
+    return settings.mesh_peer_urls_for_service(chain_id), chain_id
+
+
 async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -> None:
     """Best-effort relay of a locally submitted transaction to mesh peers.
 
@@ -367,10 +383,9 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
     ``transactions.<chain>`` gossip endpoint so each validator's own mempool
     picks it up. One hop, tx-hash deduped downstream — no loop risk.
     """
-    from ..config import settings
     from ..gossip.backends.websocket import WebsocketGossipBackend
 
-    peer_urls = settings.mesh_peer_urls_for_service(chain_id)
+    peer_urls, dial_chain = _fanout_dial_plan(chain_id)
     if not peer_urls:
         # The only logging below is per-URL inside the loop, so an empty peer
         # list produced no output at all and was indistinguishable from a
@@ -384,7 +399,7 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
         return
 
     for url in peer_urls:
-        backend = WebsocketGossipBackend(url)
+        backend = WebsocketGossipBackend(url, chain_id=dial_chain)
         try:
             await backend.start()
             await backend.publish(f"transactions.{chain_id}", {"type": "new_transaction", "tx": tx_data})
