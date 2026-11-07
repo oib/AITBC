@@ -371,6 +371,19 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
                 pass
 
 
+# The app's main event loop, captured by the FastAPI lifespan. Sync ``def``
+# endpoints run on the anyio threadpool where ``get_running_loop`` raises —
+# without this registry every REST-submitted tx skipped peer fan-out and sat
+# in the local mempool until this host happened to propose (#1215).
+_PEER_FANOUT_LOOP: "asyncio.AbstractEventLoop | None" = None
+
+
+def set_peer_fanout_loop(loop: "asyncio.AbstractEventLoop | None") -> None:
+    """Register the app's main loop for cross-thread fan-out scheduling."""
+    global _PEER_FANOUT_LOOP
+    _PEER_FANOUT_LOOP = loop
+
+
 def _fanout_done(task: "asyncio.Task[None]") -> None:
     try:
         task.result()
@@ -379,12 +392,30 @@ def _fanout_done(task: "asyncio.Task[None]") -> None:
 
 
 def _queue_peer_fanout(chain_id: str, tx_data: dict[str, Any]) -> None:
-    """Fire-and-forget peer relay; never blocks or fails the submit path."""
+    """Fire-and-forget peer relay; never blocks or fails the submit path.
+
+    Runs on the caller's loop when one exists (async handlers); from a sync
+    handler's thread it schedules onto the lifespan-registered main loop via
+    ``run_coroutine_threadsafe``. With neither, it warns — a stranded tx is a
+    liveness gap, not a correctness one, so submission still succeeds.
+    """
+    coro = _fanout_transaction_to_peers(chain_id, tx_data)
     try:
-        task = asyncio.get_running_loop().create_task(_fanout_transaction_to_peers(chain_id, tx_data))
-        task.add_done_callback(_fanout_done)
-    except RuntimeError as e:
-        _logger.warning("tx fan-out not scheduled for chain %s (no running loop): %s", chain_id, e)
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        fallback = _PEER_FANOUT_LOOP
+        if fallback is None or fallback.is_closed():
+            _logger.warning("tx fan-out not scheduled for chain %s (no event loop)", chain_id)
+            coro.close()
+            return
+        try:
+            asyncio.run_coroutine_threadsafe(coro, fallback)
+        except Exception as e:  # noqa: BLE001 — observability only
+            _logger.warning("tx fan-out scheduling failed for chain %s: %s", chain_id, e)
+            coro.close()
+        return
+    task = loop.create_task(coro)
+    task.add_done_callback(_fanout_done)
 
 
 @rate_limit(rate=50, per=60)
