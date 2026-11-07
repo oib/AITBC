@@ -100,6 +100,14 @@ class Settings(BaseAITBCConfig):
     key_storage_dir: str = Field(default=str(KEYSTORE_DIR / "confidential"), description="Key storage directory")
     media_storage_dir: str = Field(default=str(DATA_DIR / "media"), description="Media upload storage directory")
     max_media_upload_bytes: int = Field(default=100 * 1024 * 1024, description="Maximum media upload size in bytes")
+    max_request_body_bytes: int = Field(
+        default=5 * 1024 * 1024,
+        description="App-level request body cap matching the nginx API bound (defense-in-depth, #1234)",
+    )
+    max_request_body_exempt_prefixes: str = Field(
+        default="/v1/media/",
+        description="Comma-separated path prefixes exempt from the body cap (own size governance applies)",
+    )
 
     # Database
     database: DatabaseConfig = Field(default_factory=DatabaseConfig, description="Database configuration")
