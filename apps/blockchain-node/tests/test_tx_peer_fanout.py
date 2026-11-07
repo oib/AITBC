@@ -159,3 +159,71 @@ async def test_fanout_survives_peer_failure(monkeypatch):
     monkeypatch.setattr(ws_mod, "WebsocketGossipBackend", MixedBackend)
     await txmod._fanout_transaction_to_peers("ait-test", {"from": "0xabc"})
     assert calls == ["ws://up:8202/rpc/gossip/ws"]
+
+
+# ---------------------------------------------------------------------------
+# #1215: _queue_peer_fanout must reach the app loop from sync REST handlers.
+# FastAPI `def` endpoints run on the anyio threadpool — get_running_loop()
+# raises there, which is why every REST submit logged "no running event loop"
+# and stranded txs until a proposer turn.
+# ---------------------------------------------------------------------------
+
+import asyncio
+import threading
+
+
+@pytest.mark.anyio
+@pytest.mark.asyncio
+async def test_queue_peer_fanout_uses_running_loop(monkeypatch):
+    ran: list[str] = []
+
+    async def _fake(chain_id, tx_data):
+        ran.append(chain_id)
+
+    monkeypatch.setattr(txmod, "_fanout_transaction_to_peers", _fake)
+    txmod._queue_peer_fanout("ait-test", {"from": "0xabc"})
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert ran == ["ait-test"]
+
+
+def test_queue_peer_fanout_falls_back_to_registered_loop(monkeypatch):
+    """Sync handler path: schedule onto the lifespan-registered main loop."""
+    ran = threading.Event()
+    seen: list[str] = []
+
+    async def _fake(chain_id, tx_data):
+        seen.append(chain_id)
+        ran.set()
+
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        monkeypatch.setattr(txmod, "_fanout_transaction_to_peers", _fake)
+        monkeypatch.setattr(txmod, "_PEER_FANOUT_LOOP", loop)
+        txmod._queue_peer_fanout("ait-test", {"from": "0xabc"})
+        assert ran.wait(timeout=5)
+        assert seen == ["ait-test"]
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=5)
+        loop.close()
+
+
+def test_queue_peer_fanout_warns_when_no_loop_anywhere(monkeypatch):
+    warnings: list[str] = []
+
+    class RecordingLogger:
+        def warning(self, msg, *args):
+            warnings.append(msg % args if args else msg)
+
+    async def _fake(chain_id, tx_data):  # pragma: no cover - must never run
+        raise AssertionError("fan-out ran without a loop")
+
+    monkeypatch.setattr(txmod, "_fanout_transaction_to_peers", _fake)
+    monkeypatch.setattr(txmod, "_PEER_FANOUT_LOOP", None)
+    monkeypatch.setattr(txmod, "_logger", RecordingLogger())
+
+    txmod._queue_peer_fanout("ait-test", {"from": "0xabc"})  # must not raise
+    assert any("no event loop" in w for w in warnings)
