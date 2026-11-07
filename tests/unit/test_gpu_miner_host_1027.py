@@ -31,7 +31,7 @@ def miner(monkeypatch, tmp_path):
         sys.modules.pop("gpu_miner_host", None)
 
 
-def test_coordinator_down_is_retried_not_attributeerror(miner):
+def test_coordinator_down_is_retried_not_attributeerror(miner, monkeypatch):
     calls = []
 
     class FakeHttp:
@@ -45,23 +45,19 @@ def test_coordinator_down_is_retried_not_attributeerror(miner):
 
     import httpx
 
-    monkey_obj = pytest.MonkeyPatch()
-    monkey_obj.setattr(miner.httpx, "get", lambda *a, **k: (_ for _ in ()).throw(httpx.ConnectError("refused")))
-    monkey_obj.setattr(miner, "MAX_RETRIES", 3)
-    monkey_obj.setattr(miner.time, "sleep", lambda s: None)
+    monkeypatch.setattr(miner.httpx, "get", lambda *a, **k: (_ for _ in ()).throw(httpx.ConnectError("refused")))
+    monkeypatch.setattr(miner, "MAX_RETRIES", 3)
+    monkeypatch.setattr(miner.time, "sleep", lambda s: None)
     assert miner.wait_for_coordinator() is False
-    monkey_obj.undo()
 
 
-def test_placeholder_credentials_refuse_to_start(miner):
+def test_placeholder_credentials_refuse_to_start(miner, monkeypatch):
     assert miner.credentials_ok() is False  # test env has no real key
-    mp = pytest.MonkeyPatch()
-    mp.setattr(miner, "AUTH_TOKEN", "${MINER_API_KEY}")
-    mp.setattr(miner, "MINER_ID", "miner-1")
+    monkeypatch.setattr(miner, "AUTH_TOKEN", "${MINER_API_KEY}")
+    monkeypatch.setattr(miner, "MINER_ID", "miner-1")
     assert miner.credentials_ok() is False
-    mp.setattr(miner, "AUTH_TOKEN", "real-key-123")
+    monkeypatch.setattr(miner, "AUTH_TOKEN", "real-key-123")
     assert miner.credentials_ok() is True  # a real key must pass the gate
-    mp.undo()
 
 
 def test_capabilities_come_from_probe(miner):
@@ -72,14 +68,17 @@ def test_capabilities_come_from_probe(miner):
     assert caps["gpu"]["memory_gb"] == 32
 
 
-def test_failed_submit_retries_then_reports_lost(miner):
+def test_failed_submit_retries_then_reports_lost(miner, monkeypatch):
     import httpx
 
     calls = []
-    pytest.MonkeyPatch().setattr(
+    monkeypatch.setattr(
         miner.httpx, "post", lambda *a, **k: calls.append(1) or (_ for _ in ()).throw(httpx.ConnectError("refused"))
     )
-    pytest.MonkeyPatch().setattr(miner.time, "sleep", lambda s: None)
+    # miner.time IS the stdlib time module — patching sleep here is
+    # process-global, so it must go through monkeypatch's auto-undo or
+    # every later time.sleep() in the suite becomes a no-op (#1219).
+    monkeypatch.setattr(miner.time, "sleep", lambda s: None)
     assert miner.submit_result("job-1", {"result": {}}, retries=3, delay=0) is False
     assert len(calls) == 3
 
