@@ -32,6 +32,7 @@ from aitbc.market.job_request_signature import jobs_request_message
 from aitbc.utils.chain_id import resolve_chain_id
 from market_service.config import settings
 from market_service.main import app
+from market_service.domain.market import MarketJob, MarketJobPayment
 from market_service.services.market_service import (
     PUBLIC_JOB_FIELDS,
     MarketService,
@@ -96,7 +97,24 @@ def _seed_ipfs_job(private_key: str = _TEST_PRIVATE_KEY, **overrides: Any) -> di
         "payment": {"amount": "1.0", "status": "escrowed", "escrow_address": "0xescrow", "refund_address": "0xrefund"},
     }
     fields.update(overrides)
-    return _seed_job(**fields)
+    record = _seed_job(**fields)
+
+    # #815: create_market_job ignores caller-set lifecycle fields — drive the
+    # escrowed state the way the payment path would, then re-read the row.
+    async def _settle_and_fetch() -> dict[str, Any]:
+        async with get_session_context() as session:
+            job = await session.get(MarketJob, record["job_id"])
+            assert job is not None
+            job.state = fields.get("state", "QUEUED")
+            job.payment_status = "escrowed"
+            payment = await session.get(MarketJobPayment, job.payment_id)
+            assert payment is not None
+            payment.status = "escrowed"
+            session.add_all([job, payment])
+            await session.commit()
+            return await MarketService(session).get_market_job(record["job_id"])
+
+    return asyncio.run(_settle_and_fetch())
 
 
 @pytest.fixture
