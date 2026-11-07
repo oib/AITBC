@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from eth_keys import keys
 from sqlmodel import Session, create_engine
+from starlette.requests import Request
 
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Transaction
@@ -30,6 +31,23 @@ from aitbc_chain.rpc.utils import withdrawn_listing_ids
 SELLER = keys.PrivateKey(b"\x11" * 32).public_key.to_checksum_address()
 OTHER = keys.PrivateKey(b"\x22" * 32).public_key.to_checksum_address()
 CHAIN = "test"
+
+
+def _request() -> Request:
+    return Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/market/listings",
+            "raw_path": b"/market/listings",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 12345),
+            "server": ("testserver", 80),
+        }
+    )
 
 
 def _offer(**extra: Any) -> dict[str, Any]:
@@ -146,7 +164,7 @@ async def _listing_ids(chain_db, rows) -> dict[str, set[str]]:
             yield session
 
     with patch.object(market_mod, "_chain_db_path", lambda: path):
-        listings = market_mod.market_listings()
+        listings = market_mod.market_listings(_request())
     with patch.object(tx_mod, "session_scope", session_scope), patch.object(tx_mod, "get_chain_id", lambda _c=None: CHAIN):
         matched = tx_mod.match_market(MagicMock(), chain_id=CHAIN)
     return {
@@ -204,5 +222,5 @@ async def test_listing_reader_ignores_a_row_with_unparseable_payload(chain_db):
     conn.commit()
     conn.close()
     with patch.object(market_mod, "_chain_db_path", lambda: path):
-        listings = market_mod.market_listings()
+        listings = market_mod.market_listings(_request())
     assert [x for x in listings["listings"] if x["listing_id"].startswith("tx_")] == []
