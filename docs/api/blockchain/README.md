@@ -180,6 +180,7 @@ Retrieve network configuration for joining the island. The node derives the publ
   "public_rpc_url": "https://hub.example.net/rpc",
   "subscription_websocket_url": "wss://hub.example.net/rpc/subscribe/ws",
   "gossip_websocket_url": "wss://hub.example.net/rpc/gossip/ws",
+  "gossip_websocket_urls": { "bc-2": "wss://hub.example.net/rpc/gossip/ws?chain=bc-2" },
   "gossip_auth_required": true,
   "validators": [],
   "default_peer_rpc_url": "https://hub.example.net",

@@ -272,6 +272,15 @@ def get_network_info_route(request: Request) -> dict[str, Any]:
         role = "follower"
 
     gossip_url = f"{wss_url}/rpc/gossip/ws"
+    # Per-chain dial URLs (#1258). ``gossip_url`` has no ``?chain=``, which a
+    # host serving more than one gossip chain refuses (1008); this map names
+    # every chain the host can actually serve gossip for. Additive: existing
+    # consumers keep reading ``gossip_websocket_url`` unchanged.
+    from urllib.parse import quote
+
+    from ..websocket import _connectable_chain_ids
+
+    gossip_urls = {c: f"{gossip_url}?chain={quote(c, safe='')}" for c in _connectable_chain_ids()}
     gossip_auth_required = settings.gossip_auth_enabled
 
     return {
@@ -292,6 +301,7 @@ def get_network_info_route(request: Request) -> dict[str, Any]:
         "public_peer_endpoint": f"{base_url}:{p2p_port}" if p2p_port != 443 else base_url,
         "subscription_websocket_url": subscribe_url,
         "gossip_websocket_url": gossip_url,
+        "gossip_websocket_urls": gossip_urls,
         "gossip_auth_required": gossip_auth_required,
         "validators": validators,
         "contact_email": settings.contact_email,
