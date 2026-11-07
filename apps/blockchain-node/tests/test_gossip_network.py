@@ -411,10 +411,10 @@ class TestGossipMetrics:
         """Test that publication metrics are recorded."""
         with patch("aitbc_chain.gossip._internal.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
-            await backend.subscribe("test_topic")
+            await backend.subscribe("status")
 
             # Publish message
-            await backend.publish("test_topic", {"data": "test"})
+            await backend.publish("status", {"data": "test"})
 
             # Should increment metrics
             mock_metrics.increment.assert_called()
@@ -422,24 +422,24 @@ class TestGossipMetrics:
             # Check specific calls
             calls = mock_metrics.increment.call_args_list
             assert any("gossip_publications_total" in str(call) for call in calls)
-            assert any("gossip_publications_topic_test_topic" in str(call) for call in calls)
+            assert any("gossip_publications_topic_status" in str(call) for call in calls)
 
     @pytest.mark.asyncio
     async def test_queue_metrics(self) -> None:
         """Test that queue metrics are recorded."""
         with patch("aitbc_chain.gossip._internal.metrics_registry") as mock_metrics:
             backend = InMemoryGossipBackend()
-            await backend.subscribe("test_topic")
+            await backend.subscribe("status")
 
             # Publish message
-            await backend.publish("test_topic", {"data": "test"})
+            await backend.publish("status", {"data": "test"})
 
             # Should set gauge for queue size
             mock_metrics.set_gauge.assert_called()
 
             # Check specific calls
             calls = mock_metrics.set_gauge.call_args_list
-            assert any("gossip_queue_size_test_topic" in str(call) for call in calls)
+            assert any("gossip_queue_size_status" in str(call) for call in calls)
 
     @pytest.mark.asyncio
     async def test_subscriber_metrics(self) -> None:

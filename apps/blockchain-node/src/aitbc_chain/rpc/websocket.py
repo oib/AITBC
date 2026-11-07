@@ -19,11 +19,11 @@ from ..gossip import (
     WebsocketGossipBackend,
     gossip_broker,
 )
-from ..gossip._internal import _peer_name
+from ..gossip._internal import _peer_name, bounded_topic_label
 from ..gossip.gossip_auth import (
-    RESTRICTED_GOSSIP_TOPICS,
     channel_scope,
     create_challenge,
+    gossip_topic_class,
     is_public_topic,
     is_restricted_topic,
     is_validator,
@@ -120,23 +120,13 @@ def _gossip_client_ip(websocket: WebSocket) -> str:
 
 
 def _gossip_rate_class(topic: str) -> str:
-    """Collapse a gossip topic to the bounded class its rate budget is shared in.
+    """Bounded class a topic's rate budget is shared in (see ``gossip_topic_class``).
 
-    ``public``: every public root (``transactions``/``status``/``mempool`` and
-    any dotted subtopic) — the only topics an unauthenticated client may
-    publish to, so one source gets exactly one public budget however many
-    subtopics it invents. A restricted root keeps its own bucket (``blocks``,
-    ``pbft``, ``consensus``), so a flood on one class cannot starve a
-    validator's consensus traffic. Anything else is ``other`` (reachable only
-    by an authenticated validator, or by an unauthenticated client that is
-    closed on its first message). At most five classes exist per (ip, chain).
+    One source gets one public budget however many subtopics it invents; a
+    restricted root keeps its own bucket so a flood on one class cannot
+    starve a validator's consensus traffic (#1243).
     """
-    if is_public_topic(topic):
-        return "public"
-    for root in RESTRICTED_GOSSIP_TOPICS:
-        if topic == root or topic.startswith(root + "."):
-            return root
-    return "other"
+    return gossip_topic_class(topic)
 
 
 def _gossip_rate_key(client_ip: str, chain_id: str, topic: str) -> str:
@@ -430,7 +420,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
 
                 try:
                     await broker.publish(topic, data)
-                    gossip_messages_published_total.labels(topic=topic).inc()
+                    gossip_messages_published_total.labels(topic=bounded_topic_label(topic)).inc()
                 except Exception as e:  # noqa: BLE001 - one bad publish must not close the socket
                     # A broker-side failure (e.g. an ACL-denied topic) loses
                     # this message — but must not close the connection: the
