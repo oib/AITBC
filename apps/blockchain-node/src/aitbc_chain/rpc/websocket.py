@@ -245,6 +245,42 @@ def _broker_for_chain(chain_id: str) -> GossipBroker | None:
     return broker
 
 
+def _release_ip_connection(conn_key: tuple[str, str]) -> None:
+    """Drop one connection from ``conn_key``'s count; delete the entry at zero.
+
+    Leaving zero-count entries behind grew ``_gossip_ip_connections`` by one
+    key per distinct (ip, chain) for the process lifetime (#1256, #1159 G4).
+    """
+    remaining = _gossip_ip_connections.get(conn_key, 1) - 1
+    if remaining > 0:
+        _gossip_ip_connections[conn_key] = remaining
+    else:
+        _gossip_ip_connections.pop(conn_key, None)
+
+
+async def shutdown_chain_brokers(timeout: float = 5.0) -> None:
+    """Shut down every lazily-created per-chain broker (#1256, #1159 G3).
+
+    Called from the app lifespan beside the default ``gossip_broker`` shutdown.
+    Each broker gets its own bounded wait and a failure never blocks the rest,
+    so one stuck chain cannot keep the others' tasks/sockets alive. The
+    registry is emptied first, so a connection racing the shutdown builds a
+    fresh broker rather than reusing one that is mid-teardown.
+    """
+    brokers = list(_chain_brokers.items())
+    _chain_brokers.clear()
+
+    async def _one(chain_id: str, broker: GossipBroker) -> None:
+        try:
+            await asyncio.wait_for(broker.shutdown(), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning("Gossip broker shutdown timed out for chain %s", chain_id)
+        except Exception as exc:
+            logger.warning("Failed to shut down gossip broker for chain %s: %s", chain_id, exc)
+
+    await asyncio.gather(*(_one(c, b) for c, b in brokers))
+
+
 @router.websocket("/gossip/ws")
 async def gossip_websocket(websocket: WebSocket) -> None:
     """Bidirectional WebSocket gossip with validator authentication.
@@ -461,7 +497,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
             subscription.close()
             await _gossip_ws_close(websocket)
     finally:
-        _gossip_ip_connections[conn_key] = max(0, _gossip_ip_connections.get(conn_key, 1) - 1)
+        _release_ip_connection(conn_key)
         gossip_open_connections.dec()
         if authorized_address:
             gossip_authenticated_connections.labels(address=authorized_address).dec()
