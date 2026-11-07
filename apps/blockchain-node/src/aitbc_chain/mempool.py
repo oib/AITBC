@@ -344,6 +344,16 @@ class InMemoryMempool:
             metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))
             return result
 
+    def slot_occupant(self, chain_id: str | None, sender: str, nonce: int) -> str | None:
+        """tx_hash currently holding the (sender, nonce) slot, if any."""
+        from .config import settings
+
+        if chain_id is None:
+            chain_id = settings.chain_id
+        key = (sender or "").lower()
+        with self._lock:
+            return self._slots.get(chain_id, {}).get((key, nonce))
+
     def remove(self, tx_hash: str, chain_id: str | None = None) -> bool:
         from .config import settings
 
@@ -392,6 +402,15 @@ class InMemoryMempool:
             chain_id = settings.chain_id
         with self._lock:
             return len(self._get_chain_transactions(chain_id))
+
+    def pending_tx_hashes(self, chain_id: str | None = None) -> set[str]:
+        """Hashes of pending entries on a chain — cheap, content-free."""
+        from .config import settings
+
+        if chain_id is None:
+            chain_id = settings.chain_id
+        with self._lock:
+            return set(self._get_chain_transactions(chain_id))
 
     def get_pending_transactions(self, chain_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""
@@ -938,6 +957,23 @@ class DatabaseMempool:
             total += _tx_cost(tx)
         return total
 
+    def slot_occupant(self, chain_id: str | None, sender: str, nonce: int) -> str | None:
+        """tx_hash currently holding the (sender, nonce) slot, if any."""
+        from .config import settings
+
+        if chain_id is None:
+            chain_id = settings.chain_id
+        with self._lock:
+            with Session(self._engine) as session:
+                row = session.exec(
+                    select(MempoolEntry.tx_hash).where(
+                        MempoolEntry.chain_id == chain_id,
+                        MempoolEntry.sender == (sender or "").lower(),
+                        MempoolEntry.nonce == nonce,
+                    )
+                ).first()
+        return row
+
     def remove(self, tx_hash: str, chain_id: str | None = None, commit: bool = True) -> bool:
         from .config import settings
 
@@ -1046,6 +1082,16 @@ class DatabaseMempool:
                     select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
                 ).one()
                 return count
+
+    def pending_tx_hashes(self, chain_id: str | None = None) -> set[str]:
+        """Hashes of pending entries on a chain — cheap, content-free."""
+        from .config import settings
+
+        if chain_id is None:
+            chain_id = settings.chain_id
+        with self._lock:
+            with Session(self._engine) as session:
+                return set(session.exec(select(MempoolEntry.tx_hash).where(MempoolEntry.chain_id == chain_id)).all())
 
     def get_pending_transactions(self, chain_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""
