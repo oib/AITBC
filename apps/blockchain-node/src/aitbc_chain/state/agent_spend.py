@@ -64,6 +64,20 @@ AGENT_SESSION_TX_TYPES: frozenset[str] = frozenset({AGENT_SESSION_GRANT, AGENT_S
 # per the plan: native TRANSFER plus the escrow-funding type only.
 SPEND_GATED_TX_TYPES: frozenset[str] = frozenset({"TRANSFER", "ESCROW_LOCK"})
 
+# Tx types a session-bound sender may still sign at v21+ that are NOT
+# session-gated spends (#1223, default-deny). Every entry is provably
+# non-debiting for a bound sender: each is forced to zero value at validate
+# (state_transition._ZERO_VALUE_TX_TYPES, plus the v10+ GPU_DEREGISTER rule —
+# all in force at v21), and the verdict additionally requires amount == 0 as
+# defense-in-depth. AGENT_SESSION_GRANT/REVOKE return earlier in
+# agent_spend_verdict; TRANSFER/ESCROW_LOCK take the session-spend path above.
+# Everything else — every debiting type and every unknown type name, which
+# would otherwise fall through to a plain transfer — is refused for a bound
+# sender. Built from the #1223 tx-type inventory, not from memory.
+AGENT_BOUND_ALLOWED_TX_TYPES: frozenset[str] = frozenset(
+    {"MESSAGE", "GPU_MARKET", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_DEREGISTER"}
+)
+
 # Same vocabulary as coordinator `spend_policy` (kept in sync deliberately —
 # the two packages cannot import each other). `wallet.execute` is the generic
 # spend op; `escrow.fund` the escrow-funding op; `transfer.approved` an
@@ -260,7 +274,22 @@ def agent_spend_verdict(
         except (TypeError, ValueError, OverflowError):
             spend_value = 0
         return _spend_verdict(session, chain_id, sender, tx_type, payload, spend_value, block_height)
-    return None
+    # Default-deny (#1223): for a session-bound sender every type outside the
+    # gated spends, the session lifecycle types, and the non-debiting
+    # allowlist is refused — including unknown type names, which apply would
+    # otherwise execute as a plain transfer carrying `value`. An unbound
+    # sender is unaffected.
+    if not bound_agent_addresses(session, chain_id, {sender}):
+        return None
+    if tx_type in AGENT_BOUND_ALLOWED_TX_TYPES:
+        try:
+            bound_value = int(value or 0)
+        except (TypeError, ValueError, OverflowError):
+            bound_value = 1
+        if bound_value != 0:
+            return f"{tx_type} refused: session-bound sender may not carry value on {tx_type}"
+        return None
+    return f"{tx_type} refused: sender is session-bound — type not in the bound-agent allowlist"
 
 
 def apply_agent_session_tx(

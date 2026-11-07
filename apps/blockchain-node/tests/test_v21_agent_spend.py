@@ -432,6 +432,155 @@ def test_session_store_failure_fails_closed(tmp_path):
         assert _ledger(session) is None
 
 
+# ---- default-deny for session-bound senders (#1223) -------------------------
+
+
+def test_bound_sender_unknown_type_with_value_refused(tmp_path):
+    """#1223: a session-bound sender may not move value under a type name the
+    spend gate does not know — unknown types fall through to a plain transfer
+    at apply, so the verdict must refuse them by default."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st)[0] is True
+        tx = _tx(AGENT, OWNER, 10, "SOME_FUTURE_TYPE", {"note": "x"})
+        tx["nonce"] = 0
+        ok, err = st.apply_transaction(
+            session, CHAIN, _attach_sender_sig(tx, AGENT_KEY), _h("unk"), block_version=21, block_height=V21_HEIGHT
+        )
+        assert ok is False and "session-bound" in err
+
+
+def test_unbound_sender_unknown_type_with_value_still_passes(tmp_path):
+    """Default-deny binds only session-bound senders — an unbound sender's
+    unknown-type transfer keeps its pre-v21 semantics."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        tx = _tx(AGENT, OWNER, 10, "SOME_FUTURE_TYPE", {"note": "x"})
+        ok, err = st.apply_transaction(
+            session, CHAIN, _attach_sender_sig(tx, AGENT_KEY), _h("unk2"), block_version=21, block_height=V21_HEIGHT
+        )
+        assert ok is True, err
+
+
+# Minimal payloads that clear each type's own validate-time shape checks, so
+# the only remaining refuser for a bound sender is the spend gate itself.
+# ``_DENY_VALUE`` overrides the tx value where the type requires value > 0.
+_DENY_VALUE = {"BRIDGE_WITHDRAW": 10, "IPFS_SUBSCRIPTION": 10}
+_DENY_PAYLOADS = {
+    "BRIDGE_WITHDRAW": {"eth_address": "0x" + "11" * 20},
+    "BRIDGE_LOCK": {"target_chain": "eth", "eth_address": "0x" + "11" * 20},
+    "LIQUIDITY_DEPOSIT": {"pool_id": "pool-1", "lock_days": 30},
+    "BOND_LOCK": {"bond_id": "bond-1", "provider": AGENT, "lock_days": 30},
+    "STAKE_LOCK": {"stake_id": "stake-1"},
+    "BOUNTY_LOCK": {"bounty_id": "b-1"},
+    "AI_JOB": {"job_id": "j-1", "service": "svc"},
+    "EXCHANGE": {"action": "buy", "order_id": "o-1"},
+    "GOVERNANCE_PROPOSE": {
+        "title": "t",
+        "description": "d",
+        "execution_payload": {"action": "parameter_change", "parameter": "p", "value": "v"},
+    },
+    "GOVERNANCE_VOTE": {"proposal_id": "prop-x", "vote": "yes"},
+    "IPFS_SUBSCRIPTION": {"island_id": "isl-1", "duration_blocks": 100, "quota_bytes": 1024},
+    "RECEIPT_CLAIM": {"receipt_id": "r-1"},
+    "LIQUIDITY_WITHDRAW": {"stake_id": "stake-1"},
+    "STAKE_RELEASE": {"stake_id": "stake-1", "lock_tx_hashes": []},
+    "HTLC_LOCK": {"note": "x"},  # dead record type — no handler, plain transfer
+}
+
+# Types refused by an earlier gate (authority params, missing chain state)
+# before the spend verdict runs — still refused for a bound sender, just not
+# by the "session-bound" message. Assert refusal only.
+_DENY_OTHER_GATE = {"BRIDGE_LOCK", "RECEIPT_CLAIM", "STAKE_RELEASE"}
+
+
+@pytest.mark.parametrize("tx_type", sorted(_DENY_PAYLOADS))
+def test_bound_sender_debiting_types_refused(tmp_path, tx_type):
+    """#1223: every tx type outside the bound-agent allowlist is refused for a
+    session-bound sender — debiting types AND types whose handlers move funds
+    through payload/row fields (BOND_RELEASE-style), not just `value`."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st)[0] is True
+        tx = _tx(AGENT, OWNER, _DENY_VALUE.get(tx_type, 0), tx_type, _DENY_PAYLOADS[tx_type])
+        tx["nonce"] = 0
+        ok, err = st.apply_transaction(
+            session, CHAIN, _attach_sender_sig(tx, AGENT_KEY), _h("deny", tx_type), block_version=21, block_height=V21_HEIGHT
+        )
+        assert ok is False, (tx_type, err)
+        if tx_type not in _DENY_OTHER_GATE:
+            assert "session-bound" in err, (tx_type, err)
+
+
+@pytest.mark.parametrize("tx_type", ["MESSAGE", "GPU_MARKET", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_DEREGISTER"])
+def test_bound_sender_allowlisted_zero_value_types_pass(tmp_path, tx_type):
+    """The allowlist holds only provably non-debiting types — zero-value at
+    validate, fee-only at apply. A bound sender may still sign them."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st)[0] is True
+        payload = {"gpu_id": "gpu-1"} if tx_type.startswith("GPU_") else {"text": "hi"}
+        tx = _tx(AGENT, OWNER, 0, tx_type, payload)
+        tx["nonce"] = 0
+        ok, err = st.apply_transaction(
+            session, CHAIN, _attach_sender_sig(tx, AGENT_KEY), _h("allow", tx_type), block_version=21, block_height=V21_HEIGHT
+        )
+        # GPU_DEREGISTER needs an existing registration; an apply-level refusal
+        # for missing state is fine — the spend gate must not be the refuser.
+        assert not (ok is False and "session-bound" in err), (tx_type, err)
+
+
+def test_bound_sender_allowlisted_type_with_value_refused(tmp_path):
+    """Defense-in-depth: even on an allowlisted type a bound sender carrying
+    nonzero value is refused by the verdict itself."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st)[0] is True
+        tx = _tx(AGENT, OWNER, 5, "MESSAGE", {"text": "hi"})
+        tx["nonce"] = 0
+        ok, err = st.apply_transaction(
+            session, CHAIN, _attach_sender_sig(tx, AGENT_KEY), _h("allowv"), block_version=21, block_height=V21_HEIGHT
+        )
+        assert ok is False
+
+
+def test_expired_unrevoked_session_stays_bound_and_denies(tmp_path):
+    """#1223 amendment: expiry does NOT unbind — an expired-but-unrevoked
+    session keeps the sender bound and default-deny still refuses. Fail
+    closed; do not 'fix'."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st, expires=V21_HEIGHT + 10)[0] is True
+        past = V21_HEIGHT + 10
+        tx = _tx(AGENT, OWNER, 10, "BRIDGE_WITHDRAW", {"eth_address": "0x" + "11" * 20})
+        tx["nonce"] = 0
+        ok, err = st.apply_transaction(
+            session, CHAIN, _attach_sender_sig(tx, AGENT_KEY), _h("expdeny"), block_version=21, block_height=past
+        )
+        assert ok is False and "session-bound" in err
+
+
+def test_two_spends_one_block_respect_cap(tmp_path):
+    """#1223 amendment: validate-then-apply ordering. Two gated spends sealed
+    in the same block (same block_height) apply sequentially — the first
+    charge lands in the ledger before the second validates, so the pair
+    cannot exceed the daily cap."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st, cap=1000)[0] is True
+        assert _spend(session, st, nonce=0, value=700, tag="b1")[0] is True
+        ok, err = _spend(session, st, nonce=1, value=400, tag="b2")
+        assert ok is False and "daily cap" in err
+        assert _ledger(session).spent == 700
+
+
 # ---- height resolution ------------------------------------------------------
 
 
