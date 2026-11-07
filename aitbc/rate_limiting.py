@@ -4,6 +4,7 @@ Provides decorators and middleware for API rate limiting
 """
 
 import asyncio
+import ipaddress
 import os
 from collections.abc import Awaitable, Callable, Sequence
 from functools import wraps
@@ -64,23 +65,83 @@ def _extract_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request |
 _warned_unkeyed: set[str] = set()
 
 
-def _client_ip_for_rate_limit(request: Request) -> str:
-    """Return the real client IP for rate-limiting, preferring proxy headers.
+_DEFAULT_TRUSTED_PROXIES = "127.0.0.1,::1"
+_trusted_cache: tuple[str, tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]] | None = None
 
-    Nginx sets ``X-Real-IP`` and/or ``X-Forwarded-For``.  We trust the
-    right-most value in ``X-Forwarded-For`` (the one our proxy appended) and
-    fall back to the ASGI ``client`` host, which uvicorn's ``--proxy-headers``
-    middleware already rewrites for us.
+
+def _trusted_proxy_networks() -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """Networks whose forwarding headers we believe (``AITBC_TRUSTED_PROXIES``).
+
+    Comma-separated IPs or CIDRs, default loopback: the nginx and gateway
+    hops on a node. Same trust contract as the exchange's
+    ``EXCHANGE_TRUSTED_PROXIES``. Re-parsed only when the variable changes.
     """
-    x_real_ip = request.headers.get("x-real-ip")
-    if x_real_ip:
-        return x_real_ip.strip().split(",")[0].strip()
+    global _trusted_cache
+    raw = os.getenv("AITBC_TRUSTED_PROXIES", _DEFAULT_TRUSTED_PROXIES)
+    if _trusted_cache is not None and _trusted_cache[0] == raw:
+        return _trusted_cache[1]
+    nets: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            nets.append(ipaddress.ip_network(part, strict=False))
+        except ValueError:
+            logger.warning("AITBC_TRUSTED_PROXIES: ignoring unparseable entry %r", part)
+    _trusted_cache = (raw, tuple(nets))
+    return _trusted_cache[1]
 
-    x_forwarded_for = request.headers.get("x-forwarded-for")
-    if x_forwarded_for:
-        return x_forwarded_for.strip().split(",")[-1].strip()
 
-    return request.client.host if request.client else "unknown"
+def _is_trusted_proxy(host: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    # A dual-stack listener reports an IPv4 peer as ::ffff:a.b.c.d.
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
+    return any(addr in net for net in _trusted_proxy_networks())
+
+
+def _valid_ip(value: str) -> str | None:
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return None
+
+
+def _client_ip_for_rate_limit(request: Request) -> str:
+    """Return the client IP to key a rate limit on.
+
+    The TCP peer is the only value a client cannot choose, so it is the key
+    unless the peer is itself a trusted proxy (``AITBC_TRUSTED_PROXIES``,
+    default loopback). Only then are the forwarding headers read: first
+    ``X-Real-IP`` (nginx overwrites it with ``$remote_addr``; the gateway
+    does the same), then the right-most ``X-Forwarded-For`` entry that is not
+    a trusted proxy. Entries to the left of that are whatever the client sent
+    and never count. Behind uvicorn ``--proxy-headers`` the peer has already
+    been rewritten to the real client, which is untrusted, so the headers are
+    skipped and the rewritten peer wins.
+
+    Before #1244 any client could write ``X-Real-IP`` / ``X-Forwarded-For``
+    and mint a fresh bucket per request.
+    """
+    peer = request.client.host if request.client else ""
+    if not peer:
+        return "unknown"
+    if not _is_trusted_proxy(peer):
+        return peer
+
+    real = _valid_ip(request.headers.get("x-real-ip", "").split(",")[0])
+    if real:
+        return real
+
+    for hop in reversed(request.headers.get("x-forwarded-for", "").split(",")):
+        candidate = _valid_ip(hop)
+        if candidate and not _is_trusted_proxy(candidate):
+            return candidate
+    return peer
 
 
 def client_ip_for_rate_limit(request: Request) -> str:
