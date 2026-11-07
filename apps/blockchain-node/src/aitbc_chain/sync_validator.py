@@ -174,7 +174,7 @@ class ProposerSignatureValidator:
             return (False, f"Insufficient attestations: {len(attestations)} < {min_attestations}")
 
         validator_set = self._load_validator_set() or self._trusted
-        from aitbc.crypto.consensus_signing import verify_block_signature
+        from aitbc.crypto.consensus_signing import verify_block_signature, verify_consensus_message
         from aitbc.crypto.signature_recovery import canonical_address
 
         valid_count = 0
@@ -193,7 +193,28 @@ class ProposerSignatureValidator:
             validator_key = canonical_address(validator)
             if validator_key in seen:
                 continue
-            if verify_block_signature(block_data, signature, validator):
+            att_round = att.get("round")
+            if att_round is not None:
+                # #1242: round-bound attestation — the signature covers the
+                # round, so verifiers rebuild the same 8-field payload. A
+                # wrong/missing round simply fails verification.
+                try:
+                    att_msg = {
+                        "chain_id": block_data.get("chain_id", ""),
+                        "height": block_data.get("height", 0),
+                        "hash": block_data.get("hash", ""),
+                        "parent_hash": block_data.get("parent_hash", ""),
+                        "proposer": block_data.get("proposer", ""),
+                        "state_root": block_data.get("state_root", ""),
+                        "bridge_state_root": block_data.get("bridge_state_root", ""),
+                        "round": int(att_round),
+                    }
+                    sig_ok = verify_consensus_message(att_msg, signature, validator)
+                except (TypeError, ValueError):
+                    sig_ok = False
+            else:
+                sig_ok = verify_block_signature(block_data, signature, validator)
+            if sig_ok:
                 valid_count += 1
                 seen.add(validator_key)
 
