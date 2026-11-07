@@ -656,12 +656,19 @@ async def cancel_offer(
         return await _reject_operation(
             key, attempt, JSONResponse(status_code=400, content={"error": f"Offer has an unknown status: '{offer.status}'"})
         )
+    if current in (OfferStatus.RESERVED, OfferStatus.IN_USE):
+        # A buyer holds this offer (reserved) or is running paid work on it
+        # (in_use/escrowed). Cancelling must not silently release the hold or
+        # delist out from under the job — the stranded-reservation recovery
+        # path (#816) did exactly that and is replaced by an explicit refusal;
+        # the hold is released by the booking/bid lifecycle, not by cancel.
+        logger.info("Refusing to cancel offer %s in status %s", offer_id, offer.status)
+        return await _reject_operation(
+            key,
+            attempt,
+            JSONResponse(status_code=400, content={"error": f"Offer cannot be cancelled while it is {offer.status}"}),
+        )
     try:
-        if current is OfferStatus.RESERVED:
-            # Recovery path for a stranded reservation (#816): release the
-            # RESERVED offer back to AVAILABLE first, then delist — otherwise
-            # a booking gone stale locks the offer forever.
-            await svc.update_offer_status(offer_id, "available")
         await svc.update_offer_status(offer_id, "cancelled")
     except ValueError:
         # Reached for an offer someone holds: RESERVED can go to IN_USE, back to AVAILABLE, or
