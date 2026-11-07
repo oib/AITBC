@@ -1,0 +1,27 @@
+[Unit]
+Description=AITBC nightly backup restore-verification
+Documentation=https://github.com/oib/AITBC/blob/main/docs/ops/backup-assurance.md
+After=aitbc-backup.service
+Wants=aitbc-backup.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+# Restore-checks the newest /var/backups/aitbc generation in scratch:
+# sqlite .dump rebuild + integrity_check + alembic head, pg_dump header
+# check, svc_*.backup integrity. Read-only against live state; scratch
+# under /var/tmp is removed on exit.
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/ops/backup-verify.py --textfile /var/lib/prometheus/node-exporter/aitbc_backup_verify.prom
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-backup-verify
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths=/var/tmp /var/lib/prometheus/node-exporter
+ReadOnlyPaths=/var/backups/aitbc
