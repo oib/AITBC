@@ -865,6 +865,23 @@ class PoAProposer:
             # v0.25.7: stamp the state-transition rule version so followers can
             # replay this block with the same rules that produced its state_root.
             metadata_dict["state_transition_version"] = get_block_version_for_height(next_height)
+            # R14-M1 (#1248): publish the apply-rejected identities so followers
+            # can release the dead (sender, nonce) slots instead of letting them
+            # squat until mempool_entry_ttl. block_metadata is outside the
+            # signed header and the block hash, so this cannot affect consensus.
+            if rejected_txs:
+                from ..mempool import _tx_nonce, _tx_sender
+
+                metadata_dict["rejected_txs"] = [
+                    {
+                        "tx_hash": tx.tx_hash,
+                        "sender": _tx_sender(tx.content or {}),
+                        "nonce": _tx_nonce(tx.content or {}),
+                        "type": str((tx.content or {}).get("type") or "TRANSFER").upper(),
+                        "reason": reason,
+                    }
+                    for tx, reason in rejected_txs
+                ]
             block.block_metadata = json.dumps(metadata_dict)
 
             self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
