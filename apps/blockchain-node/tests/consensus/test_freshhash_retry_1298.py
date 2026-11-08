@@ -136,3 +136,50 @@ def test_horizon_is_bounded_by_lock_and_header_age():
     lock = float(settings.consensus_proposer_round_seconds)
     header = float(settings.attestation_header_max_age_seconds)
     assert 0 < horizon < min(lock, header)
+
+
+@pytest.mark.parametrize("timeout", [1.0, 5.0, 15.0, 25.0])
+def test_horizon_positive_across_collect_timeout_matrix(monkeypatch, timeout):
+    """#1298 respin: the horizon formula must stay positive at the production
+    15 s collect timeout — the old ``4 × timeout + 8`` margin silently zeroed
+    it fleet-wide (mesh-2 fh1298-leg FAIL). Config-matrix pin so a future
+    margin change can't reintroduce the silent disable."""
+    monkeypatch.setattr(settings, "multi_validator_attestation_timeout_seconds", timeout)
+    proposer = _proposer()
+    horizon = proposer._same_hash_retry_horizon_seconds()
+    bound = min(
+        float(settings.consensus_proposer_round_seconds),
+        float(settings.attestation_header_max_age_seconds),
+    )
+    expected = bound - (timeout + float(settings.proposer_same_hash_retry_margin_seconds))
+    assert horizon == pytest.approx(max(0.0, expected))
+    if expected > 0:
+        assert horizon > 0, f"horizon must stay positive at timeout={timeout}"
+
+
+def test_margin_knob_controls_horizon(monkeypatch):
+    """proposer_same_hash_retry_margin_seconds is the slack reserved on top of
+    one collect window — tuning it must move the horizon 1:1."""
+    monkeypatch.setattr(settings, "multi_validator_attestation_timeout_seconds", 15.0)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_margin_seconds", 40.0)
+    proposer = _proposer()
+    bound = min(
+        float(settings.consensus_proposer_round_seconds),
+        float(settings.attestation_header_max_age_seconds),
+    )
+    assert proposer._same_hash_retry_horizon_seconds() == pytest.approx(bound - 55.0)
+
+
+def test_zero_horizon_warns_once_and_disables(monkeypatch, caplog):
+    """A horizon that computes to 0 must be loud, not silent: warn once per
+    proposer and keep the candidate cleared (fresh-timestamp fallback)."""
+    import logging
+
+    monkeypatch.setattr(settings, "multi_validator_attestation_timeout_seconds", 120.0)
+    proposer = _proposer()
+    with caplog.at_level(logging.WARNING):
+        proposer._note_same_hash_retry(7, datetime.now(UTC))
+        proposer._note_same_hash_retry(7, datetime.now(UTC))
+    assert proposer._same_hash_retry is None
+    hits = [r for r in caplog.records if "same-hash retry horizon is 0" in r.getMessage()]
+    assert len(hits) == 1
