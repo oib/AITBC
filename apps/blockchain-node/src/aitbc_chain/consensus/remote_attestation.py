@@ -150,6 +150,15 @@ class RemoteAttestationService:
         # Restart clears it, same as the lock; the header freshness bound
         # covers that gap.
         self._signed_once: dict[int, set[str]] = {}
+        # #1263: signature-bearing attestation records for equivocation
+        # evidence — "height:block_hash:signer" -> the exact fields the
+        # signature covers plus the signature itself, so a later rival-hash
+        # signing at the same height can cite BOTH attestations on-chain.
+        # Persisted next to the round locks so a restart cannot lose the
+        # prior signature an equivocation record needs.
+        self._signed_attestations: dict[str, dict[str, Any]] = {}
+        self._signed_attestations_loaded = False
+        self._signed_attestations_path = DATA_DIR / "data" / chain_id / "attestation_signed.json"
         # Highest local tip the v9 check has read; lets pruning avoid its own DB access.
         self._tip_height_hint: int | None = None
 
@@ -396,41 +405,12 @@ class RemoteAttestationService:
             # unrecorded.
             self._record_round_lock(height_int, request_round, header_hash, proposer)
 
-        # #1198 advisory: this node is about to sign a hash at a height it has
-        # already signed a *different* hash for — attestation equivocation.
-        # The lock layers above already decided this signature may go out
-        # (post-expiry re-sign, or a permitted cross-round sign under
-        # #1242); record the evidence for the slashing pipeline. Advisory
-        # only — deactivation is the on-chain VALIDATOR_DEACTIVATE marker,
-        # never a local refusal here.
-        prior_hashes = set(self._signed_once.get(height_int, ()))
-        prior_hashes |= {entry.block_hash for (h, _r), entry in self._round_locks.items() if h == height_int}
-        prior_hashes.discard(header_hash)
-        if prior_hashes:
-            from .slashing import slashing_manager
-
-            consensus_recorder = None
-            if getattr(settings, "multi_validator_consensus_enabled", False):
-                try:
-                    from .multi_validator_poa import get_consensus
-
-                    consensus_recorder = get_consensus(self._chain_id)
-                except Exception:
-                    consensus_recorder = None
-
-            target_recorder = consensus_recorder if consensus_recorder is not None else slashing_manager
-            for prior_hash in sorted(prior_hashes):
-                for signer in self._validator_keys:
-                    if _same_address(signer, proposer):
-                        continue
-                    target_recorder.record_attestation_equivocation(
-                        validator_address=canonical_address(signer),
-                        height=height_int,
-                        round_number=request_round,
-                        block_hash_a=prior_hash,
-                        block_hash_b=header_hash,
-                        proposer=proposer,
-                    )
+        # #1198/#1263 advisory: attestation equivocation is recorded inside the
+        # signing loop below, AFTER a signature actually exists — evidence
+        # without a signature is unverifiable and cannot satisfy the
+        # validator_deactivation_evidence_required gate. Recording per actual
+        # signer (not per configured key) also stops certifying equivocations
+        # for keys that never signed the prior hash.
 
         for address, private_key in self._validator_keys.items():
             # Do not sign our own block.
@@ -458,6 +438,11 @@ class RemoteAttestationService:
             except Exception as e:
                 logger.warning("Failed to sign attestation: %s", e)
                 continue
+            # #1263: retain the signed attestation (durably) so a rival-hash
+            # signing at this height can cite BOTH signatures as equivocation
+            # evidence, then record the equivocation for this signer.
+            self._record_signed_attestation(height_int, header_hash, address, message, request_round, round_lock, signature)
+            self._record_attestation_equivocation_evidence(height_int, header_hash, address, proposer, request_round)
             if not round_lock:
                 self._record_attestation_lock(height_int, header_hash, proposer)
 
@@ -779,6 +764,181 @@ class RemoteAttestationService:
             del self._attested[height]
             return None
         return block_hash, proposer
+
+    # ─── #1263: signature-bearing attestation records ─────────────
+
+    @staticmethod
+    def _signed_attestation_key(height: int, block_hash: str, signer: str) -> str:
+        return f"{height}:{block_hash}:{canonical_address(signer)}"
+
+    def _ensure_signed_attestations_loaded(self) -> None:
+        if self._signed_attestations_loaded:
+            return
+        self._signed_attestations_loaded = True
+        self._load_signed_attestations()
+
+    def _load_signed_attestations(self) -> None:
+        """Restore persisted signed-attestation records (#1263).
+
+        Same contract as ``_load_round_locks``: wrong-chain files are
+        ignored, malformed records are skipped, and a read failure leaves the
+        in-memory index empty (equivocation evidence degrades to hash-only,
+        never to a wrong signature).
+        """
+        try:
+            if not self._signed_attestations_path.exists():
+                return
+            data = json.loads(self._signed_attestations_path.read_text())
+            if data.get("chain_id") != self._chain_id:
+                return
+            for rec in data.get("records", []):
+                key = rec.get("key")
+                if isinstance(key, str) and isinstance(rec.get("record"), dict):
+                    self._signed_attestations[key] = rec["record"]
+        except Exception as e:
+            logger.warning("Failed to load signed attestations for %s: %s", self._chain_id, e)
+
+    def _persist_signed_attestations(self) -> None:
+        """Atomically persist signed-attestation records (#1263).
+
+        Temp-file + fsync + rename, same durability contract as
+        ``_persist_round_locks``. Records are pruned by height — only the
+        most recent ``SIGNED_ONCE_MAX_HEIGHTS`` heights are kept, which
+        comfortably covers the window in which a rival hash at the same
+        height can still be signed.
+        """
+        import os
+
+        self._signed_attestations_path.parent.mkdir(parents=True, exist_ok=True)
+        heights = []
+        valid_keys = []
+        for key in self._signed_attestations:
+            try:
+                heights.append(int(key.split(":", 1)[0]))
+                valid_keys.append(key)
+            except (ValueError, IndexError):
+                continue
+        cutoff = (max(heights) - SIGNED_ONCE_MAX_HEIGHTS) if heights else 0
+        records = [
+            {"key": key, "record": rec}
+            for key, rec in ((k, self._signed_attestations[k]) for k in valid_keys)
+            if int(key.split(":", 1)[0]) >= cutoff
+        ]
+        payload = json.dumps({"version": 1, "chain_id": self._chain_id, "records": records})
+        tmp = self._signed_attestations_path.with_name(self._signed_attestations_path.name + ".tmp")
+        with open(tmp, "w") as f:
+            f.write(payload)
+            f.flush()
+            os.fsync(f.fileno())
+        tmp.replace(self._signed_attestations_path)
+
+    def _record_signed_attestation(
+        self,
+        height: int,
+        block_hash: str,
+        signer: str,
+        message: dict[str, Any],
+        request_round: int | None,
+        round_lock: bool,
+        signature: str,
+    ) -> None:
+        """Durably retain a just-produced attestation signature (#1263).
+
+        The record holds every field the signed preimage covers plus
+        ``round_in_payload``/``request_round`` so on-chain verification can
+        rebuild the message byte-identically under either round-lock flag
+        state. A persistence failure is logged but does not block the
+        attestation — the signature itself is already released; the evidence
+        index is best-effort enrichment, not a consensus gate.
+        """
+        self._ensure_signed_attestations_loaded()
+        record = {
+            "chain_id": message.get("chain_id", self._chain_id),
+            "height": message.get("height", height),
+            "hash": message.get("hash", block_hash),
+            "parent_hash": message.get("parent_hash", ""),
+            "proposer": message.get("proposer", ""),
+            "state_root": message.get("state_root", ""),
+            "bridge_state_root": message.get("bridge_state_root", ""),
+            "round_in_payload": bool(round_lock and request_round is not None),
+            "request_round": request_round if round_lock else None,
+            "signature": signature,
+            "signer": canonical_address(signer),
+        }
+        key = self._signed_attestation_key(height, block_hash, signer)
+        self._signed_attestations[key] = record
+        try:
+            self._persist_signed_attestations()
+        except Exception as e:
+            logger.warning("Failed to persist signed attestation for %s: %s", self._chain_id, e)
+
+    def _equivocation_recorder(self):
+        """The slashing recorder for this chain (#1198 routing, #1263 reuse)."""
+        from .slashing import slashing_manager
+
+        if getattr(settings, "multi_validator_consensus_enabled", False):
+            try:
+                from .multi_validator_poa import get_consensus
+
+                return get_consensus(self._chain_id)
+            except Exception:
+                pass
+        return slashing_manager
+
+    def _record_attestation_equivocation_evidence(
+        self,
+        height: int,
+        block_hash: str,
+        signer: str,
+        proposer: str,
+        request_round: int | None,
+    ) -> None:
+        """Record attestation equivocation for the signer that just signed.
+
+        #1263: pairs the new signature with each prior signed hash at this
+        height FOR THIS SIGNER — per-signer precision replaces the old
+        record-every-configured-key behavior. Pairs with a retained prior
+        signature carry both attestations (gate-verifiable); pairs whose
+        prior signature is unknown (pre-capture signing or lost index) fall
+        back to the hash-only advisory record.
+        """
+        canon = canonical_address(signer)
+        prior_hashes = set(self._signed_once.get(height, ()))
+        prior_hashes |= {entry.block_hash for (h, _r), entry in self._round_locks.items() if h == height}
+        prior_hashes.discard(block_hash)
+        if not prior_hashes:
+            return
+        current_key = self._signed_attestation_key(height, block_hash, signer)
+        current = self._signed_attestations.get(current_key)
+        if current is None:
+            return
+        recorder = self._equivocation_recorder()
+        for prior_hash in sorted(prior_hashes):
+            prior = self._signed_attestations.get(self._signed_attestation_key(height, prior_hash, signer))
+            attestations = [prior, current] if prior is not None else None
+            try:
+                recorder.record_attestation_equivocation(
+                    validator_address=canon,
+                    height=height,
+                    round_number=request_round,
+                    block_hash_a=prior_hash,
+                    block_hash_b=block_hash,
+                    proposer=proposer,
+                    attestations=attestations,
+                )
+            except AttributeError:
+                # Fallback recorder (module-global SlashingManager pre-#1263
+                # signature) — hash-only record, same as before.
+                recorder.record_attestation_equivocation(
+                    validator_address=canon,
+                    height=height,
+                    round_number=request_round,
+                    block_hash_a=prior_hash,
+                    block_hash_b=block_hash,
+                    proposer=proposer,
+                )
+            except Exception as e:
+                logger.warning("Failed to record attestation equivocation for %s: %s", canon, e)
 
     def _scheduled_proposer(self, height: int, header: dict) -> str | None:
         """Derive the round from parent/header timestamps and return the
