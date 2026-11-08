@@ -726,7 +726,7 @@ class PBFTConsensus:
             # a same-sender prepare for a different block at the same round is
             # a double-sign — it used to vanish into the dedup branch (#1062).
             if settings.consensus_slashing_enabled:
-                self.consensus.record_prepare(message.sender, message.block_hash, message.view_number)
+                self.consensus.record_prepare(message.sender, message.block_hash, message.view_number, message=message)
             if key not in self.state.prepared_messages:
                 self.state.prepared_messages[key] = []
             if any(m.sender == message.sender for m in self.state.prepared_messages[key]):
@@ -740,7 +740,7 @@ class PBFTConsensus:
             # symmetric to the PREPARE branch (#1235): a same-sender commit
             # for a different digest at the same round is a double-sign.
             if settings.consensus_slashing_enabled:
-                self.consensus.record_commit(message.sender, message.block_hash, message.view_number)
+                self.consensus.record_commit(message.sender, message.block_hash, message.view_number, message=message)
             if key not in self.state.committed_messages:
                 self.state.committed_messages[key] = []
             if any(m.sender == message.sender for m in self.state.committed_messages[key]):

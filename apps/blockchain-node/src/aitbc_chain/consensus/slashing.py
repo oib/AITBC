@@ -78,13 +78,16 @@ def _sorted_hash_pair(hash_a: str, hash_b: str) -> tuple[str, str]:
 
 
 def _equivocation_dedup_key(event: SlashingEvent) -> str:
-    """Canonical dedup key for a slashing event (#1206).
+    """Canonical dedup key for a slashing event (#1206 / #1263).
 
-    Covers validator, condition, height, evidence payload and the structured
-    equivocation fields — deliberately excludes ``timestamp`` (wall-clock,
-    differs per observer) and ``stake_before``/``slashed_amount`` (local
-    mutation). Two nodes recording the same offense produce the same key, so
-    re-observation can never double-append or double-slash.
+    Covers validator, condition, height and the structured equivocation
+    fields — deliberately excludes ``timestamp`` (wall-clock, differs per
+    observer), ``stake_before``/``slashed_amount`` (local mutation), and the
+    ``evidence`` payload whenever the structured hash pair is present: the
+    same offense recorded as legacy free-text, hash-only JSON, or
+    signature-bearing JSON is ONE event (#1263), and re-observation can
+    never double-append or double-slash. Non-equivocation events (no hash
+    pair) keep ``evidence`` in the key so distinct offenses stay distinct.
     """
     from aitbc.crypto.signature_recovery import canonical_address
 
@@ -92,13 +95,72 @@ def _equivocation_dedup_key(event: SlashingEvent) -> str:
         "validator_address": canonical_address(event.validator_address),
         "condition": event.condition.value,
         "block_height": event.block_height,
-        "evidence": event.evidence,
         "round_number": event.round_number,
         "hash_a": event.hash_a,
         "hash_b": event.hash_b,
     }
+    if not (event.hash_a or event.hash_b):
+        payload["evidence"] = event.evidence
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def _evidence_payload(event: SlashingEvent) -> dict | None:
+    """Parsed JSON payload of ``event.evidence``, or None for free-text/legacy."""
+    try:
+        payload = json.loads(event.evidence)
+    except (TypeError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def event_signature_evidence(event: SlashingEvent) -> dict | None:
+    """The signature-bearing payload of an equivocation event (#1263), or None.
+
+    Returns the parsed evidence dict when it carries a non-empty
+    ``attestations`` (attestation equivocation) or ``messages`` (vote
+    equivocation) list — the material on-chain verification needs. Hash-only
+    and free-text records return None: they stay advisory but can never
+    satisfy the ``validator_deactivation_evidence_required`` gate.
+    """
+    payload = _evidence_payload(event)
+    if payload is None:
+        return None
+    for key in ("attestations", "messages"):
+        entries = payload.get(key)
+        if isinstance(entries, list) and entries:
+            return payload
+    return None
+
+
+def event_is_equivocation_claim(event: SlashingEvent) -> bool:
+    """Whether the event claims an equivocation offense (verifiable or not)."""
+    payload = _evidence_payload(event)
+    if payload is not None:
+        return payload.get("kind") in ("attestation_equivocation", "vote_equivocation")
+    return event.evidence.startswith("Double sign detected")
+
+
+def slashing_event_record(event: SlashingEvent) -> dict:
+    """Canonical persisted/draft record shape for a SlashingEvent (#1263).
+
+    Single source for ``ConsensusState.slashing_events_json`` and the
+    ``VALIDATOR_DEACTIVATE`` v2 ``evidence`` payload — the two must stay
+    byte-identical or ``evidence_hash`` binding breaks.
+    """
+    return {
+        "validator_address": event.validator_address,
+        "condition": event.condition.value,
+        "evidence": event.evidence,
+        "block_height": event.block_height,
+        "timestamp": event.timestamp,
+        "slash_rate": event.slash_rate,
+        "stake_before": None if event.stake_before is None else str(event.stake_before),
+        "slashed_amount": None if event.slashed_amount is None else str(event.slashed_amount),
+        "round_number": event.round_number,
+        "hash_a": event.hash_a,
+        "hash_b": event.hash_b,
+    }
 
 
 class SlashingManager:
@@ -186,10 +248,14 @@ class SlashingManager:
         """
         # #1206: an equivalent event already on record means this offense was
         # already observed — re-slashing would double-charge the validator and
-        # double-count the evidence. Return False without mutating anything.
+        # double-count the evidence. Return False without mutating stake; but
+        # #1263 still upgrades the recorded evidence in place when this
+        # observation carries signatures the old record lacked.
         new_key = _equivocation_dedup_key(event)
         for existing in self.slashing_events:
             if _equivocation_dedup_key(existing) == new_key:
+                if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
+                    existing.evidence = event.evidence
                 return False
 
         stake_before = validator.stake
@@ -230,6 +296,23 @@ class SlashingManager:
             return [event for event in self.slashing_events if event.validator_address == validator_address]
         return self.slashing_events.copy()
 
+    def events_for(self, validator_address: str, *, max_block_height: int | None = None) -> list[SlashingEvent]:
+        """This validator's events, optionally bounded by sealed height (#1263).
+
+        Same matching and height rule as ``evidence_bundle`` — the draft path
+        needs the events themselves (not just the hash) to assemble the v2
+        ``evidence`` payload.
+        """
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        target = canonical_address(validator_address)
+        return [
+            e
+            for e in self.slashing_events
+            if (canonical_address(e.validator_address) == target or e.validator_address == validator_address)
+            and (max_block_height is None or e.block_height <= max_block_height)
+        ]
+
     def calculate_total_slashed(self, validator_address: str) -> Decimal:
         """Total stake actually deducted from this validator.
 
@@ -241,6 +324,25 @@ class SlashingManager:
         events = self.get_slashing_history(validator_address)
         return sum((e.slashed_amount for e in events if e.slashed_amount is not None), Decimal("0"))
 
+    def _dedup_or_upgrade(self, event: SlashingEvent) -> SlashingEvent:
+        """Return the on-record equivalent of ``event``, upgrading it in place.
+
+        #1263: when the new observation carries signature material and the
+        recorded one doesn't (e.g. the first signature predated capture, or a
+        restart lost the in-memory index), the existing event's evidence is
+        replaced — same offense, strictly better evidence — rather than
+        appending a duplicate or keeping the unverifiable record forever.
+        """
+        new_key = _equivocation_dedup_key(event)
+        for existing in self.slashing_events:
+            if _equivocation_dedup_key(existing) != new_key:
+                continue
+            if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
+                existing.evidence = event.evidence
+            return existing
+        self.slashing_events.append(event)
+        return event
+
     def record_attestation_equivocation(
         self,
         validator_address: str,
@@ -249,8 +351,9 @@ class SlashingManager:
         block_hash_a: str,
         block_hash_b: str,
         proposer: str = "",
+        attestations: list[dict] | None = None,
     ) -> SlashingEvent:
-        """Record attestation-layer equivocation evidence (#1198 / #1242).
+        """Record attestation-layer equivocation evidence (#1198 / #1242 / #1263).
 
         Advisory only: appends a DOUBLE_SIGN event so the evidence bundle and
         divergence tooling see it. Deactivation is never applied here — under
@@ -262,8 +365,10 @@ class SlashingManager:
         #1206: the hash pair is stored in canonical sorted order and the event
         carries structured ``round_number``/``hash_a``/``hash_b`` fields, so
         the same observed equivocation produces byte-identical evidence on
-        every node. An equivalent event already on record is returned as-is —
-        re-observation never appends a duplicate.
+        every node. #1263: ``attestations`` carries the two signed attestation
+        records (sorted by hash) that on-chain verification recovers — without
+        them the event stays advisory-only and can never satisfy the
+        ``validator_deactivation_evidence_required`` gate.
         """
         hash_a, hash_b = _sorted_hash_pair(block_hash_a, block_hash_b)
         evidence = {
@@ -274,6 +379,8 @@ class SlashingManager:
             "block_hash_b": hash_b,
             "proposer": proposer,
         }
+        if attestations:
+            evidence["attestations"] = sorted(attestations, key=lambda a: str(a.get("hash", "")).lower())
         event = SlashingEvent(
             validator_address=validator_address,
             condition=SlashingCondition.DOUBLE_SIGN,
@@ -285,12 +392,47 @@ class SlashingManager:
             hash_a=hash_a,
             hash_b=hash_b,
         )
-        new_key = _equivocation_dedup_key(event)
-        for existing in self.slashing_events:
-            if _equivocation_dedup_key(existing) == new_key:
-                return existing
-        self.slashing_events.append(event)
-        return event
+        return self._dedup_or_upgrade(event)
+
+    def vote_equivocation_event(
+        self,
+        validator_address: str,
+        view: int,
+        phase: str,
+        message_a: dict,
+        message_b: dict,
+    ) -> SlashingEvent:
+        """Build a PBFT prepare/commit vote-equivocation event (#1263).
+
+        ``message_a``/``message_b`` are the signed-field subsets of the two
+        conflicting PBFT messages (``message_type``, ``sender``,
+        ``view_number``, ``sequence_number``, ``digest``, ``block_hash``,
+        ``signature``), stored canonically sorted by ``block_hash``. Like
+        ``detect_double_sign`` this only *builds* the event — the caller
+        levies it via ``apply_slashing``. The event mirrors
+        ``detect_double_sign``'s shape — ``block_height`` holds the view
+        number and ``round_number`` stays None — so the dedup key matches a
+        legacy record of the same offense.
+        """
+        hash_a, hash_b = _sorted_hash_pair(str(message_a.get("block_hash", "")), str(message_b.get("block_hash", "")))
+        ordered = sorted((message_a, message_b), key=lambda m: str(m.get("block_hash", "")).lower())
+        evidence = {
+            "kind": "vote_equivocation",
+            "view": view,
+            "sequence": message_a.get("sequence_number"),
+            "phase": phase,
+            "messages": ordered,
+        }
+        return SlashingEvent(
+            validator_address=validator_address,
+            condition=SlashingCondition.DOUBLE_SIGN,
+            evidence=json.dumps(evidence, sort_keys=True),
+            block_height=view,
+            timestamp=time.time(),
+            slash_rate=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
+            hash_a=hash_a,
+            hash_b=hash_b,
+        )
 
     def evidence_bundle(self, validator_address: str, *, max_block_height: int | None = None) -> dict:
         """Canonical evidence bundle for ``validator_address`` (#1198 / #1206).
@@ -325,7 +467,9 @@ class SlashingManager:
         events.sort(
             key=lambda e: (e["block_height"], e["condition"], e["evidence"], e["round_number"] or -1, e["hash_a"], e["hash_b"])
         )
-        return {"validator_address": validator_address, "events": events}
+        # #1263: canonicalize the wrapper address too — env spellings of the
+        # same validator differ across nodes, and the hash must not.
+        return {"validator_address": canonical_address(validator_address), "events": events}
 
     def evidence_hash(self, validator_address: str, *, max_block_height: int | None = None) -> str:
         """sha256 over the canonical evidence bundle — the payload value."""

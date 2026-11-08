@@ -3354,6 +3354,20 @@ class StateTransition:
             return f"unknown or inactive bond {bond_id}"
         if canonical_address(bond.provider) != validator_addr:
             return "bond provider does not match validator_address"
+        # #1263: when the evidence gate is armed at this height, the payload
+        # must carry a verifiable evidence bundle — audit-only v1 markers are
+        # rejected. Disarmed resolves byte-identical legacy behavior.
+        from .deactivation_evidence import _evidence_required, verify_deactivation_evidence
+
+        if _evidence_required(session, chain_id, block_height):
+            reason = verify_deactivation_evidence(
+                tx_data.get("payload", {}) or {},
+                chain_id=chain_id,
+                validator_addr=validator_addr,
+                evidence_hash=evidence_hash,
+            )
+            if reason is not None:
+                return reason
         existing = session.exec(
             select(ValidatorDeactivation).where(
                 ValidatorDeactivation.chain_id == chain_id,
