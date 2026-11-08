@@ -1124,6 +1124,16 @@ class ChainSettings(BaseSettings):
     # the version-gated v9 parent check exactly. Sandbox evaluation only —
     # production merge stays gated on independent review.
     attestation_round_lock_enabled: bool = False
+    # #1198 staged rollout: when armed, slash-driven validator deactivation is
+    # read from canonical chain state (validator_deactivation markers written
+    # by VALIDATOR_DEACTIVATE transactions) instead of node-local
+    # ConsensusState mutation, and local Byzantine detection becomes
+    # advisory-only (metrics/evidence, never is_active). Off preserves the
+    # legacy local-persistence behavior exactly. Arming order per the
+    # approved migration plan: draft markers from slashing_events_json →
+    # operator signs → VALIDATOR_DEACTIVATE txs seal → confirm marker heights
+    # → arm this flag fleet-wide.
+    consensus_chain_slashing_enabled: bool = False
     # U2 failure-evidence window for cross-round signing: after observing a
     # later-round attest_request at the same height, the locked round's
     # gates window must fully elapse before a rival hash may be signed.
