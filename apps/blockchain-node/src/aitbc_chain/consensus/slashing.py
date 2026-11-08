@@ -52,6 +52,13 @@ class SlashingEvent:
     # recording an amount for a penalty that was never applied would be its own lie.
     stake_before: Decimal | None = None
     slashed_amount: Decimal | None = None
+    # #1206 canonical evidence fields: structured equivocation data so the
+    # evidence bundle/hash is reproducible on any node. ``hash_a``/``hash_b``
+    # are the two conflicting digests in sorted order; ``round_number`` is the
+    # consensus round (None for height-only locks and non-equivocation events).
+    round_number: int | None = None
+    hash_a: str = ""
+    hash_b: str = ""
 
     @property
     def is_applied(self) -> bool:
@@ -62,6 +69,36 @@ class SlashingEvent:
 # Below this, a validator is demoted to standby. Named because it is now compared against a
 # Decimal stake, and a bare `100` next to money reads as a magic number.
 MIN_ACTIVE_STAKE = Decimal("100")
+
+
+def _sorted_hash_pair(hash_a: str, hash_b: str) -> tuple[str, str]:
+    """Canonical order for an equivocation pair — observation order must not
+    change the evidence (#1206)."""
+    return (hash_a, hash_b) if hash_a.lower() <= hash_b.lower() else (hash_b, hash_a)
+
+
+def _equivocation_dedup_key(event: SlashingEvent) -> str:
+    """Canonical dedup key for a slashing event (#1206).
+
+    Covers validator, condition, height, evidence payload and the structured
+    equivocation fields — deliberately excludes ``timestamp`` (wall-clock,
+    differs per observer) and ``stake_before``/``slashed_amount`` (local
+    mutation). Two nodes recording the same offense produce the same key, so
+    re-observation can never double-append or double-slash.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    payload = {
+        "validator_address": canonical_address(event.validator_address),
+        "condition": event.condition.value,
+        "block_height": event.block_height,
+        "evidence": event.evidence,
+        "round_number": event.round_number,
+        "hash_a": event.hash_a,
+        "hash_b": event.hash_b,
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 class SlashingManager:
@@ -87,13 +124,16 @@ class SlashingManager:
         if block_hash1 == block_hash2:
             return None
 
+        hash_a, hash_b = _sorted_hash_pair(block_hash1, block_hash2)
         return SlashingEvent(
             validator_address=validator,
             condition=SlashingCondition.DOUBLE_SIGN,
-            evidence=f"Double sign detected: {block_hash1} vs {block_hash2} at height {height}",
+            evidence=f"Double sign detected: {hash_a} vs {hash_b} at height {height}",
             block_height=height,
             timestamp=time.time(),
             slash_rate=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
+            hash_a=hash_a,
+            hash_b=hash_b,
         )
 
     def detect_unavailability(self, validator: str, missed_blocks: int, height: int) -> SlashingEvent | None:
@@ -144,6 +184,14 @@ class SlashingManager:
         them the penalty is unreconstructable the moment the stake changes again, which is
         what left `calculate_total_slashed` with nothing to sum but rates.
         """
+        # #1206: an equivalent event already on record means this offense was
+        # already observed — re-slashing would double-charge the validator and
+        # double-count the evidence. Return False without mutating anything.
+        new_key = _equivocation_dedup_key(event)
+        for existing in self.slashing_events:
+            if _equivocation_dedup_key(existing) == new_key:
+                return False
+
         stake_before = validator.stake
         slashed_amount = stake_before * Decimal(str(event.slash_rate))
         validator.stake = stake_before - slashed_amount
@@ -210,13 +258,20 @@ class SlashingManager:
         ``VALIDATOR_DEACTIVATE`` marker is the only thing that removes a
         validator from the active set, and it requires the slash authority's
         signature. ``round_number`` is ``None`` for legacy (height-only) locks.
+
+        #1206: the hash pair is stored in canonical sorted order and the event
+        carries structured ``round_number``/``hash_a``/``hash_b`` fields, so
+        the same observed equivocation produces byte-identical evidence on
+        every node. An equivalent event already on record is returned as-is —
+        re-observation never appends a duplicate.
         """
+        hash_a, hash_b = _sorted_hash_pair(block_hash_a, block_hash_b)
         evidence = {
             "kind": "attestation_equivocation",
             "height": height,
             "round": round_number,
-            "block_hash_a": block_hash_a,
-            "block_hash_b": block_hash_b,
+            "block_hash_a": hash_a,
+            "block_hash_b": hash_b,
             "proposer": proposer,
         }
         event = SlashingEvent(
@@ -226,16 +281,27 @@ class SlashingManager:
             block_height=height,
             timestamp=time.time(),
             slash_rate=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
+            round_number=round_number,
+            hash_a=hash_a,
+            hash_b=hash_b,
         )
+        new_key = _equivocation_dedup_key(event)
+        for existing in self.slashing_events:
+            if _equivocation_dedup_key(existing) == new_key:
+                return existing
         self.slashing_events.append(event)
         return event
 
-    def evidence_bundle(self, validator_address: str) -> dict:
-        """Canonical evidence bundle for ``validator_address`` (#1198).
+    def evidence_bundle(self, validator_address: str, *, max_block_height: int | None = None) -> dict:
+        """Canonical evidence bundle for ``validator_address`` (#1198 / #1206).
 
         The ``evidence_hash`` a ``VALIDATOR_DEACTIVATE`` payload commits to is
-        the sha256 of this bundle's canonical JSON — any node can re-derive
-        the justification post-reorg from its own slashing history.
+        the sha256 of this bundle's canonical JSON. #1206 made it reproducible
+        across nodes: wall-clock ``timestamp`` and the locally-mutated
+        ``stake_before``/``slashed_amount`` are excluded, structured equivocation
+        fields are included, and ``max_block_height`` bounds the bundle to
+        events sealed at or below that height (the draft path's finality
+        filter).
         """
         from aitbc.crypto.signature_recovery import canonical_address
 
@@ -244,23 +310,30 @@ class SlashingManager:
         for e in self.slashing_events:
             if canonical_address(e.validator_address) != target and e.validator_address != validator_address:
                 continue
+            if max_block_height is not None and e.block_height > max_block_height:
+                continue
             events.append(
                 {
                     "condition": e.condition.value,
                     "evidence": e.evidence,
                     "block_height": e.block_height,
-                    "timestamp": e.timestamp,
-                    "slash_rate": e.slash_rate,
-                    "stake_before": str(e.stake_before) if e.stake_before is not None else None,
-                    "slashed_amount": str(e.slashed_amount) if e.slashed_amount is not None else None,
+                    "round_number": e.round_number,
+                    "hash_a": e.hash_a,
+                    "hash_b": e.hash_b,
                 }
             )
-        events.sort(key=lambda e: (e["block_height"], e["timestamp"], e["evidence"]))
+        events.sort(
+            key=lambda e: (e["block_height"], e["condition"], e["evidence"], e["round_number"] or -1, e["hash_a"], e["hash_b"])
+        )
         return {"validator_address": validator_address, "events": events}
 
-    def evidence_hash(self, validator_address: str) -> str:
+    def evidence_hash(self, validator_address: str, *, max_block_height: int | None = None) -> str:
         """sha256 over the canonical evidence bundle — the payload value."""
-        canonical = json.dumps(self.evidence_bundle(validator_address), sort_keys=True, separators=(",", ":"))
+        canonical = json.dumps(
+            self.evidence_bundle(validator_address, max_block_height=max_block_height),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
         return "0x" + hashlib.sha256(canonical.encode()).hexdigest()
 
     def calculate_total_slashed_by_condition(self, validator_address: str) -> dict[SlashingCondition, Decimal]:
