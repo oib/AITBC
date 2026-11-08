@@ -156,6 +156,58 @@ def _get_refresh_expiry_days() -> int:
     return value
 
 
+def _jwt_issuer() -> str:
+    """Issuer claim written at mint time (R12-HARDEN-1/#1233).
+
+    ``JWT_ISSUER`` wins; otherwise the service's own name
+    (``SERVICE_NAME``/``APP_NAME``); ``"aitbc"`` is the shared fallback so
+    deployments that do not set per-service names keep a stable value.
+    """
+    return os.getenv("JWT_ISSUER") or os.getenv("SERVICE_NAME") or os.getenv("APP_NAME") or "aitbc"
+
+
+def _jwt_audience() -> str:
+    """Audience claim written at mint time; ``JWT_AUDIENCE`` or ``"aitbc"``."""
+    return os.getenv("JWT_AUDIENCE") or "aitbc"
+
+
+def _jwt_expected_issuer() -> str:
+    """Issuer value enforcement requires; defaults to the local issuer."""
+    return os.getenv("JWT_EXPECTED_ISSUER") or _jwt_issuer()
+
+
+def _jwt_enforce_iss_aud() -> bool:
+    """Whether iss/aud binding is enforced at verify time (default OFF).
+
+    Ships dormant: enforcement flips only after #1185 gives exp-less
+    tokens a death date and a re-auth path exists for live sessions.
+    """
+    return os.getenv("JWT_ENFORCE_ISS_AUD", "").lower() in ("1", "true", "yes")
+
+
+def _apply_iss_aud(claims: dict[str, Any]) -> None:
+    """Add iss/aud claims at mint time without overriding explicit values."""
+    claims.setdefault("iss", _jwt_issuer())
+    claims.setdefault("aud", _jwt_audience())
+
+
+def _iss_aud_rejection(payload: dict[str, Any]) -> str | None:
+    """Return a rejection reason when iss/aud binding fails, else None.
+
+    Only consulted when ``JWT_ENFORCE_ISS_AUD`` is set; callers decide
+    how to surface the failure (HTTPException vs error dict).
+    """
+    if not _jwt_enforce_iss_aud():
+        return None
+    if payload.get("iss") != _jwt_expected_issuer():
+        return "issuer mismatch"
+    aud = payload.get("aud")
+    audiences = aud if isinstance(aud, list) else [aud]
+    if _jwt_audience() not in audiences:
+        return "audience mismatch"
+    return None
+
+
 def _identity_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize identity claims and add token metadata.
 
@@ -208,6 +260,7 @@ class JWTAuth:
         """
         to_encode = _identity_payload(payload)
         to_encode.setdefault("type", "access")
+        _apply_iss_aud(to_encode)
         if self.expiration_hours > 0:
             to_encode.setdefault("exp", datetime.now(UTC) + timedelta(hours=self.expiration_hours))
         return jwt.encode(to_encode, self.secret, algorithm=self.algorithm)
@@ -228,7 +281,12 @@ class JWTAuth:
         last_error: jwt.PyJWTError | None = None
         for candidate in [self.secret, *self.extra_secrets]:
             try:
-                payload = jwt.decode(token, candidate, algorithms=[self.algorithm])
+                payload = jwt.decode(
+                    token,
+                    candidate,
+                    algorithms=[self.algorithm],
+                    options={"verify_aud": False},
+                )
                 break
             except jwt.PyJWTError as e:
                 last_error = e
@@ -244,6 +302,12 @@ class JWTAuth:
         # no type claim is refused — JWTAuth/JWTHandler have always written
         # one, so its absence means a foreign/forged token.
         if payload.get("type") != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if _iss_aud_rejection(payload) is not None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
@@ -347,6 +411,7 @@ class JWTHandler:
             effective_expiry = expires_delta if expires_delta is not None else self.token_expiry
             token_payload = _identity_payload(payload)
             token_payload.setdefault("type", "access")
+            _apply_iss_aud(token_payload)
             expire: datetime | None = None
             if effective_expiry.total_seconds() != 0:
                 expire = datetime.now(UTC) + effective_expiry
@@ -367,6 +432,7 @@ class JWTHandler:
         try:
             token_payload = _identity_payload(payload)
             token_payload.setdefault("type", "refresh")
+            _apply_iss_aud(token_payload)
             expire: datetime | None = None
             if self.refresh_expiry.total_seconds() > 0:
                 expire = datetime.now(UTC) + self.refresh_expiry
@@ -393,7 +459,12 @@ class JWTHandler:
         try:
             for candidate in [self.secret_key, *self.extra_secrets]:
                 try:
-                    payload = jwt.decode(token, candidate, algorithms=[self.algorithm], options={"verify_exp": True})
+                    payload = jwt.decode(
+                        token,
+                        candidate,
+                        algorithms=[self.algorithm],
+                        options={"verify_exp": True, "verify_aud": False},
+                    )
                     break
                 except jwt.ExpiredSignatureError:
                     # The signature was valid under this secret; the token is
@@ -410,6 +481,8 @@ class JWTHandler:
             return {"status": "error", "valid": False, "message": "Invalid token"}
         if expected_type is not None and payload.get("type") != expected_type:
             return {"status": "error", "valid": False, "message": "Invalid token type"}
+        if _iss_aud_rejection(payload) is not None:
+            return {"status": "error", "valid": False, "message": "Invalid token issuer or audience"}
         return {"status": "success", "valid": True, "payload": payload}
 
     def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
@@ -435,7 +508,12 @@ class JWTHandler:
         """Decode token without expiration validation (for debugging)."""
         for candidate in [self.secret_key, *self.extra_secrets]:
             try:
-                payload = jwt.decode(token, candidate, algorithms=[self.algorithm], options={"verify_exp": False})
+                payload = jwt.decode(
+                    token,
+                    candidate,
+                    algorithms=[self.algorithm],
+                    options={"verify_exp": False, "verify_aud": False},
+                )
                 return {"status": "success", "payload": payload}
             except Exception:
                 continue
