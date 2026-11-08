@@ -216,7 +216,7 @@ class TestJWTNoExpiration:
 
         assert auth.expiration_hours == 0
         token = auth.create_token({"sub": "user1", "role": "admin"})
-        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        payload = jwt.decode(token, secret, algorithms=["HS256"], options={"verify_aud": False})
 
         assert "exp" not in payload
         assert payload["type"] == "access"
@@ -229,7 +229,7 @@ class TestJWTNoExpiration:
 
         assert auth.expiration_hours == 0
         token = auth.create_token({"sub": "user1", "role": "admin"})
-        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        payload = jwt.decode(token, secret, algorithms=["HS256"], options={"verify_aud": False})
 
         assert "exp" not in payload
 
@@ -244,12 +244,12 @@ class TestJWTNoExpiration:
 
         result = handler.generate_token({"user_id": "user1", "role": "admin"})
         assert result["expires_at"] is None
-        payload = jwt.decode(result["token"], secret, algorithms=["HS256"])
+        payload = jwt.decode(result["token"], secret, algorithms=["HS256"], options={"verify_aud": False})
         assert "exp" not in payload
 
         refresh = handler.generate_refresh_token({"user_id": "user1", "role": "admin"})
         assert refresh["expires_at"] is None
-        refresh_payload = jwt.decode(refresh["refresh_token"], secret, algorithms=["HS256"])
+        refresh_payload = jwt.decode(refresh["refresh_token"], secret, algorithms=["HS256"], options={"verify_aud": False})
         assert "exp" not in refresh_payload
 
 
@@ -371,9 +371,9 @@ class TestJWTRotationOverlap:
         monkeypatch.setenv("JWT_SECRET_PREVIOUS", self.OLD)
         handler = JWTHandler(secret_key=self.NEW)
         token = handler.generate_token({"user_id": "u1"})["token"]
-        assert jwt.decode(token, self.NEW, algorithms=["HS256"])["sub"] == "u1"
+        assert jwt.decode(token, self.NEW, algorithms=["HS256"], options={"verify_aud": False})["sub"] == "u1"
         with pytest.raises(jwt.InvalidSignatureError):
-            jwt.decode(token, self.OLD, algorithms=["HS256"])
+            jwt.decode(token, self.OLD, algorithms=["HS256"], options={"verify_aud": False})
 
     def test_unknown_secret_still_rejected(self, monkeypatch):
         monkeypatch.setenv("JWT_SECRET_PREVIOUS", self.OLD)
@@ -558,3 +558,84 @@ class TestAPIKeyStoreAtomicity:
         row = next(iter(data.values()))
         assert row["usage_count"] == 1 and row["last_used"] is not None
         assert manager._usage == {}
+
+
+class TestJWTIssAudBinding:
+    """R12-HARDEN-1 (#1233): iss/aud claims — minted always, enforced only
+    when JWT_ENFORCE_ISS_AUD is set (dormant until #1185 lands)."""
+
+    SECRET = "test_secret_key_for_testing_that_is_at_least_32_characters"
+
+    def _handler(self):
+        return JWTHandler(self.SECRET)
+
+    def _clean_env(self, monkeypatch):
+        for var in ("JWT_ISSUER", "JWT_AUDIENCE", "JWT_EXPECTED_ISSUER", "JWT_ENFORCE_ISS_AUD", "SERVICE_NAME", "APP_NAME"):
+            monkeypatch.delenv(var, raising=False)
+
+    def test_mint_writes_iss_aud_defaults(self, monkeypatch):
+        self._clean_env(monkeypatch)
+        result = self._handler().generate_token({"sub": "u1", "role": "admin"})
+        payload = jwt.decode(result["token"], self.SECRET, algorithms=["HS256"], options={"verify_aud": False})
+        assert payload["iss"] == "aitbc" and payload["aud"] == "aitbc"
+
+    def test_mint_honors_env_and_explicit_claims(self, monkeypatch):
+        self._clean_env(monkeypatch)
+        monkeypatch.setenv("SERVICE_NAME", "coordinator-api")
+        monkeypatch.setenv("JWT_AUDIENCE", "aitbc-clients")
+        handler = self._handler()
+        result = handler.generate_token({"sub": "u1", "role": "admin"})
+        payload = jwt.decode(result["token"], self.SECRET, algorithms=["HS256"], options={"verify_aud": False})
+        assert payload["iss"] == "coordinator-api" and payload["aud"] == "aitbc-clients"
+        # explicit claims are not overridden
+        result2 = handler.generate_token({"sub": "u1", "iss": "custom", "aud": ["x"]})
+        payload2 = jwt.decode(result2["token"], self.SECRET, algorithms=["HS256"], options={"verify_aud": False})
+        assert payload2["iss"] == "custom" and payload2["aud"] == ["x"]
+
+    def test_refresh_token_carries_iss_aud(self, monkeypatch):
+        self._clean_env(monkeypatch)
+        handler = self._handler()
+        refresh = handler.generate_refresh_token({"sub": "u1", "role": "admin"})
+        payload = jwt.decode(refresh["refresh_token"], self.SECRET, algorithms=["HS256"], options={"verify_aud": False})
+        assert payload["iss"] == "aitbc" and payload["type"] == "refresh"
+        # refreshed access token is re-minted locally -> local iss/aud
+        access = handler.refresh_access_token(refresh["refresh_token"])
+        ap = jwt.decode(access["token"], self.SECRET, algorithms=["HS256"], options={"verify_aud": False})
+        assert ap["iss"] == "aitbc" and ap["type"] == "access"
+
+    def test_enforcement_off_by_default_accepts_foreign_iss(self, monkeypatch):
+        self._clean_env(monkeypatch)
+        handler = self._handler()
+        result = handler.generate_token({"sub": "u1", "role": "admin", "iss": "other-svc"})
+        validation = handler.validate_token(result["token"])
+        assert validation["valid"] is True
+
+    def test_enforcement_rejects_wrong_issuer_and_audience(self, monkeypatch):
+        self._clean_env(monkeypatch)
+        monkeypatch.setenv("JWT_ENFORCE_ISS_AUD", "true")
+        monkeypatch.setenv("JWT_ISSUER", "coordinator-api")
+        monkeypatch.setenv("JWT_AUDIENCE", "coordinator-api")
+        handler = self._handler()
+        good = handler.generate_token({"sub": "u1", "role": "admin"})
+        assert handler.validate_token(good["token"])["valid"] is True
+        bad_iss = handler.generate_token({"sub": "u1", "role": "admin", "iss": "agent-coordinator"})
+        assert handler.validate_token(bad_iss["token"])["valid"] is False
+        bad_aud = handler.generate_token({"sub": "u1", "role": "admin", "aud": "other"})
+        assert handler.validate_token(bad_aud["token"])["valid"] is False
+        # legacy token with no iss/aud is refused when enforcement is on
+        legacy = jwt.encode({"sub": "u1", "role": "admin", "type": "access"}, self.SECRET, algorithm="HS256")
+        assert handler.validate_token(legacy)["valid"] is False
+
+    def test_jwt_auth_exception_style_enforcement(self, monkeypatch):
+        self._clean_env(monkeypatch)
+        monkeypatch.setenv("JWT_ENFORCE_ISS_AUD", "true")
+        monkeypatch.setenv("JWT_ISSUER", "svc-a")
+        monkeypatch.setenv("JWT_AUDIENCE", "svc-a")
+        auth = JWTAuth(secret=self.SECRET)
+        token = auth.create_token({"sub": "u1", "role": "admin"})
+        assert auth.decode_token(token)["iss"] == "svc-a"
+        foreign = jwt.encode(
+            {"sub": "u1", "role": "admin", "type": "access", "iss": "svc-b", "aud": "svc-b"}, self.SECRET, algorithm="HS256"
+        )
+        with pytest.raises(HTTPException):
+            auth.decode_token(foreign)
