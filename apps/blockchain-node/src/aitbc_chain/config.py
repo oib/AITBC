@@ -1158,6 +1158,11 @@ class ChainSettings(BaseSettings):
     # operator signs → VALIDATOR_DEACTIVATE txs seal → confirm marker heights
     # → arm this flag fleet-wide.
     consensus_chain_slashing_enabled: bool = False
+    # #1206: draft_deactivation_txs only cites slashing evidence sealed at
+    # least this many blocks deep, so a reorg cannot invalidate the
+    # justification an evidence_hash commits to. Defaults to max_reorg_depth's
+    # value — evidence deeper than the deepest possible reorg is safe to cite.
+    consensus_slashing_evidence_finality_depth: int = 10
     # U2 failure-evidence window for cross-round signing: after observing a
     # later-round attest_request at the same height, the locked round's
     # gates window must fully elapse before a rival hash may be signed.
