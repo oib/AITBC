@@ -1301,6 +1301,7 @@ class PoAProposer:
         """Record this proposal's vote durably, run the gates, void the vote if they fail (#1268)."""
         if not self._record_proposal_vote(session, next_height, block_hash, proposer, round_number):
             return False
+        self._record_proposal_equivocation(block, proposer, round_number)
         if await self._run_consensus_gates(
             session, block, block_hash, proposer, round_number, next_height, metadata_dict, transactions=transactions
         ):
@@ -1330,6 +1331,26 @@ class PoAProposer:
                 session.rollback()
             return False
         return True
+
+    def _record_proposal_equivocation(self, block: Block, proposer: str, round_number: int | None) -> None:
+        """Certify this proposal against the proposer's earlier same-height votes (#1278).
+
+        Runs once the proposal's vote is durable and BEFORE the attest request
+        carries ``block.signature`` out, so the signature is never released
+        without its evidence. Fail-open like the attester path (the evidence
+        store must not stall block production) but never silent: a failure is
+        counted and logged.
+        """
+        service = self._remote_attestation
+        if service is None or not block.signature:
+            return
+        try:
+            service.record_proposal_equivocation(self._block_header_message(block), block.signature, round_number)
+        except Exception as exc:
+            metrics_registry.increment("proposal_equivocation_record_failed_total")
+            self._logger.warning(
+                "[PROPOSE] Failed to record proposer equivocation evidence at height %s: %s", block.height, exc
+            )
 
     def _retract_proposal_vote(self, next_height: int, block_hash: str, proposer: str) -> None:
         """Void the vote of a proposal this process rolled back before commit.
