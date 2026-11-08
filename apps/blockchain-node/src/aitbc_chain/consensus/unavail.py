@@ -618,6 +618,7 @@ async def reset_observation_indices() -> None:
             task.cancel()
         _PROBE_TASKS.clear()
         _PROBE_BACKOFF.clear()
+        _PROBE_LAST_SUCCESS.clear()
         _CERT_CACHE.clear()
 
 
@@ -779,6 +780,7 @@ def _carried_certs(
 
 _PROBE_TASKS: dict[tuple[str, int, str], asyncio.Task[UnavailabilityCertificate | None]] = {}
 _PROBE_BACKOFF: dict[tuple[str, int, str], float] = {}
+_PROBE_LAST_SUCCESS: dict[tuple[str, int, str], float] = {}
 _CERT_CACHE: dict[tuple[str, int, str, frozenset[str]], tuple[UnavailabilityCertificate, float]] = {}
 
 
@@ -822,11 +824,48 @@ async def _run_probe(
         cert = None
     key = _probe_key(chain_id, height, block_hash)
     if cert is not None:
-        _CERT_CACHE[_cert_cache_key(chain_id, height, block_hash, ignore)] = (cert, time.monotonic())
+        _cert_cache_put(_cert_cache_key(chain_id, height, block_hash, ignore), cert)
+        _PROBE_LAST_SUCCESS[key] = time.monotonic()
+        if len(_PROBE_LAST_SUCCESS) > _PROBE_BOOKKEEPING_MAX:
+            cutoff = time.monotonic() - (cert_max_age_seconds() - 30.0)
+            for k in [k for k, ts in _PROBE_LAST_SUCCESS.items() if ts < cutoff]:
+                _PROBE_LAST_SUCCESS.pop(k, None)
+            if len(_PROBE_LAST_SUCCESS) > _PROBE_BOOKKEEPING_MAX:
+                oldest = min(_PROBE_LAST_SUCCESS.items(), key=lambda kv: kv[1])
+                _PROBE_LAST_SUCCESS.pop(oldest[0], None)
     else:
-        _PROBE_BACKOFF[key] = time.monotonic() + collect_backoff_seconds()
+        _backoff_put(key, time.monotonic() + collect_backoff_seconds())
         metrics_registry.increment("unavail_collect_failed_total")
     return cert
+
+
+# Bound the probe bookkeeping: heights that are never revisited must not
+# grow these dicts without limit (E review c20822).
+_PROBE_BOOKKEEPING_MAX = 512
+
+
+def _cert_cache_put(key: tuple[str, int, str, frozenset[str]], cert: UnavailabilityCertificate) -> None:
+    """Insert into ``_CERT_CACHE``, evicting stale-then-oldest past the cap."""
+    if len(_CERT_CACHE) >= _PROBE_BOOKKEEPING_MAX:
+        now = time.time()
+        for k in [k for k, (c, _ts) in _CERT_CACHE.items() if now - c.epoch >= cert_max_age_seconds() - 30.0]:
+            _CERT_CACHE.pop(k, None)
+        if len(_CERT_CACHE) >= _PROBE_BOOKKEEPING_MAX:
+            oldest = min(_CERT_CACHE.items(), key=lambda kv: kv[1][1])
+            _CERT_CACHE.pop(oldest[0], None)
+    _CERT_CACHE[key] = (cert, time.monotonic())
+
+
+def _backoff_put(key: tuple[str, int, str], deadline: float) -> None:
+    """Insert into ``_PROBE_BACKOFF``, evicting expired-then-earliest past the cap."""
+    if len(_PROBE_BACKOFF) >= _PROBE_BOOKKEEPING_MAX:
+        now = time.monotonic()
+        for k in [k for k, d in _PROBE_BACKOFF.items() if d <= now]:
+            _PROBE_BACKOFF.pop(k, None)
+        if len(_PROBE_BACKOFF) >= _PROBE_BOOKKEEPING_MAX:
+            earliest = min(_PROBE_BACKOFF.items(), key=lambda kv: kv[1])
+            _PROBE_BACKOFF.pop(earliest[0], None)
+    _PROBE_BACKOFF[key] = deadline
 
 
 async def _probe_cert(
@@ -839,41 +878,102 @@ async def _probe_cert(
     *,
     wait: bool,
 ) -> UnavailabilityCertificate | None:
-    """A valid UC for ``block_hash`` via carried cert, cache, or probe.
+    """A valid UC for ``block_hash`` plus the visibility probe it feeds.
 
-    ``wait=False`` never awaits an in-flight collection — it returns None
-    so the attest-request listener stays responsive; the finished cert is
-    picked up by the next evaluation (or by a waiting proposer call).
+    Cert resolution order: carried (request-bound, verifies) → fresh
+    cache → probe result. Independently of where the cert came from, the
+    single-flight probe still runs whenever the quiet gate passed — it is
+    the ONLY path that refreshes mesh-visibility actors on a cold index,
+    so a carried cert alone must not skip it (E review c20822: a cold
+    attester would otherwise never unlock). ``wait=False`` never awaits
+    an in-flight collection — it returns the carried/cached cert (or
+    None) so the attest-request listener stays responsive; the finished
+    probe is picked up by the next evaluation.
     """
+    cert = _resolve_local_cert(chain_id, height, block_hash, carried, ignore)
+    task = _probe_task_for(chain_id, height, block_hash, broker, ignore, cert_resolved=cert is not None)
+    if task is None:
+        # Collection suppressed (backoff) or freshly completed — a
+        # carried/cached cert may still be returned, but no new probe
+        # runs to refresh visibility.
+        return cert
+    if not wait and not task.done():
+        # Collection is in flight; the caller must not block — the cert
+        # (carried/cached, possibly None) stands and the probe lands in
+        # the cache for the next evaluation.
+        return cert
+    # shield: a cancelled waiter must not CancelledError the shared probe
+    # out from under other waiters (E review c20822).
+    result = await asyncio.shield(task)
+    if cert is None:
+        cert = result
+    return cert
+
+
+def _resolve_local_cert(
+    chain_id: str,
+    height: int,
+    block_hash: str,
+    carried: UnavailabilityCertificate | None,
+    ignore: set[str] | None,
+) -> UnavailabilityCertificate | None:
+    """Carried (request-bound, verifies) then fresh-cache cert resolution."""
     if carried is not None:
         ok, _reason = verify_unavailability_cert(carried, chain_id=chain_id, height=height, block_hash=block_hash)
         if ok:
             return carried
     ckey = _cert_cache_key(chain_id, height, block_hash, ignore)
     cached = _CERT_CACHE.get(ckey)
-    if cached is not None and _cert_cache_fresh(cached[0]):
-        ok, _reason = verify_unavailability_cert(cached[0], chain_id=chain_id, height=height, block_hash=block_hash)
-        if ok:
-            return cached[0]
-        _CERT_CACHE.pop(ckey, None)
+    if cached is None or not _cert_cache_fresh(cached[0]):
+        return None
+    ok, _reason = verify_unavailability_cert(cached[0], chain_id=chain_id, height=height, block_hash=block_hash)
+    if ok:
+        return cached[0]
+    _CERT_CACHE.pop(ckey, None)
+    return None
+
+
+def _probe_task_for(
+    chain_id: str,
+    height: int,
+    block_hash: str,
+    broker: Any | None,
+    ignore: set[str] | None,
+    *,
+    cert_resolved: bool,
+) -> asyncio.Task[UnavailabilityCertificate | None] | None:
+    """The shared in-flight probe task, starting one unless suppressed.
+
+    Returns None when collection is in backoff or a probe completed within
+    the cert-cache lifetime while a servable cert exists (success-side
+    throttle).
+    """
     pkey = _probe_key(chain_id, height, block_hash)
     backoff_until = _PROBE_BACKOFF.get(pkey)
-    if backoff_until is not None and time.monotonic() < backoff_until:
-        metrics_registry.increment("unavail_collect_backoff_total")
-        return None
     if backoff_until is not None:
+        if time.monotonic() < backoff_until:
+            metrics_registry.increment("unavail_collect_backoff_total")
+            return None
         _PROBE_BACKOFF.pop(pkey, None)
     task = _PROBE_TASKS.get(pkey)
-    if task is None:
-        metrics_registry.increment("unavail_probe_total")
-        task = asyncio.ensure_future(_run_probe(chain_id, height, block_hash, broker, ignore))
-        _PROBE_TASKS[pkey] = task
-        task.add_done_callback(partial(_drop_probe_task, pkey))
-    if not wait and not task.done():
-        # Collection is in flight; the caller must not block — the cert
-        # lands in the cache for the next evaluation.
+    if task is not None:
+        return task
+    # Success-side throttle: while a servable cert exists (carried or
+    # fresh-cached), a completed probe stays authoritative for the
+    # cert-cache lifetime — responders' note_actor keeps mesh visibility
+    # fresh far longer (visibility_seconds), so re-probing inside the
+    # margin would only storm the topic. With NO servable cert the recent
+    # success is not authoritative for this caller — the cache entry may
+    # be stale/evicted or belong to a different ignore-context — so the
+    # re-probe is allowed (backoff and single-flight still bound it).
+    last_ok = _PROBE_LAST_SUCCESS.get(pkey)
+    if cert_resolved and last_ok is not None and time.monotonic() - last_ok < cert_max_age_seconds() - 30.0:
         return None
-    return await task
+    metrics_registry.increment("unavail_probe_total")
+    task = asyncio.ensure_future(_run_probe(chain_id, height, block_hash, broker, ignore))
+    _PROBE_TASKS[pkey] = task
+    task.add_done_callback(partial(_drop_probe_task, pkey))
+    return task
 
 
 async def unlock_justification(
