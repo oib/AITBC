@@ -393,7 +393,8 @@ class MultiValidatorPoA:
         drafts: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
         for addr, v in self.validators.items():
-            has_evidence = bool(self._slashing_manager.evidence_bundle(addr, max_block_height=evidence_cutoff)["events"])
+            events = self._slashing_manager.events_for(addr, max_block_height=evidence_cutoff)
+            has_evidence = bool(events)
             if v.is_active and not has_evidence:
                 continue
             canon = canonical_address(addr)
@@ -409,14 +410,57 @@ class MultiValidatorPoA:
                     **entry,
                     "type": "VALIDATOR_DEACTIVATE",
                     "value": 0,
-                    "payload": {
-                        "validator_address": canon,
-                        "evidence_hash": self._slashing_manager.evidence_hash(addr, max_block_height=evidence_cutoff),
-                        "bond_id": bond.bond_id,
-                    },
+                    "payload": self._deactivation_payload(addr, canon, bond.bond_id, events, evidence_cutoff),
                 }
             )
         return {"drafts": drafts, "skipped": skipped}
+
+    def _deactivation_payload(
+        self,
+        addr: str,
+        canon: str,
+        bond_id: str,
+        events: list[Any],
+        evidence_cutoff: int | None,
+    ) -> dict[str, Any]:
+        """Build the VALIDATOR_DEACTIVATE payload (#1263).
+
+        Emits ``evidence_version: 2`` with the full canonical event list only
+        when at least one equivocation event carries signature material —
+        unsigned equivocation claims are excluded from the submitted bundle
+        (they could never verify and would fail the armed gate), while
+        non-equivocation events stay as hash-bound informational records.
+        Without signature-bearing evidence the draft stays v1 audit-only.
+        """
+        from .slashing import SlashingManager, event_is_equivocation_claim, event_signature_evidence, slashing_event_record
+
+        signed_equiv = [e for e in events if event_signature_evidence(e) is not None]
+        if not signed_equiv:
+            return {
+                "validator_address": canon,
+                "evidence_hash": self._slashing_manager.evidence_hash(addr, max_block_height=evidence_cutoff),
+                "bond_id": bond_id,
+            }
+        keep = [e for e in events if not (event_is_equivocation_claim(e) and event_signature_evidence(e) is None)]
+        keep.sort(
+            key=lambda e: (
+                e.block_height,
+                e.condition.value,
+                e.evidence,
+                e.round_number if e.round_number is not None else -1,
+                e.hash_a,
+                e.hash_b,
+            )
+        )
+        bundle_mgr = SlashingManager()
+        bundle_mgr.slashing_events = keep
+        return {
+            "validator_address": canon,
+            "evidence_hash": bundle_mgr.evidence_hash(canon),
+            "bond_id": bond_id,
+            "evidence_version": 2,
+            "evidence": [slashing_event_record(e) for e in keep],
+        }
 
     def reload_state_if_anomalous(self) -> bool:
         """Sentinel re-read for the empty-active-view failure (#693).
@@ -527,7 +571,35 @@ class MultiValidatorPoA:
         committed = pbft.state.committed_messages.get(key, [])
         return len(committed) >= pbft.required_messages
 
-    def _record_phase_vote(self, store: dict[str, list[dict[str, Any]]], validator: str, block_hash: str, round: int) -> bool:
+    @staticmethod
+    def _vote_record_fields(message: Any) -> dict[str, Any]:
+        """Signed-field subset of a PBFTMessage for equivocation evidence (#1263).
+
+        Exactly the fields ``PBFTConsensus._sign_message``/``_verify_message_signature``
+        cover plus ``block_hash`` — everything on-chain verification needs to
+        rebuild the signed preimage and recover the signer.
+        """
+        if message is None:
+            return {}
+        message_type = getattr(message, "message_type", None)
+        return {
+            "message_type": getattr(message_type, "value", message_type),
+            "sender": getattr(message, "sender", ""),
+            "view_number": getattr(message, "view_number", None),
+            "sequence_number": getattr(message, "sequence_number", None),
+            "digest": getattr(message, "digest", ""),
+            "block_hash": getattr(message, "block_hash", ""),
+            "signature": getattr(message, "signature", ""),
+        }
+
+    def _record_phase_vote(
+        self,
+        store: dict[str, list[dict[str, Any]]],
+        validator: str,
+        block_hash: str,
+        round: int,
+        message: Any = None,
+    ) -> bool:
         """Record a prepare/commit vote; a same-round conflicting digest is
         Byzantine evidence and triggers detection immediately."""
         if validator not in self.validators:
@@ -536,23 +608,25 @@ class MultiValidatorPoA:
         if validator not in store:
             store[validator] = []
 
+        record = {"block_hash": block_hash, "round": round, "timestamp": time.time(), **self._vote_record_fields(message)}
+
         # Check for conflicting messages (Byzantine detection)
         for msg in store[validator]:
             if msg["round"] == round and msg["block_hash"] != block_hash:
                 # B4: conflicting message detected — reject and trigger slashing (C2 + C6)
-                store[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
+                store[validator].append(record)
                 self.detect_byzantine_behavior(validator)
                 return False
 
-        store[validator].append({"block_hash": block_hash, "round": round, "timestamp": time.time()})
+        store[validator].append(record)
 
         return True
 
-    def record_prepare(self, validator: str, block_hash: str, round: int) -> bool:
+    def record_prepare(self, validator: str, block_hash: str, round: int, *, message: Any = None) -> bool:
         """Record a prepare message from a validator"""
-        return self._record_phase_vote(self.prepare_messages, validator, block_hash, round)
+        return self._record_phase_vote(self.prepare_messages, validator, block_hash, round, message=message)
 
-    def record_commit(self, validator: str, block_hash: str, round: int) -> bool:
+    def record_commit(self, validator: str, block_hash: str, round: int, *, message: Any = None) -> bool:
         """Record a commit message from a validator (#1235).
 
         Symmetric to ``record_prepare``: the canonical PBFT slashable
@@ -560,7 +634,7 @@ class MultiValidatorPoA:
         before this the COMMIT branch deduped silently and left zero
         slashing evidence.
         """
-        return self._record_phase_vote(self.commit_messages, validator, block_hash, round)
+        return self._record_phase_vote(self.commit_messages, validator, block_hash, round, message=message)
 
     def detect_byzantine_behavior(self, validator: str) -> bool:
         """Detect if a validator exhibited Byzantine behavior and apply slashing (B4 / C2).
@@ -594,8 +668,7 @@ class MultiValidatorPoA:
                 if len(block_hashes) <= 1:
                     continue
                 detected = True
-                hashes_list = sorted(block_hashes, key=str.lower)
-                event = self._slashing_manager.detect_double_sign(validator, hashes_list[0], hashes_list[1], round_num)
+                event = self._vote_equivocation_event(validator, store, messages, round_num, block_hashes)
                 if event is None or validator not in self.validators:
                     continue
                 self._slashing_manager.apply_slashing(self.validators[validator], event)
@@ -624,6 +697,39 @@ class MultiValidatorPoA:
 
         return detected
 
+    _VOTE_EVIDENCE_FIELDS = ("message_type", "sender", "view_number", "sequence_number", "digest", "block_hash", "signature")
+
+    def _vote_equivocation_event(
+        self,
+        validator: str,
+        store: dict[str, list[dict[str, Any]]],
+        messages: list[dict[str, Any]],
+        round_num: int,
+        block_hashes: set[str],
+    ):
+        """Build the slashing event for one conflicting round (#1263).
+
+        When both conflicting votes retained their signed PBFTMessage fields
+        (``message=`` was passed to ``record_prepare``/``record_commit``) the
+        event carries a ``vote_equivocation`` payload on-chain verification
+        can check; otherwise it falls back to the legacy free-text
+        ``detect_double_sign`` record — advisory-only, never gate-satisfying.
+        """
+        phase = "prepare" if store is self.prepare_messages else "commit"
+        by_hash: dict[str, dict[str, Any]] = {}
+        for msg in messages:
+            if msg.get("round") == round_num and msg.get("block_hash") in block_hashes:
+                by_hash.setdefault(msg["block_hash"], msg)
+        signed = [{k: m.get(k) for k in self._VOTE_EVIDENCE_FIELDS} for m in list(by_hash.values())[:2]]
+        if (
+            len(signed) == 2
+            and all(all(m.get(k) is not None for k in self._VOTE_EVIDENCE_FIELDS) for m in signed)
+            and all(m.get("signature") and m.get("digest") for m in signed)
+        ):
+            return self._slashing_manager.vote_equivocation_event(validator, round_num, phase, signed[0], signed[1])
+        hashes_list = sorted(block_hashes, key=str.lower)
+        return self._slashing_manager.detect_double_sign(validator, hashes_list[0], hashes_list[1], round_num)
+
     def get_slashing_history(self):
         """Get slashing history (delegates to SlashingManager)"""
         return self._slashing_manager.get_slashing_history()
@@ -636,12 +742,15 @@ class MultiValidatorPoA:
         block_hash_a: str,
         block_hash_b: str,
         proposer: str = "",
+        attestations: list[dict] | None = None,
     ):
-        """Record attestation equivocation on this chain's SlashingManager and persist (#1198).
+        """Record attestation equivocation on this chain's SlashingManager and persist (#1198/#1263).
 
         Routes attestation-layer double-sign evidence into the same per-chain
         manager that backs ``draft_deactivation_txs``, ``evidence_bundle``,
         ``ConsensusState.slashing_events_json``, and ``/slashing-history``.
+        ``attestations`` carries the two signed attestation records when both
+        signatures are retained — the material on-chain verification needs.
         """
         event = self._slashing_manager.record_attestation_equivocation(
             validator_address=validator_address,
@@ -650,6 +759,7 @@ class MultiValidatorPoA:
             block_hash_a=block_hash_a,
             block_hash_b=block_hash_b,
             proposer=proposer,
+            attestations=attestations,
         )
         self.save_state()
         return event
@@ -767,22 +877,11 @@ class MultiValidatorPoA:
         # never written down at all. Both are recorded now, plus the stake they were computed
         # from, so a penalty can be audited after the fact. Money goes out as a decimal
         # string; json.dumps cannot serialise a Decimal and float() would undo the point.
-        slashing_events = [
-            {
-                "validator_address": e.validator_address,
-                "condition": e.condition.value,
-                "evidence": e.evidence,
-                "block_height": e.block_height,
-                "timestamp": e.timestamp,
-                "slash_rate": e.slash_rate,
-                "stake_before": None if e.stake_before is None else str(e.stake_before),
-                "slashed_amount": None if e.slashed_amount is None else str(e.slashed_amount),
-                "round_number": e.round_number,
-                "hash_a": e.hash_a,
-                "hash_b": e.hash_b,
-            }
-            for e in self._slashing_manager.get_slashing_history()
-        ]
+        # #1263: the record shape lives in slashing.slashing_event_record — the
+        # VALIDATOR_DEACTIVATE v2 evidence payload must be byte-identical.
+        from .slashing import slashing_event_record
+
+        slashing_events = [slashing_event_record(e) for e in self._slashing_manager.get_slashing_history()]
         try:
             with session_scope(self.chain_id) as session:
                 existing = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
@@ -872,14 +971,27 @@ class MultiValidatorPoA:
             payload = json.loads(evidence) if isinstance(evidence, str) else None
         except (TypeError, ValueError):
             payload = None
-        if isinstance(payload, dict) and payload.get("kind") == "attestation_equivocation":
+        if isinstance(payload, dict) and payload.get("kind") in ("attestation_equivocation", "vote_equivocation"):
             from .slashing import _sorted_hash_pair
 
-            a, b = _sorted_hash_pair(str(payload.get("block_hash_a") or ""), str(payload.get("block_hash_b") or ""))
-            payload["block_hash_a"], payload["block_hash_b"] = a, b
+            if payload.get("kind") == "vote_equivocation":
+                # The hash pair lives inside messages[] for vote evidence.
+                vote_hashes = [str(m.get("block_hash", "")) for m in payload.get("messages", []) if isinstance(m, dict)]
+                a, b = _sorted_hash_pair(vote_hashes[0] if vote_hashes else "", vote_hashes[1] if len(vote_hashes) > 1 else "")
+            else:
+                a, b = _sorted_hash_pair(str(payload.get("block_hash_a") or ""), str(payload.get("block_hash_b") or ""))
+                payload["block_hash_a"], payload["block_hash_b"] = a, b
+            # #1263: signature-bearing sub-records canonicalize by their hash
+            # too, so observation order cannot change the persisted evidence.
+            for key, sort_field in (("attestations", "hash"), ("messages", "block_hash")):
+                entries = payload.get(key)
+                if isinstance(entries, list):
+                    payload[key] = sorted(
+                        entries, key=lambda e: str(e.get(sort_field, "")).lower() if isinstance(e, dict) else ""
+                    )
             evidence = json.dumps(payload, sort_keys=True)
             hash_a, hash_b = a, b
-            if round_number is None:
+            if round_number is None and payload.get("kind") == "attestation_equivocation":
                 round_number = payload.get("round")
         return evidence, round_number, hash_a, hash_b
 
