@@ -449,3 +449,67 @@ class TestFetchHelper:
         assert await vote_fetch.locate_voted_block(CHAIN, 100, {"0xaaaa"}) is None
         assert await vote_fetch.locate_voted_block(CHAIN, 100, set()) is None
         assert _counter("vote_fetch_missing_total") == 1
+
+
+class TestProposeBlockWiring:
+    """Pin gap (Validator, #1268): `_propose_block` -> `_honor_prior_votes` ->
+    `_honor_vote_journal` was only covered by unit-calling the pieces."""
+
+    def _stubbed(self, monkeypatch, *, lock: bool = False):
+        @contextmanager
+        def _null_session():
+            yield None
+
+        config = ProposerConfig(
+            chain_id=CHAIN, proposer_id="n", interval_seconds=1, max_block_size_bytes=1000, max_txs_per_block=100
+        )
+        proposer = PoAProposer(config=config, session_factory=_null_session)
+        head = SimpleNamespace(timestamp=datetime.now(UTC))
+        reached: list[str] = []
+
+        async def _early(*_a, **_k):
+            return SimpleNamespace()
+
+        def _collect(*_a, **_k):
+            reached.append("collect")
+            raise AssertionError("proposal went past the vote gates")
+
+        async def _lock(*_a, **_k):
+            return lock
+
+        monkeypatch.setattr(proposer, "_passes_early_gates", _early)
+        monkeypatch.setattr(proposer, "_resolve_proposal_head", lambda *_: (head, 100, "0xparent", 1))
+        monkeypatch.setattr(proposer, "_select_round_proposer", lambda *_: ("0xme", 0))
+        monkeypatch.setattr(proposer, "_honor_attestation_lock", _lock)
+        monkeypatch.setattr(proposer, "_collect_proposal_txs", _collect)
+        monkeypatch.setattr(poa_module, "locate_voted_block", AsyncMock(return_value=None))
+        return proposer, reached
+
+    @pytest.mark.asyncio
+    async def test_propose_block_stops_at_a_live_journal_vote(self, monkeypatch):
+        proposer, reached = self._stubbed(monkeypatch)
+        get_vote_journal(CHAIN).record(100, "0xme", "0xvoted", KIND_ATTEST, now=T0)
+        monkeypatch.setattr(vote_journal, "time", _Clock(T0 + 10))
+        assert await proposer._propose_block() is False
+        assert reached == []
+
+    @pytest.mark.asyncio
+    async def test_propose_block_stops_at_the_legacy_lock_without_a_journal(self, monkeypatch):
+        proposer, reached = self._stubbed(monkeypatch, lock=True)
+        assert await proposer._propose_block() is False
+        assert reached == []
+
+    @pytest.mark.asyncio
+    async def test_propose_block_proceeds_when_neither_gate_holds(self, monkeypatch):
+        proposer, reached = self._stubbed(monkeypatch)
+        with pytest.raises(AssertionError, match="went past the vote gates"):
+            await proposer._propose_block()
+        assert reached == ["collect"]
+
+    @pytest.mark.asyncio
+    async def test_honor_prior_votes_is_either_gate(self, monkeypatch):
+        proposer, _ = self._stubbed(monkeypatch)
+        assert await proposer._honor_prior_votes(100, 0, "0xme") is False
+        get_vote_journal(CHAIN).record(100, "0xme", "0xvoted", KIND_ATTEST, now=T0)
+        monkeypatch.setattr(vote_journal, "time", _Clock(T0 + 10))
+        assert await proposer._honor_prior_votes(100, 0, "0xme") is True
