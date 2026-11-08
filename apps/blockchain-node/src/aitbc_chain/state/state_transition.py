@@ -61,7 +61,12 @@ from .agent_spend import (
     apply_agent_session_tx,
     charge_agent_spend,
 )
-from .pure_state_transition import _carried_receipt_record
+from .pure_state_transition import (
+    DEFAULT_ESCROW_FEE_CAP_BPS,
+    MAX_ESCROW_FEE_CAP_BPS,
+    _carried_receipt_record,
+    escrow_sweep_ceiling,
+)
 from .v9_policy import count_v9_would_reject, v9_signature_verdict
 from .v13_policy import count_v13_shadow_checked, count_v13_would_reject
 from .liquidity_transition import (
@@ -550,6 +555,24 @@ def _escrow_fee_recipient(session: Session, chain_id: str, block_height: int | N
     return None
 
 
+def _escrow_fee_cap_bps(session: Session, chain_id: str, block_height: int | None = None) -> int:
+    """v23 governed fee cap (basis points of a job's locked amount).
+
+    The on-chain ``escrow_fee_cap_bps`` chain parameter wins; with no record the
+    consensus default applies. A record that is not an integer in
+    ``0..MAX_ESCROW_FEE_CAP_BPS`` fails closed to 0 (no allowance, plain residue
+    rule) — the same on every node, because it depends on chain history only.
+    """
+    onchain_value = _chain_parameter_value(session, chain_id, "escrow_fee_cap_bps", block_height)
+    if onchain_value is None:
+        return DEFAULT_ESCROW_FEE_CAP_BPS
+    try:
+        bps = int(str(onchain_value).strip())
+    except (TypeError, ValueError):
+        return 0
+    return bps if 0 <= bps <= MAX_ESCROW_FEE_CAP_BPS else 0
+
+
 # The five authority chain parameters — each names the address(es) allowed to
 # sign a class of chain-side actions. From v12 a GOVERNANCE_EXECUTE
 # ``parameter_change`` to one of them is value-checked by
@@ -925,7 +948,32 @@ def _escrow_lock_rows(session: Session, chain_id: str, job_id: str) -> list[Tran
     )
 
 
-def _escrow_obligation_state(session: Session, chain_id: str, job_id: str, exclude_tx_hash: str = "") -> dict[str, Any]:
+def _sum_confirmed_escrow_values(
+    session: Session, chain_id: str, job_id: str, tx_types: tuple[str, ...], exclude_tx_hash: str = ""
+) -> int | None:
+    """Σ ``value`` of confirmed ``tx_types`` rows for ``job_id``; None when a row's
+    value is missing/unparseable (the caller treats the state as unbounded)."""
+    total = 0
+    for tx in session.exec(
+        select(Transaction).where(
+            Transaction.chain_id == chain_id,
+            Transaction.type.in_(tx_types),  # type: ignore
+            Transaction.payload.op("->>")("job_id") == job_id,  # type: ignore
+            Transaction.status == "confirmed",
+        )
+    ):
+        if exclude_tx_hash and tx.tx_hash == exclude_tx_hash:
+            continue
+        try:
+            total += int(tx.value)
+        except (TypeError, ValueError):
+            return None
+    return total
+
+
+def _escrow_obligation_state(
+    session: Session, chain_id: str, job_id: str, exclude_tx_hash: str = "", fee_cap_bps: int | None = None
+) -> dict[str, Any]:
     """v23 obligation accounting for one job's escrow custody.
 
     ``obligation`` = Σ sealed ``ESCROW_LOCK.value``;
@@ -937,6 +985,12 @@ def _escrow_obligation_state(session: Session, chain_id: str, job_id: str, exclu
     A lock or settlement row whose ``value`` is missing/unparseable marks
     the state unbounded: ``remaining`` is ``None`` and callers must fail
     closed rather than under-count what is owed.
+
+    With ``fee_cap_bps`` (sweep validation), the state also carries ``swept``
+    (Σ sealed ``ESCROW_FEE_SWEEP``.value) and ``fee_allowance`` =
+    ``obligation × fee_cap_bps / 10000 − swept`` (floored at 0), which is 0
+    until some release/refund has settled (``settled > 0``): the authority
+    cannot pull the fee out of a lock nothing has settled yet.
     """
     obligation = 0
     unbounded = False
@@ -947,25 +1001,23 @@ def _escrow_obligation_state(session: Session, chain_id: str, job_id: str, exclu
             unbounded = True
             break
     settled = 0
+    swept = 0
+    fee_allowance = 0
     if not unbounded:
-        for tx in session.exec(
-            select(Transaction).where(
-                Transaction.chain_id == chain_id,
-                Transaction.type.in_(_ESCROW_SETTLEMENT_TYPES),  # type: ignore
-                Transaction.payload.op("->>")("job_id") == job_id,  # type: ignore
-                Transaction.status == "confirmed",
-            )
-        ):
-            if exclude_tx_hash and tx.tx_hash == exclude_tx_hash:
-                continue
-            try:
-                settled += int(tx.value)
-            except (TypeError, ValueError):
-                unbounded = True
-                break
+        settled_sum = _sum_confirmed_escrow_values(session, chain_id, job_id, _ESCROW_SETTLEMENT_TYPES, exclude_tx_hash)
+        unbounded = settled_sum is None
+        settled = settled_sum or 0
+    if fee_cap_bps is not None and not unbounded:
+        swept_sum = _sum_confirmed_escrow_values(session, chain_id, job_id, ("ESCROW_FEE_SWEEP",), exclude_tx_hash)
+        unbounded = swept_sum is None
+        swept = swept_sum or 0
+        if not unbounded and settled > 0:
+            fee_allowance = max(0, obligation * fee_cap_bps // 10_000 - swept)
     return {
         "obligation": obligation,
         "settled": settled,
+        "swept": swept,
+        "fee_allowance": fee_allowance,
         "remaining": None if unbounded else obligation - settled,
         "unbounded": unbounded,
     }
@@ -1052,11 +1104,17 @@ def build_escrow_context(
     v23 = block_height is not None and get_block_version_for_height(block_height) >= 23
     obligation_cache: dict[str, dict[str, Any]] = {}
 
+    fee_cap_bps = _escrow_fee_cap_bps(session, chain_id, block_height) if v23 else None
+
     def _obligation_fields(job_id: str) -> dict[str, Any]:
         if job_id not in obligation_cache:
-            obligation_cache[job_id] = _escrow_obligation_state(session, chain_id, job_id)
+            obligation_cache[job_id] = _escrow_obligation_state(session, chain_id, job_id, fee_cap_bps=fee_cap_bps)
         state = obligation_cache[job_id]
-        return {"remaining_obligation": state["remaining"], "obligation_unbounded": state["unbounded"]}
+        return {
+            "remaining_obligation": state["remaining"],
+            "obligation_unbounded": state["unbounded"],
+            "fee_allowance": state["fee_allowance"],
+        }
 
     if v23:
         settlement_counts: dict[str, int] = {}
@@ -2124,21 +2182,29 @@ class StateTransition:
                 escrow_bal = escrow_account.balance if escrow_account else 0
                 return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
             if block_version >= 23:
-                # v23: a sweep may take only custody residue — never the
-                # job's outstanding obligation.
-                obligation = _escrow_obligation_state(session, chain_id, job_id, exclude_tx_hash=tx_hash)
+                # v23: a sweep may take custody residue plus the governed fee
+                # allowance (#1261) — never more of the job's outstanding
+                # obligation than that.
+                obligation = _escrow_obligation_state(
+                    session,
+                    chain_id,
+                    job_id,
+                    exclude_tx_hash=tx_hash,
+                    fee_cap_bps=_escrow_fee_cap_bps(session, chain_id, block_height),
+                )
                 if obligation["remaining"] is None:
                     return (
                         False,
                         f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing",
                     )
                 custody = escrow_account.balance if escrow_account else 0
-                sweepable = custody - obligation["remaining"]
+                sweepable = escrow_sweep_ceiling(custody, obligation["remaining"], obligation["fee_allowance"])
                 if value > sweepable:
                     return (
                         False,
-                        f"ESCROW_FEE_SWEEP for {job_id} exceeds residue {sweepable} "
-                        f"(custody {custody} - remaining obligation {obligation['remaining']})",
+                        f"ESCROW_FEE_SWEEP for {job_id} exceeds sweepable {sweepable} "
+                        f"(custody {custody}, remaining obligation {obligation['remaining']}, "
+                        f"fee allowance {obligation['fee_allowance']})",
                     )
             # The settlement authority pays only the fee, not the value.
             if sender_balance < fee:
