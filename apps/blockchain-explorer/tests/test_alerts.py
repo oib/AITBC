@@ -4,7 +4,9 @@ Prometheus is faked by patching ``alerts._prometheus_get``; the watcher event
 log is a real JSON-lines file under ``tmp_path`` selected via AITBC_ALERT_LOG.
 """
 
+import asyncio
 import json
+import time
 from typing import Any
 
 import pytest
@@ -17,6 +19,15 @@ from main import app
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def reset_alert_caches():
+    alerts_mod._events_cache = None
+    alerts_mod._alerts_live_cache = None
+    yield
+    alerts_mod._events_cache = None
+    alerts_mod._alerts_live_cache = None
 
 
 @pytest.fixture
@@ -201,3 +212,76 @@ class TestAlertsHistory:
         alert_log.write_text('{"event":"prometheus_alert_firing","alertname":"A"}\nnot json\n\n')
         body = client.get("/api/alerts/history").json()
         assert len(body["events"]) == 1
+
+    def test_filtered_history_scans_full_log(self, client, alert_log):
+        """Filters need the full chronology — not tail-only."""
+        pad = "\n".join(json.dumps({"event": "noise", "n": i}) for i in range(50))
+        old = _event("prometheus_alert_resolved", "LegacyOnly")
+        alert_log.write_text(pad + "\n" + json.dumps(old) + "\n", encoding="utf-8")
+        body = client.get("/api/alerts/history?alertname=Legacy&state=resolved").json()
+        assert len(body["events"]) == 1
+        assert body["events"][0]["alertname"] == "LegacyOnly"
+        assert body["scanned_events"] == 51
+
+
+class TestAlertsOptimizations:
+    def test_read_events_cache_invalidates_on_mtime(self, alert_log):
+        _write_log(alert_log, [_event("prometheus_alert_firing", "A")])
+        first = alerts_mod._read_events()
+        second = alerts_mod._read_events()
+        assert first is second
+
+        time.sleep(0.02)
+        _write_log(alert_log, [_event("prometheus_alert_firing", "A"), _event("prometheus_alert_firing", "B")])
+        third = alerts_mod._read_events()
+        assert third is not first
+        assert len(third) == 2
+
+    def test_tail_history_matches_newest_on_unfiltered_large_log(self, client, alert_log):
+        # ~1 MiB of padding so the 512 KiB tail window cannot see the whole file.
+        pad = "\n".join(json.dumps(_event("prometheus_alert_firing", f"P{i}", summary="x" * 200)) for i in range(4500))
+        tail = "\n".join(json.dumps(_event("prometheus_alert_firing", name)) for name in ("X", "Y", "Z"))
+        alert_log.write_text(pad + "\n" + tail + "\n", encoding="utf-8")
+        body = client.get("/api/alerts/history?limit=3").json()
+        assert [e["alertname"] for e in body["events"]] == ["Z", "Y", "X"]
+        assert body["scanned_events"] < 4503
+
+    def test_prometheus_alerts_and_watcher_fetched_concurrently(self, client, alert_log, monkeypatch):
+        calls: list[str] = []
+        started: list[float] = []
+
+        async def slow_prom(path: str, params: dict[str, str] | None = None) -> dict[str, Any] | None:
+            calls.append(path)
+            started.append(time.monotonic())
+            await asyncio.sleep(0.05)
+            if path == "/api/v1/alerts":
+                return {"status": "success", "data": {"alerts": []}}
+            if path == "/api/v1/query":
+                return {"status": "success", "data": {"result": [{"value": [0, "5"]}]}}
+            return None
+
+        monkeypatch.setattr(alerts_mod, "_prometheus_get", slow_prom)
+        client.get("/api/alerts")
+        assert set(calls) == {"/api/v1/alerts", "/api/v1/query"}
+        assert len(started) == 2
+        assert started[1] - started[0] < 0.03
+
+    def test_live_ttl_cache_reuses_body_when_log_unchanged(self, client, alert_log, monkeypatch):
+        prom_calls = 0
+
+        async def counting_prom(path: str, params: dict[str, str] | None = None) -> dict[str, Any] | None:
+            nonlocal prom_calls
+            prom_calls += 1
+            if path == "/api/v1/alerts":
+                return {"status": "success", "data": {"alerts": []}}
+            if path == "/api/v1/query":
+                return {"status": "success", "data": {"result": [{"value": [0, "5"]}]}}
+            return None
+
+        monkeypatch.setattr(alerts_mod, "_prometheus_get", counting_prom)
+        _write_log(alert_log, [_event("prometheus_alert_firing", "A")])
+        r1 = client.get("/api/alerts").json()
+        r2 = client.get("/api/alerts").json()
+        assert prom_calls == 2
+        assert r1["source"] == r2["source"] == "prometheus"
+        assert r2["checked_at"] >= r1["checked_at"]

@@ -13,6 +13,7 @@ When Prometheus is unreachable the live view falls back to replaying the event
 log, so the page still shows what the watcher last knew rather than going blank.
 """
 
+import asyncio
 import json
 import os
 import time
@@ -28,6 +29,13 @@ router = APIRouter()
 
 _ALERT_EVENTS = ("prometheus_alert_firing", "prometheus_alert_resolved", "prometheus_alert_still_firing")
 _WATCHER_STALE_SECONDS = 300.0
+_TAIL_HISTORY_BYTES = 512 * 1024
+_ALERTS_TTL_SECONDS = 5.0
+
+# Parsed event log cache keyed by (mtime_ns, size).
+_events_cache: tuple[int, int, list[dict[str, Any]]] | None = None
+# Short-lived live-view cache when the log file is unchanged (Prometheus may still refresh).
+_alerts_live_cache: tuple[float, int, int, dict[str, Any]] | None = None
 
 
 def _alert_log_path() -> Path:
@@ -38,25 +46,63 @@ def _prometheus_url() -> str:
     return os.environ.get("PROMETHEUS_URL", "http://127.0.0.1:9090").rstrip("/")
 
 
-def _read_events() -> list[dict[str, Any]]:
-    """Parse the watcher's JSON-lines log. Missing/unparseable lines are skipped."""
-    path = _alert_log_path()
+def _parse_log_lines(lines: list[str]) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
-    try:
-        with path.open(encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    record = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(record, dict):
-                    events.append(record)
-    except OSError:
-        pass
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(record, dict):
+            events.append(record)
     return events
+
+
+def _read_events() -> list[dict[str, Any]]:
+    """Parse the watcher's JSON-lines log. Cached by (mtime_ns, size)."""
+    global _events_cache
+    path = _alert_log_path()
+    try:
+        st = path.stat()
+    except OSError:
+        return []
+    key = (st.st_mtime_ns, st.st_size)
+    if _events_cache is not None and _events_cache[0:2] == key:
+        return _events_cache[2]
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    events = _parse_log_lines(text.splitlines())
+    _events_cache = (key[0], key[1], events)
+    return events
+
+
+def _read_events_tail() -> tuple[list[dict[str, Any]], int]:
+    """Parse only the trailing slice of the log (newest lines). Returns (events, lines_scanned)."""
+    path = _alert_log_path()
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return [], 0
+    if size == 0:
+        return [], 0
+    nbytes = min(size, _TAIL_HISTORY_BYTES)
+    try:
+        with path.open("rb") as fh:
+            fh.seek(size - nbytes)
+            chunk = fh.read(nbytes)
+    except OSError:
+        return [], 0
+    text = chunk.decode("utf-8", errors="replace")
+    lines = text.splitlines()
+    if nbytes < size and lines:
+        lines = lines[1:]  # drop partial first line after seek
+    events = _parse_log_lines(lines)
+    return events, len(lines)
 
 
 def _alert_key(record: dict[str, Any]) -> str:
@@ -139,6 +185,15 @@ async def _watcher_status() -> dict[str, Any] | None:
     return {"present": True, "last_poll_age_seconds": age, "stale": age > _WATCHER_STALE_SECONDS}
 
 
+def _log_cache_key() -> tuple[int, int] | None:
+    path = _alert_log_path()
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
 @router.get("/api/alerts")
 async def api_alerts() -> dict[str, Any]:
     """Live alert view: firing/pending alerts plus watcher health.
@@ -147,12 +202,25 @@ async def api_alerts() -> dict[str, Any]:
     in from the event-log replay (Prometheus itself does not know watcher
     silences). With Prometheus down, the log replay is the live view.
     """
+    global _alerts_live_cache
+    log_key = _log_cache_key()
+    now = time.time()
+    if (
+        log_key is not None
+        and _alerts_live_cache is not None
+        and _alerts_live_cache[1:3] == log_key
+        and now - _alerts_live_cache[0] < _ALERTS_TTL_SECONDS
+    ):
+        out = dict(_alerts_live_cache[3])
+        out["checked_at"] = int(now)
+        return out
+
     events = _read_events()
     log_firing = _replay_firing(events)
     silenced_keys = {key for key, rec in log_firing.items() if rec.get("silenced")}
 
-    data = await _prometheus_get("/api/v1/alerts")
-    watcher = await _watcher_status() if data is not None else None
+    data, watcher_probe = await asyncio.gather(_prometheus_get("/api/v1/alerts"), _watcher_status())
+    watcher = watcher_probe if data is not None else None
 
     if data is not None:
         firing: list[dict[str, Any]] = []
@@ -166,29 +234,35 @@ async def api_alerts() -> dict[str, Any]:
             else:
                 firing.append(entry)
         firing.sort(key=lambda e: str(e.get("alertname") or ""))
-        return {
+        payload = {
             "prometheus_ok": True,
             "source": "prometheus",
             "firing": firing,
             "pending": pending,
             "watcher": watcher,
             "log_available": bool(events),
-            "checked_at": int(time.time()),
+            "checked_at": int(now),
         }
+        if log_key is not None:
+            _alerts_live_cache = (now, log_key[0], log_key[1], payload)
+        return payload
 
     firing = sorted(
         (_present_firing(rec) for rec in log_firing.values()),
         key=lambda e: str(e.get("alertname") or ""),
     )
-    return {
+    payload = {
         "prometheus_ok": False,
         "source": "event_log",
         "firing": firing,
         "pending": [],
         "watcher": None,
         "log_available": bool(events),
-        "checked_at": int(time.time()),
+        "checked_at": int(now),
     }
+    if log_key is not None:
+        _alerts_live_cache = (now, log_key[0], log_key[1], payload)
+    return payload
 
 
 @router.get("/api/alerts/history")
@@ -202,7 +276,12 @@ def api_alerts_history(
     limit = clamp_page_limit(limit)
     if state is not None and state not in ("firing", "resolved", "silenced"):
         state = None
-    events = _read_events()
+    filtered = bool(alertname or node or state)
+    if filtered:
+        events = _read_events()
+        scanned_events = len(events)
+    else:
+        events, scanned_events = _read_events_tail()
     matched: list[dict[str, Any]] = []
     for record in reversed(events):
         if alertname and alertname not in str(record.get("alertname") or ""):
@@ -222,6 +301,6 @@ def api_alerts_history(
     return {
         "events": matched,
         "matched_events": len(matched),
-        "scanned_events": len(events),
+        "scanned_events": scanned_events,
         "log_available": _alert_log_path().exists(),
     }
