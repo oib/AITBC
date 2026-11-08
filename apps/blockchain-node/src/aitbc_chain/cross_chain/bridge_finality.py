@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+import fcntl
+import os
+import time
+from contextlib import contextmanager
+from pathlib import Path
+from collections.abc import Callable, Iterator
+from typing import Any, TypeVar
 
 from sqlalchemy import update
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
@@ -20,6 +26,8 @@ from .bridge_base import BridgeBase
 
 logger = get_logger(__name__)
 
+_T = TypeVar("_T")
+
 
 class BridgeFinalityMixin(BridgeBase):
     """Remote block header storage and cryptographic finality checks."""
@@ -28,6 +36,97 @@ class BridgeFinalityMixin(BridgeBase):
 
     # v0.7.2 §B3-B6: Merkle proof, block header, finality, epoch tracking
     # ------------------------------------------------------------------
+
+    # #1290: backoff schedule for sqlite "database is locked" retries. The
+    # per-connection busy_timeout (60 s) already absorbs short holds; these
+    # retries cover a foreign long write transaction. Capped by
+    # ``bridge_header_lock_retry_seconds`` and the caller's pass deadline.
+    _HEADER_LOCK_RETRY_BASE_SECONDS = 1.0
+    _HEADER_LOCK_RETRY_MAX_SECONDS = 30.0
+
+    @staticmethod
+    def _is_sqlite_lock_error(exc: BaseException) -> bool:
+        """True for sqlite 'database is locked' through SQLAlchemy wrapping."""
+        orig = getattr(exc, "orig", None) or exc
+        text = f"{orig} {exc}".lower()
+        return "database is locked" in text or "database table is locked" in text
+
+    @contextmanager
+    def _bridge_header_writer_lock(self, chain_id: str) -> Iterator[bool]:
+        """Single-writer advisory lock for bridge header mirroring (#1290).
+
+        Every process running the app lifespan — each ``--workers`` uvicorn
+        process of the RPC unit and of the island RPC unit — runs the bridge
+        finalizer and mirrors the same chain's headers into the same
+        ``chain.db``. N processes meant N identical writers queueing on the
+        WAL write lock; on node1 the losers burned their whole busy_timeout
+        and dropped batches. A non-blocking ``flock`` next to the DB lets
+        exactly one process mirror at a time; losers skip the pass and retry
+        on the next monitor interval. The winner may vary per pass — the
+        mirrored rows are a pure function of the local ``block`` table, so
+        any holder produces identical output. If the lock path cannot be
+        resolved the pass proceeds unlocked (pre-#1290 behaviour).
+        """
+        try:
+            db_path = settings.get_db_path(chain_id)
+            lock_path = Path(f"{db_path}.bridge-writer.lock")
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+        except Exception:
+            # Unresolvable path or unwritable dir: the mirror is a derived
+            # cache — run unlocked rather than skip syncing entirely.
+            yield True
+            return
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                yield False
+                return
+            yield True
+        finally:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
+            os.close(fd)
+
+    def _run_with_header_lock_retry(self, fn: Callable[[], _T], chain_id: str, deadline: float | None = None) -> _T:
+        """Run ``fn`` retrying sqlite lock errors with capped backoff (#1290).
+
+        ``busy_timeout`` covers holds up to 60 s per attempt; node1 observed
+        36–126 s holds, so a single attempt still dropped the batch. Retries
+        stop at ``bridge_header_lock_retry_seconds`` total or the caller's
+        pass ``deadline``, whichever binds first; any non-lock error — and a
+        lock error out of budget — propagates unchanged.
+        """
+        # int seconds, not a float — the no-float-money ratchet bans float()
+        # here; arithmetic against time.monotonic() promotes as needed.
+        budget = max(0, int(getattr(settings, "bridge_header_lock_retry_seconds", 120) or 0))
+        started = time.monotonic()
+        delay = self._HEADER_LOCK_RETRY_BASE_SECONDS
+        attempt = 0
+        while True:
+            try:
+                return fn()
+            except Exception as exc:
+                if not self._is_sqlite_lock_error(exc):
+                    raise
+                attempt += 1
+                now = time.monotonic()
+                remaining = budget - (now - started)
+                if deadline is not None:
+                    remaining = min(remaining, deadline - now)
+                if remaining <= 0:
+                    raise
+                logger.warning(
+                    "Bridge header store for %s hit sqlite lock (attempt %d); retrying in %.1fs (%.0fs budget left)",
+                    chain_id,
+                    attempt,
+                    min(delay, remaining),
+                    remaining,
+                )
+                time.sleep(min(delay, remaining))
+                delay = min(delay * 2, self._HEADER_LOCK_RETRY_MAX_SECONDS)
 
     def _get_block_header(self, chain_id: str, height: int) -> BridgeBlockHeader | None:
         """Look up a stored remote block header by chain_id + height (B2/B3)."""
@@ -49,7 +148,15 @@ class BridgeFinalityMixin(BridgeBase):
         v0.10.16: When bridge_release_enabled is True, confirmation_count and
         finality_confirmed are derived from the verified chain (block height
         and subsequent confirmations) instead of trusting caller-supplied values.
+
+        #1290: the store runs under ``_run_with_header_lock_retry`` so a
+        foreign long write transaction delays the commit instead of failing
+        the request on the first busy_timeout expiry.
         """
+        chain_id = str(header_data["chain_id"])
+        return self._run_with_header_lock_retry(lambda: self._store_block_header_once(header_data), chain_id)
+
+    def _store_block_header_once(self, header_data: dict[str, Any]) -> BridgeBlockHeader:
         chain_id = header_data["chain_id"]
         height = header_data["height"]
         release_enabled = getattr(settings, "bridge_release_enabled", False)

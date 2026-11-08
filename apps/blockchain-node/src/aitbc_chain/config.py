@@ -638,6 +638,13 @@ class ChainSettings(BaseSettings):
     # re-probed. A transient failure (store file not yet created, sqlite lock
     # during startup) must not silence the chain for the process's lifetime.
     bridge_chain_unavailable_retry_seconds: int = 300
+    # #1290: total budget for retrying a bridge header store that hits
+    # "database is locked" past the per-connection busy_timeout. Every
+    # app-lifespan process (RPC workers, island RPC) mirrors the same headers
+    # into the same chain.db; the single-writer flock serializes them, and
+    # this budget covers a foreign long write transaction (observed 36-126 s
+    # on node1). 0 disables the retry (single attempt, pre-#1290 behaviour).
+    bridge_header_lock_retry_seconds: int = 120
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
     bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
     # Maximum per-lock amount in compute units. 0 = unlimited in
