@@ -37,6 +37,13 @@ def _unsigned_requests_allowed(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _default_chain_is_test_chain(monkeypatch):
+    # #1260: untagged peers serve settings.chain_id; proposers under test use
+    # chain_id="test-chain", so pin the default to match.
+    monkeypatch.setattr(settings, "chain_id", "test-chain")
+
+
+@pytest.fixture(autouse=True)
 def _reset_metrics():
     metrics_registry.reset()
     yield

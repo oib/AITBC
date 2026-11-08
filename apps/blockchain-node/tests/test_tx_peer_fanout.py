@@ -14,6 +14,13 @@ from aitbc_chain.config import settings as aitbc_settings
 from aitbc_chain.rpc import transactions as txmod
 
 
+@pytest.fixture(autouse=True)
+def _default_chain(monkeypatch):
+    # #1260: untagged GOSSIP_MESH_PEER_URLS entries serve the default chain
+    # only; these tests exercise that chain, so pin chain_id to match.
+    monkeypatch.setattr(aitbc_settings, "chain_id", "ait-test")
+
+
 @pytest.mark.anyio
 @pytest.mark.asyncio
 async def test_fanout_publishes_envelope_to_each_peer(monkeypatch):
