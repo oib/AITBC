@@ -780,6 +780,29 @@ class ConsensusState(ChainBase, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class ValidatorDeactivation(ChainBase, table=True):
+    """On-chain validator deactivation marker (#1198).
+
+    Written by a ``VALIDATOR_DEACTIVATE`` transaction at block apply, so the
+    slash-driven half of the proposer active set becomes a pure function of
+    canonical chain state instead of node-local ``ConsensusState`` mutation.
+    One row per (chain_id, validator_address): the first deactivation wins;
+    a reorg that un-seals the carrying block removes the row and the
+    validator deterministically re-enters the active set on every node.
+    """
+
+    __tablename__ = "validator_deactivation"
+    __table_args__ = (UniqueConstraint("chain_id", "validator_address", name="uix_validator_deactivation_chain_addr"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    validator_address: str = Field(index=True)  # canonical_address(strict=True) EIP-55 form
+    evidence_hash: str = Field(default="")  # sha256 over the canonical evidence bundle (audit-only in v1)
+    deactivation_tx_hash: str = Field(default="", index=True)
+    block_height: int | None = Field(default=None, index=True)  # height of the carrying block; NULL for non-consensus applies
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class CrossChainEscrowRecord(ChainBase, table=True):
     """Cross-chain escrow record for atomic settlement (v0.9.0).
 

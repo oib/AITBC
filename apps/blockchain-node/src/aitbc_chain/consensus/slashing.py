@@ -21,6 +21,8 @@ and the pre-slash stake, ``slashed_amount`` can be re-derived and checked, and a
 be shown *why* it lost what it lost.
 """
 
+import hashlib
+import json
 import time
 from dataclasses import dataclass
 from decimal import Decimal
@@ -190,6 +192,71 @@ class SlashingManager:
         """
         events = self.get_slashing_history(validator_address)
         return sum((e.slashed_amount for e in events if e.slashed_amount is not None), Decimal("0"))
+
+    def record_attestation_equivocation(
+        self,
+        validator_address: str,
+        height: int,
+        round_number: int | None,
+        block_hash_a: str,
+        block_hash_b: str,
+        proposer: str = "",
+    ) -> SlashingEvent:
+        """Record attestation-layer equivocation evidence (#1198 / #1242).
+
+        Advisory only: appends a DOUBLE_SIGN event so the evidence bundle and
+        divergence tooling see it. Deactivation is never applied here — under
+        ``CONSENSUS_CHAIN_SLASHING_ENABLED`` the on-chain
+        ``VALIDATOR_DEACTIVATE`` marker is the only thing that removes a
+        validator from the active set, and it requires the slash authority's
+        signature. ``round_number`` is ``None`` for legacy (height-only) locks.
+        """
+        evidence = {
+            "kind": "attestation_equivocation",
+            "height": height,
+            "round": round_number,
+            "block_hash_a": block_hash_a,
+            "block_hash_b": block_hash_b,
+            "proposer": proposer,
+        }
+        event = SlashingEvent(
+            validator_address=validator_address,
+            condition=SlashingCondition.DOUBLE_SIGN,
+            evidence=json.dumps(evidence, sort_keys=True),
+            block_height=height,
+            timestamp=time.time(),
+            slash_rate=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
+        )
+        self.slashing_events.append(event)
+        return event
+
+    def evidence_bundle(self, validator_address: str) -> dict:
+        """Canonical evidence bundle for ``validator_address`` (#1198).
+
+        The ``evidence_hash`` a ``VALIDATOR_DEACTIVATE`` payload commits to is
+        the sha256 of this bundle's canonical JSON — any node can re-derive
+        the justification post-reorg from its own slashing history.
+        """
+        events = []
+        for e in self.get_slashing_history(validator_address):
+            events.append(
+                {
+                    "condition": e.condition.value,
+                    "evidence": e.evidence,
+                    "block_height": e.block_height,
+                    "timestamp": e.timestamp,
+                    "slash_rate": e.slash_rate,
+                    "stake_before": str(e.stake_before) if e.stake_before is not None else None,
+                    "slashed_amount": str(e.slashed_amount) if e.slashed_amount is not None else None,
+                }
+            )
+        events.sort(key=lambda e: (e["block_height"], e["timestamp"], e["evidence"]))
+        return {"validator_address": validator_address, "events": events}
+
+    def evidence_hash(self, validator_address: str) -> str:
+        """sha256 over the canonical evidence bundle — the payload value."""
+        canonical = json.dumps(self.evidence_bundle(validator_address), sort_keys=True, separators=(",", ":"))
+        return "0x" + hashlib.sha256(canonical.encode()).hexdigest()
 
     def calculate_total_slashed_by_condition(self, validator_address: str) -> dict[SlashingCondition, Decimal]:
         """The same total, broken down by what earned it."""

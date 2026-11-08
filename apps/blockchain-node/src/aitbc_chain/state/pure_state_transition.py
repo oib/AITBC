@@ -523,6 +523,9 @@ SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         "BOND_LOCK",
         "BOND_RELEASE",
         "BOND_SLASH",
+        # #1198: writes the validator_deactivation marker row — a side-table
+        # write the pure delta cannot model; same class as BOND_*.
+        "VALIDATOR_DEACTIVATE",
         "BRIDGE_WITHDRAW",
         # v21 (AGENT-SPEND-B-1, #1142): session lifecycle txs write
         # agent_spend_session, and session-bound TRANSFER/ESCROW_LOCK spends
