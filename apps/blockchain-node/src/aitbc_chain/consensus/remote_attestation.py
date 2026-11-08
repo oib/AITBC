@@ -292,6 +292,11 @@ class RemoteAttestationService:
                 ignore=self._own_addresses(),
                 request_cert=request_cert,
                 broker=gossip_broker,
+                # #1281 respin: this runs inside the attest-request listener —
+                # never await an in-flight UC collection here; a carried or
+                # cached cert still releases, otherwise the probe finishes in
+                # the background and the next evaluation picks it up.
+                wait_for_probe=False,
             )
             if justification is None:
                 metrics_registry.increment("vote_journal_refused_rival_total")
