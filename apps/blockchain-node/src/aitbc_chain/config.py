@@ -1370,6 +1370,20 @@ class ChainSettings(BaseSettings):
         """
         return self.mesh_peer_urls_for_chain(None)
 
+    def mesh_peer_urls_for_service(self, chain_id: str | None) -> list[str]:
+        """Peer URLs a service path should dial for ``chain_id`` (#1260).
+
+        Strict convention (Director ruling on #1260): the default chain's
+        peers are the UNTAGGED ``GOSSIP_MESH_PEER_URLS`` entries; any other
+        chain's peers are the entries tagged with that chain (``<chain>:``
+        prefix or ``?chain=<id>``). ``chain_id=None`` resolves to the default
+        chain. This is the same split ``_backend_for_chain`` applies to the
+        gossip broker registry.
+        """
+        if chain_id is None or chain_id == self.chain_id:
+            return self.mesh_peer_url_list()
+        return self.mesh_peer_urls_for_chain(chain_id)
+
     def gpu_retired_id_set(self) -> frozenset[str]:
         """Parsed ``GPU_RETIRED_IDS`` (empty entries dropped)."""
         return frozenset(i.strip() for i in self.gpu_retired_ids.split(",") if i.strip())

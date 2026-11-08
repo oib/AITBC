@@ -370,7 +370,7 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
     from ..config import settings
     from ..gossip.backends.websocket import WebsocketGossipBackend
 
-    peer_urls = settings.mesh_peer_url_list()
+    peer_urls = settings.mesh_peer_urls_for_service(chain_id)
     if not peer_urls:
         # The only logging below is per-URL inside the loop, so an empty peer
         # list produced no output at all and was indistinguishable from a
