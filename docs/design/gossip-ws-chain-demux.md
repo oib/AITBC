@@ -115,6 +115,10 @@ chains (K): per source IP, up to K x `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP`
 connections and K x 5 x `GOSSIP_MAX_MESSAGES_PER_MINUTE` messages/min.
 `GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL` and `GOSSIP_MAX_MESSAGES_PER_MINUTE_TOTAL`
 cap the sum across chains; both default to 0 (off), so K = 1 is unchanged.
+All of these counters are process-local and `aitbc-blockchain-rpc` runs two uvicorn
+workers, so every ceiling here (and the challenge-mint rate) is effectively doubled
+per source IP; accepted as the real bound by the operator (#1249), see
+`docs/api/websocket.md`.
 Rate-bucket headroom: `RateLimiter` tracks at most 100 000 keys and evicts the
 stalest at the cap (the owner gets a fresh window, never a lockout). Each
 source IP holds at most 5 x K bucket keys, so the cap is reached at about
