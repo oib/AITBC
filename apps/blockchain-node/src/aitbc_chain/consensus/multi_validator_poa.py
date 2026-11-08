@@ -385,7 +385,8 @@ class MultiValidatorPoA:
         drafts: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
         for addr, v in self.validators.items():
-            if v.is_active:
+            has_evidence = bool(self._slashing_manager.evidence_bundle(addr)["events"])
+            if v.is_active and not has_evidence:
                 continue
             canon = canonical_address(addr)
             if canon in deactivated:
@@ -607,6 +608,32 @@ class MultiValidatorPoA:
     def get_slashing_history(self):
         """Get slashing history (delegates to SlashingManager)"""
         return self._slashing_manager.get_slashing_history()
+
+    def record_attestation_equivocation(
+        self,
+        validator_address: str,
+        height: int,
+        round_number: int | None,
+        block_hash_a: str,
+        block_hash_b: str,
+        proposer: str = "",
+    ):
+        """Record attestation equivocation on this chain's SlashingManager and persist (#1198).
+
+        Routes attestation-layer double-sign evidence into the same per-chain
+        manager that backs ``draft_deactivation_txs``, ``evidence_bundle``,
+        ``ConsensusState.slashing_events_json``, and ``/slashing-history``.
+        """
+        event = self._slashing_manager.record_attestation_equivocation(
+            validator_address=validator_address,
+            height=height,
+            round_number=round_number,
+            block_hash_a=block_hash_a,
+            block_hash_b=block_hash_b,
+            proposer=proposer,
+        )
+        self.save_state()
+        return event
 
     def get_state_snapshot(self) -> dict[str, Any]:
         """Get a snapshot of the current blockchain state"""

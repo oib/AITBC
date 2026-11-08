@@ -409,9 +409,21 @@ class RemoteAttestationService:
         if prior_hashes:
             from .slashing import slashing_manager
 
+            consensus_recorder = None
+            if getattr(settings, "multi_validator_consensus_enabled", False):
+                try:
+                    from .multi_validator_poa import get_consensus
+
+                    consensus_recorder = get_consensus(self._chain_id)
+                except Exception:
+                    consensus_recorder = None
+
+            target_recorder = consensus_recorder if consensus_recorder is not None else slashing_manager
             for prior_hash in sorted(prior_hashes):
                 for signer in self._validator_keys:
-                    slashing_manager.record_attestation_equivocation(
+                    if _same_address(signer, proposer):
+                        continue
+                    target_recorder.record_attestation_equivocation(
                         validator_address=canonical_address(signer),
                         height=height_int,
                         round_number=request_round,
