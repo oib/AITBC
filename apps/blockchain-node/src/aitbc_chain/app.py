@@ -327,6 +327,10 @@ async def _sweep_mempool_forever() -> None:
             rejected_removed = _evict_rejected_mempool_entries()
             if rejected_removed:
                 _app_logger.info("Mempool sweeper evicted %d apply-rejected entries", rejected_removed)
+            from .database import ensure_chain_db_healthy
+
+            for cid in get_supported_chains():
+                ensure_chain_db_healthy(cid)
         except asyncio.CancelledError:
             raise
         except Exception as e:

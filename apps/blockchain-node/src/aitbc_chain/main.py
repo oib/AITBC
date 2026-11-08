@@ -488,6 +488,9 @@ class BlockchainNode:
             init_db(chain_id)
             logger.info("Initialized database for chain: %s", chain_id)
 
+        if getattr(settings, "db_integrity_check_enabled", True):
+            self._task_registry.create_task(functools.partial(self._db_integrity_sweep, chains), name="db_integrity_sweep")
+
         if settings.sync_manager_enabled:
             use_gossip = settings.sync_manager_use_gossip
             use_subscription = settings.sync_manager_use_subscription
@@ -697,6 +700,22 @@ class BlockchainNode:
         return [c.strip() for c in (chains_str or "").split(",") if c.strip()]
 
     # Sync source resolution and periodic pull logic now live in SyncManager.
+
+    async def _db_integrity_sweep(self, chains: list[str]) -> None:
+        """#1265: periodic ``PRAGMA quick_check`` so an idle node still detects
+        mid-run chain.db corruption within one interval. A failure quarantines
+        the chain (import/propose/attest all refuse); the sweep keeps running so
+        a repaired DB is re-verified and un-quarantines."""
+        from .database import ensure_chain_db_healthy
+
+        interval = float(getattr(settings, "db_integrity_check_interval_seconds", 60.0))
+        while True:
+            await asyncio.sleep(max(1.0, interval))
+            for chain_id in chains:
+                try:
+                    ensure_chain_db_healthy(chain_id, force=True)
+                except Exception as e:
+                    logger.warning("db integrity sweep failed for %s: %s", chain_id, e)
 
     async def _shutdown(self) -> None:
         logger.info("Shutting down blockchain node, cancelling background tasks...")

@@ -81,6 +81,11 @@ class ChainSettings(BaseSettings):
     # While it is on, copy chain.db with `sqlite3 .backup` or with the node stopped, never with a bare
     # `cp`, and only open a `.backup` copy with immutable=1: a live file's recent commits sit in the WAL.
     db_keeper_connection: bool = False
+    # #1265: verify chain.db via PRAGMA quick_check at init_db() (fail-fast)
+    # and periodically during runtime (alert-and-quarantine: a corrupt chain
+    # refuses block import, block proposal, and attestation signing).
+    db_integrity_check_enabled: bool = True
+    db_integrity_check_interval_seconds: float = 60.0
 
     # Connection pooling (v0.6.0). Pool size for PostgreSQL/QueuePool-backed
     # engines. SQLite uses StaticPool (single writer) so this only applies when
