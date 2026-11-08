@@ -1237,6 +1237,11 @@ class ChainSettings(BaseSettings):
     # T_evidence — reachability signal, not quiet-window evidence).
     unavail_visibility_seconds: float = 300.0
     unavail_min_responses: int = 0
+    # #1281 respin: negative-result backoff after a failed UC collection —
+    # the probe is single-flight per (chain, height, hash), and a failed
+    # collection suppresses re-probes for at least this long (floored at
+    # 2x unavail_collect_seconds) so gate retries cannot storm the topic.
+    unavail_collect_backoff_seconds: float = 30.0
     # Re-publish a sealed-but-unconfirmed block on the gossip topic until a
     # child block exists or a mesh peer serves it, so one failed publish no
     # longer leaves the seal visible only on its proposer.
