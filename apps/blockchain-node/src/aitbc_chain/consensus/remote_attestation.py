@@ -35,6 +35,7 @@ from ..gossip import gossip_broker
 from ..metrics import metrics_registry
 from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
+from . import unavail
 from .vote_fetch import contention_hold, kick_pull, locate_voted_block
 from .vote_journal import KIND_ATTEST, VoteJournalError, get_vote_journal, valve_open, vote_journal_enabled
 
@@ -124,7 +125,14 @@ class RemoteAttestationService:
         self._request_topic = f"consensus.attest_request.{chain_id}"
         self._response_topic = f"consensus.attest_response.{chain_id}"
         self._listener_task: asyncio.Task[None] | None = None
+        self._unavail_task: asyncio.Task[None] | None = None
+        self._response_index_task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
+        # #1281: unlock justification produced by the armed evidence valve
+        # for the (height, hash) currently being signed — consumed by the
+        # equivocation recorder and the gossip response. Entries are
+        # per-request and bounded by pruning below the tip.
+        self._vote_justifications: dict[tuple[int, str], dict[str, Any]] = {}
         # Attester locks: height -> (block_hash, proposer, signed_at).
         # A validator that signs block X at height h must not propose — or
         # re-attest — a different block at h for one proposer round. Without
@@ -174,6 +182,7 @@ class RemoteAttestationService:
         address: str,
         proposer: str,
         request_round: int | None,
+        request_cert: Any = None,
     ) -> bool:
         """#1268 vote-journal gate for one signer. True = do not sign.
 
@@ -186,70 +195,121 @@ class RemoteAttestationService:
         ``vote_journal_unlock_seconds`` AND no peer serves the voted block.
         On a clean pass the new vote is made durable BEFORE any signature
         exists; a persistence failure refuses the vote.
+
+        #1281: with ``vote_journal_justification_enabled`` the valve's age+miss
+        is only the *trigger* — release additionally requires the combined
+        predicate (T_evidence unfetchability AND clean observation index AND
+        a valid UnavailabilityCertificate). No time-only escape remains.
         """
         journal = get_vote_journal(self._chain_id)
         journal.prune_below(self._tip_height_hint)
+        if self._vote_justifications and self._tip_height_hint is not None:
+            for key in [k for k in self._vote_justifications if k[0] < self._tip_height_hint]:
+                self._vote_justifications.pop(key, None)
+        justification: dict[str, Any] | None = None
         conflicts = journal.conflicting(height, address, header_hash)
         if conflicts:
-            voted_hashes = {r.block_hash for r in conflicts}
-            base = await locate_voted_block(self._chain_id, height, voted_hashes)
-            if base is not None:
-                kick_pull(self.pull_hook, self._chain_id, base)
-                metrics_registry.increment("vote_journal_refused_rival_total")
-                logger.info(
-                    "Vote journal: refusing rival %s at height %s — %s already voted %s; pulling it from %s",
-                    header_hash[:18],
-                    height,
-                    canonical_address(address)[:18],
-                    sorted(voted_hashes)[0][:18],
-                    base,
-                )
+            refuse, justification = await self._journal_conflict_gate(height, header_hash, address, conflicts, request_cert)
+            if refuse:
                 return True
-            unlock = float(getattr(settings, "vote_journal_unlock_seconds", 300.0))
-            if not all(valve_open(r, unlock) for r in conflicts):
-                metrics_registry.increment("vote_journal_refused_rival_total")
-                logger.info(
-                    "Vote journal: refusing rival %s at height %s — %s already voted %s and no peer serves it yet",
-                    header_hash[:18],
-                    height,
-                    canonical_address(address)[:18],
-                    sorted(voted_hashes)[0][:18],
-                )
-                return True
-            # #1280: the valve would open, but a peer serving a DIFFERENT block
-            # at this height is positive contention evidence — delay-only
-            # suppression while the sighting is fresh and under the fixed cap.
-            hold = contention_hold(self._chain_id, height)
-            if hold is not None:
-                if hold.sealed and hold.base and getattr(settings, "vote_journal_sealed_rival_pull", False):
-                    kick_pull(self.pull_hook, self._chain_id, hold.base)
-                    metrics_registry.increment("vote_journal_sealed_rival_pull_total")
-                metrics_registry.increment("vote_journal_contention_hold_total")
-                logger.warning(
-                    "Vote journal contention hold at height %s: peer serves rival %s (sealed=%s) — "
-                    "refusing %s despite valve age",
-                    height,
-                    hold.rival_hash[:18],
-                    hold.sealed,
-                    header_hash[:18],
-                )
-                return True
-            metrics_registry.increment("vote_journal_valve_opened_total")
-            logger.warning(
-                "Vote journal valve opened at height %s: %s voted %s over %.0fs ago and no peer serves it — "
-                "allowing rival %s (recorded as equivocation evidence)",
-                height,
-                canonical_address(address)[:18],
-                sorted(voted_hashes)[0][:18],
-                unlock,
-                header_hash[:18],
-            )
         try:
-            journal.record(height, address, header_hash, KIND_ATTEST, request_round, proposer)
+            journal.record(height, address, header_hash, KIND_ATTEST, request_round, proposer, justification=justification)
         except VoteJournalError as exc:
             logger.error("Vote journal refuses attestation at height %s: %s", height, exc)
             return True
+        if justification is not None:
+            self._vote_justifications[(height, header_hash)] = justification
         return False
+
+    async def _journal_conflict_gate(
+        self,
+        height: int,
+        header_hash: str,
+        address: str,
+        conflicts: list[Any],
+        request_cert: Any,
+    ) -> tuple[bool, dict[str, Any] | None]:
+        """#1268/#1280/#1281 rival-vote gate. ``(True, None)`` = refuse;
+        ``(False, justification)`` = valve released (justification may be
+        None in dormant Phase-1 mode)."""
+        voted_hashes = {r.block_hash for r in conflicts}
+        base = await locate_voted_block(self._chain_id, height, voted_hashes)
+        if base is not None:
+            kick_pull(self.pull_hook, self._chain_id, base)
+            metrics_registry.increment("vote_journal_refused_rival_total")
+            logger.info(
+                "Vote journal: refusing rival %s at height %s — %s already voted %s; pulling it from %s",
+                header_hash[:18],
+                height,
+                canonical_address(address)[:18],
+                sorted(voted_hashes)[0][:18],
+                base,
+            )
+            return True, None
+        unlock = float(getattr(settings, "vote_journal_unlock_seconds", 300.0))
+        if not all(valve_open(r, unlock) for r in conflicts):
+            metrics_registry.increment("vote_journal_refused_rival_total")
+            logger.info(
+                "Vote journal: refusing rival %s at height %s — %s already voted %s and no peer serves it yet",
+                header_hash[:18],
+                height,
+                canonical_address(address)[:18],
+                sorted(voted_hashes)[0][:18],
+            )
+            return True, None
+        # #1280: the valve would open, but a peer serving a DIFFERENT block
+        # at this height is positive contention evidence — delay-only
+        # suppression while the sighting is fresh and under the fixed cap.
+        hold = contention_hold(self._chain_id, height)
+        if hold is not None:
+            if hold.sealed and hold.base and getattr(settings, "vote_journal_sealed_rival_pull", False):
+                kick_pull(self.pull_hook, self._chain_id, hold.base)
+                metrics_registry.increment("vote_journal_sealed_rival_pull_total")
+            metrics_registry.increment("vote_journal_contention_hold_total")
+            logger.warning(
+                "Vote journal contention hold at height %s: peer serves rival %s (sealed=%s) — refusing %s despite valve age",
+                height,
+                hold.rival_hash[:18],
+                hold.sealed,
+                header_hash[:18],
+            )
+            return True, None
+        justification: dict[str, Any] | None = None
+        if unavail.justification_enabled():
+            # #1281 armed barrier: age+miss only triggers collection —
+            # release needs the verifiable justification bundle.
+            justification = await unavail.unlock_justification(
+                self._chain_id,
+                height,
+                voted_hashes,
+                ignore=self._own_addresses(),
+                request_cert=request_cert,
+                broker=gossip_broker,
+            )
+            if justification is None:
+                metrics_registry.increment("vote_journal_refused_rival_total")
+                logger.warning(
+                    "Vote journal barrier holds rival %s at height %s — valve expired but no verifiable unlock justification",
+                    header_hash[:18],
+                    height,
+                )
+                return True, None
+        metrics_registry.increment("vote_journal_valve_opened_total")
+        logger.warning(
+            "Vote journal valve opened at height %s: %s voted %s over %.0fs ago and no peer serves it — "
+            "allowing rival %s (recorded as equivocation evidence)%s",
+            height,
+            canonical_address(address)[:18],
+            sorted(voted_hashes)[0][:18],
+            unlock,
+            header_hash[:18],
+            " [justified: unavailability_cert]" if justification is not None else "",
+        )
+        return False, justification
+
+    def _own_addresses(self) -> set[str]:
+        """Canonical addresses of every validator key this node holds."""
+        return {canonical_address(a) for a in self._validator_keys}
 
     def _now_epoch(self) -> float:
         """Wall clock for header freshness; tests override it."""
@@ -263,16 +323,31 @@ class RemoteAttestationService:
             self._listen(),
             name=f"remote_attestation_listener_{self._chain_id}",
         )
+        if unavail.justification_enabled():
+            # #1281: the unavailability-query listener and the persistent
+            # attest_response observer that feeds the GossipObservationIndex.
+            # Both are dormant without the flag — no extra subscriptions.
+            self._unavail_task = create_task_with_logging(
+                self._listen_unavail(),
+                name=f"unavail_listener_{self._chain_id}",
+            )
+            self._response_index_task = create_task_with_logging(
+                self._listen_responses_for_index(),
+                name=f"attest_response_index_{self._chain_id}",
+            )
 
     async def stop(self) -> None:
         self._stop_event.set()
-        if self._listener_task:
-            self._listener_task.cancel()
-            try:
-                await self._listener_task
-            except asyncio.CancelledError:
-                pass
-            self._listener_task = None
+        for task in (self._listener_task, self._unavail_task, self._response_index_task):
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        self._listener_task = None
+        self._unavail_task = None
+        self._response_index_task = None
 
     async def _listen(self) -> None:
         try:
@@ -292,6 +367,149 @@ class RemoteAttestationService:
                     logger.warning("Error handling attestation request: %s", e)
         finally:
             sub.close()
+
+    async def _listen_unavail(self) -> None:
+        """#1281: answer ``UNAVAIL_QUERY`` for hashes we do not possess."""
+        topic = unavail.query_topic(self._chain_id)
+        try:
+            sub = await gossip_broker.subscribe(topic, max_queue_size=256)
+        except Exception as e:
+            logger.warning("Failed to subscribe to unavailability queries: %s", e)
+            return
+        logger.info("Subscribed to unavailability queries on %s", topic)
+        try:
+            async for query in sub:
+                if self._stop_event.is_set():
+                    break
+                try:
+                    await self._handle_unavail_query(query)
+                except Exception as e:
+                    logger.warning("Error handling unavailability query: %s", e)
+        finally:
+            sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
+
+    async def _listen_responses_for_index(self) -> None:
+        """#1281/#1279: persistent ``attest_response`` observer.
+
+        Feeds the GossipObservationIndex only — attestation collection for
+        sealing stays on the proposer's transient subscription, so this
+        listener changes no consensus behavior, just what the node has
+        *seen*.
+        """
+        try:
+            sub = await gossip_broker.subscribe(self._response_topic, max_queue_size=2000)
+        except Exception as e:
+            logger.warning("Failed to subscribe to attestation responses for index: %s", e)
+            return
+        logger.info("Subscribed to attestation responses for observation index on %s", self._response_topic)
+        vset = self._validator_set_addresses()
+        try:
+            async for response in sub:
+                if self._stop_event.is_set():
+                    break
+                if not isinstance(response, dict):
+                    continue
+                if response.get("chain_id") != self._chain_id:
+                    continue
+                try:
+                    height = int(response.get("height", 0))
+                except (TypeError, ValueError):
+                    continue
+                block_hash = str(response.get("hash", ""))
+                validator = str(response.get("validator", ""))
+                if not block_hash or not validator:
+                    continue
+                try:
+                    canon = canonical_address(validator)
+                except (AttributeError, TypeError, ValueError):
+                    continue
+                # Only count in-set validators — the topic is validator-
+                # restricted at the transport, but the index must not trust
+                # an unchecked claim either.
+                if vset and canon not in vset:
+                    continue
+                index = await unavail.get_observation_index(self._chain_id)
+                index.note_response(height, block_hash, canon, ignore=self._own_addresses())
+        finally:
+            sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
+
+    def _validator_set_addresses(self) -> set[str]:
+        return {canonical_address(v) for v in self._load_validator_set()}
+
+    def _possesses_block(self, height: int, block_hash: str) -> bool | None:
+        """True when our DB serves ``block_hash`` at ``height``; None when
+        the state cannot be read (caller must not sign a response)."""
+        if self._session_factory is None:
+            return None
+        try:
+            with self._session_factory() as session:
+                row = session.exec(
+                    select(Block.hash).where(Block.chain_id == self._chain_id).where(Block.height == height)
+                ).first()
+        except Exception as exc:  # noqa: BLE001 - unreadable state means no statement
+            logger.warning("unavail: possession check failed at height %s: %s", height, exc)
+            return None
+        if row is None:
+            return False
+        served = row[0] if isinstance(row, tuple) else row
+        return str(served) == block_hash
+
+    async def _handle_unavail_query(self, query: Any) -> None:
+        """Sign an unavailability response iff we do not possess the block.
+
+        A validator holding the voted block MUST NOT sign — it should serve
+        the block instead (the fetch-before-unlock path owns that case).
+        Signing while holding it is a self-contradiction the certificate
+        design already prices in, but honesty here keeps the artifact
+        meaningful.
+        """
+        if not unavail.justification_enabled() or not isinstance(query, dict):
+            return
+        parsed = self._parse_unavail_query(query)
+        if parsed is None:
+            return
+        height, epoch, block_hash = parsed
+        # A decided height needs no unavailability statement.
+        if self._tip_height_hint is not None and height < self._tip_height_hint:
+            return
+        possesses = self._possesses_block(height, block_hash)
+        if possesses is not False:
+            # True = we serve it (stay silent, let fetch win); None = cannot
+            # determine (stay silent — a false statement is worse than none).
+            return
+        vset = self._validator_set_addresses()
+        if not vset:
+            return
+        for address, private_key in self._validator_keys.items():
+            try:
+                canon = canonical_address(address)
+            except (AttributeError, TypeError, ValueError):
+                continue
+            if canon not in vset:
+                continue
+            try:
+                response = unavail.build_unavail_response(self._chain_id, height, block_hash, epoch, canon, private_key)
+                await gossip_broker.publish(unavail.response_topic(self._chain_id), response)
+            except Exception as e:
+                logger.warning("Failed to publish unavailability response: %s", e)
+            # One statement per node keeps the certificate compact; a node
+            # holding several validator keys still answers once — the
+            # threshold counts distinct validators, not keys per node.
+            return
+
+    def _parse_unavail_query(self, query: dict[str, Any]) -> tuple[int, int, str] | None:
+        """``(height, epoch, block_hash)`` for a well-formed query, else None."""
+        if query.get("type") != unavail.QUERY_TYPE or query.get("chain_id") != self._chain_id:
+            return None
+        try:
+            height = int(query.get("height", 0))
+            epoch = int(query.get("epoch", 0))
+        except (TypeError, ValueError):
+            return None
+        block_hash = str(query.get("hash", ""))
+        if not block_hash or height <= 0 or epoch <= 0:
+            return None
+        return height, epoch, block_hash
 
     async def _handle_request(self, request: Any) -> None:
         if not isinstance(request, dict):
@@ -501,6 +719,15 @@ class RemoteAttestationService:
         # signer (not per configured key) also stops certifying equivocations
         # for keys that never signed the prior hash.
 
+        # #1281: this request survived every authenticity check — it is a
+        # genuine proposer broadcast, so it feeds the observation index.
+        # (Recording earlier would let unauthenticated gossip inject fake
+        # requests for the voted hash and hold the unlock shut forever.)
+        if unavail.justification_enabled():
+            index = await unavail.get_observation_index(self._chain_id)
+            index.note_request(height_int, header_hash, proposer, ignore=self._own_addresses())
+        request_cert = request.get("unlock_justification")
+
         for address, private_key in self._validator_keys.items():
             # Do not sign our own block.
             if _same_address(address, proposer):
@@ -512,7 +739,7 @@ class RemoteAttestationService:
             # #1268: durable one-vote-per-height gate. Records the vote before
             # the signature exists; flag-guarded, off = nothing above changes.
             if vote_journal_enabled() and await self._journal_refuses(
-                height_int, header_hash, address, proposer, request_round
+                height_int, header_hash, address, proposer, request_round, request_cert=request_cert
             ):
                 continue
 
@@ -538,7 +765,16 @@ class RemoteAttestationService:
             # signing at this height can cite BOTH signatures as equivocation
             # evidence, then record the equivocation for this signer.
             self._record_signed_attestation(height_int, header_hash, address, message, request_round, round_lock, signature)
-            self._record_attestation_equivocation_evidence(height_int, header_hash, address, proposer, request_round)
+            # #1281: distinct evidence class — "unavailability_cert" when the
+            # armed barrier released this vote under a verified UC,
+            # "unjustified" for any other armed-mode conflicting vote.
+            # Absent entirely with the flag off (pre-#1281 evidence shape).
+            just_class: str | None = None
+            if unavail.justification_enabled():
+                just_class = "unavailability_cert" if (height_int, header_hash) in self._vote_justifications else "unjustified"
+            self._record_attestation_equivocation_evidence(
+                height_int, header_hash, address, proposer, request_round, justification=just_class
+            )
             if not round_lock:
                 self._record_attestation_lock(height_int, header_hash, proposer)
 
@@ -549,6 +785,11 @@ class RemoteAttestationService:
                 "validator": address,
                 "signature": signature,
             }
+            stored_just = self._vote_justifications.get((height_int, header_hash))
+            if stored_just is not None:
+                # #1281: carry the unlock justification on the vote itself so
+                # collectors and evidence verifiers see the same artifact.
+                response["unlock_justification"] = stored_just
             if round_lock and request_round is not None:
                 response["round"] = request_round
             try:
@@ -988,6 +1229,7 @@ class RemoteAttestationService:
         signer: str,
         proposer: str,
         request_round: int | None,
+        justification: str | None = None,
     ) -> None:
         """Record attestation equivocation for the signer that just signed.
 
@@ -1025,6 +1267,7 @@ class RemoteAttestationService:
                     block_hash_b=block_hash,
                     proposer=proposer,
                     attestations=attestations,
+                    justification=justification,
                 )
             except AttributeError:
                 # Fallback recorder (module-global SlashingManager pre-#1263
@@ -1436,6 +1679,7 @@ class RemoteAttestationService:
         min_count: int,
         timeout: float | None = None,
         transactions: list[dict[str, Any]] | None = None,
+        unlock_justification: dict[str, Any] | None = None,
     ) -> list[dict[str, str]]:
         """Publish a header and collect at least min_count remote attestations.
 
@@ -1476,6 +1720,10 @@ class RemoteAttestationService:
             else:
                 header["round"] = collect_round
         request: dict[str, Any] = {"header": header, "timestamp": time.time()}
+        if unlock_justification is not None:
+            # #1281: the proposer's own unlock justification rides the
+            # request so attesters can verify the UC without a collect round.
+            request["unlock_justification"] = unlock_justification
         # Carry the proposer's own block signature: attesters verify it
         # against the scheduled proposer before signing or locking, so a
         # forged request can no longer attest an invented block (#1058).

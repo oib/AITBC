@@ -743,6 +743,7 @@ class MultiValidatorPoA:
         block_hash_b: str,
         proposer: str = "",
         attestations: list[dict] | None = None,
+        justification: str | None = None,
     ):
         """Record attestation equivocation on this chain's SlashingManager and persist (#1198/#1263).
 
@@ -760,6 +761,7 @@ class MultiValidatorPoA:
             block_hash_b=block_hash_b,
             proposer=proposer,
             attestations=attestations,
+            justification=justification,
         )
         self.save_state()
         return event
