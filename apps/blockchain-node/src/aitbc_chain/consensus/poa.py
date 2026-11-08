@@ -225,10 +225,13 @@ class PoAProposer:
         # keyed by proposal height — consumed by _record_proposal_vote,
         # the attest_request, and block_metadata.unlock_justification.
         self._unlock_justifications: dict[int, dict[str, Any]] = {}
-        # #1298: (height, timestamp, not_after_epoch) of the last assembled
-        # proposal, reused for same-hash retries while inside the
-        # attestation-lock/header-age horizon.
-        self._same_hash_retry: tuple[int, datetime, float] | None = None
+        # #1298: (height, parent_hash, timestamp, not_after_epoch, tx_key)
+        # of the last assembled proposal, reused for same-hash retries while
+        # inside the attestation-lock/header-age horizon. Parent and tx-set
+        # binding: a reorg at the same height or a drifted mempool drain
+        # would assemble a different hash under the pinned timestamp — a
+        # rival inside attesters' lock window — so both invalidate the pin.
+        self._same_hash_retry: tuple[int, Any, datetime, float, tuple[Any, ...]] | None = None
         # Warn-once latch for a computed same-hash retry horizon <= 0 — the
         # feature is silently inert in that configuration, so it must be
         # visible in the journal instead of looking like ordinary churn.
@@ -838,7 +841,8 @@ class PoAProposer:
             if resolved is None:
                 return False
             head, next_height, parent_hash, interval_seconds = resolved
-            timestamp = self._peek_same_hash_retry(next_height) or datetime.now(UTC)
+            retry_cand = self._peek_same_hash_retry(next_height, parent_hash)
+            timestamp = retry_cand[2] if retry_cand is not None else datetime.now(UTC)
             if session is not None:
                 # Journal every mutation this proposal makes so a later fork
                 # resolution can undo it — the same journal the import path keeps.
@@ -857,6 +861,12 @@ class PoAProposer:
             self._propose_phase = "collect_txs"
             _t2 = time.time()
             pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
+            resolved_tx = await self._resolve_post_collect_proposal(
+                head, next_height, timestamp, proposer, round_number, retry_cand, pending_txs
+            )
+            if resolved_tx is None:
+                return False
+            timestamp, proposer, round_number = resolved_tx
             # DRAIN-SKIP-SILENT-1 (#669): every drained tx the apply path
             # refuses is collected here and written back as status='rejected'
             # so the submitter's hash query surfaces a terminal outcome instead
@@ -882,7 +892,7 @@ class PoAProposer:
             block, block_hash = self._assemble_proposal_block(
                 session, next_height, parent_hash, timestamp, processed_txs, proposer
             )
-            self._note_same_hash_retry(next_height, timestamp)
+            self._note_same_hash_retry(next_height, parent_hash, timestamp, self._tx_snapshot_key(pending_txs))
             self._logger.debug("[PROPOSE:%s] phase=assemble_block done %.3fs", chain, time.time() - _t3)
             # v0.7.2: sign the canonical block header here, before the gates —
             # the attest_request built inside _run_consensus_gates carries
@@ -915,19 +925,7 @@ class PoAProposer:
             # can release the dead (sender, nonce) slots instead of letting them
             # squat until mempool_entry_ttl. block_metadata is outside the
             # signed header and the block hash, so this cannot affect consensus.
-            if rejected_txs:
-                from ..mempool import _tx_nonce, _tx_sender
-
-                metadata_dict["rejected_txs"] = [
-                    {
-                        "tx_hash": tx.tx_hash,
-                        "sender": _tx_sender(tx.content or {}),
-                        "nonce": _tx_nonce(tx.content or {}),
-                        "type": str((tx.content or {}).get("type") or "TRANSFER").upper(),
-                        "reason": reason,
-                    }
-                    for tx, reason in rejected_txs
-                ]
+            self._stamp_rejected_tx_metadata(metadata_dict, rejected_txs)
             # #1281: the sealed block carries its unlock justification so
             # late validators and auditors can verify the valve release
             # post-hoc. Additive field; absent for ordinary proposals.
@@ -1457,29 +1455,90 @@ class PoAProposer:
         slack = float(getattr(settings, "proposer_same_hash_retry_margin_seconds", 12.0))
         return max(0.0, min(lock, header) - (collect + slack))
 
-    def _peek_same_hash_retry(self, next_height: int) -> datetime | None:
-        """The failed proposal's timestamp while its retry horizon holds.
+    def _peek_same_hash_retry(
+        self, next_height: int, parent_hash: Any
+    ) -> tuple[int, Any, datetime, float, tuple[Any, ...]] | None:
+        """The failed proposal's pin while its retry horizon holds.
 
-        Returns None (and drops the candidate) when the height moved on, the
-        horizon lapsed, or the feature flag is off — the caller then stamps a
-        fresh ``datetime.now(UTC)`` exactly as before #1298.
+        Returns the ``(height, parent_hash, timestamp, not_after, tx_key)``
+        candidate, or None (dropping it) when the height moved on, the parent
+        changed at the same height, the horizon lapsed, or the feature flag
+        is off — the caller then stamps a fresh ``datetime.now(UTC)`` exactly
+        as before #1298. Parent binding: a same-height reorg would assemble
+        a different block under the pinned timestamp.
         """
         cand = self._same_hash_retry
         if cand is None:
             return None
-        height, timestamp, not_after = cand
+        height, cand_parent, _timestamp, not_after, _tx_key = cand
         if (
             height != next_height
+            or cand_parent != parent_hash
             or time.time() >= not_after
             or not getattr(settings, "proposer_same_hash_retry_enabled", False)
         ):
             self._same_hash_retry = None
             return None
-        return timestamp
+        return cand
 
-    def _note_same_hash_retry(self, next_height: int, timestamp: datetime) -> None:
-        """Remember this proposal's timestamp so a gate-failed retry can reuse
-        the same hash while attesters' locks are still live."""
+    @staticmethod
+    def _stamp_rejected_tx_metadata(metadata_dict: dict[str, Any], rejected_txs: list[tuple[Any, str]]) -> None:
+        """R14-M1 (#1248): publish apply-rejected tx identities into
+        block_metadata so followers release the dead (sender, nonce) slots."""
+        if not rejected_txs:
+            return
+        from ..mempool import _tx_nonce, _tx_sender
+
+        metadata_dict["rejected_txs"] = [
+            {
+                "tx_hash": tx.tx_hash,
+                "sender": _tx_sender(tx.content or {}),
+                "nonce": _tx_nonce(tx.content or {}),
+                "type": str((tx.content or {}).get("type") or "TRANSFER").upper(),
+                "reason": reason,
+            }
+            for tx, reason in rejected_txs
+        ]
+
+    @staticmethod
+    def _tx_snapshot_key(txs: Any) -> tuple[Any, ...]:
+        """Identity tuple of a drained tx set for same-hash retry binding."""
+        return tuple(getattr(tx, "tx_hash", tx) for tx in txs)
+
+    async def _resolve_post_collect_proposal(
+        self,
+        head: Block | None,
+        next_height: int,
+        timestamp: datetime,
+        proposer: str,
+        round_number: int,
+        retry_cand: tuple[int, Any, datetime, float, tuple[Any, ...]] | None,
+        pending_txs: Any,
+    ) -> tuple[datetime, str, int] | None:
+        """Re-derive ``(timestamp, proposer, round_number)`` after tx collect.
+
+        When the drained tx set drifted from the pinned snapshot, the pinned
+        timestamp would assemble a DIFFERENT hash — a rival inside
+        attesters' lock window — so the pin is dropped, a fresh timestamp is
+        stamped, and proposer/round are re-derived for it. Returns the
+        (possibly unchanged) triple, or None when the proposal must abort
+        (re-selection found no local turn or the journal holds).
+        """
+        if retry_cand is None or self._tx_snapshot_key(pending_txs) == retry_cand[4]:
+            return timestamp, proposer, round_number
+        self._same_hash_retry = None
+        timestamp = datetime.now(UTC)
+        selected = self._select_round_proposer(head, next_height, timestamp)
+        if selected is None:
+            return None
+        proposer, round_number = selected
+        if await self._honor_prior_votes(next_height, round_number, proposer):
+            return None
+        return timestamp, proposer, round_number
+
+    def _note_same_hash_retry(self, next_height: int, parent_hash: Any, timestamp: datetime, tx_key: tuple[Any, ...]) -> None:
+        """Remember this proposal's timestamp/parent/tx-set so a gate-failed
+        retry can reuse the same hash while attesters' locks are still live."""
         if not getattr(settings, "proposer_same_hash_retry_enabled", False):
             self._same_hash_retry = None
             return
@@ -1499,7 +1558,7 @@ class PoAProposer:
                     ),
                 )
             return
-        self._same_hash_retry = (next_height, timestamp, timestamp.timestamp() + horizon)
+        self._same_hash_retry = (next_height, parent_hash, timestamp, timestamp.timestamp() + horizon, tx_key)
 
     def _resolve_proposal_head(self, session: Session) -> tuple[Block | None, int, str, float | None] | None:
         """Fetch the chain head and validate proposal freshness.
