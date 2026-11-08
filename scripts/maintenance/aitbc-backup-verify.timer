@@ -4,7 +4,7 @@ Requires=aitbc-backup-verify.service
 
 [Timer]
 # After the 01:00 backup (+300s splay) completes and before the 02:30
-# at1 offsite pull copies the generation — a failed verify is visible
+# IDE-host offsite pull copies the generation — a failed verify is visible
 # in metrics before the copy leaves the host.
 OnCalendar=*-*-* 02:00:00
 RandomizedDelaySec=600

@@ -88,8 +88,8 @@ def test_non_ip_peer_is_never_trusted():
 
 
 def test_trusted_proxy_list_is_configurable_with_cidr(monkeypatch):
-    monkeypatch.setenv("AITBC_TRUSTED_PROXIES", "10.1.223.0/24, ::1")
-    assert _client_ip_for_rate_limit(_req("10.1.223.9", x_real_ip=VICTIM)) == VICTIM
+    monkeypatch.setenv("AITBC_TRUSTED_PROXIES", "192.0.2.0/24, ::1")
+    assert _client_ip_for_rate_limit(_req("192.0.2.9", x_real_ip=VICTIM)) == VICTIM
     # loopback is no longer implicitly trusted once the operator narrows the list
     assert _client_ip_for_rate_limit(_req("127.0.0.1", x_real_ip=VICTIM)) == "127.0.0.1"
 

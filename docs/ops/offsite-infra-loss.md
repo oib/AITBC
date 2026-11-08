@@ -1,12 +1,12 @@
-# Offsite infrastructure loss runbook — gitea container + at1 IDE host
+# Offsite infrastructure loss runbook — gitea container + IDE host
 
 > Covers the two single-copy infrastructure dependencies identified in
 > the R13-00 resilience review (#1226): the Gitea container (sole copy of
-> the ledger repo + issue database) and at1 (sole holder of the
+> the ledger repo + issue database) and the IDE host (sole holder of the
 > fleet-offsite backup set + agent workspaces). Both are **untested
 > recovery paths** — this runbook is the first written procedure.
 
-## A. Gitea container loss (`gitea`, 10.0.3.107)
+## A. Gitea container loss (`gitea` container)
 
 **What is lost**: `/var/lib/gitea` — all repos (incl. `oib/aitbc`, the
 issue ledger DB), user accounts, tokens, CI runner registration.
@@ -31,9 +31,9 @@ issue ledger DB), user accounts, tokens, CI runner registration.
    `git push --mirror` equivalent or fresh clone + push from node2/hub.
    Ledger issues do NOT restore from git — accept the loss or rebuild
    the register from `tasks/_source/tasks.json` (the local task ledger
-   on at1/workspace is the closest surviving copy of row state).
+   on the IDE-host workspace is the closest surviving copy of row state).
 4. Re-register the `oib` user, re-mint tokens (`gitea admin user
-   generate-access-token`), update `~/.git-credentials` (at1),
+   generate-access-token`), update `~/.git-credentials` (on the IDE host),
    `/root/.gitea_token` (hub), node credential helpers.
 5. Re-point `gitea.bubuit.net` DNS/nginx; verify `tea` login + a test
    issue comment.
@@ -43,7 +43,7 @@ issue ledger DB), user accounts, tokens, CI runner registration.
 issue ledger must be reconstructed by hand. **This is the weakest
 recovery story in the fleet.**
 
-## B. at1 IDE host loss (80.109.18.113)
+## B. IDE host loss
 
 **What is lost**:
 - `~/windsurf/aitbc/backups/fleet-nightly/` — **the only offsite copy of
@@ -53,7 +53,7 @@ recovery story in the fleet.**
 
 **What survives**:
 - All five fleet nodes' on-host `/var/backups/aitbc/` (30-day retention)
-  — the primary copies; at1 only held the off-host second copy.
+  — the primary copies; the IDE host only held the off-host second copy.
 - `origin/main` on gitea — all pushed work safe; **unpushed worktree
   commits are lost** (check `git worktree list` habit: push or accept).
 - The chain itself — fully replicated across validators.
@@ -72,9 +72,9 @@ recovery story in the fleet.**
    host; first run re-pulls all 5 hosts' current generations — the
    on-host 30-day window means nothing is lost if recovery happens
    within retention.
-5. Optional second offsite target (R13-OPS-1, #1238): evaluate ns3-bubu
-   or a cheap storage VPS as a mirror destination so at1 is no longer
-   single-point.
+5. Optional second offsite target (R13-OPS-1, #1238): evaluate the LAN storage host
+   or a cheap storage VPS as a mirror destination so the IDE host is no
+   longer single-point.
 
 **RTO estimate**: untested — ~1–2h for repo+access, backups re-seed on
 the next 02:30 timer tick automatically.
@@ -82,7 +82,7 @@ the next 02:30 timer tick automatically.
 ## Cross-cutting gaps (feed #1238)
 
 - No gitea DB backup → issue ledger single-copy.
-- at1 is single-point for offsite backups AND the agent workspace —
+- the IDE host is single-point for offsite backups AND the agent workspace —
   correlated loss (host failure takes both).
 - Neither procedure has been rehearsed; first real event will be the
   test. Recommend a tabletop walk-through at the next ops review.

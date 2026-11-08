@@ -128,10 +128,10 @@ def test_trusted_peer_case_variants_are_read() -> None:
 
 
 def test_trusted_list_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
-    lan_proxy = "10.1.223.1"
+    lan_proxy = "192.0.2.1"
     ws = _ws(lan_proxy, _h(x_real_ip=CLIENT))
     assert websocket_module._gossip_client_ip(ws) == lan_proxy  # not trusted by default
-    monkeypatch.setenv("AITBC_TRUSTED_PROXIES", "10.1.223.0/24")
+    monkeypatch.setenv("AITBC_TRUSTED_PROXIES", "192.0.2.0/24")
     assert websocket_module._gossip_client_ip(ws) == CLIENT
     # loopback is no longer trusted once the list is replaced
     assert websocket_module._gossip_client_ip(_ws("127.0.0.1", _h(x_real_ip=CLIENT))) == "127.0.0.1"

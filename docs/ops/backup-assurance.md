@@ -15,7 +15,7 @@ script but was never scheduled (R13-00 finding). This change adds:
   `/var/lib/prometheus/node-exporter/aitbc_backup_verify.prom`.
 - `scripts/maintenance/aitbc-backup-verify.timer` — daily 02:00 +600s
   splay, `Persistent=true`. Slot chosen after the 01:00 backup and
-  before the 02:30 at1 offsite pull, so a corrupt generation is caught
+  before the 02:30 IDE-host offsite pull, so a corrupt generation is caught
   while the on-host copy can still be re-taken.
 
 The service is hardened (NoNewPrivileges, PrivateTmp, Protect* — same
@@ -37,24 +37,24 @@ nonzero — that is the alerting signal (wire to monitoring once proven).
 
 ## 2. Second offsite target — assessment
 
-Current state: `~/windsurf/aitbc/backups/fleet-nightly/` on **at1 only**
+Current state: `~/windsurf/aitbc/backups/fleet-nightly/` on **the IDE host only**
 (user timer `offsite-pull-backups.timer`, 02:30, age-encrypted, 14 gens).
-Losing at1 loses the only off-host copy AND the workspace (correlated
+Losing the IDE host loses the only off-host copy AND the workspace (correlated
 loss, see `offsite-infra-loss.md`).
 
 Options assessed:
 
 | option | pros | cons | verdict |
 |---|---|---|---|
-| **ns3-bubu** (existing host) | already trusted, LAN-adjacent, no new cost | shares failure domain with fleet networking; disk/memory headroom unverified | **recommended first** — cheapest real second copy |
-| Cheap storage VPS | true geographic separation | new cost, new trust domain, age keys must be escrowed | phase 2 if ns3 capacity insufficient |
+| **LAN storage host** (existing host) | already trusted, LAN-adjacent, no new cost | shares failure domain with fleet networking; disk/memory headroom unverified | **recommended first** — cheapest real second copy |
+| Cheap storage VPS | true geographic separation | new cost, new trust domain, age keys must be escrowed | phase 2 if the storage host lacks capacity |
 | Backblaze/B2 object storage | cheapest per GB, versioning | egress/egress-free pulls need rclone config; new credential class | alternative to VPS |
 | gitea container | already runs 24/7 | tiny disk, already single-purpose; NOT recommended | reject |
 
-**Recommendation**: add ns3-bubu as `DEST2` in a second pull leg (the
+**Recommendation**: add the LAN storage host as `DEST2` in a second pull leg (the
 script already parameterizes `DEST`/`HOSTS` — run a mirrored timer or
-extend `HOSTS` logic). Keep at1 as primary until ns3 proves a full
-cycle, then demote at1 to optional. Requires: disk check on ns3
+extend `HOSTS` logic). Keep the IDE host as primary until the storage host proves a full
+cycle, then demote it to optional. Requires: a disk check there
 (`df -h`), age recipient already shared (`AGE_RECIPIENT` env), and the
 same sha256-manifest verification (built into the script).
 
@@ -76,8 +76,8 @@ echo "$(sha256sum /backup/gitea-db-*.gz /backup/gitea-repos-*.tar.gz)" > /backup
 ```
 
 Ship `/backup/` off-host via the same offsite-pull pattern (add `gitea`
-to a pull host list once ssh access from at1 is confirmed — currently
-`ssh gitea` works from at1). **Prerequisite to verify before scripting**:
+to a pull host list once ssh access from the IDE host is confirmed — currently
+`ssh gitea` works from it). **Prerequisite to verify before scripting**:
 where the gitea postgres actually runs (same container? external?) —
 check `/etc/gitea/app.ini` `[database]` and record here.
 
