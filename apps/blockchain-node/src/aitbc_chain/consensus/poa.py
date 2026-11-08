@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..mempool import DatabaseMempool, InMemoryMempool
     from .multi_validator_poa import MultiValidatorPoA
 
+from . import unavail
 from .block_hash import compute_block_hash
 from .pbft import PBFTConsensus
 from .remote_attestation import RemoteAttestationService
@@ -220,6 +221,10 @@ class PoAProposer:
         self._validator_keys: dict[str, str] = {}
         self._remote_attestation: RemoteAttestationService | None = None
         self._republish_tasks: set[asyncio.Task[None]] = set()  # #1268 seal re-announcers
+        # #1281: unlock justification produced by the armed evidence valve,
+        # keyed by proposal height — consumed by _record_proposal_vote,
+        # the attest_request, and block_metadata.unlock_justification.
+        self._unlock_justifications: dict[int, dict[str, Any]] = {}
         # Pre-proposal freshness gate (2026-09-27 stale-head fork fix). The
         # verdict is cached per local head for a few seconds — never carried
         # into a later round. _freshness_fetch/_monotonic exist so tests can
@@ -494,7 +499,11 @@ class PoAProposer:
                 timeout = max(float(base_timeout), 0.5 * min_remote + float(base_timeout))
                 try:
                     remote = await self._remote_attestation.collect_attestations(
-                        block, min_remote, timeout=timeout, transactions=transactions
+                        block,
+                        min_remote,
+                        timeout=timeout,
+                        transactions=transactions,
+                        unlock_justification=self._unlock_justifications.get(block.height),
                     )
                     for att in remote:
                         addr = canonical_address(att["validator"])
@@ -898,6 +907,10 @@ class PoAProposer:
                     }
                     for tx, reason in rejected_txs
                 ]
+            # #1281: the sealed block carries its unlock justification so
+            # late validators and auditors can verify the valve release
+            # post-hoc. Additive field; absent for ordinary proposals.
+            self._attach_unlock_justification(next_height, metadata_dict)
             block.block_metadata = json.dumps(metadata_dict)
 
             self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
@@ -1218,6 +1231,16 @@ class PoAProposer:
         )
         return True
 
+    def _own_addresses(self) -> set[str]:
+        """Canonical addresses of every validator key this node holds."""
+        return {canonical_address(a) for a in self._validator_keys}
+
+    def _attach_unlock_justification(self, next_height: int, metadata_dict: dict[str, Any]) -> None:
+        """#1281: move a pending valve justification onto block_metadata."""
+        unlock_just = self._unlock_justifications.pop(next_height, None)
+        if unlock_just is not None:
+            metadata_dict["unlock_justification"] = unlock_just
+
     async def _honor_vote_journal(self, next_height: int, proposer: str) -> bool:
         """True while a live journal vote of ``proposer`` suppresses a proposal.
 
@@ -1231,6 +1254,9 @@ class PoAProposer:
         """
         if not vote_journal_enabled():
             return False
+        # #1281: a stale justification from an aborted attempt must never
+        # leak onto a later proposal at this height.
+        self._unlock_justifications.pop(next_height, None)
         journal = get_vote_journal(self._config.chain_id)
         journal.prune_below(next_height - 1)  # next_height - 1 is the local tip: decided history
         votes = journal.votes_at(next_height, proposer)
@@ -1267,11 +1293,31 @@ class PoAProposer:
                     hold.sealed,
                 )
                 return True
+            justification: dict[str, Any] | None = None
+            if unavail.justification_enabled():
+                # #1281 armed barrier: age+miss only triggers collection —
+                # release needs the verifiable justification bundle.
+                justification = await unavail.unlock_justification(
+                    self._config.chain_id,
+                    next_height,
+                    {v.block_hash for v in votes},
+                    ignore=self._own_addresses(),
+                )
+                if justification is None:
+                    metrics_registry.increment("vote_journal_proposal_suppressed_total")
+                    self._logger.warning(
+                        "[PROPOSE] Vote journal barrier holds height %s — "
+                        "valve expired but no verifiable unlock justification",
+                        next_height,
+                    )
+                    return True
+                self._unlock_justifications[next_height] = justification
             metrics_registry.increment("vote_journal_valve_opened_total")
             self._logger.warning(
-                "[PROPOSE] Vote journal valve opened at height %s: voted block unserved for over %.0fs — proposing",
+                "[PROPOSE] Vote journal valve opened at height %s: voted block unserved for over %.0fs — proposing%s",
                 next_height,
                 unlock,
+                " [justified: unavailability_cert]" if justification is not None else "",
             )
             return False
         metrics_registry.increment("vote_journal_proposal_suppressed_total")
@@ -1323,7 +1369,13 @@ class PoAProposer:
             return True
         try:
             get_vote_journal(self._config.chain_id).record(
-                next_height, proposer, block_hash, KIND_PROPOSE, round_number, proposer
+                next_height,
+                proposer,
+                block_hash,
+                KIND_PROPOSE,
+                round_number,
+                proposer,
+                justification=self._unlock_justifications.get(next_height),
             )
         except VoteJournalError as exc:
             self._logger.error("[PROPOSE] vote journal refuses proposal at height %s: %s", next_height, exc)
