@@ -309,7 +309,8 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                     detail=f"Unsupported chain_id: {chain_id}",
                 )
             _import_advisory = import_advisory_acquire(chain_id)
-            init_db(chain_id)
+            # #1290: init_db is synchronous sqlite DDL — keep it off the loop.
+            await run_in_threadpool(init_db, chain_id)
             block_hash = block_data["hash"]
             if not isinstance(block_hash, str) or not re.fullmatch("0x[0-9a-fA-F]{64}", block_hash):
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block hash format")
@@ -357,7 +358,11 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
                 session_factory=lambda: session_scope(chain_id),
                 chain_id=chain_id,
             )
-            result = sync.import_block(block_data, transactions=block_data.get("transactions"))
+            # #1290: the validated import is the heaviest sqlite path on this
+            # endpoint (signature, parent linkage, state root, tx apply) — a
+            # write-lock wait used to freeze the worker's event loop for the
+            # whole busy_timeout. Same to_thread pattern as the finalizer.
+            result = await run_in_threadpool(sync.import_block, block_data, transactions=block_data.get("transactions"))
             if not result.accepted:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

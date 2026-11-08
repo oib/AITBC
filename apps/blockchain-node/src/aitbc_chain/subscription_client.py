@@ -421,7 +421,10 @@ class SubscriptionClient:
             # State-root validation is now reliable after the state-root computation
             # and pre-registered transaction fixes. Push imports validate the block
             # state root against the local DB before accepting.
-            result = sync.import_block(
+            # #1290: import_block is synchronous sqlite work — run it off the
+            # event loop so a write-lock wait cannot stall subscriptions.
+            result = await asyncio.to_thread(
+                sync.import_block,
                 block_data,
                 transactions=block_data.get("transactions"),
                 skip_state_root_validation=not settings.sync_state_root_validation_enabled,

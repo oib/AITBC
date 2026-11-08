@@ -1585,48 +1585,59 @@ class BridgeTransferMixin(BridgeBase):
         confirmation counts and finality from stored data, so this also makes
         ``_check_finality_for_transfer`` reachable for real transfers.
         """
-        with self._session_for(chain_id) as session:
-            try:
-                head = session.exec(
-                    select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
+        # #1290: single writer per chain. Every app-lifespan process (each
+        # --workers uvicorn process of the RPC and island-RPC units) runs this
+        # mirror against the same chain.db; the flock lets one mirror at a
+        # time and the rest skip to the next pass.
+        with self._bridge_header_writer_lock(chain_id) as is_writer:  # type: ignore[attr-defined]
+            if not is_writer:
+                logger.debug(
+                    "Bridge header sync for %s skipped: another process holds the writer lock",
+                    chain_id,
+                )
+                return 0
+            with self._session_for(chain_id) as session:
+                try:
+                    head = session.exec(
+                        select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
+                    ).first()
+                except Exception:
+                    return 0
+                if head is None:
+                    return 0
+                last_stored = session.exec(
+                    select(BridgeBlockHeader.height)
+                    .where(BridgeBlockHeader.chain_id == chain_id)
+                    .order_by(BridgeBlockHeader.height.desc())  # type: ignore[attr-defined]
+                    .limit(1)
                 ).first()
-            except Exception:
-                return 0
-            if head is None:
-                return 0
-            last_stored = session.exec(
-                select(BridgeBlockHeader.height)
-                .where(BridgeBlockHeader.chain_id == chain_id)
-                .order_by(BridgeBlockHeader.height.desc())  # type: ignore[attr-defined]
-                .limit(1)
-            ).first()
-            finality_blocks = int(getattr(settings, "bridge_finality_blocks", 6))
-            if last_stored is None:
-                # First run: backfill only the recent finality window — older
-                # headers cannot become relevant to a pending transfer and a
-                # full-history backfill would needlessly grow the table.
-                start_height = max(0, head.height - 2 * finality_blocks - 5)
-            else:
-                start_height = int(last_stored) + 1
-            # Bounded per pass: an unbounded select loads every block from the
-            # gap start to the chain head into memory at once, and a node that
-            # has been down long enough for that to matter is exactly the node
-            # that cannot afford it. A host behind by more than one batch
-            # catches up over successive passes rather than in one, which still
-            # converges with room to spare: 500 headers every
-            # ``bridge_monitor_interval`` (60s) against roughly one block a
-            # minute of production. Both halves -- the bound and the
-            # convergence -- are pinned by test_bridge_header_sync_bound.py.
-            batch = max(1, int(getattr(settings, "bridge_header_sync_batch", 500)))
-            new_blocks = session.exec(
-                # Only header fields are stored below — suppress the selectin
-                # transactions/receipts eager-loads, they are wasted work here.
-                select(Block)
-                .options(raiseload("*"))
-                .where(Block.chain_id == chain_id, Block.height >= start_height)
-                .order_by(Block.height.asc())  # type: ignore[attr-defined]
-                .limit(batch)
-            ).all()
+                finality_blocks = int(getattr(settings, "bridge_finality_blocks", 6))
+                if last_stored is None:
+                    # First run: backfill only the recent finality window — older
+                    # headers cannot become relevant to a pending transfer and a
+                    # full-history backfill would needlessly grow the table.
+                    start_height = max(0, head.height - 2 * finality_blocks - 5)
+                else:
+                    start_height = int(last_stored) + 1
+                # Bounded per pass: an unbounded select loads every block from the
+                # gap start to the chain head into memory at once, and a node that
+                # has been down long enough for that to matter is exactly the node
+                # that cannot afford it. A host behind by more than one batch
+                # catches up over successive passes rather than in one, which still
+                # converges with room to spare: 500 headers every
+                # ``bridge_monitor_interval`` (60s) against roughly one block a
+                # minute of production. Both halves -- the bound and the
+                # convergence -- are pinned by test_bridge_header_sync_bound.py.
+                batch = max(1, int(getattr(settings, "bridge_header_sync_batch", 500)))
+                new_blocks = session.exec(
+                    # Only header fields are stored below — suppress the selectin
+                    # transactions/receipts eager-loads, they are wasted work here.
+                    select(Block)
+                    .options(raiseload("*"))
+                    .where(Block.chain_id == chain_id, Block.height >= start_height)
+                    .order_by(Block.height.asc())  # type: ignore[attr-defined]
+                    .limit(batch)
+                ).all()
         return self._store_new_block_headers(chain_id, new_blocks, deadline)
 
     def _store_new_block_headers(self, chain_id: str, new_blocks: Any, deadline: float | None = None) -> int:
@@ -1655,19 +1666,26 @@ class BridgeTransferMixin(BridgeBase):
                 }
             )
             if len(pending) >= commit_batch:
-                if not self._flush_header_batch(chain_id, pending, block.height):
+                if not self._flush_header_batch(chain_id, pending, block.height, deadline):
                     pending.clear()
                     break
                 stored += len(pending)
                 pending.clear()
-        if pending and self._flush_header_batch(chain_id, pending, None):
+        if pending and self._flush_header_batch(chain_id, pending, None, deadline):
             stored += len(pending)
         return stored
 
-    def _flush_header_batch(self, chain_id: str, pending: list[dict], at_height: int | None) -> bool:
-        """One commit for a pending header batch; False means the caller should stop."""
+    def _flush_header_batch(
+        self, chain_id: str, pending: list[dict], at_height: int | None, deadline: float | None = None
+    ) -> bool:
+        """One commit for a pending header batch; False means the caller should stop.
+
+        #1290: a sqlite "database is locked" retries with capped backoff
+        (bounded by the pass deadline) instead of dropping the batch on the
+        first busy_timeout expiry; non-lock errors keep the old fail-fast.
+        """
         try:
-            self._store_header_batch(chain_id, pending)  # type: ignore[attr-defined]
+            self._run_with_header_lock_retry(lambda: self._store_header_batch(chain_id, pending), chain_id, deadline)  # type: ignore[attr-defined]
         except Exception:
             # at_height is None for the trailing partial flush, so name the batch itself.
             logger.exception(
