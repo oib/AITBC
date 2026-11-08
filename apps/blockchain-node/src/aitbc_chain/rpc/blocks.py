@@ -21,6 +21,7 @@ from ..database import init_db, session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Block, Transaction
+from .finality import finality_fields_enabled, finality_view, head_finality
 from .utils import import_advisory_acquire, import_advisory_release, get_chain_id, validate_chain_id
 
 _logger = get_logger(__name__)
@@ -67,12 +68,15 @@ def get_head(request: Request, chain_id: str | None = None) -> dict[str, Any]:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no blocks yet")
         metrics_registry.increment("rpc_get_head_success_total")
     metrics_registry.observe("rpc_get_head_duration_seconds", time.perf_counter() - start)
-    return {
+    head_response: dict[str, Any] = {
         "height": result.height,
         "hash": result.hash,
         "timestamp": result.timestamp.isoformat(),
         "tx_count": result.tx_count,
     }
+    if finality_fields_enabled():
+        head_response.update(head_finality(result.height))  # #1268: additive, flag-guarded
+    return head_response
 
 
 def _head_height(chain_id: str) -> int | None:
@@ -121,6 +125,8 @@ def get_block(request: Request, height: int, chain_id: str | None = None) -> dic
         metrics_registry.observe("rpc_get_block_duration_seconds", time.perf_counter() - start)
         result = dict(cached_header)
         result["transactions"] = tx_list
+        if finality_fields_enabled():
+            result.update(finality_view(height, head_height))  # #1268: additive, flag-guarded
         return result
     metrics_registry.increment("rpc_get_block_cache_miss_total")
     with session_scope(chain_id) as session:
@@ -182,6 +188,10 @@ def get_block(request: Request, height: int, chain_id: str | None = None) -> dic
         },
         chain_id,
     )
+    if finality_fields_enabled():
+        # Added after the header cache is populated so the cache never holds
+        # a stale finality view.
+        block_response.update(finality_view(block.height, head_height))  # #1268: additive, flag-guarded
     return block_response
 
 

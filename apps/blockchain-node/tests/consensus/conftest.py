@@ -33,3 +33,26 @@ def disable_pbft_signature_requirement():
     settings.pbft_require_signatures = False
     yield
     settings.pbft_require_signatures = original
+
+
+@pytest.fixture(autouse=True)
+def _isolate_persisted_vote_state():
+    """#1268: ``attestation_signed.json`` and ``vote_journal.json`` persist by
+    design and the journal is a process-wide registry; without cleanup a vote
+    written by one test is a prior vote for the next test sharing the chain_id.
+    Same isolation A's held d92990dc6 added for attestation_signed.json."""
+    from aitbc.constants import DATA_DIR
+    from aitbc_chain.consensus import vote_fetch, vote_journal
+
+    def _scrub() -> None:
+        data_dir = Path(DATA_DIR) / "data"
+        if data_dir.exists():
+            for pattern in ("*/attestation_signed.json*", "*/vote_journal.json*"):
+                for stale in data_dir.glob(pattern):
+                    stale.unlink(missing_ok=True)
+        vote_journal.reset_vote_journals()
+        vote_fetch.reset_throttle()
+
+    _scrub()
+    yield
+    _scrub()

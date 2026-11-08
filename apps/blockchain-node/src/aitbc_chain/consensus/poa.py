@@ -16,6 +16,14 @@ if TYPE_CHECKING:
 from .block_hash import compute_block_hash
 from .pbft import PBFTConsensus
 from .remote_attestation import RemoteAttestationService
+from .vote_fetch import kick_pull, locate_voted_block
+from .vote_journal import (
+    KIND_PROPOSE,
+    VoteJournalError,
+    get_vote_journal,
+    valve_open,
+    vote_journal_enabled,
+)
 
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -211,6 +219,7 @@ class PoAProposer:
         self._sync_manager: Any | None = sync_manager
         self._validator_keys: dict[str, str] = {}
         self._remote_attestation: RemoteAttestationService | None = None
+        self._republish_tasks: set[asyncio.Task[None]] = set()  # #1268 seal re-announcers
         # Pre-proposal freshness gate (2026-09-27 stale-head fork fix). The
         # verdict is cached per local head for a few seconds — never carried
         # into a later round. _freshness_fetch/_monotonic exist so tests can
@@ -264,6 +273,9 @@ class PoAProposer:
             self._remote_attestation = RemoteAttestationService(
                 self._config.chain_id, self._validator_keys, session_factory=self._session_factory
             )
+            if self._sync_manager is not None:
+                # #1268: lets the attester's fetch-before-unlock pull a voted block.
+                self._remote_attestation.pull_hook = self._sync_manager.pull_from_peer
             self._logger.info(
                 "Remote attestation service initialized for chain %s with %s local key(s)",
                 self._config.chain_id,
@@ -525,6 +537,8 @@ class PoAProposer:
         self._task = create_task_with_logging(self._run_loop(), name="poa_proposer_loop")
 
     async def stop(self) -> None:
+        for republish_task in list(self._republish_tasks):  # #1268: seal re-announcers
+            republish_task.cancel()
         # Mirrors start(): the attestation listener runs even when the proposer
         # loop does not, so it must be stopped before the "no loop" early return
         # or a non-producing validator would leak its gossip subscription.
@@ -809,7 +823,7 @@ class PoAProposer:
             if selected is None:
                 return False
             proposer, round_number = selected
-            if await self._honor_attestation_lock(next_height, round_number):
+            if await self._honor_prior_votes(next_height, round_number, proposer):
                 return False
             self._propose_phase = "collect_txs"
             _t2 = time.time()
@@ -851,7 +865,7 @@ class PoAProposer:
             _t4 = time.time()
             self._propose_phase = "consensus_gates"
             self._logger.info("[PROPOSE:%s] phase=consensus_gates start height=%s round=%s", chain, next_height, round_number)
-            if not await self._run_consensus_gates(
+            if not await self._run_journaled_gates(
                 session,
                 block,
                 block_hash,
@@ -1203,6 +1217,111 @@ class PoAProposer:
             locked_proposer[:12],
         )
         return True
+
+    async def _honor_vote_journal(self, next_height: int, proposer: str) -> bool:
+        """True while a live journal vote of ``proposer`` suppresses a proposal.
+
+        #1268: a fresh proposal always hashes differently from any vote this
+        validator already cast at the height, so any live entry conflicts. The
+        suppression is durable (restart-safe) and has no wall-clock expiry;
+        before the liveness valve may open, the voted block is looked up on
+        the mesh and pulled if a peer serves it, so the head advances onto it
+        instead of racing it. Flag off: returns False without touching the
+        journal.
+        """
+        if not vote_journal_enabled():
+            return False
+        journal = get_vote_journal(self._config.chain_id)
+        journal.prune_below(next_height - 1)  # next_height - 1 is the local tip: decided history
+        votes = journal.votes_at(next_height, proposer)
+        if not votes:
+            return False
+        base = await locate_voted_block(self._config.chain_id, next_height, {v.block_hash for v in votes})
+        if base is not None:
+            pull = self._sync_manager.pull_from_peer if self._sync_manager is not None else None
+            kick_pull(pull, self._config.chain_id, base)
+            metrics_registry.increment("vote_journal_proposal_suppressed_total")
+            self._logger.warning(
+                "[PROPOSE] Vote journal: already voted at height %s — pulling the voted block from %s instead of proposing",
+                next_height,
+                base,
+            )
+            return True
+        unlock = float(getattr(settings, "vote_journal_unlock_seconds", 300.0))
+        if all(valve_open(v, unlock) for v in votes):
+            metrics_registry.increment("vote_journal_valve_opened_total")
+            self._logger.warning(
+                "[PROPOSE] Vote journal valve opened at height %s: voted block unserved for over %.0fs — proposing",
+                next_height,
+                unlock,
+            )
+            return False
+        metrics_registry.increment("vote_journal_proposal_suppressed_total")
+        self._logger.warning(
+            "[PROPOSE] Vote journal: already voted at height %s and no peer serves the voted block; holding",
+            next_height,
+        )
+        return True
+
+    async def _honor_prior_votes(self, next_height: int, round_number: int, proposer: str) -> bool:
+        """True when an earlier vote (attestation lock or #1268 journal) forbids proposing now."""
+        return await self._honor_attestation_lock(next_height, round_number) or await self._honor_vote_journal(
+            next_height, proposer
+        )
+
+    async def _run_journaled_gates(
+        self,
+        session: Session,
+        block: Block,
+        block_hash: str,
+        proposer: str,
+        round_number: int,
+        next_height: int,
+        metadata_dict: dict[str, Any],
+        transactions: list[dict[str, Any]],
+    ) -> bool:
+        """Record this proposal's vote durably, run the gates, void the vote if they fail (#1268)."""
+        if not self._record_proposal_vote(session, next_height, block_hash, proposer, round_number):
+            return False
+        if await self._run_consensus_gates(
+            session, block, block_hash, proposer, round_number, next_height, metadata_dict, transactions=transactions
+        ):
+            return True
+        self._retract_proposal_vote(next_height, block_hash, proposer)
+        return False
+
+    def _record_proposal_vote(
+        self, session: Session, next_height: int, block_hash: str, proposer: str, round_number: int | None
+    ) -> bool:
+        """Make this proposal's vote durable before the attest request leaves.
+
+        #1268: the proposer's own vote used to be unrecorded, so a proposer
+        collecting attestations for B1 could attest a rival B2 at the same
+        height. False aborts the proposal (and rolls the session back) when
+        the journal cannot persist.
+        """
+        if not vote_journal_enabled():
+            return True
+        try:
+            get_vote_journal(self._config.chain_id).record(
+                next_height, proposer, block_hash, KIND_PROPOSE, round_number, proposer
+            )
+        except VoteJournalError as exc:
+            self._logger.error("[PROPOSE] vote journal refuses proposal at height %s: %s", next_height, exc)
+            if session is not None:
+                session.rollback()
+            return False
+        return True
+
+    def _retract_proposal_vote(self, next_height: int, block_hash: str, proposer: str) -> None:
+        """Void the vote of a proposal this process rolled back before commit.
+
+        Only the proposer commits its own block, so a rolled-back proposal can
+        never be sealed by anyone: its vote cannot join a quorum, and keeping
+        it would only block this validator from attesting the rival.
+        """
+        if vote_journal_enabled():
+            get_vote_journal(self._config.chain_id).retract(next_height, proposer, block_hash)
 
     def _resolve_proposal_head(self, session: Session) -> tuple[Block | None, int, str, float | None] | None:
         """Fetch the chain head and validate proposal freshness.
@@ -1805,6 +1924,21 @@ class PoAProposer:
         gossip_topic = f"blocks.{self._config.chain_id}"
         if self._stop_event.is_set():
             return False
+        payload = {
+            "chain_id": self._config.chain_id,
+            "height": block.height,
+            "hash": block.hash,
+            "parent_hash": block.parent_hash,
+            "proposer": block.proposer,
+            "timestamp": block.timestamp.isoformat(),
+            "tx_count": block.tx_count,
+            "state_root": block.state_root,
+            "bridge_state_root": block.bridge_state_root,
+            "aux_state_root": block.aux_state_root,
+            "signature": block.signature,
+            "block_metadata": block.block_metadata,
+            "transactions": tx_list,
+        }
         try:
             subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
             subscriber_count = len(subscribers)
@@ -1818,31 +1952,70 @@ class PoAProposer:
             # hub, WSS on remote validators) is responsible for fan-out.
             # Leases are still logged as a metric but do not gate block
             # propagation now that multiple validators may produce.
-            await gossip_broker.publish(
-                gossip_topic,
-                {
-                    "chain_id": self._config.chain_id,
-                    "height": block.height,
-                    "hash": block.hash,
-                    "parent_hash": block.parent_hash,
-                    "proposer": block.proposer,
-                    "timestamp": block.timestamp.isoformat(),
-                    "tx_count": block.tx_count,
-                    "state_root": block.state_root,
-                    "bridge_state_root": block.bridge_state_root,
-                    "aux_state_root": block.aux_state_root,
-                    "signature": block.signature,
-                    "block_metadata": block.block_metadata,
-                    "transactions": tx_list,
-                },
-            )
+            await gossip_broker.publish(gossip_topic, payload)
             self._logger.info(
                 "[BROADCAST SUCCESS] block=%s, topic=%s, subscribers=%s", block.height, gossip_topic, subscriber_count
             )
         except Exception as e:
             poa_broadcast_skipped_total.labels(chain_id=self._config.chain_id).inc()
             self._logger.error("Failed to broadcast block %s: %s", block.height, e)
+        if getattr(settings, "seal_republish_enabled", False):  # #1268: flag off never touches the new path
+            self._schedule_seal_republish(gossip_topic, payload)
         return True
+
+    def _schedule_seal_republish(self, topic: str, payload: dict[str, Any]) -> None:
+        """#1268: keep re-announcing a just-sealed block until it is known elsewhere.
+
+        A single failed (or lost) publish used to leave a seal visible only on
+        its proposer while the attesters that signed it sat on a vote for a
+        block nobody could fetch. Flag off: nothing is scheduled.
+        """
+        if not getattr(settings, "seal_republish_enabled", False):
+            return
+        task = create_task_with_logging(self._republish_seal(topic, payload), name=f"seal_republish_{payload['height']}")
+        self._republish_tasks.add(task)
+        task.add_done_callback(self._republish_tasks.discard)
+
+    def _seal_settled(self, height: int, block_hash: str) -> bool:
+        """True once a child of the sealed block exists locally, or the seal was replaced."""
+        with self._session_factory() as session:
+            row = session.exec(
+                select(Block.hash).where(Block.chain_id == self._config.chain_id).where(Block.height == height)
+            ).first()
+            if row is None or str(row) != block_hash:
+                return True  # reorged away: re-announcing a loser would be wrong
+            child = session.exec(
+                select(Block.height)
+                .where(Block.chain_id == self._config.chain_id)
+                .where(Block.height == height + 1)
+                .where(Block.parent_hash == block_hash)
+            ).first()
+            return child is not None
+
+    async def _republish_seal(self, topic: str, payload: dict[str, Any]) -> None:
+        interval = max(1.0, float(getattr(settings, "seal_republish_interval_seconds", 10.0)))
+        deadline = time.monotonic() + float(getattr(settings, "seal_republish_max_seconds", 120.0))
+        height = int(payload["height"])
+        block_hash = str(payload["hash"])
+        while time.monotonic() < deadline:
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
+                return
+            except TimeoutError:
+                pass
+            if self._seal_settled(height, block_hash):
+                metrics_registry.increment("seal_republish_settled_total")
+                return
+            if await locate_voted_block(self._config.chain_id, height, {block_hash}) is not None:
+                metrics_registry.increment("seal_republish_peer_serves_total")
+                return
+            try:
+                await gossip_broker.publish(topic, payload)
+                metrics_registry.increment("seal_republished_total")
+                self._logger.info("[BROADCAST] re-published unconfirmed seal %s at height %s", block_hash[:18], height)
+            except Exception as exc:  # noqa: BLE001 - a failed re-publish is retried on the next tick
+                self._logger.warning("seal re-publish for height %s failed: %s", height, exc)
+        metrics_registry.increment("seal_republish_gave_up_total")
 
     def _seed_chain_parameters(self, session: Session, parameters: dict[str, Any] | None) -> None:
         """Seed ``chain_parameter`` rows from a ``parameters`` map in genesis.
