@@ -206,6 +206,10 @@ CONSENSUS_STATE_TABLES = frozenset(
         # must be identical on every node.
         "agent_spend_session",
         "agent_spend_ledger",
+        # #1198: apply-written deactivation marker (VALIDATOR_DEACTIVATE) — the
+        # slash-driven half of the proposer active set is read from it, so the
+        # row set must be identical on every node.
+        "validator_deactivation",
     }
 )
 
