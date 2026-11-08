@@ -445,6 +445,25 @@ class _Clock:
         self.now += s
 
 
+class _WallClock:
+    """Frozen wall clock for ``unavail.time`` — ``time()`` is pinned while
+    ``monotonic()`` stays real, so collect windows and asyncio still
+    advance but cert-epoch/cache freshness (wall-based, second-floored)
+    becomes deterministic."""
+
+    def __init__(self, wall: float) -> None:
+        self.wall = wall
+
+    def time(self) -> float:
+        return self.wall
+
+    def monotonic(self) -> float:
+        return time.monotonic()
+
+    def advance(self, s: float) -> None:
+        self.wall += s
+
+
 class TestAttesterGateArmed:
     def _service(self, monkeypatch):
         broker = _Broker()
@@ -695,8 +714,14 @@ class TestRespinProbeOrder:
         await unavail.reset_observation_indices()
         monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
         monkeypatch.setattr(settings, "unavail_collect_seconds", 0.2)
-        # cert_max_age 31 ⇒ cache reuse margin = 1 s.
+        # cert_max_age 31 ⇒ cache reuse margin = 1 s. The margin is
+        # wall-clock (cert.epoch is int(time.time()), second-floored) while
+        # the success throttle is monotonic — with a 1 s margin the cache
+        # entry can go stale while the throttle still suppresses re-probe,
+        # so freeze the wall clock to make reuse/expiry deterministic.
         monkeypatch.setattr(settings, "unavail_cert_max_age_seconds", 31.0)
+        wall = _WallClock(time.time())
+        monkeypatch.setattr(unavail, "time", wall)
         broker = _Broker(responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
         ignore = {canonical_address(ADDR1)}
         b1, b2 = await asyncio.gather(
@@ -711,7 +736,7 @@ class TestRespinProbeOrder:
         queries = [m for t, m in broker.published if "unavail_query" in t]
         assert len(queries) == 1, "fresh cached cert must be reused"
         # Past the reuse margin the cert is re-collected.
-        await asyncio.sleep(1.1)
+        wall.advance(1.1)
         assert await unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker) is not None
         queries = [m for t, m in broker.published if "unavail_query" in t]
         assert len(queries) == 2, "stale-margin cert must be re-collected"
@@ -738,3 +763,88 @@ class TestRespinProbeOrder:
         assert elapsed < 0.3, f"listener-path evaluation blocked {elapsed:.2f}s on the probe"
         bundle = await waiting
         assert bundle is not None
+
+
+class TestRespinReviewFixes:
+    """E review c20822: carried cert must still probe; shared probe survives
+    waiter cancellation; probe bookkeeping is bounded."""
+
+    @pytest.mark.asyncio
+    async def test_carried_cert_cold_index_still_probes_and_unlocks(self, monkeypatch):
+        """The c20822 bug: a valid carried cert returned early, so a cold
+        attester never ran the visibility probe and could never unlock."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        monkeypatch.setattr(settings, "unavail_collect_seconds", 0.2)
+        broker = _Broker(responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
+        # Cold index: no actors, no entries. Carried cert is valid.
+        bundle = await unlock_justification(
+            CHAIN,
+            100,
+            [H],
+            ignore={canonical_address(ADDR1)},
+            request_cert=_cert().to_dict(),
+            broker=broker,
+            wait_for_probe=True,
+        )
+        assert bundle is not None, "carried cert must not skip the visibility probe"
+        assert _counter("unavail_probe_total") >= 1
+        queries = [m for t, m in broker.published if "unavail_query" in t]
+        assert len(queries) == 1
+
+    @pytest.mark.asyncio
+    async def test_carried_cert_listener_path_unlocks_next_evaluation(self, monkeypatch):
+        """wait_for_probe=False + carried cert: first call starts the probe
+        and may fail visibility; the next evaluation picks up the refreshed
+        actors and unlocks — the listener is never blocked."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        monkeypatch.setattr(settings, "unavail_collect_seconds", 0.2)
+        broker = _Broker(responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
+        ignore = {canonical_address(ADDR1)}
+        cert_dict = _cert().to_dict()
+        first = await unlock_justification(
+            CHAIN, 100, [H], ignore=ignore, request_cert=cert_dict, broker=broker, wait_for_probe=False
+        )
+        # Probe was started but visibility may not be established yet.
+        for _ in range(20):
+            if first is not None:
+                break
+            await asyncio.sleep(0.05)
+            first = await unlock_justification(
+                CHAIN, 100, [H], ignore=ignore, request_cert=cert_dict, broker=broker, wait_for_probe=False
+            )
+        assert first is not None, "cold attester must unlock once probe responses land"
+
+    @pytest.mark.asyncio
+    async def test_cancelled_waiter_does_not_kill_shared_probe(self, monkeypatch):
+        """shield: cancelling one waiter must not CancelledError the shared
+        collection out from under the other waiter."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        monkeypatch.setattr(settings, "unavail_collect_seconds", 0.3)
+        broker = _Broker(responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
+        ignore = {canonical_address(ADDR1)}
+        w1 = asyncio.ensure_future(unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker, wait_for_probe=True))
+        await asyncio.sleep(0.05)
+        w2 = asyncio.ensure_future(unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker, wait_for_probe=True))
+        await asyncio.sleep(0.05)
+        w1.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await w1
+        bundle = await w2  # must still complete — the probe survived
+        assert bundle is not None
+
+    def test_probe_bookkeeping_is_bounded(self, monkeypatch):
+        """_CERT_CACHE/_PROBE_BACKOFF/_PROBE_LAST_SUCCESS evict past the cap
+        instead of growing forever on never-revisited heights."""
+        monkeypatch.setattr(unavail, "_PROBE_BOOKKEEPING_MAX", 4)
+        cert = _cert()
+        for i in range(10):
+            unavail._cert_cache_put((CHAIN, i, H, frozenset()), cert)
+        assert len(unavail._CERT_CACHE) <= 4
+        for i in range(10):
+            unavail._backoff_put((CHAIN, i, H), time.monotonic() + 100.0)
+        assert len(unavail._PROBE_BACKOFF) <= 4
+        unavail._CERT_CACHE.clear()
+        unavail._PROBE_BACKOFF.clear()
