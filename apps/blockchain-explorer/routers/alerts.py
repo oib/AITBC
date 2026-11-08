@@ -265,6 +265,60 @@ async def api_alerts() -> dict[str, Any]:
     return payload
 
 
+def _normalize_history_state(state: str | None) -> str | None:
+    if state is not None and state not in ("firing", "resolved", "silenced"):
+        return None
+    return state
+
+
+def _history_events(
+    alertname: str | None,
+    node: str | None,
+    state: str | None,
+) -> tuple[list[dict[str, Any]], int]:
+    """Full log when any filter is set; tail slice otherwise (newest unfiltered view)."""
+    if alertname or node or state:
+        events = _read_events()
+        return events, len(events)
+    return _read_events_tail()
+
+
+def _history_record_matches(
+    record: dict[str, Any],
+    alertname: str | None,
+    node: str | None,
+    state: str | None,
+) -> bool:
+    if alertname and alertname not in str(record.get("alertname") or ""):
+        return False
+    if node:
+        labels = record.get("labels") or {}
+        if node not in (str(labels.get("node") or ""), str(labels.get("instance") or "")):
+            return False
+    if state == "silenced":
+        return record.get("silenced") is True
+    if state:
+        return record.get("state") == state
+    return True
+
+
+def _collect_history(
+    events: list[dict[str, Any]],
+    limit: int,
+    alertname: str | None,
+    node: str | None,
+    state: str | None,
+) -> list[dict[str, Any]]:
+    matched: list[dict[str, Any]] = []
+    for record in reversed(events):
+        if not _history_record_matches(record, alertname, node, state):
+            continue
+        matched.append(record)
+        if len(matched) >= limit:
+            break
+    return matched
+
+
 @router.get("/api/alerts/history")
 def api_alerts_history(
     limit: int = 200,
@@ -274,30 +328,9 @@ def api_alerts_history(
 ) -> dict[str, Any]:
     """Watcher event log, newest first. Filters match the CLI's alert-history."""
     limit = clamp_page_limit(limit)
-    if state is not None and state not in ("firing", "resolved", "silenced"):
-        state = None
-    filtered = bool(alertname or node or state)
-    if filtered:
-        events = _read_events()
-        scanned_events = len(events)
-    else:
-        events, scanned_events = _read_events_tail()
-    matched: list[dict[str, Any]] = []
-    for record in reversed(events):
-        if alertname and alertname not in str(record.get("alertname") or ""):
-            continue
-        if node:
-            labels = record.get("labels") or {}
-            if node not in (str(labels.get("node") or ""), str(labels.get("instance") or "")):
-                continue
-        if state == "silenced":
-            if record.get("silenced") is not True:
-                continue
-        elif state and record.get("state") != state:
-            continue
-        matched.append(record)
-        if len(matched) >= limit:
-            break
+    state = _normalize_history_state(state)
+    events, scanned_events = _history_events(alertname, node, state)
+    matched = _collect_history(events, limit, alertname, node, state)
     return {
         "events": matched,
         "matched_events": len(matched),
