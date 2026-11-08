@@ -1210,6 +1210,26 @@ class ChainSettings(BaseSettings):
     # canonical, importing it passes the height and ends the stall. Unsealed
     # rivals are never pulled (would import a fork block).
     vote_journal_sealed_rival_pull: bool = False
+    # #1281 Phase 2 (verifiable-justification barrier) -- dormant default-OFF,
+    # requires vote_journal_enabled. When armed, the liveness valve no longer
+    # releases a rival vote on age+miss alone: the unlock needs an
+    # UnavailabilityCertificate (>= MIN_ATTESTATIONS validator-signed
+    # absence statements), a clean GossipObservationIndex window for the
+    # voted hash, and T_evidence seconds of continuous unfetchability —
+    # independently verifiable protocol evidence per the #1274 ruling.
+    vote_journal_justification_enabled: bool = False
+    # UC collection window and certificate freshness bound.
+    unavail_collect_seconds: float = 15.0
+    unavail_cert_max_age_seconds: float = 120.0
+    # Observation-index quiet window (T_evidence) and fetch-miss sampling
+    # cadence. unavail_min_responses <= 0 derives from
+    # multi_validator_min_attestations (quorum-intersection threshold).
+    unavail_evidence_seconds: float = 90.0
+    unavail_sample_seconds: float = 10.0
+    # Mesh-visibility window for the observation index (coarser than
+    # T_evidence — reachability signal, not quiet-window evidence).
+    unavail_visibility_seconds: float = 300.0
+    unavail_min_responses: int = 0
     # Re-publish a sealed-but-unconfirmed block on the gossip topic until a
     # child block exists or a mesh peer serves it, so one failed publish no
     # longer leaves the seal visible only on its proposer.

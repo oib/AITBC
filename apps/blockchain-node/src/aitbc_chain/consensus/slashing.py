@@ -352,6 +352,7 @@ class SlashingManager:
         block_hash_b: str,
         proposer: str = "",
         attestations: list[dict] | None = None,
+        justification: str | None = None,
     ) -> SlashingEvent:
         """Record attestation-layer equivocation evidence (#1198 / #1242 / #1263).
 
@@ -369,6 +370,14 @@ class SlashingManager:
         records (sorted by hash) that on-chain verification recovers — without
         them the event stays advisory-only and can never satisfy the
         ``validator_deactivation_evidence_required`` gate.
+
+        #1281: ``justification`` is the distinct evidence class the #1274
+        ruling requires — ``"unavailability_cert"`` when the rival vote was
+        released under a verified UnavailabilityCertificate,
+        ``"unjustified"`` when the armed barrier let a vote through without
+        one (defensive; the gates should make this unreachable). Absent
+        entirely when the barrier is off, keeping pre-#1281 evidence
+        byte-identical.
         """
         hash_a, hash_b = _sorted_hash_pair(block_hash_a, block_hash_b)
         evidence = {
@@ -379,6 +388,8 @@ class SlashingManager:
             "block_hash_b": hash_b,
             "proposer": proposer,
         }
+        if justification is not None:
+            evidence["justification"] = justification
         if attestations:
             evidence["attestations"] = sorted(attestations, key=lambda a: str(a.get("hash", "")).lower())
         event = SlashingEvent(
