@@ -149,7 +149,9 @@ pins, staleness gate, payout cap) in two profiles:
 
 All contract fixes below are **in code on `origin/main`, pending the Safe
 redeploy** — the deployed instance predates them. None is live-exploitable
-today because no mainnet deployment exists yet.
+today because no mainnet deployment exists yet. The redeploy itself is
+planned in [bridge-safe-redeploy-plan-795.md](bridge-safe-redeploy-plan-795.md)
+(operator review gate; covers SEPOLIA-REDEPLOY-2 before the staged unpause).
 
 - `MAX_BRIDGE_AMOUNT` (1M tokens) — **fixed in code** (#1210):
   `initiateBridge` now enforces `amount <= MAX_BRIDGE_AMOUNT` beside the
@@ -170,14 +172,16 @@ today because no mainnet deployment exists yet.
 - `CONFIRMED` exit — **fixed in `503e08e53`**: `cancelBridge` accepts a
   CONFIRMED request past `confirmedAt + COMPLETION_TIMEOUT` (24h), caller
   sender-or-owner, principal-only refund.
-- **Open product decision — fee forfeit on cancel** (documented actual
-  behavior, pinned by `test_CancelBridge_FeeForfeitIsActualBehavior`):
+- **RESOLVED product decision — fee forfeit on cancel** (operator ruling
+  8 Nov 2026, #795; documented actual behavior, pinned by
+  `test_CancelBridge_FeeForfeitIsActualBehavior`):
   `initiateBridge` forwards the fee to `feeRecipient` immediately and
   `cancelBridge` refunds principal only, so a deposit to a never-relayed
   target (e.g. the seeded chain 1, which has no `bridgeContract`) loses
-  the fee. Whether to refund fees for structurally-unrelayable targets is
-  a product decision for the gated batch — the pin locks current behavior
-  either way.
+  the fee. **Accepted as designed** — the fee covers the initiate-side
+  work (signature verification, request storage, relayer attention) and
+  acts as a dust deterrent against dead-target spam; the principal-only
+  refund stands. No contract change; the pin locks the behavior.
 
 ## Recovery notes
 

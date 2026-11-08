@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-07
+**Last Updated**: 2026-11-08
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1516
+- **Markdown files under docs/**: 1517
 
 | Directory | Files | Description |
 |---|---|---|
@@ -74,7 +74,7 @@ docs/
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
 | [cli](cli/) | 597 | Command-line interface reference |
-| [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
+| [contracts](contracts/) | 14 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 30 | Deployment and infrastructure setup |
@@ -874,6 +874,7 @@ Inbound markdown links per document (top referrers).
 | [contracts/ZK-VERIFICATION.md](contracts/ZK-VERIFICATION.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/agent-messaging.md](contracts/agent-messaging.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/agent-wallet-security.md](contracts/agent-wallet-security.md) | [contracts/README.md](contracts/README.md) |
+| [contracts/bridge-safe-redeploy-plan-795.md](contracts/bridge-safe-redeploy-plan-795.md) | [contracts/cross-chain-bridge-deployment.md](contracts/cross-chain-bridge-deployment.md) |
 | [contracts/bridge-sepolia-rehearsal.md](contracts/bridge-sepolia-rehearsal.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/cross-chain-bridge-deployment.md](contracts/cross-chain-bridge-deployment.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/dispute-resolution.md](contracts/dispute-resolution.md) | [contracts/README.md](contracts/README.md) |
