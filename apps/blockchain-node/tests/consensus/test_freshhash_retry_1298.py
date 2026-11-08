@@ -19,6 +19,7 @@ import pytest
 
 from aitbc_chain.config import ProposerConfig, settings
 from aitbc_chain.consensus.poa import PoAProposer
+from aitbc_chain.metrics import metrics_registry
 
 
 @contextmanager
@@ -255,9 +256,11 @@ async def test_tx_set_drift_stamps_fresh_timestamp(monkeypatch):
     monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: (next(batches), {}, {}))
     monkeypatch.setattr(proposer, "_process_proposal_txs", lambda _s, txs, *_a: (list(txs), set(), True))
 
+    drift_before = metrics_registry._counters.get("proposer_same_hash_retry_tx_drift_total", 0.0)
     assert await proposer._propose_block() is False
     assert await proposer._propose_block() is False
     assert not (timestamps[0] == timestamps[1] and seen_txs[0] != seen_txs[1]), "same timestamp with a different tx set"
+    assert metrics_registry._counters.get("proposer_same_hash_retry_tx_drift_total", 0.0) == drift_before + 1.0
 
 
 @pytest.mark.asyncio
