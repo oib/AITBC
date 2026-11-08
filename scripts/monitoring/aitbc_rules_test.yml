@@ -27,6 +27,13 @@ tests:
         values: '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
       - series: 'v9_would_reject_attest_nonce_order_total{instance="node2:9009", job="blockchain-node"}'
         values: '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+      # node3: a pure liveness refusal — aggregate +1 AND the not_at_parent
+      # detail +1 (count_v9_would_reject bumps both). The aggregate alert must
+      # subtract it back to zero; only AttestationLagRefusal may fire.
+      - series: 'v9_would_reject_total{instance="node3:9009", job="blockchain-node"}'
+        values: '0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+      - series: 'v9_would_reject_attest_not_at_parent_total{instance="node3:9009", job="blockchain-node"}'
+        values: '0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
 
     alert_rule_test:
       # Before the step: nothing fires.
@@ -35,6 +42,9 @@ tests:
         exp_alerts: []
       - eval_time: 1m
         alertname: V9AttestationRefusal
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: AttestationLagRefusal
         exp_alerts: []
 
       # Inside the 10m increase() window after the step: node1 fires, node2 does not.
@@ -46,8 +56,8 @@ tests:
               instance: node1:9009
               job: blockchain-node
             exp_annotations:
-              description: "A transaction on node1:9009 failed a v9 rule in shadow mode — inspect the v9_would_reject_* detail counters and the node journal before pinning the v9 height."
-              summary: "v9 transaction-authorization check would have rejected on node1:9009"
+              description: "A transaction on node1:9009 failed a v9 rule — the v9_would_reject_* name is historical; v9 is enforced fleet-wide (env heights = 1 since the bc-3 reset), so these counters count real rejections, not shadow predictions. Liveness attestation refusals (not_at_parent, check_error, no_state_access, db_corrupt) are subtracted — they are node-health, covered by AttestationLagRefusal. Inspect the v9_would_reject_* detail counters and the node journal."
+              summary: "v9 transaction-authorization rule rejected on node1:9009"
       - eval_time: 5m
         alertname: V9AttestationRefusal
         exp_alerts:
@@ -56,8 +66,23 @@ tests:
               instance: node1:9009
               job: blockchain-node
             exp_annotations:
-              description: "A validator on node1:9009 would have refused to attest a block under v9 rules — inspect the v9_would_reject_attest_* counters and the node journal before pinning the v9 height."
-              summary: "v9 attestation would have been refused on node1:9009"
+              description: "A validator on node1:9009 refused to attest a block under a v9 content rule (signature, nonce order, tx-set/hash binding, size) — inspect the v9_would_reject_attest_* counters and the node journal. Liveness refusals (not_at_parent, check_error, no_state_access, db_corrupt) are excluded here and covered by AttestationLagRefusal."
+              summary: "v9 attestation rule refused on node1:9009"
+
+      # node3's pure-liveness step must NOT appear above: V9ShadowRejection
+      # subtracts the not_at_parent detail back to zero and
+      # V9AttestationRefusal excludes the reason — only AttestationLagRefusal
+      # fires for node3.
+      - eval_time: 5m
+        alertname: AttestationLagRefusal
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              instance: node3:9009
+              job: blockchain-node
+            exp_annotations:
+              description: "A validator on node3:9009 refused attestations because the request's parent did not match its tip — fork protection or import lag working as designed (e.g. after a locked-db import stall). Node-health signal, not a v9 rule violation; investigate only if sustained or paired with sync/import errors."
+              summary: "Attestation refused on parent-binding (lag/fork) on node3:9009"
 
   # Authority accounts (authority-balances-textfile.py). 1 AIT = 36,000,000 units.
   # Settlement authority: healthy, then 8,000,000 (low), then 1,000,000 (critical), then topped up.
