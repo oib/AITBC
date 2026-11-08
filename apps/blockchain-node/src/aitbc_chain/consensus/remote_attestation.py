@@ -1040,6 +1040,30 @@ class RemoteAttestationService:
             except Exception as e:
                 logger.warning("Failed to record attestation equivocation for %s: %s", canon, e)
 
+    def record_proposal_equivocation(self, message: dict[str, Any], signature: str, round_number: int | None) -> None:
+        """Retain the proposer's header signature and record same-height equivocation (#1278).
+
+        The proposer signs its block header (``block.signature``) but is never
+        its own attester, so a proposal sealed after the journal valve (or the
+        legacy lock lapse) used to leave NO evidence on the node that sealed
+        the rival. This retains the proposal signature in the same durable
+        index as attestation signatures (``attestation_signed.json``) and runs
+        the attester path's pairing against every prior vote this validator
+        cast at the height — attestation locks, round locks and the vote
+        journal — so the proposer-side pair is recorded exactly like the
+        attester-side one. The signed message is the fixed header preimage
+        (``round_in_payload`` false), which the on-chain verifier already
+        reconstructs. Idempotent through the slashing dedup key.
+        """
+        if not signature:
+            return
+        height = int(message["height"])
+        block_hash = str(message["hash"])
+        proposer = str(message["proposer"])
+        self._record_signed_attestation(height, block_hash, proposer, message, None, False, signature)
+        evidence_round = round_number if self._round_lock_enabled() else None
+        self._record_attestation_equivocation_evidence(height, block_hash, proposer, proposer, evidence_round)
+
     def _scheduled_proposer(self, height: int, header: dict) -> str | None:
         """Derive the round from parent/header timestamps and return the
         scheduled proposer for (height, round); None when it cannot be
