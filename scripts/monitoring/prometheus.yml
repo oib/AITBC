@@ -77,21 +77,22 @@ scrape_configs:
   # Services that do not run on this node are not listed even commented out:
   # a dead scrape target only produces scrape errors.
 
-  # Incus perimeter proxy blackbox probe (#605; hub Prometheus only —
-  # targets are the public listen addresses of the incus proxy devices).
-  # Requires blackbox_exporter on 127.0.0.1:9115 with
-  # scripts/monitoring/blackbox.yml; deploying this job before the exporter
-  # exists makes ServiceDown fire on the up==0 series.
+  # Island IPFS perimeter probe — REWORKED in #1271.
   #
-  # Connect-only cannot see the 13 Sep forkproxy wedge (accept, instant
-  # FIN, backend never dialled), so each target carries a `module` label
-  # picking a probe variant that reads bytes from the peer (see
-  # blackbox.yml). Verified against a live blackbox_exporter: a send-only
-  # step still reports probe_success=1 on the wedge, and silent
-  # protocols fail read-based modules — only targets that answer a real
-  # negotiation may be listed here.
+  # The original design here was a blackbox_exporter job
+  # (`blackbox-incus-proxy`, modules from blackbox.yml) scraping the public
+  # :4002 listeners. It was never deployable against these targets: the
+  # island swarm is a libp2p PRIVATE network — peers must complete the pnet
+  # handshake before multistream, so an unauthenticated probe gets
+  # accept-then-FIN by design and probe_success could only ever read 0.
+  # blackbox.yml stays in the repo for future NON-pnet targets.
   #
-  # Deliberately not listed:
+  # The working watch is aitbc-island-swarm-probe.timer on each island
+  # member: `ipfs swarm connect` (real swarm-key auth) to every OTHER
+  # member's public multiaddr, exported via the node_exporter textfile as
+  # aitbc_island_swarm_probe_success{peer,instance} and remote-written to
+  # hub. IncusProxyProbeFailed/IncusProxyProbeSilent in aitbc_hub_rules.yml
+  # evaluate those series. Deliberately not listed as scrape targets:
   #   <incus-host> node2/blockchain-p2p tcp:0.0.0.0:8200 -> <node2-addr>:8200 —
   #     nothing listens on the backend port (bc-2 gossip is
   #     redis-brokered; P2P_BIND_PORT is vestigial). The device needs an
@@ -101,24 +102,3 @@ scrape_configs:
   #   <edge-perimeter> ntfy/ntfyproxy      tcp:127.0.0.1:2586
   #   <incus-host> node0/coordinator-proxy tcp:127.0.0.1:18000
   #   <incus-host> node1/coordinator-proxy tcp:127.0.0.1:18001
-  - job_name: 'blackbox-incus-proxy'
-    metrics_path: '/probe'
-    static_configs:
-      - targets: ['152.53.242.245:4002']   # hub aitbc-island-ipfs-tcp (edge perimeter)
-        labels:
-          module: tcp_ipfs_libp2p
-          device: 'hub/aitbc-island-ipfs-tcp'
-      - targets: ['95.216.198.140:4002']   # hub1 aitbc-island-ipfs-tcp (edge perimeter)
-        labels:
-          module: tcp_ipfs_libp2p
-          device: 'hub1/aitbc-island-ipfs-tcp'
-    relabel_configs:
-      - source_labels: [module]
-        target_label: __param_module
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: '127.0.0.1:9115'   # blackbox_exporter
-    scrape_interval: 30s
