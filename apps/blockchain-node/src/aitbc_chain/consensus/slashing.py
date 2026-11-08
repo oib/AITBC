@@ -237,8 +237,13 @@ class SlashingManager:
         the sha256 of this bundle's canonical JSON — any node can re-derive
         the justification post-reorg from its own slashing history.
         """
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        target = canonical_address(validator_address)
         events = []
-        for e in self.get_slashing_history(validator_address):
+        for e in self.slashing_events:
+            if canonical_address(e.validator_address) != target and e.validator_address != validator_address:
+                continue
             events.append(
                 {
                     "condition": e.condition.value,

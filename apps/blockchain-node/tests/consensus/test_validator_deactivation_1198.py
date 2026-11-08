@@ -465,3 +465,158 @@ class TestAdvisoryAndMigration:
         # The module-global manager is shared; evidence APIs must not leak
         # state between tests beyond appended events.
         assert isinstance(slashing_manager, SlashingManager)
+
+    @pytest.mark.asyncio
+    async def test_attestation_equivocation_wires_to_consensus_and_persists(self, monkeypatch):
+        """End-to-end pin (#1198 pin-gap): RemoteAttestationService._handle_request
+        routes attestation equivocation into get_consensus(chain_id)._slashing_manager,
+        persists ConsensusState.slashing_events_json, and feeds draft_deactivation_txs()."""
+        import json
+        import time as _time
+
+        from aitbc_chain.base_models import ConsensusState
+        from aitbc_chain.consensus import multi_validator_poa as mvpoa
+        from aitbc_chain.consensus import remote_attestation as ra_mod
+        from aitbc_chain.consensus.remote_attestation import RemoteAttestationService
+        from aitbc_chain.database import session_scope
+
+        chain_id = f"slash-e2e-{uuid.uuid4().hex[:8]}"
+        _chain_db(chain_id)
+        our_key = "0x" + "11" * 32
+        proposer_key = "0x" + "22" * 32
+        our_addr = derive_ethereum_address(our_key)
+        proposer_addr = derive_ethereum_address(proposer_key)
+
+        monkeypatch.setattr(settings, "consensus_chain_slashing_enabled", True)
+        monkeypatch.setattr(settings, "consensus_require_signed_attest_request", False)
+        monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+        monkeypatch.setattr(settings, "attestation_round_lock_enabled", False)
+        monkeypatch.setattr(
+            settings,
+            "validator_set",
+            json.dumps([{"address": our_addr}, {"address": proposer_addr}]),
+        )
+
+        c = _consensus(chain_id, our_addr, proposer_addr)
+        monkeypatch.setitem(mvpoa.consensus_instances, chain_id, c)
+
+        with session_scope(chain_id) as session:
+            session.add(
+                Bond(
+                    chain_id=chain_id,
+                    bond_id="bond-att-1",
+                    provider=our_addr,
+                    amount=1000,
+                    status="active",
+                    created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                    updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+                )
+            )
+            session.commit()
+
+        published: list[tuple[str, dict]] = []
+
+        class _Broker:
+            async def publish(self, topic: str, msg: dict) -> None:
+                published.append((topic, msg))
+
+        monkeypatch.setattr(ra_mod, "gossip_broker", _Broker())
+        svc = RemoteAttestationService(chain_id, {our_addr: our_key})
+
+        def _req(block_hash: str) -> dict:
+            return {
+                "header": {
+                    "chain_id": chain_id,
+                    "height": 42,
+                    "hash": block_hash,
+                    "parent_hash": "0xparent",
+                    "proposer": proposer_addr,
+                    "state_root": "0xroot",
+                    "bridge_state_root": "",
+                },
+                "transactions": [],
+                "timestamp": _time.time(),
+            }
+
+        await svc._handle_request(_req("0xaaaa"))
+        assert len(published) == 1
+        assert mvpoa.get_consensus(chain_id).get_slashing_history() == []
+
+        # Expire the height-only lock so the second rival hash is signed (the
+        # #1242 comment 18430 scenario).
+        svc._attested[42] = ("0xaaaa", proposer_addr, _time.monotonic() - 3600)
+        await svc._handle_request(_req("0xbbbb"))
+        assert len(published) == 2
+
+        history = mvpoa.get_consensus(chain_id).get_slashing_history()
+        assert len(history) == 1
+        assert history[0].validator_address == canonical_address(our_addr)
+        assert "0xaaaa" in history[0].evidence and "0xbbbb" in history[0].evidence
+
+        # Persisted to ConsensusState.slashing_events_json in chain.db
+        with session_scope(chain_id) as session:
+            row = session.exec(select(ConsensusState).where(ConsensusState.chain_id == chain_id)).one()
+            persisted = json.loads(row.slashing_events_json)
+        assert len(persisted) == 1
+        assert "attestation_equivocation" in persisted[0]["evidence"]
+
+        # draft_deactivation_txs picks up the attestation equivocation and commits its evidence_hash
+        drafts = mvpoa.get_consensus(chain_id).draft_deactivation_txs()
+        assert len(drafts["drafts"]) == 1
+        draft = drafts["drafts"][0]
+        assert draft["payload"]["validator_address"] == canonical_address(our_addr)
+        assert draft["payload"]["bond_id"] == "bond-att-1"
+        assert draft["payload"]["evidence_hash"] == mvpoa.get_consensus(chain_id)._slashing_manager.evidence_hash(our_addr)
+
+    @pytest.mark.asyncio
+    async def test_attestation_equivocation_falls_back_when_multi_validator_disabled(self, monkeypatch):
+        """When multi_validator_consensus_enabled is False, equivocation falls back to global slashing_manager."""
+        import json
+        import time as _time
+
+        from aitbc_chain.consensus import remote_attestation as ra_mod
+        from aitbc_chain.consensus.remote_attestation import RemoteAttestationService
+
+        our_key = "0x" + "11" * 32
+        proposer_key = "0x" + "22" * 32
+        our_addr = derive_ethereum_address(our_key)
+        proposer_addr = derive_ethereum_address(proposer_key)
+
+        monkeypatch.setattr(settings, "multi_validator_consensus_enabled", False)
+        monkeypatch.setattr(settings, "consensus_require_signed_attest_request", False)
+        monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+        monkeypatch.setattr(settings, "attestation_round_lock_enabled", False)
+        monkeypatch.setattr(
+            settings,
+            "validator_set",
+            json.dumps([{"address": our_addr}, {"address": proposer_addr}]),
+        )
+
+        class _Broker:
+            async def publish(self, topic: str, msg: dict) -> None:
+                pass
+
+        monkeypatch.setattr(ra_mod, "gossip_broker", _Broker())
+        before_len = len(slashing_manager.slashing_events)
+        svc = RemoteAttestationService("fallback-chain", {our_addr: our_key})
+
+        def _req(block_hash: str) -> dict:
+            return {
+                "header": {
+                    "chain_id": "fallback-chain",
+                    "height": 7,
+                    "hash": block_hash,
+                    "parent_hash": "0xparent",
+                    "proposer": proposer_addr,
+                    "state_root": "0xroot",
+                    "bridge_state_root": "",
+                },
+                "transactions": [],
+                "timestamp": _time.time(),
+            }
+
+        await svc._handle_request(_req("0x1111"))
+        svc._attested[7] = ("0x1111", proposer_addr, _time.monotonic() - 3600)
+        await svc._handle_request(_req("0x2222"))
+        assert len(slashing_manager.slashing_events) == before_len + 1
+        slashing_manager.slashing_events.pop()
