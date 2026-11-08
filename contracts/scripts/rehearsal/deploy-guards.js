@@ -16,6 +16,20 @@ import { assertKeyFileMode } from "./lib.js";
 const KEY_RE = /^(0x)?[0-9a-fA-F]{64}$/;
 const REAL_RECORD_RE = /^deployments-bridge-.*\.json$/;
 
+/**
+ * DEPLOY-BRIDGE-GAS-1: floor for post-deploy owner calls. During REDEPLOY-2
+ * ethers' auto-estimate priced transferOwnership at 17,466 gas while the
+ * real send needed 30,424 — the padded estimate (est + est/3) still lands
+ * under that, so a floor sized ~2x the observed use is applied on top.
+ * Unused gas is refunded; an under-priced owner call reverts the deploy.
+ */
+export const MIN_POST_DEPLOY_GAS = 60_000n;
+
+export function padPostDeployGas(estimate) {
+  const padded = estimate + estimate / 3n;
+  return padded < MIN_POST_DEPLOY_GAS ? MIN_POST_DEPLOY_GAS : padded;
+}
+
 /** With DEPLOYER_KEY_FILE set, the chain must be pinned — checked before any
  *  key file is touched. */
 export function requireChainIdForKeyFile(env) {
