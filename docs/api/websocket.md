@@ -129,6 +129,8 @@ asyncio.run(watch_mempool())
 | `GOSSIP_MAX_MESSAGE_SIZE` | `1048576` (1 MiB) | Larger messages get `{"error": "Message too large"}` and close `1009` |
 | `GOSSIP_AUTH_CHALLENGE_TTL` | `60.0` | Seconds a validator challenge stays valid |
 
+> **Effective ceilings are 2x the configured values (accepted bound, #1249).** `aitbc-blockchain-rpc` runs `uvicorn --workers 2`, and every limiter above (per-IP connection counts, the per-`(client_ip, topic)` message rate, the per-IP validator-challenge mint rate of 20/min) is process-local. Each worker therefore keeps independent limiter state, and one source IP can use a full allowance on each worker: up to 2 x `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` connections, 2 x `GOSSIP_MAX_MESSAGES_PER_MINUTE` messages per minute and 2 x 20 challenge mints per minute. The operator accepted this as the real bound (8 Nov 2026, #1249); it is not a bug, and no shared limiter backend is planned. Size the env values with the 2x in mind (halving them would also halve the allowance for a single worker, and the factor changes if `--workers` does). The aggregate `*_TOTAL` ceilings are process-local in the same way. The limits stay latent exposure only while the RPC stays loopback-bound behind nginx, which overwrites the identity headers.
+
 Additionally, a client-to-server message is expected within each 60-second window; the server replies with a `{"type": "ping"}` keepalive on timeout rather than disconnecting.
 
 ## Connection management
