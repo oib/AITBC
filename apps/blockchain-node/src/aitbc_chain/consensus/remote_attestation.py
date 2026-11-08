@@ -49,6 +49,10 @@ logger = get_logger(__name__)
 # attestation for answers, so one extra attempt still lands inside that window.
 # #1245: heights of "already signed" memory kept when the tip cannot be read.
 SIGNED_ONCE_MAX_HEIGHTS = 256
+# #1278: deferred (off-loop) persistence of proposer-side equivocation evidence.
+DEFERRED_SAVE_ATTEMPTS = 8
+DEFERRED_SAVE_RETRY_DELAY = 1.0
+DEFERRED_SAVE_RETRY_MAX_DELAY = 30.0
 V9_CHECK_ATTEMPTS = 2
 V9_CHECK_RETRY_DELAY_S = 0.5
 
@@ -160,6 +164,9 @@ class RemoteAttestationService:
         # Restart clears it, same as the lock; the header freshness bound
         # covers that gap.
         self._signed_once: dict[int, set[str]] = {}
+        # #1278: in-flight deferred evidence saves (strong refs so the tasks
+        # are not garbage-collected before they finish).
+        self._deferred_state_saves: set[asyncio.Future[Any]] = set()
         # #1263: signature-bearing attestation records for equivocation
         # evidence — "height:block_hash:signer" -> the exact fields the
         # signature covers plus the signature itself, so a later rival-hash
@@ -1230,6 +1237,7 @@ class RemoteAttestationService:
         proposer: str,
         request_round: int | None,
         justification: str | None = None,
+        persist: bool = True,
     ) -> None:
         """Record attestation equivocation for the signer that just signed.
 
@@ -1255,6 +1263,11 @@ class RemoteAttestationService:
         if current is None:
             return
         recorder = self._equivocation_recorder()
+        # Only the per-chain consensus recorder persists on record; the
+        # module-global SlashingManager never does, so there is nothing to defer.
+        defer_save = not persist and callable(getattr(recorder, "save_state", None))
+        extra: dict[str, Any] = {"persist": False} if defer_save else {}
+        recorded = False
         for prior_hash in sorted(prior_hashes):
             prior = self._signed_attestations.get(self._signed_attestation_key(height, prior_hash, signer))
             attestations = [prior, current] if prior is not None else None
@@ -1268,7 +1281,9 @@ class RemoteAttestationService:
                     proposer=proposer,
                     attestations=attestations,
                     justification=justification,
+                    **extra,
                 )
+                recorded = True
             except AttributeError:
                 # Fallback recorder (module-global SlashingManager pre-#1263
                 # signature) — hash-only record, same as before.
@@ -1282,6 +1297,46 @@ class RemoteAttestationService:
                 )
             except Exception as e:
                 logger.warning("Failed to record attestation equivocation for %s: %s", canon, e)
+        if defer_save and recorded:
+            self._schedule_deferred_state_save(recorder)
+
+    def _schedule_deferred_state_save(self, recorder: Any) -> None:
+        """Persist the recorder's state off the event loop, retrying (#1278 fix).
+
+        The evidence is already in memory (it exists before the proposal
+        signature leaves the node). ``save_state()`` opens its own sqlite
+        connection and, while the proposal session still holds the write lock,
+        blocks for the busy timeout — run inline it froze the loop for ~60 s
+        (database is locked, stalled proposer, gossip keepalive timeouts). The
+        save runs in a worker thread and retries until the lock clears. With
+        no running loop (sync callers, tests) it saves inline.
+        """
+        save = recorder.save_state
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            if save() is False:
+                metrics_registry.increment("proposal_equivocation_persist_failed_total")
+            return
+        task = loop.create_task(self._deferred_state_save(save))
+        self._deferred_state_saves.add(task)
+        task.add_done_callback(self._deferred_state_saves.discard)
+
+    async def _deferred_state_save(self, save: Any) -> None:
+        delay = DEFERRED_SAVE_RETRY_DELAY
+        for attempt in range(DEFERRED_SAVE_ATTEMPTS):
+            try:
+                ok = await asyncio.to_thread(save)
+            except Exception as e:  # noqa: BLE001 - never let evidence persistence kill the task silently
+                logger.warning("Deferred consensus state save raised: %s", e)
+                ok = False
+            if ok is not False:
+                return
+            if attempt + 1 < DEFERRED_SAVE_ATTEMPTS:
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, DEFERRED_SAVE_RETRY_MAX_DELAY)
+        metrics_registry.increment("proposal_equivocation_persist_failed_total")
+        logger.error("Deferred consensus state save gave up after %d attempts for %s", DEFERRED_SAVE_ATTEMPTS, self._chain_id)
 
     def record_proposal_equivocation(self, message: dict[str, Any], signature: str, round_number: int | None) -> None:
         """Retain the proposer's header signature and record same-height equivocation (#1278).
@@ -1305,7 +1360,7 @@ class RemoteAttestationService:
         proposer = str(message["proposer"])
         self._record_signed_attestation(height, block_hash, proposer, message, None, False, signature)
         evidence_round = round_number if self._round_lock_enabled() else None
-        self._record_attestation_equivocation_evidence(height, block_hash, proposer, proposer, evidence_round)
+        self._record_attestation_equivocation_evidence(height, block_hash, proposer, proposer, evidence_round, persist=False)
 
     def _scheduled_proposer(self, height: int, header: dict) -> str | None:
         """Derive the round from parent/header timestamps and return the
