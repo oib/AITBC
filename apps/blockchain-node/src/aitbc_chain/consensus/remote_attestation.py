@@ -35,7 +35,7 @@ from ..gossip import gossip_broker
 from ..metrics import metrics_registry
 from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
-from .vote_fetch import kick_pull, locate_voted_block
+from .vote_fetch import contention_hold, kick_pull, locate_voted_block
 from .vote_journal import KIND_ATTEST, VoteJournalError, get_vote_journal, valve_open, vote_journal_enabled
 
 logger = get_logger(__name__)
@@ -214,6 +214,24 @@ class RemoteAttestationService:
                     height,
                     canonical_address(address)[:18],
                     sorted(voted_hashes)[0][:18],
+                )
+                return True
+            # #1280: the valve would open, but a peer serving a DIFFERENT block
+            # at this height is positive contention evidence — delay-only
+            # suppression while the sighting is fresh and under the fixed cap.
+            hold = contention_hold(self._chain_id, height)
+            if hold is not None:
+                if hold.sealed and hold.base and getattr(settings, "vote_journal_sealed_rival_pull", False):
+                    kick_pull(self.pull_hook, self._chain_id, hold.base)
+                    metrics_registry.increment("vote_journal_sealed_rival_pull_total")
+                metrics_registry.increment("vote_journal_contention_hold_total")
+                logger.warning(
+                    "Vote journal contention hold at height %s: peer serves rival %s (sealed=%s) — "
+                    "refusing %s despite valve age",
+                    height,
+                    hold.rival_hash[:18],
+                    hold.sealed,
+                    header_hash[:18],
                 )
                 return True
             metrics_registry.increment("vote_journal_valve_opened_total")

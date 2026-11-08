@@ -1200,6 +1200,16 @@ class ChainSettings(BaseSettings):
     # purpose. Every use of the valve is counted and recorded as #1198
     # equivocation evidence.
     vote_journal_unlock_seconds: float = 300.0
+    # #1280 VALVE-P15-1: a peer serving a DIFFERENT block at the voted height
+    # is positive contention evidence. While such a sighting is fresh it
+    # suppresses the re-vote path (delay only — never a signature outside the
+    # journal/UC path), capped at ``vote_journal_contended_max_seconds`` from
+    # the first observation so a stuck peer cannot hold a height forever.
+    vote_journal_contention_fresh_seconds: float = 60.0
+    # On sealed-rival contention, pull the rival block: sealed material is
+    # canonical, importing it passes the height and ends the stall. Unsealed
+    # rivals are never pulled (would import a fork block).
+    vote_journal_sealed_rival_pull: bool = False
     # Re-publish a sealed-but-unconfirmed block on the gossip topic until a
     # child block exists or a mesh peer serves it, so one failed publish no
     # longer leaves the seal visible only on its proposer.
