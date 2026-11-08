@@ -1202,6 +1202,13 @@ class ChainSettings(BaseSettings):
     # signature are identical either way, so replayed verdicts do not
     # change. False restores the old fresh-timestamp-per-retry behaviour.
     proposer_same_hash_retry_enabled: bool = True
+    # Slack reserved on top of one collect window when computing the same-hash
+    # retry horizon: the pinned timestamp must leave room for a final gate
+    # cycle (attestation collect ≈ multi_validator_attestation_timeout_seconds)
+    # plus propagation/signing slack before the header hits
+    # attestation_header_max_age_seconds and goes stale at attesters. The
+    # horizon is min(round_seconds, header_max_age) - (timeout + this).
+    proposer_same_hash_retry_margin_seconds: float = 12.0
     # #1268 Phase 1 (dual-seal prevention) -- every switch below defaults OFF;
     # off is byte-identical to the pre-#1268 behavior.
     #

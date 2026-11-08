@@ -229,6 +229,10 @@ class PoAProposer:
         # proposal, reused for same-hash retries while inside the
         # attestation-lock/header-age horizon.
         self._same_hash_retry: tuple[int, datetime, float] | None = None
+        # Warn-once latch for a computed same-hash retry horizon <= 0 — the
+        # feature is silently inert in that configuration, so it must be
+        # visible in the journal instead of looking like ordinary churn.
+        self._same_hash_retry_horizon_warned = False
         # Pre-proposal freshness gate (2026-09-27 stale-head fork fix). The
         # verdict is cached per local head for a few seconds — never carried
         # into a later round. _freshness_fetch/_monotonic exist so tests can
@@ -1428,13 +1432,19 @@ class PoAProposer:
         """Seconds a proposal timestamp stays reusable for same-hash retry.
 
         #1298: bounded by the tighter of the attestation-lock window and the
-        signed-header max age, minus one gate cycle plus margin so the reused
-        block still reaches attesters inside both windows. 0 disables reuse.
+        signed-header max age, minus ONE collect window plus propagation
+        slack — the margin must leave room for a final gate cycle to
+        complete before the reused header goes stale at attesters. The
+        earlier ``4 × attest_timeout + 8`` margin silently zeroed the
+        horizon at the production 15 s collect timeout; the margin is now
+        ``attest_timeout + proposer_same_hash_retry_margin_seconds``.
+        0 disables reuse.
         """
         lock = float(getattr(settings, "consensus_proposer_round_seconds", 60))
         header = float(getattr(settings, "attestation_header_max_age_seconds", 60))
-        margin = 4.0 * float(getattr(settings, "multi_validator_attestation_timeout_seconds", 1.0)) + 8.0
-        return max(0.0, min(lock, header) - margin)
+        collect = float(getattr(settings, "multi_validator_attestation_timeout_seconds", 1.0))
+        slack = float(getattr(settings, "proposer_same_hash_retry_margin_seconds", 12.0))
+        return max(0.0, min(lock, header) - (collect + slack))
 
     def _peek_same_hash_retry(self, next_height: int) -> datetime | None:
         """The failed proposal's timestamp while its retry horizon holds.
@@ -1465,6 +1475,18 @@ class PoAProposer:
         horizon = self._same_hash_retry_horizon_seconds()
         if horizon <= 0:
             self._same_hash_retry = None
+            if not self._same_hash_retry_horizon_warned:
+                self._same_hash_retry_horizon_warned = True
+                self._logger.warning(
+                    "[PROPOSE] same-hash retry horizon is 0 (lock/header bound "
+                    "%.0fs <= collect window + margin) — every retry will stamp "
+                    "a fresh hash; check multi_validator_attestation_timeout_seconds "
+                    "and proposer_same_hash_retry_margin_seconds",
+                    min(
+                        float(getattr(settings, "consensus_proposer_round_seconds", 60)),
+                        float(getattr(settings, "attestation_header_max_age_seconds", 60)),
+                    ),
+                )
             return
         self._same_hash_retry = (next_height, timestamp, timestamp.timestamp() + horizon)
 
