@@ -21,6 +21,7 @@ from .metrics import (
     metrics_registry,
     sync_blocks_imported,
     sync_failures_total,
+    sync_import_phase_seconds,
 )
 from .cross_chain import bridge_lock_guard, bridge_root_shadow
 from .cross_chain.bridge_leaf import lock_leaf_value, unknown_lock_leaf
@@ -216,7 +217,9 @@ class BlockImportMixin(SyncBase):
         parent_hash = block_data.get("parent_hash", "")
         metrics_registry.increment("sync_blocks_received_total")
         if self._validate_signatures:
+            phase_start = time.perf_counter()
             valid, reason = self._validator.validate_block_signature(block_data)
+            sync_import_phase_seconds.labels(phase="signature_validation").observe(time.perf_counter() - phase_start)
             if not valid:
                 metrics_registry.increment("sync_blocks_rejected_total")
                 logger.warning(
@@ -234,7 +237,9 @@ class BlockImportMixin(SyncBase):
         with self._session_factory() as session:
             from .database import ensure_chain_db_healthy
 
+            phase_start = time.perf_counter()
             db_ok, db_reason = ensure_chain_db_healthy(self._chain_id, session=session)
+            sync_import_phase_seconds.labels(phase="db_health_check").observe(time.perf_counter() - phase_start)
             if not db_ok:
                 metrics_registry.increment("sync_blocks_rejected_total")
                 logger.error(
@@ -257,6 +262,7 @@ class BlockImportMixin(SyncBase):
                         "Genesis block metadata validation failed: %s", reason, extra={"height": height, "hash": block_hash}
                     )
                     return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
+            phase_start = time.perf_counter()
             existing = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)
             ).first()
@@ -283,6 +289,7 @@ class BlockImportMixin(SyncBase):
                     select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
                 ).first()
                 parent_is_our_head = parent_exists is not None and our_head is not None and parent_exists.hash == our_head.hash
+                sync_import_phase_seconds.labels(phase="block_lookup").observe(time.perf_counter() - phase_start)
                 if (height == 0 and parent_hash == "0x00") or (height > 0 and parent_is_our_head):
                     try:
                         result = self._append_block(session, block_data, transactions, skip_state_root_validation)
@@ -413,6 +420,7 @@ class BlockImportMixin(SyncBase):
         """
         from datetime import UTC, datetime
 
+        apply_start = time.perf_counter()
         block_hash = block_data["hash"]
         # Validation-only call sites (tests) may pass session=None — no journal
         # then; nothing reaches the DB anyway.
@@ -998,7 +1006,10 @@ class BlockImportMixin(SyncBase):
         self._persist_import_rejections(session, block_data)
         if journal is not None:
             journal.persist(session)
+        sync_import_phase_seconds.labels(phase="tx_apply").observe(time.perf_counter() - apply_start)
+        phase_start = time.perf_counter()
         session.commit()
+        sync_import_phase_seconds.labels(phase="commit").observe(time.perf_counter() - phase_start)
         # V-3 shadow (flag-gated, compare-only — never affects the imported block).
         side_root_shadow.on_block_sealed(session, self._chain_id, int(block_data["height"]), block_version=block_version)
         if transactions:
