@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-10-16
+**Last updated:** 2026-11-08
 **Audit report:** [AUDIT.md](../archive/releases/AUDIT.md)
 
 ## Release Status Table
@@ -85,6 +85,82 @@ See [AUDIT.md](../archive/releases/AUDIT.md) for the full bridge security audit 
 | — | Low | ✅ Resolved | Dead config flag `escrow_require_proof_verification` removed |
 | — | Medium | ✅ Implemented | HTLC contract integration (B4) — Python-native HTLCContract wired into settlement |
 | — | Medium | ✅ Soaked | Multi-validator consensus not activated by default; soak test passes (1000 rounds, validator changes, partition tolerance, PBFT) |
+
+## Security assurance state — 2026-11-08
+
+The R11–R16 adversarial assurance program ran through November 2026
+(tracking issues #1224–#1229). Status below keeps the three states
+distinct: **landed on `main`** (commit exists upstream), **on fleet
+checkouts** (clones fast-forwarded, process not necessarily restarted),
+and **live** (running processes enforce it, with verification evidence).
+
+### Program rounds
+
+| Round | Scope | Issue | State |
+|-------|-------|-------|-------|
+| R11 | Continuous security assurance (post-v22) | #1224 | Live-verified controls: #1211 pre-auth per-IP rate bucket (300×401→429 at cap, forged headers cannot mint identity), #1212 fleet-details publication guard |
+| R12 | Adversarial security testing | #1225 | A0/A1/A2 lab+sandbox batches complete; confirmed findings minted as #1230–#1250; compound chains X1–X5 exercised |
+| R13 | Operational resilience & recovery | #1226 | Sandbox drills + Phase-4 restart waves PASS; single-validator-loss livelock found (#1242) |
+| R14 | Economic & protocol integrity | #1227 | Model-checked financial state-machine fuzz: v22 defects reproduced on-chain (#1230/#1232 classes); v23 ~567 ops, zero invariant violations incl. restart-reconstruct |
+| R15 | Supply chain & infrastructure | #1228 | #1236 (mcp-server dep pinning) closed; #1237 branch-protection decision row open |
+| R16 | Independent full-system assessment | #1229 | Open |
+
+### Landed on `main` — verified, awaiting the deploy wave
+
+Freeze candidate `2ce9ad135..3b63a7f44` (18 commits; fleet clones at
+`2ce9ad135` as of 8 Nov — per the #1251 Stage-0 manifest, which is the
+authoritative per-commit table):
+
+- **Trusted-proxy / rate-limit family:** #1240 signed `attest_request`
+  required by default, #1244 HTTP rate-limit identity honours forwarding
+  headers only from trusted proxies, #1246 coordinator-api `get_client_ip`
+  same fix, #1241 gossip-WS client-IP identity, #1243 per-topic-class
+  gossip rate key, #1250 bounded Prometheus topic label.
+- **Consensus:** #1245 attestation header freshness + sign-once
+  (unconditional — activates on `aitbc-blockchain-node` restart), #1242
+  round-bound attestation verify at import + round derivation
+  (round-keyed lock itself flag-gated inert), #1235 PBFT commit-phase
+  equivocation slashing, #1260 chain-tagged peer freshness/attestation
+  lock/fan-out.
+- **Mempool:** #1248 nonce-slot release for apply-rejected transactions.
+- **Auth:** #1233 iss/aud JWT claims minted on all paths; enforcement
+  dormant behind `JWT_ENFORCE_ISS_AUD` (default off — flips per-service
+  only after #1185 gives exp-less tokens a retirement path).
+- **Other:** CE-001 media FFmpeg/PyAV input whitelist, CE-002
+  coordinator-api Node-subprocess bounds.
+
+All of the above are `state/verified` on their rows but **not live** —
+they activate on the post-legs deploy wave (#1251), which is pending
+operator card answers. `aitbc-wallet` is already auth-on (#1204, closed
+with live evidence + a rehearsed `--rollback-auth` drill on hub1).
+
+### Live today (deployed + verified)
+
+- `WALLET_AUTH_ENABLED=true` on all five hosts (#1204 closed).
+- #1211 pre-auth rate bucket and #1212 fleet-details guard verified live
+  during R11-04.
+- Governance EXECUTE legs #752 closed (`state/verified`): Validator
+  on-chain verification (#752 comment 19158) confirmed all three
+  `GOVERNANCE_EXECUTE` legs sealed — `prop_bfc73030` @ h21196,
+  `prop_b84b545e` @ h21197, `prop_6bbc21b3` @ h21198 on hub `bc-2`.
+- Chain runs v22 state-transition semantics; the v22 escrow defects
+  (#1230/#1232) are confirmed live-reproducible on the sandbox under v22
+  and fixed on `main` by the v23 obligation bound (`49c846e37`).
+
+### Pending gates (not yet live)
+
+- **Deploy wave (#1251):** fleet ff to the freeze SHA + rolling restarts;
+  activates the whole landed-not-live set above.
+- **v23 arming:** code landed and sandbox-verified (~567 fuzz ops, zero
+  financial invariant violations, restart-reconstruct clean), but prod
+  arming is gated on #1261 (v23 fee-leg sweep amendment — the designed
+  fee sweep is refused for normally settled escrows) landing first,
+  then an arm height chosen post-wave.
+- **Round-lock flag (`ATTESTATION_ROUND_LOCK_ENABLED`):** sandbox flag-on
+  Phase-4 rehearsal in progress as of 8 Nov; prod stays OFF pending the
+  rehearsal data and the #1252 cross-round-quorum ruling.
+- **`JWT_ENFORCE_ISS_AUD`:** dormant by design; per-service flip only
+  after #1185.
 
 ## Key Configuration Defaults
 
