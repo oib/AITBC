@@ -32,6 +32,7 @@
 
 import { network as hardhatNetwork } from "hardhat";
 import {
+  padPostDeployGas,
   readDeployerKeyFile,
   requireChainIdForKeyFile,
   resolveDeployRecord,
@@ -115,12 +116,38 @@ async function main() {
   const bridgeAddress = await bridge.getAddress();
   console.log(`CrossChainBridge deployed: ${bridgeAddress}`);
 
+  // Post-deploy owner calls go through sendOwnerCall: ethers' auto-estimate
+  // under-priced transferOwnership during REDEPLOY-2 (17,466 est vs 30,424
+  // actual → revert). Estimate fresh at exec time, pad, and floor — see
+  // padPostDeployGas / DEPLOY-BRIDGE-GAS-1.
+  const sendOwnerCall = async (label, to, data) => {
+    const estimate = await ethers.provider.estimateGas({
+      from: deployer.address,
+      to,
+      data,
+    });
+    const gasLimit = padPostDeployGas(estimate);
+    const tx = await deployer.sendTransaction({ to, data, gasLimit });
+    const receipt = await tx.wait();
+    console.log(
+      `${label}: ${tx.hash} gasUsed=${receipt.gasUsed} (est ${estimate}, limit ${gasLimit})`
+    );
+  };
+
   // Start paused: validators, tokens and chains are configured through the
   // Safe first, then the Safe unpauses.
-  await (await bridge.pause()).wait();
+  await sendOwnerCall(
+    "pause()",
+    bridge.target,
+    bridge.interface.encodeFunctionData("pause")
+  );
 
   // Hand ownership to the 2-of-3 Safe before anything else can happen.
-  await (await bridge.transferOwnership(safeOwner)).wait();
+  await sendOwnerCall(
+    "transferOwnership(Safe)",
+    bridge.target,
+    bridge.interface.encodeFunctionData("transferOwnership", [safeOwner])
+  );
 
   // Read back the deployed state — assert, don't trust the calls above.
   // chainValidators is a public mapping of arrays: index 0 reverts when the

@@ -17,6 +17,8 @@ import {
   resolveKeysDir,
 } from "../scripts/rehearsal/lib.js";
 import {
+  MIN_POST_DEPLOY_GAS,
+  padPostDeployGas,
   readDeployerKeyFile,
   requireChainIdForKeyFile,
   resolveDeployRecord,
@@ -145,5 +147,28 @@ describe("RehearsalGuards (BR-11)", function () {
     };
     const err = await assertSingleSigCannotExecute(sigKit, [{ to: "0x" + "0".repeat(40), value: "0", data: "0x" }], "unused");
     expect(err.message).to.contain("signature missing");
+  });
+
+  it("padPostDeployGas floors the REDEPLOY-2 under-estimate and pads large estimates", function () {
+    // REDEPLOY-2: transferOwnership estimated 17,466, needed 30,424 — the
+    // est+est/3 pad alone (23,288) would still have reverted.
+    expect(padPostDeployGas(17_466n)).to.equal(MIN_POST_DEPLOY_GAS);
+    expect(padPostDeployGas(0n)).to.equal(MIN_POST_DEPLOY_GAS);
+    // Above the floor the rehearsal convention applies: estimate + 1/3.
+    expect(padPostDeployGas(100_000n)).to.equal(133_333n);
+    // Just under the floor boundary still lands on the floor.
+    expect(padPostDeployGas(45_000n)).to.equal(MIN_POST_DEPLOY_GAS);
+  });
+
+  it("deploy-bridge.js routes pause() and transferOwnership through the padded estimator", function () {
+    const src = fs.readFileSync(
+      path.join(import.meta.dirname, "..", "scripts", "deploy-bridge.js"),
+      "utf8"
+    );
+    expect(src).to.contain("padPostDeployGas");
+    expect(src).to.contain('encodeFunctionData("pause")');
+    expect(src).to.contain('encodeFunctionData("transferOwnership"');
+    // No bare contract-call .wait() may remain on the ownership handoff.
+    expect(src).not.to.match(/bridge\.transferOwnership\([^)]*\)\)\.wait\(\)/);
   });
 });
