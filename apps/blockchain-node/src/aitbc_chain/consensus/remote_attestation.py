@@ -35,6 +35,8 @@ from ..gossip import gossip_broker
 from ..metrics import metrics_registry
 from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
+from .vote_fetch import kick_pull, locate_voted_block
+from .vote_journal import KIND_ATTEST, VoteJournalError, get_vote_journal, valve_open, vote_journal_enabled
 
 logger = get_logger(__name__)
 
@@ -161,6 +163,75 @@ class RemoteAttestationService:
         self._signed_attestations_path = DATA_DIR / "data" / chain_id / "attestation_signed.json"
         # Highest local tip the v9 check has read; lets pruning avoid its own DB access.
         self._tip_height_hint: int | None = None
+        # #1268: ``(chain_id, peer_base_url) -> Any`` the proposer wires to the
+        # sync manager so a fetch-before-unlock hit can pull the voted block.
+        self.pull_hook: Any | None = None
+
+    async def _journal_refuses(
+        self,
+        height: int,
+        header_hash: str,
+        address: str,
+        proposer: str,
+        request_round: int | None,
+    ) -> bool:
+        """#1268 vote-journal gate for one signer. True = do not sign.
+
+        A live journal vote for a DIFFERENT hash at this height refuses the
+        rival, with no wall-clock expiry and across restarts. Before the
+        refusal is allowed to lapse (liveness valve) the voted block is looked
+        up on the mesh: if a peer serves it, a pull is kicked so the tip
+        passes this height and the rival then fails the parent check. The
+        valve opens only when the vote is older than
+        ``vote_journal_unlock_seconds`` AND no peer serves the voted block.
+        On a clean pass the new vote is made durable BEFORE any signature
+        exists; a persistence failure refuses the vote.
+        """
+        journal = get_vote_journal(self._chain_id)
+        journal.prune_below(self._tip_height_hint)
+        conflicts = journal.conflicting(height, address, header_hash)
+        if conflicts:
+            voted_hashes = {r.block_hash for r in conflicts}
+            base = await locate_voted_block(self._chain_id, height, voted_hashes)
+            if base is not None:
+                kick_pull(self.pull_hook, self._chain_id, base)
+                metrics_registry.increment("vote_journal_refused_rival_total")
+                logger.info(
+                    "Vote journal: refusing rival %s at height %s — %s already voted %s; pulling it from %s",
+                    header_hash[:18],
+                    height,
+                    canonical_address(address)[:18],
+                    sorted(voted_hashes)[0][:18],
+                    base,
+                )
+                return True
+            unlock = float(getattr(settings, "vote_journal_unlock_seconds", 300.0))
+            if not all(valve_open(r, unlock) for r in conflicts):
+                metrics_registry.increment("vote_journal_refused_rival_total")
+                logger.info(
+                    "Vote journal: refusing rival %s at height %s — %s already voted %s and no peer serves it yet",
+                    header_hash[:18],
+                    height,
+                    canonical_address(address)[:18],
+                    sorted(voted_hashes)[0][:18],
+                )
+                return True
+            metrics_registry.increment("vote_journal_valve_opened_total")
+            logger.warning(
+                "Vote journal valve opened at height %s: %s voted %s over %.0fs ago and no peer serves it — "
+                "allowing rival %s (recorded as equivocation evidence)",
+                height,
+                canonical_address(address)[:18],
+                sorted(voted_hashes)[0][:18],
+                unlock,
+                header_hash[:18],
+            )
+        try:
+            journal.record(height, address, header_hash, KIND_ATTEST, request_round, proposer)
+        except VoteJournalError as exc:
+            logger.error("Vote journal refuses attestation at height %s: %s", height, exc)
+            return True
+        return False
 
     def _now_epoch(self) -> float:
         """Wall clock for header freshness; tests override it."""
@@ -418,6 +489,13 @@ class RemoteAttestationService:
                 continue
             # Only sign with keys that are part of the configured validator set.
             if validator_set and canonical_address(address) not in {canonical_address(v) for v in validator_set}:
+                continue
+
+            # #1268: durable one-vote-per-height gate. Records the vote before
+            # the signature exists; flag-guarded, off = nothing above changes.
+            if vote_journal_enabled() and await self._journal_refuses(
+                height_int, header_hash, address, proposer, request_round
+            ):
                 continue
 
             message = {
@@ -905,6 +983,10 @@ class RemoteAttestationService:
         canon = canonical_address(signer)
         prior_hashes = set(self._signed_once.get(height, ()))
         prior_hashes |= {entry.block_hash for (h, _r), entry in self._round_locks.items() if h == height}
+        if vote_journal_enabled():
+            # #1268: the journal survives restarts and the valve, so a rival
+            # signed after either is still certified against the prior vote.
+            prior_hashes |= {r.block_hash for r in get_vote_journal(self._chain_id).votes_at(height, signer)}
         prior_hashes.discard(block_hash)
         if not prior_hashes:
             return

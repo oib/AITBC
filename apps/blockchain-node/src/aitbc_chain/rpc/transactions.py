@@ -19,6 +19,7 @@ from ..base_models import Bond, _to_ait_address
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Block, Transaction
+from .finality import finality_fields_enabled, finality_view, head_height_in_session
 from .utils import (
     OFFER_ACTIONS,
     PREREGISTERED_CREDIT_TX_TYPES,
@@ -785,6 +786,10 @@ def query_transactions(
 
         _logger.debug(f"Found {len(transactions)} transactions for chain {resolved_chain_id}")
 
+        # #1268: additive finality fields (flag-guarded); one head read per call.
+        finality_on = finality_fields_enabled()
+        head_for_finality = head_height_in_session(session, resolved_chain_id) if finality_on else None
+
         results = []
         for tx in transactions:
             # Filter by island_id in payload
@@ -809,25 +814,26 @@ def query_transactions(
                 continue
 
             sealing_block = block_map.get(tx.block_height) if tx.block_height is not None else None
-            results.append(
-                {
-                    "transaction_id": tx.id,
-                    "tx_hash": tx.tx_hash,
-                    "block_height": tx.block_height,
-                    "block_hash": sealing_block.hash if sealing_block else None,
-                    "block_proposer": sealing_block.proposer if sealing_block else None,
-                    "sender": tx.sender,
-                    "recipient": tx.recipient,
-                    "payload": tx.payload,
-                    "type": tx.type,
-                    "status": tx.status,
-                    "created_at": tx.created_at.isoformat(),
-                    "timestamp": tx.timestamp,
-                    "nonce": tx.nonce,
-                    "value": tx.value,
-                    "fee": tx.fee,
-                }
-            )
+            row = {
+                "transaction_id": tx.id,
+                "tx_hash": tx.tx_hash,
+                "block_height": tx.block_height,
+                "block_hash": sealing_block.hash if sealing_block else None,
+                "block_proposer": sealing_block.proposer if sealing_block else None,
+                "sender": tx.sender,
+                "recipient": tx.recipient,
+                "payload": tx.payload,
+                "type": tx.type,
+                "status": tx.status,
+                "created_at": tx.created_at.isoformat(),
+                "timestamp": tx.timestamp,
+                "nonce": tx.nonce,
+                "value": tx.value,
+                "fee": tx.fee,
+            }
+            if finality_on:
+                row.update(finality_view(tx.block_height, head_for_finality))
+            results.append(row)
 
         # Apply limit (results are newest-first, so this keeps the most recent rows)
         if limit:
@@ -858,7 +864,7 @@ def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None)
         ).first()
         if tx is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transaction {tx_hash} not found")
-        return {
+        body: dict[str, Any] = {
             "transaction_id": tx.id,
             "tx_hash": tx.tx_hash,
             "chain_id": tx.chain_id,
@@ -874,6 +880,9 @@ def get_transaction(request: Request, tx_hash: str, chain_id: str | None = None)
             "value": tx.value,
             "fee": tx.fee,
         }
+        if finality_fields_enabled():
+            body.update(finality_view(tx.block_height, head_height_in_session(session, resolved_chain_id)))
+        return body
 
 
 @rate_limit(rate=200, per=60)

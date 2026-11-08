@@ -1183,6 +1183,35 @@ class ChainSettings(BaseSettings):
     # disagreement between validators; a header from further ahead would
     # otherwise stay "fresh" for longer than the bound above.
     attestation_header_future_skew_seconds: float = 10.0
+    # #1268 Phase 1 (dual-seal prevention) -- every switch below defaults OFF;
+    # off is byte-identical to the pre-#1268 behavior.
+    #
+    # Durable per-height vote journal. A validator records every vote it casts
+    # (attestation signature, or its own proposal) in ``vote_journal.json``
+    # BEFORE the signature leaves the process, and keeps the entry until the
+    # height is below the local tip. While an entry for a DIFFERENT hash is
+    # live, the validator refuses to attest a rival at that height and refuses
+    # to propose at it -- across restarts, and without a wall-clock expiry
+    # (the legacy 60 s lock and its restart amnesia are the G1/G3 gaps).
+    vote_journal_enabled: bool = False
+    # Liveness valve: a journal entry blocks a rival only until it is this old
+    # AND the voted block could not be fetched from the proposer or any mesh
+    # peer (fetch-before-unlock). Far longer than the 60 s legacy window on
+    # purpose. Every use of the valve is counted and recorded as #1198
+    # equivocation evidence.
+    vote_journal_unlock_seconds: float = 300.0
+    # Re-publish a sealed-but-unconfirmed block on the gossip topic until a
+    # child block exists or a mesh peer serves it, so one failed publish no
+    # longer leaves the seal visible only on its proposer.
+    seal_republish_enabled: bool = False
+    seal_republish_interval_seconds: float = 10.0
+    seal_republish_max_seconds: float = 120.0
+    # Additive ``confirmations`` / ``finalized`` / ``finalized_height`` fields on
+    # /head and the block and transaction reads. ``finalized`` means at least
+    # ``rpc_finality_depth`` blocks sit on top (N=3, the
+    # BRIDGE_WITHDRAW_SEAL_DEPTH convention). Existing fields never change.
+    rpc_finality_fields_enabled: bool = False
+    rpc_finality_depth: int = 3
     # Delta-journal undo for non-empty losing fork segments
     # (``state/block_deltas.py``). While False the resolvers escalate a
     # non-empty segment to the operator exactly as before the journal
