@@ -71,16 +71,33 @@ def _run_alembic(tmp_path: Path, *args: str) -> Path:
     return db_path
 
 
+# The analytics/certification/community/ecosystem routers were retired in
+# #701, so coordinator_api.main no longer imports their domains — but the
+# migration graph still creates their 22 tables. Import the domain modules
+# explicitly so the declared-model set covers them. (Other context domains
+# declare models with no migration — dead schema, intentionally not
+# imported: the conformance set must match the migrated schema, not every
+# table=True class in the tree.)
+_MODEL_IMPORTS = """
+import coordinator_api.main  # noqa: F401
+import coordinator_api.models.multitenant  # noqa: F401
+import coordinator_api.contexts.analytics.domain.analytics  # noqa: F401
+import coordinator_api.contexts.certification.domain.certification  # noqa: F401
+import coordinator_api.contexts.community.domain  # noqa: F401
+import coordinator_api.contexts.ecosystem.domain  # noqa: F401
+"""
+
+
 def _get_model_columns() -> dict[str, set[str]]:
     """Return {table_name: {column_names}} from the declared SQLModel metadata.
 
     Runs in a fresh subprocess so other test modules that share the global
     SQLModel.metadata registry do not pollute the declared model set.
     """
-    script = """
-import json
-import coordinator_api.main  # noqa: F401
-import coordinator_api.models.multitenant  # noqa: F401
+    script = (
+        "import json\n"
+        + _MODEL_IMPORTS
+        + """
 from sqlmodel import SQLModel
 
 tables = {
@@ -89,6 +106,7 @@ tables = {
 }
 print(json.dumps(tables))
 """
+    )
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
     env["AITBC_SKIP_ENV_FILES"] = "1"
@@ -224,14 +242,15 @@ def _semantic_schema(db_path: Path) -> dict[str, dict]:
 def _build_metadata_db(tmp_path: Path) -> Path:
     """Build a database straight from SQLModel.metadata in a clean subprocess."""
     db_path = tmp_path / "test_conformance_meta.db"
-    script = """
-import coordinator_api.main  # noqa: F401
-import coordinator_api.models.multitenant  # noqa: F401
+    script = (
+        _MODEL_IMPORTS
+        + """
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 import sys
 SQLModel.metadata.create_all(create_engine(sys.argv[1]))
 """
+    )
     env = os.environ.copy()
     env["AITBC_SKIP_ENV_FILES"] = "1"
     env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"

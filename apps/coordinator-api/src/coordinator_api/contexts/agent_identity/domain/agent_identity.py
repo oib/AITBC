@@ -271,7 +271,7 @@ class AgentSpendSession(SQLModel, table=True):
     chain_id: int = Field(default=1000)
     cap_ait: Decimal = Field(ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
     used_ait: Decimal = Field(default=Decimal("0.0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False))
-    allowed_ops: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    allowed_ops: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     expires_at: datetime | None = Field(default=None)
     revoked_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
