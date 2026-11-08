@@ -396,6 +396,30 @@ class RemoteAttestationService:
             # unrecorded.
             self._record_round_lock(height_int, request_round, header_hash, proposer)
 
+        # #1198 advisory: this node is about to sign a hash at a height it has
+        # already signed a *different* hash for — attestation equivocation.
+        # The lock layers above already decided this signature may go out
+        # (post-expiry re-sign, or a permitted cross-round sign under
+        # #1242); record the evidence for the slashing pipeline. Advisory
+        # only — deactivation is the on-chain VALIDATOR_DEACTIVATE marker,
+        # never a local refusal here.
+        prior_hashes = set(self._signed_once.get(height_int, ()))
+        prior_hashes |= {entry.block_hash for (h, _r), entry in self._round_locks.items() if h == height_int}
+        prior_hashes.discard(header_hash)
+        if prior_hashes:
+            from .slashing import slashing_manager
+
+            for prior_hash in sorted(prior_hashes):
+                for signer in self._validator_keys:
+                    slashing_manager.record_attestation_equivocation(
+                        validator_address=canonical_address(signer),
+                        height=height_int,
+                        round_number=request_round,
+                        block_hash_a=prior_hash,
+                        block_hash_b=header_hash,
+                        proposer=proposer,
+                    )
+
         for address, private_key in self._validator_keys.items():
             # Do not sign our own block.
             if _same_address(address, proposer):
