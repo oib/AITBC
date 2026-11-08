@@ -1526,6 +1526,9 @@ class PoAProposer:
         """
         if retry_cand is None or self._tx_snapshot_key(pending_txs) == retry_cand[4]:
             return timestamp, proposer, round_number
+        # E c20986 option A: under traffic the pin degrades to fresh-hash
+        # behaviour — never worse than today, and the drift is observable.
+        metrics_registry.increment("proposer_same_hash_retry_tx_drift_total")
         self._same_hash_retry = None
         timestamp = datetime.now(UTC)
         selected = self._select_round_proposer(head, next_height, timestamp)
