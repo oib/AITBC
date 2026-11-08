@@ -2,9 +2,10 @@
 
 The public nginx /csp-report route supplies the rate and request-body limits.
 The application repeats the body-size limit, validates the complete envelope
-before logging, and never records query strings, credentials, referrers or
-script samples. Browser reports are untrusted diagnostics, not security events
-that authorize any action.
+before logging, and never records query strings, credentials or
+referrers. A bounded, sanitized script/style sample prefix is kept for
+triage (report-sample is enabled in the CSP header). Browser reports are
+untrusted diagnostics, not security events that authorize any action.
 """
 
 from __future__ import annotations
@@ -62,6 +63,13 @@ def _integer(value: object, maximum: int) -> int | None:
     return None
 
 
+def _sample(value: object) -> str:
+    """Bounded printable prefix of a blocked inline script/style sample."""
+    if not isinstance(value, str):
+        return ""
+    return "".join(ch for ch in value if ch.isprintable())[:40]
+
+
 def _normalize(body: dict[str, object], *, modern: bool, fallback_url: object = "") -> dict[str, object]:
     document = _safe_url(body.get("documentURL" if modern else "document-uri") or fallback_url)
     raw_directive = body.get("effectiveDirective" if modern else "effective-directive")
@@ -82,6 +90,13 @@ def _normalize(body: dict[str, object], *, modern: bool, fallback_url: object = 
     source = _safe_url(body.get("sourceFile" if modern else "source-file"))
     if source:
         fields["source_file"] = source
+    sample = _sample(
+        body.get("sample")
+        or body.get("script-sample" if not modern else "scriptSample")
+        or body.get("style-sample" if not modern else "styleSample")
+    )
+    if sample:
+        fields["sample"] = sample
     for output, legacy, current, maximum in (
         ("status_code", "status-code", "statusCode", 599),
         ("line_number", "line-number", "lineNumber", 2_147_483_647),
