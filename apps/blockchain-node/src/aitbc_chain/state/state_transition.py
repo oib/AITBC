@@ -31,6 +31,7 @@ from ..base_models import (
     ChainParameter,
     ChainParameterHistory,
     IPFSSubscription,
+    ValidatorDeactivation,
     _to_ait_address,
     record_chain_parameter_history,
 )
@@ -95,7 +96,9 @@ else:
 # software_offer, software_job, cancel, rating) is a value-zero record; there is
 # no dedicated branch for it in apply_transaction, so a nonzero amount would
 # execute as a plain transfer.
-_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
+_ZERO_VALUE_TX_TYPES = frozenset(
+    {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET", "VALIDATOR_DEACTIVATE"}
+)
 
 
 def _is_zero_value_tx_type(tx_type: str, block_version: int) -> bool:
@@ -208,6 +211,54 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
     if block_height is None and env_addr:
         return canonical_address(env_addr)
     return None
+
+
+def _validator_deactivation_authority(session: Session, chain_id: str, block_height: int | None = None) -> str | None:
+    """Return the canonical validator-deactivation authority address (#1198).
+
+    Same resolution contract as :func:`_bond_slash_authority`, but a dedicated
+    parameter per the #1198 §5 ruling — activation power is deliberately not
+    shared with the economic slash authority. On-chain
+    ``validator_deactivation_authority`` wins at every known block height;
+    ``VALIDATOR_DEACTIVATION_AUTHORITY_ADDRESS`` bootstraps only
+    ``block_height=None`` (mempool pre-checks). Unset resolves ``None`` —
+    fail closed.
+    """
+    onchain_value = _chain_parameter_value(session, chain_id, "validator_deactivation_authority", block_height)
+    env_addr = os.getenv("VALIDATOR_DEACTIVATION_AUTHORITY_ADDRESS", "").strip()
+    if onchain_value is not None:
+        if onchain_value.strip():
+            addr = canonical_address(onchain_value.strip())
+            if env_addr and canonical_address(env_addr) != addr:
+                logger.warning(
+                    "VALIDATOR_DEACTIVATION_AUTHORITY_ADDRESS=%s disagrees with on-chain "
+                    "validator_deactivation_authority=%s; using the on-chain value",
+                    env_addr,
+                    addr,
+                )
+            return addr
+        return None
+    if block_height is None and env_addr:
+        return canonical_address(env_addr)
+    return None
+
+
+def _parse_validator_deactivation_payload(payload: dict[str, Any]) -> tuple[str, str, str] | str:
+    """Validate and extract ``(validator_addr, evidence_hash, bond_id)`` or return a skip reason."""
+    raw_address = payload.get("validator_address")
+    if not raw_address:
+        return "missing validator_address in payload"
+    try:
+        validator_addr = canonical_address(str(raw_address), strict=True)
+    except ValueError:
+        return "validator_address is not a strict 0x+40hex address"
+    evidence_hash = str(payload.get("evidence_hash") or "").strip()
+    if not evidence_hash:
+        return "missing evidence_hash in payload"
+    bond_id = payload.get("bond_id")
+    if not bond_id:
+        return "missing bond_id in payload"
+    return (validator_addr, evidence_hash, str(bond_id))
 
 
 def _bond_escrow_ait() -> str:
@@ -512,6 +563,7 @@ _AUTHORITY_PARAMETERS = frozenset(
         "escrow_fee_recipient",
         "escrow_settlement_authority",
         "governance_executors",
+        "validator_deactivation_authority",
     }
 )
 
@@ -2619,6 +2671,20 @@ class StateTransition:
                     tx_hash,
                     skip_reason,
                 )
+        if tx_type == "VALIDATOR_DEACTIVATE":
+            skip_reason = self._handle_validator_deactivation(
+                session, chain_id, tx_data, tx_hash, sender_addr, value, block_height
+            )
+            if skip_reason:
+                # Same contract as the bond handlers: fee/nonce still apply,
+                # the marker does not — named so the apply log cannot read
+                # as a landed deactivation.
+                logger.warning(
+                    "%s %s applied fee/nonce but deactivation skipped: %s",
+                    tx_type,
+                    tx_hash,
+                    skip_reason,
+                )
         if tx_type == "GOVERNANCE_EXECUTE":
             self._handle_governance_execute(session, chain_id, tx_data, tx_hash, block_height, block_version=block_version)
         if tx_type == "RECEIPT_CLAIM":
@@ -3170,6 +3236,83 @@ class StateTransition:
             bond.status = "slashed" if bond.amount <= 0 else "active"
             bond.updated_at = now
             logger.info("Bond slashed: %s amount=%s remaining=%s", bond_id, slash_amount, bond.amount)
+        return None
+
+    def _handle_validator_deactivation(
+        self,
+        session: Session,
+        chain_id: str,
+        tx_data: dict[str, Any],
+        tx_hash: str,
+        sender_addr: str,
+        value: int,
+        block_height: int | None = None,
+    ) -> str | None:
+        """Apply a ``VALIDATOR_DEACTIVATE`` marker (#1198, spec v2).
+
+        Activation-only: moves no funds (``BOND_SLASH`` keeps the economic
+        penalty). Gates, all pure functions of chain state so replay and
+        reorg are identical on every node:
+
+        - sender must be the ``validator_deactivation_authority`` (dedicated
+          param — not ``bond_slash_authority``);
+        - ``payload.validator_address`` must be strict ``0x``+40hex
+          (``canonical_address(strict=True)``);
+        - ``payload.bond_id`` must name an ``active`` bond whose provider
+          canonicalizes to the validator — bond-less validators cannot be
+          deactivated on-chain (Q2 ruling; env removal remains their recourse);
+        - ``payload.evidence_hash`` is required audit data (v1 does not verify
+          it on-chain);
+        - ``value`` must be 0 (also enforced at validate via the zero-value set).
+
+        Returns None when the marker was written, or a skip reason — the
+        caller still applies fee/nonce, matching the bond handlers' contract.
+        """
+        authority = _validator_deactivation_authority(session, chain_id, block_height)
+        if not authority:
+            return (
+                "no validator-deactivation authority configured (chain parameter or VALIDATOR_DEACTIVATION_AUTHORITY_ADDRESS)"
+            )
+        if sender_addr != authority:
+            return "not signed by the configured validator-deactivation authority"
+        if value != 0:
+            return "must have value=0"
+        parsed = _parse_validator_deactivation_payload(tx_data.get("payload", {}) or {})
+        if isinstance(parsed, str):
+            return parsed
+        validator_addr, evidence_hash, bond_id = parsed
+        bond = session.exec(
+            select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
+        ).first()
+        if bond is None:
+            return f"unknown or inactive bond {bond_id}"
+        if canonical_address(bond.provider) != validator_addr:
+            return "bond provider does not match validator_address"
+        existing = session.exec(
+            select(ValidatorDeactivation).where(
+                ValidatorDeactivation.chain_id == chain_id,
+                ValidatorDeactivation.validator_address == validator_addr,
+            )
+        ).first()
+        if existing is not None:
+            return "validator already deactivated"
+        session.add(
+            ValidatorDeactivation(
+                chain_id=chain_id,
+                validator_address=validator_addr,
+                evidence_hash=evidence_hash,
+                deactivation_tx_hash=tx_hash,
+                block_height=block_height,
+            )
+        )
+        logger.info(
+            "Validator deactivated on-chain: %s (bond=%s evidence=%s tx=%s height=%s)",
+            validator_addr,
+            bond_id,
+            evidence_hash[:18],
+            tx_hash[:18],
+            block_height,
+        )
         return None
 
     def validate_state_transition(
