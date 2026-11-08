@@ -121,6 +121,21 @@ restart by construction. PASS requires all of:
       ("V7/V8 env lines dropped"). V9 follows the code-pin convention:
       no `STATE_TRANSITION_V9_HEIGHT` in any env file, systemd
       `Environment=` line, or drop-in.
+
+      **Post-reset supersession (verified live 2026-11-08, #1294):** the
+      bc-3 chain reset replaced this convention — `bc3-env-map.md`
+      dispositions ALL `STATE_TRANSITION_V*_HEIGHT` keys as "rewrite —
+      all heights → 1 on the new chain". Live process env on all five
+      hosts is identical: `V2–V14=1`, `V15=1732`, `V16=6500`,
+      `V18=9600`, `V20=18200`, `V21=22000`, `V22=20100`, `V23=21570`
+      (V17/V19 unset → code defaults). So **v9 IS env-pinned at height 1
+      on bc-2 — enforced from block 1, not shadowed** — and this
+      checklist's "no env" line describes the pre-reset chain only.
+      `fleet-config-check.sh` mechanically DOES flag the env values
+      (its exemption list `2|3|17|18` predates bc-3): expect FLAG lines
+      for V4–V12/V15/V16 on every host — known false positives under
+      the new convention until the check's exemption table is updated
+      (follow-up, not part of #1294).
       Enforced by the fleet check's "effective transition heights"
       section, which reads the **running process environment**
       (`/proc/<pid>/environ` — catches env files, systemd lines and
@@ -179,6 +194,7 @@ restart by construction. PASS requires all of:
 - Window check: `scripts/monitoring/fleet-config-check.sh` "v9 shadow
   window (pin gate)"
 - Alert rules tested: `scripts/monitoring/aitbc_rules_test.yml`
-  (`promtool test rules`) — V9ShadowRejection, V9AttestationRefusal
+  (`promtool test rules`) — V9ShadowRejection, V9AttestationRefusal,
+  AttestationLagRefusal (#1294 liveness/rule split)
 - Phase-2 description: `docs/releases/v0.25/v0.25.8_change.log`
   "v9 transaction authorization" section
