@@ -1302,6 +1302,10 @@ class PoAProposer:
                     next_height,
                     {v.block_hash for v in votes},
                     ignore=self._own_addresses(),
+                    # Propose path may await the shared UC probe — it is not
+                    # the gossip listener; single-flight keeps it to one
+                    # collection per (height, hash) mesh-wide per node.
+                    wait_for_probe=True,
                 )
                 if justification is None:
                     metrics_registry.increment("vote_journal_proposal_suppressed_total")

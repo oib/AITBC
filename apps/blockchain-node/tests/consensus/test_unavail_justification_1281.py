@@ -578,3 +578,163 @@ class TestProposerGateArmed:
             block_hash_b=RIVAL,
         )
         assert "justification" not in json.loads(ev2.evidence)
+
+
+def _counter(name: str) -> float:
+    return float(metrics_registry._counters.get(name, 0.0))
+
+
+class _SlowFlipBroker(_Broker):
+    """Broker that records foreign attest activity for the voted hash while
+    the UC collection is in flight — the quiet-flip-during-probe pin."""
+
+    def __init__(self, idx, height: int, block_hash: str, signer: str, key: str, **kw):
+        super().__init__(**kw)
+        self._idx = idx
+        self._height = height
+        self._hash = block_hash
+        self._signer = signer
+        self._key = key
+
+    async def publish(self, topic: str, message: dict) -> None:
+        if "unavail_query" in topic:
+            self._idx.note_response(self._height, self._hash, self._signer)
+        await super().publish(topic, message)
+
+
+class TestRespinProbeOrder:
+    """#1281 respin (option c): quiet-hash → UC probe → full re-verdict.
+
+    The pre-seeded-actor tests above cannot catch the h35 deadlock — the
+    mesh-visibility leg must be fed by the probe itself. These pins run a
+    COLD index (no actors, no entries) end-to-end.
+    """
+
+    @pytest.mark.asyncio
+    async def test_h35_replay_cold_index_recovers(self, monkeypatch):
+        """Regression: empty index + honest responders + unfetchable hash
+        ⇒ unlock bundle. This is the exact h35 wedge shape."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "locate_voted_block", AsyncMock(return_value=None))
+        broker = _Broker(responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
+        bundle = await unlock_justification(CHAIN, 100, [H], ignore={canonical_address(ADDR1)}, broker=broker)
+        assert bundle is not None, "cold-index probe must establish visibility and unlock"
+        assert bundle["kind"] == "unavailability_cert"
+        assert len(bundle["certs"]) == 1
+        assert bundle["index"]["mesh_visible"] is True
+        assert _counter("unavail_probe_total") >= 1
+        assert _counter("unavail_cert_collected_total") >= 1
+        assert _counter("unavail_unlock_justified_total") >= 1
+
+    @pytest.mark.asyncio
+    async def test_quiet_fail_skips_collection(self, monkeypatch):
+        """Live attest traffic for the voted hash ⇒ None and the probe is
+        never even started (no collection, no query published)."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        collect = AsyncMock(return_value=_cert())
+        monkeypatch.setattr(unavail, "collect_unavailability_cert", collect)
+        idx = await unavail.get_observation_index(CHAIN)
+        idx.note_response(100, H, ADDR2)  # fresh foreign attestation for voted hash
+        broker = _Broker()
+        assert await unlock_justification(CHAIN, 100, [H], ignore={canonical_address(ADDR1)}, broker=broker) is None
+        collect.assert_not_awaited()
+        assert not any("unavail_query" in t for t, _ in broker.published)
+        assert _counter("unavail_not_quiet_total") >= 1
+
+    @pytest.mark.asyncio
+    async def test_failed_collection_backs_off_without_storm(self, monkeypatch):
+        """< threshold responses ⇒ None; an immediate second evaluation
+        hits the negative backoff and publishes no second query."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        monkeypatch.setattr(settings, "unavail_collect_seconds", 0.2)
+        broker = _Broker(responders=[])  # nobody answers
+        ignore = {canonical_address(ADDR1)}
+        assert await unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker) is None
+        assert await unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker) is None
+        queries = [m for t, m in broker.published if "unavail_query" in t]
+        assert len(queries) == 1, "backoff must suppress the retry storm"
+        assert _counter("unavail_collect_backoff_total") >= 1
+        assert _counter("unavail_probe_total") == 1
+
+    @pytest.mark.asyncio
+    async def test_two_of_four_minority_never_unlocks(self, monkeypatch):
+        """Partition safety: self + one peer assemble a valid 2-of-4 cert,
+        but only ONE foreign validator is visible ⇒ mesh_visible False ⇒
+        hold. Cert quorum is not mesh visibility."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        # "Self" (ADDR1) answers our own query plus one peer — the cert
+        # verifies at threshold 2, but ignore excludes self from visibility.
+        broker = _Broker(responders=[(ADDR1, KEY1), (ADDR2, KEY2)])
+        bundle = await unlock_justification(CHAIN, 100, [H], ignore={canonical_address(ADDR1)}, broker=broker)
+        assert bundle is None
+        assert _counter("unavail_mesh_not_visible_total") >= 1
+        assert _counter("unavail_unlock_justified_total") == 0
+
+    @pytest.mark.asyncio
+    async def test_quiet_flip_during_probe_revokes(self, monkeypatch):
+        """Attest activity arriving DURING the collect window must fail the
+        post-probe re-verdict — acquisition is not authorization."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        # Wide quiet window so the mid-collect note is still inside it at
+        # re-check time (the default 0.25 s test window would expire first).
+        monkeypatch.setattr(settings, "unavail_evidence_seconds", 5.0)
+        idx = await unavail.get_observation_index(CHAIN)
+        broker = _SlowFlipBroker(idx, 100, H, ADDR3, KEY3, responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
+        bundle = await unlock_justification(CHAIN, 100, [H], ignore={canonical_address(ADDR1)}, broker=broker)
+        assert bundle is None
+        assert _counter("unavail_not_quiet_total") >= 1
+
+    @pytest.mark.asyncio
+    async def test_concurrent_callers_share_one_probe_and_cache(self, monkeypatch):
+        """Single-flight: concurrent evaluations publish ONE query; the
+        success cert is cached and reused; expiry forces re-collection."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        monkeypatch.setattr(settings, "unavail_collect_seconds", 0.2)
+        # cert_max_age 31 ⇒ cache reuse margin = 1 s.
+        monkeypatch.setattr(settings, "unavail_cert_max_age_seconds", 31.0)
+        broker = _Broker(responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
+        ignore = {canonical_address(ADDR1)}
+        b1, b2 = await asyncio.gather(
+            unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker),
+            unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker),
+        )
+        assert b1 is not None and b2 is not None
+        queries = [m for t, m in broker.published if "unavail_query" in t]
+        assert len(queries) == 1, "concurrent callers must share one collection"
+        # Cached cert: immediate re-evaluation publishes nothing new.
+        assert await unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker) is not None
+        queries = [m for t, m in broker.published if "unavail_query" in t]
+        assert len(queries) == 1, "fresh cached cert must be reused"
+        # Past the reuse margin the cert is re-collected.
+        await asyncio.sleep(1.1)
+        assert await unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker) is not None
+        queries = [m for t, m in broker.published if "unavail_query" in t]
+        assert len(queries) == 2, "stale-margin cert must be re-collected"
+
+    @pytest.mark.asyncio
+    async def test_listener_path_never_awaits_inflight_probe(self, monkeypatch):
+        """wait_for_probe=False returns None while a collection is in
+        flight — the attest-request listener is never held for the
+        collect window."""
+        await unavail.reset_observation_indices()
+        monkeypatch.setattr(unavail, "unfetchable_persists", AsyncMock(return_value=True))
+        monkeypatch.setattr(settings, "unavail_collect_seconds", 0.4)
+        broker = _Broker(responders=[(ADDR2, KEY2), (ADDR3, KEY3)])
+        ignore = {canonical_address(ADDR1)}
+        # Proposer-style caller starts and awaits the probe.
+        waiting = asyncio.ensure_future(
+            unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker, wait_for_probe=True)
+        )
+        await asyncio.sleep(0.05)  # let it reach the in-flight collection
+        start = time.monotonic()
+        early = await unlock_justification(CHAIN, 100, [H], ignore=ignore, broker=broker, wait_for_probe=False)
+        elapsed = time.monotonic() - start
+        assert early is None
+        assert elapsed < 0.3, f"listener-path evaluation blocked {elapsed:.2f}s on the probe"
+        bundle = await waiting
+        assert bundle is not None

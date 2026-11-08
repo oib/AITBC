@@ -37,6 +37,7 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -108,6 +109,16 @@ def min_responses() -> int:
     if configured > 0:
         return configured
     return max(1, _int("multi_validator_min_attestations", 2))
+
+
+def collect_backoff_seconds() -> float:
+    """Negative-result backoff after a failed UC probe (#1281 respin).
+
+    Floored at ``2 * collect_seconds`` per the respin ruling — a failed
+    collection must not be retried inside its own window, and gate retries
+    every few seconds must not storm the query topic.
+    """
+    return max(_float("unavail_collect_backoff_seconds", 30.0), 2.0 * collect_seconds())
 
 
 def query_topic(chain_id: str) -> str:
@@ -513,6 +524,38 @@ class GossipObservationIndex:
             for h in [h for h, m in self._actors.items() if max(m.values(), default=0.0) < cutoff]:
                 self._actors.pop(h, None)
 
+    def quiet_verdict(
+        self,
+        height: int,
+        block_hash: str,
+        *,
+        ignore: set[str] | None = None,
+        window: float | None = None,
+    ) -> dict[str, Any]:
+        """The quiet half of ``index_clean`` — exposed separately for the
+        #1281 respin's probe ordering.
+
+        Quiet iff no attest_request re-broadcast and no foreign
+        attestation for the hash inside ``window`` (T_evidence). This is
+        the cheap passive gate: a hash with live attest traffic is not an
+        abandoned one, and probing it would be spam.
+        """
+        win = evidence_seconds() if window is None else window
+        now = self._mono()
+        ent = self._entries.get((int(height), block_hash))
+        if not ent:
+            return {"quiet": True, "quiet_seconds": None, "requests_seen": 0, "attestations_seen": 0}
+        req_actors = {a: ts for a, ts in ent["req_actors"].items() if not (ignore and a in ignore)}
+        attesters = {a: ts for a, ts in ent["attestations"].items() if not (ignore and a in ignore)}
+        stamps = list(req_actors.values()) + list(attesters.values())
+        last_activity = max(stamps) if stamps else 0.0
+        return {
+            "quiet": (now - last_activity) >= win,
+            "quiet_seconds": round(now - last_activity, 3),
+            "requests_seen": int(ent["requests"]),
+            "attestations_seen": len(attesters),
+        }
+
     def clean_verdict(
         self,
         height: int,
@@ -524,37 +567,22 @@ class GossipObservationIndex:
     ) -> dict[str, Any]:
         """``index_clean`` verdict for ``(height, block_hash)``.
 
-        Clean iff no attest_request re-broadcast and no foreign
-        attestation for the hash inside ``window`` (T_evidence), AND the
-        mesh shows ≥ ``min_peers`` distinct validators active at this
-        height inside the same window (partition ⇒ not visible ⇒ not
-        clean ⇒ hold preserved).
+        Clean iff quiet (``quiet_verdict``) AND the mesh shows ≥
+        ``min_peers`` distinct validators active at this height inside the
+        visibility window — which, post-respin, is established by
+        authenticated UC probe responses rather than passive traffic
+        alone (partition ⇒ not visible ⇒ not clean ⇒ hold preserved).
         """
-        win = evidence_seconds() if window is None else window
+        q = self.quiet_verdict(height, block_hash, ignore=ignore, window=window)
         peers = min_responses() if min_peers is None else min_peers
         now = self._mono()
-        ent = self._entries.get((int(height), block_hash))
-        if ent:
-            req_actors = {a: ts for a, ts in ent["req_actors"].items() if not (ignore and a in ignore)}
-            attesters = {a: ts for a, ts in ent["attestations"].items() if not (ignore and a in ignore)}
-            requests = int(ent["requests"])
-            attestations = len(attesters)
-            stamps = list(req_actors.values()) + list(attesters.values())
-            last_activity = max(stamps) if stamps else 0.0
-        else:
-            requests = attestations = 0
-            last_activity = 0.0
-        quiet = (now - last_activity) >= win if ent else True
         actors = self._actors.get(int(height), {})
         vis_win = visibility_seconds()
         visible = sum(1 for a, ts in actors.items() if now - ts <= vis_win and not (ignore and a in ignore))
         mesh_visible = visible >= peers
-        clean = quiet and mesh_visible
         return {
-            "clean": clean,
-            "quiet_seconds": round(now - last_activity, 3) if ent else None,
-            "requests_seen": requests,
-            "attestations_seen": attestations,
+            **q,
+            "clean": q["quiet"] and mesh_visible,
             "mesh_visible": mesh_visible,
             "validators_visible": visible,
         }
@@ -583,6 +611,14 @@ async def reset_observation_indices() -> None:
         for sampler in list(_FETCH_SAMPLERS.values()):
             sampler.cancel()
         _FETCH_SAMPLERS.clear()
+        # #1281 respin: probe state is per-process evidence too — a reset
+        # (tests, chain re-init) must not leak cached certs, backoff
+        # suppression, or in-flight collections into the next context.
+        for task in list(_PROBE_TASKS.values()):
+            task.cancel()
+        _PROBE_TASKS.clear()
+        _PROBE_BACKOFF.clear()
+        _CERT_CACHE.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -721,20 +757,123 @@ def _carried_certs(
     return carried
 
 
-async def _cert_for_hash(
+# ---------------------------------------------------------------------------
+# UC probe — single-flight collection, negative backoff, success cache
+# (#1281 respin guard rails A–D)
+# ---------------------------------------------------------------------------
+#
+# The respin ordering is quiet-hash → probe → full re-verdict. The probe
+# must never block the attest-request listener and must never storm the
+# query topic, so collections are single-flight per (chain, height, hash):
+#
+# * ``_PROBE_TASKS`` — at most one in-flight ``collect_unavailability_cert``
+#   per key; concurrent gate evaluations share it.
+# * ``_PROBE_BACKOFF`` — monotonic deadline after a FAILED collection;
+#   inside it ``_probe_cert`` returns None immediately (bounded — it always
+#   expires, so a transient outage cannot suppress forever).
+# * ``_CERT_CACHE`` — successful certs keyed by (chain, height, hash,
+#   ignore-context); reused while the cert epoch is within
+#   ``cert_max_age_seconds - 30``. Legs 1–2 are re-evaluated on every call,
+#   so a revoked fetch or fresh attest traffic still blocks the unlock —
+#   the cache only skips re-querying.
+
+_PROBE_TASKS: dict[tuple[str, int, str], asyncio.Task[UnavailabilityCertificate | None]] = {}
+_PROBE_BACKOFF: dict[tuple[str, int, str], float] = {}
+_CERT_CACHE: dict[tuple[str, int, str, frozenset[str]], tuple[UnavailabilityCertificate, float]] = {}
+
+
+def _probe_key(chain_id: str, height: int, block_hash: str) -> tuple[str, int, str]:
+    return (chain_id, int(height), block_hash)
+
+
+def _drop_probe_task(key: tuple[str, int, str], task: asyncio.Task[Any]) -> None:
+    """Done-callback for ``_PROBE_TASKS`` — drops the entry only when it
+    still refers to THIS task (a newer probe may already have replaced it)."""
+    if _PROBE_TASKS.get(key) is task:
+        _PROBE_TASKS.pop(key, None)
+
+
+def _cert_cache_key(
+    chain_id: str, height: int, block_hash: str, ignore: set[str] | None
+) -> tuple[str, int, str, frozenset[str]]:
+    return (chain_id, int(height), block_hash, frozenset(ignore or ()))
+
+
+def _cert_cache_fresh(cert: UnavailabilityCertificate) -> bool:
+    """Reuse margin: cert epoch must be within ``max_age - 30 s`` so a
+    cached cert cannot be consumed in its final seconds of validity."""
+    return time.time() - cert.epoch < cert_max_age_seconds() - 30.0
+
+
+async def _run_probe(
+    chain_id: str,
+    height: int,
+    block_hash: str,
+    broker: Any | None,
+    ignore: set[str] | None,
+) -> UnavailabilityCertificate | None:
+    """One shared collection; records success into the cache or arms the
+    negative backoff. Runs as the ``_PROBE_TASKS`` value so every waiter
+    observes the same outcome."""
+    try:
+        cert = await collect_unavailability_cert(chain_id, height, block_hash, broker=broker)
+    except Exception as exc:  # noqa: BLE001 - a probe failure is a hold, never a crash
+        logger.warning("unavail probe for %s h%s %s failed: %s", chain_id, height, block_hash[:18], exc)
+        cert = None
+    key = _probe_key(chain_id, height, block_hash)
+    if cert is not None:
+        _CERT_CACHE[_cert_cache_key(chain_id, height, block_hash, ignore)] = (cert, time.monotonic())
+    else:
+        _PROBE_BACKOFF[key] = time.monotonic() + collect_backoff_seconds()
+        metrics_registry.increment("unavail_collect_failed_total")
+    return cert
+
+
+async def _probe_cert(
     chain_id: str,
     height: int,
     block_hash: str,
     carried: UnavailabilityCertificate | None,
     broker: Any | None,
+    ignore: set[str] | None,
+    *,
+    wait: bool,
 ) -> UnavailabilityCertificate | None:
-    """A valid UC for ``block_hash``: reuse the carried one when it verifies,
-    else collect a fresh certificate over gossip."""
+    """A valid UC for ``block_hash`` via carried cert, cache, or probe.
+
+    ``wait=False`` never awaits an in-flight collection — it returns None
+    so the attest-request listener stays responsive; the finished cert is
+    picked up by the next evaluation (or by a waiting proposer call).
+    """
     if carried is not None:
         ok, _reason = verify_unavailability_cert(carried, chain_id=chain_id, height=height, block_hash=block_hash)
         if ok:
             return carried
-    return await collect_unavailability_cert(chain_id, height, block_hash, broker=broker)
+    ckey = _cert_cache_key(chain_id, height, block_hash, ignore)
+    cached = _CERT_CACHE.get(ckey)
+    if cached is not None and _cert_cache_fresh(cached[0]):
+        ok, _reason = verify_unavailability_cert(cached[0], chain_id=chain_id, height=height, block_hash=block_hash)
+        if ok:
+            return cached[0]
+        _CERT_CACHE.pop(ckey, None)
+    pkey = _probe_key(chain_id, height, block_hash)
+    backoff_until = _PROBE_BACKOFF.get(pkey)
+    if backoff_until is not None and time.monotonic() < backoff_until:
+        metrics_registry.increment("unavail_collect_backoff_total")
+        return None
+    if backoff_until is not None:
+        _PROBE_BACKOFF.pop(pkey, None)
+    task = _PROBE_TASKS.get(pkey)
+    if task is None:
+        metrics_registry.increment("unavail_probe_total")
+        task = asyncio.ensure_future(_run_probe(chain_id, height, block_hash, broker, ignore))
+        _PROBE_TASKS[pkey] = task
+        task.add_done_callback(partial(_drop_probe_task, pkey))
+    if not wait and not task.done():
+        # Collection is in flight; the caller must not block — the cert
+        # lands in the cache for the next evaluation.
+        return None
+    return await task
 
 
 async def unlock_justification(
@@ -745,13 +884,24 @@ async def unlock_justification(
     ignore: set[str] | None = None,
     request_cert: dict[str, Any] | UnavailabilityCertificate | None = None,
     broker: Any | None = None,
+    wait_for_probe: bool = True,
 ) -> dict[str, Any] | None:
     """The armed-mode unlock justification, or None.
 
-    ``request_cert`` is a UC carried by the incoming attest_request — a
-    valid one saves the collector a gossip round. Everything else is
-    gathered locally: fetch persistence, observation-index cleanliness,
-    and (when needed) a fresh UC collection.
+    Respin ordering (#1281 h35 deadlock fix — probe, then verify):
+
+    1. ``unfetchable_persists`` — unchanged leg 1.
+    2. Quiet gate per voted hash — no attest traffic inside T_evidence;
+       fails ⇒ None with NO collection (a live hash is not abandoned).
+    3. UC probe — single-flight collection; responders refresh the
+       observation index's mesh-visibility actors.
+    4. Post-probe FULL re-evaluation — quiet AND mesh_visible AND
+       unfetchable AND cert, all re-checked: cert quorum is not mesh
+       visibility, and acquisition is not authorization.
+
+    ``wait_for_probe=False`` is for the attest-request listener path: it
+    starts/shares the probe but returns None while a collection is in
+    flight rather than blocking the listener for the collect window.
     """
     hashes = sorted({h for h in voted_hashes if h})
     if not hashes:
@@ -760,24 +910,40 @@ async def unlock_justification(
     if not await unfetchable_persists(chain_id, height, hashes):
         return None
     index = await get_observation_index(chain_id)
-    # Leg 2+3 per voted hash: clean observation window AND a valid UC.
-    # All conflicting hashes must independently justify — a rival may
-    # only be voted against a hash proven unable to join a quorum.
+    # Per voted hash: quiet gate → probe → full re-verdict. All conflicting
+    # hashes must independently justify — a rival may only be voted against
+    # a hash proven unable to join a quorum.
     carried = _carried_certs(request_cert)
     certs: list[UnavailabilityCertificate] = []
+    verdicts: dict[str, dict[str, Any]] = {}
     for block_hash in hashes:
+        quiet = index.quiet_verdict(height, block_hash, ignore=ignore)
+        if not quiet["quiet"]:
+            metrics_registry.increment("unavail_index_not_clean_total")
+            metrics_registry.increment("unavail_not_quiet_total")
+            return None
+        cert = await _probe_cert(chain_id, height, block_hash, carried.get(block_hash), broker, ignore, wait=wait_for_probe)
+        if cert is None:
+            return None
+        # Post-probe re-evaluation: a fetch hit or fresh attest traffic
+        # during the collect window revokes the unlock; cert quorum alone
+        # is not mesh visibility.
+        if not await unfetchable_persists(chain_id, height, hashes):
+            return None
         verdict = index.clean_verdict(height, block_hash, ignore=ignore)
+        verdicts[block_hash] = verdict
         if not verdict["clean"]:
             metrics_registry.increment("unavail_index_not_clean_total")
-            return None
-        cert = await _cert_for_hash(chain_id, height, block_hash, carried.get(block_hash), broker)
-        if cert is None:
+            if not verdict.get("quiet", True):
+                metrics_registry.increment("unavail_not_quiet_total")
+            elif not verdict.get("mesh_visible", False):
+                metrics_registry.increment("unavail_mesh_not_visible_total")
             return None
         certs.append(cert)
         metrics_registry.increment("unavail_unlock_justified_total")
     # Verdict summary for the first hash (per-hash counters differ only in
     # requests/attestations observed; the clean/mesh legs are shared).
-    first = index.clean_verdict(height, hashes[0], ignore=ignore)
+    first = verdicts.get(hashes[0]) or index.clean_verdict(height, hashes[0], ignore=ignore)
     return {
         "kind": "unavailability_cert",
         "height": int(height),
