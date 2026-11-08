@@ -191,10 +191,33 @@ def test_csp_report_legacy_envelope(client, caplog):
         "line_number": 123,
         "column_number": 4,
         "status_code": 200,
+        "sample": "private-test-value",
     }
     blob = events[0].getMessage() + repr(events[0].extra)
-    for leak in ("private-test-value", "password", "referrer", "script-sample", "original-policy"):
+    for leak in ("password", "referrer", "original-policy", "script-sample"):
         assert leak not in blob, f"collector leaked {leak}"
+
+
+def test_csp_report_sample_bounded_and_sanitized(client, caplog):
+    import logging
+
+    report = {
+        "csp-report": {
+            "document-uri": "https://viewer.invalid/a.html",
+            "effective-directive": "script-src-elem",
+            "blocked-uri": "inline",
+            "disposition": "enforce",
+            "script-sample": "x" * 41 + "\nforged-log-line\x00" + "y" * 40,
+        }
+    }
+    with caplog.at_level(logging.WARNING, logger="routers.csp"):
+        r = client.post("/api/csp-report", json=report, headers={"Content-Type": "application/csp-report"})
+    assert r.status_code == 204
+    events = _csp_events(caplog)
+    assert len(events) == 1
+    sample = events[0].extra["sample"]
+    assert sample == "x" * 40
+    assert "\n" not in sample and "\x00" not in sample
 
 
 def _modern_record(document_url=None, **body):
