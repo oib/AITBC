@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1518
+- **Markdown files under docs/**: 1519
 
 | Directory | Files | Description |
 |---|---|---|
@@ -78,7 +78,7 @@ docs/
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 30 | Deployment and infrastructure setup |
-| [design](design/) | 20 | Design documents and decisions |
+| [design](design/) | 21 | Design documents and decisions |
 | [development](development/) | 23 | Developer guides and workflow |
 | [features](features/) | 92 | Feature specifications and deep dives |
 | [getting-started](getting-started/) | 29 | New-user onboarding and setup |
@@ -920,7 +920,8 @@ Inbound markdown links per document (top referrers).
 | [design/DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md) | [README.md](README.md), [design/README.md](design/README.md) |
 | [design/README.md](design/README.md) | — |
 | [design/bridge-state-root-grandfathering.md](design/bridge-state-root-grandfathering.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md) |
-| [design/consensus-valve-justification-barrier.md](design/consensus-valve-justification-barrier.md) | [design/README.md](design/README.md) |
+| [design/consensus-valve-justification-barrier.md](design/consensus-valve-justification-barrier.md) | [design/README.md](design/README.md), [design/consensus-valve-uc-implementation-plan.md](design/consensus-valve-uc-implementation-plan.md) |
+| [design/consensus-valve-uc-implementation-plan.md](design/consensus-valve-uc-implementation-plan.md) | [design/README.md](design/README.md) |
 | [design/escrow-anomaly-remedies.md](design/escrow-anomaly-remedies.md) | [design/README.md](design/README.md), [design/v9-unsigned-protocol-transfers.md](design/v9-unsigned-protocol-transfers.md) |
 | [design/escrow-rebuild-from-chain.md](design/escrow-rebuild-from-chain.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md) |
 | [design/eth7-escrowed-sell-flow.md](design/eth7-escrowed-sell-flow.md) | [decisions/README.md](decisions/README.md), [design/README.md](design/README.md), [design/eth8-exchange-page.md](design/eth8-exchange-page.md) |
