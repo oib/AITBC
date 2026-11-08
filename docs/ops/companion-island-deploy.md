@@ -171,7 +171,9 @@ same `%N.env` mechanism) — derived from the stock units with:
   the island runs the same checkout; only env and ports differ.
 - Memory limits (hub1 constraint): node `MemoryHigh`/`MemoryMax` =
   `512M`, rpc `MemoryHigh`/`MemoryMax` = `256M` — deploy limits,
-  tighter than the stock units' 2G/512M.
+  tighter than the stock units' 2G/512M. (The rpc figure is superseded
+  for `rpc-island` by the #1296 sizing rule below — live drop-in is
+  `768M`/`1G`.)
 - **Sizing rule (#1296):** never copy memory limits from a stock unit
   template into an island unit without checking the working set — the
   pre-correction rpc template's `410M`/`512M` sat *below* the rpc
