@@ -1190,6 +1190,18 @@ class ChainSettings(BaseSettings):
     # disagreement between validators; a header from further ahead would
     # otherwise stay "fresh" for longer than the bound above.
     attestation_header_future_skew_seconds: float = 10.0
+    # #1298 FRESHHASH-RETRY-1: when a proposal fails its gates, the next
+    # retry at the same height reuses the failed block's timestamp (and thus
+    # its hash) while it is still inside the attestation-lock / header-age
+    # windows, instead of re-assembling with datetime.now() and producing a
+    # fresh hash every round. Attesters that already signed the first hash
+    # treat the retry as an idempotent re-publish inside the lock window;
+    # after the horizon the retry falls back to a fresh timestamp/hash, so a
+    # lapsed lock still forces the fresh-round path (never a timer-only
+    # unlock). Proposer-local retry policy: the sealed block, its hash and
+    # signature are identical either way, so replayed verdicts do not
+    # change. False restores the old fresh-timestamp-per-retry behaviour.
+    proposer_same_hash_retry_enabled: bool = True
     # #1268 Phase 1 (dual-seal prevention) -- every switch below defaults OFF;
     # off is byte-identical to the pre-#1268 behavior.
     #

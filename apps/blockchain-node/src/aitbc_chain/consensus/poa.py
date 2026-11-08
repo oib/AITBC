@@ -225,6 +225,10 @@ class PoAProposer:
         # keyed by proposal height — consumed by _record_proposal_vote,
         # the attest_request, and block_metadata.unlock_justification.
         self._unlock_justifications: dict[int, dict[str, Any]] = {}
+        # #1298: (height, timestamp, not_after_epoch) of the last assembled
+        # proposal, reused for same-hash retries while inside the
+        # attestation-lock/header-age horizon.
+        self._same_hash_retry: tuple[int, datetime, float] | None = None
         # Pre-proposal freshness gate (2026-09-27 stale-head fork fix). The
         # verdict is cached per local head for a few seconds — never carried
         # into a later round. _freshness_fetch/_monotonic exist so tests can
@@ -567,6 +571,7 @@ class PoAProposer:
         except (asyncio.TimeoutError, asyncio.CancelledError):
             self._logger.warning("PoA proposer loop did not stop within timeout")
         self._task = None
+        self._same_hash_retry = None
         if self._multi_validator is not None:
             self._multi_validator.save_state()
 
@@ -818,7 +823,7 @@ class PoAProposer:
             if resolved is None:
                 return False
             head, next_height, parent_hash, interval_seconds = resolved
-            timestamp = datetime.now(UTC)
+            timestamp = self._peek_same_hash_retry(next_height) or datetime.now(UTC)
             if session is not None:
                 # Journal every mutation this proposal makes so a later fork
                 # resolution can undo it — the same journal the import path keeps.
@@ -862,6 +867,7 @@ class PoAProposer:
             block, block_hash = self._assemble_proposal_block(
                 session, next_height, parent_hash, timestamp, processed_txs, proposer
             )
+            self._note_same_hash_retry(next_height, timestamp)
             self._logger.debug("[PROPOSE:%s] phase=assemble_block done %.3fs", chain, time.time() - _t3)
             # v0.7.2: sign the canonical block header here, before the gates —
             # the attest_request built inside _run_consensus_gates carries
@@ -1417,6 +1423,50 @@ class PoAProposer:
         """
         if vote_journal_enabled():
             get_vote_journal(self._config.chain_id).retract(next_height, proposer, block_hash)
+
+    def _same_hash_retry_horizon_seconds(self) -> float:
+        """Seconds a proposal timestamp stays reusable for same-hash retry.
+
+        #1298: bounded by the tighter of the attestation-lock window and the
+        signed-header max age, minus one gate cycle plus margin so the reused
+        block still reaches attesters inside both windows. 0 disables reuse.
+        """
+        lock = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        header = float(getattr(settings, "attestation_header_max_age_seconds", 60))
+        margin = 4.0 * float(getattr(settings, "multi_validator_attestation_timeout_seconds", 1.0)) + 8.0
+        return max(0.0, min(lock, header) - margin)
+
+    def _peek_same_hash_retry(self, next_height: int) -> datetime | None:
+        """The failed proposal's timestamp while its retry horizon holds.
+
+        Returns None (and drops the candidate) when the height moved on, the
+        horizon lapsed, or the feature flag is off — the caller then stamps a
+        fresh ``datetime.now(UTC)`` exactly as before #1298.
+        """
+        cand = self._same_hash_retry
+        if cand is None:
+            return None
+        height, timestamp, not_after = cand
+        if (
+            height != next_height
+            or time.time() >= not_after
+            or not getattr(settings, "proposer_same_hash_retry_enabled", True)
+        ):
+            self._same_hash_retry = None
+            return None
+        return timestamp
+
+    def _note_same_hash_retry(self, next_height: int, timestamp: datetime) -> None:
+        """Remember this proposal's timestamp so a gate-failed retry can reuse
+        the same hash while attesters' locks are still live."""
+        if not getattr(settings, "proposer_same_hash_retry_enabled", True):
+            self._same_hash_retry = None
+            return
+        horizon = self._same_hash_retry_horizon_seconds()
+        if horizon <= 0:
+            self._same_hash_retry = None
+            return
+        self._same_hash_retry = (next_height, timestamp, timestamp.timestamp() + horizon)
 
     def _resolve_proposal_head(self, session: Session) -> tuple[Block | None, int, str, float | None] | None:
         """Fetch the chain head and validate proposal freshness.
