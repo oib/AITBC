@@ -122,6 +122,16 @@ unlock_permitted = unfetchable_persists(T_evidence)
   T_evidence rather than evaluated once after 300 s).
 - `index_clean`: §1.2 verdict — no foreign attestations for `old_hash`,
   no request re-broadcasts, quiet window ≥ T_evidence.
+
+> **Respin amendment (h35 deadlock, #1281):** evaluation order is
+> quiet-hash → UC probe → full verdict re-check. Mesh visibility inside
+> `index_clean` is established by *authenticated UC probe responses*
+> (`note_actor` on verified responders), not solely by passive attest
+> traffic — the hold itself suppresses that traffic, so a passive-only
+> reading deadlocks on any total proposal-silence event. The quiet leg
+> stays passive and cheap: a hash with live attest traffic is never
+> probed. Post-probe the FULL predicate is re-evaluated — cert quorum
+> is not mesh visibility, and acquisition is not authorization.
 - `uc_valid`: ≥2 validator-signed unavailability responses for
   `(chain_id, height, old_hash, query_epoch)`.
 
