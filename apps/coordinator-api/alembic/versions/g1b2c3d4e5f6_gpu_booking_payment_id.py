@@ -13,7 +13,7 @@ for book_gpu holds, which keep the legacy job-linkage check.
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 revision: str = "g1b2c3d4e5f6"
 down_revision: str | Sequence[str] | None = "f5a6b7c8d9e0"
@@ -22,14 +22,19 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    if "gpu_bookings" not in inspector.get_table_names():
-        return
-    existing = {c["name"] for c in inspector.get_columns("gpu_bookings")}
+    if context.is_offline_mode():
+        # No database to inspect: emit the DDL unconditionally.
+        existing: set[str] = set()
+        indexes: set[str] = set()
+    else:
+        bind = op.get_bind()
+        inspector = sa.inspect(bind)
+        if "gpu_bookings" not in inspector.get_table_names():
+            return
+        existing = {c["name"] for c in inspector.get_columns("gpu_bookings")}
+        indexes = {idx["name"] for idx in inspector.get_indexes("gpu_bookings")}
     if "payment_id" not in existing:
         op.add_column("gpu_bookings", sa.Column("payment_id", sa.String(length=64), nullable=True))
-    indexes = {idx["name"] for idx in inspector.get_indexes("gpu_bookings")}
     if "ix_gpu_bookings_payment_id" not in indexes:
         op.create_index("ix_gpu_bookings_payment_id", "gpu_bookings", ["payment_id"], unique=False)
 

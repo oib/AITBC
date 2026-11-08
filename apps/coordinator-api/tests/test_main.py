@@ -57,20 +57,32 @@ def test_prometheus_relay_series_preinitialised():
     with ``pass`` must fail this test, and nothing here mutates the shared
     process registry.
     """
+    import os
     import subprocess
     import sys
+    from pathlib import Path
 
     probe = (
         "from prometheus_client import generate_latest\n"
         "from coordinator_api.contexts.payments.services import escrow_relay_metrics as m\n"
         "print(generate_latest().decode())\n"
     )
+    # pytest's pythonpath ini option does not propagate to subprocesses —
+    # pass the app src dirs explicitly or the probe cannot import
+    # coordinator_api.
+    src = Path(__file__).resolve().parent.parent / "src"
+    repo_root = Path(__file__).resolve().parents[3]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = f"{src}:{repo_root}"
+    env["AITBC_SKIP_ENV_FILES"] = "1"
+    env["TEST_MODE"] = "true"
     out = subprocess.run(
         [sys.executable, "-c", probe],
         check=True,
         capture_output=True,
         text=True,
         timeout=60,
+        env=env,
     ).stdout
     # Literal enumeration (not RELAYS×RESULTS) so a dropped enum entry cannot
     # shrink this expectation along with the init loop.
