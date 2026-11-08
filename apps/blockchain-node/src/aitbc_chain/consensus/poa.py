@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from .block_hash import compute_block_hash
 from .pbft import PBFTConsensus
 from .remote_attestation import RemoteAttestationService
-from .vote_fetch import kick_pull, locate_voted_block
+from .vote_fetch import contention_hold, kick_pull, locate_voted_block
 from .vote_journal import (
     KIND_PROPOSE,
     VoteJournalError,
@@ -1249,6 +1249,24 @@ class PoAProposer:
             return True
         unlock = float(getattr(settings, "vote_journal_unlock_seconds", 300.0))
         if all(valve_open(v, unlock) for v in votes):
+            # #1280: fresh contention evidence (a peer serving a different
+            # block at this height) suppresses the proposal too — delay only,
+            # capped, never a signature outside the journal/UC path.
+            hold = contention_hold(self._config.chain_id, next_height)
+            if hold is not None:
+                pull = self._sync_manager.pull_from_peer if self._sync_manager is not None else None
+                if hold.sealed and hold.base and getattr(settings, "vote_journal_sealed_rival_pull", False):
+                    kick_pull(pull, self._config.chain_id, hold.base)
+                    metrics_registry.increment("vote_journal_sealed_rival_pull_total")
+                metrics_registry.increment("vote_journal_contention_hold_total")
+                self._logger.warning(
+                    "[PROPOSE] Vote journal contention hold at height %s: peer serves rival %s "
+                    "(sealed=%s) — holding despite valve age",
+                    next_height,
+                    hold.rival_hash[:18],
+                    hold.sealed,
+                )
+                return True
             metrics_registry.increment("vote_journal_valve_opened_total")
             self._logger.warning(
                 "[PROPOSE] Vote journal valve opened at height %s: voted block unserved for over %.0fs — proposing",
