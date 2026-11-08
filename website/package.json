@@ -1,0 +1,14 @@
+{
+  "name": "@aitbc/website-static",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Unit tests for website/*.js (jsdom)",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "license": "MIT"
+}
