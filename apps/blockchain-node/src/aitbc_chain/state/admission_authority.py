@@ -25,9 +25,11 @@ from sqlmodel import Session
 
 from ..base_models import _to_ait_address
 from ..models import Account
+from .pure_state_transition import escrow_sweep_ceiling
 from .state_transition import (
     _authority_parameter_change_error,
     _escrow_address,
+    _escrow_fee_cap_bps,
     _escrow_fee_recipient,
     _escrow_obligation_state,
     _escrow_settlement_authority,
@@ -171,18 +173,22 @@ def sender_authority_error(
         if _to_ait_address(recipient or "") != fee_recipient:
             return f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {_to_ait_address(recipient or '')}"
         if block_version >= 23:
-            # v23 residue-only sweep bound — mirrors validate_transaction.
+            # v23 sweep bound (residue + governed fee allowance, #1261) —
+            # mirrors validate_transaction.
             job_id = (payload or {}).get("job_id", "") if isinstance(payload, dict) else ""
             if job_id:
-                obligation = _escrow_obligation_state(session, chain_id, job_id)
+                obligation = _escrow_obligation_state(
+                    session, chain_id, job_id, fee_cap_bps=_escrow_fee_cap_bps(session, chain_id, block_height)
+                )
                 if obligation["remaining"] is None:
                     return f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing"
                 escrow_account = session.get(Account, (chain_id, _escrow_address(job_id)))
                 custody = escrow_account.balance if escrow_account else 0
-                sweepable = custody - obligation["remaining"]
+                sweepable = escrow_sweep_ceiling(custody, obligation["remaining"], obligation["fee_allowance"])
                 if value > sweepable:
                     return (
-                        f"ESCROW_FEE_SWEEP for {job_id} exceeds residue {sweepable} "
-                        f"(custody {custody} - remaining obligation {obligation['remaining']})"
+                        f"ESCROW_FEE_SWEEP for {job_id} exceeds sweepable {sweepable} "
+                        f"(custody {custody}, remaining obligation {obligation['remaining']}, "
+                        f"fee allowance {obligation['fee_allowance']})"
                     )
     return None
