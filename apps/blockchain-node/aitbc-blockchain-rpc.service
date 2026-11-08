@@ -37,8 +37,10 @@ KillMode=mixed
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=BlockchainRPC
-MemoryHigh=410M
-MemoryMax=512M
+# Working set measures ~420-500M fleet-wide (#1296 audit); the old
+# 410M/512M pair sat below the working set and throttled permanently.
+MemoryHigh=768M
+MemoryMax=1G
 # Security hardening (v0.5.0)
 # Security hardening (v0.5.0)
 ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
