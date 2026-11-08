@@ -24,3 +24,7 @@ os.environ.setdefault("CHAIN_ID", "ait-testchain")
 _APP_ROOT = str(Path(__file__).resolve().parent.parent)
 if _APP_ROOT not in sys.path:
     sys.path.insert(0, _APP_ROOT)
+
+_TESTS_DIR = str(Path(__file__).resolve().parent)
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
