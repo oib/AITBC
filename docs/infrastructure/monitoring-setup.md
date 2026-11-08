@@ -361,6 +361,19 @@ sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-attestation-ar
 
 The service runs `ProtectSystem=strict` with `ReadOnlyPaths=/var/lib/aitbc` — verified to read a WAL-mode chain.db under that sandbox (the running node keeps the `-shm`/`-wal` pair present, which the read-only open needs). On a fresh chain nothing fires: streaks cannot reach 20 below ~h20 and `arrival_share` is 1.0 while everyone attests.
 
+## Island swarm probe (#1271)
+
+`IncusProxyProbeFailed`/`IncusProxyProbeSilent` watch the island IPFS perimeter — fresh dials to each member's public `:4002` must complete a real peering, or new swarm members are silently blackholed while existing peerings keep working. The island swarm is a libp2p **private network**: pnet auth precedes multistream, so unauthenticated TCP probes (the original blackbox_exporter `tcp_ipfs_libp2p` design) are accept-then-FIN rejected by design and could never measure these endpoints.
+
+The working probe is `aitbc-island-swarm-probe.timer` on **each island member**: every minute it runs `ipfs swarm connect` to every *other* member's public multiaddr (self-dial fails with "dial to self attempted", so the peer list excludes the local node) and writes `aitbc_island_swarm_probe_success{peer,instance}` + duration to the node_exporter textfile. Series reach hub over the member's `remote_write`. Per-host peers live in `/etc/aitbc/aitbc-island-swarm-probe.env` as `AITBC_ISLAND_SWARM_PROBE_PEERS="name=<multiaddr> ..."`; the script default covers the two-member bc-2 island.
+
+```bash
+sudo ln -sfn /opt/aitbc/scripts/monitoring/aitbc-island-swarm-probe.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now aitbc-island-swarm-probe.timer
+```
+
+Install only on hosts running `aitbc-island-ipfs.service` with a live repo — the probe needs the swarm key. A member without the timer simply contributes no series; `IncusProxyProbeSilent` fires only when *every* probing host is silent for 15m.
+
 ## Scrape configuration
 
 Prometheus scrapes only local targets — the shipped `/etc/prometheus/prometheus.yml` sample lists `localhost` jobs only. Remote series still reach the hub: every node's Prometheus pushes to hub over `remote_write` (hub runs `--web.enable-remote-write-receiver`), which is how the public alerts page shows a fleet-wide firing list and how the hub-side rules see follower series. The scrape list itself stays local:

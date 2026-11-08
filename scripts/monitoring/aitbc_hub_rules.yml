@@ -353,31 +353,32 @@ groups:
 
   - name: aitbc-incus-proxy-probe
     rules:
-      # IncusProxyProbeFailed: a blackbox probe of an incus perimeter proxy
-      # device is failing — fresh connections are refused or die instantly
-      # (the 13 Sep forkproxy wedge accepts then FINs without dialling the
-      # backend; existing relayed connections keep working, so the service
-      # can look healthy while new clients are blackholed). Connect-only
-      # — and send-only steps — would miss this, which is why every module
-      # in blackbox.yml reads bytes from the peer. Critical on the p2p/ipfs
-      # paths.
+      # IncusProxyProbeFailed: an island member's swarm-connect probe of a
+      # perimeter ipfs endpoint is failing — transport, pnet handshake,
+      # multistream or backend peering is broken for NEW dials (existing
+      # peerings keep working, so the swarm can look healthy while fresh
+      # joins are blackholed). The probe is `ipfs swarm connect` from a
+      # swarm-key holder (aitbc-island-swarm-probe.timer), NOT a blackbox
+      # TCP probe: the island swarm is a libp2p private network and
+      # rejects unauthenticated dials by design (#1271). Critical on the
+      # p2p/ipfs paths.
       - alert: IncusProxyProbeFailed
-        expr: probe_success{job="blackbox-incus-proxy"} == 0
+        expr: aitbc_island_swarm_probe_success == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Incus proxy probe failing for {{ $labels.device }} ({{ $labels.instance }})"
-          description: "The blackbox {{ $labels.module }} probe to {{ $labels.instance }} is failing — fresh connections to this incus proxy device die instantly or are refused (forkproxy wedge or dead backend). On the incus host: `incus config device list <instance>` and re-probe with `nc -vz`; the wedge is cleared by a proxy-device bounce (`incus config device remove`/`add` with the same props)."
+          summary: "Island swarm probe failing for {{ $labels.peer }} ({{ $labels.instance }})"
+          description: "ipfs swarm connect from a peer to {{ $labels.instance }} has been failing for 2m — fresh dials die before peering (edge filter, ipfs daemon down, or swarm-key rotation). Check aitbc-island-ipfs.service on the probing host and the target's :4002 listener."
 
-      # IncusProxyProbeSilent: the whole job's series are gone — scrape
-      # config dropped or the exporter stopped. The proxies keep working
-      # but the wedge watch is blind.
+      # IncusProxyProbeSilent: the whole probe's series are gone — the
+      # prober timer stopped or textfile collection broke. The swarm keeps
+      # working but the wedge watch is blind.
       - alert: IncusProxyProbeSilent
-        expr: absent(probe_success{job="blackbox-incus-proxy"})
+        expr: absent(aitbc_island_swarm_probe_success)
         for: 15m
         labels:
           severity: warning
         annotations:
-          summary: "No incus proxy probe results reaching Prometheus"
-          description: "probe_success{job=\"blackbox-incus-proxy\"} has no series for 15m — the blackbox scrape job or exporter is gone. Proxies still work but the wedge watch is blind; check the blackbox_exporter unit and the blackbox-incus-proxy job in prometheus.yml."
+          summary: "No island swarm probe results reaching Prometheus"
+          description: "aitbc_island_swarm_probe_success has no series for 15m — the aitbc-island-swarm-probe timer or node_exporter textfile path is gone on every probing host. Peers still work but the wedge watch is blind; check the timer and /var/lib/prometheus/node-exporter/aitbc_island_swarm_probe.prom."

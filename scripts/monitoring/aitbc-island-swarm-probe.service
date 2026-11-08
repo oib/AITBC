@@ -1,0 +1,37 @@
+[Unit]
+Description=AITBC island swarm peer probe for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=aitbc-island-ipfs.service
+
+[Service]
+Type=oneshot
+# The island swarm is a libp2p private network: only a swarm-key holder can
+# complete the handshake, so this probe must run on an island member with a
+# live aitbc-island-ipfs repo. Each member probes the OTHER members —
+# `ipfs swarm connect` to self fails with "dial to self attempted".
+# Deploy on every island member; AITBC_ISLAND_SWARM_PROBE_PEERS in
+# /etc/aitbc/aitbc-island-swarm-probe.env lists the remote peers to dial.
+Environment=AITBC_IPFS_PATH=/var/lib/aitbc/data/ipfs-island/bc-2-island
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+EnvironmentFile=-/etc/aitbc/aitbc-island-swarm-probe.env
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/island-swarm-probe-textfile.py
+SyslogIdentifier=aitbc-island-swarm-probe
+
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ReadOnlyPaths=/var/lib/aitbc
+
+# AITBC security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full

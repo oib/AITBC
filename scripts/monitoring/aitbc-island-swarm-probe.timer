@@ -1,0 +1,13 @@
+[Unit]
+Description=Probe island IPFS swarm peers every minute
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Persistent=false
+Unit=aitbc-island-swarm-probe.service
+
+[Install]
+WantedBy=timers.target
