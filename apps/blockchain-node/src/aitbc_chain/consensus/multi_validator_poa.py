@@ -744,6 +744,7 @@ class MultiValidatorPoA:
         proposer: str = "",
         attestations: list[dict] | None = None,
         justification: str | None = None,
+        persist: bool = True,
     ):
         """Record attestation equivocation on this chain's SlashingManager and persist (#1198/#1263).
 
@@ -752,6 +753,12 @@ class MultiValidatorPoA:
         ``ConsensusState.slashing_events_json``, and ``/slashing-history``.
         ``attestations`` carries the two signed attestation records when both
         signatures are retained — the material on-chain verification needs.
+
+        ``persist=False`` (#1278 fix) records in memory only; the caller owns
+        the later ``save_state()``. The proposer-side recorder runs while the
+        proposal's DB session holds the sqlite write lock, so a synchronous
+        save on its own connection would block the event loop for the busy
+        timeout.
         """
         event = self._slashing_manager.record_attestation_equivocation(
             validator_address=validator_address,
@@ -763,7 +770,8 @@ class MultiValidatorPoA:
             attestations=attestations,
             justification=justification,
         )
-        self.save_state()
+        if persist:
+            self.save_state()
         return event
 
     def get_state_snapshot(self) -> dict[str, Any]:
