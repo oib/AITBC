@@ -90,6 +90,68 @@
       },
       "addSupportedToken_exec": "0x3972e6ce463a13cc4f9328cb3a616d3624f6cdac49c0941f5f9b87c5b5d48ea7",
       "post_state": "validators() tuples confirmed for all three; supportedTokens(AIT) = supported/1e24/100/false; paused() still true; requestCounter = 0"
+    },
+    "deprecated": true,
+    "deprecated_reason": "superseded by SEPOLIA-REDEPLOY-2 (0x29D59bb1Ceb83A894Cc5a41dd99eb80f28A38ed9) before activation - pre-503e08e53 bytecode (constant quorum, no CONFIRMED exit). Safe-paused 2026-11-08 (exec 0xc9f60a2e30a2f96b3ef0a3df6186e659760e3fcd18bd70a6778c89bd183eb8f6), stays paused forever; requestCounter=0, holds nothing."
+  },
+
+  {
+    "contract": "CrossChainBridge",
+    "address": "0x29D59bb1Ceb83A894Cc5a41dd99eb80f28A38ed9",
+    "deployer": "0x5557810c5f7f9c6ae46664304C3B42b0bBA36961",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "feeRecipient": "0x5f659B20a89279c815B5b8b98b423E26E2737032",
+    "pausedAtDeploy": true,
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-08T18:10:00Z",
+    "txHash": "0x159fa503cdca090274d2006bccaedff70cde208879871f090753bbd0ac922858",
+    "note": "SEPOLIA-REDEPLOY-2 (#795). Carries 503e08e53 (owner-set requiredConfirmations + CONFIRMED-expiry exit) and d215d1a8c (lockTxHash agreement, MAX_BRIDGE_AMOUNT, fee-forfeit pin). Deployed paused; Safe-owned in-run. NOTE: deploy-bridge.js's transferOwnership tx under-gassed (17,466 gas) and reverted - ownership transferred via manual tx 0x675a8f657ea299d93c4520e9992ba16af6fd468b9a815cef4ad9718f74c18020; pause() itself succeeded (0x2093fab6771e62ab5a02fded924f49ff687a139b4ba52fc50a26c294f0948e28).",
+    "activated": {
+      "timestamp": "2026-11-08",
+      "safe_exec_nonces": "22-28 via Safe 0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7 (2-of-3 rehearsal signers)",
+      "pause_old_exec": "0xc9f60a2e30a2f96b3ef0a3df6186e659760e3fcd18bd70a6778c89bd183eb8f6",
+      "deploy_txs": {
+        "deploy": "0x159fa503cdca090274d2006bccaedff70cde208879871f090753bbd0ac922858",
+        "pause": "0x2093fab6771e62ab5a02fded924f49ff687a139b4ba52fc50a26c294f0948e28",
+        "transferOwnership_failed_underpriced": "0x8641daf092fd2a6630be1ab2a9bfbdf5455f4c15902bbbbbc2e5d0e7dfde9d60",
+        "transferOwnership": "0x675a8f657ea299d93c4520e9992ba16af6fd468b9a815cef4ad9718f74c18020"
+      },
+      "validators": [
+        "0x5f659B20a89279c815B5b8b98b423E26E2737032 (weight 1)",
+        "0xD7011e3E289b2E0B6cAD0B9A29Ce18B0290e3D3C (weight 1)",
+        "0x7bD563129Fe0822BB413b8C20Cdda1187a7091D2 (weight 1)"
+      ],
+      "addValidator_execs": [
+        "0x9f2ac53800f6797c53ee25b661e5ea27a30bb3fa619b27172ae51a39ffc1cff6",
+        "0xed193b17d38050c29177a172a9339a4d113c3b2d7ea3520c3128eb70e9f6318b",
+        "0x8f7f74703321845c3a17cf1df56c6b8933ac02618e086eac0274108929c495d3"
+      ],
+      "token": {
+        "contract": "AIToken (repo contracts/AIToken.sol)",
+        "address": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+        "bridgeLimit": "1000000 AIT (1e24)",
+        "feePercentage": "100 bps",
+        "requiresWhitelist": false
+      },
+      "addSupportedToken_exec": "0xc441ceebce5ce9293490330427f2859e150dd83d506f7eaced396a8f42e82721",
+      "setRequiredConfirmations_exec": "0x3e3cee1236b64975a691a16665094e69c8904e5befd2ead225b59628bfa0358e",
+      "quorum": "requiredConfirmations()=2 (ruled q=2)",
+      "unpause_exec": "0x6d924f72ec894b53d6d6c645003fa719360ff9f2bb04b1b5121ff5d8aae77618",
+      "cutover": "BRIDGE_CONTRACT_ADDRESS updated on hub + hub1 /etc/aitbc/aitbc-bridge-monitor.env 2026-11-08; aitbc-bridge-monitor restarted on hub (active), env updated on hub1 (service inactive)",
+      "smoke": {
+        "approve": "0x6192c4762bc1ac24b5e713d07b2449dd30c9aa70fbb26ffdfebb74d1b5b245a8",
+        "initiateBridge": "0xd54f5fc3b2a67191e5a3b8693be5e284c9d7625f268ce1240a5bff21e59b01ed",
+        "requestId": 1,
+        "amount": "1 AIT",
+        "lockTxHash": "0xd54f5fc3b2a67191e5a3b8693be5e284c9d7625f268ce1240a5bff21e59b01ed",
+        "confirm_execs": [
+          "0x375b88585db1ebf0c8b2cdae51099be3750b25e6ca1ea20196326b9e4a501ff3",
+          "0x431ca60b684a8b48c2d09e5681d34ff1e21727198481005264d3f8bbcbe80812"
+        ],
+        "status": "CONFIRMED at 2/2 confirmations - doubles as the 24h CONFIRMED-expiry live proof seed (cancelBridge eligible after confirmedAt + 24h, approx 2026-11-09T17:20Z)"
+      },
+      "post_state": "owner=Safe, paused=false, requestCounter=1 (the smoke request), requiredConfirmations=2, 3 validators w1, AIT supported 1e24/100bps/no-whitelist"
     }
   }
 ]
