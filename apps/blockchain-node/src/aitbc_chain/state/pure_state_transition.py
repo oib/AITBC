@@ -177,6 +177,28 @@ def _escrow_v2_release_refund_delta(
     )
 
 
+# v23 governed fee allowance (#1261). A normally settled escrow ends
+# lock L -> release ~97.5% L -> sweep ~2.5% L, and the chain records no fee split, so
+# the fee slice stays "remaining obligation" forever. The allowance lets the
+# settlement authority sweep up to ``escrow_fee_cap_bps`` of the locked amount
+# out of that slice. Consensus value, deliberately not an env setting: nodes
+# must agree, so an on-chain ``escrow_fee_cap_bps`` chain parameter overrides
+# this default.
+DEFAULT_ESCROW_FEE_CAP_BPS = 300
+MAX_ESCROW_FEE_CAP_BPS = 10_000
+
+
+def escrow_sweep_ceiling(custody: int, remaining: int, fee_allowance: int) -> int:
+    """Most an ESCROW_FEE_SWEEP may take from ``custody`` at v23.
+
+    Residue (custody beyond the remaining obligation) is always sweepable;
+    on top of that the governed fee allowance may eat into the obligation.
+    ``fee_allowance`` is 0 until the job has settled and shrinks by what was
+    already swept (see ``_escrow_obligation_state``).
+    """
+    return custody - max(0, remaining - fee_allowance)
+
+
 def _escrow_v23_release_obligation_error(
     context: dict[str, Any], job_id: str, value: int, tx_type: str, tx_hash: str
 ) -> str | None:
@@ -197,22 +219,25 @@ def _escrow_v23_release_obligation_error(
 def _escrow_v23_sweep_obligation_error(
     account_map: dict[str, Account], context: dict[str, Any], job_id: str, value: int, tx_hash: str
 ) -> str | None:
-    """v23 residue-only bound for ESCROW_FEE_SWEEP (pure path).
+    """v23 bound for ESCROW_FEE_SWEEP (pure path).
 
-    Mirrors ``validate_transaction``: the sweep may take custody minus the
-    job's remaining obligation, never the obligation itself.
+    Mirrors ``validate_transaction``: the sweep may take residue (custody minus
+    the job's remaining obligation) plus the governed fee allowance carried in
+    the context, never more of the obligation than that.
     """
     if "remaining_obligation" not in context or context.get("obligation_unbounded"):
         return f"ESCROW_FEE_SWEEP for {job_id} cannot verify escrow obligation — missing or unbounded context"
     remaining_obligation = context["remaining_obligation"]
     if remaining_obligation is None:
         return None
+    if "fee_allowance" not in context:
+        return f"ESCROW_FEE_SWEEP for {job_id} cannot verify fee allowance — missing context"
     escrow_addr = context.get("escrow_addr") or _escrow_address(job_id)
     escrow_account = account_map.get(escrow_addr)
     custody = escrow_account.balance if escrow_account else 0
-    sweepable = custody - remaining_obligation
+    sweepable = escrow_sweep_ceiling(custody, remaining_obligation, context["fee_allowance"])
     if value > sweepable:
-        return f"ESCROW_FEE_SWEEP for {job_id} exceeds residue {sweepable}"
+        return f"ESCROW_FEE_SWEEP for {job_id} exceeds sweepable {sweepable}"
     return None
 
 
