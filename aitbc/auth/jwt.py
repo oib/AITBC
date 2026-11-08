@@ -118,6 +118,19 @@ def _is_no_expiration() -> bool:
     return os.getenv("JWT_NO_EXPIRATION", "").lower() in ("1", "true", "yes")
 
 
+def _require_exp() -> bool:
+    """Whether exp-less tokens are rejected at verify time (#1185).
+
+    ``jwt.decode`` only validates ``exp`` when the claim is present, so
+    tokens minted under ``JWT_NO_EXPIRATION=1`` stay valid forever after
+    the mint-side flag flips. This verify-side gate is what actually gives
+    legacy tokens a death date. Arm it only together with expiry-enabled
+    minting — armed while ``JWT_NO_EXPIRATION`` is still set, every new
+    token lacks ``exp`` and is refused.
+    """
+    return os.getenv("JWT_REQUIRE_EXP", "").lower() in ("1", "true", "yes")
+
+
 def _get_expiry_hours() -> int:
     """Get token expiry hours from env or default (0 means no expiry)."""
     if _is_no_expiration():
@@ -313,6 +326,12 @@ class JWTAuth:
                 detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        if _require_exp() and "exp" not in payload:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         return payload
 
     def verify_token(self, token: str, required_role: str | None = None) -> dict[str, Any]:
@@ -483,6 +502,8 @@ class JWTHandler:
             return {"status": "error", "valid": False, "message": "Invalid token type"}
         if _iss_aud_rejection(payload) is not None:
             return {"status": "error", "valid": False, "message": "Invalid token issuer or audience"}
+        if _require_exp() and "exp" not in payload:
+            return {"status": "error", "valid": False, "message": "Invalid token"}
         return {"status": "success", "valid": True, "payload": payload}
 
     def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
