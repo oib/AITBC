@@ -3,8 +3,10 @@
 ``_strip_hop_by_hop`` used to pass a client's own ``X-Real-IP`` /
 ``X-Forwarded-For`` to the upstream verbatim, where the shared rate limiter
 trusted them (any loopback peer, i.e. the gateway, is a trusted proxy). The
-gateway now overwrites ``X-Real-IP`` with the address it observed and appends
-it to ``X-Forwarded-For`` (nginx ``$proxy_add_x_forwarded_for`` semantics).
+gateway now overwrites ``X-Real-IP`` with the address it observed and
+overwrites ``X-Forwarded-For`` with that same address — the client-supplied
+chain is dropped entirely (#1177 operator ruling: overwrite, never
+append/forward verbatim).
 """
 
 from __future__ import annotations
@@ -62,14 +64,47 @@ def test_rotating_headers_collapse_to_one_upstream_identity():
     assert keys == {"203.0.113.9"}
 
 
-def test_nginx_chain_keeps_the_real_client_and_appends():
-    """nginx -> gateway -> upstream: uvicorn --proxy-headers already resolved
-    the peer to the real client; the edge's XFF chain is kept and extended."""
+def test_nginx_chain_overwrites_with_the_observed_peer_only():
+    """#1177 (operator ruling): XFF is overwritten, never appended — the
+    client-supplied chain must not reach upstream even as non-rightmost
+    entries. uvicorn --proxy-headers already resolved the peer to the real
+    client, so the stamped value is that address alone."""
     edge = _request("198.51.100.4", {"X-Real-IP": "198.51.100.4", "X-Forwarded-For": "6.6.6.6, 198.51.100.4"})
     out = _forward(edge)
-    assert out["x-forwarded-for"] == "6.6.6.6, 198.51.100.4, 198.51.100.4"
+    assert out["x-forwarded-for"] == "198.51.100.4"
     assert out["x-real-ip"] == "198.51.100.4"
     assert _client_ip_for_rate_limit(_upstream_view(out)) == "198.51.100.4"
+
+
+def test_spoofed_chain_entries_never_reach_upstream():
+    """Every element of a forged XFF chain is dropped, not just the tail —
+    downstream readers that scan the whole header see only the peer."""
+    spoof = _request("203.0.113.9", {"X-Forwarded-For": "10.0.0.1, 192.168.1.1, 198.51.100.55"})
+    out = _forward(spoof)
+    assert out["x-forwarded-for"] == "203.0.113.9"
+    assert "198.51.100.55" not in out["x-forwarded-for"]
+
+
+def test_ws_upgrade_request_gets_the_same_stamp():
+    """WS cap pin (#1177): a websocket-upgrade-shaped request takes the same
+    proxy path, so the per-IP connection cap upstream keys on the stamped
+    peer — rotating spoofed headers cannot mint extra WS identities."""
+    ws = _request(
+        "203.0.113.9",
+        {
+            "X-Forwarded-For": "192.0.2.1",
+            "X-Real-IP": "192.0.2.1",
+            "Connection": "Upgrade",
+            "Upgrade": "websocket",
+        },
+    )
+    out = _forward(ws)
+    keys = {
+        _client_ip_for_rate_limit(_upstream_view(_forward(_request("203.0.113.9", {"X-Real-IP": f"192.0.2.{i}"}))))
+        for i in range(1, 50)
+    }
+    assert keys == {"203.0.113.9"}
+    assert out["x-real-ip"] == "203.0.113.9" and out["x-forwarded-for"] == "203.0.113.9"
 
 
 def test_no_incoming_xff_gets_a_single_observed_entry():
