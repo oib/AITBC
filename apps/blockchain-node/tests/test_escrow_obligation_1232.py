@@ -9,7 +9,8 @@ Custody balance is NOT settlement authorization. From
 
 ``ESCROW_RELEASE``/``ESCROW_REFUND`` may pay at most ``remaining`` —
 third-party transfers into the custody address never raise entitlement.
-``ESCROW_FEE_SWEEP`` may take only ``custody − remaining`` (residue).
+``ESCROW_FEE_SWEEP`` may take ``custody − remaining`` (residue) plus the
+governed fee allowance (#1261; see test_escrow_fee_allowance_1261).
 Locks/settlements with unparseable ``value`` fail closed as unbounded
 obligation; ambiguous multi-lock beneficiaries refuse rather than guess.
 
@@ -311,16 +312,18 @@ def test_v23_ambiguous_multi_lock_beneficiary_refused(funded):
 
 
 def test_v23_sweep_cannot_touch_locked_obligation(funded):
-    """Custody == obligation → residue 0 → any sweep refuses."""
+    """Custody == obligation and nothing settled → no residue and (#1261
+    settled>0 guard) no fee allowance → any sweep refuses."""
     _fund_lock(funded)
     ok, msg = _validate(funded, _sweep_tx(amount=1), "sweep-1")
     assert not ok
-    assert "exceeds residue 0" in msg
+    assert "exceeds sweepable 0" in msg
 
 
 def test_v23_sweep_takes_residue_only(funded):
     """After a partial release + third-party tip, sweep is bounded by
-    custody − remaining obligation."""
+    custody − remaining obligation (residue 50) plus the governed fee
+    allowance (#1261: 3% of the 100 lock = 3), so 53 is the ceiling."""
     escrow = _fund_lock(funded)
     rel = _release_tx(amount=60, nonce=0)
     ok, msg = _apply(funded, rel, "rel-s1")
@@ -328,13 +331,13 @@ def test_v23_sweep_takes_residue_only(funded):
     _seal_settlement(funded, rel, "rel-s1", 0)
     funded.get(Account, (CHAIN, escrow)).balance += 50  # tip
     funded.commit()
-    # custody 90, remaining obligation 40 → residue 50.
-    ok, msg = _validate(funded, _sweep_tx(amount=51, nonce=1), "sweep-51")
+    # custody 90, remaining obligation 40 → residue 50; allowance 3 → ceiling 53.
+    ok, msg = _validate(funded, _sweep_tx(amount=54, nonce=1), "sweep-54")
     assert not ok
-    assert "exceeds residue 50" in msg
+    assert "exceeds sweepable 53" in msg
     ok, msg = _apply(funded, _sweep_tx(amount=50, nonce=1), "sweep-50")
     assert ok, msg
-    assert _balance(funded, escrow) == 40  # obligation fully preserved
+    assert _balance(funded, escrow) == 40  # residue-only sweep leaves the obligation whole
 
 
 # ---------------------------------------------------------------------------
