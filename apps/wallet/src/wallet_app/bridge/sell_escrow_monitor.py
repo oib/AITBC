@@ -125,6 +125,7 @@ class SellConfig:
     max_payout_fraction: Decimal
     release_deadline_seconds: int
     orphan_blocks: int
+    sell_seal_depth: int
     quote_expiry_seconds: int
     poll_interval: int
 
@@ -191,6 +192,12 @@ def _sell_config() -> SellConfig:
         max_payout_fraction=_decimal_env("BRIDGE_MAX_PAYOUT_FRACTION", "0.5"),
         release_deadline_seconds=_positive_int_env("SELL_RELEASE_DEADLINE", "3600"),
         orphan_blocks=_positive_int_env("SELL_LOCK_ORPHAN_BLOCKS", "150"),
+        # #1269: AIT-side seal depth a sell lock must reach before the monitor
+        # spends anything on it (ETH release or AIT refund). Same convention as
+        # bridge_withdraw_monitor.WITHDRAW_SEAL_DEPTH: defaults to the
+        # deposit-side BRIDGE_CONFIRMATIONS (3); a tip-height lock can still
+        # reorg out, which would leave ETH released against un-sealed AIT.
+        sell_seal_depth=int(os.getenv("SELL_SEAL_DEPTH", os.getenv("BRIDGE_CONFIRMATIONS", "3"))),
         quote_expiry_seconds=_positive_int_env("SELL_QUOTE_EXPIRY_SECONDS", "900"),
         poll_interval=_positive_int_env("SELL_POLL_INTERVAL", "30"),
     )
@@ -1005,6 +1012,18 @@ async def _price_lock_eth_amount(cfg: SellConfig, row: dict[str, Any], quote: di
 async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
     """Admission path for a recorded lock: quote match → deadline →
     expiry/requote → feed freshness → caps → release."""
+    # #1269: seal-depth gate — nothing is spent (ETH release or AIT refund)
+    # until the inbound lock is buried SELL_SEAL_DEPTH blocks deep. A depth-0
+    # lock can still reorg out; the row stays 'locked' and is rechecked next
+    # poll. Head-fetch failure fails closed (skip this row this poll).
+    locked_height = row.get("locked_height")
+    try:
+        head = await _chain_height()
+    except Exception as e:  # noqa: BLE001 - height probe containment — release skipped
+        logger.error("Could not read chain height for seal-depth check on %s: %s", row["ait_tx_hash"], e)
+        return
+    if locked_height is None or head - int(locked_height) < cfg.sell_seal_depth:
+        return
     quote = get_sell_quote(str(row["quote_id"])) if row.get("quote_id") else None
     if quote is None or not _quote_admits_lock(row, quote):
         # No live quote — unmatched locks are orphan-refunded after the
