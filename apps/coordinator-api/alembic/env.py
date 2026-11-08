@@ -34,6 +34,18 @@ from coordinator_api.config import settings as app_settings
 try:
     import coordinator_api.main  # noqa: F401 - imports routers to populate metadata
     import coordinator_api.models.multitenant  # noqa: F401 - tenant tables are not reached via routers
+
+    # The analytics/certification/community/ecosystem routers were retired in
+    # #701, so main no longer imports their domains — but the migration graph
+    # still manages their 22 tables. Without these imports, autogenerate sees
+    # live tables as unknown and could propose DROP TABLE (#1299). Other
+    # context domains declare table=True models with no migration (dead
+    # schema); they stay unimported so autogenerate does not propose creating
+    # them either.
+    import coordinator_api.contexts.analytics.domain.analytics  # noqa: F401
+    import coordinator_api.contexts.certification.domain.certification  # noqa: F401
+    import coordinator_api.contexts.community.domain  # noqa: F401
+    import coordinator_api.contexts.ecosystem.domain  # noqa: F401
     from sqlmodel import SQLModel
 
     target_metadata = SQLModel.metadata
