@@ -336,7 +336,7 @@ def _server_level_text(text: str) -> str:
 # verbatim — a config sync that drops them fails the guard test.
 EXPECTED_SERVER_HEADERS = [
     'Referrer-Policy "strict-origin-when-cross-origin" always',
-    "Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report; report-to csp-endpoint\" always",
+    "Content-Security-Policy \"default-src 'self'; script-src 'self' 'report-sample'; style-src 'self' 'report-sample'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report; report-to csp-endpoint\" always",
     'Reporting-Endpoints "csp-endpoint=\\"/csp-report\\"" always',
     'Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always',
     'Strict-Transport-Security "max-age=31536000; includeSubDomains" always',
