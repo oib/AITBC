@@ -31,6 +31,16 @@ transactions_total = Counter("blockchain_transactions_total", "Total number of t
 # Sync Metrics
 sync_duration = Histogram("blockchain_sync_duration_seconds", "Time to sync blockchain", buckets=[1.0, 5.0, 10.0, 30.0, 60.0])
 
+# #1276: per-phase timing inside import_block/_append_block so slow imports
+# (>5s outliers on node1) can be attributed to a phase — signature
+# validation, db health check, block lookup, tx apply, or commit.
+sync_import_phase_seconds = Histogram(
+    "blockchain_sync_import_phase_seconds",
+    "Time spent in each phase of a block import",
+    labelnames=["phase"],
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0],
+)
+
 sync_blocks_imported = Counter("blockchain_sync_blocks_imported_total", "Total number of blocks imported during sync")
 
 sync_lag_blocks = Gauge(
