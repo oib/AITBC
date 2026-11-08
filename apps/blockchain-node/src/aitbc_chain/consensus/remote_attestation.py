@@ -556,6 +556,11 @@ class RemoteAttestationService:
         try:
             session_ctx = self._session_factory()
             with session_ctx as session:
+                from ..database import ensure_chain_db_healthy
+
+                db_ok, _ = ensure_chain_db_healthy(self._chain_id, session=session)
+                if not db_ok:
+                    return "db_corrupt"
                 # Column-only select: loading the Block ORM entity would
                 # eager-load its selectin relationships (transactions and
                 # receipts) and cost seconds per request on a slow host.

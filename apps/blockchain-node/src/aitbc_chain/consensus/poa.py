@@ -906,8 +906,17 @@ class PoAProposer:
         generation-mode empty-mempool gate is satisfied. Also starts a fresh
         per-block replay cache once the node is known to be running.
         """
+        from ..database import ensure_chain_db_healthy
         from ..mempool import get_mempool
 
+        db_ok, db_reason = ensure_chain_db_healthy(self._config.chain_id)
+        if not db_ok:
+            self._logger.error(
+                "[PROPOSE] Refusing block proposal on chain %s — chain.db integrity check failed: %s",
+                self._config.chain_id,
+                db_reason,
+            )
+            return None
         if not await self._ensure_synced_before_proposal():
             return None
         if self._stop_event.is_set():
@@ -1204,6 +1213,16 @@ class PoAProposer:
         configured block interval. The session is rolled back on the reapply
         failure path.
         """
+        from ..database import ensure_chain_db_healthy
+
+        db_ok, db_reason = ensure_chain_db_healthy(self._config.chain_id, session=session)
+        if not db_ok:
+            self._logger.error(
+                "[PROPOSE] Refusing block proposal on chain %s — chain.db integrity check failed: %s",
+                self._config.chain_id,
+                db_reason,
+            )
+            return None
         head = session.exec(
             select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
         ).first()

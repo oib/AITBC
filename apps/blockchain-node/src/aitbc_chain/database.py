@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -130,6 +131,175 @@ class ForeignChainDbError(PermissionError):
     ``init_db``/``create_ok``. A caller that genuinely needs an unlisted
     store passes ``allow_foreign=True``; one-off ops tools can set
     ``AITBC_DB_ALLOW_FOREIGN_CHAINS=1``."""
+
+
+class ChainDbCorruptError(RuntimeError):
+    """Raised when ``PRAGMA quick_check`` detects SQLite corruption on ``chain.db`` (#1265).
+
+    Startup (``init_db``) fails fast with this error so a node never boots onto
+    a silently corrupted store; mid-run periodic sampling logs CRITICAL, sets
+    ``chain_db_integrity_ok=0``, and quarantines the chain so block import,
+    block proposal, and attestation signing refuse further writes/endorsements.
+    """
+
+
+# #1265: per-chain integrity quarantine and periodic sampling timestamps.
+_corrupted_chains: dict[str, str] = {}
+_corrupted_identities: dict[str, str] = {}
+_last_integrity_check: dict[str, float] = {}
+_last_checked_identity: dict[str, str] = {}
+
+
+def _safe_chain_key(chain_id: str = "") -> str:
+    if chain_id and chain_id.strip():
+        return chain_id.strip()
+    try:
+        return resolve_chain_id(chain_id)
+    except Exception:
+        return settings.chain_id.strip() or "default"
+
+
+def _db_identity(key: str, engine: Engine | None = None, session: Session | None = None) -> str:
+    target = engine
+    if target is None and isinstance(session, Session):
+        try:
+            bind = session.get_bind()
+            return f"{getattr(bind, 'url', '')}:{id(bind)}"
+        except Exception:
+            target = None
+    if target is None:
+        target = _engines.get(key)
+    if target is not None:
+        return f"{target.url}:{id(target)}"
+    return str(settings.get_db_path(key))
+
+
+def is_chain_db_quarantined(chain_id: str = "") -> bool:
+    """Whether ``chain_id``'s SQLite store is quarantined due to failed integrity check."""
+    return _safe_chain_key(chain_id) in _corrupted_chains
+
+
+def chain_db_quarantine_reason(chain_id: str = "") -> str | None:
+    """Return the recorded corruption reason for ``chain_id``, or None if healthy."""
+    return _corrupted_chains.get(_safe_chain_key(chain_id))
+
+
+def clear_chain_db_quarantine(chain_id: str = "") -> None:
+    """Clear integrity quarantine and sampling state for ``chain_id`` (or all chains if empty)."""
+    if not chain_id:
+        _corrupted_chains.clear()
+        _corrupted_identities.clear()
+        _last_integrity_check.clear()
+        _last_checked_identity.clear()
+        return
+    key = _safe_chain_key(chain_id)
+    _corrupted_chains.pop(key, None)
+    _corrupted_identities.pop(key, None)
+    _last_integrity_check.pop(key, None)
+    _last_checked_identity.pop(key, None)
+
+
+def _record_integrity_verdict(key: str, identity: str, ok: bool, detail: str, *, raise_on_failure: bool) -> tuple[bool, str]:
+    from .metrics import metrics_registry
+
+    _last_integrity_check[key] = time.monotonic()
+    _last_checked_identity[key] = identity
+    metrics_registry.increment("chain_db_integrity_checks_total")
+    if ok:
+        _corrupted_chains.pop(key, None)
+        _corrupted_identities.pop(key, None)
+        metrics_registry.set_gauge("chain_db_integrity_ok", 1.0)
+        return (True, "ok")
+    _corrupted_chains[key] = detail
+    _corrupted_identities[key] = identity
+    metrics_registry.increment("chain_db_integrity_failures_total")
+    metrics_registry.set_gauge("chain_db_integrity_ok", 0.0)
+    logger.critical(
+        "CRITICAL: chain.db integrity check (PRAGMA quick_check) FAILED for chain %s: %s "
+        "— quarantining chain against block import, proposal, and attestation",
+        key,
+        detail,
+    )
+    if raise_on_failure:
+        raise ChainDbCorruptError(f"chain.db integrity check failed for {key}: {detail}")
+    return (False, detail)
+
+
+def _run_quick_check_rows(engine: Engine | None, session: Session | None) -> list[Any] | None:
+    if engine is not None:
+        with engine.connect() as conn:
+            return list(conn.execute(text("PRAGMA quick_check")).fetchall())
+    if isinstance(session, Session):
+        return list(session.execute(text("PRAGMA quick_check")).fetchall())
+    return None
+
+
+def verify_chain_db_integrity(
+    chain_id: str = "",
+    *,
+    engine: Engine | None = None,
+    session: Session | None = None,
+    raise_on_failure: bool = False,
+) -> tuple[bool, str]:
+    """Run ``PRAGMA quick_check`` on ``chain_id``'s SQLite store (#1265).
+
+    Returns ``(True, "ok")`` when all pages pass, or ``(False, detail)`` when
+    SQLite reports page/B-tree corruption or raises ``SQLAlchemyError``. Failed
+    stores are marked quarantined in ``_corrupted_chains`` and optionally raise
+    :class:`ChainDbCorruptError` (used by ``init_db`` for startup fail-fast).
+    """
+    key = _safe_chain_key(chain_id)
+    target_engine = engine if engine is not None else (_engines.get(key) if session is None else None)
+    identity = _db_identity(key, engine=target_engine, session=session)
+    try:
+        rows = _run_quick_check_rows(target_engine, session)
+    except Exception as exc:
+        return _record_integrity_verdict(key, identity, False, str(exc), raise_on_failure=raise_on_failure)
+    if rows is None:
+        return (True, "ok")
+    verdicts = [str(r[0]).strip() for r in rows if r]
+    if verdicts == ["ok"]:
+        return _record_integrity_verdict(key, identity, True, "ok", raise_on_failure=False)
+    detail = "; ".join(verdicts[:3]) if verdicts else "empty PRAGMA quick_check result"
+    return _record_integrity_verdict(key, identity, False, detail, raise_on_failure=raise_on_failure)
+
+
+def ensure_chain_db_healthy(
+    chain_id: str = "",
+    *,
+    engine: Engine | None = None,
+    session: Session | None = None,
+    force: bool = False,
+) -> tuple[bool, str]:
+    """Gate consensus/apply write paths on ``chain.db`` integrity (#1265).
+
+    - Returns ``(False, reason)`` immediately if ``chain_id`` is already
+      quarantined on the same DB identity (bumping
+      ``chain_db_quarantined_rejections_total``).
+    - Otherwise runs a periodic ``PRAGMA quick_check`` when ``force=True`` or
+      at least ``settings.db_integrity_check_interval_seconds`` have elapsed
+      since the last check on this store.
+    """
+    if not getattr(settings, "db_integrity_check_enabled", True):
+        return (True, "disabled")
+    from .metrics import metrics_registry
+
+    key = _safe_chain_key(chain_id)
+    target_engine = engine if engine is not None else (_engines.get(key) if session is None else None)
+    identity = _db_identity(key, engine=target_engine, session=session)
+    if key in _corrupted_chains and _corrupted_identities.get(key) == identity and not force:
+        metrics_registry.increment("chain_db_quarantined_rejections_total")
+        return (False, _corrupted_chains[key])
+    interval = float(getattr(settings, "db_integrity_check_interval_seconds", 60.0))
+    last = _last_integrity_check.get(key)
+    same_identity = _last_checked_identity.get(key) == identity
+    due = force or not same_identity or last is None or (interval > 0 and (time.monotonic() - last) >= interval)
+    if not due:
+        return (True, "ok")
+    ok, detail = verify_chain_db_integrity(key, engine=target_engine, session=session, raise_on_failure=False)
+    if not ok:
+        metrics_registry.increment("chain_db_quarantined_rejections_total")
+    return (ok, detail)
 
 
 # Chain ids this process materialized itself (init_db / create_ok callers)
@@ -674,6 +844,8 @@ def init_db(chain_id: str = "") -> None:
     # the chain is registered as this process's own — later opens of it are
     # never "foreign" (genesis for a not-yet-configured chain id included).
     engine = get_engine(resolved_chain_id, create_ok=True)
+    if getattr(settings, "db_integrity_check_enabled", True):
+        verify_chain_db_integrity(resolved_chain_id, engine=engine, raise_on_failure=True)
     _hold_keeper_connection(resolved_chain_id, engine)
 
     # No try/except here. This used to swallow anything whose message contained "already
@@ -732,6 +904,7 @@ def shutdown_db(chain_id: str = "") -> None:
 
     # Dispose of engine and cached session factory
     _release_keeper_connection(resolved_chain_id)
+    clear_chain_db_quarantine(resolved_chain_id)
     _session_factories.pop(resolved_chain_id, None)
     if resolved_chain_id in _engines:
         _engines[resolved_chain_id].dispose()
