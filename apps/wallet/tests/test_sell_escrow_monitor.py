@@ -396,6 +396,30 @@ class TestQuoteAndLockMatching:
         assert row["status"] == "released"
 
     @pytest.mark.asyncio
+    async def test_shallow_lock_waits_for_seal_depth(self, sell_env):
+        """#1269: a lock sealed fewer than SELL_SEAL_DEPTH blocks below head is
+        recorded but nothing is spent — no ETH send, no status change; the row
+        stays 'locked' and releases once deep enough."""
+        quote_id = _insert_quote()
+        # chain_height fixture = 1000; height=998 -> depth 2 < default 3.
+        sell_env["transfers"] = [_lock_tx(quote_id, height=998)]
+
+        result = await sellmon.poll_sells_once()
+        assert result["recorded"] == 1
+        assert sell_env["eth_sends"] == []
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "locked"
+        assert row["eth_tx_hash"] is None
+
+        # Three more blocks bury the lock -> next poll releases.
+        sell_env["chain_height"] = 1003
+        sell_env["transfers"] = []
+        await sellmon.poll_sells_once()
+        assert len(sell_env["eth_sends"]) == 1
+        row = get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)
+        assert row["status"] == "releasing"
+
+    @pytest.mark.asyncio
     async def test_lock_on_expired_quote_requotes(self, sell_env):
         quote_id = _insert_quote(expired=True)
         sell_env["transfers"] = [_lock_tx(quote_id)]
