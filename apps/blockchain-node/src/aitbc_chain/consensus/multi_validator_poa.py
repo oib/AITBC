@@ -382,10 +382,18 @@ class MultiValidatorPoA:
             return {"drafts": [], "skipped": [{"address": a, "reason": f"bond scan failed: {e}"} for a in self.validators]}
 
         deactivated = self._chain_deactivated_addresses(None)
+        # #1206: only evidence sealed at least ``finality_depth`` blocks deep
+        # may be cited — a reorg must not be able to invalidate the justification
+        # a drafted VALIDATOR_DEACTIVATE commits to. An unreadable head falls
+        # back to no cutoff (availability over silent correctness, same rule as
+        # _chain_deactivated_addresses).
+        head = self._current_head_height()
+        depth = int(getattr(settings, "consensus_slashing_evidence_finality_depth", 10))
+        evidence_cutoff = head - depth if head is not None else None
         drafts: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
         for addr, v in self.validators.items():
-            has_evidence = bool(self._slashing_manager.evidence_bundle(addr)["events"])
+            has_evidence = bool(self._slashing_manager.evidence_bundle(addr, max_block_height=evidence_cutoff)["events"])
             if v.is_active and not has_evidence:
                 continue
             canon = canonical_address(addr)
@@ -403,7 +411,7 @@ class MultiValidatorPoA:
                     "value": 0,
                     "payload": {
                         "validator_address": canon,
-                        "evidence_hash": self._slashing_manager.evidence_hash(addr),
+                        "evidence_hash": self._slashing_manager.evidence_hash(addr, max_block_height=evidence_cutoff),
                         "bond_id": bond.bond_id,
                     },
                 }
@@ -559,7 +567,16 @@ class MultiValidatorPoA:
 
         Scans both the prepare and commit vote stores (#1235) — equivocation
         in either phase is the same slashable offense.
+
+        #1206: every conflicting round is evaluated, not just the first —
+        ``rounds`` is insertion-ordered, so returning early re-found the
+        oldest recorded equivocation on every call and never reached newer
+        offenses (previously masked because ``apply_slashing`` re-appended
+        the same event and inflated the slash count). The dedup guard in
+        ``apply_slashing`` now makes re-scanning safe: an already-recorded
+        offense returns False without double-charging.
         """
+        detected = False
         for store in (self.prepare_messages, self.commit_messages):
             messages = store.get(validator)
             if not messages or len(messages) < 2:
@@ -574,36 +591,38 @@ class MultiValidatorPoA:
 
             # Byzantine if any round has multiple block hashes — slash the offender
             for round_num, block_hashes in rounds.items():
-                if len(block_hashes) > 1:
-                    hashes_list = list(block_hashes)
-                    event = self._slashing_manager.detect_double_sign(validator, hashes_list[0], hashes_list[1], round_num)
-                    if event is not None and validator in self.validators:
-                        self._slashing_manager.apply_slashing(self.validators[validator], event)
-                        # Deactivate validator once byzantine threshold is reached.
-                        # #1198: with chain slashing armed this write is
-                        # advisory-only — selection reads on-chain
-                        # validator_deactivation markers instead, so a
-                        # node-local flip here would reintroduce exactly the
-                        # divergence the row exists to remove.
-                        if (
-                            self._slashing_manager.get_validator_slash_count(validator, event.condition)
-                            >= settings.consensus_byzantine_threshold
-                        ):
-                            if self._chain_slashing_armed():
-                                logger.warning(
-                                    "Byzantine threshold reached for %s — advisory only "
-                                    "(CONSENSUS_CHAIN_SLASHING_ENABLED): submit a "
-                                    "VALIDATOR_DEACTIVATE tx to deactivate on-chain",
-                                    validator,
-                                )
-                            else:
-                                self.validators[validator].is_active = False
-                                # Persist the deactivation — a restart must not clear
-                                # a byzantine verdict and reset the slash history.
-                                self.save_state()
-                    return True
+                if len(block_hashes) <= 1:
+                    continue
+                detected = True
+                hashes_list = sorted(block_hashes, key=str.lower)
+                event = self._slashing_manager.detect_double_sign(validator, hashes_list[0], hashes_list[1], round_num)
+                if event is None or validator not in self.validators:
+                    continue
+                self._slashing_manager.apply_slashing(self.validators[validator], event)
+                # Deactivate validator once byzantine threshold is reached.
+                # #1198: with chain slashing armed this write is
+                # advisory-only — selection reads on-chain
+                # validator_deactivation markers instead, so a
+                # node-local flip here would reintroduce exactly the
+                # divergence the row exists to remove.
+                if (
+                    self._slashing_manager.get_validator_slash_count(validator, event.condition)
+                    >= settings.consensus_byzantine_threshold
+                ):
+                    if self._chain_slashing_armed():
+                        logger.warning(
+                            "Byzantine threshold reached for %s — advisory only "
+                            "(CONSENSUS_CHAIN_SLASHING_ENABLED): submit a "
+                            "VALIDATOR_DEACTIVATE tx to deactivate on-chain",
+                            validator,
+                        )
+                    else:
+                        self.validators[validator].is_active = False
+                        # Persist the deactivation — a restart must not clear
+                        # a byzantine verdict and reset the slash history.
+                        self.save_state()
 
-        return False
+        return detected
 
     def get_slashing_history(self):
         """Get slashing history (delegates to SlashingManager)"""
@@ -758,6 +777,9 @@ class MultiValidatorPoA:
                 "slash_rate": e.slash_rate,
                 "stake_before": None if e.stake_before is None else str(e.stake_before),
                 "slashed_amount": None if e.slashed_amount is None else str(e.slashed_amount),
+                "round_number": e.round_number,
+                "hash_a": e.hash_a,
+                "hash_b": e.hash_b,
             }
             for e in self._slashing_manager.get_slashing_history()
         ]
@@ -809,22 +831,57 @@ class MultiValidatorPoA:
         events = []
         for record in records:
             try:
+                evidence, round_number, hash_a, hash_b = MultiValidatorPoA._canonical_evidence_fields(record)
                 events.append(
                     SlashingEvent(
                         validator_address=record["validator_address"],
                         condition=SlashingCondition(record["condition"]),
-                        evidence=record.get("evidence", ""),
+                        evidence=evidence,
                         block_height=record.get("block_height", 0),
                         timestamp=record.get("timestamp", 0.0),
                         # legacy key first, since it is what old rows have
                         slash_rate=float(record.get("slash_rate", record.get("slash_amount", 0.0))),
                         stake_before=_decimal_or_none(record.get("stake_before")),
                         slashed_amount=_decimal_or_none(record.get("slashed_amount")),
+                        round_number=round_number,
+                        hash_a=hash_a,
+                        hash_b=hash_b,
                     )
                 )
             except (KeyError, ValueError) as e:
                 logger.warning("Skipping unreadable slashing record %s: %s", record, e)
         return events
+
+    @staticmethod
+    def _canonical_evidence_fields(record: dict[str, Any]) -> tuple[str, int | None, str, str]:
+        """Canonical equivocation fields for a persisted slashing record (#1206).
+
+        New records carry ``round_number``/``hash_a``/``hash_b`` directly. Legacy
+        ``attestation_equivocation`` records only have them inside the evidence
+        JSON — and possibly in observation order — so they are extracted and
+        re-serialized canonically (sorted hash pair) here, making pre-#1206
+        rows hash-identical to freshly recorded ones.
+        """
+        import json
+
+        evidence = record.get("evidence", "")
+        round_number = record.get("round_number")
+        hash_a = record.get("hash_a") or ""
+        hash_b = record.get("hash_b") or ""
+        try:
+            payload = json.loads(evidence) if isinstance(evidence, str) else None
+        except (TypeError, ValueError):
+            payload = None
+        if isinstance(payload, dict) and payload.get("kind") == "attestation_equivocation":
+            from .slashing import _sorted_hash_pair
+
+            a, b = _sorted_hash_pair(str(payload.get("block_hash_a") or ""), str(payload.get("block_hash_b") or ""))
+            payload["block_hash_a"], payload["block_hash_b"] = a, b
+            evidence = json.dumps(payload, sort_keys=True)
+            hash_a, hash_b = a, b
+            if round_number is None:
+                round_number = payload.get("round")
+        return evidence, round_number, hash_a, hash_b
 
     def deactivate_absent_from(self, env_addresses: set[str]) -> list[str]:
         """Mark validators missing from the env set inactive; return their addresses.
