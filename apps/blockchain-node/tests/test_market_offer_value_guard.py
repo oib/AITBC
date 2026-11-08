@@ -82,6 +82,11 @@ def _fake_session_and_mempool(account):
     def fake_session_scope(*_a, **_kw):
         session = MagicMock()
         session.get = MagicMock(return_value=account)
+        # Admission reads max(Block.height) via session.exec(...).first() to
+        # pick the state-transition version for the next height; a bare
+        # MagicMock makes `height >= threshold` raise TypeError. Height 0
+        # keeps every version gate inert so the offer path is what's tested.
+        session.exec.return_value.first.return_value = 0
         yield session
 
     mempool = MagicMock()
