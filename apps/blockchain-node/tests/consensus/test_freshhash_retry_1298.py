@@ -62,9 +62,6 @@ def _arm(monkeypatch, proposer, timestamps: list[datetime]) -> None:
     monkeypatch.setattr(proposer, "_assemble_proposal_block", _assemble)
     monkeypatch.setattr(proposer, "_sign_block_hash_for", lambda *_: "sig")
     monkeypatch.setattr(proposer, "_run_journaled_gates", _gates_failed)
-    # #1298 respin: the feature defaults OFF fleet-wide; pins that exercise
-    # the retry path enable it explicitly, the flag-off pin disables it.
-    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
 
 
 @pytest.mark.asyncio
@@ -75,6 +72,7 @@ async def test_gate_failure_retries_same_timestamp_within_horizon(monkeypatch):
     proposer = _proposer()
     timestamps: list[datetime] = []
     _arm(monkeypatch, proposer, timestamps)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
 
     assert await proposer._propose_block() is False
     assert await proposer._propose_block() is False
@@ -91,11 +89,13 @@ async def test_horizon_expiry_falls_back_to_fresh_timestamp(monkeypatch):
     proposer = _proposer()
     timestamps: list[datetime] = []
     _arm(monkeypatch, proposer, timestamps)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
 
     assert await proposer._propose_block() is False
     # Force the candidate past its horizon.
-    height, ts, _not_after = proposer._same_hash_retry
-    proposer._same_hash_retry = (height, ts, ts.timestamp() - 1.0)
+    cand = proposer._same_hash_retry
+    assert cand is not None
+    proposer._same_hash_retry = (cand[0], cand[1], cand[2], cand[2].timestamp() - 1.0, cand[4])
 
     assert await proposer._propose_block() is False
     assert timestamps[1] > timestamps[0], "expired horizon must produce a fresh timestamp"
@@ -120,6 +120,7 @@ async def test_height_change_drops_candidate(monkeypatch):
     proposer = _proposer()
     timestamps: list[datetime] = []
     _arm(monkeypatch, proposer, timestamps)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
 
     assert await proposer._propose_block() is False
     head = SimpleNamespace()
@@ -182,8 +183,8 @@ def test_zero_horizon_warns_once_and_disables(monkeypatch, caplog):
     monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
     proposer = _proposer()
     with caplog.at_level(logging.WARNING):
-        proposer._note_same_hash_retry(7, datetime.now(UTC))
-        proposer._note_same_hash_retry(7, datetime.now(UTC))
+        proposer._note_same_hash_retry(7, b"parent", datetime.now(UTC), ())
+        proposer._note_same_hash_retry(7, b"parent", datetime.now(UTC), ())
     assert proposer._same_hash_retry is None
     hits = [r for r in caplog.records if "same-hash retry horizon is 0" in r.getMessage()]
     assert len(hits) == 1
@@ -207,3 +208,67 @@ def test_default_is_disabled():
     via PROPOSER_SAME_HASH_RETRY_ENABLED until the AD design review clears
     default-on. Pin the default so it cannot silently flip back."""
     assert settings.proposer_same_hash_retry_enabled is False
+
+
+@pytest.mark.asyncio
+async def test_parent_change_at_same_height_drops_pin(monkeypatch):
+    """E c20975 probe: a same-height reorg (different parent_hash) must not
+    reuse the pinned timestamp — the assembled block would differ anyway,
+    and a pinned timestamp against a new parent is meaningless."""
+    proposer = _proposer()
+    timestamps: list[datetime] = []
+    _arm(monkeypatch, proposer, timestamps)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
+
+    assert await proposer._propose_block() is False
+    head = SimpleNamespace()
+    head.timestamp = datetime.now(UTC)
+    monkeypatch.setattr(proposer, "_resolve_proposal_head", lambda *_: (head, 7, b"other-parent", 1))
+
+    assert await proposer._propose_block() is False
+    assert timestamps[1] > timestamps[0], "pinned timestamp leaked across a parent change"
+
+
+@pytest.mark.asyncio
+async def test_tx_set_drift_stamps_fresh_timestamp(monkeypatch):
+    """E c20975 probe: if the drained tx set differs from the pinned
+    snapshot, the retry must stamp a FRESH timestamp — same timestamp with
+    a different tx set is a rival hash inside attesters' lock window."""
+    proposer = _proposer()
+    timestamps: list[datetime] = []
+    seen_txs: list[object] = []
+    _arm(monkeypatch, proposer, timestamps)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
+
+    def _assemble(_s, _h, _p, timestamp, txs, _pr):
+        timestamps.append(timestamp)
+        seen_txs.append(tuple(getattr(t, "tx_hash", t) for t in txs))
+        return SimpleNamespace(block_metadata=""), b"fake-block-hash"
+
+    monkeypatch.setattr(proposer, "_assemble_proposal_block", _assemble)
+    batches = iter(
+        [
+            [SimpleNamespace(tx_hash="a", content={})],
+            [SimpleNamespace(tx_hash="a", content={}), SimpleNamespace(tx_hash="b", content={})],
+        ]
+    )
+    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: (next(batches), {}, {}))
+    monkeypatch.setattr(proposer, "_process_proposal_txs", lambda _s, txs, *_a: (list(txs), set(), True))
+
+    assert await proposer._propose_block() is False
+    assert await proposer._propose_block() is False
+    assert not (timestamps[0] == timestamps[1] and seen_txs[0] != seen_txs[1]), "same timestamp with a different tx set"
+
+
+@pytest.mark.asyncio
+async def test_same_parent_and_tx_set_still_reuses(monkeypatch):
+    """Guard against an over-fix: identical parent + tx set + horizon must
+    still reuse the pinned timestamp across three failed proposals."""
+    proposer = _proposer()
+    timestamps: list[datetime] = []
+    _arm(monkeypatch, proposer, timestamps)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
+
+    for _ in range(3):
+        assert await proposer._propose_block() is False
+    assert timestamps[0] == timestamps[1] == timestamps[2]
