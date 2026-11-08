@@ -272,3 +272,32 @@ async def test_same_parent_and_tx_set_still_reuses(monkeypatch):
     for _ in range(3):
         assert await proposer._propose_block() is False
     assert timestamps[0] == timestamps[1] == timestamps[2]
+
+
+@pytest.mark.asyncio
+async def test_tx_drift_reselection_abort_is_safe(monkeypatch):
+    """E c20986: the least-tested path — tx drift forces a fresh timestamp
+    whose round may belong to another proposer. When re-selection finds no
+    local turn (or the journal holds), the attempt must abort cleanly."""
+    proposer = _proposer()
+    timestamps: list[datetime] = []
+    _arm(monkeypatch, proposer, timestamps)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
+
+    selections = iter([("0x" + "0" * 40, 0), ("0x" + "0" * 40, 0), None])
+    monkeypatch.setattr(proposer, "_select_round_proposer", lambda *_: next(selections))
+    batches = iter(
+        [
+            [SimpleNamespace(tx_hash="a", content={})],
+            [SimpleNamespace(tx_hash="a", content={}), SimpleNamespace(tx_hash="b", content={})],
+        ]
+    )
+    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: (next(batches), {}, {}))
+    monkeypatch.setattr(proposer, "_process_proposal_txs", lambda _s, txs, *_a: (list(txs), set(), True))
+
+    assert await proposer._propose_block() is False
+    # attempt 2: pinned-ts selection succeeds, tx drift forces fresh ts,
+    # re-selection finds no local turn -> clean abort before assemble.
+    assert await proposer._propose_block() is False
+    assert len(timestamps) == 1, "drift abort must happen before block assembly"
+    assert proposer._same_hash_retry is None, "drift must drop the pin"
