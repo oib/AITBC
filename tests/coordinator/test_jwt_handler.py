@@ -639,3 +639,61 @@ class TestJWTIssAudBinding:
         )
         with pytest.raises(HTTPException):
             auth.decode_token(foreign)
+
+
+class TestJWTRequireExp:
+    """#1185: JWT_REQUIRE_EXP=1 rejects tokens minted without an exp claim.
+
+    jwt.decode only validates exp when present, so exp-less tokens minted
+    under JWT_NO_EXPIRATION=1 survive the mint-side flip; this verify-side
+    gate is what retires them.
+    """
+
+    SECRET = "test_secret_key_for_testing_that_is_at_least_32_characters"
+
+    def _exp_less_token(self) -> str:
+        return jwt.encode({"sub": "u1", "role": "admin", "type": "access"}, self.SECRET, algorithm="HS256")
+
+    def test_flag_off_exp_less_token_still_validates(self, monkeypatch):
+        monkeypatch.delenv("JWT_REQUIRE_EXP", raising=False)
+        handler = JWTHandler(secret_key=self.SECRET)
+        assert handler.validate_token(self._exp_less_token())["valid"] is True
+        auth = JWTAuth(secret=self.SECRET)
+        assert auth.decode_token(self._exp_less_token())["sub"] == "u1"
+
+    def test_flag_on_exp_less_token_rejected_handler(self, monkeypatch):
+        monkeypatch.setenv("JWT_REQUIRE_EXP", "1")
+        handler = JWTHandler(secret_key=self.SECRET)
+        result = handler.validate_token(self._exp_less_token())
+        assert result["valid"] is False
+
+    def test_flag_on_exp_less_token_rejected_jwt_auth(self, monkeypatch):
+        monkeypatch.setenv("JWT_REQUIRE_EXP", "1")
+        auth = JWTAuth(secret=self.SECRET)
+        with pytest.raises(HTTPException):
+            auth.decode_token(self._exp_less_token())
+
+    def test_flag_on_exp_token_still_validates(self, monkeypatch):
+        monkeypatch.setenv("JWT_REQUIRE_EXP", "1")
+        handler = JWTHandler(secret_key=self.SECRET)
+        token = handler.generate_token({"sub": "u1", "role": "admin"})["token"]
+        assert handler.validate_token(token)["valid"] is True
+
+    def test_flag_on_refresh_token_with_exp_validates(self, monkeypatch):
+        monkeypatch.setenv("JWT_REQUIRE_EXP", "1")
+        handler = JWTHandler(secret_key=self.SECRET)
+        refresh = handler.generate_refresh_token({"sub": "u1", "role": "admin"})["refresh_token"]
+        assert handler.validate_token(refresh, expected_type="refresh")["valid"] is True
+        # ...but an exp-less refresh token is refused too.
+        legacy_refresh = jwt.encode({"sub": "u1", "role": "admin", "type": "refresh"}, self.SECRET, algorithm="HS256")
+        assert handler.validate_token(legacy_refresh, expected_type="refresh")["valid"] is False
+
+    def test_flag_armed_with_no_expiration_rejects_fresh_tokens(self, monkeypatch):
+        """Ordering guard: REQUIRE_EXP while NO_EXPIRATION is still set
+        refuses even freshly minted tokens — documents why the env flip
+        must remove JWT_NO_EXPIRATION in the same step."""
+        monkeypatch.setenv("JWT_REQUIRE_EXP", "1")
+        monkeypatch.setenv("JWT_NO_EXPIRATION", "1")
+        handler = JWTHandler(secret_key=self.SECRET)
+        token = handler.generate_token({"sub": "u1", "role": "admin"})["token"]
+        assert handler.validate_token(token)["valid"] is False
