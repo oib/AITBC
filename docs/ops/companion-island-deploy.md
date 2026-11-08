@@ -172,6 +172,15 @@ same `%N.env` mechanism) — derived from the stock units with:
 - Memory limits (hub1 constraint): node `MemoryHigh`/`MemoryMax` =
   `512M`, rpc `MemoryHigh`/`MemoryMax` = `256M` — deploy limits,
   tighter than the stock units' 2G/512M.
+- **Sizing rule (#1296):** never copy memory limits from a stock unit
+  template into an island unit without checking the working set — the
+  pre-correction rpc template's `410M`/`512M` sat *below* the rpc
+  working set (~420–500M fleet-wide) and throttled permanently
+  (#1290). Size `MemoryHigh` above the measured p95 working set with
+  ~50% headroom. Current evidence: island-rpc ~390–510M → `768M`/`1G`
+  (applied on node1 and hub1 via drop-in, #1296); island-node
+  ~190–230M → `512M`/`1G` is ample. hub1's smaller-VPS caps above are
+  a deliberate exception for the *node* unit only.
 - RPC unit binds `RPC_BIND_PORT=8302`; metrics exporter on the node
   unit reads `AITBC_NODE_METRICS_PORT=8309`; gossip endpoint **8370**
   — **deploy delta:** no dedicated 8370 listener was stood up. As
