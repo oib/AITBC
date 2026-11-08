@@ -32,6 +32,7 @@ from sqlmodel import Session
 from aitbc.crypto.consensus_signing import verify_consensus_message
 from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_address
 
+from ..consensus.equivocation_policy import pair_stands_as_evidence
 from ..consensus.slashing import SlashingCondition, SlashingEvent, SlashingManager
 
 EVIDENCE_VERSION = 2
@@ -181,6 +182,10 @@ def _verify_equivocations(events: list[SlashingEvent], validator_addr: str) -> s
         if ep is not None and kind == "attestation_equivocation":
             if not _verify_attestation_equivocation(ep, event, validator_addr):
                 return "attestation equivocation evidence failed signature verification"
+            if not pair_stands_as_evidence(ep):
+                # signatures verified, but the cross-round unlock carries an independently
+                # verifiable protocol proof (#1274): excused, not counted, bundle not failed
+                continue
             verified += 1
         elif ep is not None and kind == "vote_equivocation":
             if not _verify_vote_equivocation(ep, validator_addr):
