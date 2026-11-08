@@ -116,6 +116,7 @@ V9_METRIC_KNOWN_TX_TYPES = frozenset(
         "BOND_LOCK",
         "BOND_RELEASE",
         "BOND_SLASH",
+        "VALIDATOR_DEACTIVATE",
         "BOUNTY_LOCK",
         "BOUNTY_PAYOUT",
         "BOUNTY_REFUND",

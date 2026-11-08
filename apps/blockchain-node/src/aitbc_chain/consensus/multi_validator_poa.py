@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
 from ..models import Block
@@ -161,11 +162,18 @@ class MultiValidatorPoA:
         chain: the slot moves to the next validator in the same deterministic
         order.
         """
+        # A validator deactivated on-chain (#1198) is excluded from every
+        # selection/validation predicate below. Markers sealed in blocks at
+        # or below ``block_height - 1`` are in the parent state a proposal at
+        # ``block_height`` builds on, so they apply.
+        deactivated = self._chain_deactivated_addresses(block_height - 1)
         active_validators = sorted(
             (
                 v
                 for v in self.validators.values()
-                if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
+                if v.is_active
+                and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
+                and canonical_address(v.address) not in deactivated
             ),
             key=lambda v: v.address,
         )
@@ -191,6 +199,14 @@ class MultiValidatorPoA:
 
         validator = self.validators[proposer]
         if not validator.is_active:
+            return False
+        # #1198: an on-chain deactivation marker sealed before this block's
+        # parent excludes the proposer identically on every node. A missing
+        # height resolves to "all markers" — conservative toward exclusion.
+        block_height = block.height if isinstance(block.height, int) else None
+        if canonical_address(validator.address) in self._chain_deactivated_addresses(
+            block_height - 1 if block_height is not None else None
+        ):
             return False
 
         # Check if validator is allowed to propose
@@ -229,11 +245,169 @@ class MultiValidatorPoA:
 
     def get_consensus_participants(self) -> list[str]:
         """Get list of active consensus participants"""
+        deactivated = self._chain_deactivated_addresses(self._current_head_height())
         return [
             v.address
             for v in self.validators.values()
-            if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
+            if v.is_active
+            and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
+            and canonical_address(v.address) not in deactivated
         ]
+
+    # ─── #1198: consensus-visible slashing state ─────────────────
+
+    def _chain_slashing_armed(self) -> bool:
+        """Whether slash-driven deactivation reads chain state (default off)."""
+        return bool(getattr(settings, "consensus_chain_slashing_enabled", False))
+
+    def _current_head_height(self) -> int | None:
+        """Local chain tip height, or None when unreadable (treated as "no
+        markers yet" — the same view pre-#1198 nodes always had)."""
+        from sqlmodel import func, select
+
+        from ..database import session_scope
+
+        try:
+            with session_scope(self.chain_id) as session:
+                return session.exec(select(func.max(Block.height)).where(Block.chain_id == self.chain_id)).one()
+        except Exception as e:
+            logger.warning("Failed to read chain head for %s: %s", self.chain_id, e)
+            return None
+
+    def _chain_deactivated_addresses(self, upto_height: int | None) -> frozenset[str]:
+        """Validator addresses carrying an on-chain deactivation marker (#1198).
+
+        Markers with ``block_height <= upto_height`` apply; ``None`` means all
+        markers regardless of height (migration reporting). Returns empty when
+        the flag is off — callers then get byte-identical legacy behavior —
+        and on read failure (logged; availability over silent correctness,
+        the divergence report surfaces the gap).
+        """
+        if not self._chain_slashing_armed():
+            return frozenset()
+        from sqlmodel import select
+
+        from ..base_models import ValidatorDeactivation
+        from ..database import session_scope
+
+        try:
+            with session_scope(self.chain_id) as session:
+                rows = session.exec(
+                    select(ValidatorDeactivation.validator_address, ValidatorDeactivation.block_height).where(
+                        ValidatorDeactivation.chain_id == self.chain_id
+                    )
+                ).all()
+            # The table holds at most one row per validator — filter heights
+            # in Python rather than fighting SQLModel's Optional-column typing.
+            return frozenset(
+                canonical_address(addr)
+                for addr, height in rows
+                if upto_height is None or height is None or height <= upto_height
+            )
+        except Exception as e:
+            logger.error("Failed to read validator_deactivation for %s: %s", self.chain_id, e)
+            return frozenset()
+
+    def chain_slashing_divergence_report(self) -> list[dict[str, Any]]:
+        """Validators locally deactivated vs on-chain markers (#1198 migration).
+
+        One entry per ``is_active=False`` validator: ``on_chain_marker`` says
+        whether canonical chain state independently excludes it. Run at
+        flag-arming time; entries with ``on_chain_marker=False`` are the
+        locally-deactivated validators that need a drafted
+        ``VALIDATOR_DEACTIVATE`` or an explicit operator re-activation
+        decision — canonical state wins for selection either way.
+        """
+        deactivated = self._chain_deactivated_addresses(None)
+        return [
+            {
+                "address": addr,
+                "canonical_address": canonical_address(addr),
+                "on_chain_marker": canonical_address(addr) in deactivated,
+            }
+            for addr, v in self.validators.items()
+            if not v.is_active
+        ]
+
+    def _report_slashing_divergence(self) -> None:
+        """Log + count locally-deactivated validators lacking on-chain markers.
+
+        Runs once per ``load_state`` while ``CONSENSUS_CHAIN_SLASHING_ENABLED``
+        is armed: canonical chain state wins for selection immediately, so a
+        locally-deactivated validator without a marker re-enters the active
+        set — this report is the operator's list of who needs a drafted
+        ``VALIDATOR_DEACTIVATE`` (or an explicit re-activation decision)
+        before/just after arming.
+        """
+        from ..metrics import metrics_registry
+
+        try:
+            report = self.chain_slashing_divergence_report()
+        except Exception as e:
+            logger.warning("Slashing divergence report failed for %s: %s", self.chain_id, e)
+            return
+        for entry in report:
+            metrics_registry.increment("consensus_slashing_divergence_total")
+            logger.warning(
+                "Slashing divergence #%s: validator %s is locally deactivated but has %s on-chain marker",
+                self.chain_id,
+                entry["address"],
+                "an" if entry["on_chain_marker"] else "NO",
+            )
+
+    def draft_deactivation_txs(self) -> dict[str, list[dict[str, Any]]]:
+        """Draft ``VALIDATOR_DEACTIVATE`` txs for divergent validators (#1198).
+
+        Auto-draft half of the approved migration ordering: for every
+        locally-deactivated validator with no on-chain marker and an active
+        bond, emit a ready-to-sign payload (``validator_address``,
+        ``evidence_hash`` over its slashing history, ``bond_id``). Validators
+        without an active bond are listed under ``skipped`` — Q2: they cannot
+        be deactivated on-chain; env removal is their only recourse.
+        """
+        from sqlmodel import select
+
+        from ..base_models import Bond
+        from ..database import session_scope
+
+        # Bond.provider spellings vary (raw env vs EIP-55); compare canonical
+        # forms — same rule the apply-path bond gate uses.
+        provider_bonds: dict[str, Bond] = {}
+        try:
+            with session_scope(self.chain_id) as session:
+                for b in session.exec(select(Bond).where(Bond.chain_id == self.chain_id, Bond.status == "active")).all():
+                    provider_bonds.setdefault(canonical_address(b.provider), b)
+        except Exception as e:
+            logger.error("Bond scan failed drafting deactivations for %s: %s", self.chain_id, e)
+            return {"drafts": [], "skipped": [{"address": a, "reason": f"bond scan failed: {e}"} for a in self.validators]}
+
+        deactivated = self._chain_deactivated_addresses(None)
+        drafts: list[dict[str, Any]] = []
+        skipped: list[dict[str, Any]] = []
+        for addr, v in self.validators.items():
+            if v.is_active:
+                continue
+            canon = canonical_address(addr)
+            if canon in deactivated:
+                continue
+            entry = {"address": addr, "canonical_address": canon}
+            bond = provider_bonds.get(canon)
+            if bond is None:
+                skipped.append({**entry, "reason": "no active bond — cannot deactivate on-chain (Q2)"})
+                continue
+            drafts.append(
+                {
+                    **entry,
+                    "type": "VALIDATOR_DEACTIVATE",
+                    "value": 0,
+                    "payload": {
+                        "validator_address": canon,
+                        "evidence_hash": self._slashing_manager.evidence_hash(addr),
+                        "bond_id": bond.bond_id,
+                    },
+                }
+            )
+        return {"drafts": drafts, "skipped": skipped}
 
     def reload_state_if_anomalous(self) -> bool:
         """Sentinel re-read for the empty-active-view failure (#693).
@@ -404,15 +578,28 @@ class MultiValidatorPoA:
                     event = self._slashing_manager.detect_double_sign(validator, hashes_list[0], hashes_list[1], round_num)
                     if event is not None and validator in self.validators:
                         self._slashing_manager.apply_slashing(self.validators[validator], event)
-                        # Deactivate validator once byzantine threshold is reached
+                        # Deactivate validator once byzantine threshold is reached.
+                        # #1198: with chain slashing armed this write is
+                        # advisory-only — selection reads on-chain
+                        # validator_deactivation markers instead, so a
+                        # node-local flip here would reintroduce exactly the
+                        # divergence the row exists to remove.
                         if (
                             self._slashing_manager.get_validator_slash_count(validator, event.condition)
                             >= settings.consensus_byzantine_threshold
                         ):
-                            self.validators[validator].is_active = False
-                            # Persist the deactivation — a restart must not clear
-                            # a byzantine verdict and reset the slash history.
-                            self.save_state()
+                            if self._chain_slashing_armed():
+                                logger.warning(
+                                    "Byzantine threshold reached for %s — advisory only "
+                                    "(CONSENSUS_CHAIN_SLASHING_ENABLED): submit a "
+                                    "VALIDATOR_DEACTIVATE tx to deactivate on-chain",
+                                    validator,
+                                )
+                            else:
+                                self.validators[validator].is_active = False
+                                # Persist the deactivation — a restart must not clear
+                                # a byzantine verdict and reset the slash history.
+                                self.save_state()
                     return True
 
         return False
@@ -698,6 +885,8 @@ class MultiValidatorPoA:
                 self._slashing_manager.slashing_events = self._parse_slashing_events(
                     json.loads(row.slashing_events_json) if row.slashing_events_json else []
                 )
+            if self._chain_slashing_armed():
+                self._report_slashing_divergence()
             return True
         except Exception as e:
             logger.error("Failed to load consensus state for %s: %s", self.chain_id, e)

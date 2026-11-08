@@ -162,6 +162,7 @@ def _seed_common(session: Session) -> None:
         ("bridge_release_authority", AUTH),
         ("governance_executors", AUTH),
         ("bond_slash_authority", AUTH),
+        ("validator_deactivation_authority", AUTH),
     ):
         session.add(ChainParameter(chain_id=CHAIN, parameter=name, value=value, applied_height=None))
     session.add(
@@ -519,6 +520,22 @@ def _cases() -> list[dict[str, Any]]:
         "bond_slash",
         lambda: _tx(
             AUTH, _BOND_BURN_ADDRESS, 0, "BOND_SLASH", {"bond_id": "bond-par-1", "provider": PROVIDER, "amount": 2000}
+        ),
+        AUTH_KEY,
+        seeds=(_seed_bond,),
+    )
+    add(
+        "validator_deactivate",
+        lambda: _tx(
+            AUTH,
+            AUTH,
+            0,
+            "VALIDATOR_DEACTIVATE",
+            {
+                "validator_address": PROVIDER,
+                "evidence_hash": _hash("vd-evidence"),
+                "bond_id": "bond-par-1",
+            },
         ),
         AUTH_KEY,
         seeds=(_seed_bond,),
