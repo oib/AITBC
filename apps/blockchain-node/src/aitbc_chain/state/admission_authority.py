@@ -65,6 +65,10 @@ AUTHORITY_OPEN_TX_TYPES = frozenset(
         "BOND_LOCK",
         "BOND_RELEASE",
         "BOND_SLASH",
+        # #1198: same apply-time authority/bond skip contract as BOND_SLASH —
+        # _handle_validator_deactivation checks validator_deactivation_authority
+        # at apply (fee/nonce still apply on skip), not in validate_transaction.
+        "VALIDATOR_DEACTIVATE",
         "BOUNTY_LOCK",
         "BOUNTY_PAYOUT",
         "BOUNTY_REFUND",

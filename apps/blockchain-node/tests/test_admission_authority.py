@@ -335,6 +335,10 @@ def test_every_known_type_has_a_sender_authority_class() -> None:
     unknown = sorted(set(seen) - V9_METRIC_KNOWN_TX_TYPES)
     assert not unclassified, f"types with no sender-authority class: {unclassified}"
     assert not unknown, f"classified names that are not transaction types: {unknown}"
+    # #1264 / #1198: VALIDATOR_DEACTIVATE shares BOND_SLASH's apply-time
+    # authority-skip contract (not a validate_transaction sender gate), so it
+    # must sit in AUTHORITY_OPEN_TX_TYPES alongside BOND_SLASH.
+    assert seen["VALIDATOR_DEACTIVATE"] == seen["BOND_SLASH"] == "open"
 
 
 @pytest.mark.parametrize("tx_type", sorted(AUTHORITY_GATED_TYPES))
