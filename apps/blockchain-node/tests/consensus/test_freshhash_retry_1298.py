@@ -62,6 +62,9 @@ def _arm(monkeypatch, proposer, timestamps: list[datetime]) -> None:
     monkeypatch.setattr(proposer, "_assemble_proposal_block", _assemble)
     monkeypatch.setattr(proposer, "_sign_block_hash_for", lambda *_: "sig")
     monkeypatch.setattr(proposer, "_run_journaled_gates", _gates_failed)
+    # #1298 respin: the feature defaults OFF fleet-wide; pins that exercise
+    # the retry path enable it explicitly, the flag-off pin disables it.
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
 
 
 @pytest.mark.asyncio
@@ -176,6 +179,7 @@ def test_zero_horizon_warns_once_and_disables(monkeypatch, caplog):
     import logging
 
     monkeypatch.setattr(settings, "multi_validator_attestation_timeout_seconds", 120.0)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_enabled", True)
     proposer = _proposer()
     with caplog.at_level(logging.WARNING):
         proposer._note_same_hash_retry(7, datetime.now(UTC))
@@ -196,3 +200,10 @@ def test_fleet_values_horizon_is_33s(monkeypatch):
     monkeypatch.setattr(settings, "proposer_same_hash_retry_margin_seconds", 12.0)
     proposer = _proposer()
     assert proposer._same_hash_retry_horizon_seconds() == pytest.approx(33.0)
+
+
+def test_default_is_disabled():
+    """Operator ruling: same-hash retry ships default-OFF; deployments opt in
+    via PROPOSER_SAME_HASH_RETRY_ENABLED until the AD design review clears
+    default-on. Pin the default so it cannot silently flip back."""
+    assert settings.proposer_same_hash_retry_enabled is False
