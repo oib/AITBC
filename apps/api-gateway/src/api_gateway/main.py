@@ -554,9 +554,10 @@ def _stamp_forwarding_headers(headers: dict[str, str], request: Request) -> None
     ``X-Real-IP`` is overwritten with the address this gateway observed
     (``request.client.host`` — the TCP peer, or the real client when
     uvicorn's trusted-peer ``--proxy-headers`` handling already resolved it
-    from the edge nginx). ``X-Forwarded-For`` keeps the incoming chain and
-    appends that address, nginx's ``$proxy_add_x_forwarded_for`` semantics,
-    so the right-most entry is always one this hop vouches for. A
+    from the edge nginx). ``X-Forwarded-For`` is overwritten with that same
+    address: the client-supplied chain is dropped entirely rather than
+    appended to, so no spoofed entry ever reaches the upstream (#1177 —
+    operator ruling: overwrite, never append/forward verbatim). A
     client-supplied value of either header is never forwarded as is, which
     is what let a caller pick its own upstream rate-limit identity.
     """
@@ -566,8 +567,7 @@ def _stamp_forwarding_headers(headers: dict[str, str], request: Request) -> None
     if not peer:
         return
     headers["x-real-ip"] = peer
-    incoming = request.headers.get("x-forwarded-for", "").strip()
-    headers["x-forwarded-for"] = f"{incoming}, {peer}" if incoming else peer
+    headers["x-forwarded-for"] = peer
 
 
 def _upstream_headers(response: httpx.Response) -> dict[str, str]:
