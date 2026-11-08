@@ -28,6 +28,13 @@ from aitbc_chain.metrics import metrics_registry
 
 
 @pytest.fixture(autouse=True)
+def _default_chain_is_test_chain(monkeypatch):
+    # #1260: untagged peers serve settings.chain_id; the proposer under test
+    # uses chain_id="test-chain", so pin the default to match.
+    monkeypatch.setattr(settings, "chain_id", "test-chain")
+
+
+@pytest.fixture(autouse=True)
 def _reset_metrics():
     metrics_registry.reset()
     yield

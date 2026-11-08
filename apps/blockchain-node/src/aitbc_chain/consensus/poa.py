@@ -224,6 +224,8 @@ class PoAProposer:
         self._freshness_pulls: dict[str, int] = {}
         # peer base -> monotonic deadline it is quarantined from the ahead check
         self._freshness_quarantined: dict[str, float] = {}
+        # gate name -> last head key / height we warned about having no peers (#1260)
+        self._no_peers_warned: dict[str, Any] = {}
         if self._multi_validator is not None:
             self._load_validator_set()
             self._load_validator_keys()
@@ -954,10 +956,18 @@ class PoAProposer:
             return True
         if not getattr(settings, "proposal_freshness_check_enabled", True):
             return True
-        peer_urls = settings.mesh_peer_url_list()
-        if not peer_urls:
-            return True
         key = (head.height if head is not None else -1, head.hash if head is not None and head.hash else "")
+        peer_urls = settings.mesh_peer_urls_for_service(self._config.chain_id)
+        if not peer_urls:
+            if self._config.chain_id != settings.chain_id and self._no_peers_warned.get("freshness") != key:
+                self._no_peers_warned["freshness"] = key
+                metrics_registry.increment("proposal_freshness_no_peers_total")
+                self._logger.warning(
+                    "[PROPOSE] freshness gate has no peers for chain %s — only chain-tagged "
+                    "GOSSIP_MESH_PEER_URLS entries reach it; proposing unverified",
+                    self._config.chain_id,
+                )
+            return True
         now = self._monotonic()
         if self._freshness_cache_key == key and now < self._freshness_cache_expires:
             return self._freshness_cache_ok
@@ -1126,8 +1136,22 @@ class PoAProposer:
 
         from .proposal_freshness import peer_base_url
 
+        peer_urls = settings.mesh_peer_urls_for_service(self._config.chain_id)
+        if (
+            not peer_urls
+            and self._config.chain_id != settings.chain_id
+            and self._no_peers_warned.get("attlock") != next_height
+        ):
+            self._no_peers_warned["attlock"] = next_height
+            metrics_registry.increment("poa_attestation_lock_no_peers_total")
+            self._logger.warning(
+                "[PROPOSE] attestation-lock peer scan has no peers for chain %s — only "
+                "chain-tagged GOSSIP_MESH_PEER_URLS entries reach it; cannot fetch the "
+                "attested block from a peer",
+                self._config.chain_id,
+            )
         bases: list[str] = []
-        for u in settings.mesh_peer_url_list():
+        for u in peer_urls:
             if u.startswith(("http://", "https://")):
                 bases.append(u)
             else:
