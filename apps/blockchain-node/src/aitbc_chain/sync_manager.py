@@ -410,7 +410,13 @@ class SyncManager:
                     reason="Block already imported (dedup)",
                 )
 
-            result = state.chain_sync.import_block(
+            # #1290: import_block is synchronous sqlite work (validation,
+            # state-root check, transaction apply). Run it on a worker thread
+            # like the bridge finalizer — inline it stalled the event loop for
+            # the whole busy_timeout under write-lock contention (node1,
+            # #1290: keepalive timeouts + dropped bridge header batches).
+            result = await asyncio.to_thread(
+                state.chain_sync.import_block,
                 block_data,
                 transactions=block_data.get("transactions"),
                 skip_state_root_validation=not settings.sync_state_root_validation_enabled,
