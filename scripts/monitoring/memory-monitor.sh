@@ -15,6 +15,13 @@ TEXTFILE_DIR="${AITBC_TEXTFILE_DIR:-/var/lib/prometheus/node-exporter}"
 # Previous-run oom_kill counts, so the log line distinguishes a NEW kill from
 # the cumulative-since-boot counter. Lives under the same writable log dir.
 STATE_FILE="${AITBC_MEMMON_STATE:-$(dirname "$LOG_FILE")/memory-monitor.oom-state}"
+# Sustained-pressure watchdog (#1267): usage above SUSTAINED_PCT of a unit's
+# MemoryMax for SUSTAINED_RUNS consecutive runs raises an ALERT. Sawtooth
+# peaks are normal for this workload -- only persistence across runs is the
+# stall precursor signal. Alert-only; never restarts or fails the unit.
+SUSTAINED_PCT=85
+SUSTAINED_RUNS=3
+PRESSURE_STATE_FILE="${AITBC_MEMMON_PRESSURE_STATE:-$(dirname "$LOG_FILE")/memory-monitor.pressure-state}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -71,6 +78,14 @@ check_service_memory() {
         | awk '{n=($1=="●")?$2:$1; if(n~/\.service$/) print n}')
     local alert_count=0
 
+    # Restore consecutive-run pressure counters from the previous run.
+    local -A pressure_counts=()
+    if [ -r "$PRESSURE_STATE_FILE" ]; then
+        while read -r psvc pcnt; do
+            [[ "$pcnt" =~ ^[0-9]+$ ]] && pressure_counts["$psvc"]=$pcnt
+        done < "$PRESSURE_STATE_FILE"
+    fi
+
     for service in $services; do
         local memory_current memory_max memory_limit
         memory_current=$(systemctl show "$service" -p MemoryCurrent --value)
@@ -117,10 +132,30 @@ check_service_memory() {
             else
                 echo "OK: $service - ${memory_current_mb}MB/${memory_limit_mb}MB (${usage_percent}%)"
             fi
+            # Sustained-pressure watchdog: count consecutive runs above
+            # SUSTAINED_PCT; ALERT once when the streak reaches SUSTAINED_RUNS.
+            if [ $usage_percent -ge "$SUSTAINED_PCT" ]; then
+                pressure_counts["$service"]=$((${pressure_counts["$service"]:-0} + 1))
+                if [ "${pressure_counts["$service"]}" -eq "$SUSTAINED_RUNS" ]; then
+                    echo -e "${RED}ALERT: $service sustained memory pressure ${usage_percent}% for ${SUSTAINED_RUNS} consecutive runs (${memory_current_mb}MB/${memory_limit_mb}MB)${NC}"
+                    log_message "ALERT" "$service sustained memory pressure ${usage_percent}% for ${SUSTAINED_RUNS} consecutive runs (${memory_current_mb}MB/${memory_limit_mb}MB)"
+                fi
+            else
+                pressure_counts["$service"]=0
+            fi
         else
             echo "OK: $service - ${memory_current_mb}MB (no limit)"
         fi
     done
+
+    # Persist pressure streaks for the next run (temp-then-rename).
+    local ptmp
+    if ptmp=$(mktemp "$(dirname "$PRESSURE_STATE_FILE")/.pressure.XXXXXX" 2>/dev/null); then
+        for psvc in "${!pressure_counts[@]}"; do
+            echo "$psvc ${pressure_counts[$psvc]}"
+        done > "$ptmp"
+        mv -f "$ptmp" "$PRESSURE_STATE_FILE" 2>/dev/null || rm -f "$ptmp"
+    fi
 
     # Usage alerts are reported but never fail the unit -- see above.
     return 0

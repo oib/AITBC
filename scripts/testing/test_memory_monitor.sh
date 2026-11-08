@@ -90,6 +90,58 @@ check "all-[not set] unit reported SKIPPED"        bash -c "grep -q 'SKIPPED: ai
 check "numeric limit reports computed percent"     bash -c "grep -q 'aitbc-good.service - 256MB/512MB (50%)' '$SBX/run.out'"
 check "infinity limit reported as no limit"        bash -c "grep -q 'aitbc-infinity.service - 1MB (no limit)' '$SBX/run.out'"
 
+# --- Sustained-pressure watchdog (#1267): >85% of MemoryMax for 3 consecutive
+# runs must ALERT once; a unit that drops below resets its streak.
+echo "== sustained-pressure watchdog =="
+echo 486539264   > "$MM_STATE/aitbc-hot.service.MemoryCurrent"  # 464 MB
+echo 536870912   > "$MM_STATE/aitbc-hot.service.MemoryMax"      # 512 MB -> 90%
+# add the hot unit to the stub's list-units output
+cat > "$STUB_BIN/systemctl" <<'EOF'
+#!/bin/bash
+echo "systemctl $*" >> "$STUB_LOG"
+cmd="${1:-}"; shift || true
+case "$cmd" in
+    list-units)
+        cat <<UNITS
+aitbc-hot.service       loaded active running hot
+aitbc-good.service      loaded active running good
+UNITS
+        ;;
+    show)
+        unit=""; prop=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -p)       prop="$2"; shift 2 ;;
+                --value)  shift ;;
+                *)        unit="$1"; shift ;;
+            esac
+        done
+        f="$MM_STATE/$unit.$prop"
+        if [ -f "$f" ]; then cat "$f"; else echo "[not set]"; fi
+        ;;
+    *)  exit 0 ;;
+esac
+EOF
+chmod +x "$STUB_BIN/systemctl"
+PSTATE="$SBX/pressure-state"
+PLOG="$SBX/memmon-pressure.log"
+for run in 1 2 3; do
+    PATH="$STUB_BIN:$PATH" AITBC_MEMMON_LOG="$PLOG" \
+        AITBC_MEMMON_PRESSURE_STATE="$PSTATE" AITBC_TEXTFILE_DIR="$SBX/tf" \
+        bash "$REPO_ROOT/scripts/monitoring/memory-monitor.sh" > "$SBX/hot$run.out" 2>&1 || true
+done
+check "no sustained ALERT before run 3"        bash -c "! grep -q 'sustained memory pressure' '$SBX/hot2.out'"
+check "ALERT fires on 3rd consecutive run"     bash -c "grep -q 'ALERT: aitbc-hot.service sustained memory pressure' '$SBX/hot3.out'"
+check "ALERT logged at ALERT level"           bash -c "grep -q 'ALERT.*sustained memory pressure' '$PLOG'"
+check "streak persisted in state file"        bash -c "grep -q 'aitbc-hot.service 3' '$PSTATE'"
+# drop below threshold -> streak resets, no further ALERT
+sed -i 's/^aitbc-hot.service 3$/aitbc-hot.service 0/' "$PSTATE"
+echo 104857600  > "$MM_STATE/aitbc-hot.service.MemoryCurrent"  # 100 MB -> 19%
+PATH="$STUB_BIN:$PATH" AITBC_MEMMON_LOG="$PLOG" \
+    AITBC_MEMMON_PRESSURE_STATE="$PSTATE" AITBC_TEXTFILE_DIR="$SBX/tf" \
+    bash "$REPO_ROOT/scripts/monitoring/memory-monitor.sh" > "$SBX/hot4.out" 2>&1 || true
+check "below-threshold run resets streak"     bash -c "grep -q 'aitbc-hot.service 0' '$PSTATE'"
+
 echo ""
 if [ "$FAILS" -gt 0 ]; then
     echo "$FAILS CHECK(S) FAILED"
