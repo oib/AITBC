@@ -67,9 +67,13 @@ class VoteRecord:
     round: int | None
     proposer: str
     at: float  # wall-clock epoch seconds, survives a restart
+    # #1281: unlock justification bundle (UnavailabilityCertificate +
+    # observation verdict) when this vote was released by the armed
+    # evidence valve. None for ordinary votes and all pre-#1281 records.
+    justification: dict[str, Any] | None = None
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        out = {
             "height": self.height,
             "voter": self.voter,
             "hash": self.block_hash,
@@ -78,10 +82,14 @@ class VoteRecord:
             "proposer": self.proposer,
             "at": self.at,
         }
+        if self.justification is not None:
+            out["justification"] = self.justification
+        return out
 
     @classmethod
     def from_json(cls, raw: dict[str, Any]) -> VoteRecord:
         rnd = raw.get("round")
+        just = raw.get("justification")
         return cls(
             height=int(raw["height"]),
             voter=str(raw["voter"]),
@@ -90,6 +98,7 @@ class VoteRecord:
             round=int(rnd) if rnd is not None else None,
             proposer=str(raw.get("proposer", "")),
             at=float(raw["at"]),
+            justification=dict(just) if isinstance(just, dict) else None,
         )
 
 
@@ -177,6 +186,7 @@ class VoteJournal:
         round_: int | None = None,
         proposer: str = "",
         now: float | None = None,
+        justification: dict[str, Any] | None = None,
     ) -> bool:
         """Durably record a vote. Returns False for a repeat of an existing vote.
 
@@ -197,6 +207,7 @@ class VoteJournal:
                 round=round_,
                 proposer=proposer,
                 at=time.time() if now is None else now,
+                justification=justification,
             )
             existing.append(rec)
             try:
