@@ -232,6 +232,23 @@ class BlockImportMixin(SyncBase):
         # actually persisted.
         get_state_transition().reset_processed_cache()
         with self._session_factory() as session:
+            from .database import ensure_chain_db_healthy
+
+            db_ok, db_reason = ensure_chain_db_healthy(self._chain_id, session=session)
+            if not db_ok:
+                metrics_registry.increment("sync_blocks_rejected_total")
+                logger.error(
+                    "Refusing block import at height %s for chain %s — chain.db integrity failure: %s",
+                    height,
+                    self._chain_id,
+                    db_reason,
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=height,
+                    block_hash=block_hash,
+                    reason=f"chain.db integrity check failed: {db_reason}",
+                )
             if height == 0 and block_data.get("block_metadata"):
                 is_valid, reason = self._validate_genesis_metadata(block_data, session)
                 if not is_valid:
