@@ -158,7 +158,9 @@ async def test_accept_job_blocked_when_computation_correct_false(db_session):
     job, _payment = _make_zk_job(db_session, receipt)
 
     with pytest.raises(HTTPException) as exc:
-        await accept_job(MagicMock(), job.id, db_session, {"sub": "client1"})
+        # headers={} keeps .get() returning None — a bare MagicMock leaks a
+        # MagicMock idempotency key into the operations ledger sqlite bind.
+        await accept_job(MagicMock(headers={}), job.id, db_session, {"sub": "client1"})
     assert exc.value.status_code == 422
     assert "computation-correctness" in exc.value.detail.lower()
 
@@ -186,7 +188,9 @@ async def test_accept_job_allowed_when_computation_correct_true(db_session):
             )
         ),
     ):
-        result = await accept_job(MagicMock(), job.id, db_session, {"sub": "client1"})
+        # headers={} keeps .get() returning None — a bare MagicMock leaks a
+        # MagicMock idempotency key into the operations ledger sqlite bind.
+        result = await accept_job(MagicMock(headers={}), job.id, db_session, {"sub": "client1"})
 
     assert result.payment_status == "released"
 
