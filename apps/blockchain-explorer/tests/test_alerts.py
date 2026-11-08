@@ -214,14 +214,16 @@ class TestAlertsHistory:
         assert len(body["events"]) == 1
 
     def test_filtered_history_scans_full_log(self, client, alert_log):
-        """Filters need the full chronology — not tail-only."""
-        pad = "\n".join(json.dumps({"event": "noise", "n": i}) for i in range(50))
+        """Filters need the full chronology — a match beyond the 512KiB tail must still resolve."""
+        pad = "\n".join(json.dumps({"event": "noise", "n": i, "pad": "x" * 220}) for i in range(5000))
         old = _event("prometheus_alert_resolved", "LegacyOnly")
-        alert_log.write_text(pad + "\n" + json.dumps(old) + "\n", encoding="utf-8")
+        alert_log.write_text(json.dumps(old) + "\n" + pad + "\n", encoding="utf-8")
+        full_lines = 5001
         body = client.get("/api/alerts/history?alertname=Legacy&state=resolved").json()
         assert len(body["events"]) == 1
         assert body["events"][0]["alertname"] == "LegacyOnly"
-        assert body["scanned_events"] == 51
+        assert body["scanned_events"] == full_lines
+        assert body["scanned_events"] > alerts_mod._TAIL_HISTORY_BYTES // 200
 
 
 class TestAlertsOptimizations:
