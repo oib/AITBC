@@ -1,6 +1,6 @@
 """R12-A2-1 (#1240): a forged gossip attest_request must not squat the lock.
 
-The sequence seen on the at1 sandbox mesh: any validator-authenticated WS
+The sequence seen on the sandbox mesh: any validator-authenticated WS
 client publishes an *unsigned* attest_request that names the scheduled
 proposer and carries a self-consistent hash for a block that is never
 produced. Every honest attester used to sign it and record an attestation
