@@ -52,6 +52,12 @@ def test_sync_cli_import_does_not_pull_config():
     code = "import sys; import aitbc_chain.sync_cli; sys.exit(0 if 'aitbc_chain.config' not in sys.modules else 1)"
     env = dict(os.environ)
     env.pop("AITBC_CHAIN_ENV_FILE", None)
+    # aitbc_chain and the repo-root `aitbc` package resolve via pytest's
+    # pythonpath ini, which a bare subprocess does not inherit — without
+    # this the child dies on ModuleNotFoundError before the invariant runs.
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    src_dir = os.path.join(repo_root, "apps", "blockchain-node", "src")
+    env["PYTHONPATH"] = os.pathsep.join([repo_root, src_dir] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
     result = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True,
