@@ -442,11 +442,19 @@ class TestFetchHelper:
         assert get.await_count == 1  # second call served from the throttle
 
     @pytest.mark.asyncio
-    async def test_wrong_hash_or_no_peers_is_a_miss(self, monkeypatch):
+    async def test_wrong_hash_is_contention_and_empty_set_is_a_miss(self, monkeypatch):
+        """#1280: a peer serving a DIFFERENT block at the height is positive
+        contention evidence (recorded, returns None like a miss); an empty
+        hash set and peers with nothing at the height stay plain misses."""
         monkeypatch.setattr(settings, "gossip_mesh_peer_urls", "wss://peer1.example/rpc/gossip/ws")
         get = AsyncMock(return_value=SimpleNamespace(status_code=200, json=lambda: {"height": 100, "hash": "0xother"}))
         monkeypatch.setattr(vote_fetch.SharedHttpClient, "get", get)
         assert await vote_fetch.locate_voted_block(CHAIN, 100, {"0xaaaa"}) is None
+        assert _counter("vote_fetch_contention_total") == 1
+        assert vote_fetch.contention_hold(CHAIN, 100) is not None
+        get.return_value = SimpleNamespace(status_code=404, json=lambda: {})
+        vote_fetch.reset_throttle()
+        assert await vote_fetch.locate_voted_block(CHAIN, 100, {"0xbbbb"}) is None
         assert await vote_fetch.locate_voted_block(CHAIN, 100, set()) is None
         assert _counter("vote_fetch_missing_total") == 1
 
