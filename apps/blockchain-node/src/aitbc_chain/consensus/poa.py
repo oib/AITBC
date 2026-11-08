@@ -548,12 +548,13 @@ class PoAProposer:
         # #1298: surface the effective same-hash retry horizon at startup —
         # a 0 here means every retry stamps a fresh hash (the fleet-wide
         # silent-disable the fh1298-leg drill caught).
-        retry_horizon = self._same_hash_retry_horizon_seconds()
+        retry_enabled = getattr(settings, "proposer_same_hash_retry_enabled", False)
+        retry_horizon = self._same_hash_retry_horizon_seconds() if retry_enabled else 0.0
         metrics_registry.set_gauge("proposer_same_hash_retry_horizon_seconds", retry_horizon)
         self._logger.info(
             "Same-hash retry horizon %.1fs (enabled=%s)",
             retry_horizon,
-            getattr(settings, "proposer_same_hash_retry_enabled", True),
+            retry_enabled,
         )
         await self._ensure_genesis_block()
         head = self._fetch_chain_head()
@@ -1470,7 +1471,7 @@ class PoAProposer:
         if (
             height != next_height
             or time.time() >= not_after
-            or not getattr(settings, "proposer_same_hash_retry_enabled", True)
+            or not getattr(settings, "proposer_same_hash_retry_enabled", False)
         ):
             self._same_hash_retry = None
             return None
@@ -1479,7 +1480,7 @@ class PoAProposer:
     def _note_same_hash_retry(self, next_height: int, timestamp: datetime) -> None:
         """Remember this proposal's timestamp so a gate-failed retry can reuse
         the same hash while attesters' locks are still live."""
-        if not getattr(settings, "proposer_same_hash_retry_enabled", True):
+        if not getattr(settings, "proposer_same_hash_retry_enabled", False):
             self._same_hash_retry = None
             return
         horizon = self._same_hash_retry_horizon_seconds()

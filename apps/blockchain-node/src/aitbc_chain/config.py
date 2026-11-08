@@ -1200,8 +1200,10 @@ class ChainSettings(BaseSettings):
     # lapsed lock still forces the fresh-round path (never a timer-only
     # unlock). Proposer-local retry policy: the sealed block, its hash and
     # signature are identical either way, so replayed verdicts do not
-    # change. False restores the old fresh-timestamp-per-retry behaviour.
-    proposer_same_hash_retry_enabled: bool = True
+    # change. Default OFF per operator ruling: same-hash retry is enabled
+    # per-deployment via env until the AD design review clears default-on.
+    # False restores the old fresh-timestamp-per-retry behaviour.
+    proposer_same_hash_retry_enabled: bool = False
     # Slack reserved on top of one collect window when computing the same-hash
     # retry horizon: the pinned timestamp must leave room for a final gate
     # cycle (attestation collect ≈ multi_validator_attestation_timeout_seconds)
