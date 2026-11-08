@@ -635,7 +635,7 @@ _MEASURE_JS = """
 
 
 _CSP = (
-    "default-src 'self'; script-src 'self'; style-src 'self'; "
+    "default-src 'self'; script-src 'self' 'report-sample'; style-src 'self' 'report-sample'; "
     "connect-src 'self'; img-src 'self' data:; font-src 'self'; "
     "object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
 )
