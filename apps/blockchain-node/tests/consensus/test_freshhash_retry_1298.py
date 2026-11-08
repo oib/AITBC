@@ -183,3 +183,16 @@ def test_zero_horizon_warns_once_and_disables(monkeypatch, caplog):
     assert proposer._same_hash_retry is None
     hits = [r for r in caplog.records if "same-hash retry horizon is 0" in r.getMessage()]
     assert len(hits) == 1
+
+
+def test_fleet_values_horizon_is_33s(monkeypatch):
+    """Pin the exact production fleet tuple: round_seconds=60,
+    header_max_age=60, attest_timeout=15, margin=12 -> horizon=33s.
+    This is the configuration under which the pre-respin formula computed
+    0 and the feature was inert fleet-wide."""
+    monkeypatch.setattr(settings, "consensus_proposer_round_seconds", 60)
+    monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 60.0)
+    monkeypatch.setattr(settings, "multi_validator_attestation_timeout_seconds", 15.0)
+    monkeypatch.setattr(settings, "proposer_same_hash_retry_margin_seconds", 12.0)
+    proposer = _proposer()
+    assert proposer._same_hash_retry_horizon_seconds() == pytest.approx(33.0)

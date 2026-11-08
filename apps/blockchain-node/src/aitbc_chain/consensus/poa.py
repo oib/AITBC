@@ -545,6 +545,16 @@ class PoAProposer:
             self._logger.info("Block production disabled, skipping PoA proposer loop")
             return
         self._logger.info("Starting PoA proposer loop", extra={"interval": self._config.interval_seconds})
+        # #1298: surface the effective same-hash retry horizon at startup —
+        # a 0 here means every retry stamps a fresh hash (the fleet-wide
+        # silent-disable the fh1298-leg drill caught).
+        retry_horizon = self._same_hash_retry_horizon_seconds()
+        metrics_registry.set_gauge("proposer_same_hash_retry_horizon_seconds", retry_horizon)
+        self._logger.info(
+            "Same-hash retry horizon %.1fs (enabled=%s)",
+            retry_horizon,
+            getattr(settings, "proposer_same_hash_retry_enabled", True),
+        )
         await self._ensure_genesis_block()
         head = self._fetch_chain_head()
         if head is not None:
