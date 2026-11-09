@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from typing import Any
@@ -59,12 +60,20 @@ class BroadcastGossipBackend(GossipBackend):
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         from aitbc.aitbc_logging import get_logger
 
+        from ...config import settings
+
+        wait_ready = bool(getattr(settings, "gossip_subscribe_wait_ready_enabled", False))
+        ready_timeout = float(getattr(settings, "gossip_subscribe_ready_timeout_seconds", 2.0))
         logger = get_logger(__name__)
         logger.info("BroadcastGossipBackend.subscribe called for topic: %s, running=%s", topic, self._running)
         if not self._running:
             raise RuntimeError("Broadcast backend not started")
         queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
         stop_event = asyncio.Event()
+        # #1306: set once the redis SUBSCRIBE has been acknowledged (or the
+        # attempt failed), so callers that publish a request right after
+        # subscribing can wait for the subscription to be live.
+        ready_event = asyncio.Event()
 
         async def _run_subscription() -> None:
             from aitbc.aitbc_logging import get_logger
@@ -87,6 +96,7 @@ class BroadcastGossipBackend(GossipBackend):
                 )
                 pubsub = sub_redis.pubsub()
                 await pubsub.subscribe(topic)
+                ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
                 logger.info("[BROKER SUB] Successfully subscribed to redis topic: %s", topic)
                 while not stop_event.is_set():
                     try:
@@ -112,6 +122,7 @@ class BroadcastGossipBackend(GossipBackend):
             except Exception as e:
                 logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
             finally:
+                ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
                 try:
                     if pubsub is not None:
                         await pubsub.aclose()
@@ -128,6 +139,19 @@ class BroadcastGossipBackend(GossipBackend):
         async with self._lock:
             self._tasks.add(task)
             metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
+
+        if wait_ready:
+            # Redis pub/sub does not buffer: a message published before the
+            # SUBSCRIBE lands is lost. The task above only *schedules* the
+            # subscription, so without this wait a request published right
+            # after subscribe() can have its fast responses dropped (#1306).
+            started = time.monotonic()
+            try:
+                await asyncio.wait_for(ready_event.wait(), timeout=ready_timeout)
+            except asyncio.TimeoutError:
+                metrics_registry.increment("gossip_subscribe_ready_timeout_total")
+                logger.warning("[BROKER SUB] subscription for %s not live after %.1fs", topic, ready_timeout)
+            metrics_registry.observe("gossip_subscribe_ready_seconds", time.monotonic() - started)
 
         def _unsubscribe() -> None:
             async def _stop() -> None:

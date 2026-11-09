@@ -550,6 +550,10 @@ class ChainSettings(BaseSettings):
         "yes",
     )
     gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
+    # #1306: make broadcast-backend subscribe() wait until the redis SUBSCRIBE is live,
+    # so a request published right after subscribing cannot lose fast responses.
+    gossip_subscribe_wait_ready_enabled: bool = False
+    gossip_subscribe_ready_timeout_seconds: float = 2.0
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
     gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))
     # Aggregate per-source-IP ceilings ACROSS every chain this host serves
