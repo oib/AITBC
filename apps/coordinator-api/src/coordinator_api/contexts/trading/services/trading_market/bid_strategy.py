@@ -229,12 +229,25 @@ class BidStrategyEngine:
         else:
             strategy_scores[BidStrategy.AGGRESSIVE] = 0.3
         if market_conditions.price_volatility > self.volatility_threshold:
-            strategy_scores[BidStrategy.CONSERVATIVE] = 0.7
+            # #1365: must strictly exceed BALANCED's fixed 0.7 or dict-order
+            # max() can never select CONSERVATIVE.
+            strategy_scores[BidStrategy.CONSERVATIVE] = 0.8
         else:
             strategy_scores[BidStrategy.CONSERVATIVE] = 0.4
         preferred_strategy = agent_prefs.get("preferred_strategy")
         if preferred_strategy:
-            strategy_scores[BidStrategy(preferred_strategy)] *= 1.2
+            try:
+                preferred = BidStrategy(preferred_strategy)
+            except ValueError:
+                # #1366: a malformed stored preference must not crash bidding.
+                logger.warning(
+                    "Ignoring invalid preferred_strategy %r for agent %s",
+                    preferred_strategy,
+                    task_requirements.agent_id,
+                )
+            else:
+                if preferred in strategy_scores:
+                    strategy_scores[preferred] *= 1.2
         optimal_strategy = max(strategy_scores, key=strategy_scores.get)  # type: ignore[arg-type]
         logger.debug("Selected strategy %s for task %s", optimal_strategy, task_requirements.task_id)
         return optimal_strategy
@@ -490,6 +503,10 @@ class BidStrategyEngine:
                 return "insufficient_data"
             recent_avg = sum(recent_prices) / len(recent_prices)
             older_avg = sum(older_prices) / len(older_prices)
+            if older_avg == 0:
+                # #1364: zero baseline — % change undefined; a rise from zero
+                # is still an increase signal.
+                return "increasing" if recent_avg > 0 else "stable"
             change = (recent_avg - older_avg) / older_avg
             if change > 0.05:
                 return "increasing"
