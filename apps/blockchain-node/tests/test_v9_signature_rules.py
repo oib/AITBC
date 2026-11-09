@@ -805,9 +805,18 @@ class TestAttesterTxChecks:
         _seed_genesis(session_factory)
         self._no_retry_sleep(monkeypatch)
         calls = self._lock_failures(svc, failures=1)
-        asyncio.run(svc._handle_request(self._request([_signed_tx()])))
+        # Unique state_root → unique block hash → fresh attestation-lock
+        # journal key. The journal file is shared across tests (DATA_DIR is
+        # resolved at import), so a repeated (height, hash) would dedup-skip
+        # the journal's round-derivation session open and make the factory
+        # count order-dependent.
+        asyncio.run(svc._handle_request(self._request([_signed_tx()], state_root="0xv9retry-unique")))
         assert broker.published
-        assert calls["n"] == 2
+        # v9 opens the factory twice (injected lock + retry); the #1298
+        # attestation-lock journal adds a third open post-check for the
+        # round derivation's parent-timestamp read (_record_pre_sign_lock
+        # -> _derive_request_round -> _parent_timestamp).
+        assert calls["n"] == 3
         assert metrics_registry._counters.get("v9_would_reject_total") is None
 
     def test_v9_active_fails_closed_when_the_lock_persists(self, session_factory, attester, monkeypatch):
