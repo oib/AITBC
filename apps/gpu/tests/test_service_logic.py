@@ -26,7 +26,7 @@ from gpu_service.domain.gpu_market import (
     GPURegistry,
 )
 from gpu_service.services import edge_gpu_service as egs_mod
-from gpu_service.services.edge_gpu_service import EdgeGPUService
+from gpu_service.services.edge_gpu_service import EdgeGPUService, JobStateError
 from gpu_service.storage import DATABASE_URL, engine
 
 
@@ -181,22 +181,18 @@ async def test_complete_job_marks_running_job_completed(fake_redis):
         assert missing is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="gpu complete_job completes QUEUED jobs without running them — no status guard #1387",
-)
 @pytest.mark.asyncio
 async def test_complete_job_refuses_queued_job(fake_redis):
-    """#1387: complete_job must only transition RUNNING -> COMPLETED; today it
-    marks a still-QUEUED job COMPLETED, skipping execution entirely."""
+    """#1387 (fixed): complete_job only transitions RUNNING -> COMPLETED —
+    a still-QUEUED job raises JobStateError instead of being marked done."""
     gpu_id = "gpu-q-guard"
     async with AsyncSession(engine, expire_on_commit=False) as session:
         svc = EdgeGPUService(session)
         job = await svc.queue_job(gpu_id, "c", 1, {})
         assert job.status == GPUJobStatus.QUEUED
 
-        result = await svc.complete_job(job.id)
-        assert result is None  # must refuse: the job never ran
+        with pytest.raises(JobStateError):
+            await svc.complete_job(job.id)
 
 
 # ---------------------------------------------------------------------------
@@ -320,10 +316,6 @@ def _insert_gpu(status: str, miner_id: str, gpu_id: str) -> None:
     sync_engine.dispose()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="gpu miner heartbeat/register overwrite booked/in_use status with off-vocabulary 'online' #1388",
-)
 def test_heartbeat_preserves_booked_status(api_client):
     """#1388: a routine heartbeat must not flip a BOOKED gpu back to bookable."""
     _insert_gpu(status="booked", miner_id="miner-hb", gpu_id="gpu-hb-1")
@@ -346,10 +338,6 @@ def test_heartbeat_marks_offline_available(api_client):
     assert got.json()["status"] in {"online", "available"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="gpu offer path persists caller-controlled status/price bypassing OfferFSM validation #1389",
-)
 def test_offer_rejects_invalid_status(api_client, monkeypatch):
     """#1389: PUT /v1/gpu/{id} validates status via OfferFSM; the offer path
     writes transaction_data['status'] verbatim, so 'bogus_status' is stored."""

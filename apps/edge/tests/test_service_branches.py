@@ -244,9 +244,6 @@ async def test_join_island_unknown_status_falls_back_to_active(monkeypatch, engi
     assert row.status == IslandStatus.ACTIVE
 
 
-@pytest.mark.xfail(
-    strict=True, reason="edge join_island persists list chain_id into str column -> 500 after successful chain join #1383"
-)
 @pytest.mark.asyncio
 async def test_join_island_list_chain_id_does_not_500_after_chain_join(monkeypatch, engine):
     """#1383: JoinIslandRequest accepts ``chain_id: str | list[str]`` but
@@ -264,9 +261,6 @@ async def test_join_island_list_chain_id_does_not_500_after_chain_join(monkeypat
     assert stub.calls[0][0] == "join"
 
 
-@pytest.mark.xfail(
-    strict=True, reason="edge request_bridge persists NULL source_island_id/request_id from unvalidated RPC reply #1382"
-)
 @pytest.mark.asyncio
 async def test_request_bridge_records_bridge_request(monkeypatch, engine):
     """#1382: request_bridge never populates source_island_id and takes
@@ -319,9 +313,6 @@ async def _seed_database(engine, database_id="db-1", island_id="isl-1", capacity
         await session.commit()
 
 
-@pytest.mark.xfail(
-    strict=True, reason="edge DatabaseService.init_database reads db.id after commit -> MissingGreenlet/500 on success #1390"
-)
 @pytest.mark.asyncio
 async def test_init_database_success_does_not_500(monkeypatch, engine):
     """#1390: init_database commits the row then reads ``db.id`` — expired by
@@ -428,7 +419,6 @@ async def test_metrics_crud(monkeypatch, engine):
     assert await svc.get_metrics(metric_id) is None
 
 
-@pytest.mark.xfail(strict=True, reason="edge MetricsService.list_metrics ignores limit parameter -> unbounded query #1384")
 @pytest.mark.asyncio
 async def test_list_metrics_respects_limit(monkeypatch, engine):
     """#1384: list_metrics accepted ``limit`` but never applied it to the query."""
@@ -464,7 +454,6 @@ class _StubGPUClient:
         return list(self.profiles)
 
 
-@pytest.mark.xfail(strict=True, reason="edge GPUService.list_gpus appends duplicate gpu_listings rows on every call #1385")
 @pytest.mark.asyncio
 async def test_list_gpus_does_not_duplicate_listing_rows(monkeypatch, engine):
     """#1385: every list_gpus call appended a fresh gpu_listings row per
@@ -608,6 +597,7 @@ async def test_get_compute_result_requires_owner_match(monkeypatch, engine):
                 island_id="default",
                 gpu_id="gpu-1",
                 output_data={"ok": True},
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
             )
         )
         await session.commit()
@@ -617,7 +607,6 @@ async def test_get_compute_result_requires_owner_match(monkeypatch, engine):
     assert await svc.get_compute_result(rid) is not None  # admin path
 
 
-@pytest.mark.xfail(strict=True, reason="edge ComputeResult expires_at never enforced -> stale results served forever #1386")
 @pytest.mark.asyncio
 async def test_expired_compute_result_is_not_served(monkeypatch, engine):
     """#1386: ComputeResult.expires_at/cache_ttl are written by the worker but
