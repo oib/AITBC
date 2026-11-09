@@ -932,6 +932,26 @@ class AgentCommunicationService:
                 self.channels[channel_id] = self._channel_from_dict(channel_data)
             for template_id, template_data in parsed_data.get("templates", {}).items():
                 self.message_templates[template_id] = self._template_from_dict(template_data)
+            # #1372: rebuild the lookup indexes and delivery queue — without
+            # this, imported messages are invisible to get_agent_messages and
+            # PENDING messages are never delivered.
+            self._rebuild_import_indexes()
             logger.info("Communication data imported successfully")
         else:
             raise ValueError(f"Unsupported format: {format}")
+
+    def _rebuild_import_indexes(self) -> None:
+        """#1372: rebuild agent->message/channel indexes and requeue PENDING
+        messages after import so restored data is reachable and deliverable."""
+        for message_id, message in self.messages.items():
+            for agent_id in (message.sender, message.recipient):
+                ids = self.agent_messages.setdefault(agent_id, [])
+                if message_id not in ids:
+                    ids.append(message_id)
+            if message.status == MessageStatus.PENDING:
+                self.message_queue.append(message)
+        for channel_id, channel in self.channels.items():
+            for agent_id in channel.participants:
+                ids = self.agent_channels.setdefault(agent_id, [])
+                if channel_id not in ids:
+                    ids.append(channel_id)

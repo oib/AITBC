@@ -303,7 +303,7 @@ class AgentIdentityManager:
             description=description,
             supported_chains=chains,
             primary_chain=chains[0] if chains else 1,
-            metadata=metadata or {},
+            meta_data=metadata or {},
             tags=tags or [],
         )
         identity = await self.core.create_identity(identity_request)
@@ -652,8 +652,8 @@ class AgentIdentityManager:
                 description=identity_data["description"],
                 supported_chains=[int(chain_id) for chain_id in identity_data["supported_chains"]],
                 primary_chain=identity_data["primary_chain"],
-                metadata=identity_data["metadata"],
-                tags=identity_data["tags"],
+                meta_data=identity_data.get("identity_data") or {},
+                tags=identity_data.get("tags") or [],
             )
             identity = await self.core.create_identity(identity_request)
             mappings = export_data.get("cross_chain_mappings", [])
