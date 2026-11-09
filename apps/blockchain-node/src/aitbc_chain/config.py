@@ -1232,6 +1232,9 @@ class ChainSettings(BaseSettings):
     # purpose. Every use of the valve is counted and recorded as #1198
     # equivocation evidence.
     vote_journal_unlock_seconds: float = 300.0
+    # #1310: run the attest-listener v9 tx check in a worker thread instead of
+    # on the event loop (default OFF; the check is timed either way).
+    attest_v9_check_offload_enabled: bool = False
     # #1280 VALVE-P15-1: a peer serving a DIFFERENT block at the voted height
     # is positive contention evidence. While such a sighting is fresh it
     # suppresses the re-vote path (delay only — never a signature outside the
