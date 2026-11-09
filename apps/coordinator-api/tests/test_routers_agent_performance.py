@@ -3,8 +3,8 @@
 Ownership model (PI-API-016): non-admin callers must control the wallet
 that owns the agent's AgentIdentity row; admin bypasses; meta-learning
 endpoints are admin-only. AgentCapability has NO ``status`` field — the
-router reads ``capability.status`` on create and list, which 500s
-whenever a capability row is returned (strict-xfail, defect pinned).
+router previously read ``capability.status`` on create and list, which
+500s whenever a capability row is returned (defect #1324, fixed).
 """
 
 from __future__ import annotations
@@ -263,10 +263,6 @@ class TestOptimizeAndCapabilityEndpoints:
         assert resp.json()["agent_id"] == AGENT
         assert resp.json()["capability_count"] == 0
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect #1324: router reads capability.status but AgentCapability has no status field -> AttributeError -> 500 on create",
-    )
     def test_create_capability(self, client: TestClient, owned_agent: None) -> None:
         resp = client.post(
             "/v1/agent-performance/capabilities",
@@ -287,10 +283,6 @@ class TestOptimizeAndCapabilityEndpoints:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect #1324: same missing capability.status field — listing an agent that HAS capability rows 500s",
-    )
     def test_list_capabilities_with_rows(self, client: TestClient, owned_agent: None, db_session: Session) -> None:
         db_session.add(
             AgentCapability(

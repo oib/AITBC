@@ -35912,10 +35912,6 @@
             "type": "array",
             "title": "Specialization Areas"
           },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
           "created_at": {
             "type": "string",
             "title": "Created At"
@@ -35931,7 +35927,6 @@
           "skill_level",
           "proficiency_score",
           "specialization_areas",
-          "status",
           "created_at"
         ],
         "title": "CapabilityResponse",
