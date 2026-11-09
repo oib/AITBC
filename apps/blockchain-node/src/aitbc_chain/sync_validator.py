@@ -92,9 +92,25 @@ class ProposerSignatureValidator:
             return (False, f"Proposer '{proposer}' not in trusted set")
         signature = block_data.get("signature", "")
         if signature:
-            from aitbc.crypto.consensus_signing import verify_block_signature
+            from aitbc.crypto.consensus_signing import (
+                DOMAIN_BLOCK_PROPOSAL,
+                block_header_message,
+                verify_block_signature,
+                verify_consensus_message_domain,
+            )
 
-            if not verify_block_signature(block_data, signature, proposer):
+            # #1298: at/above the armed activation height the proposer signs
+            # under the proposal domain — the legacy/raw-hash fallbacks in
+            # verify_block_signature must not accept it (hard cutover).
+            height = block_data.get("height", 0)
+            activation = getattr(settings, "consensus_domain_separation_height", None)
+            if activation is not None and isinstance(height, int) and height >= activation:
+                sig_ok = verify_consensus_message_domain(
+                    block_header_message(block_data), signature, proposer, DOMAIN_BLOCK_PROPOSAL
+                )
+            else:
+                sig_ok = verify_block_signature(block_data, signature, proposer)
+            if not sig_ok:
                 metrics_registry.increment("sync_signature_rejected_total")
                 return (False, "Invalid proposer signature")
         elif not self._trusted:
@@ -220,9 +236,20 @@ class ProposerSignatureValidator:
         do. The legacy 7-field message is always tried as a fallback for
         mixed-version fleets.
         """
-        from aitbc.crypto.consensus_signing import verify_block_signature, verify_consensus_message
+        from aitbc.crypto.consensus_signing import (
+            DOMAIN_BLOCK_ATTESTATION,
+            verify_block_signature,
+            verify_consensus_message,
+            verify_consensus_message_domain,
+        )
 
         signature = att.get("signature", "")
+        # #1298: at/above the armed activation height attestations are signed
+        # under the attestation domain — legacy shared-preimage signatures
+        # must not verify (hard cutover per design v2.2 §7).
+        activation = getattr(settings, "consensus_domain_separation_height", None)
+        height = block_data.get("height", 0)
+        domain_active = activation is not None and isinstance(height, int) and height >= activation
         rounds: list[int] = []
         att_round = att.get("round")
         if att_round is not None:
@@ -245,8 +272,22 @@ class ProposerSignatureValidator:
                 "bridge_state_root": block_data.get("bridge_state_root", ""),
                 "round": rnd,
             }
-            if verify_consensus_message(msg, signature, validator):
+            if domain_active:
+                if verify_consensus_message_domain(msg, signature, validator, DOMAIN_BLOCK_ATTESTATION):
+                    return True
+            elif verify_consensus_message(msg, signature, validator):
                 return True
+        if domain_active:
+            msg7 = {
+                "chain_id": block_data.get("chain_id", ""),
+                "height": block_data.get("height", 0),
+                "hash": block_data.get("hash", ""),
+                "parent_hash": block_data.get("parent_hash", ""),
+                "proposer": block_data.get("proposer", ""),
+                "state_root": block_data.get("state_root", ""),
+                "bridge_state_root": block_data.get("bridge_state_root", ""),
+            }
+            return verify_consensus_message_domain(msg7, signature, validator, DOMAIN_BLOCK_ATTESTATION)
         return verify_block_signature(block_data, signature, validator)
 
     def _derive_attestation_round(self, block_data: dict[str, Any]) -> int | None:
