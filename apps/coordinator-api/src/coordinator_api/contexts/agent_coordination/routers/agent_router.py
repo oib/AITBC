@@ -3,6 +3,7 @@ AI Agent API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for agent workflow management and execution
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -40,7 +41,11 @@ def create_workflow(
 ) -> AIAgentWorkflow:
     """Create a new AI agent workflow"""
     try:
-        workflow = AIAgentWorkflow(owner_id=user["sub"], **workflow_data.model_dump())
+        # tags is list[str] on the request model but a JSON-string str column
+        # on AIAgentWorkflow — serialize at the boundary or sqlite binding 500s.
+        data = workflow_data.model_dump()
+        data["tags"] = json.dumps(data["tags"])
+        workflow = AIAgentWorkflow(owner_id=user["sub"], **data)
         session.add(workflow)
         session.commit()
         session.refresh(workflow)
@@ -124,6 +129,13 @@ def update_workflow(
         if workflow.owner_id != user["sub"]:
             raise HTTPException(status_code=403, detail="Access denied")
         update_data = workflow_data.model_dump(exclude_unset=True)
+        if "tags" in update_data:
+            # Same list[str] -> JSON-string boundary as create_workflow;
+            # explicit null would violate the NOT NULL column, so drop it.
+            if update_data["tags"] is None:
+                del update_data["tags"]
+            else:
+                update_data["tags"] = json.dumps(update_data["tags"])
         for field, value in update_data.items():
             setattr(workflow, field, value)
         workflow.updated_at = datetime.now(UTC)
