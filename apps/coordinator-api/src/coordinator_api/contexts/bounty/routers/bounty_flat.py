@@ -7,22 +7,31 @@ Provides endpoints for:
 - Claiming bounties
 - Submitting solutions
 - Verifying and releasing payments
+
+#1337: reads are wired to the real BountyService + DB session. The
+mutation endpoints are honest 501s — the flat request contract cannot
+express what BountyService.create_bounty requires (tier, performance
+criteria, ZK-proof flags, deadline semantics), the service has no
+claim step and no payment/escrow integration, and the previous
+implementation returned fabricated success for any bounty_id (claim and
+verify "succeeded" on nonexistent bounties with no auth at all).
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import func
+from sqlmodel import Session, col, select
 
-from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....storage import get_session
+from ..domain.bounty import Bounty, BountyStatus
 from ..services.bounty_service import BountyService
 
-logger = get_logger(__name__)
 router = APIRouter(prefix="/bounty", tags=["bounty"])
 
 
@@ -63,47 +72,49 @@ class VerifySolutionRequest(BaseModel):
     feedback: str | None = None
 
 
-_bounty_service: BountyService | None = None
-
-
-def get_bounty_service() -> BountyService:
-    """Get or create bounty service"""
-    global _bounty_service
-    if _bounty_service is None:
-        _bounty_service = BountyService()
-        _create_sample_bounties()
-    return _bounty_service
-
-
-def _create_sample_bounties() -> None:
-    """Create sample bounties for testing"""
-    service = _bounty_service
-    if not service:
-        return
-    # Note: sample bounty creation disabled - service API has changed
-    # and this function is not currently called by any router endpoints
+def _not_implemented() -> HTTPException:
+    return HTTPException(
+        status_code=501,
+        detail=(
+            "Bounty mutations are not implemented on this surface: the flat contract "
+            "cannot express BountyService requirements (tier, performance criteria, "
+            "zk-proof flags) and the service has no claim step or payment integration. "
+            "See issue #1337."
+        ),
+    )
 
 
 @router.post("/create", summary="Create a new bounty")
 @rate_limit(rate=20, per=60)
-async def create_bounty(request: Request, req: CreateBountyRequest) -> dict[str, Any]:
-    """Create a new bounty task"""
-    return {
-        "bounty_id": "bounty-001",
-        "title": req.title,
-        "description": req.description,
-        "creator": req.creator,
-        "reward": req.reward,
-        "status": "open",
-        "created_at": datetime.now(UTC).isoformat(),
-    }
+def create_bounty(request: Request, req: CreateBountyRequest) -> dict[str, Any]:
+    """Create a new bounty task — honest 501 (see module docstring / #1337)"""
+    raise _not_implemented()
 
 
 @router.get("/list", summary="List available bounties")
 @rate_limit(rate=100, per=60)
-async def list_bounties(request: Request, status: str | None = None, tag: str | None = None) -> dict[str, Any]:
-    """List all bounties with optional filtering"""
-    return {"bounties": [], "count": 0, "filters": {"status": status, "tag": tag}}
+async def list_bounties(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    status: str | None = None,
+    tag: str | None = None,
+) -> dict[str, Any]:
+    """List bounties with optional status/tag filtering (real DB reads)"""
+    bounty_status: BountyStatus | None = None
+    if status is not None:
+        try:
+            bounty_status = BountyStatus(status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown bounty status: {status}") from None
+    bounties = await BountyService(session).get_bounties(
+        status=bounty_status,
+        tags=[tag] if tag else None,
+    )
+    return {
+        "bounties": [b.model_dump(mode="json") for b in bounties],
+        "count": len(bounties),
+        "filters": {"status": status, "tag": tag},
+    }
 
 
 # Declared above the parameterized routes below on purpose. Starlette matches in
@@ -113,61 +124,67 @@ async def list_bounties(request: Request, status: str | None = None, tag: str | 
 # Pinned by tests/security/test_no_unreachable_routes.py.
 @router.get("/stats", summary="Get bounty statistics")
 @rate_limit(rate=50, per=60)
-async def get_stats(request: Request) -> dict[str, Any]:
-    """Get platform-wide bounty statistics"""
+async def get_stats(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict[str, Any]:
+    """Get platform-wide bounty statistics (real aggregates)"""
+    stats = await BountyService(session).get_bounty_stats()
     return {
-        "total_bounties": 0,
-        "open_bounties": 0,
-        "claimed_bounties": 0,
-        "completed_bounties": 0,
-        "total_reward": 0,
-        "completion_rate": 0,
+        "total_bounties": stats.total_bounties,
+        "open_bounties": stats.active_bounties,
+        "completed_bounties": stats.completed_bounties,
+        "expired_bounties": stats.expired_bounties,
+        "disputed_bounties": stats.disputed_bounties,
+        "total_reward": str(stats.total_rewards_paid),
+        "total_value_locked": str(stats.total_value_locked),
+        "total_fees_collected": str(stats.total_fees_collected),
+        "success_rate": stats.success_rate,
+        "tier_distribution": stats.tier_distribution,
+        "period": {"start": stats.period_start.isoformat(), "end": stats.period_end.isoformat(), "type": stats.period_type},
     }
 
 
 @router.get("/health", summary="Health check for bounty service")
-async def bounty_health(request: Request) -> dict[str, Any]:
-    """Check bounty service health"""
-    return {"status": "healthy", "total_bounties": 0, "service": "bounty"}
+def bounty_health(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict[str, Any]:
+    """Check bounty service health (real row count)"""
+    total = session.execute(select(func.count(col(Bounty.bounty_id)))).scalar_one()
+    return {"status": "healthy", "total_bounties": total, "service": "bounty"}
 
 
 @router.get("/{bounty_id}", summary="Get bounty details")
 @rate_limit(rate=100, per=60)
-async def get_bounty(request: Request, bounty_id: str) -> dict[str, Any]:
-    """Get detailed information about a specific bounty"""
-    if bounty_id == "not-found":
+async def get_bounty(
+    request: Request,
+    bounty_id: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict[str, Any]:
+    """Get detailed information about a specific bounty (real lookup, 404 on miss)"""
+    bounty = await BountyService(session).get_bounty(bounty_id)
+    if bounty is None:
         raise HTTPException(status_code=404, detail="Bounty not found")
-    return {
-        "bounty_id": bounty_id,
-        "title": "Sample Bounty",
-        "description": "Test bounty",
-        "creator": "test-user",
-        "reward": 1000,
-        "status": "open",
-    }
+    return bounty.model_dump(mode="json")
 
 
 @router.post("/claim", summary="Claim a bounty")
 @rate_limit(rate=20, per=60)
-async def claim_bounty(request: Request, req: ClaimBountyRequest) -> dict[str, Any]:
-    """Claim an open bounty for work"""
-    return {"success": True, "bounty_id": req.bounty_id, "hunter": req.hunter, "status": "claimed"}
+def claim_bounty(request: Request, req: ClaimBountyRequest) -> dict[str, Any]:
+    """Claim an open bounty — honest 501 (BountyService has no claim step; see #1337)"""
+    raise _not_implemented()
 
 
 @router.post("/submit", summary="Submit solution")
 @rate_limit(rate=30, per=60)
-async def submit_solution(request: Request, req: SubmitSolutionRequest) -> dict[str, Any]:
-    """Submit a solution for a claimed bounty"""
-    return {"success": True, "bounty_id": req.bounty_id, "submission_id": "sub-001", "status": "pending"}
+def submit_solution(request: Request, req: SubmitSolutionRequest) -> dict[str, Any]:
+    """Submit a solution — honest 501 (see #1337)"""
+    raise _not_implemented()
 
 
 @router.post("/verify", summary="Verify solution")
 @rate_limit(rate=20, per=60)
-async def verify_solution(request: Request, req: VerifySolutionRequest) -> dict[str, Any]:
-    """Verify and approve/reject a submitted solution"""
-    return {
-        "success": True,
-        "bounty_id": req.bounty_id,
-        "verified": req.approved,
-        "status": "completed" if req.approved else "rejected",
-    }
+def verify_solution(request: Request, req: VerifySolutionRequest) -> dict[str, Any]:
+    """Verify a solution — honest 501 (payout-affecting; see #1337)"""
+    raise _not_implemented()
