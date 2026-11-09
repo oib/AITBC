@@ -417,7 +417,11 @@ class RemoteAttestationService:
         for addr in self._own_addresses():
             if journal.release_abandoned(height, addr, block_hash, proposer):
                 released += 1
-        if released:
+        # The legacy height lock and the round locks refuse rivals independently
+        # of the journal (d9: voters released the journal yet kept refusing).
+        # Release only entries for this exact hash from this exact proposer.
+        locks = self._release_abandoned_locks(height, block_hash, proposer)
+        if released or locks:
             metrics_registry.increment("vote_journal_abandon_released_total", released)
             logger.warning(
                 "Vote journal: released %d vote(s) at height %s — proposer %s abandoned %s",
@@ -426,6 +430,32 @@ class RemoteAttestationService:
                 proposer[:18],
                 block_hash[:18],
             )
+        return released + locks
+
+    def _release_abandoned_locks(self, height: int, block_hash: str, proposer: str) -> int:
+        """Drop the legacy ``_attested`` entry and round locks for exactly
+        ``(height, block_hash)`` signed against ``proposer``; evidence records
+        (``_signed_attestations``) are kept."""
+        released = 0
+        canon = canonical_address(proposer)
+        entry = self._attested.get(height)
+        if entry is not None and entry[0] == block_hash and canonical_address(entry[1]) == canon:
+            del self._attested[height]
+            released += 1
+        self._ensure_round_locks_loaded()
+        drop = [
+            k
+            for k, e in self._round_locks.items()
+            if k[0] == height and e.block_hash == block_hash and canonical_address(e.proposer) == canon
+        ]
+        for k in drop:
+            del self._round_locks[k]
+        if drop:
+            try:
+                self._persist_round_locks()
+            except Exception as exc:  # noqa: BLE001 - a stale lock on disk is the conservative side
+                logger.warning("Round lock release not persisted at height %s: %s", height, exc)
+            released += len(drop)
         return released
 
     async def _listen_unavail(self) -> None:
