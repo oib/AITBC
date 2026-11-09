@@ -33,6 +33,61 @@ from aitbc.crypto.signature_recovery import canonical_address
 from ..config import settings
 from ..gossip import gossip_broker
 from ..metrics import metrics_registry
+
+
+def _attestation_domain_active(height: int | None) -> bool:
+    """#1298: attestation signatures are domain-separated at/above the armed
+    activation height; below it the legacy shared preimage stays authoritative."""
+    activation = getattr(settings, "consensus_domain_separation_height", None)
+    return activation is not None and height is not None and height >= activation
+
+
+def _active_signature_domain(height: int | None, domain: str) -> str | None:
+    """#1298: the domain tag for a signature minted at ``height`` — ``domain``
+    at/above the armed activation height, else None (legacy shared preimage).
+
+    The return value is stamped on evidence records as ``signature_domain``
+    so on-chain verification rebuilds the exact preimage the signer used.
+    """
+    activation = getattr(settings, "consensus_domain_separation_height", None)
+    if activation is None or height is None or height < activation:
+        return None
+    return domain
+
+
+def _sign_attestation(message: dict[str, Any], private_key: str, height: int | None) -> str:
+    if _attestation_domain_active(height):
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION, sign_consensus_message_domain
+
+        return sign_consensus_message_domain(message, private_key, DOMAIN_BLOCK_ATTESTATION)
+    return sign_consensus_message(message, private_key)
+
+
+def _verify_attestation(message: dict[str, Any], signature: str, validator: str, height: int | None) -> bool:
+    if _attestation_domain_active(height):
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION, verify_consensus_message_domain
+
+        return verify_consensus_message_domain(message, signature, validator, DOMAIN_BLOCK_ATTESTATION)
+    return verify_consensus_message(message, signature, validator)
+
+
+def _attestation_message(header: dict[str, Any], chain_id: str, round_: int | None = None) -> dict[str, Any]:
+    """The exact dict an attestation signature covers (round included only
+    under round-lock) — shared by the domain and legacy verify paths."""
+    message = {
+        "chain_id": header.get("chain_id", chain_id),
+        "height": header.get("height", 0),
+        "hash": header.get("hash", ""),
+        "parent_hash": header.get("parent_hash", ""),
+        "proposer": header.get("proposer", ""),
+        "state_root": header.get("state_root", ""),
+        "bridge_state_root": header.get("bridge_state_root", ""),
+    }
+    if round_ is not None:
+        message["round"] = round_
+    return message
+
+
 from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
 from . import abandon, unavail
@@ -68,6 +123,22 @@ def _is_transient_db_lock(exc: BaseException) -> bool:
 def _same_address(a: str, b: str) -> bool:
     """Compare two 0x EVM addresses (case-insensitive)."""
     return canonical_address(a) == canonical_address(b)
+
+
+def _lock_lapse_seconds() -> float:
+    """#1298 (design v2.2 O1 / v2.6): the effective attestation-lock lapse —
+    proposer round window + header max-age + future skew (130s at defaults).
+    An honest re-attestation after this window is guaranteed to land in a
+    new derived round. The durable lock journal prunes at 2x this — the
+    round-lock journal's "two windows" rule applied to the CORRECT window
+    (v2.6 defect 1: pruning at 2x the 60s round would drop a record 10s
+    before its 130s lock lapsed) — so a record is never dropped while its
+    lock could still bind."""
+    return (
+        float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        + float(getattr(settings, "attestation_header_max_age_seconds", 60.0))
+        + float(getattr(settings, "attestation_header_future_skew_seconds", 10.0))
+    )
 
 
 class _RoundLockEntry:
@@ -150,6 +221,9 @@ class RemoteAttestationService:
         # path above is untouched when it is not.
         #   _round_locks: (height, round) -> _RoundLockEntry
         #   _requests_seen: height -> {round: first_seen_mono} — U2 evidence
+        # The same file also carries the always-on attestation-lock journal
+        # (#1298, kind="attestation" records) written by the non-round-lock
+        # path — see ``_attested_lock_records`` below.
         self._round_locks: dict[tuple[int, int], _RoundLockEntry] = {}
         self._requests_seen: dict[int, dict[int, float]] = {}
         self._round_locks_loaded = False
@@ -162,18 +236,30 @@ class RemoteAttestationService:
         # window is refused -- the lock has lapsed on purpose and a replay
         # must not re-arm it. Pruned by height as the tip advances, not by
         # wall clock, so waiting out a timer does not forget a signing.
-        # Restart clears it, same as the lock; the header freshness bound
-        # covers that gap.
+        # #1298: both this and the lock itself are reseeded from the durable
+        # attestation-lock journal on load, so a restart no longer forgets
+        # them (the header freshness bound still covers pre-journal gaps).
         self._signed_once: dict[int, set[str]] = {}
+        # #1298 (design v2.5/v2.6): durable attestation-lock journal — the
+        # non-round-lock path's counterpart to ``_round_locks``. Records
+        # (height, hash) -> signing metadata {proposer, signed_wall,
+        # derived_round, signature_domain}, persisted in the SAME
+        # ``attestation_round_locks.json`` file so a restart re-derives
+        # ``_attested``/``_signed_once`` instead of amnesia. Always-on:
+        # independent of ``attestation_round_lock_enabled`` and of the
+        # UC-gated vote journal.
+        self._attested_lock_records: dict[tuple[int, str], dict[str, Any]] = {}
         # #1278: in-flight deferred evidence saves (strong refs so the tasks
         # are not garbage-collected before they finish).
         self._deferred_state_saves: set[asyncio.Future[Any]] = set()
         # #1263: signature-bearing attestation records for equivocation
-        # evidence — "height:block_hash:signer" -> the exact fields the
-        # signature covers plus the signature itself, so a later rival-hash
-        # signing at the same height can cite BOTH attestations on-chain.
-        # Persisted next to the round locks so a restart cannot lose the
-        # prior signature an equivocation record needs.
+        # evidence — "height:block_hash:signer" below the #1298 activation
+        # height, "chain_id:height:signature_domain:block_hash:signer"
+        # at/above it — the exact fields the signature covers plus the
+        # signature itself, so a later rival-hash signing at the same height
+        # can cite BOTH attestations on-chain. Persisted next to the round
+        # locks so a restart cannot lose the prior signature an equivocation
+        # record needs.
         self._signed_attestations: dict[str, dict[str, Any]] = {}
         self._signed_attestations_loaded = False
         self._signed_attestations_path = DATA_DIR / "data" / chain_id / "attestation_signed.json"
@@ -682,6 +768,11 @@ class RemoteAttestationService:
                 )
                 return
 
+        # #1298: the durable lock journal also reseeds the in-memory
+        # attestation lock and ``_signed_once`` across restarts — load it
+        # once before either lock path consults them.
+        self._ensure_round_locks_loaded()
+
         # Attestation lock: having signed one header at this height, refuse a
         # rival hash for one round window. Double-signing two blocks at h is
         # the equivocation that lets an asymmetric partition become a fork.
@@ -738,7 +829,22 @@ class RemoteAttestationService:
         proposer_signature = request.get("proposer_signature")
         if proposer_signature:
             try:
-                sig_ok = verify_block_signature(header, proposer_signature, proposer)
+                # #1298: the proposer's block signature is a PROPOSAL-domain
+                # signature at/above the armed height — verify accordingly.
+                from aitbc.crypto.consensus_signing import (
+                    DOMAIN_BLOCK_PROPOSAL,
+                    block_header_message,
+                    verify_consensus_message_domain,
+                )
+
+                req_height = header.get("height", 0)
+                activation = getattr(settings, "consensus_domain_separation_height", None)
+                if activation is not None and isinstance(req_height, int) and req_height >= activation:
+                    sig_ok = verify_consensus_message_domain(
+                        block_header_message(header), proposer_signature, proposer, DOMAIN_BLOCK_PROPOSAL
+                    )
+                else:
+                    sig_ok = verify_block_signature(header, proposer_signature, proposer)
             except Exception:
                 sig_ok = False
             if not sig_ok:
@@ -808,13 +914,13 @@ class RemoteAttestationService:
                 refusal,
             )
 
-        if round_lock and request_round is not None:
-            # Durable anti-equivocation record BEFORE any signature is
-            # released (#1242 / AD Amendment D): a crash after this point can
-            # never forget that (height, round) is bound to header_hash. A
-            # persistence failure propagates — no signature goes out
-            # unrecorded.
-            self._record_round_lock(height_int, request_round, header_hash, proposer)
+        # Durable lock record BEFORE any signature is released (#1242
+        # round-lock / #1298 attestation-lock journal): a crash after this
+        # point can never forget that this height is bound to header_hash,
+        # and a persistence failure refuses the signing — no signature goes
+        # out unrecorded.
+        if not self._record_pre_sign_lock(height_int, request_round, header_hash, proposer, header, round_lock):
+            return
 
         # #1198/#1263 advisory: attestation equivocation is recorded inside the
         # signing loop below, AFTER a signature actually exists — evidence
@@ -831,6 +937,13 @@ class RemoteAttestationService:
             index = await unavail.get_observation_index(self._chain_id)
             index.note_request(height_int, header_hash, proposer, ignore=self._own_addresses())
         request_cert = request.get("unlock_justification")
+
+        # #1298: the domain this request's signatures are minted under —
+        # stamped on the evidence records so on-chain verification rebuilds
+        # the same preimage (None below the armed activation height).
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION
+
+        att_sig_domain = _active_signature_domain(height_int, DOMAIN_BLOCK_ATTESTATION)
 
         for address, private_key in self._validator_keys.items():
             # Do not sign our own block.
@@ -861,14 +974,16 @@ class RemoteAttestationService:
                 # transport metadata — changing it invalidates the signature.
                 message["round"] = request_round
             try:
-                signature = sign_consensus_message(message, private_key)
+                signature = _sign_attestation(message, private_key, height_int)
             except Exception as e:
                 logger.warning("Failed to sign attestation: %s", e)
                 continue
             # #1263: retain the signed attestation (durably) so a rival-hash
             # signing at this height can cite BOTH signatures as equivocation
             # evidence, then record the equivocation for this signer.
-            self._record_signed_attestation(height_int, header_hash, address, message, request_round, round_lock, signature)
+            self._record_signed_attestation(
+                height_int, header_hash, address, message, request_round, round_lock, signature, att_sig_domain
+            )
             # #1281: distinct evidence class — "unavailability_cert" when the
             # armed barrier released this vote under a verified UC,
             # "unjustified" for any other armed-mode conflicting vote.
@@ -877,7 +992,13 @@ class RemoteAttestationService:
             if unavail.justification_enabled():
                 just_class = "unavailability_cert" if (height_int, header_hash) in self._vote_justifications else "unjustified"
             self._record_attestation_equivocation_evidence(
-                height_int, header_hash, address, proposer, request_round, justification=just_class
+                height_int,
+                header_hash,
+                address,
+                proposer,
+                request_round,
+                justification=just_class,
+                signature_domain=att_sig_domain,
             )
             if not round_lock:
                 self._record_attestation_lock(height_int, header_hash, proposer)
@@ -1185,6 +1306,7 @@ class RemoteAttestationService:
         #1245: only the FIRST signing of (height, hash) starts the window.
         A duplicate returns False and leaves the lock untouched, so replaying
         a request can never extend or re-arm it."""
+        self._ensure_round_locks_loaded()
         if block_hash in self._signed_once.get(height, ()):
             return False
         now = time.monotonic()
@@ -1213,7 +1335,9 @@ class RemoteAttestationService:
     def attestation_lock(self, height: int, window_seconds: float) -> tuple[str, str] | None:
         """Return ``(block_hash, proposer)`` this validator attested at
         ``height`` if the lock is still live, else None. Expired entries are
-        dropped lazily."""
+        dropped lazily. #1298: the durable journal is loaded first so a
+        restart cannot forget a live lock (proposer-side callers included)."""
+        self._ensure_round_locks_loaded()
         entry = self._attested.get(height)
         if entry is None:
             return None
@@ -1225,9 +1349,21 @@ class RemoteAttestationService:
 
     # ─── #1263: signature-bearing attestation records ─────────────
 
-    @staticmethod
-    def _signed_attestation_key(height: int, block_hash: str, signer: str) -> str:
-        return f"{height}:{block_hash}:{canonical_address(signer)}"
+    def _signed_attestation_key(self, height: int, block_hash: str, signer: str, signature_domain: str | None = None) -> str:
+        """Evidence-index key (#1298).
+
+        Below the armed activation height every signature is legacy, so the
+        key stays the historical ``height:block_hash:signer`` — persisted
+        files and in-memory lookups are byte-identical. At/above it the key
+        carries ``signature_domain`` (design key
+        ``chain_id:height:signature_domain:block_hash:signer``) so a
+        proposal-domain and an attestation-domain record for the same
+        (height, hash, signer) coexist instead of overwriting each other,
+        and pairing lookups are domain-scoped by construction.
+        """
+        if signature_domain is None:
+            return f"{height}:{block_hash}:{canonical_address(signer)}"
+        return f"{self._chain_id}:{height}:{signature_domain}:{block_hash}:{canonical_address(signer)}"
 
     def _ensure_signed_attestations_loaded(self) -> None:
         if self._signed_attestations_loaded:
@@ -1263,18 +1399,20 @@ class RemoteAttestationService:
         ``_persist_round_locks``. Records are pruned by height — only the
         most recent ``SIGNED_ONCE_MAX_HEIGHTS`` heights are kept, which
         comfortably covers the window in which a rival hash at the same
-        height can still be signed.
+        height can still be signed. The height is read from the record, not
+        parsed out of the key: #1298 domain-separated keys lead with
+        ``chain_id`` and cannot be split on ":" for a height.
         """
         import os
 
         self._signed_attestations_path.parent.mkdir(parents=True, exist_ok=True)
         heights = []
         valid_keys = []
-        for key in self._signed_attestations:
+        for key, rec in self._signed_attestations.items():
             try:
-                heights.append(int(key.split(":", 1)[0]))
+                heights.append(int(rec["height"]))
                 valid_keys.append(key)
-            except (ValueError, IndexError):
+            except (KeyError, TypeError, ValueError):
                 continue
         cutoff = (max(heights) - SIGNED_ONCE_MAX_HEIGHTS) if heights else 0
         records = [
@@ -1299,15 +1437,21 @@ class RemoteAttestationService:
         request_round: int | None,
         round_lock: bool,
         signature: str,
+        signature_domain: str | None = None,
     ) -> None:
         """Durably retain a just-produced attestation signature (#1263).
 
         The record holds every field the signed preimage covers plus
         ``round_in_payload``/``request_round`` so on-chain verification can
         rebuild the message byte-identically under either round-lock flag
-        state. A persistence failure is logged but does not block the
-        attestation — the signature itself is already released; the evidence
-        index is best-effort enrichment, not a consensus gate.
+        state. #1298: ``signature_domain`` records which domain preimage the
+        signature actually used (``DOMAIN_BLOCK_ATTESTATION`` /
+        ``DOMAIN_BLOCK_PROPOSAL``); it is written only when set, so legacy
+        records stay byte-identical and "field absent" keeps meaning
+        "pre-activation signature" to the on-chain verifier. A persistence
+        failure is logged but does not block the attestation — the signature
+        itself is already released; the evidence index is best-effort
+        enrichment, not a consensus gate.
         """
         self._ensure_signed_attestations_loaded()
         record = {
@@ -1323,7 +1467,9 @@ class RemoteAttestationService:
             "signature": signature,
             "signer": canonical_address(signer),
         }
-        key = self._signed_attestation_key(height, block_hash, signer)
+        if signature_domain is not None:
+            record["signature_domain"] = signature_domain
+        key = self._signed_attestation_key(height, block_hash, signer, signature_domain)
         self._signed_attestations[key] = record
         try:
             self._persist_signed_attestations()
@@ -1352,6 +1498,7 @@ class RemoteAttestationService:
         request_round: int | None,
         justification: str | None = None,
         persist: bool = True,
+        signature_domain: str | None = None,
     ) -> None:
         """Record attestation equivocation for the signer that just signed.
 
@@ -1361,6 +1508,12 @@ class RemoteAttestationService:
         signature carry both attestations (gate-verifiable); pairs whose
         prior signature is unknown (pre-capture signing or lost index) fall
         back to the hash-only advisory record.
+
+        #1298: ``signature_domain`` scopes the pairing — a record pairs only
+        with prior signatures minted under the SAME domain preimage
+        (proposal records with proposal records, attestation with
+        attestation), so cross-role pairs can never be signed evidence.
+        ``None`` (below the activation height) pairs exactly as before.
         """
         canon = canonical_address(signer)
         prior_hashes = set(self._signed_once.get(height, ()))
@@ -1372,7 +1525,7 @@ class RemoteAttestationService:
         prior_hashes.discard(block_hash)
         if not prior_hashes:
             return
-        current_key = self._signed_attestation_key(height, block_hash, signer)
+        current_key = self._signed_attestation_key(height, block_hash, signer, signature_domain)
         current = self._signed_attestations.get(current_key)
         if current is None:
             return
@@ -1383,7 +1536,7 @@ class RemoteAttestationService:
         extra: dict[str, Any] = {"persist": False} if defer_save else {}
         recorded = False
         for prior_hash in sorted(prior_hashes):
-            prior = self._signed_attestations.get(self._signed_attestation_key(height, prior_hash, signer))
+            prior = self._signed_attestations.get(self._signed_attestation_key(height, prior_hash, signer, signature_domain))
             attestations = [prior, current] if prior is not None else None
             try:
                 recorder.record_attestation_equivocation(
@@ -1472,9 +1625,18 @@ class RemoteAttestationService:
         height = int(message["height"])
         block_hash = str(message["hash"])
         proposer = str(message["proposer"])
-        self._record_signed_attestation(height, block_hash, proposer, message, None, False, signature)
+        # #1298: the block signature was minted under the proposal domain at/
+        # above the armed activation height — stamp the same domain so the
+        # evidence record pairs only with same-domain signatures and the
+        # on-chain verifier rebuilds the right preimage.
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_PROPOSAL
+
+        sig_domain = _active_signature_domain(height, DOMAIN_BLOCK_PROPOSAL)
+        self._record_signed_attestation(height, block_hash, proposer, message, None, False, signature, sig_domain)
         evidence_round = round_number if self._round_lock_enabled() else None
-        self._record_attestation_equivocation_evidence(height, block_hash, proposer, proposer, evidence_round, persist=False)
+        self._record_attestation_equivocation_evidence(
+            height, block_hash, proposer, proposer, evidence_round, persist=False, signature_domain=sig_domain
+        )
 
     def _scheduled_proposer(self, height: int, header: dict) -> str | None:
         """Derive the round from parent/header timestamps and return the
@@ -1748,7 +1910,8 @@ class RemoteAttestationService:
         self._load_round_locks()
 
     def _load_round_locks(self) -> None:
-        """Restore persisted signed (height, round, hash) records (#1242/D).
+        """Restore persisted signed (height, round, hash) records (#1242/D)
+        plus the always-on attestation-lock journal records (#1298).
 
         Wall-clock timestamps are converted into monotonic-equivalent ages at
         load so the same U1/U2 math applies after restart. Records older than
@@ -1765,6 +1928,9 @@ class RemoteAttestationService:
             window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
             for rec in data.get("records", []):
                 try:
+                    if rec.get("kind") == "attestation":
+                        self._load_attestation_lock_record(rec, now_mono, now_wall)
+                        continue
                     h, r = int(rec["h"]), int(rec["r"])
                     signed_wall = float(rec["signed_wall"])
                     age_wall = now_wall - signed_wall
@@ -1781,8 +1947,50 @@ class RemoteAttestationService:
                     )
                 except (KeyError, TypeError, ValueError):
                     continue
+            # Reseeded ``_signed_once`` entries prune by height/cap exactly
+            # like live ones.
+            self._prune_signed_once()
         except Exception as e:
             logger.warning("Failed to load round-lock records for %s: %s", self._chain_id, e)
+
+    def _load_attestation_lock_record(self, rec: dict[str, Any], now_mono: float, now_wall: float) -> None:
+        """Reseed one durable attestation-lock journal record (#1298 v2.5).
+
+        ``signed_wall`` converts to a monotonic-equivalent timestamp with the
+        same ``now_mono - (now_wall - signed_wall)`` math ``_load_round_locks``
+        uses, clamped at zero age so a backwards wall-clock step cannot mint
+        a negative age. Records older than two lock-lapse windows (260s at
+        defaults — v2.6 defect-1 fix) are dropped: they can no longer bind
+        anything. Records without a derived round or domain tag (legacy or
+        underivable) still reseed — the lock state is height/hash-keyed, so
+        coverage is never weaker than a round-tagged record (T21).
+        """
+        h = int(rec["h"])
+        block_hash = str(rec["hash"])
+        signed_wall = float(rec["signed_wall"])
+        age_wall = max(0.0, now_wall - signed_wall)
+        if age_wall >= 2 * _lock_lapse_seconds():
+            return
+        signed_at = now_mono - age_wall
+        proposer = str(rec.get("proposer", ""))
+        raw_round = rec.get("derived_round")
+        try:
+            derived_round = int(raw_round) if raw_round is not None else None
+        except (TypeError, ValueError):
+            derived_round = None
+        domain = rec.get("signature_domain")
+        self._attested_lock_records[(h, block_hash)] = {
+            "proposer": proposer,
+            "signed_wall": signed_wall,
+            "derived_round": derived_round,
+            "signature_domain": domain if isinstance(domain, str) else None,
+        }
+        self._signed_once.setdefault(h, set()).add(block_hash)
+        # ``_attested`` keeps the LATEST signing per height — the same
+        # last-write-wins semantics ``_record_attestation_lock`` applies.
+        current = self._attested.get(h)
+        if current is None or signed_at > current[2]:
+            self._attested[h] = (block_hash, proposer, signed_at)
 
     def _persist_round_locks(self) -> None:
         """Atomically persist signed (height, round, hash) records.
@@ -1796,11 +2004,11 @@ class RemoteAttestationService:
         self._round_locks_path.parent.mkdir(parents=True, exist_ok=True)
         now_wall = time.time()
         window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
-        records = []
+        payload_records = []
         for (h, r), e in self._round_locks.items():
             if now_wall - e.signed_wall >= 2 * window:
                 continue
-            records.append(
+            payload_records.append(
                 {
                     "h": h,
                     "r": r,
@@ -1810,7 +2018,28 @@ class RemoteAttestationService:
                     "request_seen_wall": e.request_seen_wall,
                 }
             )
-        payload = json.dumps({"version": 1, "chain_id": self._chain_id, "records": records})
+        # #1298: the always-on attestation-lock journal shares this file.
+        # kind="attestation" records carry no "r" key, so a pre-#1298 build
+        # reading this file skips them (KeyError) instead of misreading them
+        # as round locks. Pruned by WALL AGE at 2x the lock-lapse window
+        # (260s at defaults), never the 60s round window — v2.6 defect 1.
+        lapse_prune = 2 * _lock_lapse_seconds()
+        for (h, block_hash), rec in self._attested_lock_records.items():
+            signed_wall = float(rec["signed_wall"])
+            if now_wall - signed_wall >= lapse_prune:
+                continue
+            payload_records.append(
+                {
+                    "kind": "attestation",
+                    "h": h,
+                    "hash": block_hash,
+                    "proposer": rec["proposer"],
+                    "signed_wall": signed_wall,
+                    "derived_round": rec["derived_round"],
+                    "signature_domain": rec["signature_domain"],
+                }
+            )
+        payload = json.dumps({"version": 1, "chain_id": self._chain_id, "records": payload_records})
         tmp = self._round_locks_path.with_name(self._round_locks_path.name + ".tmp")
         with open(tmp, "w") as f:
             f.write(payload)
@@ -1841,6 +2070,88 @@ class RemoteAttestationService:
             req_seen_wall = now_wall - (now_mono - req_seen) if req_seen is not None else None
             self._round_locks[key] = _RoundLockEntry(block_hash, proposer, now_mono, now_wall, req_seen, req_seen_wall)
         self._persist_round_locks()
+
+    def _record_attestation_lock_journal(
+        self,
+        height: int,
+        block_hash: str,
+        proposer: str,
+        header: dict[str, Any],
+    ) -> None:
+        """Durably record an attestation-lock signing BEFORE release (#1298).
+
+        Always-on counterpart of ``_record_round_lock`` for the non-round-lock
+        path: the record carries the signing wall-clock time, the best-effort
+        derived round, and the signature domain in effect, so a restart can
+        re-derive ``_attested``/``_signed_once`` instead of forgetting every
+        lock (design v2.5 restart fix — best-effort reseed was rejected).
+        Idempotent per (height, hash): a duplicate request adds nothing and
+        skips the fsync. A persistence failure propagates — the caller must
+        not release a signature it could not durably record.
+        """
+        self._ensure_round_locks_loaded()
+        key = (height, block_hash)
+        if key in self._attested_lock_records:
+            return
+        now_wall = time.time()
+        lapse_prune = 2 * _lock_lapse_seconds()
+        self._attested_lock_records = {
+            k: r for k, r in self._attested_lock_records.items() if now_wall - float(r["signed_wall"]) < lapse_prune
+        }
+        domain: str | None = None
+        if _attestation_domain_active(height):
+            from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION
+
+            domain = DOMAIN_BLOCK_ATTESTATION
+        record = {
+            "proposer": proposer,
+            "signed_wall": now_wall,
+            "derived_round": self._derive_request_round(header),
+            "signature_domain": domain,
+        }
+        self._attested_lock_records[key] = record
+        try:
+            self._persist_round_locks()
+        except Exception:
+            # Roll back the in-memory record: an unpersisted entry must not
+            # dedup a later retry into releasing a signature it never
+            # durably recorded (fail-closed, not fail-open).
+            if self._attested_lock_records.get(key) is record:
+                del self._attested_lock_records[key]
+            raise
+
+    def _record_pre_sign_lock(
+        self,
+        height: int,
+        request_round: int | None,
+        header_hash: str,
+        proposer: str,
+        header: dict[str, Any],
+        round_lock: bool,
+    ) -> bool:
+        """Persist the durable lock record for this signing; False = refuse.
+
+        Round-lock path keeps the ``_record_round_lock`` contract — a
+        persistence failure propagates. The attestation-lock journal path
+        (#1298) catches the failure, counts it, and refuses the signature
+        (fail-closed): the node stops attesting until the disk recovers,
+        which is the detectable liveness cost the design accepted over
+        silently losing restart coverage.
+        """
+        if round_lock and request_round is not None:
+            self._record_round_lock(height, request_round, header_hash, proposer)
+            return True
+        try:
+            self._record_attestation_lock_journal(height, header_hash, proposer, header)
+        except Exception as e:
+            metrics_registry.increment("attestation_lock_persist_failure_total")
+            logger.error(
+                "Attestation-lock journal persist failed at height %s — refusing to sign: %s",
+                height,
+                e,
+            )
+            return False
+        return True
 
     async def collect_attestations(
         self,
@@ -2007,17 +2318,15 @@ class RemoteAttestationService:
                         # Round-bound verification: the signed payload includes
                         # the round, so an old-round signature cannot verify
                         # against this round's header even on a hash match.
-                        att_msg = {
-                            "chain_id": header.get("chain_id", self._chain_id),
-                            "height": header.get("height", 0),
-                            "hash": header.get("hash", ""),
-                            "parent_hash": header.get("parent_hash", ""),
-                            "proposer": header.get("proposer", ""),
-                            "state_root": header.get("state_root", ""),
-                            "bridge_state_root": header.get("bridge_state_root", ""),
-                            "round": collect_round,
-                        }
-                        sig_ok = verify_consensus_message(att_msg, signature, validator)
+                        att_msg = _attestation_message(header, self._chain_id, collect_round)
+                        sig_ok = _verify_attestation(att_msg, signature, validator, block.height)
+                    elif _attestation_domain_active(block.height):
+                        # #1298: post-activation attestations live under the
+                        # attestation domain — the proposal/raw-hash fallbacks
+                        # inside verify_block_signature must not accept them.
+                        sig_ok = _verify_attestation(
+                            _attestation_message(header, self._chain_id), signature, validator, block.height
+                        )
                     else:
                         sig_ok = verify_block_signature(header, signature, validator)
                     if sig_ok:
