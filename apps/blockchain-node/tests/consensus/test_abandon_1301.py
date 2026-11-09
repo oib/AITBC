@@ -176,3 +176,27 @@ def test_own_proposal_entry_is_not_released_self_lock():
     get_vote_journal(CHAIN).record(H, OUR, HASH, KIND_PROPOSE, None, OUR)
     assert _svc().handle_abandon(_stmt(key=OUR_KEY, proposer=OUR)) == 0
     assert _live()
+
+
+def test_legacy_attestation_lock_and_round_lock_are_released_too():
+    svc = _svc()
+    svc._record_attestation_lock(H, HASH, PROP)
+    svc._record_round_lock(H, 1, HASH, PROP)
+    assert svc.attestation_lock(H, 600.0) is not None
+    assert svc.handle_abandon(_stmt()) == 2
+    assert svc.attestation_lock(H, 600.0) is None
+    assert not svc._round_locks
+
+
+def test_locks_for_other_hash_or_proposer_are_kept():
+    svc = _svc()
+    svc._record_attestation_lock(H, OTHER, PROP)
+    svc._record_round_lock(H, 1, OTHER, PROP)
+    svc._record_attestation_lock(H + 1, HASH, EVIL)
+    assert svc.handle_abandon(_stmt()) == 0
+    assert svc.attestation_lock(H, 600.0) is not None
+    assert svc._round_locks
+    svc2 = _svc()
+    svc2._record_attestation_lock(H, HASH, EVIL)  # same hash, different proposer
+    assert svc2.handle_abandon(_stmt()) == 0
+    assert svc2.attestation_lock(H, 600.0) is not None
