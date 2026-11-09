@@ -89,6 +89,42 @@ _HEARTBEAT_BOOKABLE_STATUSES = ("available", "offline", "online")
 _MAX_PRICE_PER_HOUR = Decimal("999999999999.99999999")
 
 
+def _validate_gpu_offer(payload: dict[str, Any], transaction_data: dict[str, Any]) -> tuple[str, Decimal] | JSONResponse:
+    """Validate a gpu_market offer before it writes a GPURegistry row (#1389).
+
+    This path bypasses the OfferFSM validation PUT /v1/gpu/{id} applies. A
+    registration is a new listing, so the only legal initial status is
+    "available" — anything else ("booked", "bogus", ...) would persist a
+    committed or off-vocabulary state no reservation flow produced. The
+    signed envelope's payload is authoritative; the outer transaction_data
+    fields are unsigned caller input and only consulted as a fallback for
+    callers that omit them. Returns ``(status, price)`` or a 400
+    ``JSONResponse``.
+    """
+    offer_status = payload.get("status", transaction_data.get("status", "available"))
+    if offer_status != "available":
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": (
+                    f"GPU offers must register with status 'available', got {offer_status!r}; "
+                    "booked/in_use states are only reachable through the reservation flow"
+                )
+            },
+        )
+    price_raw = payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0))
+    try:
+        offer_price = Decimal(str(price_raw))
+    except InvalidOperation:
+        return JSONResponse(status_code=400, content={"error": f"invalid price_per_hour: {price_raw!r}"})
+    if not offer_price.is_finite() or offer_price < 0 or offer_price > _MAX_PRICE_PER_HOUR:
+        return JSONResponse(
+            status_code=400,
+            content={"error": f"price_per_hour out of range: {price_raw!r} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})"},
+        )
+    return offer_status, offer_price
+
+
 def _validate_gpu_status_transition(current: str, new: str) -> str:
     """Validate a GPU status transition via OfferFSM (v0.6.6).
 
@@ -465,6 +501,89 @@ async def complete_gpu_queue(
     }
 
 
+async def _handle_gpu_offer(session: AsyncSession, transaction_data: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    """gpu_market/offer: relay a signed GPU_REGISTER envelope and mirror the
+    listing locally (#1389 validation lives in ``_validate_gpu_offer``)."""
+    gpu_specs = transaction_data.get("specs", {})
+    signed_tx = transaction_data.get("tx")
+    if not isinstance(signed_tx, dict):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": (
+                    "signed transaction required: post {'type': 'gpu_market', 'action': 'offer', "
+                    "'tx': <signed GPU_REGISTER envelope>} — the service holds no wallet key and "
+                    "cannot rebuild or sign the envelope (GPU-RELAYER-1, #385). Build and sign "
+                    "with `aitbc gpu onchain register` on the key-owning host."
+                )
+            },
+        )
+    payload = signed_tx.get("payload") or {}
+
+    offer_validation = _validate_gpu_offer(payload, transaction_data)
+    if isinstance(offer_validation, JSONResponse):
+        return offer_validation
+    offer_status, offer_price = offer_validation
+
+    logger.info(
+        "Relaying signed GPU_REGISTER for %s from %s",
+        payload.get("gpu_id") or payload.get("model", "unknown"),
+        signed_tx.get("from", ""),
+    )
+    blockchain_tx_hash = None
+    try:
+        result = await _rpc_client.submit_transaction(signed_tx)
+        blockchain_tx_hash = result.get("transaction_hash")
+        if blockchain_tx_hash:
+            logger.info("GPU_REGISTER submitted on-chain: %s", blockchain_tx_hash)
+    except Exception as blockchain_error:
+        refusal = _admission_refusal(blockchain_error)
+        if refusal is not None:
+            status_code, detail = refusal
+            logger.warning("GPU_REGISTER refused at admission (%s): %s", status_code, detail)
+            return JSONResponse(
+                status_code=status_code,
+                content={"error": "blockchain admission refused the signed transaction", "detail": detail},
+            )
+        if isinstance(blockchain_error, ValueError):
+            # Client-side envelope refusal (e.g. missing chain_id —
+            # BlockchainRPCClient.submit_transaction raises before any
+            # HTTP call). The envelope can never be submitted as-is, so
+            # a local row would only hide the caller's bug: relay it as
+            # a 400, never as a transport fallback.
+            logger.warning("GPU_REGISTER envelope rejected client-side: %s", blockchain_error)
+            return JSONResponse(
+                status_code=400,
+                content={"error": "signed envelope rejected: " + str(blockchain_error)},
+            )
+        logger.warning("Blockchain submission failed (transport), falling back to local storage: %s", blockchain_error)
+    miner_id = payload.get("miner_id") or transaction_data.get("provider_node_id", "default_miner")
+    gpu_data = {
+        "id": transaction_data.get("offer_id") or payload.get("gpu_id") or f"gpu_{miner_id}",
+        "miner_id": miner_id,
+        "model": payload.get("model", gpu_specs.get("model", "Unknown")),
+        "memory_gb": payload.get("memory_gb", gpu_specs.get("memory_gb", 0)),
+        "price_per_hour": offer_price,
+        "status": offer_status,
+        "region": payload.get("region", gpu_specs.get("region", "")),
+        "capabilities": payload.get("capabilities", gpu_specs.get("capabilities", [])),
+        "chain_id": signed_tx.get("chain_id", settings.default_chain_id),
+    }
+    from .domain.gpu_market import GPURegistry
+
+    gpu = GPURegistry(**gpu_data)
+    session.add(gpu)
+    await session.commit()
+    response_data: dict[str, Any] = {
+        "status": "success",
+        "transaction_id": transaction_data.get("offer_id"),
+        "blockchain_registered": blockchain_tx_hash is not None,
+    }
+    if blockchain_tx_hash:
+        response_data["blockchain_tx_hash"] = blockchain_tx_hash
+    return response_data
+
+
 @app.post("/v1/transactions")
 async def submit_transaction(
     transaction_data: dict[str, Any],
@@ -478,115 +597,10 @@ async def submit_transaction(
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for GPU service"})
     try:
         if action == "offer":
-            gpu_specs = transaction_data.get("specs", {})
-            signed_tx = transaction_data.get("tx")
-            if not isinstance(signed_tx, dict):
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "error": (
-                            "signed transaction required: post {'type': 'gpu_market', 'action': 'offer', "
-                            "'tx': <signed GPU_REGISTER envelope>} — the service holds no wallet key and "
-                            "cannot rebuild or sign the envelope (GPU-RELAYER-1, #385). Build and sign "
-                            "with `aitbc gpu onchain register` on the key-owning host."
-                        )
-                    },
-                )
-            payload = signed_tx.get("payload") or {}
-
-            # #1389: this path writes GPURegistry rows directly, bypassing the
-            # OfferFSM validation PUT /v1/gpu/{id} applies. A registration is a
-            # new listing, so the only legal initial status is "available" —
-            # anything else ("booked", "bogus", ...) would persist a committed
-            # or off-vocabulary state no reservation flow produced. The signed
-            # envelope's payload is authoritative; the outer transaction_data
-            # fields are unsigned caller input and only consulted as a
-            # fallback for callers that omit them.
-            offer_status = payload.get("status", transaction_data.get("status", "available"))
-            if offer_status != "available":
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "error": (
-                            f"GPU offers must register with status 'available', got {offer_status!r}; "
-                            "booked/in_use states are only reachable through the reservation flow"
-                        )
-                    },
-                )
-            price_raw = payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0))
-            try:
-                offer_price = Decimal(str(price_raw))
-            except InvalidOperation:
-                return JSONResponse(status_code=400, content={"error": f"invalid price_per_hour: {price_raw!r}"})
-            if not offer_price.is_finite() or offer_price < 0 or offer_price > _MAX_PRICE_PER_HOUR:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "error": f"price_per_hour out of range: {price_raw!r} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})"
-                    },
-                )
-
-            logger.info(
-                "Relaying signed GPU_REGISTER for %s from %s",
-                payload.get("gpu_id") or payload.get("model", "unknown"),
-                signed_tx.get("from", ""),
-            )
-            blockchain_tx_hash = None
-            try:
-                result = await _rpc_client.submit_transaction(signed_tx)
-                blockchain_tx_hash = result.get("transaction_hash")
-                if blockchain_tx_hash:
-                    logger.info("GPU_REGISTER submitted on-chain: %s", blockchain_tx_hash)
-            except Exception as blockchain_error:
-                refusal = _admission_refusal(blockchain_error)
-                if refusal is not None:
-                    status_code, detail = refusal
-                    logger.warning("GPU_REGISTER refused at admission (%s): %s", status_code, detail)
-                    return JSONResponse(
-                        status_code=status_code,
-                        content={"error": "blockchain admission refused the signed transaction", "detail": detail},
-                    )
-                if isinstance(blockchain_error, ValueError):
-                    # Client-side envelope refusal (e.g. missing chain_id —
-                    # BlockchainRPCClient.submit_transaction raises before any
-                    # HTTP call). The envelope can never be submitted as-is, so
-                    # a local row would only hide the caller's bug: relay it as
-                    # a 400, never as a transport fallback.
-                    logger.warning("GPU_REGISTER envelope rejected client-side: %s", blockchain_error)
-                    return JSONResponse(
-                        status_code=400,
-                        content={"error": "signed envelope rejected: " + str(blockchain_error)},
-                    )
-                logger.warning("Blockchain submission failed (transport), falling back to local storage: %s", blockchain_error)
-            miner_id = payload.get("miner_id") or transaction_data.get("provider_node_id", "default_miner")
-            gpu_data = {
-                "id": transaction_data.get("offer_id") or payload.get("gpu_id") or f"gpu_{miner_id}",
-                "miner_id": miner_id,
-                "model": payload.get("model", gpu_specs.get("model", "Unknown")),
-                "memory_gb": payload.get("memory_gb", gpu_specs.get("memory_gb", 0)),
-                "price_per_hour": offer_price,
-                "status": offer_status,
-                "region": payload.get("region", gpu_specs.get("region", "")),
-                "capabilities": payload.get("capabilities", gpu_specs.get("capabilities", [])),
-                "chain_id": signed_tx.get("chain_id", settings.default_chain_id),
-            }
-            from .domain.gpu_market import GPURegistry
-
-            gpu = GPURegistry(**gpu_data)
-            session.add(gpu)
-            await session.commit()
-            response_data = {
-                "status": "success",
-                "transaction_id": transaction_data.get("offer_id"),
-                "blockchain_registered": blockchain_tx_hash is not None,
-            }
-            if blockchain_tx_hash:
-                response_data["blockchain_tx_hash"] = blockchain_tx_hash
-            return response_data
-        else:
-            return JSONResponse(
-                status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"}
-            )
+            return await _handle_gpu_offer(session, transaction_data)
+        return JSONResponse(
+            status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"}
+        )
     except Exception:
         await session.rollback()
         logger.exception("Transaction submission error")
