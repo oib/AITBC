@@ -4,13 +4,16 @@ Implements secure agent-to-agent messaging with reputation-based access control
 """
 
 import asyncio
-import hashlib
+import base64
 import json
-from dataclasses import asdict, dataclass, field
+import os
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -159,6 +162,9 @@ class AgentCommunicationService:
         self.message_queue: list[Message] = []
         self.delivery_attempts: dict[str, int] = {}
         self._lock = asyncio.Lock()
+        # Service-held AES-256 key: messages are in-memory only, so a
+        # per-instance key has the same lifetime as the message store.
+        self._cipher = AESGCM(AESGCM.generate_key(bit_length=256))
         self._initialize_default_templates()
 
     def set_reputation_service(self, reputation_service: CrossChainReputationService) -> None:
@@ -589,32 +595,25 @@ class AgentCommunicationService:
         return str(uuid.uuid4())
 
     async def _encrypt_content(self, content: bytes, encryption_type: EncryptionType) -> tuple[bytes, bytes]:
-        """Encrypt message content"""
-        if encryption_type == EncryptionType.AES256:
-            key = hashlib.sha256(content).digest()[:32]
-            import os
+        """Encrypt message content.
 
-            iv = os.urandom(16)
-            encrypted = content + iv
-            return (encrypted, key)
-        elif encryption_type == EncryptionType.RSA:
-            key = hashlib.sha256(content).digest()[:256]
-            return (content + key, key)
-        else:
-            return (content, b"")
+        AES256 uses real AES-256-GCM with a service-held key; the 12-byte
+        nonce is prepended to the ciphertext+tag. RSA and HYBRID are
+        rejected: there is no key registry or PKI in this service, so they
+        could never be decrypted by the recipient (#1320).
+        """
+        if encryption_type == EncryptionType.AES256:
+            nonce = os.urandom(12)
+            return (nonce + self._cipher.encrypt(nonce, content, None), b"")
+        raise ValueError(f"Unsupported encryption type: {encryption_type.value}")
 
     async def _decrypt_content(self, encrypted_content: bytes, key: bytes, encryption_type: EncryptionType) -> bytes:
-        """Decrypt message content"""
+        """Decrypt message content (AES-256-GCM; nonce is the first 12 bytes)."""
         if encryption_type == EncryptionType.AES256:
-            if len(encrypted_content) < 16:
-                return encrypted_content
-            return encrypted_content[:-16]
-        elif encryption_type == EncryptionType.RSA:
-            if len(encrypted_content) < 256:
-                return encrypted_content
-            return encrypted_content[:-256]
-        else:
-            return encrypted_content
+            if len(encrypted_content) < 12 + 16:
+                raise ValueError("Ciphertext too short for AES-GCM")
+            return self._cipher.decrypt(encrypted_content[:12], encrypted_content[12:], None)
+        raise ValueError(f"Unsupported encryption type: {encryption_type.value}")
 
     async def _calculate_message_price(self, size: int, message_type: MessageType) -> Decimal:
         """Calculate message price based on size and type.
@@ -782,30 +781,157 @@ class AgentCommunicationService:
         """Load existing communication data"""
         pass
 
+    @staticmethod
+    def _dt_to_iso(value: datetime | None) -> str | None:
+        return value.isoformat() if value is not None else None
+
+    @staticmethod
+    def _iso_to_dt(value: Any) -> datetime | None:
+        return datetime.fromisoformat(value) if value is not None else None
+
+    @staticmethod
+    def _iso_to_dt_required(value: Any) -> datetime:
+        dt = AgentCommunicationService._iso_to_dt(value)
+        if dt is None:
+            raise ValueError("missing required timestamp in import data")
+        return dt
+
+    @staticmethod
+    def _b64e(value: bytes) -> str:
+        return base64.b64encode(value).decode("ascii")
+
+    @staticmethod
+    def _b64d(value: str) -> bytes:
+        return base64.b64decode(value)
+
+    def _message_to_dict(self, message: Message) -> dict[str, Any]:
+        return {
+            "id": message.id,
+            "sender": message.sender,
+            "recipient": message.recipient,
+            "message_type": message.message_type.value,
+            "content": self._b64e(message.content),
+            "encryption_key": self._b64e(message.encryption_key),
+            "encryption_type": message.encryption_type.value,
+            "size": message.size,
+            "timestamp": self._dt_to_iso(message.timestamp),
+            "delivery_timestamp": self._dt_to_iso(message.delivery_timestamp),
+            "read_timestamp": self._dt_to_iso(message.read_timestamp),
+            "status": message.status.value,
+            "paid": message.paid,
+            "price": str(message.price),
+            "metadata": message.metadata,
+            "expires_at": self._dt_to_iso(message.expires_at),
+            "reply_to": message.reply_to,
+            "thread_id": message.thread_id,
+        }
+
+    def _message_from_dict(self, data: dict[str, Any]) -> Message:
+        return Message(
+            id=data["id"],
+            sender=data["sender"],
+            recipient=data["recipient"],
+            message_type=MessageType(data["message_type"]),
+            content=self._b64d(data["content"]),
+            encryption_key=self._b64d(data["encryption_key"]),
+            encryption_type=EncryptionType(data["encryption_type"]),
+            size=data["size"],
+            timestamp=self._iso_to_dt_required(data["timestamp"]),
+            delivery_timestamp=self._iso_to_dt(data.get("delivery_timestamp")),
+            read_timestamp=self._iso_to_dt(data.get("read_timestamp")),
+            status=MessageStatus(data["status"]),
+            paid=data["paid"],
+            price=Decimal(data["price"]),
+            metadata=data.get("metadata") or {},
+            expires_at=self._iso_to_dt(data.get("expires_at")),
+            reply_to=data.get("reply_to"),
+            thread_id=data.get("thread_id"),
+        )
+
+    def _channel_to_dict(self, channel: CommunicationChannel) -> dict[str, Any]:
+        return {
+            "id": channel.id,
+            "agent1": channel.agent1,
+            "agent2": channel.agent2,
+            "channel_type": channel.channel_type.value,
+            "is_active": channel.is_active,
+            "created_timestamp": self._dt_to_iso(channel.created_timestamp),
+            "last_activity": self._dt_to_iso(channel.last_activity),
+            "message_count": channel.message_count,
+            "participants": channel.participants,
+            "encryption_enabled": channel.encryption_enabled,
+            "auto_delete": channel.auto_delete,
+            "retention_period": channel.retention_period,
+        }
+
+    def _channel_from_dict(self, data: dict[str, Any]) -> CommunicationChannel:
+        return CommunicationChannel(
+            id=data["id"],
+            agent1=data["agent1"],
+            agent2=data["agent2"],
+            channel_type=ChannelType(data["channel_type"]),
+            is_active=data["is_active"],
+            created_timestamp=self._iso_to_dt_required(data["created_timestamp"]),
+            last_activity=self._iso_to_dt_required(data["last_activity"]),
+            message_count=data["message_count"],
+            participants=data.get("participants") or [],
+            encryption_enabled=data.get("encryption_enabled", True),
+            auto_delete=data.get("auto_delete", False),
+            retention_period=data.get("retention_period", 2592000),
+        )
+
+    def _template_to_dict(self, template: MessageTemplate) -> dict[str, Any]:
+        return {
+            "id": template.id,
+            "name": template.name,
+            "description": template.description,
+            "message_type": template.message_type.value,
+            "content_template": template.content_template,
+            "variables": template.variables,
+            "base_price": str(template.base_price),
+            "is_active": template.is_active,
+            "creator": template.creator,
+            "usage_count": template.usage_count,
+        }
+
+    def _template_from_dict(self, data: dict[str, Any]) -> MessageTemplate:
+        return MessageTemplate(
+            id=data["id"],
+            name=data["name"],
+            description=data["description"],
+            message_type=MessageType(data["message_type"]),
+            content_template=data["content_template"],
+            variables=data.get("variables") or [],
+            base_price=Decimal(data["base_price"]),
+            is_active=data["is_active"],
+            creator=data["creator"],
+            usage_count=data.get("usage_count", 0),
+        )
+
     async def export_communication_data(self, format: str = "json") -> str:
-        """Export communication data"""
+        """Export communication data (JSON-safe: bytes base64, datetimes ISO,
+        enums as values, Decimals as strings)"""
         data = {
-            "messages": {k: asdict(v) for k, v in self.messages.items()},
-            "channels": {k: asdict(v) for k, v in self.channels.items()},
-            "templates": {k: asdict(v) for k, v in self.message_templates.items()},
+            "messages": {k: self._message_to_dict(v) for k, v in self.messages.items()},
+            "channels": {k: self._channel_to_dict(v) for k, v in self.channels.items()},
+            "templates": {k: self._template_to_dict(v) for k, v in self.message_templates.items()},
             "export_timestamp": datetime.now(UTC).isoformat(),
         }
         if format.lower() == "json":
-            return json.dumps(data, indent=2, default=str)
+            return json.dumps(data, indent=2)
         else:
             raise ValueError(f"Unsupported format: {format}")
 
     async def import_communication_data(self, data: str, format: str = "json") -> None:
-        """Import communication data"""
+        """Import communication data exported by export_communication_data"""
         if format.lower() == "json":
             parsed_data = json.loads(data)
             for message_id, message_data in parsed_data.get("messages", {}).items():
-                message_data["timestamp"] = datetime.fromisoformat(message_data["timestamp"])
-                self.messages[message_id] = Message(**message_data)
+                self.messages[message_id] = self._message_from_dict(message_data)
             for channel_id, channel_data in parsed_data.get("channels", {}).items():
-                channel_data["created_timestamp"] = datetime.fromisoformat(channel_data["created_timestamp"])
-                channel_data["last_activity"] = datetime.fromisoformat(channel_data["last_activity"])
-                self.channels[channel_id] = CommunicationChannel(**channel_data)
+                self.channels[channel_id] = self._channel_from_dict(channel_data)
+            for template_id, template_data in parsed_data.get("templates", {}).items():
+                self.message_templates[template_id] = self._template_from_dict(template_data)
             logger.info("Communication data imported successfully")
         else:
             raise ValueError(f"Unsupported format: {format}")
