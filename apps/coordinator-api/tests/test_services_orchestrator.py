@@ -6,13 +6,9 @@ verification levels) and AIAgentOrchestrator (workflow execution, dependency
 ordering, status reporting) against the real in-memory session. Step-type
 executors are simulated sleeps by design (documented in the source).
 
-Defects pinned strict-xfail (routed on the ledger):
-- ``_execute_steps_async`` stores ``AgentStepExecution`` ORM objects in the
-  ``step_states`` JSON column -> TypeError on the first progress update, so
-  no multi-step workflow can get past step 1.
-- ``_complete_execution`` subtracts a naive ``started_at`` (SQLite
-  round-trip) from an aware ``completed_at`` -> TypeError; even a
-  single-step run cannot reach COMPLETED.
+The defect chain these tests originally pinned strict-xfail was fixed
+in #1316 (same branch): JSON-safe step_states serialization and
+tz-normalized completion timing.
 """
 
 from __future__ import annotations
@@ -416,10 +412,6 @@ class TestOrchestrator:
         assert orch._estimate_completion(AgentExecution(workflow_id=wf.id, client_id="c")) is None
         assert orch._estimate_cost(wf) == pytest.approx(0.05)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect chain: _execute_steps_async stores AgentStepExecution ORM objects in the step_states JSON column -> TypeError on first progress update; _complete_execution subtracts naive started_at from aware completed_at -> TypeError. No workflow can reach COMPLETED (#1316)",
-    )
     async def test_execute_steps_async_completes_workflow(self, db_session: Session) -> None:
         orch = _orchestrator(db_session)
         wf = _seed_workflow(db_session, n_steps=2)
