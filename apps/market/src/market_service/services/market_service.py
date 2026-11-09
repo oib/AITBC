@@ -90,6 +90,20 @@ def _secret_matches(stored: str, provided: str) -> bool:
     return hmac.compare_digest(stored, candidate)
 
 
+def _rating_created_at(value: Any) -> datetime:
+    """Normalize a remote rating timestamp to the column's naive-UTC convention.
+
+    ServiceRating.created_at is stored naive (``now(UTC).replace(tzinfo=None)``).
+    Remote payloads are uncontrolled: an offset-aware ISO string would make the
+    ``remote_created > existing.created_at`` comparison raise TypeError and abort
+    the whole sync batch.
+    """
+    dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(UTC).replace(tzinfo=None)
+    return dt
+
+
 # Keys a market job row may expose to the unauthenticated feed
 # (GET /v1/market/jobs and GET /v1/market/jobs/{job_id}). An allow-list, not
 # a block-list: customer file details and rental identifiers — payload.*,
@@ -1274,40 +1288,58 @@ class MarketService:
             synced_count = 0
             updated_count = 0
             skipped_count = 0
+            failed_count = 0
+            touched_services: set[str] = set()
             for remote_rating in remote_ratings:
-                stmt = select(ServiceRating).where(
-                    ServiceRating.service_id == remote_rating["service_id"],
-                    ServiceRating.reviewer_id == remote_rating["reviewer_id"],
-                )
-                result = await self.session.execute(stmt)
-                existing = result.scalar_one_or_none()
-                if existing:
-                    remote_created = datetime.fromisoformat(remote_rating["created_at"])
-                    if remote_created > existing.created_at:
-                        existing.rating = remote_rating["rating"]
-                        existing.comment = remote_rating["comment"]
-                        existing.synced_at = datetime.now(UTC).replace(tzinfo=None)
-                        updated_count += 1
-                    else:
-                        skipped_count += 1
-                else:
-                    new_rating = ServiceRating(
-                        id=remote_rating["id"],
-                        service_id=remote_rating["service_id"],
-                        rating=remote_rating["rating"],
-                        reviewer_id=remote_rating["reviewer_id"],
-                        comment=remote_rating["comment"],
-                        created_at=datetime.fromisoformat(remote_rating["created_at"]),
-                        synced_at=datetime.now(UTC).replace(tzinfo=None),
-                        source_node=remote_rating.get("source_node", "remote"),
+                try:
+                    remote_created = _rating_created_at(remote_rating["created_at"])
+                    stmt = select(ServiceRating).where(
+                        ServiceRating.service_id == remote_rating["service_id"],
+                        ServiceRating.reviewer_id == remote_rating["reviewer_id"],
                     )
-                    self.session.add(new_rating)
-                    synced_count += 1
+                    result = await self.session.execute(stmt)
+                    existing = result.scalar_one_or_none()
+                    if existing:
+                        if remote_created > existing.created_at:
+                            existing.rating = remote_rating["rating"]
+                            existing.comment = remote_rating["comment"]
+                            existing.synced_at = datetime.now(UTC).replace(tzinfo=None)
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+                    else:
+                        new_rating = ServiceRating(
+                            id=remote_rating["id"],
+                            service_id=remote_rating["service_id"],
+                            rating=remote_rating["rating"],
+                            reviewer_id=remote_rating["reviewer_id"],
+                            comment=remote_rating["comment"],
+                            created_at=remote_created,
+                            synced_at=datetime.now(UTC).replace(tzinfo=None),
+                            source_node=remote_rating.get("source_node", "remote"),
+                        )
+                        self.session.add(new_rating)
+                        synced_count += 1
+                    touched_services.add(remote_rating["service_id"])
+                except Exception as e:
+                    failed_count += 1
+                    logger.warning("Skipping malformed remote rating %s: %s", remote_rating.get("id", "?"), e)
             await self.session.commit()
-            logger.info("Synced %s new, updated %s, skipped %s ratings", synced_count, updated_count, skipped_count)
-            for remote_rating in remote_ratings:
-                await self._update_service_rating(remote_rating["service_id"])
-            return {"synced": synced_count, "updated": updated_count, "skipped": skipped_count}
+            logger.info(
+                "Synced %s new, updated %s, skipped %s, failed %s ratings",
+                synced_count,
+                updated_count,
+                skipped_count,
+                failed_count,
+            )
+            for service_id in touched_services:
+                await self._update_service_rating(service_id)
+            return {
+                "synced": synced_count,
+                "updated": updated_count,
+                "skipped": skipped_count,
+                "failed": failed_count,
+            }
         except Exception as e:
             logger.error("Error in sync_ratings_from_remote: %s: %s", type(e).__name__, str(e))
             raise
