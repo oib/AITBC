@@ -77,6 +77,8 @@ def file_dispute(request: Request, req: FileDisputeRequest, user: AuthDep) -> di
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -107,6 +109,8 @@ def submit_evidence(request: Request, req: SubmitEvidenceRequest, user: AuthDep)
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -193,6 +197,8 @@ def list_disputes(request: Request, status: str | None = None, party: str | None
             "filters": {"status": status, "party": party},
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -219,6 +225,8 @@ def register_arbitrator(request: Request, address: str, user: AuthDep) -> dict[s
 
         return {"success": success, "address": address, "message": "Arbitrator registered"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
