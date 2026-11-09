@@ -54,6 +54,10 @@ class BountyService:
                 description=description,
                 reward_amount=reward_amount,
                 creator_id=creator_id,
+                # #1347: no draft/publish surface exists, so a persisted bounty
+                # is live — CREATED was a dead state that made every submission
+                # unreachable (create_submission requires ACTIVE).
+                status=BountyStatus.ACTIVE,
                 tier=tier,
                 performance_criteria=performance_criteria,
                 min_accuracy=min_accuracy,
