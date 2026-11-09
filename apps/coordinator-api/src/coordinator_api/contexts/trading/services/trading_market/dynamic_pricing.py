@@ -981,22 +981,22 @@ class DynamicPricingEngine:
             return Decimal("0.9")
 
     def _forecast_demand_level(self, historical: list[float], hour_ahead: int) -> float:
-        """Simple demand level forecasting"""
+        """Simple demand level forecasting.
+
+        #1375: the forecast is the recent average itself — no random noise.
+        Deterministic given the same pricing history.
+        """
         if not historical:
             return 0.5
         recent_avg = np.mean(historical[-6:]) if len(historical) >= 6 else np.mean(historical)
-        noise = np.random.normal(0, 0.05)
-        forecast = max(0.0, min(1.0, recent_avg + noise))
-        return float(forecast)  # type: ignore[arg-type]
+        return float(max(0.0, min(1.0, recent_avg)))  # type: ignore[arg-type]
 
     def _forecast_supply_level(self, historical: list[float], hour_ahead: int) -> float:
-        """Simple supply level forecasting"""
+        """Simple supply level forecasting (deterministic — see #1375)."""
         if not historical:
             return 0.5
         recent_avg = np.mean(historical[-12:]) if len(historical) >= 12 else np.mean(historical)
-        noise = np.random.normal(0, 0.02)
-        forecast = max(0.0, min(1.0, recent_avg + noise))
-        return float(forecast)  # type: ignore[arg-type]
+        return float(max(0.0, min(1.0, recent_avg)))  # type: ignore[arg-type]
 
     async def _calculate_time_based_price(
         self, base_price: Decimal, factors: PricingFactors, config: dict[str, Any]

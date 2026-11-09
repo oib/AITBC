@@ -177,6 +177,16 @@ def test_forecast_clamped_to_unit_interval(engine):
         assert 0.0 <= s <= 1.0
 
 
+@pytest.mark.unit
+def test_forecasts_are_deterministic(engine):
+    # #1375 residual: forecast helpers must not inject np.random noise —
+    # same history in, same forecast out.
+    history = [0.4, 0.5, 0.6, 0.55]
+    assert engine._forecast_demand_level(history, 3) == engine._forecast_demand_level(history, 3)
+    assert engine._forecast_supply_level(history, 3) == engine._forecast_supply_level(history, 3)
+    assert engine._forecast_demand_level(history, 3) == pytest.approx(sum(history) / len(history))
+
+
 # ---------------------------------------------------------------------------
 # demand multiplier floor — #1363 clamp regression pin (was strict-xfail pre-fix)
 # ---------------------------------------------------------------------------
