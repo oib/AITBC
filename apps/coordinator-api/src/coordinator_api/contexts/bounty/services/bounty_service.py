@@ -125,10 +125,17 @@ class BountyService:
                 query = query.where(Bounty.deadline >= deadline_after)  # type: ignore[arg-type]
             if requires_zk_proof is not None:
                 query = query.where(Bounty.requires_zk_proof == requires_zk_proof)  # type: ignore[arg-type]
-            if tags:
-                for tag in tags:
-                    query = query.where(Bounty.tags.contains([tag]))  # type: ignore[attr-defined]
+            # Tag filtering is applied in Python below: Bounty.tags is a plain
+            # JSON column and .contains([tag]) renders a LIKE that can never
+            # match the serialized list (#1341). Bounty volumes are small;
+            # fetch the filtered superset and paginate after tag-matching.
             query = query.order_by(desc(Bounty.creation_time))  # type: ignore[arg-type]
+            if tags:
+                rows = list((await run_in_threadpool(self.session.execute, query)).scalars().all())  # type: ignore[union-attr]
+                wanted = set(tags)
+                rows = [b for b in rows if wanted.issubset(set(b.tags or []))]
+                offset = (page - 1) * limit
+                return rows[offset : offset + limit]
             offset = (page - 1) * limit
             query = query.offset(offset).limit(limit)
             result = (await run_in_threadpool(self.session.execute, query)).scalars().all()  # type: ignore[union-attr]
