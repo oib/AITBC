@@ -19,17 +19,19 @@ router = APIRouter(tags=["transactions"])
 logger = get_logger(__name__)
 
 
-async def _filtered_rows(session: AsyncSession, model, status_enum, type_enum):
+async def _filtered_rows(session: AsyncSession, model, status_enum, type_enum, cap: int | None = None):
     stmt = select(model)
     if status_enum is not None:
         stmt = stmt.where(model.status == status_enum.value)
     if type_enum is not None:
         stmt = stmt.where(model.trade_type == type_enum.value)
     stmt = stmt.order_by(model.created_at)
+    if cap is not None:
+        stmt = stmt.limit(cap)
     return list((await session.execute(stmt)).scalars().all())
 
 
-async def _match_rows(session: AsyncSession, status_enum, type_enum):
+async def _match_rows(session: AsyncSession, status_enum, type_enum, cap: int | None = None):
     stmt = select(TradeMatch)
     if status_enum is not None:
         stmt = stmt.where(TradeMatch.status == status_enum.value)
@@ -38,6 +40,8 @@ async def _match_rows(session: AsyncSession, status_enum, type_enum):
             TradeRequest.trade_type == type_enum.value
         )
     stmt = stmt.order_by(TradeMatch.created_at)
+    if cap is not None:
+        stmt = stmt.limit(cap)
     return list((await session.execute(stmt)).scalars().all())
 
 
@@ -124,20 +128,25 @@ async def get_transactions(
         return []
 
     fetchers = {
-        "request": lambda: _filtered_rows(session, TradeRequest, status_enum, type_enum),
-        "match": lambda: _match_rows(session, status_enum, type_enum),
-        "agreement": lambda: _filtered_rows(session, TradeAgreement, status_enum, type_enum),
+        "request": lambda cap=None: _filtered_rows(session, TradeRequest, status_enum, type_enum, cap),
+        "match": lambda cap=None: _match_rows(session, status_enum, type_enum, cap),
+        "agreement": lambda cap=None: _filtered_rows(session, TradeAgreement, status_enum, type_enum, cap),
     }
     serializers = {"request": _serialize_request, "match": _serialize_match, "agreement": _serialize_agreement}
 
     try:
         wanted = [action] if action else list(fetchers)
+        # island_id is a post-fetch filter (not a column), so the SQL cap is
+        # only exact when it is absent: each table contributes at most
+        # offset+limit merged rows, which bounds the fetch without changing
+        # the result. With island_id set, keep the unbounded scan.
+        cap = (offset or 0) + limit if (limit is not None and island_id is None) else None
         transactions = []
         for act in wanted:
             fetch, serialize = fetchers.get(act), serializers.get(act)
             if fetch is None:
                 continue
-            transactions.extend(serialize(row) for row in await fetch())
+            transactions.extend(serialize(row) for row in await fetch(cap))
         if island_id:
             transactions = [t for t in transactions if t.get("island_id") == island_id]
         if offset:

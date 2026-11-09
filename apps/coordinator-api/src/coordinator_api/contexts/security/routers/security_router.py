@@ -8,6 +8,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
@@ -233,8 +234,8 @@ def list_audit_logs(
     requires_investigation: bool | None = None,
     risk_score_min: int | None = None,
     risk_score_max: int | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ) -> list[AgentAuditLog]:
     """List audit logs with filtering"""
     try:
@@ -537,6 +538,14 @@ async def monitor_execution_security(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _count_where(session: Session, model: Any, *conds: Any) -> int:
+    """COUNT(*) with ANDed conditions — keeps stats endpoints off full-table fetches."""
+    q = select(func.count()).select_from(model)
+    for c in conds:
+        q = q.where(c)
+    return int(session.execute(q).scalar_one())
+
+
 @router.get("/security-dashboard")
 @rate_limit(rate=200, per=60)
 def get_security_dashboard(
@@ -546,7 +555,7 @@ def get_security_dashboard(
 ) -> dict[str, Any]:
     """Get comprehensive security dashboard data"""
     try:
-        from ...agent_coordination.services.security import AgentAuditLog, AgentSandboxConfig
+        from ...agent_coordination.services.security import AgentAuditLog, AgentSandboxConfig, AgentTrustScore
 
         recent_audits = (
             session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).scalars().all()  # type: ignore[attr-defined]
@@ -561,28 +570,26 @@ def get_security_dashboard(
             .scalars()
             .all()
         )
-        trust_scores = session.execute(select(AgentTrustScore)).scalars().all()
-        avg_trust_score = sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0
-        active_sandboxes = session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.is_active)).scalars().all()
-        total_audits = len(session.execute(select(AgentAuditLog)).all())
-        high_risk_count = len(
-            session.execute(select(AgentAuditLog).where(AgentAuditLog.requires_investigation)).scalars().all()
-        )
-        security_violations = len(
-            session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION))
-            .scalars()
-            .all()
+        total_entities = _count_where(session, AgentTrustScore)
+        avg_trust_score = session.execute(select(func.avg(AgentTrustScore.trust_score)).select_from(AgentTrustScore)).scalar()
+        high_trust_entities = _count_where(session, AgentTrustScore, AgentTrustScore.trust_score >= 80)
+        low_trust_entities = _count_where(session, AgentTrustScore, AgentTrustScore.trust_score < 20)
+        active_sandboxes = _count_where(session, AgentSandboxConfig, AgentSandboxConfig.is_active)
+        total_audits = _count_where(session, AgentAuditLog)
+        high_risk_count = _count_where(session, AgentAuditLog, AgentAuditLog.requires_investigation)
+        security_violations = _count_where(
+            session, AgentAuditLog, AgentAuditLog.event_type == AuditEventType.SECURITY_VIOLATION
         )
         return {
             "recent_audits": recent_audits,
             "high_risk_events": high_risk_events,
             "trust_score_stats": {
-                "average_score": avg_trust_score,
-                "total_entities": len(trust_scores),
-                "high_trust_entities": len([ts for ts in trust_scores if ts.trust_score >= 80]),
-                "low_trust_entities": len([ts for ts in trust_scores if ts.trust_score < 20]),
+                "average_score": float(avg_trust_score) if avg_trust_score is not None else 0,
+                "total_entities": total_entities,
+                "high_trust_entities": high_trust_entities,
+                "low_trust_entities": low_trust_entities,
             },
-            "active_sandboxes": len(active_sandboxes),
+            "active_sandboxes": active_sandboxes,
             "security_stats": {
                 "total_audits": total_audits,
                 "high_risk_count": high_risk_count,
@@ -608,35 +615,33 @@ def get_security_statistics(
     try:
         from ...agent_coordination.services.security import AgentTrustScore
 
-        total_audits = len(session.execute(select(AgentAuditLog)).all())
-        event_type_counts = {}
-        for event_type in AuditEventType:
-            count = len(session.execute(select(AgentAuditLog).where(AgentAuditLog.event_type == event_type)).scalars().all())
-            event_type_counts[event_type.value] = count
-        risk_score_distribution = {"low": 0, "medium": 0, "high": 0, "critical": 0}
-        all_audits = session.execute(select(AgentAuditLog)).scalars().all()
-        for audit in all_audits:
-            if audit.risk_score <= 30:
-                risk_score_distribution["low"] += 1
-            elif audit.risk_score <= 70:
-                risk_score_distribution["medium"] += 1
-            elif audit.risk_score <= 90:
-                risk_score_distribution["high"] += 1
-            else:
-                risk_score_distribution["critical"] += 1
-        trust_scores = session.execute(select(AgentTrustScore)).scalars().all()
-        trust_score_distribution = {"very_low": 0, "low": 0, "medium": 0, "high": 0, "very_high": 0}
-        for trust_score in trust_scores:
-            if trust_score.trust_score <= 20:
-                trust_score_distribution["very_low"] += 1
-            elif trust_score.trust_score <= 40:
-                trust_score_distribution["low"] += 1
-            elif trust_score.trust_score <= 60:
-                trust_score_distribution["medium"] += 1
-            elif trust_score.trust_score <= 80:
-                trust_score_distribution["high"] += 1
-            else:
-                trust_score_distribution["very_high"] += 1
+        total_audits = _count_where(session, AgentAuditLog)
+        event_type_counts = {et.value: 0 for et in AuditEventType}
+        for event_type, count in session.execute(
+            select(AgentAuditLog.event_type, func.count()).group_by(AgentAuditLog.event_type)
+        ):
+            key = event_type.value if isinstance(event_type, AuditEventType) else str(event_type)
+            event_type_counts[key] = count
+        risk_score_distribution = {
+            "low": _count_where(session, AgentAuditLog, AgentAuditLog.risk_score <= 30),
+            "medium": _count_where(session, AgentAuditLog, AgentAuditLog.risk_score > 30, AgentAuditLog.risk_score <= 70),
+            "high": _count_where(session, AgentAuditLog, AgentAuditLog.risk_score > 70, AgentAuditLog.risk_score <= 90),
+            "critical": _count_where(session, AgentAuditLog, AgentAuditLog.risk_score > 90),
+        }
+        avg_risk = session.execute(select(func.avg(AgentAuditLog.risk_score)).select_from(AgentAuditLog)).scalar()
+        trust_score_distribution = {
+            "very_low": _count_where(session, AgentTrustScore, AgentTrustScore.trust_score <= 20),
+            "low": _count_where(session, AgentTrustScore, AgentTrustScore.trust_score > 20, AgentTrustScore.trust_score <= 40),
+            "medium": _count_where(
+                session, AgentTrustScore, AgentTrustScore.trust_score > 40, AgentTrustScore.trust_score <= 60
+            ),
+            "high": _count_where(
+                session, AgentTrustScore, AgentTrustScore.trust_score > 60, AgentTrustScore.trust_score <= 80
+            ),
+            "very_high": _count_where(session, AgentTrustScore, AgentTrustScore.trust_score > 80),
+        }
+        total_entities = _count_where(session, AgentTrustScore)
+        avg_trust = session.execute(select(func.avg(AgentTrustScore.trust_score)).select_from(AgentTrustScore)).scalar()
         return {
             "audit_statistics": {
                 "total_audits": total_audits,
@@ -644,15 +649,15 @@ def get_security_statistics(
                 "risk_score_distribution": risk_score_distribution,
             },
             "trust_statistics": {
-                "total_entities": len(trust_scores),
-                "average_trust_score": sum(ts.trust_score for ts in trust_scores) / len(trust_scores) if trust_scores else 0,
+                "total_entities": total_entities,
+                "average_trust_score": float(avg_trust) if avg_trust is not None else 0,
                 "trust_score_distribution": trust_score_distribution,
             },
             "security_health": {
                 "high_risk_rate": (risk_score_distribution["high"] + risk_score_distribution["critical"]) / total_audits * 100
                 if total_audits > 0
                 else 0,
-                "average_risk_score": sum(audit.risk_score for audit in all_audits) / len(all_audits) if all_audits else 0,
+                "average_risk_score": float(avg_risk) if avg_risk is not None else 0,
                 "security_violation_rate": event_type_counts.get("security_violation", 0) / total_audits * 100
                 if total_audits > 0
                 else 0,
