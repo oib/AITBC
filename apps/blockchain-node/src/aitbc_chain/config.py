@@ -237,6 +237,20 @@ class ChainSettings(BaseSettings):
     # Admission rejects beyond this so one sender cannot queue an unbounded
     # pipeline of not-yet-executable transactions.
     mempool_nonce_lookahead: int = 16
+    # #1300 P2-v2.4: PostgreSQL lock/statement timeout (ms) applied via
+    # SET LOCAL inside mempool admission transactions before advisory-lock
+    # acquisition. A hashtext collision or stuck lock surfaces as a typed
+    # MempoolAdmissionTimeout, never a raw OperationalError.
+    mempool_admission_lock_timeout_ms: int = 5000
+    # #1300 P2-v2.4: owner/epoch reservation drain (peek_reserve). OFF by
+    # default — the legacy delete-on-read drain() stays authoritative until
+    # an operator arms this after the S3 parity legs.
+    mempool_reservation_enabled: bool = False
+    # Reservation TTL is derived by the caller from attempt-time config
+    # (collect deadline + apply budget + gate timeouts + commit bound +
+    # broadcast reconcile bound); this is only the fallback when a caller
+    # does not supply one.
+    mempool_reservation_ttl_seconds: int = 120
 
     # Circuit breaker
     circuit_breaker_threshold: int = 5  # failures before opening

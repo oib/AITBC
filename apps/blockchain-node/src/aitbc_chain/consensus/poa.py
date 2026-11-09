@@ -4,7 +4,7 @@ import time
 import traceback
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -190,6 +190,50 @@ def _rejection_metadata(reason: str, height: int, timestamp: datetime) -> str:
             "rejected_at": timestamp.isoformat(),
         }
     )
+
+
+class _ProposalReleaseLedger:
+    """#1300 §3 release-map bookkeeping for one proposal attempt.
+
+    Tracks which of this attempt's reserved hashes have been accounted for and
+    emits ``release_reservations`` calls with the exit-appropriate reason.
+    Hashes whose ``existing_tx_map`` entry has a real block height are
+    reclassified ``already_sealed`` (dup-skip, F1). Kept at module level so
+    ``_propose_block`` stays under the C901 ratchet.
+    """
+
+    def __init__(
+        self,
+        mempool: Any,
+        chain_id: str,
+        reserved_hashes: Iterable[str],
+        existing_tx_map: dict[str, int],
+        owner_id: str,
+    ) -> None:
+        self._mempool = mempool
+        self._chain_id = chain_id
+        self._reserved = set(reserved_hashes)
+        self._released: set[str] = set()
+        self._existing_tx_map = existing_tx_map
+        self._owner_id = owner_id
+        self._release = getattr(mempool, "release_reservations", None)
+
+    def release_hashes(self, hashes: Iterable[str], reason: str) -> None:
+        todo = [h for h in hashes if h in self._reserved and h not in self._released]
+        if not todo:
+            return
+        self._released.update(todo)
+        if self._release is None:
+            return
+        sealed_like = {h for h in todo if self._existing_tx_map.get(h) is not None}
+        normal = [h for h in todo if h not in sealed_like]
+        if normal:
+            self._release(self._chain_id, normal, reason, owner_id=self._owner_id)
+        if sealed_like:
+            self._release(self._chain_id, sorted(sealed_like), "already_sealed", owner_id=self._owner_id)
+
+    def release_leftovers(self, reason: str = "cancelled") -> None:
+        self.release_hashes(self._reserved - self._released, reason)
 
 
 class PoAProposer:
@@ -860,88 +904,125 @@ class PoAProposer:
                 return False
             self._propose_phase = "collect_txs"
             _t2 = time.time()
-            pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
-            resolved_tx = await self._resolve_post_collect_proposal(
-                head, next_height, timestamp, proposer, round_number, retry_cand, pending_txs
-            )
-            if resolved_tx is None:
-                return False
-            timestamp, proposer, round_number = resolved_tx
-            # DRAIN-SKIP-SILENT-1 (#669): every drained tx the apply path
-            # refuses is collected here and written back as status='rejected'
-            # so the submitter's hash query surfaces a terminal outcome instead
-            # of the record vanishing with the mempool entry.
-            rejected_txs: list[tuple[Any, str]] = []
-            processed_txs, changed_addresses, ok = self._process_proposal_txs(
-                session, pending_txs, account_map, existing_tx_map, next_height, timestamp, rejected_txs
-            )
-            self._logger.debug("[PROPOSE:%s] phase=collect_txs done %.3fs", chain, time.time() - _t2)
-            if not ok:
-                # The apply path already rolled the session back; commit the
-                # rejection records on their own so they survive the abort.
-                self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=True)
-                return False
-            if self._reject_if_all_invalid(session, pending_txs, processed_txs):
-                self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=True)
-                return False
-            # Success path: the rows join the proposal's own transaction and
-            # commit (or roll back) with the block.
-            self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=False)
-            _t3 = time.time()
-            self._propose_phase = "assemble_block"
-            block, block_hash = self._assemble_proposal_block(
-                session, next_height, parent_hash, timestamp, processed_txs, proposer
-            )
-            self._note_same_hash_retry(next_height, parent_hash, timestamp, self._tx_snapshot_key(pending_txs))
-            self._logger.debug("[PROPOSE:%s] phase=assemble_block done %.3fs", chain, time.time() - _t3)
-            # v0.7.2: sign the canonical block header here, before the gates —
-            # the attest_request built inside _run_consensus_gates carries
-            # block.signature as its proposer_signature, so it must exist at
-            # request-build time, not only post-commit (#1156). The signed
-            # message is the fixed 7-field header; block_metadata stamped
-            # after signing stays valid.
-            block.signature = self._sign_block_hash_for(proposer, block)
-            metadata_dict: dict[str, Any] = {}
-            _t4 = time.time()
-            self._propose_phase = "consensus_gates"
-            self._logger.info("[PROPOSE:%s] phase=consensus_gates start height=%s round=%s", chain, next_height, round_number)
-            if not await self._run_journaled_gates(
+            reservation_owner = self._reservation_owner_for(proposer)
+            pending_txs, account_map, existing_tx_map, reserved_hashes = self._collect_proposal_txs(
                 session,
-                block,
-                block_hash,
-                proposer,
-                round_number,
-                next_height,
-                metadata_dict,
-                transactions=[{**(tx.content or {}), "tx_hash": tx.tx_hash} for tx in processed_txs],
-            ):
-                self._logger.warning("[PROPOSE:%s] phase=consensus_gates failed %.3fs", chain, time.time() - _t4)
-                return False
-            self._logger.debug("[PROPOSE:%s] phase=consensus_gates done %.3fs", chain, time.time() - _t4)
-            # v0.25.7: stamp the state-transition rule version so followers can
-            # replay this block with the same rules that produced its state_root.
-            metadata_dict["state_transition_version"] = get_block_version_for_height(next_height)
-            # R14-M1 (#1248): publish the apply-rejected identities so followers
-            # can release the dead (sender, nonce) slots instead of letting them
-            # squat until mempool_entry_ttl. block_metadata is outside the
-            # signed header and the block hash, so this cannot affect consensus.
-            self._stamp_rejected_tx_metadata(metadata_dict, rejected_txs)
-            # #1281: the sealed block carries its unlock justification so
-            # late validators and auditors can verify the valve release
-            # post-hoc. Additive field; absent for ordinary proposals.
-            self._attach_unlock_justification(next_height, metadata_dict)
-            block.block_metadata = json.dumps(metadata_dict)
-
-            self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
-            _t5 = time.time()
-            self._propose_phase = "broadcast"
-            self._logger.debug("[PROPOSE:%s] phase=broadcast start", chain)
-            result = await self._broadcast_block(block, processed_txs)
-            self._logger.debug(
-                "[PROPOSE:%s] phase=broadcast done %.3fs total=%.3fs", chain, time.time() - _t5, time.time() - _t0
+                mempool,
+                reservation_owner=reservation_owner,
+                reservation_proposer=proposer,
+                reservation_height=next_height,
+                reservation_round=round_number,
             )
-            self._propose_phase = None
-            return result
+            # #1300 §3 release map: every exit below accounts for the hashes
+            # this attempt reserved; the finally is the BaseException safety
+            # net (CancelledError included — the outer except Exception at the
+            # watchdog level does not catch it).
+            ledger = _ProposalReleaseLedger(
+                mempool, self._config.chain_id, reserved_hashes, existing_tx_map, reservation_owner
+            )
+            try:
+                resolved_tx = await self._resolve_post_collect_proposal(
+                    head, next_height, timestamp, proposer, round_number, retry_cand, pending_txs
+                )
+                if resolved_tx is None:
+                    ledger.release_hashes((tx.tx_hash for tx in pending_txs), "post_collect_abort")
+                    return False
+                timestamp, proposer, round_number = resolved_tx
+                # DRAIN-SKIP-SILENT-1 (#669): every drained tx the apply path
+                # refuses is collected here and written back as status='rejected'
+                # so the submitter's hash query surfaces a terminal outcome instead
+                # of the record vanishing with the mempool entry.
+                rejected_txs: list[tuple[Any, str]] = []
+                processed_txs, changed_addresses, ok = self._process_proposal_txs(
+                    session, pending_txs, account_map, existing_tx_map, next_height, timestamp, rejected_txs
+                )
+                self._logger.debug("[PROPOSE:%s] phase=collect_txs done %.3fs", chain, time.time() - _t2)
+                if not ok:
+                    # The apply path already rolled the session back; commit the
+                    # rejection records on their own so they survive the abort.
+                    self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=True)
+                    ledger.release_hashes((tx.tx_hash for tx, _ in rejected_txs), "apply_rejected")
+                    ledger.release_hashes((tx.tx_hash for tx in pending_txs), "apply_abort")
+                    self._evict_mempool_txs(mempool, [tx for tx, _ in rejected_txs])
+                    return False
+                if self._reject_if_all_invalid(session, pending_txs, processed_txs):
+                    self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=True)
+                    ledger.release_hashes((tx.tx_hash for tx, _ in rejected_txs), "apply_rejected")
+                    ledger.release_hashes((tx.tx_hash for tx in pending_txs), "all_invalid_abort")
+                    self._evict_mempool_txs(mempool, [tx for tx, _ in rejected_txs])
+                    return False
+                # Success path: the rows join the proposal's own transaction and
+                # commit (or roll back) with the block.
+                self._persist_rejected_txs(session, rejected_txs, next_height, timestamp, commit=False)
+                _t3 = time.time()
+                self._propose_phase = "assemble_block"
+                block, block_hash = self._assemble_proposal_block(
+                    session, next_height, parent_hash, timestamp, processed_txs, proposer
+                )
+                self._note_same_hash_retry(next_height, parent_hash, timestamp, self._tx_snapshot_key(pending_txs))
+                self._logger.debug("[PROPOSE:%s] phase=assemble_block done %.3fs", chain, time.time() - _t3)
+                # v0.7.2: sign the canonical block header here, before the gates —
+                # the attest_request built inside _run_consensus_gates carries
+                # block.signature as its proposer_signature, so it must exist at
+                # request-build time, not only post-commit (#1156). The signed
+                # message is the fixed 7-field header; block_metadata stamped
+                # after signing stays valid.
+                block.signature = self._sign_block_hash_for(proposer, block)
+                metadata_dict: dict[str, Any] = {}
+                _t4 = time.time()
+                self._propose_phase = "consensus_gates"
+                self._logger.info(
+                    "[PROPOSE:%s] phase=consensus_gates start height=%s round=%s", chain, next_height, round_number
+                )
+                if not await self._run_journaled_gates(
+                    session,
+                    block,
+                    block_hash,
+                    proposer,
+                    round_number,
+                    next_height,
+                    metadata_dict,
+                    transactions=[{**(tx.content or {}), "tx_hash": tx.tx_hash} for tx in processed_txs],
+                ):
+                    self._logger.warning("[PROPOSE:%s] phase=consensus_gates failed %.3fs", chain, time.time() - _t4)
+                    ledger.release_hashes((tx.tx_hash for tx, _ in rejected_txs), "apply_rejected")
+                    ledger.release_hashes((tx.tx_hash for tx in pending_txs), "gate_abort")
+                    self._evict_mempool_txs(mempool, [tx for tx, _ in rejected_txs])
+                    return False
+                self._logger.debug("[PROPOSE:%s] phase=consensus_gates done %.3fs", chain, time.time() - _t4)
+                # v0.25.7: stamp the state-transition rule version so followers can
+                # replay this block with the same rules that produced its state_root.
+                metadata_dict["state_transition_version"] = get_block_version_for_height(next_height)
+                # R14-M1 (#1248): publish the apply-rejected identities so followers
+                # can release the dead (sender, nonce) slots instead of letting them
+                # squat until mempool_entry_ttl. block_metadata is outside the
+                # signed header and the block hash, so this cannot affect consensus.
+                self._stamp_rejected_tx_metadata(metadata_dict, rejected_txs)
+                # #1281: the sealed block carries its unlock justification so
+                # late validators and auditors can verify the valve release
+                # post-hoc. Additive field; absent for ordinary proposals.
+                self._attach_unlock_justification(next_height, metadata_dict)
+                block.block_metadata = json.dumps(metadata_dict)
+
+                self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
+                _t5 = time.time()
+                self._propose_phase = "broadcast"
+                self._logger.debug("[PROPOSE:%s] phase=broadcast start", chain)
+                result = await self._broadcast_block(block, processed_txs)
+                self._logger.debug(
+                    "[PROPOSE:%s] phase=broadcast done %.3fs total=%.3fs", chain, time.time() - _t5, time.time() - _t0
+                )
+                self._propose_phase = None
+                # Commit ack reached: sealed txs' reservations die here; pool
+                # rows are swept by reconcile_sealed. Rejected rows are
+                # terminal — evict them and release their markers.
+                ledger.release_hashes((tx.tx_hash for tx in processed_txs), "sealed")
+                ledger.release_hashes((tx.tx_hash for tx, _ in rejected_txs), "apply_rejected")
+                ledger.release_hashes((tx.tx_hash for tx in pending_txs), "sealed")
+                self._evict_mempool_txs(mempool, [tx for tx, _ in rejected_txs])
+                return result
+            finally:
+                ledger.release_leftovers("cancelled")
 
     async def _passes_early_gates(self) -> InMemoryMempool | DatabaseMempool | None:
         """Pre-session proposal gates.
@@ -2049,21 +2130,97 @@ class PoAProposer:
             return True
         return False
 
+    def _select_mempool_txs(
+        self,
+        session: Session,
+        mempool: InMemoryMempool | DatabaseMempool,
+        max_txs: int,
+        max_bytes: int,
+        *,
+        reservation_owner: str = "",
+        reservation_proposer: str = "",
+        reservation_height: int | None = None,
+        reservation_round: int | None = None,
+        reservation_attempt: int = 0,
+    ) -> tuple[list[Any], set[str]]:
+        """#1300: reconcile sealed rows, then drain — or peek_reserve when the
+        reservation flag is armed on the database backend (S3)."""
+        # Reconcile sealed rows before selecting — a tx sealed via a peer's
+        # block must not be re-proposed as a duplicate. Read-only on the
+        # proposal session; reconcile_sealed owns its own mempool txn.
+        pooled_hashes = mempool.pending_tx_hashes(self._config.chain_id)
+        if pooled_hashes:
+            sealed_rows = session.exec(
+                select(Transaction.tx_hash).where(
+                    Transaction.chain_id == self._config.chain_id,
+                    Transaction.status == "confirmed",
+                    Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+                    Transaction.tx_hash.in_(sorted(pooled_hashes)),  # type: ignore[attr-defined]
+                )
+            ).all()
+            if sealed_rows:
+                mempool.reconcile_sealed(self._config.chain_id, sealed_rows)
+        if settings.mempool_reservation_enabled and reservation_owner and reservation_height is not None:
+            from ..mempool import DatabaseMempool
+
+            if isinstance(mempool, DatabaseMempool):
+                peeked = mempool.peek_reserve(
+                    self._config.chain_id,
+                    owner_id=reservation_owner,
+                    proposer=reservation_proposer,
+                    height=reservation_height,
+                    round=reservation_round,
+                    attempt_seq=reservation_attempt,
+                    max_count=max_txs,
+                    max_bytes=max_bytes,
+                )
+                pending_txs = list(peeked)
+                self._logger.info(
+                    "[PROPOSE] peek_reserve selected %s txs (owner=%s, height=%s), chain=%s",
+                    len(pending_txs),
+                    reservation_owner,
+                    reservation_height,
+                    self._config.chain_id,
+                )
+                return pending_txs, {tx.tx_hash for tx in pending_txs}
+        return list(mempool.drain(max_txs, max_bytes, self._config.chain_id)), set()
+
     def _collect_proposal_txs(
-        self, session: Session, mempool: InMemoryMempool | DatabaseMempool
-    ) -> tuple[list[Any], dict[str, Account], dict[str, int]]:
+        self,
+        session: Session,
+        mempool: InMemoryMempool | DatabaseMempool,
+        *,
+        reservation_owner: str = "",
+        reservation_proposer: str = "",
+        reservation_height: int | None = None,
+        reservation_round: int | None = None,
+        reservation_attempt: int = 0,
+    ) -> tuple[list[Any], dict[str, Account], dict[str, int], set[str]]:
         """Drain the mempool and batch-fetch the state the tx loop needs.
 
-        Returns ``(pending_txs, account_map, existing_tx_map)``: the drained
-        transactions plus pre-registered, still-unassigned DB transactions
-        (e.g. bridge releases), the batch-fetched sender/recipient accounts,
-        and the tx_hash → block_height map used for duplicate detection.
+        Returns ``(pending_txs, account_map, existing_tx_map, reserved_hashes)``:
+        the drained transactions plus pre-registered, still-unassigned DB
+        transactions (e.g. bridge releases), the batch-fetched sender/recipient
+        accounts, the tx_hash → block_height map used for duplicate detection,
+        and the set of tx_hashes this attempt reserved (empty unless
+        ``mempool_reservation_enabled`` and the database backend is active —
+        #1300 P2-v2.4/S3).
         """
         from ..mempool import PendingTransaction as MempoolPendingTx
 
         max_txs = self._config.max_txs_per_block
         max_bytes = self._config.max_block_size_bytes
-        pending_txs = list(mempool.drain(max_txs, max_bytes, self._config.chain_id))
+        pending_txs, reserved_hashes = self._select_mempool_txs(
+            session,
+            mempool,
+            max_txs,
+            max_bytes,
+            reservation_owner=reservation_owner,
+            reservation_proposer=reservation_proposer,
+            reservation_height=reservation_height,
+            reservation_round=reservation_round,
+            reservation_attempt=reservation_attempt,
+        )
         self._logger.info("[PROPOSE] drained %s txs from mempool, chain=%s", len(pending_txs), self._config.chain_id)
         # Include transactions that were pre-registered in the DB (e.g. bridge releases)
         # but not yet assigned to a block.
@@ -2129,7 +2286,36 @@ class PoAProposer:
                 )
             ).all()
             existing_tx_map = {row[0]: row[1] for row in existing_tx_rows}
-        return pending_txs, account_map, existing_tx_map
+        return pending_txs, account_map, existing_tx_map, reserved_hashes
+
+    def _reservation_owner_for(self, proposer: str) -> str:
+        """Reservation owner id when the P2 flag is armed, else "" (drain path)."""
+        if not settings.mempool_reservation_enabled:
+            return ""
+        return self._reservation_owner_id(proposer)
+
+    def _reservation_owner_id(self, proposer: str) -> str:
+        """#1300 owner identity ``proposer:boot_uuid`` — stable for the life of
+        this process so a restart never inherits or clears markers."""
+        boot = getattr(self, "_reservation_boot_id", None)
+        if boot is None:
+            from uuid import uuid4
+
+            boot = settings.p2p_node_id or uuid4().hex
+            self._reservation_boot_id = boot
+        return f"{proposer}:{boot}"
+
+    def _evict_mempool_txs(self, mempool: InMemoryMempool | DatabaseMempool, txs: list[Any]) -> None:
+        """Remove terminal (apply-rejected) txs from the pool after their
+        reservations are released — reserved rows are protected from the
+        generic deleters, so release must happen first (#1300 §3)."""
+        hashes = [tx.tx_hash for tx in txs]
+        if not hashes:
+            return
+        try:
+            mempool.batch_remove(hashes, self._config.chain_id)
+        except Exception as exc:
+            self._logger.warning("[PROPOSE] mempool eviction of %d rejected txs failed: %s", len(hashes), exc)
 
     def _commit_and_record_block(
         self,

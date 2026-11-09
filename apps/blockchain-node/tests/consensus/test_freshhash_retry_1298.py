@@ -57,7 +57,7 @@ def _arm(monkeypatch, proposer, timestamps: list[datetime]) -> None:
     monkeypatch.setattr(proposer, "_passes_early_gates", AsyncMock(return_value=SimpleNamespace()))
     monkeypatch.setattr(proposer, "_resolve_proposal_head", lambda *_: (head, 7, b"parent", 1))
     monkeypatch.setattr(proposer, "_select_round_proposer", lambda *_: ("0x" + "0" * 40, 0))
-    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: ([], {}, {}))
+    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_, **__: ([], {}, {}, set()))
     monkeypatch.setattr(proposer, "_process_proposal_txs", lambda *_: ([], set(), True))
     monkeypatch.setattr(proposer, "_reject_if_all_invalid", lambda *_: False)
     monkeypatch.setattr(proposer, "_assemble_proposal_block", _assemble)
@@ -253,7 +253,7 @@ async def test_tx_set_drift_stamps_fresh_timestamp(monkeypatch):
             [SimpleNamespace(tx_hash="a", content={}), SimpleNamespace(tx_hash="b", content={})],
         ]
     )
-    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: (next(batches), {}, {}))
+    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_, **__: (next(batches), {}, {}, set()))
     monkeypatch.setattr(proposer, "_process_proposal_txs", lambda _s, txs, *_a: (list(txs), set(), True))
 
     drift_before = metrics_registry._counters.get("proposer_same_hash_retry_tx_drift_total", 0.0)
@@ -295,7 +295,7 @@ async def test_tx_drift_reselection_abort_is_safe(monkeypatch):
             [SimpleNamespace(tx_hash="a", content={}), SimpleNamespace(tx_hash="b", content={})],
         ]
     )
-    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: (next(batches), {}, {}))
+    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_, **__: (next(batches), {}, {}, set()))
     monkeypatch.setattr(proposer, "_process_proposal_txs", lambda _s, txs, *_a: (list(txs), set(), True))
 
     assert await proposer._propose_block() is False
