@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from ....validators import validate_ethereum_address
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class DeveloperCreate(BaseModel):
@@ -14,6 +15,11 @@ class DeveloperCreate(BaseModel):
     name: str | None = None
     email: str | None = None
     github_handle: str | None = None
+
+    @field_validator("wallet_address")
+    @classmethod
+    def validate_wallet_address(cls, v: str) -> str:
+        return validate_ethereum_address(v)
 
 
 class DeveloperUpdate(BaseModel):
