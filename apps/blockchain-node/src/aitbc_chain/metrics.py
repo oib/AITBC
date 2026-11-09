@@ -112,6 +112,19 @@ mempool_tx_evicted_total = Counter(
     ["chain_id"],
 )
 
+# #1300 P2-v2.4: reservation lifecycle observability.
+mempool_reservation_release_total = Counter(
+    "blockchain_mempool_reservation_release_total",
+    "Mempool reservations released",
+    ["chain_id", "reason"],
+)
+
+mempool_reconcile_lag_seconds = Gauge(
+    "blockchain_mempool_reconcile_lag_seconds",
+    "Age of the oldest sealed-but-still-pooled transaction",
+    ["chain_id"],
+)
+
 # Subscription / Gossip Metrics
 subscription_reconnects_total = Counter(
     "blockchain_subscription_reconnects_total",
