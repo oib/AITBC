@@ -252,6 +252,27 @@ class VoteJournal:
             metrics_registry.increment("vote_journal_retracted_total")
             return True
 
+    def release_abandoned(self, height: int, voter: str, block_hash: str, proposer: str) -> bool:
+        """#1301 L2: drop ``voter``'s attest vote for ``block_hash`` when its
+        proposer is ``proposer`` (the party that signed the abandon). Other
+        votes and other proposers' entries are untouched."""
+        canon = canonical_address(voter)
+        with self._lock:
+            self._ensure_loaded()
+            rec = next(
+                (
+                    r
+                    for r in self._votes.get(height, {}).get(canon, ())
+                    if r.block_hash == block_hash
+                    and r.kind == KIND_ATTEST
+                    and canonical_address(r.proposer) == canonical_address(proposer)
+                ),
+                None,
+            )
+            if rec is None:
+                return False
+            return self.retract(height, voter, block_hash)
+
     def prune_below(self, tip_height: int | None) -> int:
         """Drop heights strictly below the local tip (decided history).
 
