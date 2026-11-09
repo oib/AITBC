@@ -877,6 +877,14 @@ class BlockImportMixin(SyncBase):
                         session.add(existing_tx)
                     else:
                         session.add(db_tx)
+                    if block_version >= 24:
+                        # #1314 R2 importer mirror: prod sessions run
+                        # autoflush=False, so without this flush the sealed
+                        # row stays pending and later same-block applies
+                        # (escrow-lock/refund Transaction-row reads) cannot
+                        # see it — diverging from the proposer's in-loop
+                        # flush schedule.
+                        session.flush()
 
         # Fill in the state/bridge roots and metadata now that transactions have
         # been applied, then persist the block.  This keeps the schedule check
