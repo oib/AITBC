@@ -580,7 +580,7 @@ class WebsocketGossipBackend(GossipBackend):
                 topic=topic,
                 event_id=msg_id,
                 attempt=_attempt,
-                ack_latency_ms=round(ack_latency * 1000.0, 1),
+                ack_latency_ms=round(ack_latency * 1000.0, 1) if ack_latency is not None else None,
                 late=msg_id in self._ack_timeouts or None,
             )
             return
