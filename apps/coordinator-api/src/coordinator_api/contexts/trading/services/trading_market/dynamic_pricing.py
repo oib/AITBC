@@ -761,25 +761,76 @@ class DynamicPricingEngine:
             logger.warning("Failed to persist price point for %s: %s", resource_id, e)
 
     async def _get_market_conditions(self, resource_type: ResourceType, region: str) -> MarketConditions:
-        """Get current market conditions"""
+        """Get current market conditions from live listings, or neutral defaults."""
         cache_key = f"{region}_{resource_type.value}"
         if cache_key in self.market_conditions_cache:
             cached = self.market_conditions_cache[cache_key]
             if (datetime.now(UTC) - cached.timestamp).total_seconds() < 300:
                 return cached
-        conditions = MarketConditions(  # not-money: strategy/score computation, not a settled amount
-            region=region,
-            resource_type=resource_type,
-            demand_level=0.6 + np.random.normal(0, 0.1),
-            supply_level=0.7 + np.random.normal(0, 0.1),
-            average_price=_D(0.05 + np.random.normal(0, 0.01)),
-            price_volatility=0.1 + np.random.normal(0, 0.05),
-            utilization_rate=0.65 + np.random.normal(0, 0.1),
-            competitor_prices=[Decimal("0.045"), Decimal("0.055"), Decimal("0.048"), Decimal("0.052")],
-            market_sentiment=np.random.normal(0.1, 0.2),
-        )
+        conditions = await self._load_market_conditions(resource_type, region)
         self.market_conditions_cache[cache_key] = conditions
         return conditions
+
+    async def _load_market_conditions(self, resource_type: ResourceType, region: str) -> MarketConditions:
+        """Derive conditions from real listings; fall back to deterministic
+        neutral values — never synthetic random walks (#1375)."""
+        if resource_type is ResourceType.GPU:
+            snapshot = await asyncio.to_thread(self._read_gpu_market_snapshot, region)
+            if snapshot is not None:
+                return snapshot
+        return MarketConditions(
+            region=region,
+            resource_type=resource_type,
+            demand_level=0.5,
+            supply_level=0.5,
+            average_price=_D("0"),
+            price_volatility=0.0,
+            utilization_rate=0.5,
+            competitor_prices=[],
+            market_sentiment=0.0,
+        )
+
+    def _read_gpu_market_snapshot(self, region: str) -> MarketConditions | None:
+        """Aggregate live GPURegistry listings into market conditions.
+
+        Returns None when no active listings match (caller falls back to
+        neutral conditions). ``region`` filters listings; ``"global"``/empty
+        aggregates across all regions.
+        """
+        from sqlmodel import select
+
+        from .....storage.db import session_scope
+        from ....market.domain.gpu_market import GPURegistry
+
+        stmt = select(GPURegistry).where(GPURegistry.status.in_(["available", "booked"]))  # type: ignore[attr-defined]
+        if region and region != "global":
+            stmt = stmt.where(GPURegistry.region == region)
+        with session_scope() as session:
+            rows = list(session.execute(stmt).scalars().all())
+        if not rows:
+            return None
+
+        total = len(rows)
+        available = sum(1 for gpu in rows if gpu.status == "available")
+        prices = sorted({gpu.price_per_hour for gpu in rows if gpu.price_per_hour is not None and gpu.price_per_hour > 0})
+        avg_price = sum(prices) / len(prices) if prices else Decimal("0")
+        if len(prices) > 1 and avg_price > 0:
+            variance = sum((p - avg_price) ** 2 for p in prices) / len(prices)
+            volatility_ratio = variance.sqrt() / avg_price  # not-money: coefficient of variation, a score
+            price_volatility = min(float(volatility_ratio), 1.0)
+        else:
+            price_volatility = 0.0
+        return MarketConditions(
+            region=region,
+            resource_type=ResourceType.GPU,
+            demand_level=0.5,  # no live demand signal — honest neutral, not fabricated
+            supply_level=available / total,
+            average_price=avg_price,
+            price_volatility=price_volatility,
+            utilization_rate=(total - available) / total,
+            competitor_prices=list(prices[:8]),
+            market_sentiment=0.0,
+        )
 
     async def _load_pricing_history(self) -> None:
         """Load recent historical pricing data from the pricing_history table."""
