@@ -404,6 +404,8 @@ class AgentServiceMarket:
                 raise ValueError("Request not completed")
             if request.client_id != client_id:
                 raise ValueError("Not request client")
+            if request.rating:
+                raise ValueError("Request already rated")
             if rating < 1 or rating > 5:
                 raise ValueError("Invalid rating")
             if datetime.now(UTC) > request.deadline + timedelta(days=30):
