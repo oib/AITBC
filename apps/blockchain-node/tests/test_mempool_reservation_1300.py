@@ -146,3 +146,29 @@ def test_peek_reserve_max_count_and_bytes(pool, chain):
     assert len(got) == 2
     got2 = pool.peek_reserve(chain, owner_id="owner-b", height=10)
     assert len(got2) == 2  # the other two remain available
+
+
+def test_admission_lock_timeout_raises(pool, chain, monkeypatch):
+    """PG-only: a held slot advisory lock must surface as
+    MempoolAdmissionTimeout once lock_timeout elapses — never a raw
+    psycopg2 error and never an unbounded wait (P2-v2.4 §2)."""
+    if pool._engine.dialect.name != "postgresql":
+        pytest.skip("advisory-lock timeouts are PostgreSQL-only")
+    from aitbc_chain.config import settings
+    from aitbc_chain.mempool import (
+        MempoolAdmissionTimeout,
+        _slot_lock_key_str,
+        _tx_slot_key,
+    )
+
+    monkeypatch.setattr(settings, "mempool_admission_lock_timeout_ms", 300)
+    tx = _tx(1, chain)
+    slot = _tx_slot_key(tx)
+    assert slot is not None
+    key = _slot_lock_key_str(chain, slot)
+
+    # A second connection holds the same slot lock in an open transaction.
+    with pool._engine.connect() as blocker:
+        blocker.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": key})
+        with pytest.raises(MempoolAdmissionTimeout):
+            pool.add(tx, chain_id=chain)
