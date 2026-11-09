@@ -403,14 +403,65 @@ class BlockImportMixin(SyncBase):
                 )
         return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason="Unhandled import case")
 
+    def _probe_peer_segment(
+        self,
+        session: Session,
+        our_segment: list[Block],
+        ancestor: Block | None,
+        peer_blocks: list[dict[str, Any]],
+    ) -> str:
+        """#1322 tentative reorg: ``"ok"``, ``"apply_invalid"`` or ``"inconclusive"``.
+
+        Reverts our segment through the delta journal and applies the peer's
+        blocks in order inside the caller's session, then ALWAYS rolls back, so
+        no durable trace remains. The process-global replay cache is saved and
+        restored around the probe (no await inside, so nothing else applies a
+        block meanwhile). A revert that cannot be done, or any unexpected
+        error, is ``inconclusive`` -- never a veto.
+        """
+        st = get_state_transition()
+        saved_nonces, saved_hashes = dict(st._processed_nonces), set(st._processed_tx_hashes)
+        verdict = "inconclusive"
+        try:
+            if our_segment and ancestor is not None:
+                reverted = revert_losing_segment(
+                    session, self._chain_id, list(our_segment), ancestor, self._blocks_provably_empty, reverted_accounts=set()
+                )
+                if reverted is None:
+                    return "inconclusive"
+                session.flush()
+            for bd in peer_blocks:
+                st.reset_processed_cache()
+                try:
+                    result = self._append_block(session, bd, bd.get("transactions"), _probe=True)
+                except Exception:
+                    logger.exception("Fork probe errored at height %s", bd.get("height"))
+                    return "inconclusive"
+                if not result.accepted:
+                    logger.warning("Fork probe: peer block %s refused on apply: %s", bd.get("height"), result.reason)
+                    return "apply_invalid"
+            verdict = "ok"
+            return verdict
+        finally:
+            session.rollback()
+            st._processed_nonces.clear()
+            st._processed_nonces.update(saved_nonces)
+            st._processed_tx_hashes.clear()
+            st._processed_tx_hashes.update(saved_hashes)
+
     def _append_block(
         self,
         session: Session,
         block_data: dict[str, Any],
         transactions: list[dict[str, Any]] | None = None,
         skip_state_root_validation: bool = False,
+        _probe: bool = False,
     ) -> ImportResult:
         """Append a block to the chain tip.
+
+        ``_probe`` (#1322) is reachable only from ``_probe_peer_segment``: the
+        apply runs but the transaction is flushed, never committed, and no
+        post-commit side effect (mempool eviction, shadow roots, counters) runs.
 
         Args:
             session: Database session
@@ -1008,6 +1059,9 @@ class BlockImportMixin(SyncBase):
             journal.persist(session)
         sync_import_phase_seconds.labels(phase="tx_apply").observe(time.perf_counter() - apply_start)
         phase_start = time.perf_counter()
+        if _probe:
+            session.flush()
+            return self._make_import_result(accepted=True, height=int(block_data["height"]), block_hash=block_hash)
         session.commit()
         sync_import_phase_seconds.labels(phase="commit").observe(time.perf_counter() - phase_start)
         # V-3 shadow (flag-gated, compare-only — never affects the imported block).

@@ -513,6 +513,20 @@ class BulkSyncMixin(SyncBase):
                     len(our_segment),
                 )
                 return False
+            if getattr(settings, "sync_fork_apply_probe_enabled", False):
+                verdict = self._probe_peer_segment(
+                    session, list(our_segment), ancestor, [peer_seg[fh] for fh in sorted(peer_seg)]
+                )
+                if verdict != "ok":
+                    metrics_registry.increment(f"sync_fork_probe_{verdict}_total")
+                    self._logger.warning(
+                        "Fork probe %s for peer segment at height %s from %s — keeping our segment",
+                        verdict,
+                        fork_h,
+                        source_url,
+                    )
+                    return False
+                metrics_registry.increment("sync_fork_probe_ok_total")
             orphaned: list[dict[str, Any]] = []
             segment_empty = self._blocks_provably_empty(session, list(our_segment))
             # Operator kill-switch: undo is on by default (the journal is
