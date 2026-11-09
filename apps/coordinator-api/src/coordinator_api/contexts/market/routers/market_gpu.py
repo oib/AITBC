@@ -858,6 +858,19 @@ async def buy_gpu(
         await run_in_threadpool(session.add, booking)
         await run_in_threadpool(session.commit)
         logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment_id, booking_id)
+    except HTTPException:
+        # Validation failures (prepared-job 404/422, binding 403) must still
+        # release the booking/GPU committed above before propagating.
+        if job_id is not None:
+            existing_job = await run_in_threadpool(session.get, Job, job_id)
+            if existing_job and existing_job.state in ("QUEUED", "RUNNING"):
+                existing_job.state = "CANCELED"
+                existing_job.error = "Payment failed"
+                await run_in_threadpool(session.add, existing_job)
+        await run_in_threadpool(session.delete, booking)
+        gpu.status = "available"
+        await run_in_threadpool(session.commit)
+        raise
     except Exception as e:
         logger.error("Failed to create job/payment for GPU purchase: %s", e)
 

@@ -202,6 +202,8 @@ async def create_filecoin_deal(request: IPFSCreateDealRequest) -> dict[str, Any]
             "cid": request.cid,
             "duration": request.duration,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -297,7 +299,7 @@ async def health_check() -> dict[str, Any]:
 
 
 @router.post("/island/swarm-key")
-async def get_island_swarm_key(request: IslandSwarmKeyRequest) -> dict[str, Any]:
+def get_island_swarm_key(request: IslandSwarmKeyRequest) -> dict[str, Any]:
     """Return the private IPFS swarm key for an island to a paid, verified member."""
     try:
         result = get_member_swarm_key(
