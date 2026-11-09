@@ -11,7 +11,7 @@ from aitbc.async_tasks import create_task_with_logging
 
 from ...metrics import metrics_registry
 from .._internal import _increment_publication, _message_id, _set_queue_gauge, bounded_topic_label
-from ..telemetry import gossip_event, gossip_mesh_message_forward_total
+from ..telemetry import gossip_event, gossip_mesh_cap_terminal_total, gossip_mesh_message_forward_total
 from .base import GossipBackend, TopicSubscription
 
 
@@ -153,6 +153,23 @@ class MeshGossipBackend(GossipBackend):
                     event_id=event_id,
                     latency_ms=round((time.monotonic() - t0) * 1000.0, 1),
                     **batch_field,
+                )
+            except asyncio.TimeoutError:
+                # #1308 R6: cap-terminal is a distinct outcome from generic
+                # failure — the attempt hit peer_publish_timeout, not an error.
+                gossip_mesh_cap_terminal_total.labels(
+                    peer=name, topic_class=bounded_topic_label(topic), outcome="cap_timeout"
+                ).inc()
+                gossip_event(
+                    "peer_publish_cap_terminal",
+                    peer=name,
+                    topic=topic,
+                    event_id=event_id,
+                    attempt_age_ms=round((time.monotonic() - t0) * 1000.0, 1),
+                    bound_s=self._peer_publish_timeout,
+                    outcome="cap_timeout",
+                    **batch_field,
+                    _level="info",
                 )
             except Exception as e:
                 _increment_publication("gossip_mesh_peer_publish_failed", topic)
