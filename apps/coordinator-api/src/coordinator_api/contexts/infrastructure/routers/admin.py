@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import desc
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
@@ -116,8 +116,10 @@ def get_stats(
 
     from ...infrastructure.domain import Job
 
-    total_jobs = session.execute(select(func.count()).select_from(Job)).one()
-    active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
+    total_jobs = session.execute(select(func.count()).select_from(Job)).scalar_one()
+    active_jobs = session.execute(
+        select(func.count()).select_from(Job).where(col(Job.state).in_(["QUEUED", "RUNNING"]))
+    ).scalar_one()
     miner_service = MinerService(session)
     miners = miner_service.list_records()
     avg_job_duration = sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(
@@ -205,10 +207,12 @@ def get_system_status(
 
         from ...infrastructure.domain import Job
 
-        total_jobs = session.execute(select(func.count()).select_from(Job)).one()
-        active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()  # type: ignore[attr-defined]
-        completed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "COMPLETED")).one()
-        failed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "FAILED")).one()
+        total_jobs = session.execute(select(func.count()).select_from(Job)).scalar_one()
+        active_jobs = session.execute(
+            select(func.count()).select_from(Job).where(col(Job.state).in_(["QUEUED", "RUNNING"]))
+        ).scalar_one()
+        completed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "COMPLETED")).scalar_one()
+        failed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "FAILED")).scalar_one()
         miner_service = MinerService(session)
         miners = miner_service.list_records()
         online_miners = miner_service.online_count()
