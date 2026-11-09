@@ -19,6 +19,11 @@ from starlette.concurrency import run_in_threadpool
 logger = get_logger(__name__)
 
 
+def _as_utc(value: datetime) -> datetime:
+    """#1368: sqlite strips tzinfo on reload — treat naive datetimes as UTC."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
 class MarketStrategyOptimizer:
     """Advanced market strategy optimization using RL"""
 
@@ -179,7 +184,8 @@ class MarketStrategyOptimizer:
             "success_rate": np.random.random() * 0.3 + 0.7,
             "average_profit": np.random.random() * 100,
             "market_share_change": np.random.random() * 0.2 - 0.1,
-            "deployment_age_days": (datetime.now(UTC) - rl_config.deployed_at).days if rl_config.deployed_at else 0,
+            # #1368: sqlite reloads deployed_at naive — assume UTC before subtracting.
+            "deployment_age_days": ((datetime.now(UTC) - _as_utc(rl_config.deployed_at)).days if rl_config.deployed_at else 0),
         }
 
         return evaluation_metrics

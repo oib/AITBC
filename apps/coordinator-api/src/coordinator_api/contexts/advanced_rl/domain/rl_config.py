@@ -68,3 +68,16 @@ class ReinforcementLearningConfig(SQLModel, table=True):
     # Additional data
     rl_profile_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     training_logs: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+
+    @property
+    def deployment_count(self) -> int:
+        """Number of deployments — tracked inside deployment_performance.
+
+        #1369: there is no dedicated column; storing the counter in the
+        existing JSON field avoids a schema migration.
+        """
+        return int(self.deployment_performance.get("deployment_count", 0))
+
+    @deployment_count.setter
+    def deployment_count(self, value: int) -> None:
+        self.deployment_performance["deployment_count"] = value
