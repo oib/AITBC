@@ -264,6 +264,11 @@ def ingest(
     # 6. only a configured validator can be reported (blocks address-spray eviction)
     if validator not in {canonical_address(v) for v in validator_set}:
         return _drop("not_validator")
+    # 6b. #1298: a pair is evidence only when both signatures were minted under
+    # the SAME domain preimage — a proposal signature and an attestation
+    # signature over the same header are different roles, never an equivocation.
+    if len({a.get("signature_domain") for a in attestations}) != 1:
+        return _drop("domain_mismatch")
     # 7. signature verification — the admission gate
     if not _verify(payload, validator, height):
         return _drop("verify")
