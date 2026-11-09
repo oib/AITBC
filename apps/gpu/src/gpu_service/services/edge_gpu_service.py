@@ -14,6 +14,7 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 
 from ..domain.gpu_market import (
+    BOOKABLE_GPU_STATUSES,
     CONSUMER_GPU_PROFILES,
     ConsumerGPUProfile,
     EdgeGPUMetrics,
@@ -196,7 +197,9 @@ class EdgeGPUService:
                     existing.cuda_version = gpu_info["driver_version"]
                     if hardware_uuid:
                         existing.hardware_uuid = hardware_uuid
-                    existing.status = "available"
+                    # #1388: rediscovery must not un-commit a booked/in_use GPU.
+                    if existing.status in BOOKABLE_GPU_STATUSES:
+                        existing.status = "available"
                     gpu_list.append(
                         {
                             "id": existing.id,
