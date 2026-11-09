@@ -26505,8 +26505,26 @@
           "Agent Security"
         ],
         "summary": "List Security Policies",
-        "description": "List security policies with filtering",
+        "description": "List security policies",
         "operationId": "list_security_policies_v1_agents_security_policies_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -26518,6 +26536,16 @@
                     "$ref": "#/components/schemas/AgentSecurityPolicy"
                   },
                   "title": "Response List Security Policies V1 Agents Security Policies Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -26541,7 +26569,7 @@
           "Agent Security"
         ],
         "summary": "Scan Security",
-        "description": "Perform security scan on target",
+        "description": "Perform security scan on target.\n\nHonest stub contract (#1328): no scanner is implemented \u2014 the previous\nversion returned a fabricated clean bill (``security_score: 100``,\n``vulnerabilities_found: 0``) to any caller. Until a real scan exists\nthis endpoint reports 501 rather than false assurance.",
         "operationId": "scan_security_v1_agents_security_scan_get",
         "parameters": [
           {
@@ -26566,6 +26594,22 @@
               "title": "Scan Type"
             },
             "description": "Scan type: quick, full, or custom"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -26591,8 +26635,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "security scan is not implemented on this coordinator",
             "content": {
               "application/json": {
                 "schema": {
