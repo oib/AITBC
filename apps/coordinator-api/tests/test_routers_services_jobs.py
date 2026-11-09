@@ -20,14 +20,16 @@ def _headers(sub: str = "client-1", role: str = "client") -> dict[str, str]:
 
 
 JOB_CASES = [
-    ("whisper/transcribe", {"audio_url": "https://x/a.mp3"}),
-    ("whisper/translate", {"audio_url": "https://x/a.mp3"}),
-    ("stable-diffusion/generate", {"prompt": "a cat"}),
-    ("stable-diffusion/img2img", {"prompt": "a cat"}),
-    ("llm/inference", {"model": "llama-7b", "prompt": "hi"}),
-    ("llm/stream", {"model": "llama-7b", "prompt": "hi"}),
-    ("ffmpeg/transcode", {"input_url": "https://x/v.mp4"}),
-    ("blender/render", {"blend_file_url": "https://x/s.blend"}),
+    ("whisper/transcribe", {"audio_url": "https://x/a.mp3"}, 201),
+    ("whisper/translate", {"audio_url": "https://x/a.mp3"}, 201),
+    ("stable-diffusion/generate", {"prompt": "a cat"}, 201),
+    ("stable-diffusion/img2img", {"prompt": "a cat"}, 201),
+    ("llm/inference", {"model": "llama-7b", "prompt": "hi"}, 201),
+    # /llm/stream declares no status_code -> default 200 (documented stub:
+    # "would implement WebSocket or SSE" but returns the same ServiceResponse)
+    ("llm/stream", {"model": "llama-7b", "prompt": "hi"}, 200),
+    ("ffmpeg/transcode", {"input_url": "https://x/v.mp4"}, 201),
+    ("blender/render", {"blend_file_url": "https://x/s.blend"}, 201),
 ]
 
 
@@ -62,10 +64,10 @@ class TestServiceCatalog:
 
 
 class TestJobCreation:
-    @pytest.mark.parametrize("path,payload", JOB_CASES)
-    def test_creates_queued_job(self, client: TestClient, path: str, payload: dict) -> None:
+    @pytest.mark.parametrize("path,payload,expected", JOB_CASES)
+    def test_creates_queued_job(self, client: TestClient, path: str, payload: dict, expected: int) -> None:
         resp = client.post(f"{BASE}/{path}", json=payload, headers=_headers())
-        assert resp.status_code == 201, resp.text
+        assert resp.status_code == expected, resp.text
         body = resp.json()
         assert body["job_id"]
         assert body["status"] in ("QUEUED", "queued")
@@ -73,7 +75,9 @@ class TestJobCreation:
 
     def test_caller_binding(self, client: TestClient) -> None:
         # jobs are created under the JWT sub, never a body field
-        resp = client.post(f"{BASE}/llm/inference", json={"model": "llama-7b", "prompt": "x"}, headers=_headers("sub-A"))
+        resp = client.post(
+            f"{BASE}/llm/inference", json={"model": "llama-7b", "prompt": "x"}, headers=_headers("0x" + "aa" * 20)
+        )
         assert resp.status_code == 201
 
     def test_requires_client_role(self, client: TestClient) -> None:
@@ -83,6 +87,18 @@ class TestJobCreation:
             headers=_headers("miner-1", "miner"),
         )
         assert resp.status_code == 403
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#1340: unresolvable JWT sub -> resolve_client ValueError -> 500, not a 4xx caller error",
+    )
+    def test_unresolvable_sub_is_4xx_not_500(self, client: TestClient) -> None:
+        resp = client.post(
+            f"{BASE}/llm/inference",
+            json={"model": "llama-7b", "prompt": "x"},
+            headers=_headers("not-a-registered-identity"),
+        )
+        assert resp.status_code in (400, 404)
 
     def test_requires_auth(self, client: TestClient) -> None:
         resp = client.post(f"{BASE}/llm/inference", json={"model": "llama-7b", "prompt": "x"})
