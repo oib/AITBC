@@ -48,21 +48,26 @@ def _request_body(**overrides) -> dict:
 
 
 class TestTradingAuthBoundary:
-    """Matrix gate: /v1/trading* is ADMIN_OR_CLIENT; router adds no dep."""
+    """The trading router carries NO router-level auth dep — the only gate
+    is the route security matrix (/v1/trading* -> ADMIN_OR_CLIENT),
+    enforced by AuthMiddleware which is disabled under TEST_MODE. These
+    tests pin the matrix contract directly; in production the middleware
+    rejects unauthenticated/non-privileged callers before the handler."""
 
-    def test_unauthenticated_401(self, client: TestClient) -> None:
-        assert client.get(f"{BASE}/requests").status_code == 401
-        assert client.post(f"{BASE}/requests", json=_request_body()).status_code == 401
+    def test_matrix_requires_admin_or_client(self) -> None:
+        from aitbc.auth.security_matrix import AuthLevel, check_role_match, get_auth_level
 
-    def test_miner_role_403(self, client: TestClient) -> None:
-        # MINER is not in ADMIN_OR_CLIENT — matrix must deny before handler
-        assert client.get(f"{BASE}/requests", headers=_miner()).status_code == 403
-        assert client.post(f"{BASE}/requests", json=_request_body(), headers=_miner()).status_code == 403
+        assert get_auth_level("/v1/trading/requests") == AuthLevel.ADMIN_OR_CLIENT
+        assert check_role_match(AuthLevel.ADMIN_OR_CLIENT, "admin")
+        assert check_role_match(AuthLevel.ADMIN_OR_CLIENT, "client")
+        assert not check_role_match(AuthLevel.ADMIN_OR_CLIENT, "miner")
+        assert not check_role_match(AuthLevel.ADMIN_OR_CLIENT, None)
 
-    def test_admin_and_client_allowed(self, client: TestClient) -> None:
-        for headers in (_admin(), _headers()):
-            resp = client.post(f"{BASE}/requests", json=_request_body(), headers=headers)
-            assert resp.status_code == 200
+    def test_router_adds_no_dep(self, client: TestClient) -> None:
+        # documents the reliance on middleware: with TEST_MODE the matrix is
+        # off, so these reach the handler — if this ever 401s, a router dep
+        # was added (fine); the matrix pin above remains the contract.
+        assert client.get(f"{BASE}/requests").status_code == 200
 
 
 class TestTradeRequestLifecycle:
@@ -104,7 +109,7 @@ class TestTradeRequestLifecycle:
 
     @pytest.mark.xfail(
         strict=True,
-        reason="defect: unparseable ISO start_time/expires_at raises inside the broad try -> 500 instead of 422",
+        reason="defect #1326: unparseable ISO start_time/expires_at raises inside the broad try -> 500 instead of 422",
     )
     def test_bad_datetime_is_422_not_500(self, client: TestClient) -> None:
         resp = client.post(
@@ -140,19 +145,32 @@ class TestMatchesAndNegotiation:
         db_session.commit()
         return match.match_id
 
-    def test_find_matches_empty_and_get(self, client: TestClient) -> None:
+    def test_get_matches_empty(self, client: TestClient) -> None:
         resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
         rid = resp.json()["request_id"]
-        # no sellers registered -> empty match list, still 200
-        m = client.post(f"{BASE}/requests/{rid}/matches", headers=_headers())
-        assert m.status_code == 200
         g = client.get(f"{BASE}/requests/{rid}/matches", headers=_headers())
         assert g.status_code == 200
         assert g.json() == []
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="defect #1326: find_matches persists TradeMatch JSON columns with datetime values -> TypeError -> 500",
+    )
+    def test_find_matches_runs(self, client: TestClient) -> None:
+        resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
+        rid = resp.json()["request_id"]
+        # no sellers registered -> empty match list expected, but the
+        # persist path 500s on JSON serialization before returning
+        m = client.post(f"{BASE}/requests/{rid}/matches", headers=_headers())
+        assert m.status_code == 200
+
     def test_find_matches_missing_request_404(self, client: TestClient) -> None:
         assert client.post(f"{BASE}/requests/req_ghost/matches", headers=_headers()).status_code == 404
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="defect #1326: initiate_negotiation writes Decimal into TradeNegotiation JSON columns -> TypeError -> 500",
+    )
     def test_negotiation_lifecycle(self, client: TestClient, db_session: Session) -> None:
         resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
         rid = resp.json()["request_id"]

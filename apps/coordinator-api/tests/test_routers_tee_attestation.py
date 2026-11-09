@@ -43,9 +43,12 @@ class TestAttestationSubmitGate:
         )
         assert resp.status_code == 503
 
-    def test_submit_unauthenticated_still_gated_by_matrix(self, client: TestClient) -> None:
-        # /v1/tee* is ANY -> no token is 401 before the 503 branch matters
-        assert client.post(f"{BASE}/attestations", json={"enclave_id": "e", "quote": "q"}).status_code == 401
+    def test_submit_matrix_floor_any(self) -> None:
+        # /v1/tee* is AuthLevel.ANY — any valid JWT reaches the handler;
+        # with TEST_MODE the middleware is off so the 503 gate fires first
+        from aitbc.auth.security_matrix import AuthLevel, get_auth_level
+
+        assert get_auth_level("/v1/tee/attestations") == AuthLevel.ANY
 
 
 class TestEnclaveRegistry:
