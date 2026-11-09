@@ -5,10 +5,14 @@ Hardware validation service for service configurations
 import asyncio
 from typing import Any
 
+import logging
+
 import requests
 
 from ..models import Miner
 from ..settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ValidationResult:
@@ -279,5 +283,8 @@ class HardwareValidator:
             compatible.sort(key=lambda x: x[1], reverse=True)
             return compatible
 
-        except Exception:
+        except Exception as exc:
+            # #1374: an empty list is indistinguishable from "no compatible
+            # services" — log the failure so matching outages are visible.
+            logger.warning("Service compatibility check failed: %s", exc)
             return []
