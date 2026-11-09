@@ -1,6 +1,6 @@
 """Edge metrics-related schemas for Edge API Service"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -18,5 +18,5 @@ class EdgeMetrics(SQLModel, table=True):
     metric_id: str = Field(index=True)
     gpu_id: str = Field(index=True)
     metrics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     extra_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))

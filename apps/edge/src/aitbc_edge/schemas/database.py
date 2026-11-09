@@ -1,6 +1,6 @@
 """Edge database-related schemas for Edge API Service"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -20,8 +20,8 @@ class EdgeDatabase(SQLModel, table=True):
     capacity_gb: int
     used_gb: int = Field(default=0)
     status: str = Field(default="initialized", index=True)  # initialized, active, syncing, error
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # Sync information
     last_sync_at: datetime | None = Field(default=None)
