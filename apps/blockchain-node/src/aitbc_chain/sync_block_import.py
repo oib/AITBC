@@ -1075,7 +1075,9 @@ class BlockImportMixin(SyncBase):
         phase_start = time.perf_counter()
         if _probe:
             session.flush()
-            return self._make_import_result(accepted=True, height=int(block_data["height"]), block_hash=block_hash)
+            return self._make_import_result(
+                accepted=True, height=int(block_data["height"]), block_hash=block_hash, reason="probe"
+            )
         session.commit()
         sync_import_phase_seconds.labels(phase="commit").observe(time.perf_counter() - phase_start)
         # V-3 shadow (flag-gated, compare-only — never affects the imported block).
