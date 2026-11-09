@@ -275,7 +275,9 @@ class BountyService:
                 raise ValueError("Submission not found")
             if submission.status != SubmissionStatus.VERIFIED:
                 raise ValueError("Can only dispute verified submissions")
-            if datetime.now(UTC) - submission.verification_time > timedelta(days=1):
+            if submission.verification_time is None:
+                raise ValueError("Submission has no verification timestamp")
+            if datetime.now(UTC) - _as_utc(submission.verification_time) > timedelta(days=1):
                 raise ValueError("Dispute window expired")
             submission.status = SubmissionStatus.DISPUTED
             submission.dispute_reason = dispute_reason

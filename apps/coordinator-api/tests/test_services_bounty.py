@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from sqlmodel import Session
 
-from coordinator_api.contexts.bounty.domain.bounty import BountyStatus
+from coordinator_api.contexts.bounty.domain.bounty import BountyStatus, SubmissionStatus
 from coordinator_api.contexts.bounty.services.bounty_service import BountyService
 
 
@@ -54,3 +54,20 @@ async def test_submission_reachable_after_create(db_session: Session) -> None:
     )
     assert submission.bounty_id == bounty.bounty_id
     assert submission.status.value == "pending"
+
+
+async def test_dispute_after_verify_survives_naive_roundtrip(db_session: Session) -> None:
+    """#1353: verification_time round-trips naive through sqlite; the dispute
+    window check must normalize before subtracting (same class as #1347)."""
+    service = BountyService(db_session)
+    bounty = await service.create_bounty(**_create_kwargs())
+    submission = await service.create_submission(
+        bounty_id=bounty.bounty_id,
+        submitter_address="0x" + "11" * 20,
+        accuracy=92.0,
+        performance_hash="deadbeef",
+        submission_data={"solution_url": "https://example.com/fix"},
+    )
+    await service.verify_submission(bounty.bounty_id, submission.submission_id, True, "verifier-1")
+    disputed = await service.create_dispute(bounty.bounty_id, submission.submission_id, "0x" + "22" * 20, "result is wrong")
+    assert disputed.status == SubmissionStatus.DISPUTED
