@@ -16,8 +16,10 @@ from sqlmodel import Session, select
 
 from coordinator_api.contexts.agent_coordination.domain.agent import (
     AgentExecution,
+    AgentStep,
     AgentStepExecution,
     AIAgentWorkflow,
+    StepType,
     VerificationLevel,
 )
 from coordinator_api.contexts.agent_coordination.services.integration import (
@@ -184,35 +186,8 @@ class TestDeployAgentWorkflow:
         assert all(i.status == DeploymentStatus.DEPLOYED and i.health_status == "healthy" for i in instances)
         assert all(i.region == "eu-1" for i in instances)
         assert {i.port for i in instances} == {8000, 8001}
+        assert fresh is not None and fresh.agent_version == "1.0.0"
 
-    async def test_instance_failure_still_marks_config_deployed(
-        self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """DEFECT pin: _create_deployment_instance hardcodes status='deployed' in
-        its return dict and never appends to deployment_errors, so a systemd
-        failure still yields config.status == DEPLOYED and per-instance
-        status 'deployed' even though the DB row is FAILED/unhealthy."""
-        monkeypatch.setattr(
-            deployment_manager, "_deploy_agent_systemd", AsyncMock(side_effect=RuntimeError("systemctl missing"))
-        )
-        wf = _seed_workflow(db_session)
-        cfg = _seed_config(db_session, wf.id, min_instances=1)
-        result = await deployment_manager.deploy_agent_workflow(cfg.id)
-        # current (buggy) observable contract: errors list stays empty and the
-        # per-instance dict claims "deployed" even though the DB row failed
-        assert result["deployment_errors"] == []
-        assert result["instances"][0]["status"] == "deployed"
-        db_session.expire_all()
-        inst = db_session.scalars(select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == cfg.id)).one()
-        assert inst.status == DeploymentStatus.FAILED
-        assert inst.health_status == "unhealthy"
-        fresh = db_session.get(AgentDeploymentConfig, cfg.id)
-        assert fresh is not None and fresh.status == DeploymentStatus.DEPLOYED  # the defect itself
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect: _create_deployment_instance returns hardcoded status='deployed' and deploy_agent_workflow never populates deployment_errors -> config marked DEPLOYED despite failed instances (#1289 round-3 find)",
-    )
     async def test_failed_instances_mark_config_failed(
         self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -365,10 +340,6 @@ class TestCheckInstanceHealth:
         assert len(inst.health_check_history) == 100
         assert inst.health_check_history[-1]["status"] == "unhealthy"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect: health_check_history is a plain JSON column; append() without reassignment is not change-tracked, so commit() expires the object and the record is silently lost unless the >100 cap path reassigns the list (#1289 round-3 find)",
-    )
     async def test_health_check_history_record_persists(
         self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -545,17 +516,25 @@ class TestRollbackDeployment:
         with pytest.raises(ValueError, match="Rollback not enabled"):
             await deployment_manager.rollback_deployment(cfg.id)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect: AgentDeploymentConfig has no previous_version/agent_version fields, so getattr(...,None) is always falsy -> every instance lands in rollback_errors -> status FAILED; rollback can never succeed (#1289 round-3 find)",
-    )
+    async def test_rollback_without_previous_version_errors(
+        self, deployment_manager: AgentDeploymentManager, db_session: Session
+    ) -> None:
+        wf = _seed_workflow(db_session)
+        cfg = _seed_config(db_session, wf.id, rollback_enabled=True)
+        _seed_instance(db_session, cfg.id, instance_id="dep-prod-0")
+        result = await deployment_manager.rollback_deployment(cfg.id)
+        assert result["rollback_errors"]
+        db_session.expire_all()
+        fresh = db_session.get(AgentDeploymentConfig, cfg.id)
+        assert fresh is not None and fresh.status == DeploymentStatus.FAILED
+
     async def test_rollback_with_instances(
         self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(deployment_manager, "_deploy_agent_systemd", AsyncMock())
         monkeypatch.setattr(deployment_manager, "_remove_deployment_instance", AsyncMock())
         wf = _seed_workflow(db_session)
-        cfg = _seed_config(db_session, wf.id, rollback_enabled=True)
+        cfg = _seed_config(db_session, wf.id, rollback_enabled=True, agent_version="1.0.0", previous_version="0.9.0")
         _seed_instance(db_session, cfg.id, instance_id="dep-prod-0")
         result = await deployment_manager.rollback_deployment(cfg.id)
         assert result["rollback_errors"] == []
@@ -656,10 +635,6 @@ class TestMonitoringManager:
         assert data["request_count"] == 3  # fell back to DB field on non-200
         assert data["cpu_usage"] == 11.0
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect: create_alerting_rules assigns config.alerting_rules but AgentDeploymentConfig has no such field -> ValueError on every call; deploy_to_production can therefore never reach overall_status='success' (#1289 round-3 find)",
-    )
     async def test_create_alerting_rules_persists(
         self, monitoring_manager: AgentMonitoringManager, db_session: Session
     ) -> None:
@@ -672,7 +647,7 @@ class TestMonitoringManager:
         assert result["alert_channels"] == ["log", "webhook"]
         db_session.expire_all()
         fresh = db_session.get(AgentDeploymentConfig, cfg.id)
-        assert fresh is not None
+        assert fresh is not None and fresh.alerting_rules == rules
 
     async def test_create_alerting_rules_not_found(self, monitoring_manager: AgentMonitoringManager) -> None:
         with pytest.raises(ValueError, match="Deployment config not found"):
@@ -693,10 +668,6 @@ class TestProductionManager:
         assert result["deployment_id"].startswith("deploy_")
         assert result["integration_status"] == "configured"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect: create_alerting_rules raises ValueError (no alerting_rules field on model) -> monitoring_status='failed' -> overall_status can never be 'success' (#1289 round-3 find)",
-    )
     async def test_deploy_to_production_reaches_success(self, db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
         prod = AgentProductionManager(db_session)
         monkeypatch.setattr(prod.deployment_manager, "_deploy_agent_systemd", AsyncMock())
@@ -704,6 +675,7 @@ class TestProductionManager:
         result = await prod.deploy_to_production(wf.id, {"name": "prod-dep", "min_instances": 1})
         assert result["overall_status"] == "success"
         assert result["monitoring_status"] == "created"
+        assert result["deployment_status"] == "deploying"
 
     async def test_deploy_to_production_failure_audits(self, db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
         prod = AgentProductionManager(db_session)
@@ -751,15 +723,33 @@ class TestIntegrationManagerZK:
         assert result["integration_errors"] == []
         assert result["workflow_proof"]["proof_id"].startswith("proof_")
         assert result["workflow_verification"]["verified"] is True
-        # NOTE: step-level proofs are never generated — AgentStepExecution has
-        # no requires_proof field, so getattr(..., False) is always falsy.
+        # no AgentStep rows -> no step requires proof -> no step proofs
         assert result["zk_proofs_generated"] == []
 
-    async def test_step_requires_proof_branch_is_dead(self, db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Documents latent defect: getattr(step_execution,'requires_proof',False)
-        can never be true (no such field) -> per-step ZK proofs unreachable."""
+    async def test_step_requires_proof_generates_step_proof(
+        self, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """requires_proof lives on AgentStep; a step execution bound to a
+        requires_proof step must produce a per-step ZK proof."""
         monkeypatch.setenv("AGENT_INTEGRATION_ZK_MOCK", "1")
         mgr = AgentIntegrationManager(db_session)
-        ex = self._seed_execution(db_session, with_steps=True)
+        ex = self._seed_execution(db_session, with_steps=False)
+        step = AgentStep(
+            workflow_id=ex.workflow_id,
+            name="prove-me",
+            step_type=StepType.INFERENCE,
+            requires_proof=True,
+        )
+        db_session.add(step)
+        db_session.commit()
+        db_session.refresh(step)
+        se = AgentStepExecution(execution_id=ex.id, step_id=step.id, status="completed")
+        db_session.add(se)
+        db_session.commit()
         result = await mgr.integrate_with_zk_system(ex.id)
-        assert result["zk_proofs_generated"] == []
+        assert result["integration_status"] == "success"
+        assert len(result["zk_proofs_generated"]) == 1
+        assert result["zk_proofs_generated"][0]["step_id"] == step.id
+        assert result["zk_proofs_generated"][0]["proof_id"].startswith("proof_")
+        assert len(result["verification_results"]) == 1
+        assert result["verification_results"][0]["verification_status"] is True
