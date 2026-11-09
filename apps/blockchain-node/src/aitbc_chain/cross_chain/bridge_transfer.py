@@ -17,6 +17,7 @@ from aitbc.utils.env import is_production
 
 from ..config import settings
 from ..logger import get_logger
+from ..metrics import metrics_registry
 from ..models import Account, Block, BridgeBlockHeader, CrossChainTransfer, Transaction
 from ..state.bridge_credit import (
     BRIDGE_SIGNATURE_FIELD,
@@ -1638,7 +1639,112 @@ class BridgeTransferMixin(BridgeBase):
                     .order_by(Block.height.asc())  # type: ignore[attr-defined]
                     .limit(batch)
                 ).all()
-        return self._store_new_block_headers(chain_id, new_blocks, deadline)
+                # #1305: the resume-at-last_stored sync never revisits stored
+                # rows, so a fork heal leaves mirror rows holding the orphaned
+                # hash forever. Re-verify the recent window against the
+                # canonical block table each pass and repair mismatches via
+                # the update-capable store path (the batch path skips
+                # existing heights, so it cannot repair).
+                verify_window = max(1, int(getattr(settings, "bridge_header_verify_window", 128)))
+                verify_floor = max(0, int(head.height) - verify_window)
+                mirror_rows = session.exec(
+                    select(BridgeBlockHeader.height, BridgeBlockHeader.hash).where(
+                        BridgeBlockHeader.chain_id == chain_id,
+                        BridgeBlockHeader.height >= verify_floor,
+                    )
+                ).all()
+                canonical_rows = session.exec(
+                    select(Block.height, Block.hash).where(
+                        Block.chain_id == chain_id,
+                        Block.height >= verify_floor,
+                    )
+                ).all()
+                canonical_hash = {int(height): str(block_hash).lower() for height, block_hash in canonical_rows}
+                stale_rows = [
+                    (int(mirror_height), str(mirror_hash))
+                    for mirror_height, mirror_hash in mirror_rows
+                    if canonical_hash.get(int(mirror_height)) != str(mirror_hash).lower()
+                ][:batch]
+        stored = self._store_new_block_headers(chain_id, new_blocks, deadline)
+        self._repair_stale_chain_headers(chain_id, stale_rows, deadline)
+        return stored
+
+    def _repair_stale_chain_headers(
+        self, chain_id: str, stale_rows: list[tuple[int, str]], deadline: float | None = None
+    ) -> int:
+        """Repair mirror rows whose hash diverged from the canonical block (#1305).
+
+        Runs after the new-header store, outside the writer flock — same
+        position as the store itself, which relies on skip-existing plus the
+        header lock retry rather than the flock for write safety. Repairs go
+        through ``_store_block_header_once`` because it updates existing rows;
+        ``_store_header_batch`` would skip them. Bounded by the caller's slice
+        and the pass deadline; each repair is rare (fork heals only).
+        """
+        if not stale_rows:
+            return 0
+        repaired = 0
+        with self._session_for(chain_id) as session:
+            canonical = session.exec(
+                select(Block)
+                .options(raiseload("*"))
+                .where(
+                    Block.chain_id == chain_id,
+                    Block.height.in_([height for height, _ in stale_rows]),  # type: ignore[attr-defined]
+                )
+            ).all()
+        blocks_by_height = {int(block.height): block for block in canonical}
+        for height, mirror_hash in stale_rows:
+            if deadline is not None and time.monotonic() >= deadline:
+                logger.info(
+                    "Bridge header repair for %s hit the pass deadline after %s repairs; deferring the rest",
+                    chain_id,
+                    repaired,
+                )
+                break
+            block = blocks_by_height.get(height)
+            if block is None:
+                # Mirror row with no canonical block at that height — cannot
+                # repair without authoritative data; leave for investigation.
+                logger.warning(
+                    "Bridge header row for %s height %s has no canonical block; skipping repair",
+                    chain_id,
+                    height,
+                )
+                continue
+            try:
+                self._run_with_header_lock_retry(  # type: ignore[attr-defined]
+                    lambda b=block: self._store_block_header_once(self._block_header_payload(b)),  # type: ignore[attr-defined]
+                    chain_id,
+                    deadline,
+                )
+            except Exception:
+                logger.exception("Failed to repair stale bridge header for %s at height %s", chain_id, height)
+                continue
+            repaired += 1
+            metrics_registry.increment("bridge_header_stale_rows_repaired_total")
+            logger.warning(
+                "Repaired stale bridge header for %s at height %s: mirror had %s, canonical is %s",
+                chain_id,
+                height,
+                mirror_hash,
+                block.hash,
+            )
+        return repaired
+
+    @staticmethod
+    def _block_header_payload(block: Any) -> dict[str, Any]:
+        """Header fields mirrored from a canonical block row (store + repair share this)."""
+        return {
+            "chain_id": block.chain_id,
+            "height": block.height,
+            "hash": block.hash,
+            "parent_hash": block.parent_hash,
+            "proposer": block.proposer,
+            "state_root": block.state_root or "",
+            "bridge_state_root": block.bridge_state_root or "",
+            "signature": block.signature or "",
+        }
 
     def _store_new_block_headers(self, chain_id: str, new_blocks: Any, deadline: float | None = None) -> int:
         """Store selected blocks as bridge headers in commit_batch-sized transactions."""
@@ -1653,18 +1759,7 @@ class BridgeTransferMixin(BridgeBase):
                     stored,
                 )
                 break
-            pending.append(
-                {
-                    "chain_id": block.chain_id,
-                    "height": block.height,
-                    "hash": block.hash,
-                    "parent_hash": block.parent_hash,
-                    "proposer": block.proposer,
-                    "state_root": block.state_root or "",
-                    "bridge_state_root": block.bridge_state_root or "",
-                    "signature": block.signature or "",
-                }
-            )
+            pending.append(self._block_header_payload(block))
             if len(pending) >= commit_batch:
                 if not self._flush_header_batch(chain_id, pending, block.height, deadline):
                     pending.clear()
