@@ -145,8 +145,8 @@ def test_sensitive_routes_have_their_exact_levels():
         # handlers take AuthDep; ANY is the matrix floor for the path family
         "/v1/market/gpu/abc-123": AuthLevel.ANY,
         "/v1/market/gpu/abc-123/reviews": AuthLevel.ANY,
-        # miner-owned write routes
-        "/v1/market/sync-offers": AuthLevel.MINER,
+        # admin batch op — handler requires AdminDep (#1327: MINER deadlocked it)
+        "/v1/market/sync-offers": AuthLevel.ADMIN_OR_CLIENT,
         "/v1/market/providers/miner-1/capacity": AuthLevel.MINER,
         "/v1/tasks/ollama": AuthLevel.MINER,
         # families whose handlers carry their own auth deps
