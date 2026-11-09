@@ -120,6 +120,14 @@ class AccessController:
                 logger.warning("Unknown participant: %s", request.requester)
                 return False
             role = participant_info.get("role")
+            # #1359: privileged roles cannot be established from the
+            # self-asserted requester prefix — deny until an authenticated
+            # identity binding exists. client-/miner- prefixes remain
+            # self-asserted too but grant only own-data scopes gated by
+            # transaction participation below.
+            if role in ("coordinator", "auditor", "regulator"):
+                logger.warning("Privileged role claim without identity binding denied: %s", request.requester)
+                return False
             if not self._check_role_permissions(role, request):  # type: ignore[arg-type]
                 return False
             transaction = self._get_transaction(request.transaction_id)
@@ -156,18 +164,20 @@ class AccessController:
 
     def _apply_policies(self, request: ConfidentialAccessRequest, participant_info: dict, transaction: dict) -> bool:
         """Apply access policies to request"""
-        if participant_info.get("role", "").lower() == "miner" and request.purpose == "settlement":
+        role = participant_info.get("role", "").lower()
+        if role == "miner" and request.purpose == "settlement":
             miner_id = transaction.get("transaction_miner_id") or transaction.get("miner_id")
             if miner_id == request.requester or request.requester in transaction.get("participants", []):
                 return True
-        if participant_info.get("role", "").lower() in ("auditor", "regulator") and request.purpose in ("audit", "compliance"):
-            return True
         if request.requester not in transaction.get("participants", []):
-            role = participant_info.get("role", "").lower()
             if role not in ("coordinator", "auditor", "regulator"):
                 return False
+        # #1359: time_restrictions were dead code — every grant below must
+        # pass the business-hours gate, not just audit/compliance.
+        if not self._check_time_restrictions(request.purpose, role):
+            return False
         if request.purpose in ("audit", "compliance"):
-            return True
+            return self._check_retention_period(transaction, participant_info.get("role"))
         if not self._check_retention_period(transaction, participant_info.get("role")):
             return False
         return True
