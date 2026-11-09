@@ -332,7 +332,9 @@ def bond_tx_verdict(
     now = _bond_verdict_now(block_time)
     if tx_type == "BOND_LOCK":
         return _bond_lock_verdict(session, chain_id, bond_id, payload, sender_addr, recipient, value, now=now)
-    return _bond_release_verdict(session, chain_id, bond_id, sender_addr, recipient, value, now=now)
+    return _bond_release_verdict(
+        session, chain_id, bond_id, sender_addr, recipient, value, now=now, block_version=block_version
+    )
 
 
 def _bond_verdict_now(block_time: datetime | None) -> datetime:
@@ -396,6 +398,7 @@ def _bond_release_verdict(
     value: Any,
     *,
     now: datetime,
+    block_version: int,
 ) -> str | None:
     """v22 BOND_RELEASE verdict: provider recipient, zero value, active bond,
     persisted-provider binding, expiry/amount/escrow sufficiency."""
@@ -410,10 +413,12 @@ def _bond_release_verdict(
         return f"unknown or inactive bond {bond_id}"
     if _to_ait_address(bond.provider or "") != sender_addr:
         return "not signed by the bond provider"
-    return _bond_release_row_verdict(session, chain_id, bond, bond_id, now)
+    return _bond_release_row_verdict(session, chain_id, bond, bond_id, now, block_version=block_version)
 
 
-def _bond_release_row_verdict(session: Session, chain_id: str, bond: Bond, bond_id: str, now: datetime) -> str | None:
+def _bond_release_row_verdict(
+    session: Session, chain_id: str, bond: Bond, bond_id: str, now: datetime, *, block_version: int
+) -> str | None:
     """Expiry (NULL fails closed), positive amount, escrow sufficiency."""
     if bond.locked_until is None:
         return "no lock expiry recorded"
@@ -424,10 +429,10 @@ def _bond_release_row_verdict(session: Session, chain_id: str, bond: Bond, bond_
         return f"lock period for {bond_id} has not expired"
     if bond.amount <= 0:
         return "bond has nothing to release"
-    if v24_rules_is_active():
+    if block_version >= 24 or v24_rules_is_active():
         # #1314 V3: authoritative scalar escrow-balance read — bypasses
-        # identity-map staleness. Contextvar is set for the whole v>=24
-        # apply, so this helper needs no block_version parameter.
+        # identity-map staleness. The version term covers admission callers
+        # outside the apply contextvar; the contextvar covers in-apply ones.
         _bal, _nonce, escrow_exists = read_current_account(session, chain_id, _BOND_ESCROW_ADDRESS)
         escrow_balance = _bal if _bal is not None else 0
         escrow_missing = not escrow_exists
@@ -616,7 +621,9 @@ _EXECUTOR_MIN_BALANCE_UNITS = DEFAULT_TX_FEE_UNITS
 _ZERO_ADDRESS = "0x" + "00" * 20
 
 
-def _validate_authority_parameter_value(session: Session, chain_id: str, parameter: str, value: Any, fee: int) -> str | None:
+def _validate_authority_parameter_value(
+    session: Session, chain_id: str, parameter: str, value: Any, fee: int, *, block_version: int
+) -> str | None:
     """v12 value check for a ``parameter_change`` to an authority parameter.
 
     Returns the rejection message — ``GOVERNANCE_EXECUTE rejected: <parameter>
@@ -656,9 +663,11 @@ def _validate_authority_parameter_value(session: Session, chain_id: str, paramet
     if parameter == "governance_executors":
         funded = False
         for address in canonical:
-            if v24_rules_is_active():
+            if block_version >= 24 or v24_rules_is_active():
                 # #1314 V2: scalar authoritative balance — bypasses
-                # identity-map staleness for executor funding checks.
+                # identity-map staleness for executor funding checks. The
+                # version term covers admission callers outside the apply
+                # contextvar; the contextvar covers in-apply callers.
                 _bal, _nonce, _exists = read_current_account(session, chain_id, address)
                 balance = _bal if _bal is not None else 0
             else:
@@ -904,7 +913,9 @@ def _authority_parameter_change_error(
     parameter = execution_payload.get("parameter")
     if parameter not in _AUTHORITY_PARAMETERS:
         return None
-    return _validate_authority_parameter_value(session, chain_id, parameter, execution_payload.get("value"), fee)
+    return _validate_authority_parameter_value(
+        session, chain_id, parameter, execution_payload.get("value"), fee, block_version=block_version
+    )
 
 
 def _get_escrow_lock(session: Session, chain_id: str, job_id: str) -> Transaction | None:

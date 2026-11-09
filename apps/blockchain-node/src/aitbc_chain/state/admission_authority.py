@@ -25,6 +25,7 @@ from sqlmodel import Session
 
 from ..base_models import _to_ait_address
 from ..models import Account
+from .authoritative_reads import read_current_account
 from .pure_state_transition import escrow_sweep_ceiling
 from .state_transition import (
     _authority_parameter_change_error,
@@ -182,8 +183,14 @@ def sender_authority_error(
                 )
                 if obligation["remaining"] is None:
                     return f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing"
-                escrow_account = session.get(Account, (chain_id, _escrow_address(job_id)))
-                custody = escrow_account.balance if escrow_account else 0
+                if block_version >= 24:
+                    # #1314 V1 admission mirror: same authoritative scalar
+                    # custody read apply uses at v24.
+                    _cbal, _cnonce, _cexists = read_current_account(session, chain_id, _escrow_address(job_id))
+                    custody = _cbal if _cbal is not None else 0
+                else:
+                    escrow_account = session.get(Account, (chain_id, _escrow_address(job_id)))
+                    custody = escrow_account.balance if escrow_account else 0
                 sweepable = escrow_sweep_ceiling(custody, obligation["remaining"], obligation["fee_allowance"])
                 if value > sweepable:
                     return (
