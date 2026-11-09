@@ -5,13 +5,16 @@ pins the auth surface (admin-only via ``AdminDep``) and the owner/public
 visibility rules on the workflow endpoints. Execution is pinned at the
 ``enable_orchestration_simulation`` gate (default off → 501).
 
-Known defect pinned below: ``POST /workflows`` 500s for every payload —
-``AgentWorkflowCreate.tags`` is ``list[str]`` but ``AIAgentWorkflow.tags`` is a
-``str`` column, so ``model_dump()`` binds a list into a string field. CRUD
-tests therefore seed ``AIAgentWorkflow`` rows directly instead of via POST.
+Defect history: ``POST /workflows`` 500'd for every payload —
+``AgentWorkflowCreate.tags`` is ``list[str]`` while ``AIAgentWorkflow.tags``
+is a ``str`` column holding a JSON string (#1289 finding, fixed #1292 by
+serializing at the router boundary). CRUD tests still seed
+``AIAgentWorkflow`` rows directly for isolation.
 """
 
 from __future__ import annotations
+
+import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -50,7 +53,7 @@ def _workflow_body(name: str = "wf-1", is_public: bool = False) -> dict:
 
 
 def _seed_workflow(db_session: Session, owner_id: str, name: str = "wf", is_public: bool = False) -> str:
-    """Insert a workflow row directly (POST /workflows is broken — see xfail)."""
+    """Insert a workflow row directly (bypasses the API boundary)."""
     wf = AIAgentWorkflow(
         owner_id=owner_id,
         name=name,
@@ -75,14 +78,14 @@ class TestWorkflowAuthGating:
         resp = client.post("/v1/agents/workflows", json=_workflow_body(), headers=_client())
         assert resp.status_code == 403
 
-    @pytest.mark.xfail(
-        reason="POST /workflows 500s: list[str] tags bound into str column (#1289 finding)",
-        strict=True,
-    )
     def test_create_admin_success(self, client: TestClient) -> None:
-        resp = client.post("/v1/agents/workflows", json=_workflow_body(), headers=_admin_a())
+        body = _workflow_body()
+        body["tags"] = ["alpha", "beta"]
+        resp = client.post("/v1/agents/workflows", json=body, headers=_admin_a())
         assert resp.status_code == 200
         assert resp.json()["owner_id"] == ADMIN_A
+        # tags column is a JSON string; the list must round-trip through it.
+        assert json.loads(resp.json()["tags"]) == ["alpha", "beta"]
 
 
 @pytest.mark.unit
@@ -139,6 +142,27 @@ class TestWorkflowCrud:
 
         resp = client.put("/v1/agents/workflows/missing", json={"name": "x"}, headers=_admin_a())
         assert resp.status_code == 404
+
+    def test_update_tags_serialized(self, client: TestClient, db_session: Session) -> None:
+        """PUT tags list must hit the same JSON-string boundary as POST (#1292)."""
+        wf_id = _seed_workflow(db_session, ADMIN_A, "tags-me")
+
+        resp = client.put(
+            f"/v1/agents/workflows/{wf_id}",
+            json={"tags": ["x", "y"]},
+            headers=_admin_a(),
+        )
+        assert resp.status_code == 200
+        assert json.loads(resp.json()["tags"]) == ["x", "y"]
+
+        # Explicit null tags must not violate the NOT NULL column.
+        resp = client.put(
+            f"/v1/agents/workflows/{wf_id}",
+            json={"tags": None},
+            headers=_admin_a(),
+        )
+        assert resp.status_code == 200
+        assert json.loads(resp.json()["tags"]) == ["x", "y"]
 
     def test_delete_owner_only(self, client: TestClient, db_session: Session) -> None:
         wf_id = _seed_workflow(db_session, ADMIN_A, "del-me")
