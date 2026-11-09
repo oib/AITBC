@@ -1,10 +1,8 @@
 {
   "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state.",
-  "total_modules": 34,
-  "total_lines": 6491,
   "orphans": {
     "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
-      "lines": 189,
+      "lines": 205,
       "verdict": "keep",
       "why": "The adapter half of the same design document."
     },
@@ -29,7 +27,7 @@
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_service.py": {
-      "lines": 316,
+      "lines": 318,
       "verdict": "keep",
       "why": "Named by docs/archive/architecture/agent-service-di-architecture.md as a design target."
     },
@@ -48,6 +46,11 @@
     "apps/coordinator-api/src/coordinator_api/contexts/cross_chain/schemas/atomic_swap.py": {
       "lines": 48,
       "verdict": "unreviewed"
+    },
+    "apps/coordinator-api/src/coordinator_api/contexts/cross_chain/services/multi_chain_transaction_manager.py": {
+      "lines": 597,
+      "verdict": "keep",
+      "why": "Live service used by the mounted cross_chain_integration router (absolute import at routers/cross_chain_integration.py:29). Flagged only because the deleted market service was its sole relative-path importer; the lint resolver cannot see absolute coordinator_api.* imports."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/ecosystem/domain/ecosystem.py": {
       "lines": 68,
@@ -78,17 +81,17 @@
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/market/services/external_providers.py": {
-      "lines": 159,
+      "lines": 189,
       "verdict": "keep",
       "why": "Documented with a working usage example in 06-external-providers.md."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/market/services/market_analytics.py": {
-      "lines": 112,
+      "lines": 122,
       "verdict": "keep",
       "why": "Documented in 05-analytics.md and docs/features/market-stats.md."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/market/services/resource_matcher.py": {
-      "lines": 220,
+      "lines": 222,
       "verdict": "keep",
       "why": "Documented with a working usage example in docs/market/advanced-market/04-ml-search.md and named by skills/agent-autonomy-testing/SKILL.md."
     },
@@ -146,5 +149,7 @@
       "lines": 18,
       "verdict": "unreviewed"
     }
-  }
+  },
+  "total_lines": 7148,
+  "total_modules": 35
 }
