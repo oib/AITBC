@@ -17,7 +17,6 @@ from secrets import token_bytes
 from typing import Any
 
 import httpx
-from nacl.signing import SigningKey
 
 from ..crypto.encryption import EncryptionError, EncryptionSuite
 from ..security import validate_password_rules, wipe_buffer
@@ -356,14 +355,23 @@ class PersistentKeystoreService:
                 conn.close()
 
     def sign_message(self, wallet_id: str, password: str, message: bytes, ip_address: str | None = None) -> bytes:
-        """Sign a message with wallet's private key"""
+        """Sign a message with the wallet's secp256k1 key.
+
+        Returns the 65-byte recoverable signature over ``keccak256(message)``
+        (r || s || v), the same scheme ``sign_and_submit_transaction`` uses —
+        the previous Ed25519 signature could never verify against the
+        wallet's secp256k1 address (#1409).
+        """
         try:
             secret_bytes = bytearray(self.unlock_wallet(wallet_id, password, ip_address))
             try:
-                signing_key = SigningKey(bytes(secret_bytes))
-                signed = signing_key.sign(message)
+                from eth_keys import keys as _eth_keys
+                from eth_utils import keccak
+
+                signing_key = _eth_keys.PrivateKey(bytes(secret_bytes))
+                signature = signing_key.sign_msg_hash(keccak(message))
                 self._log_access(wallet_id, "sign_success", True, ip_address)
-                return signed.signature
+                return signature.to_bytes()
             finally:
                 wipe_buffer(secret_bytes)
         except (KeyError, ValueError):
