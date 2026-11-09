@@ -158,7 +158,8 @@ STATE_TRANSITION_V8_HEIGHT STATE_TRANSITION_V9_HEIGHT STATE_TRANSITION_V10_HEIGH
 STATE_TRANSITION_V12_HEIGHT \
 STATE_TRANSITION_V13_HEIGHT STATE_TRANSITION_V14_HEIGHT STATE_TRANSITION_V15_HEIGHT STATE_TRANSITION_V16_HEIGHT \
 STATE_TRANSITION_V17_HEIGHT STATE_TRANSITION_V18_HEIGHT STATE_TRANSITION_V19_HEIGHT \
-STATE_TRANSITION_V20_HEIGHT STATE_TRANSITION_V21_HEIGHT \
+STATE_TRANSITION_V20_HEIGHT STATE_TRANSITION_V21_HEIGHT STATE_TRANSITION_V22_HEIGHT \
+STATE_TRANSITION_V23_HEIGHT STATE_TRANSITION_V24_HEIGHT CONSENSUS_DOMAIN_SEPARATION_HEIGHT \
 ESCROW_RELEASE_ADDRESS ESCROW_SETTLEMENT_AUTHORITY ESCROW_FEE_RECIPIENT ESCROW_FEE_SWEEP_ENABLED \
 BRIDGE_RELEASE_AUTHORITY \
 SYNC_STATE_ROOT_VALIDATION_ENABLED BOND_ESCROW_ADDRESS BOND_BURN_ADDRESS \
@@ -384,6 +385,59 @@ if [ "${#V17ENV[@]}" -gt 1 ]; then
 fi
 if [ "$v17env_bad" -eq 0 ]; then
     echo "  ok: v17 env additions present and uniform on all hosts"
+fi
+
+echo "=== armed transition heights (V8 armed + V22/V23 env-armed; unset or drift = replay/fork vector) ==="
+# V8 must be armed (>0) on every host: get_block_version only derives the
+# version from height while STATE_TRANSITION_V8_HEIGHT > 0 (E c22891).
+# V22/V23 are live env pins on the fleet (V22=20100, V23=21570 per c22710) —
+# same risk class as V17: unset on any host or a cross-host difference is a
+# FAIL. V24 + CONSENSUS_DOMAIN_SEPARATION_HEIGHT are unarmed-by-design and
+# are covered by the VARS drift check above (all-absent or all-equal passes;
+# mixed presence/values flags) — no dedicated block needed for those.
+v22v23_bad=0
+declare -A V22V23=()
+for h in $HOSTS; do
+    res=$(sshr "${RESOLVED[$h]:-$h}" \
+        "getf() { for f in ${ENVFILES[$h]}; do if [ -r \"\$f\" ]; then grep -h \"^\$1=\" \"\$f\" 2>/dev/null; else sudo -n grep -h \"^\$1=\" \"\$f\" 2>/dev/null; fi; done | tail -1 | cut -d= -f2-; }; \
+         echo V8=\$(getf STATE_TRANSITION_V8_HEIGHT); \
+         echo V22=\$(getf STATE_TRANSITION_V22_HEIGHT); \
+         echo V23=\$(getf STATE_TRANSITION_V23_HEIGHT)" \
+        || echo "UNREACHABLE")
+    case "$res" in
+        UNREACHABLE|"") v22v23_bad=1; printf "  %-14s UNREACHABLE\n" "$h"; continue ;;
+    esac
+    v8=$(echo "$res" | sed -n 's/^V8=//p' | tail -1)
+    v22=$(echo "$res" | sed -n 's/^V22=//p' | tail -1)
+    v23=$(echo "$res" | sed -n 's/^V23=//p' | tail -1)
+    problems=""
+    # V8 must be armed (>0): get_block_version derives the version from height
+    # only while STATE_TRANSITION_V8_HEIGHT > 0 — unset/0 makes recorded stamps
+    # win and silently disables every V9+ pin (E c22891).
+    { [ -z "$v8" ] || [ "$v8" = "0" ]; } && problems="$problems STATE_TRANSITION_V8_HEIGHT unset/0"
+    [ -z "$v22" ] && problems="$problems STATE_TRANSITION_V22_HEIGHT unset"
+    [ -z "$v23" ] && problems="$problems STATE_TRANSITION_V23_HEIGHT unset"
+    if [ -n "$problems" ]; then
+        v22v23_bad=1
+        printf "  %-14s FAIL:%s\n" "$h" "$problems"
+    else
+        printf "  %-14s v8=%s v22=%s v23=%s\n" "$h" "$v8" "$v22" "$v23"
+    fi
+    [ -n "$v8$v22$v23" ] && V22V23[$h]="$v8/$v22/$v23"
+done
+if [ "${#V22V23[@]}" -gt 1 ]; then
+    first=""
+    for h in $HOSTS; do
+        [ -z "${V22V23[$h]:-}" ] && continue
+        if [ -z "$first" ]; then first="${V22V23[$h]}"; elif [ "$first" != "${V22V23[$h]}" ]; then
+            v22v23_bad=1
+            echo "  FAIL: STATE_TRANSITION_V22/V23_HEIGHT differ across hosts — replay/fork vector"
+            break
+        fi
+    done
+fi
+if [ "$v22v23_bad" -eq 0 ]; then
+    echo "  ok: V22/V23 armed and uniform on all hosts"
 fi
 
 echo "=== faucet budget check (exactly one live agent-coordinator faucet) ==="
@@ -1430,7 +1484,7 @@ elif [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$shadowed" -eq 0 ] \
      && [ "$eff_drift" -eq 0 ] && [ "$mesh_bad" -eq 0 ] && [ "$val_bad" -eq 0 ] \
      && [ "$dig_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] && [ "$height_bad" -eq 0 ] \
      && [ "$skip_flagged" -eq 0 ] && [ "$mock_flagged" -eq 0 ] && [ "$v9_bad" -eq 0 ] \
-     && [ "$v17env_bad" -eq 0 ]; then
+     && [ "$v17env_bad" -eq 0 ] && [ "$v22v23_bad" -eq 0 ]; then
     echo "v9-pin-gate: PASS"
 else
     echo "v9-pin-gate: FAIL — see flagged sections above (env drift, heights, kill-switch, mock flag, v9 window, validators, gossip, digests, convergence)"
@@ -1449,7 +1503,7 @@ if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
    && [ "$wallet_bad" -eq 0 ] && [ "${tag_bad:-0}" -eq 0 ] && [ "$bridge_bad" -eq 0 ] \
    && [ "${height_bad:-0}" -eq 0 ] && [ "${mock_flagged:-0}" -eq 0 ] \
    && [ "${skip_flagged:-0}" -eq 0 ] && [ "${escrow_bad:-0}" -eq 0 ] \
-   && [ "${v17env_bad:-0}" -eq 0 ]; then
+   && [ "${v17env_bad:-0}" -eq 0 ] && [ "${v22v23_bad:-0}" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
