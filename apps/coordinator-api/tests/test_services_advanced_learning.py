@@ -2,11 +2,8 @@
 
 The service keeps models/sessions/analytics in dicts — no DB, no torch.
 Background session executors are exercised with tiny hyperparameters
-(epochs=1) or left to be cancelled at loop teardown. One strict xfail
-pins #1370: import_learning_data restores models but never restores
-learning_analytics and leaves enum fields as plain strings —
-get_model_performance then raises KeyError (analytics) / AttributeError
-(.value on str).
+(epochs=1) or left to be cancelled at loop teardown. Regression pin for #1370: import_learning_data must restore
+learning_analytics and coerce enum fields — fixed on this branch.
 """
 
 from __future__ import annotations
@@ -233,14 +230,8 @@ async def test_import_rejects_unknown_format(svc):
 
 
 # ---------------------------------------------------------------------------
-# strict xfail — import loses analytics + enum types (#1370)
-# ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#1370: import_learning_data never restores learning_analytics and leaves model_type/learning_type/status as plain strings — get_model_performance raises KeyError/AttributeError on imported models",
-)
 @pytest.mark.unit
 async def test_imported_model_performance_works(svc):
     model = await _make_active_model(svc)
