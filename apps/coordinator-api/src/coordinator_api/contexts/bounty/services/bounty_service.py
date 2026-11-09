@@ -18,6 +18,11 @@ from starlette.concurrency import run_in_threadpool
 logger = get_logger(__name__)
 
 
+def _as_utc(dt: datetime) -> datetime:
+    """Normalize a possibly-naive datetime (e.g. round-tripped through sqlite) to aware UTC."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 class BountyService:
     """Service for managing AI agent bounties"""
 
@@ -178,7 +183,7 @@ class BountyService:
                 raise ValueError("Bounty not found")
             if bounty.status != BountyStatus.ACTIVE:
                 raise ValueError("Bounty is not active")
-            if datetime.now(UTC) > bounty.deadline:
+            if datetime.now(UTC) > _as_utc(bounty.deadline):
                 raise ValueError("Bounty deadline has passed")
             if bounty.submission_count >= bounty.max_submissions:
                 raise ValueError("Maximum submissions reached")
@@ -478,7 +483,7 @@ class BountyService:
                 raise ValueError("Bounty not found")
             if bounty.status != BountyStatus.ACTIVE:
                 raise ValueError("Bounty is not active")
-            if datetime.now(UTC) <= bounty.deadline:
+            if datetime.now(UTC) <= _as_utc(bounty.deadline):
                 raise ValueError("Deadline has not passed")
             bounty.status = BountyStatus.EXPIRED
             (await run_in_threadpool(self.session.commit))  # type: ignore[union-attr]
