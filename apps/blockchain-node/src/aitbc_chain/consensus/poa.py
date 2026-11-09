@@ -2773,6 +2773,12 @@ class PoAProposer:
                     existing_tx_record.block_height = next_height
                     existing_tx_record.timestamp = timestamp.isoformat()
                     session.add(existing_tx_record)
+                    if block_version >= 24:
+                        # #1314 R2 path (a): no apply/savepoint on this path —
+                        # the explicit flush is the ONLY thing making the row
+                        # visible to later same-block reads (e.g. :2759
+                        # _refund_lock_record on a following BRIDGE_REFUND).
+                        session.flush()
                     processed_txs.append(tx)
                     existing_tx_map[tx.tx_hash] = next_height
                     self._logger.info(
