@@ -1,9 +1,11 @@
 """GPU service for Edge API Service"""
 
-from decimal import Decimal
+from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from sqlmodel import col, select
 
 from ..clients.gpu_service import GPUServiceClient
 from ..config import settings
@@ -11,6 +13,22 @@ from ..schemas.gpu import GPUListing
 from ..storage import get_session
 
 logger = get_logger(__name__)
+
+
+def _profile_gpu_id(profile: dict[str, Any]) -> str:
+    """Stable mirror key for a remote GPU profile."""
+    return str(profile.get("id") or profile.get("hardware_uuid") or "")
+
+
+def _profile_price(profile: dict[str, Any]) -> Decimal:
+    """Best-effort Decimal price; unparseable/missing values mirror as 0."""
+    raw = profile.get("price_per_hour")
+    if raw in (None, ""):
+        return Decimal("0")
+    try:
+        return Decimal(str(raw))
+    except (InvalidOperation, ValueError):
+        return Decimal("0")
 
 
 class GPUService:
@@ -23,20 +41,37 @@ class GPUService:
         async with GPUServiceClient() as gpu_client:
             profiles = await gpu_client.get_gpu_profiles(architecture, edge_optimized, min_memory_gb)
 
-        # Store GPU listings in edge-api database
+        # Mirror the remote profile list into gpu_listings, upserting by
+        # gpu_id. The remote list is the source of truth: every call used to
+        # append a fresh set of rows, growing the table without bound (#1385).
         async with get_session() as session:
+            gpu_ids = [gid for gid in (_profile_gpu_id(p) for p in profiles) if gid]
+            existing: dict[str, GPUListing] = {}
+            if gpu_ids:
+                result = await session.execute(select(GPUListing).where(col(GPUListing.gpu_id).in_(gpu_ids)))
+                existing = {g.gpu_id: g for g in result.scalars().all()}
+
             for profile in profiles:
-                gpu_listing = GPUListing(
-                    gpu_id=profile.get("id", ""),
-                    model=profile.get("model", "Unknown"),
-                    price_per_hour=Decimal("0"),
-                    memory_gb=profile.get("memory_gb", 0),
-                    cuda_version=profile.get("cuda_version", ""),
-                    region=profile.get("region", ""),
-                    capabilities=profile.get("capabilities", []),
-                    extra_data=profile,
-                )
-                session.add(gpu_listing)
+                gpu_id = _profile_gpu_id(profile)
+                if not gpu_id:
+                    # No stable key — cannot be upserted or looked up later.
+                    continue
+                fields = {
+                    "model": profile.get("model", "Unknown"),
+                    "price_per_hour": _profile_price(profile),
+                    "memory_gb": profile.get("memory_gb"),
+                    "cuda_version": profile.get("cuda_version", ""),
+                    "region": profile.get("region", ""),
+                    "capabilities": profile.get("capabilities", []),
+                    "extra_data": profile,
+                }
+                listing = existing.get(gpu_id)
+                if listing is None:
+                    session.add(GPUListing(gpu_id=gpu_id, **fields))
+                else:
+                    for key, value in fields.items():
+                        setattr(listing, key, value)
+                    listing.updated_at = datetime.now(UTC)
             await session.commit()
 
         return profiles
