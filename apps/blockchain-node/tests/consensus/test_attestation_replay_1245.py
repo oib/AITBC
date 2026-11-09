@@ -116,7 +116,7 @@ class TestReplayIdempotence:
             await svc._handle_request(req)
 
         # Idempotent re-publish is allowed, but it is the same signing.
-        assert svc._signed_once == {100: {"0xaaaa"}}
+        assert svc._signed_once == {100: {None: {"0xaaaa"}}}
         assert svc._attested[100] == first_lock
         assert {m["signature"] for m in broker.published} == {broker.published[0]["signature"]}
 
@@ -129,7 +129,7 @@ class TestReplayIdempotence:
         clock.advance(40)
         await svc._handle_request(req)  # duplicate at t0+40
         assert len(broker.published) == 2
-        assert svc._attested[100][2] == T0  # signed_at is still the first signing
+        assert svc._attested[100][None][2] == T0  # signed_at is still the first signing
 
         # t0+65: had the duplicate renewed the lock it would live until t0+100.
         clock.advance(25)
@@ -282,7 +282,7 @@ class TestRestartAndRivals:
         clock.advance(51)  # t0+61: the first lock has lapsed
         await svc._handle_request(_request(100, "0xbbbb", proposer, clock.now))
         assert len(broker.published) == 2
-        assert svc._signed_once == {100: {"0xaaaa", "0xbbbb"}}
+        assert svc._signed_once == {100: {None: {"0xaaaa", "0xbbbb"}}}
 
         # The old block's request, replayed: stale AND already signed.
         await svc._handle_request(_request(100, "0xaaaa", proposer, clock.now - 61))
@@ -319,14 +319,14 @@ class TestLegitimatePropagation:
         clock.advance(8)
         await svc._handle_request(req)
         assert len(broker.published) == 1
-        assert svc._signed_once == {100: {"0xaaaa"}}
+        assert svc._signed_once == {100: {None: {"0xaaaa"}}}
 
 
 class TestMemoryBounds:
     def test_signed_once_is_pruned_below_the_tip(self, monkeypatch):
         svc, _, _, _ = _service(monkeypatch)
         svc._tip_height_hint = 102  # what the v9 check last read from the local chain
-        svc._signed_once = {99: {"0x1"}, 101: {"0x2"}, 102: {"0x3"}}
+        svc._signed_once = {99: {None: {"0x1"}}, 101: {None: {"0x2"}}, 102: {None: {"0x3"}}}
 
         assert svc._record_attestation_lock(103, "0x4", "p") is True
 

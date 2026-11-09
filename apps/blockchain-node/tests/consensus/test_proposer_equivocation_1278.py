@@ -79,7 +79,7 @@ def _seed_prior_attestation(svc, our_addr, our_key, block_hash, *, round_bound_r
     svc._record_signed_attestation(
         H, block_hash, our_addr, message, round_bound_round, round_bound_round is not None, signature
     )
-    svc._signed_once.setdefault(H, set()).add(block_hash)
+    svc._signed_once_add(H, block_hash, None)
     get_vote_journal(CHAIN).record(H, our_addr, block_hash, KIND_ATTEST, round_bound_round, OTHER, now=now)
 
 
