@@ -6,7 +6,8 @@ import json
 import sqlite3
 
 import pytest
-from nacl.signing import SigningKey
+from eth_keys import keys as eth_keys
+from eth_utils import keccak, to_checksum_address
 
 from wallet_app.keystore.persistent_service import PersistentKeystoreService
 
@@ -72,18 +73,19 @@ def test_private_key_is_not_stored_in_plaintext(keystore: PersistentKeystoreServ
     assert TEST_PASSWORD.encode() not in raw
 
 
-def test_signature_verifies_against_the_wallet_secret(keystore: PersistentKeystoreService) -> None:
-    # sign_message still signs Ed25519 over the stored secret bytes; the
-    # public_key column is now the chain 0x address, so verification goes
-    # against the verify key derived from the minted secret.
+def test_signature_recovers_the_wallet_address(keystore: PersistentKeystoreService) -> None:
+    # #1409: wallets are secp256k1 since #1078 — sign_message must produce a
+    # signature that recovers the wallet's own 0x address, not an Ed25519
+    # signature that can never verify against it.
     secret = bytes(range(1, 33))
-    keystore.create_wallet("alice", TEST_PASSWORD, secret=secret)
+    record = keystore.create_wallet("alice", TEST_PASSWORD, secret=secret)
     message = b"transfer 10 AIT"
 
     signature = keystore.sign_message("alice", TEST_PASSWORD, message)
 
-    # Raises nacl.exceptions.BadSignatureError if the signature does not check out.
-    SigningKey(secret).verify_key.verify(message, signature)
+    assert len(signature) == 65
+    recovered = eth_keys.Signature(signature).recover_public_key_from_msg_hash(keccak(message))
+    assert to_checksum_address(recovered.to_checksum_address()) == record.public_key
 
 
 def test_sign_with_wrong_password_raises(keystore: PersistentKeystoreService) -> None:
@@ -93,7 +95,7 @@ def test_sign_with_wrong_password_raises(keystore: PersistentKeystoreService) ->
         keystore.sign_message("alice", OTHER_PASSWORD, b"payload")
 
 
-def test_signatures_are_deterministic_for_ed25519(keystore: PersistentKeystoreService) -> None:
+def test_signatures_are_deterministic(keystore: PersistentKeystoreService) -> None:
     keystore.create_wallet("alice", TEST_PASSWORD, secret=bytes(range(32)))
 
     first = keystore.sign_message("alice", TEST_PASSWORD, b"payload")
