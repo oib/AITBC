@@ -758,6 +758,8 @@ def get_load_balancer_stats(request: Request, principal: OptionalAgent) -> dict[
             raise HTTPException(status_code=503, detail="Load balancer not available")
         stats = state.load_balancer.get_load_balancing_stats()
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting load balancer stats: %s", e)
         logger.exception("Unhandled exception")
@@ -779,6 +781,8 @@ def get_registry_stats(request: Request, principal: OptionalAgent) -> dict[str, 
             raise HTTPException(status_code=503, detail="Agent registry not available")
         stats = state.agent_registry.get_registry_stats()
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting registry stats: %s", e)
         logger.exception("Unhandled exception")
@@ -801,6 +805,8 @@ def get_agents_by_service(request: Request, service: str) -> dict[str, Any]:
             "count": len(agents),
             "timestamp": datetime.now(UTC).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting agents by service: %s", e)
         logger.exception("Unhandled exception")
@@ -823,6 +829,8 @@ def get_agents_by_capability(request: Request, capability: str) -> dict[str, Any
             "count": len(agents),
             "timestamp": datetime.now(UTC).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting agents by capability: %s", e)
         logger.exception("Unhandled exception")
