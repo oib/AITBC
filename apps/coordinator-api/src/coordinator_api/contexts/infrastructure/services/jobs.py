@@ -154,7 +154,12 @@ class JobService:
     def create_job(self, client_id: str, req: JobCreate) -> Job:
         ttl = max(req.ttl_seconds, 1)
         now = datetime.now(UTC)
-        resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
+        try:
+            resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
+        except ValueError as e:
+            # Unresolvable caller identity is a caller error, not a server
+            # fault — arbitrary JWT subs must not 500 job submission (#1340).
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
         # G3: drop any server-only keys the client may have tried to smuggle in.
         raw_constraints = (
             req.constraints.model_dump(mode="json") if hasattr(req.constraints, "model_dump") else dict(req.constraints)

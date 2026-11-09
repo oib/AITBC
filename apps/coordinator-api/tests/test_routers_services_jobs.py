@@ -80,6 +80,12 @@ class TestJobCreation:
         )
         assert resp.status_code == 201
 
+    def test_unresolvable_sub_is_400_not_500(self, client: TestClient) -> None:
+        # #1340: arbitrary JWT subs that resolve_client can't map must be a
+        # caller-facing 4xx, never a 500 (and never a fabricated user)
+        resp = client.post(f"{BASE}/llm/inference", json={"model": "llama-7b", "prompt": "x"}, headers=_headers("sub-A"))
+        assert resp.status_code == 400
+
     def test_requires_client_role(self, client: TestClient) -> None:
         resp = client.post(
             f"{BASE}/llm/inference",
