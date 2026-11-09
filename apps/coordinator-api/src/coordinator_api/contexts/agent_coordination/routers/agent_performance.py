@@ -196,7 +196,6 @@ class CapabilityResponse(BaseModel):
     skill_level: float
     proficiency_score: float
     specialization_areas: list[str]
-    status: str
     created_at: str
 
 
@@ -544,7 +543,6 @@ async def create_capability(
             skill_level=capability.skill_level,
             proficiency_score=capability.proficiency_score,
             specialization_areas=capability.specializations,
-            status=capability.status,  # type: ignore[attr-defined]
             created_at=capability.created_at.isoformat(),
         )
     except Exception as e:
@@ -576,7 +574,6 @@ async def list_agent_capabilities(
                 skill_level=cap.skill_level,
                 proficiency_score=cap.proficiency_score,
                 specialization_areas=cap.specializations,
-                status=cap.status,  # type: ignore[attr-defined]
                 created_at=cap.created_at.isoformat(),
             )
             for cap in capabilities
