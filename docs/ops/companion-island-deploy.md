@@ -164,10 +164,11 @@ Locked inputs:
 Two real unit files per host — deployed as
 `aitbc-blockchain-node-island.service`,
 `aitbc-blockchain-rpc-island.service` (design spec'd `aitbc-i2-*`;
-same `%N.env` mechanism) — derived from the stock units with
-(the rpc-island unit now has a repo template:
-`apps/blockchain-node/aitbc-blockchain-rpc-island.service`, #1302;
-node-island remains host-local):
+same `%N.env` mechanism) — repo templates now exist for both:
+`apps/blockchain-node/aitbc-blockchain-node-island.service` (#1303)
+and `apps/blockchain-node/aitbc-blockchain-rpc-island.service`
+(#1302); copy them and adjust limits per host. Derived from the
+stock units with:
 
 - **EnvironmentFile list = `%N.env` only** (cardinal rule, above).
 - `User=aitbc`, `WorkingDirectory=/opt/aitbc`, same `PYTHONPATH` —
@@ -194,6 +195,10 @@ node-island remains host-local):
   `apps/blockchain-node/aitbc-blockchain-rpc-island.service` ships the
   2-worker sizing with the 1-worker variant documented inline — copy
   it, then adjust workers + limits together per host.
+- **Island-node sizing (#1303):** single-process unit (no `--workers`
+  scaling) — working set ~190–230M on both hosts. Template default
+  `768M`/`1G` (node1 live); small-VPS variant `384M`/`512M` (hub1
+  live, ~2× headroom). Measure before lowering.
 - RPC unit binds `RPC_BIND_PORT=8302`; metrics exporter on the node
   unit reads `AITBC_NODE_METRICS_PORT=8309`; gossip endpoint **8370**
   — **deploy delta:** no dedicated 8370 listener was stood up. As
