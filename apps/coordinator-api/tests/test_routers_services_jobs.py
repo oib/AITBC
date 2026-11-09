@@ -94,10 +94,6 @@ class TestJobCreation:
         )
         assert resp.status_code == 403
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1340: unresolvable JWT sub -> resolve_client ValueError -> 500, not a 4xx caller error",
-    )
     def test_unresolvable_sub_is_4xx_not_500(self, client: TestClient) -> None:
         resp = client.post(
             f"{BASE}/llm/inference",
