@@ -75,6 +75,14 @@ _OFFER_TO_GPU_STATUS: dict[OfferStatus, str] = {
     OfferStatus.EXPIRED: "offline",
 }
 
+# Miner liveness (heartbeat / register) may only mark *uncommitted* GPUs
+# bookable again, using the canonical "available" spelling. booked/in_use
+# capacity is committed to a client and must survive routine heartbeats —
+# flipping it back to bookable is a double-booking (#1388). "online" is the
+# legacy off-vocabulary spelling older heartbeats wrote; including it here
+# canonicalizes those rows to "available" on the next heartbeat.
+_HEARTBEAT_BOOKABLE_STATUSES = ("available", "offline", "online")
+
 
 def _validate_gpu_status_transition(current: str, new: str) -> str:
     """Validate a GPU status transition via OfferFSM (v0.6.6).
@@ -681,7 +689,8 @@ async def register_miner(
         existing_gpus = result.scalars().all()
         if existing_gpus:
             for gpu in existing_gpus:
-                gpu.status = "online"
+                if gpu.status in _HEARTBEAT_BOOKABLE_STATUSES:
+                    gpu.status = "available"
             await session.commit()
         return {"status": "ok", "miner_id": miner_id, "session_token": session_token, "gpu_count": len(existing_gpus)}
     except Exception:
@@ -702,7 +711,14 @@ async def miner_heartbeat(
 
     try:
         miner_id = heartbeat_data.get("miner_id")
-        stmt = update(GPURegistry).where(GPURegistry.miner_id == miner_id).values(status="online")  # type: ignore[arg-type]
+        stmt = (
+            update(GPURegistry)
+            .where(
+                GPURegistry.miner_id == miner_id,  # type: ignore[arg-type]
+                GPURegistry.status.in_(_HEARTBEAT_BOOKABLE_STATUSES),  # type: ignore[attr-defined]
+            )
+            .values(status="available")
+        )
         await session.execute(stmt)
         await session.commit()
         return {"status": "ok"}
