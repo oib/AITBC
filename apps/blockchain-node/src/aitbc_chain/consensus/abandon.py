@@ -18,7 +18,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from aitbc.crypto.consensus_signing import sign_consensus_message, verify_consensus_message
+from aitbc.crypto.consensus_signing import (
+    DOMAIN_BLOCK_ABANDON,
+    sign_consensus_message,
+    sign_consensus_message_domain,
+    verify_consensus_message,
+    verify_consensus_message_domain,
+)
 from aitbc.crypto.signature_recovery import canonical_address
 
 KIND = "abandon"
@@ -36,6 +42,16 @@ def abandon_enabled() -> bool:
     )
 
 
+def _domain_active(height: int) -> bool:
+    """#1298: at/above ``consensus_domain_separation_height`` the abandon
+    statement is signed under its own domain (hard cutover, like attestations);
+    below it the legacy preimage stays authoritative."""
+    from ..config import settings
+
+    activation = getattr(settings, "consensus_domain_separation_height", None)
+    return activation is not None and height >= activation
+
+
 def _message(chain_id: str, height: int, block_hash: str, round_: int | None, proposer: str) -> dict[str, Any]:
     return {
         "kind": KIND,
@@ -51,6 +67,8 @@ def build_abandon(
     chain_id: str, height: int, block_hash: str, round_: int | None, proposer: str, private_key: str
 ) -> dict[str, Any]:
     msg = _message(chain_id, height, block_hash, round_, proposer)
+    if _domain_active(int(height)):
+        return {**msg, "signature": sign_consensus_message_domain(msg, private_key, DOMAIN_BLOCK_ABANDON)}
     return {**msg, "signature": sign_consensus_message(msg, private_key)}
 
 
@@ -65,7 +83,14 @@ def verify_abandon(chain_id: str, payload: Any) -> dict[str, Any] | None:
         round_ = payload.get("round")
         round_ = int(round_) if round_ is not None else None
         msg = _message(chain_id, height, block_hash, round_, proposer)
-        if not block_hash or not verify_consensus_message(msg, str(payload.get("signature", "")), proposer):
+        if not block_hash:
+            return None
+        signature = str(payload.get("signature", ""))
+        if _domain_active(height):
+            ok = verify_consensus_message_domain(msg, signature, proposer, DOMAIN_BLOCK_ABANDON)
+        else:
+            ok = verify_consensus_message(msg, signature, proposer)
+        if not ok:
             return None
     except (KeyError, TypeError, ValueError, AttributeError):
         return None

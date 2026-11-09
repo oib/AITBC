@@ -132,6 +132,7 @@ def verify_consensus_message(
 CONSENSUS_DOMAIN_V1 = "aitbc-consensus-v1"
 DOMAIN_BLOCK_PROPOSAL = f"{CONSENSUS_DOMAIN_V1}:block_proposal"
 DOMAIN_BLOCK_ATTESTATION = f"{CONSENSUS_DOMAIN_V1}:block_attestation"
+DOMAIN_BLOCK_ABANDON = f"{CONSENSUS_DOMAIN_V1}:block_abandon"  # #1301 L2
 
 
 def _domain_preimage(message: dict[str, Any], domain: str) -> bytes:

@@ -200,3 +200,35 @@ def test_locks_for_other_hash_or_proposer_are_kept():
     svc2._record_attestation_lock(H, HASH, EVIL)  # same hash, different proposer
     assert svc2.handle_abandon(_stmt()) == 0
     assert svc2.attestation_lock(H, 600.0) is not None
+
+
+# ── #1298 integration: domain-separated abandon signatures ────────────────────
+
+
+def test_abandon_domain_separated_at_activation(monkeypatch):
+    monkeypatch.setattr(settings, "consensus_domain_separation_height", H)
+    stmt = abandon.build_abandon(CHAIN, H, HASH, None, PROP, PROP_KEY)
+    assert abandon.verify_abandon(CHAIN, stmt) is not None
+
+
+def test_legacy_abandon_signature_refused_above_activation(monkeypatch):
+    monkeypatch.setattr(settings, "consensus_domain_separation_height", None)
+    legacy = abandon.build_abandon(CHAIN, H, HASH, None, PROP, PROP_KEY)
+    monkeypatch.setattr(settings, "consensus_domain_separation_height", H)
+    assert abandon.verify_abandon(CHAIN, legacy) is None
+
+
+def test_domain_abandon_signature_refused_below_activation(monkeypatch):
+    monkeypatch.setattr(settings, "consensus_domain_separation_height", H)
+    domain_sig = abandon.build_abandon(CHAIN, H, HASH, None, PROP, PROP_KEY)
+    monkeypatch.setattr(settings, "consensus_domain_separation_height", H + 1)
+    assert abandon.verify_abandon(CHAIN, domain_sig) is None
+
+
+def test_abandon_domain_signature_does_not_verify_as_attestation(monkeypatch):
+    from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION, verify_consensus_message_domain
+
+    monkeypatch.setattr(settings, "consensus_domain_separation_height", H)
+    stmt = abandon.build_abandon(CHAIN, H, HASH, None, PROP, PROP_KEY)
+    msg = {k: v for k, v in stmt.items() if k != "signature"}
+    assert not verify_consensus_message_domain(msg, stmt["signature"], PROP, DOMAIN_BLOCK_ATTESTATION)
