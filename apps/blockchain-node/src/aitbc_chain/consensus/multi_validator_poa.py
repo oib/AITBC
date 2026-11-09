@@ -50,6 +50,25 @@ def proposer_round(parent_timestamp: datetime | None, block_timestamp: datetime,
     return int(elapsed // round_seconds)
 
 
+def _verify_block_signature_gated(block: Block, proposer: str) -> bool:
+    """#1298: proposal-domain verification at/above the armed activation
+    height; legacy verify_block_signature below it (extracted to keep
+    ``validate_block`` under the C901 ratchet)."""
+    from aitbc.crypto.consensus_signing import (
+        DOMAIN_BLOCK_PROPOSAL,
+        block_header_message,
+        verify_block_signature,
+        verify_consensus_message_domain,
+    )
+
+    activation = getattr(settings, "consensus_domain_separation_height", None)
+    if activation is not None and isinstance(block.height, int) and block.height >= activation:
+        return verify_consensus_message_domain(
+            block_header_message(block), block.signature or "", proposer, DOMAIN_BLOCK_PROPOSAL
+        )
+    return verify_block_signature(block, block.signature or "", proposer)
+
+
 class ValidatorRole(Enum):
     PROPOSER = "proposer"
     VALIDATOR = "validator"
@@ -232,10 +251,8 @@ class MultiValidatorPoA:
                 return False
 
         # B3: verify block signature (C1)
-        from aitbc.crypto.consensus_signing import verify_block_signature
-
         if block.signature:
-            if not verify_block_signature(block, block.signature, proposer):
+            if not _verify_block_signature_gated(block, proposer):
                 return False
         elif self._require_block_signatures:
             return False
