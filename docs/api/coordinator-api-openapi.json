@@ -9004,7 +9004,7 @@
           "bounty"
         ],
         "summary": "Create a new bounty",
-        "description": "Create a new bounty task",
+        "description": "Create a new bounty task \u2014 honest 501 (see module docstring / #1337)",
         "operationId": "create_bounty_v1_bounty_create_post",
         "requestBody": {
           "content": {
@@ -9048,7 +9048,7 @@
           "bounty"
         ],
         "summary": "List available bounties",
-        "description": "List all bounties with optional filtering",
+        "description": "List bounties with optional status/tag filtering (real DB reads)",
         "operationId": "list_bounties_v1_bounty_list_get",
         "parameters": [
           {
@@ -9106,6 +9106,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Unknown bounty status: {status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9116,7 +9126,7 @@
           "bounty"
         ],
         "summary": "Get bounty statistics",
-        "description": "Get platform-wide bounty statistics",
+        "description": "Get platform-wide bounty statistics (real aggregates)",
         "operationId": "get_stats_v1_bounty_stats_get",
         "responses": {
           "200": {
@@ -9140,7 +9150,7 @@
           "bounty"
         ],
         "summary": "Health check for bounty service",
-        "description": "Check bounty service health",
+        "description": "Check bounty service health (real row count)",
         "operationId": "bounty_health_v1_bounty_health_get",
         "responses": {
           "200": {
@@ -9164,7 +9174,7 @@
           "bounty"
         ],
         "summary": "Get bounty details",
-        "description": "Get detailed information about a specific bounty",
+        "description": "Get detailed information about a specific bounty (real lookup, 404 on miss)",
         "operationId": "get_bounty_v1_bounty__bounty_id__get",
         "parameters": [
           {
@@ -9219,7 +9229,7 @@
           "bounty"
         ],
         "summary": "Claim a bounty",
-        "description": "Claim an open bounty for work",
+        "description": "Claim an open bounty \u2014 honest 501 (BountyService has no claim step; see #1337)",
         "operationId": "claim_bounty_v1_bounty_claim_post",
         "requestBody": {
           "content": {
@@ -9263,7 +9273,7 @@
           "bounty"
         ],
         "summary": "Submit solution",
-        "description": "Submit a solution for a claimed bounty",
+        "description": "Submit a solution \u2014 honest 501 (see #1337)",
         "operationId": "submit_solution_v1_bounty_submit_post",
         "requestBody": {
           "content": {
@@ -9307,7 +9317,7 @@
           "bounty"
         ],
         "summary": "Verify solution",
-        "description": "Verify and approve/reject a submitted solution",
+        "description": "Verify a solution \u2014 honest 501 (payout-affecting; see #1337)",
         "operationId": "verify_solution_v1_bounty_verify_post",
         "requestBody": {
           "content": {
