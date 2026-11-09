@@ -1803,7 +1803,7 @@
             }
           },
           "400": {
-            "description": "Parameter '{change.parameter_name}' is not governance-controllable. Allowed: {list(GOVERNANCE_PARAMETERS.keys())} / Parameter '{change.parameter_name}' expects type {expected_type.__name__}, got {type(change.new_value).__name__} / Invalid parameter",
+            "description": "Parameter '{change.parameter_name}' is not governance-controllable. Allowed: {list(GOVERNANCE_PARAMETERS.keys())} / Parameter '{change.parameter_name}' expects type {expected_type.__name__}, got {type(change.new_value).__name__}",
             "content": {
               "application/json": {
                 "schema": {
