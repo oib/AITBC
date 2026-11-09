@@ -404,12 +404,6 @@ class TestOfferSyncDiscovery:
         result = await svc.discover_offers(request)
         assert len(result.offers) == 2
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-COUNT-1 (#1419): discover_offers computes total_count AFTER "
-        "applying request.limit, so it always equals len(offers) instead of "
-        "the pre-limit match count",
-    )
     async def test_discover_offers_total_count_is_pre_limit(self):
         svc = _sync_service()
         for i in range(5):
@@ -420,12 +414,6 @@ class TestOfferSyncDiscovery:
         assert len(result.offers) == 2
         assert result.total_count == 5
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-CACHE-1 (#1418): OfferCache._get_known_chains() always returns [] "
-        "(RedisCache exposes no SCAN), so discover_offers/get_cached_offers "
-        "with source_chain=None silently return zero offers",
-    )
     async def test_discover_offers_without_source_chain_searches_all(self):
         svc = _sync_service()
         svc.cache.set_offer(_offer("o1", chain_id="chain-a"), ttl=300)
@@ -532,13 +520,6 @@ class TestOfferSyncDiscovery:
 
 
 class TestOfferCacheStaleness:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-TIME-1 (#1420): OfferCache.is_stale parses last_synced with "
-        "datetime.fromisoformat and subtracts an aware now(); a naive ISO "
-        "timestamp raises uncaught TypeError (only ValueError is caught) — "
-        "one malformed offer breaks get_stale_offers/discover_offers",
-    )
     async def test_stale_check_tolerates_naive_timestamp(self):
         cache = OfferCache()
         cache.set_offer(

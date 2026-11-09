@@ -211,13 +211,18 @@ class OfferSyncService:
         # Rank by price (lowest first) then by freshness
         ranked = sorted(deduped, key=lambda o: (o.price, -o.sync_confidence))
 
-        # Apply limit
+        # total_count is the pre-pagination match count (#1419) — reporting
+        # the post-limit length tells clients "2 matches" when 50 exist.
+        total_count = len(ranked)
+        offset = max(0, request.offset)
         if request.limit > 0:
-            ranked = ranked[: request.limit]
+            ranked = ranked[offset : offset + request.limit]
+        elif offset:
+            ranked = ranked[offset:]
 
         return OfferDiscoveryResult(
             offers=ranked,
-            total_count=len(ranked),
+            total_count=total_count,
             chains_searched=list({o.chain_id for o in ranked}),
             stale_count=len(self._cache.get_stale_offers()),
             sync_triggered=sync_triggered,
