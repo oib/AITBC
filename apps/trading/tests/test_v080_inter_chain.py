@@ -31,7 +31,7 @@ class TestTradingSettings:
         s = Settings()
         assert s.blockchain_rpc_url == "http://127.0.0.1:8202"
         assert s.bridge_rpc_url == "http://127.0.0.1:8202"
-        assert s.default_chain_id == "ait-hub"
+        assert s.default_chain_id == "bc-2"
         assert s.matching_enabled is True
         assert s.execution_timeout == 300
         assert s.island_registry_sync_interval == 300
