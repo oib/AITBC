@@ -25,7 +25,7 @@ class TestMultiModalRl:
 
     def test_submit_job_soft_fail(self, client: TestClient) -> None:
         # no AI service in tests -> connection failure -> {"error": ...} 200
-        resp = client.post(f"{BASE}/jobs", json={"task": "x"}, headers=_headers())
+        resp = client.post(f"{BASE}/jobs", json={"task_type": "inference", "task_data": {"prompt": "hi"}}, headers=_headers())
         assert resp.status_code == 200
         assert "error" in resp.json()
 
