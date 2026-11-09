@@ -104,12 +104,24 @@ class MeshGossipBackend(GossipBackend):
                 seen.popitem(last=False)
             return False
 
-    def _spawn_peer_publish(self, name: str, coro_factory: Callable[[], Any], topic: str, message: Any) -> None:
+    def _spawn_peer_publish(
+        self,
+        name: str,
+        coro_factory: Callable[[], Any],
+        topic: str,
+        message: Any,
+        *,
+        batch_size: int | None = None,
+    ) -> None:
         from aitbc.aitbc_logging import get_logger
 
         logger = get_logger(__name__)
         inflight = self._inflight[name]
+        # For publish_batch the id is a hash of the whole list — it does NOT
+        # match the per-message ids the receiver's message_forward events use
+        # (documented limitation; batch correlation is by topic+peer+time).
         event_id = _message_id(topic, message)
+        batch_field = {"batch_size": batch_size} if batch_size is not None else {}
         if len(inflight) >= self._max_inflight_per_peer:
             metrics_registry.increment("gossip_mesh_peer_publish_dropped_total")
             logger.warning(
@@ -119,11 +131,12 @@ class MeshGossipBackend(GossipBackend):
                 topic,
             )
             gossip_event(
-                "publish_dropped",
+                "peer_publish_dropped",
                 peer=name,
                 topic=topic,
                 event_id=event_id,
                 inflight=len(inflight),
+                **batch_field,
                 _level="warning",
             )
             return
@@ -134,22 +147,24 @@ class MeshGossipBackend(GossipBackend):
                 await asyncio.wait_for(coro_factory(), timeout=self._peer_publish_timeout)
                 _increment_publication("gossip_mesh_peer_publish", topic)
                 gossip_event(
-                    "publish_done",
+                    "peer_publish_done",
                     peer=name,
                     topic=topic,
                     event_id=event_id,
                     latency_ms=round((time.monotonic() - t0) * 1000.0, 1),
+                    **batch_field,
                 )
             except Exception as e:
                 _increment_publication("gossip_mesh_peer_publish_failed", topic)
                 logger.info("Mesh gossip publish to peer %s on %s failed: %s", name, topic, e)
                 gossip_event(
-                    "publish_failed",
+                    "peer_publish_failed",
                     peer=name,
                     topic=topic,
                     event_id=event_id,
                     latency_ms=round((time.monotonic() - t0) * 1000.0, 1),
                     error=str(e)[:120],
+                    **batch_field,
                     _level="info",
                 )
 
@@ -184,7 +199,13 @@ class MeshGossipBackend(GossipBackend):
             return
         await self._local.publish_batch(topic, messages)
         for name, peer in self._peers.items():
-            self._spawn_peer_publish(name, self._publish_batch_factory(peer, topic, messages), topic, messages)
+            self._spawn_peer_publish(
+                name,
+                self._publish_batch_factory(peer, topic, messages),
+                topic,
+                messages,
+                batch_size=len(messages),
+            )
         _increment_publication("gossip_mesh_publications", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
@@ -300,13 +321,18 @@ class _MeshSubscription:
                 continue
             # #1308: receiver-side attribution — which link delivered this
             # message first, keyed by the same deterministic event id the
-            # publisher used, so a single publish is reconstructable end to end.
+            # publisher used, so a single publish is reconstructable end to
+            # end. INFO (not DEBUG): this is the receiver-side record req-5
+            # reconstruction depends on at the default journal level; volume
+            # is bounded by first-deliveries only (duplicates are skipped
+            # above).
             gossip_mesh_message_forward_total.labels(source=name, topic_class=bounded_topic_label(self._topic)).inc()
             gossip_event(
                 "message_forward",
                 peer=name,
                 topic=self._topic,
                 event_id=event_id,
+                _level="info",
             )
             await self._queue.put(message)
             _set_queue_gauge(self._topic, self._queue.qsize())

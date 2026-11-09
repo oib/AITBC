@@ -55,12 +55,6 @@ def close_code_class(code: int | None) -> str:
     return _CLOSE_CODE_CLASSES.get(code, "other")
 
 
-def _peer_label(peer: str | None) -> str:
-    """Bounded peer label: configured peer names are URL netlocs; anything
-    empty/unset collapses to ``unknown`` so label cardinality stays bounded."""
-    return peer or "unknown"
-
-
 # --- metrics ---------------------------------------------------------------
 
 gossip_peer_publish_attempts_total = Counter(
@@ -81,8 +75,14 @@ gossip_peer_publish_ack_seconds = Histogram(
 )
 gossip_peer_ack_late_total = Counter(
     "blockchain_gossip_peer_ack_late_total",
-    "Echo acks observed for a message id that already timed out (late/cross-attempt ack)",
+    "Echo acks observed for a message id after its last attempt timed out (late ack)",
+    ["peer", "topic_class", "attempt"],
+)
+gossip_peer_publish_retry_delay_seconds = Histogram(
+    "blockchain_gossip_peer_publish_retry_delay_seconds",
+    "Delay between a failed publish attempt and the next attempt's send (teardown + gap)",
     ["peer", "topic_class"],
+    buckets=_DELAY_BUCKETS,
 )
 gossip_peer_reconnect_attempts_total = Counter(
     "blockchain_gossip_peer_reconnect_attempts_total",
@@ -134,6 +134,19 @@ def gossip_event(
     at DEBUG.
     """
     level = fields.pop("_level", None)
+    if level == "warning":
+        log = logger.warning
+        levelno = logging.WARNING
+    elif level == "info":
+        log = logger.info
+        levelno = logging.INFO
+    else:
+        log = logger.debug
+        levelno = logging.DEBUG
+    # Cheap path first: with DEBUG off (the production default) skip the
+    # string build and the bounded_topic_label settings lookup entirely.
+    if not logger.isEnabledFor(levelno):
+        return
     parts = [f"gossip_evt event={event}"]
     if peer:
         parts.append(f"peer={peer}")
@@ -145,13 +158,7 @@ def gossip_event(
         parts.append(f"id={event_id}")
     for key, value in fields.items():
         parts.append(f"{key}={value}")
-    msg = " ".join(parts)
-    if level == "warning":
-        logger.warning("%s", msg)
-    elif level == "info":
-        logger.info("%s", msg)
-    else:
-        logger.debug("%s", msg)
+    log("%s", " ".join(parts))
 
 
 # --- event-loop lag monitor -------------------------------------------------

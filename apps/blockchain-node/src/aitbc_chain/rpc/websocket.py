@@ -19,7 +19,8 @@ from ..gossip import (
     WebsocketGossipBackend,
     gossip_broker,
 )
-from ..gossip._internal import _peer_name, bounded_topic_label
+from ..gossip._internal import _message_id, _peer_name, bounded_topic_label
+from ..gossip.telemetry import gossip_event
 from ..gossip.gossip_auth import (
     channel_scope,
     create_challenge,
@@ -431,10 +432,30 @@ async def gossip_websocket(websocket: WebSocket) -> None:
         async def _forward_broker_to_client() -> None:
             try:
                 async for message in subscription:
+                    # #1308: receiver/server-side record keyed by the same
+                    # deterministic event id the publisher computed — this is
+                    # the echo the client's ack wait resolves on, so its
+                    # presence/absence is what separates "delivered but
+                    # unacked" from "never reached the server".
+                    event_id = _message_id(topic, message)
                     try:
                         await _gossip_ws_send_json(websocket, message)
-                    except Exception:
+                    except Exception as send_exc:
+                        gossip_event(
+                            "echo_forward_failed",
+                            peer=client_ip,
+                            topic=topic,
+                            event_id=event_id,
+                            error=str(send_exc)[:120],
+                            _level="warning",
+                        )
                         break
+                    gossip_event(
+                        "echo_forward",
+                        peer=client_ip,
+                        topic=topic,
+                        event_id=event_id,
+                    )
             except Exception as e:
                 logger.warning("Error forwarding broker message for %s: %s", topic, e)
 
@@ -461,11 +482,28 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 if not _gossip_msg_rate.is_allowed(_gossip_rate_key(client_ip, chain_id, topic)):
                     gossip_rate_limited_total.labels(reason="message_rate").inc()
                     _note_rejection(chain_id, topic, "rate")
+                    # #1308: rate-limited publishes never reach json.loads, so
+                    # no event id is computable — still worth an INFO record:
+                    # a missing ack with a rate_limited line is the answer.
+                    gossip_event(
+                        "rate_limited",
+                        peer=client_ip,
+                        topic=topic,
+                        reason="message_rate",
+                        _level="info",
+                    )
                     await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
                     continue
                 if not _message_total_allowed(client_ip):
                     gossip_rate_limited_total.labels(reason="message_rate_total").inc()
                     _note_rejection(chain_id, topic, "rate_total")
+                    gossip_event(
+                        "rate_limited",
+                        peer=client_ip,
+                        topic=topic,
+                        reason="message_rate_total",
+                        _level="info",
+                    )
                     await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
                     continue
 
@@ -523,16 +561,42 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 # Publishing path.
                 if is_restricted_topic(topic) and not authorized:
                     _auth_rejected("unauthorized_publish", chain_id, topic)
+                    gossip_event(
+                        "publish_rejected",
+                        peer=client_ip,
+                        topic=topic,
+                        reason="unauthorized_publish",
+                        event_id=_message_id(topic, data),
+                        _level="info",
+                    )
                     await _gossip_ws_send_json(websocket, {"error": "Validator authentication required"})
                     await _gossip_ws_close(websocket, code=1008)
                     break
 
                 if not is_public_topic(topic) and not authorized:
                     _auth_rejected("unauthorized_topic", chain_id, topic)
+                    gossip_event(
+                        "publish_rejected",
+                        peer=client_ip,
+                        topic=topic,
+                        reason="unauthorized_topic",
+                        event_id=_message_id(topic, data),
+                        _level="info",
+                    )
                     await _gossip_ws_send_json(websocket, {"error": "Topic not authorized"})
                     await _gossip_ws_close(websocket, code=1008)
                     break
 
+                # #1308: server-side receive record — same deterministic
+                # event id the publisher used, so a client-side ack timeout
+                # can be matched against rx/broker/echo stages.
+                event_id = _message_id(topic, data)
+                gossip_event(
+                    "rx_publish",
+                    peer=client_ip,
+                    topic=topic,
+                    event_id=event_id,
+                )
                 try:
                     await broker.publish(topic, data)
                     gossip_messages_published_total.labels(topic=bounded_topic_label(topic)).inc()
@@ -544,6 +608,14 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     # attestation transport.
                     logger.warning("Broker publish failed for topic %s — message dropped: %s", topic, e)
                     metrics_registry.increment("gossip_broker_publish_failed_total")
+                    gossip_event(
+                        "broker_publish_failed",
+                        peer=client_ip,
+                        topic=topic,
+                        event_id=event_id,
+                        error=str(e)[:120],
+                        _level="warning",
+                    )
                     continue
 
         from asyncio import create_task, wait
