@@ -1,0 +1,54 @@
+[Unit]
+Description=AITBC Island Blockchain Node
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src
+Environment="HOME=/var/lib/aitbc"
+EnvironmentFile=/etc/aitbc/%N.env
+EnvironmentFile=/etc/aitbc/blockchain-island.env
+EnvironmentFile=/etc/aitbc/node-island.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets-island.env
+EnvironmentFile=-/etc/aitbc/validator-secrets-island.env
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.main
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-island-blockchain
+LimitNOFILE=65536
+LimitNPROC=4096
+# Sizing evidence (#1296 audit): island-node working set ~190-230MB on
+# both node1 and hub1. Default below is the normal-host value (node1
+# live); on a small VPS use MemoryHigh=384M / MemoryMax=512M (hub1
+# live) — still ~2x headroom over the measured working set. Measure
+# before lowering further (#1296 sizing rule).
+MemoryHigh=768M
+MemoryMax=1G
+CPUQuota=50%
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
+[Install]
+WantedBy=multi-user.target
