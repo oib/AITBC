@@ -652,8 +652,8 @@ class TestOfferCacheGetSet:
         cache = _make_cache()
         offer = _sample_synced_offer()
         cache.set_offer(offer)
-        # set_offer calls set twice (offer + chain index)
-        assert cache._cache.set.call_count == 2
+        # set_offer calls set thrice (offer + chain registry + chain index, #1418)
+        assert cache._cache.set.call_count == 3
 
         # Mock the get to return the stored offer
         cache._cache.get.return_value = json.dumps(offer.to_dict())

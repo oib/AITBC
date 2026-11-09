@@ -145,12 +145,6 @@ class TestExchangePaymentCreation:
         assert r1.status_code == 200 and r2.status_code == 200
         assert r1.json()["payment_id"] == r2.json()["payment_id"]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-IDEM-1 (#1417): the Idempotency-Key lookup is not scoped to "
-        "user_id — a second user replaying the same key receives the first "
-        "user's payment record (amounts, address, payment_id)",
-    )
     async def test_idempotency_key_is_scoped_to_user(self, client):
         key = f"idem-{uuid4().hex}"
         r1 = client.post(
@@ -180,11 +174,6 @@ class TestExchangePaymentStatus:
         resp = client.get("/v1/exchange/payment-status/ex_nonexistent")
         assert resp.status_code == 404
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-DB-1 (#1411): the expire path commits then reads "
-        "expired attributes off the AsyncSession → greenlet_spawn 500",
-    )
     async def test_pending_payment_expires_lazily(self, client):
         pid = await _seed_exchange_payment(status="pending", expires_at=int(time.time()) - 10)
         resp = client.get(f"/v1/exchange/payment-status/{pid}")
@@ -205,12 +194,6 @@ class TestExchangeWebhookConfirm:
     def _secret(self, monkeypatch):
         monkeypatch.setenv("EXCHANGE_WEBHOOK_SECRET", "test-webhook-secret")
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-DB-1 (#1411): confirm commits status='confirmed' then "
-        "reads payment.aitbc_amount off the expired session → 500 to the "
-        "webhook caller even though the DB row was flipped",
-    )
     async def test_confirm_payment_valid_signature(self, client):
         pid = await _seed_exchange_payment(status="pending")
         tx = "0xdeadbeef"
@@ -219,12 +202,11 @@ class TestExchangeWebhookConfirm:
             params={"tx_hash": tx},
             headers={"X-Signature": _sig(pid, tx, "test-webhook-secret")},
         )
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "ok"
+        # #1410: endpoint disabled (501) until on-chain verification + minting exist
+        assert resp.status_code == 501
 
         status = client.get(f"/v1/exchange/payment-status/{pid}")
-        assert status.json()["status"] == "confirmed"
-        assert status.json()["tx_hash"] == tx
+        assert status.json()["status"] == "pending"
 
     async def test_confirm_payment_bad_signature_401(self, client):
         pid = await _seed_exchange_payment(status="pending")
@@ -253,16 +235,9 @@ class TestExchangeWebhookConfirm:
             params={"tx_hash": tx},
             headers={"X-Signature": _sig(pid, tx, "test-webhook-secret")},
         )
-        assert resp.status_code == 400
+        # #1410: disabled endpoint answers 501 regardless of payment state
+        assert resp.status_code == 501
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-MONEY-1 (#1410): confirm-payment accepts ANY tx_hash with only an "
-        "HMAC check — no on-chain verification — and 'minting' is a log line, "
-        "not a mint. The coordinator-api deliberately disabled this exact "
-        "endpoint (HTTP 501) for free-minting; the trading migration "
-        "re-enabled it",
-    )
     async def test_confirm_payment_rejects_unverified_txhash(self, client):
         """Until real tx verification + minting exist, confirmation must be
         refused like coordinator-api's 501 — a syntactically valid but
@@ -416,12 +391,6 @@ class TestSettlementLockEscrow:
         assert row.escrow_id is None
         assert row.settlement_phase == "none"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-GUARD-1 (#1415): lock_escrow does not check trade.status — an "
-        "escrow can be created for a cancelled/completed trade, stranding "
-        "funds in an HTLC nobody will settle",
-    )
     async def test_lock_escrow_rejects_terminal_trade(self, client, monkeypatch):
         trade_id = await _seed_inter_chain_trade(amount=100, status="cancelled")
         fake = _FakeSettlementClient()
@@ -431,12 +400,6 @@ class TestSettlementLockEscrow:
         assert resp.status_code in (400, 409)
         assert fake.created_with is None
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-ENUM-1 (#1414): lock_escrow writes settlement_phase='pending' "
-        "which is not a SettlementPhase value (none/escrow_created/…/settled) "
-        "— the column comment says it stores SettlementPhase values",
-    )
     async def test_lock_escrow_writes_enum_phase(self, client, monkeypatch):
         from aitbc.trading.types import SettlementPhase
 
@@ -471,7 +434,7 @@ class TestSettlementSettle:
         assert fake.settled_with == ("esc-123", "s3cr3t")
 
         row = await _trade_row(trade_id)
-        assert row.settlement_phase == "completed"
+        assert row.settlement_phase == "settled"
 
     async def test_settle_already_completed_idempotent(self, client, monkeypatch):
         trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="completed")
@@ -493,13 +456,6 @@ class TestSettlementSettle:
         row = await _trade_row(trade_id)
         assert row.settlement_phase == "pending"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-ENUM-1 (#1414): the already-settled guard checks "
-        "settlement_phase == 'completed', but SettlementPhase's terminal "
-        "value is 'settled' — a trade settled by any other writer "
-        "(settlement monitor, v0.9.0 flow) would be settled a second time",
-    )
     async def test_settle_recognizes_settled_phase(self, client, monkeypatch):
         trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="settled")
         fake = _FakeSettlementClient()
@@ -510,12 +466,6 @@ class TestSettlementSettle:
         assert resp.json()["result"] == "already_settled"
         assert fake.settled_with is None
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-GUARD-1 (#1415): settle accepts any trade carrying an "
-        "escrow_id regardless of settlement_phase — e.g. phase 'refunded' "
-        "or trade status 'cancelled' can still be settled",
-    )
     async def test_settle_rejects_refunded_phase(self, client, monkeypatch):
         trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="refunded", status="cancelled")
         fake = _FakeSettlementClient()

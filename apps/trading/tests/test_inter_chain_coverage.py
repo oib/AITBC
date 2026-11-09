@@ -152,11 +152,6 @@ class TestInterChainTradeService:
         limited = await svc.get_trade_history(limit=1)
         assert len(limited) == 1
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-GUARD-2 (#1416): update_trade_status accepts arbitrary status strings "
-        "with no transition guard or InterChainTradeStatus validation",
-    )
     async def test_update_trade_status_rejects_invalid_status(self, db_session):
         """``InterChainTradeStatus`` defines the lifecycle
         (pending → matched → locked → confirmed → completed); bogus values
@@ -290,12 +285,6 @@ class TestMatchingEngine:
         assert result is not None
         assert result["matched"] is False
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-MATCH-1 (#1413): match_trade documents 'counterparty sender == this "
-        "trade's recipient' but the query never checks parties — unrelated trades "
-        "between the same chains with equal amount are matched",
-    )
     async def test_match_trade_rejects_unrelated_counterparty(self, db_session):
         """Two trades between the same chains with equal amount but completely
         unrelated sender/recipient pairs must NOT match. The docstring at
