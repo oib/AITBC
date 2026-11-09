@@ -28,34 +28,16 @@ class TestBountyRouter:
             "requirements": ["Python", "FastAPI"],
             "tags": ["backend", "api"],
         }
-
         response = client.post("/v1/bounty/create", json=bounty_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["title"] == "Test Bounty"
-        assert data["reward"] == 5000
-        assert data["status"] == "open"
-        assert "bounty_id" in data
-        assert "created_at" in data
+        # #1337: mutations are honest 501 until the lifecycle is wired
+        assert response.status_code == 501
 
     def test_bounty_get_by_id(self, client: TestClient):
         """Test getting bounty by ID"""
-        # First create a bounty
-        bounty_data = {
-            "title": "Test Bounty Get",
-            "description": "Test description",
-            "creator": "0x1234567890123456789012345678901234567890",
-            "reward": 3000,
-        }
-        create_response = client.post("/v1/bounty/create", json=bounty_data)
-        bounty_id = create_response.json()["bounty_id"]
-
-        # Get the bounty
-        response = client.get(f"/v1/bounty/{bounty_id}")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["bounty_id"] == bounty_id
-        assert data["title"] == "Sample Bounty"
+        # #1337: create is an honest 501, so there is no bounty to fetch;
+        # the real read path is covered by test_routers_bounty_flat.py
+        response = client.get("/v1/bounty/bounty-does-not-exist")
+        assert response.status_code == 404
 
     def test_bounty_get_not_found(self, client: TestClient):
         """Test getting non-existent bounty"""
@@ -64,52 +46,25 @@ class TestBountyRouter:
 
     def test_bounty_claim(self, client: TestClient):
         """Test claiming a bounty"""
-        # Create bounty first
-        bounty_data = {
-            "title": "Claimable Bounty",
-            "description": "Test description for claiming",
-            "creator": "0x1111111111111111111111111111111111111111",
-            "reward": 1000,
-        }
-        create_response = client.post("/v1/bounty/create", json=bounty_data)
-        bounty_id = create_response.json()["bounty_id"]
-
-        # Claim the bounty
-        claim_data = {"bounty_id": bounty_id, "hunter": "0x2222222222222222222222222222222222222222"}
-        response = client.post("/v1/bounty/claim", json=claim_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["bounty_id"] == bounty_id
-        assert data["status"] == "claimed"
+        response = client.post(
+            "/v1/bounty/claim",
+            json={"bounty_id": "bounty-x", "hunter": "0x2222222222222222222222222222222222222222"},
+        )
+        # #1337: claim is an honest 501 — no fabricated "claimed" state
+        assert response.status_code == 501
 
     def test_bounty_submit_solution(self, client: TestClient):
         """Test submitting a solution"""
-        # Create and claim bounty
-        bounty_data = {
-            "title": "Solution Bounty",
-            "description": "Test description for solution",
-            "creator": "0x1111111111111111111111111111111111111111",
-            "reward": 1000,
-        }
-        create_response = client.post("/v1/bounty/create", json=bounty_data)
-        bounty_id = create_response.json()["bounty_id"]
-
-        client.post("/v1/bounty/claim", json={"bounty_id": bounty_id, "hunter": "0x2222222222222222222222222222222222222222"})
-
-        # Submit solution
-        solution_data = {
-            "bounty_id": bounty_id,
-            "hunter": "0x2222222222222222222222222222222222222222",
-            "solution_url": "https://github.com/solution/repo",
-            "notes": "Solution completed",
-        }
-        response = client.post("/v1/bounty/submit", json=solution_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["status"] == "pending"
-        assert "submission_id" in data
+        response = client.post(
+            "/v1/bounty/submit",
+            json={
+                "bounty_id": "bounty-x",
+                "hunter": "0x2222222222222222222222222222222222222222",
+                "solution_url": "https://github.com/solution/repo",
+            },
+        )
+        # #1337: submit is an honest 501 — no fabricated submission
+        assert response.status_code == 501
 
     def test_bounty_stats(self, client: TestClient):
         """Test getting bounty statistics"""
@@ -119,14 +74,13 @@ class TestBountyRouter:
         # A "bounty_id" key here means /{bounty_id} was declared first and swallowed
         # this path -- see tests/security/test_no_unreachable_routes.py.
         assert "bounty_id" not in data
-        assert set(data) == {
-            "total_bounties",
-            "open_bounties",
-            "claimed_bounties",
-            "completed_bounties",
-            "total_reward",
-            "completion_rate",
-        }
+        # #1337: real BountyService aggregates, not the old fabricated shape
+        assert data["total_bounties"] == 0
+        assert data["open_bounties"] == 0
+        assert data["completed_bounties"] == 0
+        assert "total_reward" in data
+        assert "success_rate" in data
+        assert "tier_distribution" in data
 
     def test_bounty_health(self, client: TestClient):
         """Test bounty health endpoint"""
@@ -152,32 +106,26 @@ class TestBountyIntegration:
             "requirements": ["test"],
             "tags": ["integration"],
         }
+        # #1337: mutations are honest 501 — the fabricated lifecycle is gone
         create_response = client.post("/v1/bounty/create", json=create_data)
-        assert create_response.status_code == 200
-        bounty_id = create_response.json()["bounty_id"]
+        assert create_response.status_code == 501
 
-        # 2. List bounties (returns empty list in test mode)
         list_response = client.get("/v1/bounty/list")
         assert list_response.status_code == 200
         assert list_response.json()["count"] == 0
 
-        # 3. Claim bounty
-        claim_response = client.post("/v1/bounty/claim", json={"bounty_id": bounty_id, "hunter": "0xHUNTER456"})
-        assert claim_response.status_code == 200
-        assert claim_response.json()["success"] is True
+        claim_response = client.post("/v1/bounty/claim", json={"bounty_id": "bounty-x", "hunter": "0xHUNTER456"})
+        assert claim_response.status_code == 501
 
-        # 4. Submit solution
         submit_response = client.post(
             "/v1/bounty/submit",
-            json={"bounty_id": bounty_id, "hunter": "0xHUNTER456", "solution_url": "https://solution.example.com"},
+            json={"bounty_id": "bounty-x", "hunter": "0xHUNTER456", "solution_url": "https://solution.example.com"},
         )
-        assert submit_response.status_code == 200
-        assert submit_response.json()["success"] is True
+        assert submit_response.status_code == 501
 
-        # 5. Verify solution
+        # 5. Verify solution — honest 501 like the other mutations (#1337)
         verify_response = client.post(
             "/v1/bounty/verify",
-            json={"bounty_id": bounty_id, "verifier": "0xCREATOR123", "approved": True, "feedback": "Great work!"},
+            json={"bounty_id": "bounty-x", "verifier": "0xCREATOR123", "approved": True, "feedback": "Great work!"},
         )
-        assert verify_response.status_code == 200
-        assert verify_response.json()["verified"] is True
+        assert verify_response.status_code == 501
