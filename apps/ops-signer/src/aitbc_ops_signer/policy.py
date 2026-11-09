@@ -72,7 +72,10 @@ def parse_request(payload: dict) -> PaymentRequest:
     if isinstance(amount, bool) or not isinstance(amount, int):
         raise Refused("bad_amount")
     memo = payload.get("memo")
-    if not isinstance(memo, str) or not MEMO_PATTERN.match(memo):
+    # fullmatch, not match: `$` also matches before a single trailing "\n",
+    # which would let memo="S-10\n" through and split the audit line
+    # (OPSSIGN-POLICY-1).
+    if not isinstance(memo, str) or not MEMO_PATTERN.fullmatch(memo):
         raise Refused("bad_memo")
     return PaymentRequest(
         to=normalize_address(payload.get("to") or ""),
