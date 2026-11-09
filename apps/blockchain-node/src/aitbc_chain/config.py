@@ -1291,6 +1291,10 @@ class ChainSettings(BaseSettings):
     # tests prove apply+revert restores every chain table. The ancestor
     # state-root check remains as a second net for the ``account`` table.
     sync_fork_undo_enabled: bool = True
+    # #1322: before a winning peer segment displaces ours, apply it in a
+    # tentative reorg (revert + apply inside one transaction, always rolled
+    # back). An unappliable segment is vetoed; an inconclusive probe defers.
+    sync_fork_apply_probe_enabled: bool = False
     # Drop a pre-prepare whose sender is not the scheduled proposer for the
     # block's height and round. Setting this False restores the pre-v0.25.6
     # behaviour, where any validator's proposal was prepared.
