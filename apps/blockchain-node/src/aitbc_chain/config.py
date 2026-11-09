@@ -1084,6 +1084,15 @@ class ChainSettings(BaseSettings):
     # the restart wave — a mid-rollout mixed set would apply different
     # settlement rules and fork.
     state_transition_v23_height: int | None = None
+    # #1298 I3b domain separation: at or above this height, block-proposal
+    # and block-attestation signatures use domain-separated preimages
+    # (aitbc-consensus-v1:block_proposal / :block_attestation) so a signature
+    # minted for one purpose can never verify for the other. ``None`` keeps
+    # every sign/verify path byte-identical to pre-activation (historical
+    # replay preserved). Activation is an operator pin set fleet-wide only
+    # after all nodes run a build that understands the new preimages —
+    # a mixed fleet would refuse each other's signatures and fork.
+    consensus_domain_separation_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
