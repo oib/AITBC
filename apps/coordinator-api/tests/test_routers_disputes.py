@@ -1,188 +1,144 @@
+"""Router tests for /v1/disputes/* (#1289 round 9 batch 4).
+
+Real DisputeResolutionService (in-memory). Three real defects pinned:
+- arbitrator identity hardcoded "arbitrator_001" -> only one vote can
+  ever exist per dispute -> MIN_ARBITRATORS quorum unreachable
+- arbitrator registration is unauthenticated (matrix ANY, address is a
+  bare query param) — anyone can register any address
+- submit_evidence hardcodes submitted_by="client" -> service rejects
+  unless dispute.client is literally "client" -> evidence path broken
+for real parties.
 """
-Tests for disputes router (dispute resolution)
-"""
+
+from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
 
+import coordinator_api.contexts.governance.services.dispute_resolution as dr_mod
 from coordinator_api.contexts.governance.services.dispute_resolution import init_dispute_service
 
-
-@pytest.fixture(autouse=True)
-def setup_dispute_service():
-    """Initialize the dispute service for tests"""
-    init_dispute_service(None)
-    yield
+BASE = "/v1/disputes"
+CLIENT = "0x" + "aa" * 20
+PROVIDER = "0x" + "bb" * 20
 
 
-@pytest.mark.unit
-class TestDisputesRouter:
-    """Test disputes router endpoints"""
+@pytest.fixture
+def dispute_service():
+    svc = init_dispute_service(None)
+    yield svc
+    dr_mod._dispute_service = None
 
-    def test_create_dispute(self, client: TestClient):
-        """Test creating a dispute"""
-        dispute_data = {
-            "job_id": "job-001",
-            "client": "0xCLIENT123",
-            "provider": "0xPROVIDER456",
-            "amount": 1000,
-            "reason": "Work not completed as agreed",
-        }
 
-        response = client.post("/v1/disputes/file", json=dispute_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert "dispute_id" in data
-        assert data["status"] == "evidence_phase"
+def _file(client: TestClient, **over) -> dict:
+    body = {"job_id": "job-1", "client": CLIENT, "provider": PROVIDER, "amount": 5000, "reason": "no delivery"}
+    body.update(over)
+    resp = client.post(f"{BASE}/file", json=body)
+    assert resp.status_code == 200
+    return resp.json()
 
-    def test_get_dispute(self, client: TestClient):
-        """Test getting dispute by ID"""
-        # First create a dispute
-        create_response = client.post(
-            "/v1/disputes/file",
+
+class TestDisputeLifecycle:
+    def test_health(self, client: TestClient) -> None:
+        assert client.get(f"{BASE}/health").json()["service"] == "disputes"
+
+    def test_service_unavailable_without_init(self, client: TestClient) -> None:
+        # no init_dispute_service in this test -> global is None -> 503
+        assert client.get(f"{BASE}/").status_code == 503
+
+    def test_file_and_get(self, client: TestClient, dispute_service) -> None:
+        dispute = _file(client)
+        did = dispute["dispute_id"]
+        got = client.get(f"{BASE}/{did}")
+        assert got.status_code == 200
+        assert got.json()["job_id"] == "job-1"
+
+    def test_list_filters(self, client: TestClient, dispute_service) -> None:
+        _file(client)
+        resp = client.get(f"{BASE}/", params={"party": CLIENT})
+        assert resp.status_code == 200
+        assert resp.json()["count"] >= 1
+
+    def test_get_missing_404(self, client: TestClient, dispute_service) -> None:
+        assert client.get(f"{BASE}/0xghost").status_code == 404
+
+    def test_validation(self, client: TestClient, dispute_service) -> None:
+        assert client.post(f"{BASE}/file", json={}).status_code == 422
+
+
+class TestEvidenceDefect:
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#1333: submit_evidence hardcodes submitted_by='client' — service rejects "
+        "any real client/provider address -> evidence endpoint always 400",
+    )
+    def test_submit_evidence_for_real_party(self, client: TestClient, dispute_service) -> None:
+        dispute = _file(client)
+        resp = client.post(
+            f"{BASE}/evidence",
             json={
-                "job_id": "job-002",
-                "client": "0xCLIENT",
-                "provider": "0xPROVIDER",
-                "amount": 500,
-                "reason": "Test dispute",
+                "dispute_id": dispute["dispute_id"],
+                "evidence_type": "log",
+                "description": "proof",
+                "ipfs_hash": "Qm...",
             },
         )
-        dispute_id = create_response.json()["dispute_id"]
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
 
-        # Get the dispute
-        response = client.get(f"/v1/disputes/{dispute_id}")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["dispute_id"] == dispute_id
-        assert "client" in data
-        assert "provider" in data
 
-    def test_list_disputes(self, client: TestClient):
-        """Test listing all disputes"""
-        response = client.get("/v1/disputes/")
-        assert response.status_code == 200
-        data = response.json()
-        assert "disputes" in data
-        assert "count" in data
+class TestArbitrationDefects:
+    def _open_dispute(self, client: TestClient) -> str:
+        return _file(client)["dispute_id"]
 
-    def test_submit_evidence(self, client: TestClient):
-        """Test submitting evidence to a dispute"""
-        # Create dispute first - client must be "client" to match router's hardcoded submitted_by
-        create_response = client.post(
-            "/v1/disputes/file",
-            json={
-                "job_id": "job-003",
-                "client": "client",
-                "provider": "0xPROVIDER",
-                "amount": 500,
-                "reason": "Evidence test",
-            },
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#1334: cast_vote hardcodes arbitrator='arbitrator_001' — every caller votes "
+        "as the same arbitrator; one-vote-per-arbitrator rule caps votes at 1 < MIN_ARBITRATORS=3, "
+        "so no dispute can ever reach quorum/resolve",
+    )
+    def test_two_distinct_arbitrators_can_vote(self, client: TestClient, dispute_service) -> None:
+        did = self._open_dispute(client)
+        # register the hardcoded identity, then a second caller tries to vote —
+        # both are recorded under 'arbitrator_001', so the second is rejected
+        client.post(f"{BASE}/arbitrators/register", params={"address": "arbitrator_001"})
+        v1 = client.post(
+            f"{BASE}/vote",
+            json={"dispute_id": did, "outcome": "client_wins", "reasoning": "r", "stake_amount": 5000},
         )
-        dispute_id = create_response.json()["dispute_id"]
-
-        # Submit evidence
-        evidence_data = {
-            "dispute_id": dispute_id,
-            "evidence_type": "document",
-            "description": "Proof of incomplete work",
-        }
-
-        response = client.post("/v1/disputes/evidence", json=evidence_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["dispute_id"] == dispute_id
-
-    def test_vote_on_dispute(self, client: TestClient):
-        """Test arbitrator voting on dispute"""
-        # Register the hardcoded arbitrator that cast_vote uses
-        client.post("/v1/disputes/arbitrators/register", params={"address": "arbitrator_001"})
-
-        # Create dispute
-        create_response = client.post(
-            "/v1/disputes/file",
-            json={
-                "job_id": "job-004",
-                "client": "0xCLIENT",
-                "provider": "0xPROVIDER",
-                "amount": 500,
-                "reason": "Voting test",
-            },
+        assert v1.status_code == 200
+        v2 = client.post(
+            f"{BASE}/vote",
+            json={"dispute_id": did, "outcome": "provider_wins", "reasoning": "r", "stake_amount": 5000},
         )
-        dispute_id = create_response.json()["dispute_id"]
+        # distinct arbitrators should both be recordable; with the hardcoded
+        # identity the second vote is a duplicate -> 400 -> quorum impossible
+        assert v2.status_code == 200
 
-        # Vote
-        vote_data = {
-            "dispute_id": dispute_id,
-            "outcome": "client_wins",
-            "reasoning": "Evidence supports client claim",
-            "stake_amount": 5000,
-        }
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#1335: POST /arbitrators/register takes a bare address query param with no auth "
+        "dep (matrix ANY) — anyone can register any address, incl. 'arbitrator_001'",
+    )
+    def test_arbitrator_registration_requires_identity(self, client: TestClient, dispute_service) -> None:
+        # unauthenticated request must not be able to mint an arbitrator
+        resp = client.post(f"{BASE}/arbitrators/register", params={"address": "attacker"})
+        assert resp.status_code in (401, 403)
 
-        response = client.post("/v1/disputes/vote", json=vote_data)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["outcome"] == "client_wins"
-
-    def test_register_arbitrator(self, client: TestClient):
-        """Test registering as arbitrator"""
-        response = client.post("/v1/disputes/arbitrators/register", params={"address": "0xARBITRATOR999"})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["address"] == "0xARBITRATOR999"
-
-    def test_disputes_health(self, client: TestClient):
-        """Test disputes health endpoint"""
-        response = client.get("/v1/disputes/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "healthy"
-        assert "active_disputes" in data
-
-
-@pytest.mark.integration
-class TestDisputesIntegration:
-    """Integration tests for dispute resolution workflow"""
-
-    def test_full_dispute_resolution(self, client: TestClient):
-        """Test complete dispute lifecycle"""
-        # 1. Register the hardcoded arbitrator that cast_vote uses
-        client.post("/v1/disputes/arbitrators/register", params={"address": "arbitrator_001"})
-
-        # 2. Create dispute - client must be "client" to match router's hardcoded submitted_by
-        dispute_response = client.post(
-            "/v1/disputes/file",
-            json={
-                "job_id": "integration-job",
-                "client": "client",
-                "provider": "0xINTEGRATION_PROVIDER",
-                "amount": 2000,
-                "reason": "Integration test dispute",
-            },
+    def test_vote_requires_registered_arbitrator(self, client: TestClient, dispute_service) -> None:
+        did = self._open_dispute(client)
+        # 'arbitrator_001' not registered -> service raises -> 400/403, never silent success
+        resp = client.post(
+            f"{BASE}/vote",
+            json={"dispute_id": did, "outcome": "client_wins", "reasoning": "r", "stake_amount": 5000},
         )
-        dispute_id = dispute_response.json()["dispute_id"]
+        assert resp.status_code in (400, 403)
 
-        # 3. Submit evidence
-        client.post(
-            "/v1/disputes/evidence",
-            json={"dispute_id": dispute_id, "evidence_type": "document", "description": "client-evidence"},
+    def test_min_stake_enforced(self, client: TestClient, dispute_service) -> None:
+        did = self._open_dispute(client)
+        client.post(f"{BASE}/arbitrators/register", params={"address": "arbitrator_001"})
+        resp = client.post(
+            f"{BASE}/vote",
+            json={"dispute_id": did, "outcome": "split", "reasoning": "r", "stake_amount": 1},
         )
-
-        # 4. Arbitrator votes
-        client.post(
-            "/v1/disputes/vote",
-            json={
-                "dispute_id": dispute_id,
-                "outcome": "client_wins",
-                "reasoning": "Client has strong evidence",
-                "stake_amount": 5000,
-            },
-        )
-
-        # 5. Verify dispute has votes
-        dispute = client.get(f"/v1/disputes/{dispute_id}").json()
-        assert dispute["vote_count"] >= 1
+        assert resp.status_code == 400
