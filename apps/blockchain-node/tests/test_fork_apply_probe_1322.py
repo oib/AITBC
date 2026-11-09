@@ -138,3 +138,17 @@ async def test_probe_restores_the_global_replay_cache(session_factory, monkeypat
     assert st._processed_tx_hashes == {"0xdead"}
     st._processed_nonces.clear()
     st._processed_tx_hashes.clear()
+
+
+def test_real_append_block_probe_mode_never_commits(session_factory):
+    """The real ``_append_block(_probe=True)`` flushes only: a second connection
+    must not see the appended block before the caller rolls back."""
+    blocks = _seed(session_factory, 4)
+    sync = _sync(session_factory)
+    nxt = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=125), hash_salt="probe")
+    with session_factory() as session:
+        result = sync._append_block(session, nxt, [], skip_state_root_validation=True, _probe=True)
+        assert result.accepted is True, result.reason
+        assert not any(h == 4 for h, _ in _heights(session_factory)), "probe leaked a commit"
+        session.rollback()
+    assert [h for h, _ in _heights(session_factory)] == [0, 1, 2, 3]
