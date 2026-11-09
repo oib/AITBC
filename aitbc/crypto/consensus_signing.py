@@ -214,6 +214,12 @@ def _block_header_message(block: Any) -> dict[str, Any]:
     }
 
 
+def block_header_message(block: Any) -> dict[str, Any]:
+    """Public accessor for the canonical 7-field header message (#1298 —
+    domain-separated proposal verification rebuilds the identical dict)."""
+    return _block_header_message(block)
+
+
 def sign_block_hash(block: Any, private_key: str) -> str:
     """Sign a block header with a secp256k1 private key.
 
