@@ -27,6 +27,7 @@ from aitbc.middleware import (
 )
 
 from .config import settings  # noqa: E402
+from .domain.gpu_market import BOOKABLE_GPU_STATUSES  # noqa: E402
 from .services.edge_gpu_service import EdgeGPUService, JobStateError
 from .storage import get_session, init_db
 
@@ -75,13 +76,9 @@ _OFFER_TO_GPU_STATUS: dict[OfferStatus, str] = {
     OfferStatus.EXPIRED: "offline",
 }
 
-# Miner liveness (heartbeat / register) may only mark *uncommitted* GPUs
-# bookable again, using the canonical "available" spelling. booked/in_use
-# capacity is committed to a client and must survive routine heartbeats —
-# flipping it back to bookable is a double-booking (#1388). "online" is the
-# legacy off-vocabulary spelling older heartbeats wrote; including it here
-# canonicalizes those rows to "available" on the next heartbeat.
-_HEARTBEAT_BOOKABLE_STATUSES = ("available", "offline", "online")
+# Miner/GPU liveness (heartbeat / register / re-register / edge discovery)
+# may only mark *uncommitted* GPUs bookable again — see BOOKABLE_GPU_STATUSES
+# in domain.gpu_market (#1388).
 
 # GPURegistry.price_per_hour is Numeric(20,8): at most 12 integer digits.
 # The offer path stores caller-controlled values, so bound them before the
@@ -696,7 +693,9 @@ async def register_gpu(
                 existing_gpu.capabilities = specs.get("capabilities", existing_gpu.capabilities)
                 if hardware_uuid:
                     existing_gpu.hardware_uuid = hardware_uuid
-            existing_gpu.status = "available"
+            # #1388: re-registering must not un-commit a booked/in_use GPU.
+            if existing_gpu.status in BOOKABLE_GPU_STATUSES:
+                existing_gpu.status = "available"
             gpu_id = existing_gpu.id
             await session.commit()
         else:
@@ -741,7 +740,7 @@ async def register_miner(
         existing_gpus = result.scalars().all()
         if existing_gpus:
             for gpu in existing_gpus:
-                if gpu.status in _HEARTBEAT_BOOKABLE_STATUSES:
+                if gpu.status in BOOKABLE_GPU_STATUSES:
                     gpu.status = "available"
             await session.commit()
         return {"status": "ok", "miner_id": miner_id, "session_token": session_token, "gpu_count": len(existing_gpus)}
@@ -767,7 +766,7 @@ async def miner_heartbeat(
             update(GPURegistry)
             .where(
                 GPURegistry.miner_id == miner_id,  # type: ignore[arg-type]
-                GPURegistry.status.in_(_HEARTBEAT_BOOKABLE_STATUSES),  # type: ignore[attr-defined]
+                GPURegistry.status.in_(BOOKABLE_GPU_STATUSES),  # type: ignore[attr-defined]
             )
             .values(status="available")
         )
