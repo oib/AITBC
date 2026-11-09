@@ -27,7 +27,7 @@ from aitbc.middleware import (
 )
 
 from .config import settings  # noqa: E402
-from .services.edge_gpu_service import EdgeGPUService
+from .services.edge_gpu_service import EdgeGPUService, JobStateError
 from .storage import get_session, init_db
 
 configure_logging(level="INFO", service_name="gpu", to_file=True)
@@ -439,7 +439,10 @@ async def complete_gpu_queue(
     authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
 ) -> dict[str, Any] | tuple[dict[str, Any], int]:
     """Mark a running GPU job as completed"""
-    job = await svc.complete_job(job_id)
+    try:
+        job = await svc.complete_job(job_id)
+    except JobStateError as e:
+        return JSONResponse(status_code=409, content={"error": str(e)})
     if not job:
         return JSONResponse(status_code=404, content={"error": "Job not found"})
     return {

@@ -26,6 +26,10 @@ from ..domain.gpu_market import (
 logger = get_logger(__name__)
 
 
+class JobStateError(ValueError):
+    """Raised when a GPU job transition is requested from an invalid state."""
+
+
 def _redis() -> Redis:
     """Return an async Redis client for the GPU job queue."""
     return Redis.from_url(
@@ -322,17 +326,25 @@ class EdgeGPUService:
         return job
 
     async def complete_job(self, job_id: str) -> GPUJobQueue | None:
-        """Mark a running GPU job as completed."""
-        from datetime import UTC, datetime
+        """Mark a running GPU job as completed.
 
-        stmt = select(GPUJobQueue).where(GPUJobQueue.id == job_id)
+        Only RUNNING -> COMPLETED is a legal transition (mirroring the
+        QUEUED guard in get_next_queued_job): a QUEUED job must not be
+        "completed" without executing, and a terminal job (COMPLETED /
+        CANCELLED) must not be resurrected. Raises JobStateError when the
+        job exists but is not RUNNING; returns None when no such job exists.
+        """
+        stmt = select(GPUJobQueue).where(GPUJobQueue.id == job_id).with_for_update()
         result = await self.session.execute(stmt)
         job = result.scalar_one_or_none()
-        if job:
-            job.status = GPUJobStatus.COMPLETED
-            job.completed_at = datetime.now(UTC)
-            await self.session.commit()
-            await self.session.refresh(job)
+        if job is None:
+            return None
+        if job.status != GPUJobStatus.RUNNING:
+            raise JobStateError(f"job {job.id} is {job.status.value}, not running")
+        job.status = GPUJobStatus.COMPLETED
+        job.completed_at = datetime.now(UTC)
+        await self.session.commit()
+        await self.session.refresh(job)
         return job
 
     async def list_queued_jobs(self, gpu_id: str, status: str | None = None, limit: int = 100) -> list[GPUJobQueue]:
