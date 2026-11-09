@@ -21,8 +21,10 @@ def test_grant_developer_lifecycle() -> None:
 
     with Session(engine) as session:
         dev_service = DeveloperService(session)
-        developer = dev_service.register(DeveloperCreate(wallet_address="0xabc123", name="Smoke Dev"))
-        assert developer.wallet_address == "0xabc123"
+        developer = dev_service.register(
+            DeveloperCreate(wallet_address="0x000000000000000000000000000000000000dead", name="Smoke Dev")
+        )
+        assert developer.wallet_address == "0x000000000000000000000000000000000000dead"
 
         grant_service = GrantService(session)
         grant = grant_service.create_grant(developer.id, "Smoke Grant", "description", "100.5", voting_days=1)
