@@ -57,10 +57,20 @@ class IslandService:
                     extra_data["region"] = region
                 if is_hub:
                     extra_data["is_hub"] = is_hub
+                # The chain accepts a list of chain_ids, but the local
+                # island_memberships.chain_id column is a plain str — a list
+                # reaching it raised ValidationError *after* the on-chain join
+                # succeeded (#1383). Store a comma-joined scalar and keep the
+                # full list in extra_data.
+                if isinstance(chain_id, list):
+                    extra_data["chain_ids"] = list(chain_id)
+                    stored_chain_id = ",".join(chain_id)
+                else:
+                    stored_chain_id = chain_id
                 membership = IslandMembership(
                     island_id=island_id,
                     island_name=island_name,
-                    chain_id=chain_id,
+                    chain_id=stored_chain_id,
                     role=role,
                     status=status,
                     extra_data=extra_data,
