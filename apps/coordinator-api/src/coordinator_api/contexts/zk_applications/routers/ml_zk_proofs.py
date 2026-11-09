@@ -13,6 +13,8 @@ from ..services.zk_proofs import (
     ZKBusyError,
     ZKProofService,
     ZKTimeoutError,
+    SNARKJS_NODE_PATH,
+    snarkjs_available,
 )
 
 router = APIRouter(prefix="/ml-zk", tags=["ml-zk"])
@@ -89,6 +91,17 @@ async def _prove(circuit_name: str, proof_request: MLProofRequest) -> dict[str, 
         logging.getLogger(__name__).error("ML prove for '%s' timed out: %s", circuit_name, e)
         raise HTTPException(status_code=504, detail=ZK_TIMEOUT_DETAIL) from e
     if proof_result is None:
+        # generate_proof folds every failure into None. A missing proving
+        # runtime is not the caller's fault — answer 503, not 400 (#1339).
+        # Residual: per-circuit runtime failures (corrupt wasm/zkey) still
+        # fold into the same None and report as unprovable inputs.
+        if not snarkjs_available():
+            logging.getLogger(__name__).error(
+                "ML prove for '%s' failed: snarkjs is not installed under %s",
+                circuit_name,
+                SNARKJS_NODE_PATH,
+            )
+            raise HTTPException(status_code=503, detail="ZK proving runtime (snarkjs) is unavailable on this node")
         raise HTTPException(status_code=400, detail=UNPROVABLE_INPUTS)
     return proof_result
 
