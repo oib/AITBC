@@ -60,9 +60,9 @@ def whisper_transcribe(
     job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.WHISPER,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
@@ -95,9 +95,9 @@ def whisper_translate(
     job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.WHISPER,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
@@ -133,9 +133,9 @@ def stable_diffusion_generate(
     job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.STABLE_DIFFUSION,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
@@ -169,9 +169,9 @@ def stable_diffusion_img2img(
     job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.STABLE_DIFFUSION,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
@@ -204,9 +204,9 @@ def llm_inference(
     job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.LLM_INFERENCE,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
@@ -236,9 +236,9 @@ def llm_stream(
     # Return streaming response
     # This would implement WebSocket or Server-Sent Events
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.LLM_INFERENCE,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
@@ -275,9 +275,9 @@ def ffmpeg_transcode(
     job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.FFMPEG,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
@@ -314,9 +314,9 @@ def blender_render(
     job = service.create_job(user["sub"], job_create)
 
     return ServiceResponse(
-        job_id=job.job_id,
+        job_id=job.id,
         service_type=ServiceType.BLENDER,
-        status=job.state.value,
+        status=job.state,
         estimated_completion=job.expires_at.isoformat(),
     )
 
