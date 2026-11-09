@@ -64,13 +64,26 @@ def _apy_reward_units(amount: int, apy: Decimal, elapsed_seconds: float) -> int:
 def _ensure_pool_accounts(session: Session, chain_id: str) -> dict[str, Account]:
     """Create pool reserve, treasury and emission accounts if missing."""
     accounts: dict[str, Account] = {}
+    # Production sessions run autoflush=False: an Account queued by an earlier
+    # call in the same transaction is invisible to ``session.get`` (it only
+    # sees committed/identity-map rows), so a second call would ``session.add``
+    # the same primary key again and surface an IntegrityError at flush
+    # instead of a clean verdict. Index pending inserts once and reuse them.
+    pending_accounts: dict[tuple[str, str], Account] = {}
+    for obj in session.new:
+        if isinstance(obj, Account):
+            pending_accounts[(obj.chain_id, _to_ait_address(obj.address))] = obj
     for addr in (pool_main_address(), pool_treasury_address(), pool_emission_address()):
         ait_addr = _to_ait_address(addr)
         account = session.get(Account, (chain_id, ait_addr))
+        persistent = account is not None
+        if account is None:
+            account = pending_accounts.get((chain_id, ait_addr))
         if not account:
             account = Account(chain_id=chain_id, address=ait_addr, balance=0, nonce=0)
             session.add(account)
-        elif v24_rules_is_active():
+            pending_accounts[(chain_id, ait_addr)] = account
+        elif persistent and v24_rules_is_active():
             # #1314 V6: fence — flush pending writes, then expire+reload so
             # downstream ORM ``balance +/-=`` mutations compute on committed
             # state, not an identity-map snapshot taken before same-block
