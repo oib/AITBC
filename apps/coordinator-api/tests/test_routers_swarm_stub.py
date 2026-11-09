@@ -31,7 +31,10 @@ def _admin() -> dict[str, str]:
     ],
 )
 def test_swarm_routes_all_404(client: TestClient, method: str, path: str) -> None:
-    resp = getattr(client, method)(path, headers=_admin(), json={} if method == "post" else None)
+    if method == "post":
+        resp = client.post(path, headers=_admin(), json={})
+    else:
+        resp = client.get(path, headers=_admin())
     assert resp.status_code == 404
 
 
@@ -46,5 +49,8 @@ def test_swarm_routes_all_404(client: TestClient, method: str, path: str) -> Non
     ],
 )
 def test_agent_messaging_routes_all_404(client: TestClient, method: str, path: str) -> None:
-    resp = getattr(client, method)(path, headers=_admin(), json={} if method == "post" else None)
+    if method == "post":
+        resp = client.post(path, headers=_admin(), json={})
+    else:
+        resp = client.get(path, headers=_admin())
     assert resp.status_code == 404

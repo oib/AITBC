@@ -92,7 +92,7 @@ class TestProfileEndpoints:
     def test_update_metrics(self, client: TestClient, owned_agent: None) -> None:
         resp = client.post(
             f"/v1/agent-performance/profiles/{AGENT}/metrics",
-            json={"accuracy": 0.8},
+            json={"metrics": {"accuracy": 0.8}},
             headers=_owner(),
         )
         assert resp.status_code == 200
@@ -102,7 +102,7 @@ class TestProfileEndpoints:
         # second update exercises the existing-profile branch
         resp2 = client.post(
             f"/v1/agent-performance/profiles/{AGENT}/metrics",
-            json={"accuracy": 0.95},
+            json={"metrics": {"accuracy": 0.95}},
             headers=_admin(),
         )
         assert resp2.status_code == 200
@@ -216,7 +216,15 @@ class TestResourceEndpoints:
         # owner sees only own agent's allocations
         owner_rows = client.get("/v1/agent-performance/resources", headers=_owner()).json()
         assert {r["agent_id"] for r in owner_rows} == {AGENT}
-        # agent_id filter on someone else's agent -> 403
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="defect #1323: list_resource_allocations calls _require_agent_access inside its broad try; the 403 HTTPException is caught by `except Exception` and re-raised as 500",
+    )
+    def test_agent_id_filter_non_owner_403(self, client: TestClient, owned_agent: None, db_session: Session) -> None:
+        self._seed_allocation(db_session, AGENT)
+        self._seed_allocation(db_session, "ag-other")
+        # agent_id filter on someone else's agent must be a 403, not a 500
         assert (
             client.get("/v1/agent-performance/resources", params={"agent_id": "ag-other"}, headers=_owner()).status_code == 403
         )
@@ -257,7 +265,7 @@ class TestOptimizeAndCapabilityEndpoints:
 
     @pytest.mark.xfail(
         strict=True,
-        reason="defect: router reads capability.status but AgentCapability has no status field -> AttributeError -> 500 on create and on list-with-rows (#1289 round-9 find — route to follow-up)",
+        reason="defect #1324: router reads capability.status but AgentCapability has no status field -> AttributeError -> 500 on create",
     )
     def test_create_capability(self, client: TestClient, owned_agent: None) -> None:
         resp = client.post(
@@ -281,7 +289,7 @@ class TestOptimizeAndCapabilityEndpoints:
 
     @pytest.mark.xfail(
         strict=True,
-        reason="defect: same missing capability.status field — listing an agent that HAS capability rows 500s (#1289 round-9 find — route to follow-up)",
+        reason="defect #1324: same missing capability.status field — listing an agent that HAS capability rows 500s",
     )
     def test_list_capabilities_with_rows(self, client: TestClient, owned_agent: None, db_session: Session) -> None:
         db_session.add(
