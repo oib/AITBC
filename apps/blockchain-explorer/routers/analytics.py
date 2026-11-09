@@ -295,8 +295,13 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = None)
         days_active = 0
         if first_tx_date:
             try:
-                first_dt = datetime.strptime(first_tx_date, "%Y-%m-%d %H:%M:%S")
-                days_active = (datetime.now(UTC).replace(tzinfo=None) - first_dt).days
+                # created_at is ISO-8601 ("YYYY-MM-DD[T ]HH:MM:SS[.ffffff]");
+                # strptime("%Y-%m-%d %H:%M:%S") never matched the 'T' separator or
+                # microseconds, so days_active silently stayed 0.
+                first_dt = datetime.fromisoformat(str(first_tx_date).replace("Z", "+00:00"))
+                if first_dt.tzinfo is not None:
+                    first_dt = first_dt.astimezone(UTC).replace(tzinfo=None)
+                days_active = max(0, (datetime.now(UTC).replace(tzinfo=None) - first_dt).days)
             except Exception:
                 pass
 

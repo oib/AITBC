@@ -27308,14 +27308,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 500,
               "title": "Limit"
             }
           },
@@ -27324,14 +27320,9 @@
             "in": "query",
             "required": false,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
               "title": "Offset"
             }
           },
