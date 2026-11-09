@@ -674,7 +674,12 @@ async def buy_gpu(
     total_cost = duration_dec * current_price
     if supplied_quote is not None:
         total_cost = units_to_ait(supplied_quote.principal_units)
-    resolved_client_id, client_ref = await run_in_threadpool(resolve_client, session, request.buyer_id, auto_create=True)
+    try:
+        resolved_client_id, client_ref = await run_in_threadpool(resolve_client, session, request.buyer_id, auto_create=True)
+    except ValueError as exc:
+        # Unresolvable buyer identity is a caller error, not a server fault —
+        # same contract as JobService.resolve_client (#1340/#1378).
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     booking_id = str(uuid4())
     # E1: a supplied quote freezes the resource/model/count/duration.
     quote_resource_id = gpu.resource_id
