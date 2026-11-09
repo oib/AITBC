@@ -44,8 +44,8 @@ SERVICES = {
     },
     "ai": {
         "name": "AI Service",
-        "port": 8106,
-        "url": "http://localhost:8106",
+        "port": 8005,
+        "url": "http://localhost:8005",
         "description": "AI job operations",
     },
 }
@@ -215,12 +215,18 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             health_url = f"{service_config['url']}/health"
+            start = datetime.now(UTC)
             response = await client.get(health_url)
+            elapsed_ms = round((datetime.now(UTC) - start).total_seconds() * 1000, 1)
+            healthy = 200 <= response.status_code < 300
             return {
-                "status": "healthy",
-                "response_time": 0.1,
+                "status": "healthy" if healthy else "unhealthy",
+                "http_status": response.status_code,
+                "response_time_ms": elapsed_ms,
                 "last_check": datetime.now(UTC).isoformat(),
-                "details": response.json(),
+                "details": response.json()
+                if response.headers.get("content-type", "").startswith("application/json")
+                else None,
             }
     except Exception as e:
         logger.warning("Service %s health check failed: %s", service_name, e)
