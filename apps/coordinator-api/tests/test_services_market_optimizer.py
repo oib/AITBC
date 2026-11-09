@@ -3,27 +3,47 @@
 Uses the shared db_session fixture (in-memory sqlite). The RL training
 engine itself is exercised only through optimize_agent_strategy with a
 single episode; deploy/evaluate/simulate paths are pinned directly on
-ReinforcementLearningConfig rows. One strict xfail pins #1368:
-deployed_at is stored via datetime.now(UTC) but sqlite returns it naive
-on reload — evaluate_strategy_performance then raises TypeError on the
-aware-minus-naive subtraction (same class as #1353).
+ReinforcementLearningConfig rows. #1368/#1369 regression pins (were
+strict-xfail pre-fix): deployed_at reloads naive from sqlite and
+deployment_count had no backing field — evaluate_strategy_performance then
+raised TypeError on the aware-minus-naive subtraction (same class as
+#1353), and deploy raised AttributeError.
+
+market_optimizer pulls in the RL engine which requires torch — an optional
+dependency not installed in every environment (same pattern as
+test_advanced_rl). Coordinator imports are deferred into fixtures/tests so
+collection succeeds without torch; the whole module skips in that case.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import pytest
 from sqlmodel import Session, select
 
 from coordinator_api.contexts.advanced_rl.domain import ReinforcementLearningConfig
-from coordinator_api.contexts.advanced_rl.services.advanced_rl.market_optimizer import (
-    MarketStrategyOptimizer,
-)
+
+if TYPE_CHECKING:
+    from coordinator_api.contexts.advanced_rl.services.advanced_rl.market_optimizer import (
+        MarketStrategyOptimizer,
+    )
+
+try:
+    import torch  # noqa: F401
+except ImportError:
+    torch = None
+
+pytestmark = pytest.mark.skipif(torch is None, reason="torch not installed")
 
 
 @pytest.fixture
 def optimizer() -> MarketStrategyOptimizer:
+    from coordinator_api.contexts.advanced_rl.services.advanced_rl.market_optimizer import (
+        MarketStrategyOptimizer,
+    )
+
     return MarketStrategyOptimizer()
 
 
@@ -63,10 +83,6 @@ async def test_deploy_requires_ready_status(optimizer, db_session):
         await optimizer.deploy_strategy(db_session, "rl_test1", {})
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#1369: deploy_strategy increments rl_config.deployment_count — field does not exist on ReinforcementLearningConfig -> AttributeError on every deploy attempt; deployment is dead code",
-)
 @pytest.mark.unit
 async def test_deploy_success(optimizer, db_session):
     _make_config(db_session, status="ready")
@@ -98,10 +114,6 @@ async def test_evaluate_requires_deployed(optimizer, db_session):
         await optimizer.evaluate_strategy_performance(db_session, "rl_test1")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#1368: deployed_at reloads naive from sqlite — (now(UTC) - deployed_at) raises TypeError even without expire_all, since evaluate re-queries the row",
-)
 @pytest.mark.unit
 async def test_evaluate_deployed_metrics(optimizer, db_session):
     _make_config(db_session, status="deployed", deployed_at=datetime.now(UTC))
@@ -157,14 +169,10 @@ async def test_optimize_agent_strategy_single_episode(optimizer, db_session):
 
 
 # ---------------------------------------------------------------------------
-# strict xfail — naive deployed_at crashes evaluate after reload (#1368)
+# regression pins — naive deployed_at crashes evaluate after reload (#1368)
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#1368: deployed_at stored aware but sqlite reloads it naive — (now(UTC) - deployed_at) raises TypeError in evaluate_strategy_performance",
-)
 @pytest.mark.unit
 async def test_evaluate_after_reload_no_tz_crash(optimizer, db_session):
     _make_config(db_session, status="ready")
