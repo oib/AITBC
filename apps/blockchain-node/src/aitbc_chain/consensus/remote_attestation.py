@@ -33,6 +33,48 @@ from aitbc.crypto.signature_recovery import canonical_address
 from ..config import settings
 from ..gossip import gossip_broker
 from ..metrics import metrics_registry
+
+
+def _attestation_domain_active(height: int | None) -> bool:
+    """#1298: attestation signatures are domain-separated at/above the armed
+    activation height; below it the legacy shared preimage stays authoritative."""
+    activation = getattr(settings, "consensus_domain_separation_height", None)
+    return activation is not None and height is not None and height >= activation
+
+
+def _sign_attestation(message: dict[str, Any], private_key: str, height: int | None) -> str:
+    if _attestation_domain_active(height):
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION, sign_consensus_message_domain
+
+        return sign_consensus_message_domain(message, private_key, DOMAIN_BLOCK_ATTESTATION)
+    return sign_consensus_message(message, private_key)
+
+
+def _verify_attestation(message: dict[str, Any], signature: str, validator: str, height: int | None) -> bool:
+    if _attestation_domain_active(height):
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION, verify_consensus_message_domain
+
+        return verify_consensus_message_domain(message, signature, validator, DOMAIN_BLOCK_ATTESTATION)
+    return verify_consensus_message(message, signature, validator)
+
+
+def _attestation_message(header: dict[str, Any], chain_id: str, round_: int | None = None) -> dict[str, Any]:
+    """The exact dict an attestation signature covers (round included only
+    under round-lock) — shared by the domain and legacy verify paths."""
+    message = {
+        "chain_id": header.get("chain_id", chain_id),
+        "height": header.get("height", 0),
+        "hash": header.get("hash", ""),
+        "parent_hash": header.get("parent_hash", ""),
+        "proposer": header.get("proposer", ""),
+        "state_root": header.get("state_root", ""),
+        "bridge_state_root": header.get("bridge_state_root", ""),
+    }
+    if round_ is not None:
+        message["round"] = round_
+    return message
+
+
 from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
 from . import unavail
@@ -646,7 +688,22 @@ class RemoteAttestationService:
         proposer_signature = request.get("proposer_signature")
         if proposer_signature:
             try:
-                sig_ok = verify_block_signature(header, proposer_signature, proposer)
+                # #1298: the proposer's block signature is a PROPOSAL-domain
+                # signature at/above the armed height — verify accordingly.
+                from aitbc.crypto.consensus_signing import (
+                    DOMAIN_BLOCK_PROPOSAL,
+                    block_header_message,
+                    verify_consensus_message_domain,
+                )
+
+                req_height = header.get("height", 0)
+                activation = getattr(settings, "consensus_domain_separation_height", None)
+                if activation is not None and isinstance(req_height, int) and req_height >= activation:
+                    sig_ok = verify_consensus_message_domain(
+                        block_header_message(header), proposer_signature, proposer, DOMAIN_BLOCK_PROPOSAL
+                    )
+                else:
+                    sig_ok = verify_block_signature(header, proposer_signature, proposer)
             except Exception:
                 sig_ok = False
             if not sig_ok:
@@ -769,7 +826,7 @@ class RemoteAttestationService:
                 # transport metadata — changing it invalidates the signature.
                 message["round"] = request_round
             try:
-                signature = sign_consensus_message(message, private_key)
+                signature = _sign_attestation(message, private_key, height_int)
             except Exception as e:
                 logger.warning("Failed to sign attestation: %s", e)
                 continue
@@ -1898,17 +1955,15 @@ class RemoteAttestationService:
                         # Round-bound verification: the signed payload includes
                         # the round, so an old-round signature cannot verify
                         # against this round's header even on a hash match.
-                        att_msg = {
-                            "chain_id": header.get("chain_id", self._chain_id),
-                            "height": header.get("height", 0),
-                            "hash": header.get("hash", ""),
-                            "parent_hash": header.get("parent_hash", ""),
-                            "proposer": header.get("proposer", ""),
-                            "state_root": header.get("state_root", ""),
-                            "bridge_state_root": header.get("bridge_state_root", ""),
-                            "round": collect_round,
-                        }
-                        sig_ok = verify_consensus_message(att_msg, signature, validator)
+                        att_msg = _attestation_message(header, self._chain_id, collect_round)
+                        sig_ok = _verify_attestation(att_msg, signature, validator, block.height)
+                    elif _attestation_domain_active(block.height):
+                        # #1298: post-activation attestations live under the
+                        # attestation domain — the proposal/raw-hash fallbacks
+                        # inside verify_block_signature must not accept them.
+                        sig_ok = _verify_attestation(
+                            _attestation_message(header, self._chain_id), signature, validator, block.height
+                        )
                     else:
                         sig_ok = verify_block_signature(header, signature, validator)
                     if sig_ok:

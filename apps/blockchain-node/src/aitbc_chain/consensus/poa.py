@@ -192,6 +192,24 @@ def _rejection_metadata(reason: str, height: int, timestamp: datetime) -> str:
     )
 
 
+def _active_consensus_domain(height: int | None, domain: str) -> str | None:
+    """#1298: return ``domain`` when the block height is at/above the armed
+    domain-separation activation height, else None (legacy preimage)."""
+    activation = getattr(settings, "consensus_domain_separation_height", None)
+    if activation is None or height is None or height < activation:
+        return None
+    return domain
+
+
+def _sign_consensus(message: dict[str, Any], private_key: str, domain: str | None) -> str:
+    """Sign ``message`` under ``domain`` when armed, else the legacy preimage."""
+    from aitbc.crypto.consensus_signing import sign_consensus_message, sign_consensus_message_domain
+
+    if domain is None:
+        return sign_consensus_message(message, private_key)
+    return sign_consensus_message_domain(message, private_key, domain)
+
+
 class PoAProposer:
     """Proof-of-Authority block proposer.
 
@@ -395,9 +413,10 @@ class PoAProposer:
             self._logger.debug("No private key for proposer %s; block signature omitted", proposer)
             return ""
         try:
-            from aitbc.crypto.consensus_signing import sign_consensus_message
+            from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_PROPOSAL
 
-            return sign_consensus_message(self._block_header_message(block), private_key)
+            domain = _active_consensus_domain(block.height, DOMAIN_BLOCK_PROPOSAL)
+            return _sign_consensus(self._block_header_message(block), private_key, domain)
         except Exception as e:
             self._logger.warning("Failed to sign block header for %s: %s", proposer, e)
             return ""
@@ -489,14 +508,15 @@ class PoAProposer:
         effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
 
         if self._validator_keys:
+            from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION
+
+            domain = _active_consensus_domain(block.height, DOMAIN_BLOCK_ATTESTATION)
             message = self._block_header_message(block)
             for address, private_key in self._validator_keys.items():
                 if canonical_address(address) == canonical_address(block.proposer):
                     continue
                 try:
-                    from aitbc.crypto.consensus_signing import sign_consensus_message
-
-                    signature = sign_consensus_message(message, private_key)
+                    signature = _sign_consensus(message, private_key, domain)
                     attestations.append({"validator": address, "signature": signature})
                     seen.add(canonical_address(address))
                 except Exception as e:
@@ -3297,10 +3317,11 @@ class PoAProposer:
             self._logger.debug("No proposer_key configured; block signature omitted")
             return ""
         try:
-            from aitbc.crypto.consensus_signing import sign_consensus_message
+            from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_PROPOSAL
 
+            domain = _active_consensus_domain(block.height, DOMAIN_BLOCK_PROPOSAL)
             message = self._block_header_message(block)
-            return sign_consensus_message(message, private_key)
+            return _sign_consensus(message, private_key, domain)
         except Exception as e:
             self._logger.warning("Failed to sign block header: %s", e)
             return ""
