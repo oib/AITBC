@@ -620,6 +620,10 @@ class ChainSettings(BaseSettings):
     bridge_batch_size: int = 10  # Max transfers per batch operation
     bridge_monitor_interval: int = 60  # Seconds between bridge health checks
     bridge_header_sync_batch: int = 500  # Max block headers mirrored into the bridge table per finalizer pass
+    # #1305: heights below the mirror head re-verified against the canonical
+    # block table each pass — a fork heal leaves stale mirror rows the
+    # resume-at-last_stored sync never revisits.
+    bridge_header_verify_window: int = 128
     bridge_header_commit_batch: int = (
         50  # Headers stored per sqlite commit in the finalizer backfill (one commit per N, not per header)
     )
