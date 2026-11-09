@@ -529,6 +529,29 @@ class TestAttesterGateArmed:
         unlock.assert_not_awaited()
         assert len(broker.published) == 2
 
+    @pytest.mark.asyncio
+    async def test_listener_stall_metrics_recorded(self, monkeypatch):
+        """#1306: the unlock_justification wait inside the serial attest
+        listener is observed; waits past attest_listener_stall_seconds
+        increment the stall counter so the park is measurable."""
+        monkeypatch.setattr(settings, "vote_journal_justification_enabled", True)
+        monkeypatch.setattr(settings, "attest_listener_stall_seconds", 1.0)
+        bundle = {"kind": "unavailability_cert", "height": 100, "hashes": [H], "index": {}, "certs": [_cert().to_dict()]}
+        svc, broker, clock, _ = self._service(monkeypatch)
+
+        async def slow_unlock(*_a, **_kw):
+            clock.advance(30.0)
+            return bundle
+
+        monkeypatch.setattr(unavail, "unlock_justification", slow_unlock)
+        await svc._handle_request(_request(100, H, PROPOSER, clock.now))
+        clock.advance(10_000)
+        await svc._handle_request(_request(100, RIVAL, PROPOSER, clock.now))
+
+        assert _counter("attest_listener_unlock_stall_total") == 1.0
+        count, total = metrics_registry._summaries["attest_unlock_justification_seconds"]
+        assert count == 1.0 and total == pytest.approx(30.0)
+
 
 class TestProposerGateArmed:
     @pytest.mark.asyncio
