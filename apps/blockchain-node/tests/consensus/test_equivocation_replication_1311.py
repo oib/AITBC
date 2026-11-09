@@ -5,7 +5,12 @@ from __future__ import annotations
 import json
 
 import pytest
-from aitbc.crypto.consensus_signing import sign_consensus_message
+from aitbc.crypto.consensus_signing import (
+    DOMAIN_BLOCK_ATTESTATION,
+    DOMAIN_BLOCK_PROPOSAL,
+    sign_consensus_message,
+    sign_consensus_message_domain,
+)
 from aitbc_chain.config import settings
 from aitbc_chain.consensus import evidence_replication as er
 from aitbc_chain.consensus import remote_attestation as ra_module
@@ -34,7 +39,9 @@ def _counter(name: str) -> float:
     return metrics_registry._counters.get(name, 0.0)
 
 
-def _att(key: str, block_hash: str, *, round_: int | None, height: int = H, chain: str = CHAIN) -> dict:
+def _att(
+    key: str, block_hash: str, *, round_: int | None, height: int = H, chain: str = CHAIN, domain: str | None = None
+) -> dict:
     msg = {
         "chain_id": chain,
         "height": height,
@@ -46,6 +53,7 @@ def _att(key: str, block_hash: str, *, round_: int | None, height: int = H, chai
     }
     if round_ is not None:
         msg["round"] = round_
+    signature = sign_consensus_message_domain(msg, key, domain) if domain else sign_consensus_message(msg, key)
     return {
         "chain_id": chain,
         "height": height,
@@ -56,8 +64,9 @@ def _att(key: str, block_hash: str, *, round_: int | None, height: int = H, chai
         "bridge_state_root": "",
         "round_in_payload": round_ is not None,
         "request_round": round_,
-        "signature": sign_consensus_message(msg, key),
+        "signature": signature,
         "signer": _addr(key),
+        **({"signature_domain": domain} if domain else {}),
     }
 
 
@@ -148,6 +157,34 @@ class TestIngestPipeline:
         rec = _record()
         rec["block_hash_a"], rec["block_hash_b"] = rec["block_hash_b"], rec["block_hash_a"]
         assert _ingest(rec).status == "schema"
+
+
+class TestDomainSeparation:
+    """#1298: per-attestation signature_domain labels."""
+
+    def _dom(self, d1, d2, monkeypatch, height_pin=1):
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", height_pin)
+        atts = [_att(VAL_KEY, HA, round_=1, domain=d1), _att(VAL_KEY, HB, round_=1, domain=d2)]
+        return er.build_record(CHAIN, VAL, H, 1, HA, HB, atts)
+
+    def test_domain_labeled_same_domain_pair_is_stored(self, monkeypatch):
+        out = _ingest(self._dom(DOMAIN_BLOCK_ATTESTATION, DOMAIN_BLOCK_ATTESTATION, monkeypatch))
+        assert out.status == "stored" and out.slashable
+
+    def test_cross_role_pair_is_dropped(self, monkeypatch):
+        rec = self._dom(DOMAIN_BLOCK_PROPOSAL, DOMAIN_BLOCK_ATTESTATION, monkeypatch)
+        assert _ingest(rec).status == "domain_mismatch"
+        assert len(er.get_store(CHAIN)) == 0
+
+    def test_unlabeled_legacy_pair_is_refused_above_the_armed_height(self, monkeypatch):
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", 1)
+        assert _ingest(_record()).status == "verify"
+
+    def test_label_that_does_not_match_the_signature_is_dropped(self, monkeypatch):
+        rec = self._dom(DOMAIN_BLOCK_ATTESTATION, DOMAIN_BLOCK_ATTESTATION, monkeypatch)
+        for a in rec["attestations"]:
+            a["signature_domain"] = DOMAIN_BLOCK_PROPOSAL
+        assert _ingest(rec).status == "verify"
 
 
 class TestDedupAndBounds:
