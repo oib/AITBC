@@ -8,6 +8,11 @@ from sqlmodel import delete, select
 from ..schemas.metrics import EdgeMetrics
 from ..storage import get_session
 
+# Upper bound for list_metrics so a caller cannot turn the endpoint into an
+# unbounded table scan; `limit <= 0` is clamped to 1 rather than treated as
+# "no limit".
+MAX_LIST_LIMIT = 1000
+
 
 class MetricsService:
     """Service for edge metrics operations"""
@@ -41,13 +46,14 @@ class MetricsService:
 
     async def list_metrics(self, gpu_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """List metrics, optionally filtered by gpu_id"""
+        bounded_limit = max(1, min(int(limit), MAX_LIST_LIMIT))
         async with get_session() as session:
             query = select(EdgeMetrics)
 
             if gpu_id:
                 query = query.where(EdgeMetrics.gpu_id == gpu_id)
 
-            query = query.order_by(EdgeMetrics.created_at.desc())  # type: ignore
+            query = query.order_by(EdgeMetrics.created_at.desc()).limit(bounded_limit)  # type: ignore
 
             result = await session.execute(query)
             metrics = result.scalars().all()
