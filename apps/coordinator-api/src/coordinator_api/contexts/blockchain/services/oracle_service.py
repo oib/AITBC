@@ -104,8 +104,36 @@ class ChainlinkAdapter:
             logger.debug("No Chainlink feed for %s", pair)
             return None
         try:
-            logger.debug("Fetching Chainlink price for %s", pair)
-            return None
+            # eth_call latestRoundData() — selector 0xfeaf968c; return data is
+            # five 32-byte words: roundId | answer | startedAt | updatedAt |
+            # answeredInRound. answer is a signed int256 at 8 decimals.
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "eth_call",
+                "params": [{"to": feed_address, "data": "0xfeaf968c"}, "latest"],
+            }
+            response = await self._client.post(self.rpc_url, json=payload)
+            if response is None or getattr(response, "status_code", 200) != 200:
+                logger.debug("Chainlink RPC returned no usable response for %s", pair)
+                return None
+            body = response.json()
+            result = body.get("result") if isinstance(body, dict) else None
+            if not isinstance(result, str) or not result.startswith("0x") or len(result) < 2 + 64 * 5:
+                logger.debug("Chainlink RPC returned malformed result for %s", pair)
+                return None
+            answer = int.from_bytes(bytes.fromhex(result[2 + 64 : 2 + 128]), "big", signed=True)
+            if answer <= 0:
+                return None
+            round_id = int(result[2 : 2 + 64], 16)
+            return PriceData(
+                pair=pair,
+                price=Decimal(answer) / (Decimal(10) ** self._decimals),
+                source=PriceSource.chainlink,
+                timestamp=datetime.now(UTC),
+                confidence=0.95,
+                round_id=round_id,
+            )
         except Exception as e:
             logger.warning("Chainlink fetch failed for %s: %s", pair, e)
             return None
@@ -134,6 +162,11 @@ class AggregatedPriceFeed:
 
     def __init__(self, session: Any = None) -> None:
         self.chainlink = ChainlinkAdapter(enabled=False)
+        # #1361: the CoinGecko fallback needs its own client — ChainlinkAdapter
+        # owns one privately and this class previously referenced a
+        # nonexistent self._client, so every API fetch AttributeError'd into
+        # the broad except and the fallback was dead code.
+        self._client = RequestIDPropagatingClient(timeout=10.0)
         self._prices: dict[str, PriceData] = {}
         self._last_update: dict[str, datetime] = {}
         self._update_interval = 300
@@ -196,7 +229,7 @@ class AggregatedPriceFeed:
         try:
             url = "https://api.coingecko.com/api/v3/simple/price"
             params = {"ids": coin_id, "vs_currencies": "usd", "include_24hr_change": "true"}
-            response = await self._client.get(url, params=params, timeout=10)  # type: ignore[attr-defined]
+            response = await self._client.get(url, params=params, timeout=10)
             if response.status_code != 200:
                 logger.warning("CoinGecko API returned %s", response.status_code)
                 return None
