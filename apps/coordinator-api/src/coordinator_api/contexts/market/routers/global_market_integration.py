@@ -78,6 +78,8 @@ async def create_cross_chain_market_offer(
         return offer
     except ValueError:
         raise HTTPException(status_code=400, detail="Bad request") from None
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error creating cross-chain offer") from None
 
@@ -212,6 +214,8 @@ async def execute_cross_chain_transaction(
         return transaction
     except ValueError:
         raise HTTPException(status_code=400, detail="Bad request") from None
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error executing cross-chain transaction") from None
 
