@@ -164,7 +164,10 @@ Locked inputs:
 Two real unit files per host — deployed as
 `aitbc-blockchain-node-island.service`,
 `aitbc-blockchain-rpc-island.service` (design spec'd `aitbc-i2-*`;
-same `%N.env` mechanism) — derived from the stock units with:
+same `%N.env` mechanism) — derived from the stock units with
+(the rpc-island unit now has a repo template:
+`apps/blockchain-node/aitbc-blockchain-rpc-island.service`, #1302;
+node-island remains host-local):
 
 - **EnvironmentFile list = `%N.env` only** (cardinal rule, above).
 - `User=aitbc`, `WorkingDirectory=/opt/aitbc`, same `PYTHONPATH` —
@@ -183,6 +186,14 @@ same `%N.env` mechanism) — derived from the stock units with:
   (applied on node1 and hub1 via drop-in, #1296); island-node
   ~190–230M → `512M`/`1G` is ample. hub1's smaller-VPS caps above are
   a deliberate exception for the *node* unit only.
+- **Worker-count-aware sizing (#1302):** `--workers` scales the memory
+  floor — each uvicorn worker carries its own app + connection pools.
+  node1 island-rpc runs `--workers 2` at ~450MB WS → `768M`/`1G`;
+  hub1 runs `--workers 1` at ~150MB WS → `384M`/`512M` would suffice
+  (hub1 currently holds `768M`/`1G` via drop-in anyway). Repo template
+  `apps/blockchain-node/aitbc-blockchain-rpc-island.service` ships the
+  2-worker sizing with the 1-worker variant documented inline — copy
+  it, then adjust workers + limits together per host.
 - RPC unit binds `RPC_BIND_PORT=8302`; metrics exporter on the node
   unit reads `AITBC_NODE_METRICS_PORT=8309`; gossip endpoint **8370**
   — **deploy delta:** no dedicated 8370 listener was stood up. As
