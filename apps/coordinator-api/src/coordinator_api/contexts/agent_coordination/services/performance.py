@@ -507,6 +507,10 @@ class PerformanceOptimizer:
         analysis_results = self.analyze_current_performance(current_performance, target_metric)
         candidates = await self.generate_optimization_candidates(target_metric, analysis_results)
         best_candidate = await self.evaluate_candidates(candidates, target_metric)
+        # canned technique candidates carry no baseline — supply the real
+        # one so apply_optimization produces an actual result instead of {}
+        best_candidate["base_performance"] = current_performance
+        best_candidate["target_metric"] = target_metric.value
         applied_performance = await self.apply_optimization(best_candidate)
         improvements = self.calculate_improvements(current_performance, applied_performance)
         end_time = datetime.now(UTC)
@@ -542,7 +546,9 @@ class PerformanceOptimizer:
             analysis["improvement_potential"] = min(1.0, analysis["gap"] / target_value)  # type: ignore[operator]
         elif target_metric == PerformanceMetric.LATENCY:
             analysis["gap"] = current_value - target_value  # type: ignore[operator]
-            analysis["improvement_potential"] = min(1.0, analysis["gap"] / current_value)  # type: ignore[operator]
+            analysis["improvement_potential"] = (
+                min(1.0, analysis["gap"] / current_value) if current_value else 0.0  # type: ignore[operator]
+            )
         else:
             analysis["gap"] = target_value - current_value  # type: ignore[operator]
             analysis["improvement_potential"] = min(1.0, analysis["gap"] / target_value)  # type: ignore[operator]
@@ -720,9 +726,11 @@ class AgentPerformanceService:
         if not profile:
             profile = await self.create_performance_profile(agent_id, "agent", new_metrics)
         else:
-            profile.performance_metrics.update(new_metrics)
+            # rebind copies: in-place .update()/.append() on plain JSON
+            # columns is not change-tracked and would silently not persist
+            profile.performance_metrics = {**profile.performance_metrics, **new_metrics}
             history_entry = {"timestamp": datetime.now(UTC).isoformat(), "metrics": new_metrics, "context": task_context or {}}
-            profile.performance_history.append(history_entry)
+            profile.performance_history = [*profile.performance_history, history_entry]
             profile.overall_score = self.calculate_overall_score(profile.performance_metrics)
             profile.improvement_trends = self.calculate_improvement_trends(profile.performance_history)
             profile.updated_at = datetime.now(UTC)
