@@ -65,3 +65,11 @@ absolute-pin territory).
   post-activation.
 - Island chains (`bc-2-island-1`, transitions=1) apply equivalent rules
   from genesis — out of scope for height pins.
+
+## See also
+
+- [Consensus domain-separation activation runbook](consensus-domain-separation-activation-runbook.md)
+  — the #1298 `CONSENSUS_DOMAIN_SEPARATION_HEIGHT` /
+  `CONSENSUS_LEGACY_ATTESTATION_UNTIL_HEIGHT` two-height gate; same
+  pin discipline, plus the dual-accept window and fleet precondition
+  that every validator runs domain-aware code before H.
