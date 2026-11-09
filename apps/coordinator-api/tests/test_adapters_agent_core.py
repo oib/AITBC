@@ -263,33 +263,15 @@ class TestAgentOrchestratorAdapter:
 
         assert result == {"execution_id": "exec_x", "status": "completed"}
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "AgentOrchestratorAdapter.execute_workflow delegates to "
-            "AIAgentOrchestrator.execute_workflow(request, client_id) with "
-            "(workflow_id: str, inputs: dict) — signature mismatch raises "
-            "AttributeError; defect minted as #1379 from #1289 residual coverage"
-        ),
-    )
     async def test_execute_workflow_with_real_orchestrator(self, db_session: Session) -> None:
         orchestrator = AIAgentOrchestrator(db_session, coordinator_client=None)  # type: ignore[arg-type]
         adapter = AgentOrchestratorAdapter(orchestrator)
 
         result = await adapter.execute_workflow("wf_missing", {"x": 1})
 
-        assert isinstance(result, dict)
+        assert result["status"] == "error"
+        assert "Workflow not found" in result["error"]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "AgentOrchestratorAdapter.get_status does not match the real "
-            "AIAgentOrchestrator (which exposes get_execution_status); the "
-            "fallback fabricates {'status': 'completed'} for any id instead "
-            "of raising for an unknown execution — defect minted as #1379 "
-            "from #1289 residual coverage"
-        ),
-    )
     async def test_get_status_with_real_orchestrator_raises_for_unknown(self, db_session: Session) -> None:
         orchestrator = AIAgentOrchestrator(db_session, coordinator_client=None)  # type: ignore[arg-type]
         adapter = AgentOrchestratorAdapter(orchestrator)
