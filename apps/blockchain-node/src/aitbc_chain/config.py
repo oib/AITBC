@@ -1235,6 +1235,10 @@ class ChainSettings(BaseSettings):
     # #1310: run the attest-listener v9 tx check in a worker thread instead of
     # on the event loop (default OFF; the check is timed either way).
     attest_v9_check_offload_enabled: bool = False
+    # #1306: unlock_justification waits inside the serial attest-request
+    # listener are timed; waits at or above this many seconds increment
+    # attest_listener_unlock_stall_total (instrumentation only, no behavior).
+    attest_listener_stall_seconds: float = 5.0
     # #1301 L2: a proposer that missed attestation quorum signs and publishes
     # an abandon statement; voters whose journal holds an attest vote for that
     # exact hash from that proposer release the entry. Needs vote_journal_enabled.

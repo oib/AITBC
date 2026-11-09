@@ -286,6 +286,10 @@ class RemoteAttestationService:
         if unavail.justification_enabled():
             # #1281 armed barrier: age+miss only triggers collection —
             # release needs the verifiable justification bundle.
+            # #1306: this await runs inside the serial attest-request
+            # listener — leg-1 unfetchable_persists can park it for the
+            # full evidence window. Time it so the stall is measurable.
+            just_start = time.monotonic()
             justification = await unavail.unlock_justification(
                 self._chain_id,
                 height,
@@ -299,6 +303,16 @@ class RemoteAttestationService:
                 # the background and the next evaluation picks it up.
                 wait_for_probe=False,
             )
+            just_elapsed = time.monotonic() - just_start
+            metrics_registry.observe("attest_unlock_justification_seconds", just_elapsed)
+            stall_after = float(getattr(settings, "attest_listener_stall_seconds", 5.0))
+            if just_elapsed >= stall_after:
+                metrics_registry.increment("attest_listener_unlock_stall_total")
+                logger.warning(
+                    "Attest listener stalled %.1fs inside unlock_justification at height %s",
+                    just_elapsed,
+                    height,
+                )
             if justification is None:
                 metrics_registry.increment("vote_journal_refused_rival_total")
                 logger.warning(
