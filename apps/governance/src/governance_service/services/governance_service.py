@@ -131,8 +131,13 @@ class GovernanceService:
         status: str | None = None,
         category: str | None = None,
         proposer_id: str | None = None,
+        limit: int = 100,
     ) -> list[Proposal]:
-        """List governance proposals"""
+        """List governance proposals.
+
+        ``limit`` bounds the SQL read *before* the on-chain reconcile probes —
+        one GET used to scan every proposal and fire an RPC probe per row
+        (#1406)."""
         stmt = select(Proposal)
         if status:
             stmt = stmt.where(Proposal.status == status)
@@ -140,7 +145,7 @@ class GovernanceService:
             stmt = stmt.where(Proposal.category == category)
         if proposer_id:
             stmt = stmt.where(Proposal.proposer_id == proposer_id)
-        result = await self.session.execute(stmt)
+        result = await self.session.execute(stmt.limit(limit))
         proposals = list(result.scalars().all())
         # Probes are one RPC call per proposal: run them bounded-concurrent
         # (a list over N stale proposals used to serialize N RPCs), then

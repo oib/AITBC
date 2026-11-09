@@ -10,7 +10,7 @@ from typing import Annotated, Any
 
 import json
 
-from fastapi import Body, Depends, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, text
@@ -218,8 +218,10 @@ async def create_profile(profile_data: dict[str, Any], svc: Annotated[Governance
     """Create a new governance profile"""
     actor = str(profile_data.get("caller_address") or "")
     _bind_actor(actor, {"user_id": profile_data.get("user_id")})
-    _require_signature(actor, profile_data.get("signature"), _unsigned(profile_data))
-    profile_data = _unsigned(profile_data)
+    unsigned_profile = _unsigned(profile_data)
+    _require_signature(actor, profile_data.get("signature"), unsigned_profile)
+    await _check_fresh(unsigned_profile, profile_data.get("signature"))
+    profile_data = unsigned_profile
     profile_data["user_id"] = actor
     return await svc.create_profile(profile_data)
 
@@ -230,9 +232,10 @@ async def get_proposals(
     status: str | None = None,
     category: str | None = None,
     proposer_id: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
 ):
     """Get governance proposals"""
-    return await svc.list_proposals(status=status, category=category, proposer_id=proposer_id)
+    return await svc.list_proposals(status=status, category=category, proposer_id=proposer_id, limit=limit)
 
 
 @app.get("/v1/governance/proposals/{proposal_id}")
@@ -246,8 +249,10 @@ async def create_proposal(proposal_data: dict[str, Any], svc: Annotated[Governan
     """Create a new proposal"""
     actor = str(proposal_data.get("proposer_address") or "")
     _bind_actor(actor, {"proposer_id": proposal_data.get("proposer_id")})
-    _require_signature(actor, proposal_data.get("signature"), _unsigned(proposal_data))
-    proposal_data = _unsigned(proposal_data)
+    unsigned_proposal = _unsigned(proposal_data)
+    _require_signature(actor, proposal_data.get("signature"), unsigned_proposal)
+    await _check_fresh(unsigned_proposal, proposal_data.get("signature"))
+    proposal_data = unsigned_proposal
     proposal_data["proposer_id"] = actor
     return await svc.create_proposal(proposal_data)
 
@@ -267,8 +272,10 @@ async def create_vote(vote_data: dict[str, Any], svc: Annotated[GovernanceServic
     """Create a new vote"""
     actor = str(vote_data.get("voter_address") or "")
     _bind_actor(actor, {"voter_id": vote_data.get("voter_id")})
-    _require_signature(actor, vote_data.get("signature"), _unsigned(vote_data))
-    vote_data = _unsigned(vote_data)
+    unsigned_vote = _unsigned(vote_data)
+    _require_signature(actor, vote_data.get("signature"), unsigned_vote)
+    await _check_fresh(unsigned_vote, vote_data.get("signature"))
+    vote_data = unsigned_vote
     vote_data["voter_id"] = actor
     try:
         return await svc.create_vote(vote_data)
@@ -383,16 +390,24 @@ async def get_transactions(
     action: str | None = None,
     status: str | None = None,
     island_id: str | None = None,
+    limit: int = Query(500, ge=1, le=1000),
 ):
     """Query governance transactions"""
     from sqlalchemy import select
 
     from .domain.governance import Proposal, Vote
 
+    # Neither Proposal nor Vote carries island_id — the old post-filter could
+    # only ever produce [] when it was passed, after scanning both tables.
+    if island_id:
+        return []
     try:
         transactions = []
         if action == "propose" or not action:
-            result = await session.execute(select(Proposal))
+            stmt = select(Proposal)
+            if status:
+                stmt = stmt.where(Proposal.status == status)  # type: ignore[arg-type]
+            result = await session.execute(stmt.limit(limit))
             proposals = result.scalars().all()
             transactions.extend(
                 [
@@ -406,8 +421,10 @@ async def get_transactions(
                     for p in proposals
                 ]
             )
-        if action == "vote" or not action:
-            vote_result = await session.execute(select(Vote))
+        # Vote rows carry no status field, so the old post-filter dropped all
+        # of them whenever `status` was set — skip the scan in that case.
+        if (action == "vote" or not action) and not status:
+            vote_result = await session.execute(select(Vote).limit(limit))
             votes = list(vote_result.scalars().all())
             transactions.extend(
                 [
@@ -421,10 +438,6 @@ async def get_transactions(
                     for v in votes
                 ]
             )
-        if status:
-            transactions = [t for t in transactions if t.get("status") == status]
-        if island_id:
-            transactions = [t for t in transactions if t.get("island_id") == island_id]
         return transactions
     except Exception:
         logger.exception("Transaction query error")
@@ -533,11 +546,9 @@ async def close_proposal_endpoint(
 ):
     """Close an active proposal and tally the result."""
     body = body or {}
-    _require_signature(
-        str(body.get("caller_address") or ""),
-        body.get("signature"),
-        {"action": "close", "proposal_id": proposal_id},
-    )
+    signed_close = {"action": "close", "proposal_id": proposal_id, "timestamp": body.get("timestamp")}
+    _require_signature(str(body.get("caller_address") or ""), body.get("signature"), signed_close)
+    await _check_fresh(signed_close, body.get("signature"))
     try:
         proposal = await svc.close_proposal(proposal_id)
         return {
@@ -565,11 +576,13 @@ async def execute_proposal_v2(
 ):
     """Execute a passed proposal (v0.4.12 enhanced with logging + v0.7.3 on-chain submission)"""
     body = body or {}
+    signed_execute = {"action": "execute", "proposal_id": proposal_id, "timestamp": body.get("timestamp")}
     _require_signature(
         str(body.get("caller_address") or executor_address),
         body.get("signature"),
-        {"action": "execute", "proposal_id": proposal_id},
+        signed_execute,
     )
+    await _check_fresh(signed_execute, body.get("signature"))
     signed_tx = body.get("signed_tx")
     try:
         proposal = await svc.execute_proposal(proposal_id, executor_address=executor_address, signed_tx=signed_tx)

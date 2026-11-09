@@ -209,7 +209,7 @@
             }
           },
           "403": {
-            "description": "{field} does not match the signing address / caller signature required",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -312,6 +312,18 @@
               ],
               "title": "Proposer Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
@@ -371,7 +383,7 @@
             }
           },
           "403": {
-            "description": "{field} does not match the signing address / caller signature required",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -532,7 +544,7 @@
             }
           },
           "403": {
-            "description": "{field} does not match the signing address / caller signature required",
+            "description": "{field} does not match the signing address / caller signature required / signed timestamp required / signed timestamp outside the freshness window / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -798,6 +810,18 @@
                 }
               ],
               "title": "Island Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Limit"
             }
           }
         ],
@@ -1084,7 +1108,7 @@
             }
           },
           "403": {
-            "description": "caller signature required",
+            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -1190,7 +1214,7 @@
             }
           },
           "403": {
-            "description": "caller signature required",
+            "description": "caller signature required / signed timestamp required / signed timestamp outside the freshness window / invalid signed timestamp / \u2026",
             "content": {
               "application/json": {
                 "schema": {
