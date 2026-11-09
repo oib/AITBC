@@ -8,9 +8,22 @@ list is static data.
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
+from coordinator_api.contexts.zk_applications.routers import ml_zk_proofs
+
 BASE = "/v1/ml-zk"
+
+
+@pytest.fixture
+def no_proving_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force the honest-degradation path regardless of host zkey/snarkjs state.
+
+    On nodes with zk-circuits installed the prove endpoints run real proof
+    generation and answer 400 on bad inputs instead of the pinned 503.
+    """
+    monkeypatch.setattr(ml_zk_proofs.zk_service, "available_circuits", {})
 
 
 def _proof_req() -> dict:
@@ -22,11 +35,11 @@ def _verify_req() -> dict:
 
 
 class TestMlZkProve:
-    def test_prove_training_503_no_keys(self, client: TestClient) -> None:
+    def test_prove_training_503_no_keys(self, client: TestClient, no_proving_keys: None) -> None:
         resp = client.post(f"{BASE}/prove/training", json=_proof_req())
         assert resp.status_code == 503
 
-    def test_prove_modular_503_no_keys(self, client: TestClient) -> None:
+    def test_prove_modular_503_no_keys(self, client: TestClient, no_proving_keys: None) -> None:
         resp = client.post(f"{BASE}/prove/modular", json=_proof_req())
         assert resp.status_code == 503
 

@@ -85,6 +85,7 @@ import coordinator_api.contexts.analytics.domain.analytics  # noqa: F401
 import coordinator_api.contexts.certification.domain.certification  # noqa: F401
 import coordinator_api.contexts.community.domain  # noqa: F401
 import coordinator_api.contexts.ecosystem.domain  # noqa: F401
+import coordinator_api.contexts.market.domain.global_market  # noqa: F401
 """
 
 
