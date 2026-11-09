@@ -8284,15 +8284,33 @@
         "summary": "File a dispute",
         "description": "File a new dispute for a job",
         "operationId": "file_dispute_v1_disputes_file_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FileDisputeRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8300,8 +8318,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response File Dispute V1 Disputes File Post"
                 }
               }
@@ -8358,15 +8376,33 @@
         "summary": "Submit evidence",
         "description": "Submit evidence for a dispute",
         "operationId": "submit_evidence_v1_disputes_evidence_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubmitEvidenceRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8374,8 +8410,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Submit Evidence V1 Disputes Evidence Post"
                 }
               }
@@ -8432,15 +8468,33 @@
         "summary": "Cast arbitrator vote",
         "description": "Cast a vote as an arbitrator",
         "operationId": "cast_vote_v1_disputes_vote_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CastVoteRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8448,8 +8502,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Cast Vote V1 Disputes Vote Post"
                 }
               }
@@ -8701,7 +8755,7 @@
           "disputes"
         ],
         "summary": "Register as arbitrator",
-        "description": "Register an address as an arbitrator",
+        "description": "Register an address as an arbitrator.\n\nCallers may only register their own authenticated identity \u2014 the\n``address`` parameter is retained for compatibility and must match\nthe caller's subject (#1335). Staking requirements remain a\ndocumented TODO.",
         "operationId": "register_arbitrator_v1_disputes_arbitrators_register_post",
         "parameters": [
           {
@@ -8711,6 +8765,22 @@
             "schema": {
               "type": "string",
               "title": "Address"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -8733,6 +8803,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Can only register your own identity as arbitrator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
