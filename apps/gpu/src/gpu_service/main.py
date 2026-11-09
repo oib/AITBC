@@ -86,6 +86,22 @@ _OFFER_TO_GPU_STATUS: dict[OfferStatus, str] = {
 _MAX_PRICE_PER_HOUR = Decimal("999999999999.99999999")
 
 
+def _parse_price_per_hour(price_raw: Any) -> Decimal:
+    """Validate a caller-supplied ``price_per_hour`` and return it as Decimal.
+
+    Raises ValueError (carrying the 400 detail message) when the value is not
+    Decimal-parseable, non-finite, negative, or wider than the
+    GPURegistry.price_per_hour Numeric(20,8) column (#1389).
+    """
+    try:
+        price = Decimal(str(price_raw))
+    except InvalidOperation as exc:
+        raise ValueError(f"invalid price_per_hour: {price_raw!r}") from exc
+    if not price.is_finite() or price < 0 or price > _MAX_PRICE_PER_HOUR:
+        raise ValueError(f"price_per_hour out of range: {price_raw!r} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})")
+    return price
+
+
 def _validate_gpu_offer(payload: dict[str, Any], transaction_data: dict[str, Any]) -> tuple[str, Decimal] | JSONResponse:
     """Validate a gpu_market offer before it writes a GPURegistry row (#1389).
 
@@ -109,16 +125,10 @@ def _validate_gpu_offer(payload: dict[str, Any], transaction_data: dict[str, Any
                 )
             },
         )
-    price_raw = payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0))
     try:
-        offer_price = Decimal(str(price_raw))
-    except InvalidOperation:
-        return JSONResponse(status_code=400, content={"error": f"invalid price_per_hour: {price_raw!r}"})
-    if not offer_price.is_finite() or offer_price < 0 or offer_price > _MAX_PRICE_PER_HOUR:
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"price_per_hour out of range: {price_raw!r} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})"},
-        )
+        offer_price = _parse_price_per_hour(payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0)))
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
     return offer_status, offer_price
 
 
@@ -339,10 +349,19 @@ async def update_gpu(
         if not gpu:
             return JSONResponse(status_code=404, content={"error": "GPU not found"})
         if "price_per_hour" in gpu_data:
-            gpu.price_per_hour = Decimal(str(gpu_data["price_per_hour"]))
+            # #1389: same bounds as the offer path — an unvalidated price can
+            # exceed Numeric(20,8) or go negative/non-finite.
+            try:
+                gpu.price_per_hour = _parse_price_per_hour(gpu_data["price_per_hour"])
+            except ValueError as exc:
+                return JSONResponse(status_code=400, content={"error": str(exc)})
         if "status" in gpu_data:
             # v0.6.6: validate status transition via OfferFSM
-            gpu.status = _validate_gpu_status_transition(gpu.status, gpu_data["status"])
+            try:
+                gpu.status = _validate_gpu_status_transition(gpu.status, gpu_data["status"])
+            except ValueError as exc:
+                # An illegal transition is a client error, not a 500.
+                return JSONResponse(status_code=400, content={"error": str(exc)})
         await session.commit()
         await session.refresh(gpu)
         return {
