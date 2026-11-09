@@ -6,7 +6,7 @@ Connects with actual KYC/AML service providers for compliance verification
 import asyncio
 import hashlib
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -144,14 +144,14 @@ class RealKYCProvider:
         {"Authorization": f"Bearer {self.api_keys[KYCProvider.CHAINALYSIS]}", "Content-Type": "application/json"}
         await asyncio.sleep(1)
         return KYCResponse(
-            request_id=f"chainalysis_{request.user_id}_{int(datetime.now().timestamp())}",
+            request_id=f"chainalysis_{request.user_id}_{int(datetime.now(UTC).timestamp())}",
             user_id=request.user_id,
             provider=KYCProvider.CHAINALYSIS,
             status=KYCStatus.PENDING,
             risk_score=0.15,
             verification_data={"provider": "chainalysis", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=30),
+            created_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
         )
 
     async def _sumsub_kyc(self, request: KYCRequest) -> KYCResponse:
@@ -168,56 +168,56 @@ class RealKYCProvider:
         }
         await asyncio.sleep(1.5)
         return KYCResponse(
-            request_id=f"sumsub_{request.user_id}_{int(datetime.now().timestamp())}",
+            request_id=f"sumsub_{request.user_id}_{int(datetime.now(UTC).timestamp())}",
             user_id=request.user_id,
             provider=KYCProvider.SUMSUB,
             status=KYCStatus.PENDING,
             risk_score=0.12,
             verification_data={"provider": "sumsub", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=90),
+            created_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(days=90),
         )
 
     async def _onfido_kyc(self, request: KYCRequest) -> KYCResponse:
         """Onfido KYC verification"""
         await asyncio.sleep(1.2)
         return KYCResponse(
-            request_id=f"onfido_{request.user_id}_{int(datetime.now().timestamp())}",
+            request_id=f"onfido_{request.user_id}_{int(datetime.now(UTC).timestamp())}",
             user_id=request.user_id,
             provider=KYCProvider.ONFIDO,
             status=KYCStatus.PENDING,
             risk_score=0.08,
             verification_data={"provider": "onfido", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=60),
+            created_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(days=60),
         )
 
     async def _jumio_kyc(self, request: KYCRequest) -> KYCResponse:
         """Jumio KYC verification"""
         await asyncio.sleep(1.3)
         return KYCResponse(
-            request_id=f"jumio_{request.user_id}_{int(datetime.now().timestamp())}",
+            request_id=f"jumio_{request.user_id}_{int(datetime.now(UTC).timestamp())}",
             user_id=request.user_id,
             provider=KYCProvider.JUMIO,
             status=KYCStatus.PENDING,
             risk_score=0.1,
             verification_data={"provider": "jumio", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=45),
+            created_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(days=45),
         )
 
     async def _veriff_kyc(self, request: KYCRequest) -> KYCResponse:
         """Veriff KYC verification"""
         await asyncio.sleep(1.1)
         return KYCResponse(
-            request_id=f"veriff_{request.user_id}_{int(datetime.now().timestamp())}",
+            request_id=f"veriff_{request.user_id}_{int(datetime.now(UTC).timestamp())}",
             user_id=request.user_id,
             provider=KYCProvider.VERIFF,
             status=KYCStatus.PENDING,
             risk_score=0.07,
             verification_data={"provider": "veriff", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=30),
+            created_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(days=30),
         )
 
     async def check_kyc_status(self, request_id: str, provider: KYCProvider) -> KYCResponse:
@@ -246,7 +246,7 @@ class RealKYCProvider:
                 status=status,
                 risk_score=risk_score,
                 verification_data={"provider": provider.value, "checked": True},
-                created_at=datetime.now() - timedelta(hours=1),
+                created_at=datetime.now(UTC) - timedelta(hours=1),
                 rejection_reason=rejection_reason if status in [KYCStatus.REJECTED, KYCStatus.FAILED] else None,
             )
         except Exception as e:
@@ -299,7 +299,7 @@ class RealAMLProvider:
                 risk_score = 0.15
                 sanctions_hits = []
             return AMLCheck(
-                check_id=f"aml_{user_id}_{int(datetime.now().timestamp())}",
+                check_id=f"aml_{user_id}_{int(datetime.now(UTC).timestamp())}",
                 user_id=user_id,
                 provider="chainalysis_aml",
                 risk_level=risk_level,
@@ -307,7 +307,7 @@ class RealAMLProvider:
                 sanctions_hits=sanctions_hits,
                 pep_hits=[],
                 adverse_media=[],
-                checked_at=datetime.now(),
+                checked_at=datetime.now(UTC),
             )
         except Exception as e:
             logger.error("❌ AML screening failed: %s", e)
