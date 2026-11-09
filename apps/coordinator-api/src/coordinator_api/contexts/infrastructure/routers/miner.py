@@ -871,6 +871,8 @@ async def fail_job(
         return {"job_id": job_id, "status": "failed"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error failing job %s: %s", job_id, e)
         logger.exception("Unhandled exception")
