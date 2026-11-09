@@ -698,7 +698,7 @@ class RemoteAttestationService:
         elif len(json.dumps(request).encode()) > int(getattr(settings, "gossip_max_message_size", 1_048_576)):
             refusal = "request_too_large"
         else:
-            refusal = self._v9_check_transactions(header, txs)
+            refusal = await self._run_v9_check(header, txs)
         if refusal is not None:
             count_v9_would_reject(f"attest_{refusal}")
             if get_block_version_for_height(height_int) >= 9:
@@ -826,6 +826,23 @@ class RemoteAttestationService:
                 request_age_ms,
             )
             return
+
+    async def _run_v9_check(self, header: dict[str, Any], txs: list[Any]) -> str | None:
+        """#1310: run the v9 tx check, timed; optionally off the event loop.
+
+        With ``attest_v9_check_offload_enabled`` the (read-only, idempotent)
+        check runs in a worker thread -- ecrecover, sqlite reads and the lock
+        retry sleep no longer freeze the loop. The handler still awaits the
+        verdict before any signing decision, so serial ordering is unchanged.
+        ``attest_v9_check_seconds`` records the cost either way.
+        """
+        start = time.perf_counter()
+        try:
+            if getattr(settings, "attest_v9_check_offload_enabled", False):
+                return await asyncio.to_thread(self._v9_check_transactions, header, txs)
+            return self._v9_check_transactions(header, txs)
+        finally:
+            metrics_registry.observe("attest_v9_check_seconds", time.perf_counter() - start)
 
     def _v9_check_transactions(
         self,
