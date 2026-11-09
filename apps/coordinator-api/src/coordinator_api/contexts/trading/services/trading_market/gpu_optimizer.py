@@ -353,35 +353,43 @@ class MarketGPUOptimizer:
         best_score = -float("inf")
         for gpu in self.gpu_devices:
             gpu_id = gpu["id"]
-            pool = self.gpu_memory_pools[gpu_id]
             available_mem = gpu["free_memory"]
             if available_mem >= memory_required:
-                score = available_mem / pool["total_memory"] * 100
+                # #1367: total_memory lives on the device dict, not the pool.
+                score = available_mem / gpu["total_memory"] * 100
                 if score > best_score:
                     best_score = score
                     best_gpu = gpu_id
         if best_gpu >= 0:
             alloc_result = self._allocate_memory(best_gpu, memory_required, job_id)
             if alloc_result["success"]:
-                job_data["status"] = "running"
-                job_data["gpu_id"] = best_gpu
-                job_data["memory_allocated"] = memory_required
-                self.active_jobs[job_id] = job_data
-                return True
+                return self._commit_scheduled_job(job_data, best_gpu, memory_required, job_id)
         logger.info("No GPU has %sMB free for job %s. Attempting preemption...", memory_required, job_id)
         preempt_success = await self._preempt_low_priority_jobs(priority, memory_required)
         if preempt_success:
             for gpu_id, pool in self.gpu_memory_pools.items():
-                if pool["total_memory"] - pool["allocated_memory"] >= memory_required:
+                # #1367: pools carry free_blocks, not total/allocated_memory.
+                if sum(b["size"] for b in pool["free_blocks"]) >= memory_required:
                     alloc_result = self._allocate_memory(gpu_id, memory_required, job_id)
                     if alloc_result["success"]:
-                        job_data["status"] = "running"
-                        job_data["gpu_id"] = gpu_id
-                        job_data["memory_allocated"] = memory_required
-                        self.active_jobs[job_id] = job_data
-                        return True
+                        return self._commit_scheduled_job(job_data, gpu_id, memory_required, job_id)
         logger.warning("Job %s remains queued. Insufficient resources even after preemption.", job_id)
         return False
+
+    def _commit_scheduled_job(self, job_data: dict[str, Any], gpu_id: int, memory_required: int, job_id: str) -> bool:
+        """Register a successfully allocated job and sync device free_memory.
+
+        #1367: _allocate_memory only consumes pool blocks; the device-level
+        # free_memory counter must be decremented here to stay consistent.
+        """
+        job_data["status"] = "running"
+        job_data["gpu_id"] = gpu_id
+        job_data["memory_allocated"] = memory_required
+        self.active_jobs[job_id] = job_data
+        target = {g["id"]: g for g in self.gpu_devices}.get(gpu_id)
+        if target is not None:
+            target["free_memory"] -= memory_required
+        return True
 
     async def _preempt_low_priority_jobs(self, incoming_priority: int, required_memory: int) -> bool:
         """Preempt lower priority jobs to make room for higher priority ones"""

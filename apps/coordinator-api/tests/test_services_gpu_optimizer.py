@@ -3,9 +3,9 @@
 simulation_mode=True gives deterministic simulated RTX 4090 devices —
 no PyCUDA required. Pins the custom allocator (first-fit, fragmented
 fallback, free-block merge), resource release, metrics, and system
-status. One strict xfail pins #1367: schedule_job reads
-pool["total_memory"]/pool["allocated_memory"] keys that do not exist on
-gpu_memory_pools entries -> KeyError on the first fitting job.
+status. #1367 regression pins: schedule_job used nonexistent pool keys
+(pool["total_memory"]/pool["allocated_memory"]) and never decremented
+gpu free_memory — both fixed.
 """
 
 from __future__ import annotations
@@ -167,14 +167,10 @@ async def test_optimize_market_batch(opt):
 
 
 # ---------------------------------------------------------------------------
-# strict xfail — schedule_job reads nonexistent pool keys (#1367)
+# schedule_job — #1367 regression pins (was strict-xfail pre-fix)
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#1367: schedule_job reads pool['total_memory']/pool['allocated_memory'] — gpu_memory_pools entries only have allocated_blocks/free_blocks/fragmentation -> KeyError on first fitting job",
-)
 @pytest.mark.unit
 async def test_schedule_job_fitting_memory(opt):
     ok = await opt.schedule_job("j1", priority=5, memory_required=GIB, computation_complexity=1.0)
