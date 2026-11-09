@@ -146,7 +146,17 @@ class ServeService:
                 )
                 if req_check.scalar_one_or_none() is None:
                     return None
-            result = await session.execute(select(ComputeResult).where(ComputeResult.request_id == request_id))
+            # Enforce the advertised cache TTL: expired results are ignored
+            # (the worker stamps expires_at = created + cache_ttl). Rows
+            # written before the aware-datetime fix carry naive UTC values;
+            # the column is a naive DateTime storing UTC wall-clock, so the
+            # aware bound param compares correctly on both sqlite and PG.
+            result = await session.execute(
+                select(ComputeResult).where(
+                    ComputeResult.request_id == request_id,
+                    ComputeResult.expires_at > datetime.now(UTC),
+                )
+            )
             res = result.scalar_one_or_none()
 
             if res:
