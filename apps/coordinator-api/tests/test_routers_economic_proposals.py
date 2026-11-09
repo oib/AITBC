@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -178,13 +177,9 @@ class TestExecute:
         assert resp.status_code == 200
         assert resp.json()["status"] == "rejected"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect: execute_proposal divides votes_for/total_votes with total_votes==0 -> ZeroDivisionError -> 500 instead of 400 (#1289 round-4 find)",
-    )
     def test_execute_zero_votes_division_guard(self, client: TestClient, db_session: Session) -> None:
-        """DEFECT pin: execute_proposal computes votes_for/total_votes with
-        total_votes == 0 -> ZeroDivisionError -> 500 instead of a clean 400."""
+        """Zero-total-vote proposals must be rejected with 400, not 500 —
+        previously votes_for/total_votes raised ZeroDivisionError (#1313)."""
         p = _seed_proposal(db_session, votes_for=0.0, votes_against=0.0, votes_abstain=0.0, quorum=0.0)
         resp = client.post(f"{BASE}/{p.id}/execute", headers=_admin())
         assert resp.status_code == 400
