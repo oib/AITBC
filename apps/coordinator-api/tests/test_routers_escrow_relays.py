@@ -9,6 +9,8 @@ Idempotency-Key -> pass-through).
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -98,20 +100,30 @@ class TestEscrowCreateRelay:
         assert client.post(self.URL, json=bad2, headers=_client()).status_code == 422
 
     def test_happy_path_admin_and_client(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("coordinator_api.contexts.payments.routers.escrow_relay.EscrowRelayService", _OkService)
+        monkeypatch.setattr(
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_relay"), "EscrowRelayService", _OkService
+        )
         for headers in (_admin(), _client()):
             resp = client.post(self.URL, json=_create_body(), headers=headers)
             assert resp.status_code == 200
             assert resp.json()["contract_id"] == "ctr-1"
 
     def test_service_http_exception_propagates(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("coordinator_api.contexts.payments.routers.escrow_relay.EscrowRelayService", _RejectService)
+        monkeypatch.setattr(
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_relay"),
+            "EscrowRelayService",
+            _RejectService,
+        )
         resp = client.post(self.URL, json=_create_body(), headers=_client())
         assert resp.status_code == 403
         assert "not the escrow buyer" in resp.text
 
     def test_service_error_500(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("coordinator_api.contexts.payments.routers.escrow_relay.EscrowRelayService", _BoomService)
+        monkeypatch.setattr(
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_relay"),
+            "EscrowRelayService",
+            _BoomService,
+        )
         resp = client.post(self.URL, json=_create_body(), headers=_admin())
         assert resp.status_code == 500
 
@@ -124,21 +136,24 @@ class TestEscrowReleaseRelay:
 
     def test_happy_and_reject(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "coordinator_api.contexts.payments.routers.escrow_release_relay.EscrowReleaseRelayService",
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_release_relay"),
+            "EscrowReleaseRelayService",
             _OkService,
         )
         resp = client.post(self.URL, json={"job_id": "j1", "amount": "50"}, headers=_client())
         assert resp.status_code == 200
         assert resp.json()["tx_hash"] == "0xtx"
         monkeypatch.setattr(
-            "coordinator_api.contexts.payments.routers.escrow_release_relay.EscrowReleaseRelayService",
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_release_relay"),
+            "EscrowReleaseRelayService",
             _RejectService,
         )
         assert client.post(self.URL, json={"job_id": "j1"}, headers=_client()).status_code == 403
 
     def test_validation_amount_optional(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "coordinator_api.contexts.payments.routers.escrow_release_relay.EscrowReleaseRelayService",
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_release_relay"),
+            "EscrowReleaseRelayService",
             _OkService,
         )
         # amount omitted -> full locked amount per #469 ruling
@@ -156,7 +171,8 @@ class TestEscrowRefundRelay:
 
     def test_happy_path(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "coordinator_api.contexts.payments.routers.escrow_refund_relay.EscrowRefundRelayService",
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_refund_relay"),
+            "EscrowRefundRelayService",
             _OkService,
         )
         resp = client.post(self.URL, json={"job_id": "j1", "reason": "job_failed"}, headers=_client())
@@ -165,7 +181,8 @@ class TestEscrowRefundRelay:
 
     def test_reason_literal_enforced(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "coordinator_api.contexts.payments.routers.escrow_refund_relay.EscrowRefundRelayService",
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_refund_relay"),
+            "EscrowRefundRelayService",
             _OkService,
         )
         resp = client.post(self.URL, json={"job_id": "j1", "reason": "whatever"}, headers=_client())
@@ -173,13 +190,15 @@ class TestEscrowRefundRelay:
 
     def test_conflict_and_500(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
-            "coordinator_api.contexts.payments.routers.escrow_refund_relay.EscrowRefundRelayService",
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_refund_relay"),
+            "EscrowRefundRelayService",
             _RejectService,
         )
         resp = client.post(self.URL, json={"job_id": "j1"}, headers=_client())
         assert resp.status_code == 409
         monkeypatch.setattr(
-            "coordinator_api.contexts.payments.routers.escrow_refund_relay.EscrowRefundRelayService",
+            importlib.import_module("coordinator_api.contexts.payments.routers.escrow_refund_relay"),
+            "EscrowRefundRelayService",
             _BoomService,
         )
         assert client.post(self.URL, json={"job_id": "j1"}, headers=_admin()).status_code == 500
