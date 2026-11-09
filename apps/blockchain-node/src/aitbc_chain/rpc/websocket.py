@@ -134,6 +134,24 @@ def _rx_publish_extra_fields(data: object) -> dict[str, object]:
     return extra
 
 
+def _subscription_queue_depth(subscription: object) -> int | None:
+    """Best-effort subscriber queue depth for telemetry (#1308 respin-3 fix).
+
+    ``TopicSubscription.queue`` is part of the production contract, but test
+    doubles and alternate backends may not carry it — telemetry must never
+    break the publish path, so a missing/unreadable queue yields ``None``
+    (gauge skipped, event field null) instead of raising.
+    """
+    queue = getattr(subscription, "queue", None)
+    qsize = getattr(queue, "qsize", None)
+    if qsize is None:
+        return None
+    try:
+        return int(qsize())
+    except Exception:
+        return None
+
+
 def _gossip_client_ip(websocket: WebSocket) -> str:
     """Return the client IP that keys the gossip connection and rate limits.
 
@@ -481,15 +499,17 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         )
                         break
                     gossip_ws_echo_forward_total.labels(topic_class=bounded_topic_label(topic)).inc()
-                    gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
-                        float(subscription.queue.qsize())
-                    )
+                    queue_depth = _subscription_queue_depth(subscription)
+                    if queue_depth is not None:
+                        gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
+                            float(queue_depth)
+                        )
                     gossip_event(
                         "echo_forward",
                         peer=client_ip,
                         topic=topic,
                         event_id=event_id,
-                        queue_depth=subscription.queue.qsize(),
+                        queue_depth=queue_depth,
                     )
             except Exception as e:
                 logger.warning("Error forwarding broker message for %s: %s", topic, e)
@@ -627,15 +647,17 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 # can be matched against rx/broker/echo stages.
                 event_id = _message_id(topic, data)
                 gossip_ws_rx_publish_total.labels(topic_class=bounded_topic_label(topic)).inc()
-                gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
-                    float(subscription.queue.qsize())
-                )
+                queue_depth = _subscription_queue_depth(subscription)
+                if queue_depth is not None:
+                    gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
+                        float(queue_depth)
+                    )
                 gossip_event(
                     "rx_publish",
                     peer=client_ip,
                     topic=topic,
                     event_id=event_id,
-                    queue_depth=subscription.queue.qsize(),
+                    queue_depth=queue_depth,
                     **_rx_publish_extra_fields(data),
                 )
                 try:
