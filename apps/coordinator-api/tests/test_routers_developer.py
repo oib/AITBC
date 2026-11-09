@@ -7,7 +7,6 @@ under TEST_MODE; pinned via get_auth_level/check_role_match.
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -68,9 +67,5 @@ class TestDeveloperLifecycle:
         # active_only filter path
         assert client.get(BASE, params={"active_only": "false"}, headers=_headers()).status_code == 200
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1331: wallet_address has no format validation — register accepts 'not-an-address' with 201",
-    )
     def test_validation_bad_wallet_422(self, client: TestClient) -> None:
         assert client.post(BASE, json=_body(wallet_address="not-an-address"), headers=_headers()).status_code == 422
