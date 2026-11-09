@@ -64,6 +64,16 @@ def test_vote_and_execute_economic_proposal(client, db_session) -> None:
     assert vote_resp.status_code == 200
     assert vote_resp.json()["votes_for"] == 10.0
 
+    # #1360: execution requires the voting window to be closed.
+    from datetime import UTC, datetime, timedelta
+
+    from coordinator_api.contexts.governance.domain.economic_proposal import EconomicParameterProposal
+
+    proposal = db_session.get(EconomicParameterProposal, proposal_id)
+    proposal.voting_ends = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=1)
+    db_session.add(proposal)
+    db_session.commit()
+
     exec_resp = client.post(f"/v1/economic-proposals/{proposal_id}/execute")
     assert exec_resp.status_code == 200
     result = exec_resp.json()
