@@ -83,6 +83,16 @@ class EconomicProposalService:
         stmt = stmt.order_by(EconomicParameterProposal.created_at.desc()).offset(offset).limit(limit)  # type: ignore[attr-defined]
         return list(self.session.execute(stmt).scalars().all())
 
+    # #1360: lifecycle guards — tallies and execution are only meaningful
+    # while voting is open / after it closes. Terminal and non-voting
+    # statuses fail closed at the service layer regardless of router checks.
+    _VOTABLE_STATUSES = {EconomicProposalStatus.SUBMITTED, EconomicProposalStatus.ACTIVE}
+    _EXECUTABLE_STATUSES = {
+        EconomicProposalStatus.SUBMITTED,
+        EconomicProposalStatus.ACTIVE,
+        EconomicProposalStatus.PASSED,
+    }
+
     def vote(
         self,
         proposal_id: str,
@@ -93,6 +103,10 @@ class EconomicProposalService:
         proposal = self.get_proposal(proposal_id)
         if proposal is None:
             raise ValueError(f"proposal {proposal_id} not found")
+        if proposal.status not in self._VOTABLE_STATUSES:
+            raise ValueError(f"proposal {proposal_id} is not open for voting (status={proposal.status})")
+        if proposal.voting_ends is not None and _utc_now() > proposal.voting_ends:
+            raise ValueError(f"voting window closed for proposal {proposal_id}")
 
         normalised = vote.strip().lower()
         if normalised == "for":
@@ -114,6 +128,10 @@ class EconomicProposalService:
         proposal = self.get_proposal(proposal_id)
         if proposal is None:
             raise ValueError(f"proposal {proposal_id} not found")
+        if proposal.status not in self._EXECUTABLE_STATUSES:
+            raise ValueError(f"proposal {proposal_id} cannot be executed (status={proposal.status})")
+        if proposal.voting_ends is not None and _utc_now() <= proposal.voting_ends:
+            raise ValueError(f"voting window still open for proposal {proposal_id}")
 
         total_votes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain
         if total_votes <= 0:
