@@ -108,7 +108,7 @@ def _service(
 
 
 def _signed_rounds(svc: RemoteAttestationService) -> list[int]:
-    return sorted(r for (_h, r) in svc._round_locks)
+    return sorted(r for (_h, r, _d) in svc._round_locks)
 
 
 class TestTipAuthorization:
@@ -181,7 +181,7 @@ class TestRoundLockTransition:
         await svc._handle_request(_header(100, "0xaaaa", proposer_addr, 0))
         await svc._handle_request(_header(100, "0xbbbb", proposer_addr, 0))
         assert len(broker.published) == 1
-        assert svc._round_locks[(100, 0)].block_hash == "0xaaaa"
+        assert svc._round_locks[(100, 0, None)].block_hash == "0xaaaa"
 
     @pytest.mark.asyncio
     async def test_same_round_same_hash_idempotent(self, monkeypatch, tmp_path):
@@ -205,12 +205,12 @@ class TestRoundLockTransition:
 
         # Age the locked round's request observation past the 16s gates
         # window → the same later-round rival now signs (U2 protocol path).
-        entry = svc._round_locks[(100, 0)]
+        entry = svc._round_locks[(100, 0, None)]
         entry.request_seen_at = time.monotonic() - 20.0
         svc._requests_seen[100][0] = entry.request_seen_at
         await svc._handle_request(_header(100, "0xbbbb", proposer_addr, 1))
         assert len(broker.published) == 2
-        assert (100, 1) in svc._round_locks
+        assert (100, 1, None) in svc._round_locks
 
     @pytest.mark.asyncio
     async def test_later_round_blocked_without_later_request_evidence(self, monkeypatch, tmp_path):
@@ -220,7 +220,7 @@ class TestRoundLockTransition:
         await svc._handle_request(_header(100, "0xaaaa", proposer_addr, 0))
         # Simulate signing round 0 without ever having seen its request
         # (restored state): no request_seen → protocol U2 unavailable.
-        entry = svc._round_locks[(100, 0)]
+        entry = svc._round_locks[(100, 0, None)]
         entry.request_seen_at = None
         svc._requests_seen.clear()
         await svc._handle_request(_header(100, "0xbbbb", proposer_addr, 1))
@@ -233,7 +233,7 @@ class TestRoundLockTransition:
 
         await svc._handle_request(_header(100, "0xaaaa", proposer_addr, 0))
         # Backdate the signature past the 60s window → fallback U2.
-        entry = svc._round_locks[(100, 0)]
+        entry = svc._round_locks[(100, 0, None)]
         entry.signed_at = time.monotonic() - 3600
         entry.signed_wall = time.time() - 3600
         await svc._handle_request(_header(100, "0xbbbb", proposer_addr, 1))
@@ -247,7 +247,7 @@ class TestRoundLockTransition:
         await svc._handle_request(_header(100, "0xaaaa", proposer_addr, 1))
         # An "earlier round" request (round 0 timestamps) at the same height:
         # U1 fails regardless of elapsed time — never sign backwards.
-        svc._round_locks[(100, 1)].signed_at = time.monotonic() - 7200
+        svc._round_locks[(100, 1, None)].signed_at = time.monotonic() - 7200
         await svc._handle_request(_header(100, "0xbbbb", proposer_addr, 0))
         assert len(broker.published) == 1
 
@@ -277,7 +277,7 @@ class TestPersistence:
         assert not svc2.round_lock_verdict(100, 1, "0xbbbb").permitted
         # Observe a later-round request and age past the gates window.
         svc2._record_request_seen(100, 1)
-        entry = svc2._round_locks[(100, 0)]
+        entry = svc2._round_locks[(100, 0, None)]
         # request_seen_at was restored from wall time — backdate it.
         entry.request_seen_at = time.monotonic() - 20.0
         assert svc2.round_lock_verdict(100, 1, "0xbbbb").permitted
@@ -326,7 +326,7 @@ class TestProposerMirror:
         svc, _ = _service(monkeypatch, our_addr, our_key, proposer_addr, tmp_path)
         svc._record_round_lock(100, 0, "0xaaaa", proposer_addr)
         svc._record_request_seen(100, 1)
-        entry = svc._round_locks[(100, 0)]
+        entry = svc._round_locks[(100, 0, None)]
         entry.request_seen_at = time.monotonic() - 20.0
         proposer, sm = self._proposer(svc)
         monkeypatch.setattr(settings, "gossip_mesh_peer_urls", "")
