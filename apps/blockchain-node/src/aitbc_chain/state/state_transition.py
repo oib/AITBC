@@ -21,6 +21,7 @@ from ..config import settings
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..v24_rules import v24_rules_active
+from .authoritative_reads import read_current_account
 from ..chain_isolation_metrics import (
     record_chain_id_validation_failure,
     record_chain_isolation_violation,
@@ -2151,10 +2152,17 @@ class StateTransition:
             if lock_version >= 3:
                 # Funds are in the per-escrow address.
                 escrow_addr = _escrow_address(job_id)
-                escrow_account = session.get(Account, (chain_id, escrow_addr))
-                if escrow_account is None or escrow_account.balance < value:
-                    escrow_bal = escrow_account.balance if escrow_account else 0
-                    return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
+                if block_version >= 24:
+                    # #1314 V1: authoritative scalar custody read — bypasses
+                    # identity-map staleness after raw-SQL writes.
+                    _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                    escrow_balance = _ebal if _ebal is not None else 0
+                else:
+                    escrow_account = session.get(Account, (chain_id, escrow_addr))
+                    escrow_exists = escrow_account is not None
+                    escrow_balance = escrow_account.balance if escrow_account else 0
+                if not escrow_exists or escrow_balance < value:
+                    return (False, f"Escrow {job_id} has insufficient balance: {escrow_balance} < {value}")
                 # The settlement authority pays only the fee, not the value.
                 if sender_balance < fee:
                     return (False, f"Insufficient balance for fee: {sender_balance} < {fee}")
@@ -2191,10 +2199,15 @@ class StateTransition:
             if _to_ait_address(recipient_addr) != fee_recipient:
                 return (False, f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {recipient_addr}")
             escrow_addr = _escrow_address(job_id)
-            escrow_account = session.get(Account, (chain_id, escrow_addr))
-            if escrow_account is None or escrow_account.balance < value:
-                escrow_bal = escrow_account.balance if escrow_account else 0
-                return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
+            if block_version >= 24:
+                _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                escrow_balance = _ebal if _ebal is not None else 0
+            else:
+                escrow_account = session.get(Account, (chain_id, escrow_addr))
+                escrow_exists = escrow_account is not None
+                escrow_balance = escrow_account.balance if escrow_account else 0
+            if not escrow_exists or escrow_balance < value:
+                return (False, f"Escrow {job_id} has insufficient balance: {escrow_balance} < {value}")
             if block_version >= 23:
                 # v23: a sweep may take custody residue plus the governed fee
                 # allowance (#1261) — never more of the job's outstanding
@@ -2211,7 +2224,7 @@ class StateTransition:
                         False,
                         f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing",
                     )
-                custody = escrow_account.balance if escrow_account else 0
+                custody = escrow_balance
                 sweepable = escrow_sweep_ceiling(custody, obligation["remaining"], obligation["fee_allowance"])
                 if value > sweepable:
                     return (
@@ -2669,9 +2682,15 @@ class StateTransition:
                         ),
                         {"value": value, "chain_id": chain_id, "sender_addr": sender_addr},
                     )
-                    escrow_account = session.get(Account, (chain_id, escrow_addr))
-                    if escrow_account is None or escrow_account.balance < value:
-                        raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                    if block_version >= 24:
+                        _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                        escrow_balance = _ebal if _ebal is not None else 0
+                        if not escrow_exists or escrow_balance < value:
+                            raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                    else:
+                        escrow_account = session.get(Account, (chain_id, escrow_addr))
+                        if escrow_account is None or escrow_account.balance < value:
+                            raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
                     session.execute(
                         text(
                             "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :escrow_addr"
@@ -2710,9 +2729,15 @@ class StateTransition:
                     ),
                     {"value": value, "chain_id": chain_id, "sender_addr": sender_addr},
                 )
-                escrow_account = session.get(Account, (chain_id, escrow_addr))
-                if escrow_account is None or escrow_account.balance < value:
-                    raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                if block_version >= 24:
+                    _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                    escrow_balance = _ebal if _ebal is not None else 0
+                    if not escrow_exists or escrow_balance < value:
+                        raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                else:
+                    escrow_account = session.get(Account, (chain_id, escrow_addr))
+                    if escrow_account is None or escrow_account.balance < value:
+                        raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
                 session.execute(
                     text(
                         "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :escrow_addr"

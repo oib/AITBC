@@ -11,7 +11,6 @@ verdict/balance checks only.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import text
@@ -20,12 +19,11 @@ from sqlmodel import Session
 from ..base_models import Account
 
 
-def read_current_account(session: Session, chain_id: str, address: str) -> tuple[Decimal | int | None, int, bool]:
+def read_current_account(session: Session, chain_id: str, address: str) -> tuple[int | None, int, bool]:
     """Return ``(balance, nonce, exists)`` for ``address`` as committed-in-tx.
 
     ``balance`` is ``None`` when the account does not exist (``exists=False``);
-    ``nonce`` is 0 in that case. Balance comes back in the column's stored
-    units (Numeric → int/Decimal depending on backend).
+    ``nonce`` is 0 in that case. Both columns are BigInteger → int.
     """
     row = session.execute(
         text("SELECT balance, nonce FROM account WHERE chain_id = :chain_id AND address = :address"),
@@ -33,7 +31,7 @@ def read_current_account(session: Session, chain_id: str, address: str) -> tuple
     ).first()
     if row is None:
         return None, 0, False
-    return row[0], int(row[1] or 0), True
+    return int(row[0]), int(row[1] or 0), True
 
 
 def prepare_account_for_orm_write(session: Session, chain_id: str, address: str) -> Any | None:

@@ -26,6 +26,7 @@ from .metrics import (
 from .cross_chain import bridge_lock_guard, bridge_root_shadow
 from .cross_chain.bridge_leaf import lock_leaf_value, unknown_lock_leaf
 from .state import side_root_shadow, state_root_utils
+from .state.authoritative_reads import read_current_account
 from .state.block_deltas import (
     BlockDeltaJournal,
     reconcile_orphaned_transactions,
@@ -808,12 +809,18 @@ class BlockImportMixin(SyncBase):
                     # (e.g. parallel-validated GPU_MARKET offers); the follower
                     # must apply them with the current account nonce, not the stored
                     # one, or the second transaction fails and the state root diverges.
-                    if (
-                        raw_from not in {"bridge_release", "bridge_refund"}
-                        and sender_acct is not None
-                        and use_account_nonce_override(tx_data, block_version)
+                    if raw_from not in {"bridge_release", "bridge_refund"} and use_account_nonce_override(
+                        tx_data, block_version
                     ):
-                        tx_data["nonce"] = sender_acct.nonce
+                        if block_version >= 24:
+                            # #1314 V5 mirror: authoritative scalar read — the
+                            # identity-mapped sender_acct can be stale after
+                            # raw-SQL writes earlier in this block.
+                            _, auth_nonce, auth_exists = read_current_account(session, self._chain_id, sender_addr)
+                            if auth_exists:
+                                tx_data["nonce"] = auth_nonce
+                        elif sender_acct is not None:
+                            tx_data["nonce"] = sender_acct.nonce
                     if block_version >= 20:
                         # v20+: value is unsigned — the signed amount always
                         # wins, exactly as the proposer does (#1066).
