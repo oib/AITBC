@@ -6,7 +6,7 @@ Provides REST API endpoints for production deployment and integration management
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
@@ -422,7 +422,9 @@ async def get_production_dashboard(
             (
                 await run_in_threadpool(
                     session.execute,
-                    select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]),
+                    select(AgentDeploymentConfig)
+                    .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
+                    .where(AIAgentWorkflow.owner_id == user["sub"]),
                 )
             )
             .scalars()
@@ -484,7 +486,9 @@ async def get_production_health(
             (
                 await run_in_threadpool(
                     session.execute,
-                    select(AgentDeploymentConfig).join(AIAgentWorkflow).where(AIAgentWorkflow.owner_id == user["sub"]),
+                    select(AgentDeploymentConfig)
+                    .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
+                    .where(AIAgentWorkflow.owner_id == user["sub"]),
                 )
             )
             .scalars()
