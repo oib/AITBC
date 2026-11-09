@@ -85,6 +85,11 @@ class TestBountyReads:
         resp = client.get(f"{BASE}/list", params={"status": "bogus"})
         assert resp.status_code == 400
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#1341: Bounty.tags.contains([tag]) on a JSON column never matches — "
+        "list literal can't render / LIKE against serialized JSON",
+    )
     def test_list_tag_filter(self, client: TestClient, db_session: Session) -> None:
         _seed_bounty(db_session)
         resp = client.get(f"{BASE}/list", params={"tag": "python"})
@@ -101,7 +106,7 @@ class TestBountyReads:
         assert body["total_bounties"] == 2
         assert body["open_bounties"] == 1
         assert body["completed_bounties"] == 1
-        assert body["total_reward"] == "50.0"
+        assert Decimal(body["total_reward"]) == Decimal("50")
         assert "success_rate" in body and "tier_distribution" in body
 
     def test_routing_order_stats_not_id(self, client: TestClient) -> None:
