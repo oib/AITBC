@@ -27,6 +27,29 @@ from starlette.concurrency import run_in_threadpool
 logger = get_logger(__name__)
 
 
+def _json_safe(value: Any) -> Any:
+    """Recursively convert a value into JSON-column-safe types.
+
+    Trade JSON columns (seller_offer/proposed_terms/current_terms/...) must
+    not receive datetime/Decimal objects — SQLAlchemy's JSON type raises
+    TypeError on commit (#1326). Decimal serializes as str to preserve
+    precision (no-float-money); datetime/date as ISO strings.
+    """
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    import datetime as _dt
+
+    if isinstance(value, _dt.date):
+        return value.isoformat()
+    return value
+
+
 class MatchingEngine:
     """Advanced agent matching and routing algorithms"""
 
@@ -315,8 +338,12 @@ class NegotiationSystem:
         else:
             return seller_offered
 
-    def negotiate_start_time(self, buyer_time: datetime | None, seller_time: datetime | None) -> datetime | None:
+    def negotiate_start_time(self, buyer_time: datetime | None, seller_time: datetime | str | None) -> datetime | None:
         """Negotiate start time"""
+        # seller_offer arrives JSON-round-tripped (ISO strings) on the
+        # negotiation path — coerce back before comparing (#1326).
+        if isinstance(seller_time, str):
+            seller_time = datetime.fromisoformat(seller_time)
         if buyer_time and seller_time:
             return max(buyer_time, seller_time)
         elif buyer_time:
@@ -599,8 +626,8 @@ class P2PTradingProtocol:
                 specification_compatibility=match["compatibility_breakdown"]["specification_compatibility"],
                 reputation_compatibility=match["compatibility_breakdown"]["reputation_compatibility"],
                 geographic_compatibility=match["compatibility_breakdown"]["geographic_compatibility"],
-                seller_offer=match["seller_offer"],
-                proposed_terms=match["seller_offer"].get("terms", {}),
+                seller_offer=_json_safe(match["seller_offer"]),
+                proposed_terms=_json_safe(match["seller_offer"].get("terms", {})),
                 expires_at=datetime.now(UTC) + timedelta(hours=self.matching_engine.match_expiry_hours),
             )
             self.session.add(trade_match)
@@ -631,7 +658,9 @@ class P2PTradingProtocol:
             .scalars()
             .first()
         )
-        initial_offer = self.negotiation_system.generate_initial_offer(trade_request, trade_match.seller_offer)  # type: ignore[arg-type]
+        initial_offer = _json_safe(
+            self.negotiation_system.generate_initial_offer(trade_request, trade_match.seller_offer)  # type: ignore[arg-type]
+        )
         negotiation = TradeNegotiation(
             negotiation_id=f"neg_{uuid4().hex[:8]}",
             match_id=match_id,
