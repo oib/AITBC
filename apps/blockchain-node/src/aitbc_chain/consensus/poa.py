@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from ..mempool import DatabaseMempool, InMemoryMempool
     from .multi_validator_poa import MultiValidatorPoA
 
-from . import unavail
+from . import abandon, unavail
 from .block_hash import compute_block_hash
 from .pbft import PBFTConsensus
 from .remote_attestation import RemoteAttestationService
@@ -1350,6 +1350,26 @@ class PoAProposer:
         )
         return True
 
+    async def _publish_abandon(self, block: Block, block_hash: str) -> None:
+        """#1301 L2: tell voters this proposer will never seal ``block_hash``.
+
+        Best-effort and flag-gated; the proposer's own journal entry stays
+        (self-lock), so it cannot reseal the abandoned hash itself.
+        """
+        if not abandon.abandon_enabled():
+            return
+        proposer = str(block.proposer)
+        private_key = self._validator_keys.get(proposer) or getattr(settings, "proposer_key", None)
+        if not private_key:
+            return
+        try:
+            stmt = abandon.build_abandon(self._config.chain_id, block.height, block_hash, None, proposer, private_key)
+            await gossip_broker.publish(abandon.abandon_topic(self._config.chain_id), stmt)
+            metrics_registry.increment("vote_journal_abandon_published_total")
+            self._logger.warning("[PROPOSE] Published abandon for %s at height %s", block_hash[:18], block.height)
+        except Exception as exc:  # noqa: BLE001 - best effort; the valve remains the backstop
+            self._logger.warning("Abandon publish failed at height %s: %s", block.height, exc)
+
     async def _honor_prior_votes(self, next_height: int, round_number: int, proposer: str) -> bool:
         """True when an earlier vote (attestation lock or #1268 journal) forbids proposing now."""
         return await self._honor_attestation_lock(next_height, round_number) or await self._honor_vote_journal(
@@ -2629,6 +2649,7 @@ class PoAProposer:
                         commit_count,
                         effective_min,
                     )
+                    await self._publish_abandon(block, block_hash)
                     return False
                 self._logger.info(
                     "Block %s carries %d attestation(s), below the %d minimum, but its PBFT certificate "

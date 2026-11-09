@@ -1235,6 +1235,10 @@ class ChainSettings(BaseSettings):
     # #1310: run the attest-listener v9 tx check in a worker thread instead of
     # on the event loop (default OFF; the check is timed either way).
     attest_v9_check_offload_enabled: bool = False
+    # #1301 L2: a proposer that missed attestation quorum signs and publishes
+    # an abandon statement; voters whose journal holds an attest vote for that
+    # exact hash from that proposer release the entry. Needs vote_journal_enabled.
+    vote_journal_abandon_enabled: bool = False
     # #1280 VALVE-P15-1: a peer serving a DIFFERENT block at the voted height
     # is positive contention evidence. While such a sighting is fresh it
     # suppresses the re-vote path (delay only — never a signature outside the

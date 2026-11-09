@@ -35,7 +35,7 @@ from ..gossip import gossip_broker
 from ..metrics import metrics_registry
 from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
-from . import unavail
+from . import abandon, unavail
 from .vote_fetch import contention_hold, kick_pull, locate_voted_block
 from .vote_journal import KIND_ATTEST, VoteJournalError, get_vote_journal, valve_open, vote_journal_enabled
 
@@ -130,6 +130,7 @@ class RemoteAttestationService:
         self._response_topic = f"consensus.attest_response.{chain_id}"
         self._listener_task: asyncio.Task[None] | None = None
         self._unavail_task: asyncio.Task[None] | None = None
+        self._abandon_task: asyncio.Task[None] | None = None
         self._response_index_task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
         # #1281: unlock justification produced by the armed evidence valve
@@ -335,6 +336,8 @@ class RemoteAttestationService:
             self._listen(),
             name=f"remote_attestation_listener_{self._chain_id}",
         )
+        if abandon.abandon_enabled():
+            self._abandon_task = create_task_with_logging(self._listen_abandon(), name=f"abandon_listener_{self._chain_id}")
         if unavail.justification_enabled():
             # #1281: the unavailability-query listener and the persistent
             # attest_response observer that feeds the GossipObservationIndex.
@@ -350,7 +353,7 @@ class RemoteAttestationService:
 
     async def stop(self) -> None:
         self._stop_event.set()
-        for task in (self._listener_task, self._unavail_task, self._response_index_task):
+        for task in (self._listener_task, self._unavail_task, self._response_index_task, self._abandon_task):
             if task:
                 task.cancel()
                 try:
@@ -360,6 +363,7 @@ class RemoteAttestationService:
         self._listener_task = None
         self._unavail_task = None
         self._response_index_task = None
+        self._abandon_task = None
 
     async def _listen(self) -> None:
         try:
@@ -379,6 +383,50 @@ class RemoteAttestationService:
                     logger.warning("Error handling attestation request: %s", e)
         finally:
             sub.close()
+
+    async def _listen_abandon(self) -> None:
+        """#1301 L2: release journal votes for hashes their proposer abandoned."""
+        topic = abandon.abandon_topic(self._chain_id)
+        try:
+            sub = await gossip_broker.subscribe(topic, max_queue_size=256)
+        except Exception as e:
+            logger.warning("Failed to subscribe to abandon statements: %s", e)
+            return
+        try:
+            async for payload in sub:
+                if self._stop_event.is_set():
+                    break
+                try:
+                    self.handle_abandon(payload)
+                except Exception as e:
+                    logger.warning("Error handling abandon statement: %s", e)
+        finally:
+            sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
+
+    def handle_abandon(self, payload: Any) -> int:
+        """Apply one abandon statement; returns how many local votes it released."""
+        stmt = abandon.verify_abandon(self._chain_id, payload)
+        if stmt is None:
+            metrics_registry.increment("vote_journal_abandon_rejected_total")
+            return 0
+        height, block_hash, proposer = stmt["height"], stmt["hash"], stmt["proposer"]
+        if self._tip_height_hint is not None and height <= self._tip_height_hint:
+            return 0  # decided locally; the journal prunes it anyway
+        journal = get_vote_journal(self._chain_id)
+        released = 0
+        for addr in self._own_addresses():
+            if journal.release_abandoned(height, addr, block_hash, proposer):
+                released += 1
+        if released:
+            metrics_registry.increment("vote_journal_abandon_released_total", released)
+            logger.warning(
+                "Vote journal: released %d vote(s) at height %s — proposer %s abandoned %s",
+                released,
+                height,
+                proposer[:18],
+                block_hash[:18],
+            )
+        return released
 
     async def _listen_unavail(self) -> None:
         """#1281: answer ``UNAVAIL_QUERY`` for hashes we do not possess."""
