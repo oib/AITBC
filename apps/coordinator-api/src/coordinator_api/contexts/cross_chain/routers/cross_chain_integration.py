@@ -372,6 +372,8 @@ async def create_bridge_request(
             ),
         )
         return bridge_request
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error creating bridge request") from None
 

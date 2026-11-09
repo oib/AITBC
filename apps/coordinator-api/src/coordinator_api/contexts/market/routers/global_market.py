@@ -96,6 +96,8 @@ async def create_global_offer(
 
     except ValueError:
         raise HTTPException(status_code=400, detail="Bad request") from None
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error creating global offer") from None
 
@@ -153,6 +155,8 @@ async def get_global_offers(
 
         return response_offers
 
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting global offers") from None
 
@@ -267,6 +271,8 @@ async def create_global_transaction(
 
     except ValueError:
         raise HTTPException(status_code=400, detail="Bad request") from None
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error creating global transaction") from None
 
@@ -422,6 +428,8 @@ def get_regions(
 
         return response_regions
 
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=500, detail="Error getting regions") from None
 
