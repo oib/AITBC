@@ -487,7 +487,7 @@ class PerformanceOptimizer:
             optimization.optimization_duration = optimization_results["duration"]
             optimization.iterations_required = optimization_results["iterations"]
             optimization.convergence_achieved = optimization_results["converged"]
-            optimization.optimization_applied = True
+            optimization.applied_at = datetime.now(UTC)
             optimization.status = "completed"
             optimization.completed_at = datetime.now(UTC)
             (await run_in_threadpool(session.commit))
