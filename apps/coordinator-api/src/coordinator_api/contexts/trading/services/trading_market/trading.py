@@ -102,7 +102,9 @@ class MatchingEngine:
                 if buyer_value == seller_value:
                     score = 100.0
                 elif buyer_value > seller_value:
-                    score = max(0, 100 - (buyer_value - seller_value) / buyer_value * 100)
+                    # #1373: buyer_value may be 0 with a negative seller_value —
+                    # the ratio is undefined; score the mismatch as 0.
+                    score = max(0, 100 - (buyer_value - seller_value) / buyer_value * 100) if buyer_value != 0 else 0.0
                 else:
                     score = 100.0
             elif isinstance(buyer_value, str) and isinstance(seller_value, str):
