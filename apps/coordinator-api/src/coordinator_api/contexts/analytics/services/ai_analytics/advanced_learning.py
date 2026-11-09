@@ -755,13 +755,25 @@ class AdvancedLearningService:
             for model_id, model_data in parsed_data.get("models", {}).items():
                 model_data["created_at"] = datetime.fromisoformat(model_data["created_at"])
                 model_data["last_updated"] = datetime.fromisoformat(model_data["last_updated"])
+                # #1370: enums arrive as plain strings — coerce or .value
+                # accesses and status comparisons break downstream.
+                model_data["model_type"] = ModelType(model_data["model_type"])
+                model_data["learning_type"] = LearningType(model_data["learning_type"])
+                model_data["status"] = LearningStatus(model_data["status"])
                 self.models[model_id] = LearningModel(**model_data)
             for session_id, session_data in parsed_data.get("sessions", {}).items():
                 session_data["start_time"] = datetime.fromisoformat(session_data["start_time"])
                 if session_data.get("end_time"):
                     session_data["end_time"] = datetime.fromisoformat(session_data["end_time"])
+                session_data["learning_type"] = LearningType(session_data["learning_type"])
+                session_data["status"] = LearningStatus(session_data["status"])
                 session_data.setdefault("early_stopping_patience", 10)
                 self.learning_sessions[session_id] = LearningSession(**session_data)
+            # #1370: the export carries analytics — restore them or every
+            # imported model crashes get_model_performance with KeyError.
+            for analytics_id, analytics_data in parsed_data.get("analytics", {}).items():
+                analytics_data["last_evaluation"] = datetime.fromisoformat(analytics_data["last_evaluation"])
+                self.learning_analytics[analytics_id] = LearningAnalytics(**analytics_data)
             logger.info("Learning data imported successfully")
         else:
             raise ValueError(f"Unsupported format: {format}")
