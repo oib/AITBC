@@ -522,13 +522,22 @@ class ParitySession(Session):
         # would lose an ORM mutation the raw write was never meant to erase.
         # Pre-v24 semantics keep the pending change; expire only clean
         # instances so stale reads are still refreshed.
-        dirty = self.dirty
-        for obj in list(self.identity_map.values()):
-            if obj in dirty:
+        #
+        # Q7 (#1314): the original loop expired EVERY clean instance of the
+        # table on every raw write -- O(identity map) expire() calls per tx
+        # (measured 8.6 ms/tx at 2000 pinned accounts). An instance that is
+        # already fully expired reloads on its next read anyway, so re-expiring
+        # it is a no-op; only the few instances reloaded since the previous
+        # write need expiring. Same observable semantics, O(reloaded) expires.
+        dirty_states = {id(st) for st in self.identity_map._dirty_states()}  # noqa: SLF001
+        for state in list(self.identity_map.all_states()):
+            if state.expired or id(state) in dirty_states:
                 continue
-            table = getattr(type(obj), "__table__", None)
+            table = getattr(state.class_, "__table__", None)
             if table is not None and table.name in normalized:
-                self.expire(obj)
+                obj = state.obj()
+                if obj is not None:
+                    self.expire(obj)
 
     def execute(self, statement: Any, *args: Any, **kwargs: Any) -> Any:
         result = super().execute(statement, *args, **kwargs)
