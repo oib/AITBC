@@ -557,3 +557,39 @@ def test_unwritable_audit_refuses_before_send(cfg, tmp_path):
     r = handle_request(req(), **deps)
     assert r["result"] == "refused" and r["reason"] == "audit_unwritable"
     assert deps["signer"].calls == []
+
+
+# --- OPSSIGN-POLICY-1 (#1380): memo must not carry line breaks -------------
+
+
+def test_memo_trailing_newline_refused(deps):
+    """`re.match` + `$` accepts one trailing "\\n"; fullmatch must refuse it
+    and every other line-break / control-char variant, while legitimate
+    task memos still pass."""
+    for bad in (
+        "S-10\n",  # the bypass: $ matches before a single trailing newline
+        "S-10\r\n",
+        "S-10\r",
+        "S-1\n0",  # embedded newline
+        "S-10\n\n",
+        "S-10\t",
+        "S-10\x0b",
+        "S-10\x00",
+    ):
+        r = handle_request(req(memo=bad), **deps)
+        assert r == {"ok": False, "result": "refused", "reason": "bad_memo"}, repr(bad)
+    # legitimate memos are unaffected
+    for good in ("S-10", "BR-8", "SEC-2", "K-4", "O-9", "KC-3", "ACT-1", "M-2", "ABCDEFGH-9999"):
+        assert parse_request(req(memo=good)).memo == good
+
+
+def test_audit_line_rejects_line_break_fields(tmp_path: Path):
+    """Second wall: even if a bad value ever reaches audit_line, a "\\n"/"\\r"
+    in an interpolated field raises instead of writing a split record."""
+    audit = tmp_path / "audit.log"
+    for field, value in (("memo", "S-10\n"), ("to", "0x" + "ab" * 20 + "\r"), ("reason", "x\ny")):
+        kwargs = {"memo": "S-10", "to": PAYEE, "amount_units": 1, "result": "refused", "reason": "-"}
+        kwargs[field] = value
+        with pytest.raises(ValueError, match="line break"):
+            audit_line(audit, **kwargs)
+    assert not audit.exists()  # nothing partial was written
