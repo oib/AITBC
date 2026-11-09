@@ -155,11 +155,6 @@ def test_parse_request_rejects_bad_memos(memo: str):
     assert exc.value.reason == "bad_memo"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="OPSSIGN-POLICY-1 (#1380): MEMO_PATTERN '$' matches before a "
-    "trailing newline, so 'S-10\\n' is accepted and splits the audit line",
-)
 def test_memo_trailing_newline_refused():
     """A memo must be exactly a task id — a trailing newline is not one."""
     with pytest.raises(Refused):

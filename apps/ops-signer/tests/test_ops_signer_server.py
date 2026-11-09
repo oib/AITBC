@@ -152,7 +152,7 @@ def test_wire_refused_request_is_audited(running):
 def test_wire_bad_json_gets_error_reply_not_disconnect(running):
     cfg, _srv, _t = running
     out = _raw_request(cfg.socket_path, b"this is not json\n")
-    assert json.loads(out) == {"ok": False, "result": "error", "reason": "internal"}
+    assert json.loads(out) == {"ok": False, "result": "error", "reason": "malformed_request"}
 
 
 def test_wire_json_non_dict_gets_refused(running):
@@ -194,7 +194,7 @@ def test_wire_oversized_request_refused_by_size_cap(tmp_path: Path):
         # 500 bytes of non-JSON with no newline: the read loop stops at the
         # cap and json.loads fails -> generic error, connection survives.
         out = _raw_request(cfg.socket_path, b"x" * 500)
-        assert json.loads(out) == {"ok": False, "result": "error", "reason": "internal"}
+        assert json.loads(out) == {"ok": False, "result": "error", "reason": "malformed_request"}
         # listener still serves afterwards
         assert request(cfg.socket_path, _req(dry_run=True))["result"] == "dry_run_pass"
     finally:
@@ -227,11 +227,6 @@ def test_wire_two_requests_one_connection_only_first_counts(running):
     assert srv.ledger.spent_last_24h() == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="OPSSIGN-AUDIT-1 (#1381): the peer_not_in_group refusal in "
-    "_serve_conn returns before handle_request, so it writes no audit line",
-)
 def test_peer_refusal_is_audited(tmp_path: Path):
     """An unauthorized peer must leave an audit trail like every other
     refused request -- its uid is already known at refusal time."""
