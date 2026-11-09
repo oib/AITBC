@@ -593,3 +593,55 @@ def test_audit_line_rejects_line_break_fields(tmp_path: Path):
         with pytest.raises(ValueError, match="line break"):
             audit_line(audit, **kwargs)
     assert not audit.exists()  # nothing partial was written
+
+
+# --- OPSSIGN-AUDIT-1 (#1381): refusals before handle_request are audited ---
+
+
+def test_peer_refusal_is_audited(tmp_path: Path):
+    """A peer outside the group gets the wire refusal AND an audit record --
+    refused attempts are exactly what the trail exists for. The audit write
+    happens before the reply is sent, so it is visible once request() returns."""
+    cfg = _sock_cfg(tmp_path)
+    srv = _server(cfg, peer=OUTSIDER_PEER)
+    t = _serve(srv)
+    try:
+        _wait_sock(Path(cfg.socket_path))
+        reply = request(cfg.socket_path, req())
+        assert reply == {"ok": False, "result": "refused", "reason": "peer_not_in_group"}
+        text = Path(cfg.audit_path).read_text()
+        assert "result=refused" in text
+        assert "reason=peer_not_in_group" in text
+        assert "peer_uid=1001" in text  # OUTSIDER_PEER uid
+        assert "memo=S-10" not in text  # request fields are not extracted pre-parse
+    finally:
+        srv.stop()
+        t.join(timeout=5)
+    assert not t.is_alive()
+
+
+def test_malformed_request_is_audited(tmp_path: Path):
+    """Bytes that fail json.loads get an error reply AND an audit record;
+    the connection attempt is no longer invisible."""
+    cfg = _sock_cfg(tmp_path)
+    srv = _server(cfg)  # authorized peer -- the gate is not what is tested
+    t = _serve(srv)
+    try:
+        _wait_sock(Path(cfg.socket_path))
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(5)
+            s.connect(cfg.socket_path)
+            s.sendall(b"this is not json{\x00\xff\n")
+            out = b""
+            while chunk := s.recv(4096):
+                out += chunk
+        assert b'"reason":"malformed_request"' in out
+        text = Path(cfg.audit_path).read_text()
+        assert "result=error" in text
+        assert "reason=malformed_request" in text
+        assert "peer_uid=1001" in text  # OPS_PEER uid
+        assert "memo=-" in text and "to=-" in text  # placeholders, no leaked body
+    finally:
+        srv.stop()
+        t.join(timeout=5)
+    assert not t.is_alive()

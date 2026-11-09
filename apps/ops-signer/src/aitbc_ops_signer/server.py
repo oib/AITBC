@@ -80,6 +80,32 @@ def _peer_allowed(peer: PeerCred, group_gid: int) -> bool:
     return uid == 0 or gid == group_gid
 
 
+def _audit_conn_event(config: Config, peer: PeerCred, *, result: str, reason: str) -> None:
+    """Best-effort audit line for requests refused before handle_request.
+
+    OPSSIGN-AUDIT-1: the peercred gate and unparseable bodies never reach
+    handle_request, so without this they leave no audit record at all --
+    refused/forbidden attempts are exactly what the trail exists for. The
+    fields are constants plus the peer uid: no request data, no secrets.
+    An audit failure must never break the refusal reply, so every error is
+    swallowed here (handle_request applies the same policy to its own
+    writes).
+    """
+    try:
+        audit_line(
+            config.audit_path,
+            memo="-",
+            to="-",
+            amount_units=0,
+            result=result,
+            reason=reason,
+            tx_hash="-",
+            peer_uid=peer[1],
+        )
+    except Exception:  # noqa: BLE001 - audit must never break the wire reply
+        pass
+
+
 def _drain_before_close(conn: socket.socket, timeout: float = 1.0) -> None:
     """Consume whatever the peer already sent so close() is a clean FIN.
 
@@ -255,6 +281,7 @@ class OpsSignerServer:
                 peer = self._creds_fn(conn)
                 gid = self._group_gid_fn(self.config.peer_group)
                 if not _peer_allowed(peer, gid):
+                    _audit_conn_event(self.config, peer, result="refused", reason="peer_not_in_group")
                     conn.sendall(b'{"ok":false,"result":"refused","reason":"peer_not_in_group"}\n')
                     _drain_before_close(conn)
                     return
@@ -266,7 +293,16 @@ class OpsSignerServer:
                     chunks.append(data)
                     if b"\n" in data:
                         break
-                payload = json.loads(b"".join(chunks).strip() or b"{}")
+                try:
+                    payload = json.loads(b"".join(chunks).strip() or b"{}")
+                except ValueError:
+                    # Unparseable bytes (incl. oversized/truncated bodies)
+                    # still get an audit record -- the connection attempt is
+                    # not invisible (OPSSIGN-AUDIT-1).
+                    _audit_conn_event(self.config, peer, result="error", reason="malformed_request")
+                    conn.sendall(b'{"ok":false,"result":"error","reason":"malformed_request"}\n')
+                    _drain_before_close(conn)
+                    return
                 reply = handle_request(
                     payload,
                     config=self.config,
