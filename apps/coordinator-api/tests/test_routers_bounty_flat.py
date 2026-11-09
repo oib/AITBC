@@ -85,11 +85,6 @@ class TestBountyReads:
         resp = client.get(f"{BASE}/list", params={"status": "bogus"})
         assert resp.status_code == 400
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1341: Bounty.tags.contains([tag]) on a JSON column never matches — "
-        "list literal can't render / LIKE against serialized JSON",
-    )
     def test_list_tag_filter(self, client: TestClient, db_session: Session) -> None:
         _seed_bounty(db_session)
         resp = client.get(f"{BASE}/list", params={"tag": "python"})
