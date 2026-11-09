@@ -173,6 +173,8 @@ def get_task_status(request: Request) -> dict[str, Any]:
             raise HTTPException(status_code=503, detail="Task distributor not available")
         stats = state.task_distributor.get_distribution_stats()
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting task status: %s", e)
         logger.exception("Unhandled exception")

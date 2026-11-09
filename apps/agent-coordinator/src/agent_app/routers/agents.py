@@ -172,6 +172,8 @@ async def discover_agents(request: Request, query: dict[str, Any]) -> dict[str, 
             "count": len(agents),
             "timestamp": datetime.now(UTC).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error discovering agents: %s", e)
         logger.exception("Unhandled exception")
@@ -257,6 +259,8 @@ async def update_agent_status(
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to update agent status")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error updating agent status: %s", e)
         logger.exception("Unhandled exception")
