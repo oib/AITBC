@@ -1929,6 +1929,11 @@ class StateTransition:
             sender_account = session.get(Account, (chain_id, sender_addr))
             if not sender_account:
                 return (False, f"Sender account not found: {sender_addr}")
+            if block_version >= 23:
+                # v23: earlier txs in this block updated the row with raw
+                # SQL, leaving this retained ORM object stale — reload it
+                # so the balance check sees post-tx state.
+                session.refresh(sender_account)
             total_cost = value + fee
             if sender_account.balance < total_cost:
                 return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
@@ -1985,6 +1990,11 @@ class StateTransition:
             sender_nonce = 0
             sender_balance = 0
         else:
+            if block_version >= 23:
+                # v23: same retained-object reload as the BRIDGE_LOCK site
+                # above — the nonce/balance reads below must see the raw
+                # SQL updates earlier txs in this block already wrote.
+                session.refresh(sender_account)
             sender_nonce = sender_account.nonce if sender_account.nonce is not None else 0
             sender_balance = sender_account.balance
         expected_nonce = sender_nonce
@@ -2848,6 +2858,19 @@ class StateTransition:
             if tx_type in AGENT_SESSION_TX_TYPES:
                 apply_agent_session_tx(session, chain_id, tx_type, tx_data.get("payload") or {}, sender_addr, block_height)
             charge_agent_spend(session, chain_id, tx_type, tx_data.get("payload"), value, block_height)
+        if block_version >= 23 and sender_addr is not None and sender_account is not None:
+            # v23: the raw-SQL debit/nonce update bypassed the ORM object —
+            # flush pending writes, then reload so the retained object (and
+            # the diagnostic cache entry) carry the authoritative next
+            # expected nonce for the caller's still-uncommitted block
+            # transaction. This runs BEFORE the cache writes below: a
+            # failure here must not leave a processed-hash entry for a tx
+            # the guarded savepoint is about to roll back.
+            # _processed_nonces is per-block diagnostic only: callers run
+            # reset_processed_cache at each block boundary and on discarded
+            # attempts; it is not a consensus input.
+            session.flush()
+            session.refresh(sender_account)
         self._processed_tx_hashes.add(tx_hash)
         if sender_addr is not None:
             self._processed_nonces[sender_addr] = sender_account.nonce  # type: ignore[union-attr]
