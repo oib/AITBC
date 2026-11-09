@@ -836,13 +836,13 @@ class RemoteAttestationService:
         verdict before any signing decision, so serial ordering is unchanged.
         ``attest_v9_check_seconds`` records the cost either way.
         """
-        start = time.perf_counter()
+        start = time.monotonic()
         try:
             if getattr(settings, "attest_v9_check_offload_enabled", False):
                 return await asyncio.to_thread(self._v9_check_transactions, header, txs)
             return self._v9_check_transactions(header, txs)
         finally:
-            metrics_registry.observe("attest_v9_check_seconds", time.perf_counter() - start)
+            metrics_registry.observe("attest_v9_check_seconds", time.monotonic() - start)
 
     def _v9_check_transactions(
         self,
