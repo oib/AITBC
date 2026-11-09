@@ -517,7 +517,15 @@ class ParitySession(Session):
         if not tables or not v24_rules_is_active():
             return
         normalized = {t.rsplit(".", 1)[-1].strip("`\"'[]") for t in tables}
+        # E c23626 item 1: expire() on a dirty instance silently DISCARDS its
+        # pending (unflushed) attribute changes — under autoflush=False that
+        # would lose an ORM mutation the raw write was never meant to erase.
+        # Pre-v24 semantics keep the pending change; expire only clean
+        # instances so stale reads are still refreshed.
+        dirty = self.dirty
         for obj in list(self.identity_map.values()):
+            if obj in dirty:
+                continue
             table = getattr(type(obj), "__table__", None)
             if table is not None and table.name in normalized:
                 self.expire(obj)

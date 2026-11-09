@@ -105,3 +105,38 @@ def test_authoritative_read_matches_committed_state(tmp_path):
         # Missing account → (None-ish, 0-ish, False) triple, never raises.
         bal2, nonce2, exists2 = read_current_account(session, CHAIN, "0xdead")
         assert not exists2
+
+
+def test_parity_session_expire_skips_dirty_instances(tmp_path):
+    """E c23626 item 1: ParitySession._expire_written_tables must not discard
+    pending ORM changes. A dirty instance keeps its unflushed attribute
+    (pre-v24 semantics); a clean instance of the same table is still expired
+    and reloads the raw-written value."""
+    from aitbc_chain.database import prod_parity_sessionmaker
+    from aitbc_chain.v24_rules import v24_rules_active
+
+    engine = _engine(tmp_path)
+    clean_addr = "0xcleanacct"
+    with prod_parity_sessionmaker(bind=engine)() as session:
+        session.add(Account(chain_id=CHAIN, address=ESCROW, balance=5000, nonce=0))
+        session.add(Account(chain_id=CHAIN, address=clean_addr, balance=1, nonce=0))
+        session.commit()
+
+        esc = session.get(Account, (CHAIN, ESCROW))
+        clean_obj = session.get(Account, (CHAIN, clean_addr))
+        assert esc is not None and clean_obj is not None
+        esc.balance = 4242  # pending ORM change; autoflush=False keeps it dirty
+
+        with v24_rules_active():
+            session.execute(
+                text("UPDATE account SET balance=:b WHERE chain_id=:c AND address=:a"),
+                [
+                    {"b": 7777, "c": CHAIN, "a": ESCROW},
+                    {"b": 9, "c": CHAIN, "a": clean_addr},
+                ],
+            )
+
+        # Dirty instance: pending change survives (pre-v24 semantics preserved).
+        assert esc.balance == 4242
+        # Clean instance: expired -> attribute access reloads the raw write.
+        assert clean_obj.balance == 9
