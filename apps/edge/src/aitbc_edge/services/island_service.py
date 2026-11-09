@@ -6,6 +6,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 
+from pydantic import ValidationError
 from sqlmodel import select
 
 from ..clients.blockchain_rpc import BlockchainRPCClient
@@ -116,16 +117,36 @@ class IslandService:
         async with BlockchainRPCClient(api_key=settings.blockchain_rpc_api_key) as rpc_client:
             result = await rpc_client.request_bridge(target_island_id)
 
-        # Store bridge request in edge-api database
+        # Store bridge request in edge-api database. The chain-side request
+        # already succeeded — a local bookkeeping failure must not turn that
+        # into a 500 for the caller, so validate the reply fields the row
+        # needs and skip the write (with a warning) when they are absent.
         if result.get("success"):
-            async with get_session() as session:
-                bridge_req = BridgeRequest(
-                    request_id=result.get("request_id"),
-                    target_island_id=target_island_id,
-                    source_node_id=NODE_ID,
-                    status=result.get("status", "pending"),
+            request_id = result.get("request_id")
+            status = result.get("status")
+            if not isinstance(request_id, str) or not request_id:
+                logger.warning(
+                    "Bridge request to %s succeeded on-chain but the RPC reply "
+                    "carried no request_id; skipping local bridge_requests row",
+                    target_island_id,
                 )
-                session.add(bridge_req)
-                await session.commit()
+            else:
+                try:
+                    async with get_session() as session:
+                        bridge_req = BridgeRequest(
+                            request_id=request_id,
+                            source_island_id=settings.island_id or "default",
+                            target_island_id=target_island_id,
+                            source_node_id=NODE_ID,
+                            status=status if isinstance(status, str) and status else "pending",
+                        )
+                        session.add(bridge_req)
+                        await session.commit()
+                except ValidationError:
+                    logger.exception(
+                        "Failed to persist bridge request %s to %s; chain-side request succeeded",
+                        request_id,
+                        target_island_id,
+                    )
 
         return result
