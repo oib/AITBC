@@ -436,6 +436,8 @@ def list_resource_allocations(
             stmt = stmt.where(ResourceAllocation.status == status)
         rows = session.execute(stmt).scalars().all()
         return [_allocation_response(row) for row in rows]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error listing resource allocations: %s", str(e))
         logger.exception("Unhandled exception")

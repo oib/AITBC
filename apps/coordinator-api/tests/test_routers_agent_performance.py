@@ -217,10 +217,6 @@ class TestResourceEndpoints:
         owner_rows = client.get("/v1/agent-performance/resources", headers=_owner()).json()
         assert {r["agent_id"] for r in owner_rows} == {AGENT}
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect #1323: list_resource_allocations calls _require_agent_access inside its broad try; the 403 HTTPException is caught by `except Exception` and re-raised as 500",
-    )
     def test_agent_id_filter_non_owner_403(self, client: TestClient, owned_agent: None, db_session: Session) -> None:
         self._seed_allocation(db_session, AGENT)
         self._seed_allocation(db_session, "ag-other")
