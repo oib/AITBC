@@ -11,7 +11,6 @@ surface.
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
@@ -107,10 +106,6 @@ class TestTradeRequestLifecycle:
         del bad["requirements"]
         assert client.post(f"{BASE}/requests", json=bad, headers=_headers()).status_code == 422
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect #1326: unparseable ISO start_time/expires_at raises inside the broad try -> 500 instead of 422",
-    )
     def test_bad_datetime_is_422_not_500(self, client: TestClient) -> None:
         resp = client.post(
             f"{BASE}/requests",
@@ -152,10 +147,6 @@ class TestMatchesAndNegotiation:
         assert g.status_code == 200
         assert g.json() == []
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect #1326: find_matches persists TradeMatch JSON columns with datetime values -> TypeError -> 500",
-    )
     def test_find_matches_runs(self, client: TestClient) -> None:
         resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
         rid = resp.json()["request_id"]
@@ -167,10 +158,6 @@ class TestMatchesAndNegotiation:
     def test_find_matches_missing_request_404(self, client: TestClient) -> None:
         assert client.post(f"{BASE}/requests/req_ghost/matches", headers=_headers()).status_code == 404
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="defect #1326: initiate_negotiation writes Decimal into TradeNegotiation JSON columns -> TypeError -> 500",
-    )
     def test_negotiation_lifecycle(self, client: TestClient, db_session: Session) -> None:
         resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
         rid = resp.json()["request_id"]
