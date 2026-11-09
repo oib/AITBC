@@ -9,7 +9,6 @@ ZK/TEE/payment gates — pinned where the contract is dishonest).
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -75,10 +74,6 @@ class TestMinerLifecycle:
         # no jobs queued -> 204 No Content (or a job if dispatch races; accept both)
         assert resp.status_code in (200, 204)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1343: unregistered miner poll raises 'miner not registered' -> 500; heartbeat maps the same case to 404",
-    )
     def test_poll_requires_registration(self, client: TestClient) -> None:
         resp = client.post(f"{BASE}/miners/poll", json={"max_wait_seconds": 0}, headers=_headers("ghost2"))
         assert resp.status_code == 404
