@@ -14,6 +14,8 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+
+from ....auth import AuthDep
 from pydantic import BaseModel
 
 from ..services.dispute_resolution import get_dispute_service
@@ -51,16 +53,15 @@ class CastVoteRequest(BaseModel):
 
 
 @router.post("/file", summary="File a dispute")
-async def file_dispute(request: Request, req: FileDisputeRequest) -> dict[str, Any]:
+def file_dispute(request: Request, req: FileDisputeRequest, user: AuthDep) -> dict[str, Any]:
     """File a new dispute for a job"""
     try:
         service = get_dispute_service()
         if not service:
             raise HTTPException(status_code=503, detail="Dispute service not initialized")
 
-        # Determine who filed based on request context
-        # For now, use filed_by from request or infer
-        filed_by = req.client  # Simplified
+        # The filer is the authenticated caller — never a body field (#1333/#1334).
+        filed_by = user["sub"]
 
         dispute = service.file_dispute(
             job_id=req.job_id,
@@ -83,16 +84,16 @@ async def file_dispute(request: Request, req: FileDisputeRequest) -> dict[str, A
 
 
 @router.post("/evidence", summary="Submit evidence")
-async def submit_evidence(request: Request, req: SubmitEvidenceRequest) -> dict[str, Any]:
+def submit_evidence(request: Request, req: SubmitEvidenceRequest, user: AuthDep) -> dict[str, Any]:
     """Submit evidence for a dispute"""
     try:
         service = get_dispute_service()
         if not service:
             raise HTTPException(status_code=503, detail="Dispute service not initialized")
 
-        # Get submitter from request
-        # For now, infer from request context
-        submitted_by = "client"  # Simplified - would come from auth
+        # The submitter is the authenticated caller — the service still
+        # enforces membership in {client, provider} (#1333).
+        submitted_by = user["sub"]
 
         success = service.submit_evidence(
             dispute_id=req.dispute_id,
@@ -113,15 +114,16 @@ async def submit_evidence(request: Request, req: SubmitEvidenceRequest) -> dict[
 
 
 @router.post("/vote", summary="Cast arbitrator vote")
-async def cast_vote(request: Request, req: CastVoteRequest) -> dict[str, Any]:
+def cast_vote(request: Request, req: CastVoteRequest, user: AuthDep) -> dict[str, Any]:
     """Cast a vote as an arbitrator"""
     try:
         service = get_dispute_service()
         if not service:
             raise HTTPException(status_code=503, detail="Dispute service not initialized")
 
-        # Get arbitrator from request
-        arbitrator = "arbitrator_001"  # Simplified - would come from auth
+        # The arbitrator is the authenticated caller — never a constant
+        # (#1334). One vote per arbitrator now actually binds per identity.
+        arbitrator = user["sub"]
 
         # Verify is arbitrator
         if not service.is_arbitrator(arbitrator):
@@ -148,13 +150,13 @@ async def cast_vote(request: Request, req: CastVoteRequest) -> dict[str, Any]:
 
 
 @router.get("/health", summary="Health check")
-async def disputes_health(request: Request) -> dict[str, Any]:
+def disputes_health(request: Request) -> dict[str, Any]:
     """Check disputes service health"""
     return {"status": "healthy", "active_disputes": 0, "service": "disputes"}
 
 
 @router.get("/{dispute_id}", summary="Get dispute details")
-async def get_dispute(request: Request, dispute_id: str) -> dict[str, Any]:
+def get_dispute(request: Request, dispute_id: str) -> dict[str, Any]:
     """Get details of a specific dispute"""
     try:
         service = get_dispute_service()
@@ -176,7 +178,7 @@ async def get_dispute(request: Request, dispute_id: str) -> dict[str, Any]:
 
 
 @router.get("/", summary="List disputes")
-async def list_disputes(request: Request, status: str | None = None, party: str | None = None) -> dict[str, Any]:
+def list_disputes(request: Request, status: str | None = None, party: str | None = None) -> dict[str, Any]:
     """List disputes with optional filters"""
     try:
         service = get_dispute_service()
@@ -198,15 +200,22 @@ async def list_disputes(request: Request, status: str | None = None, party: str 
 
 
 @router.post("/arbitrators/register", summary="Register as arbitrator")
-async def register_arbitrator(request: Request, address: str) -> dict[str, Any]:
-    """Register an address as an arbitrator"""
+def register_arbitrator(request: Request, address: str, user: AuthDep) -> dict[str, Any]:
+    """Register an address as an arbitrator.
+
+    Callers may only register their own authenticated identity — the
+    ``address`` parameter is retained for compatibility and must match
+    the caller's subject (#1335). Staking requirements remain a
+    documented TODO.
+    """
     try:
         service = get_dispute_service()
         if not service:
             raise HTTPException(status_code=503, detail="Dispute service not initialized")
 
-        # In production, verify staking requirements
-        success = service.register_arbitrator(address)
+        if address != user["sub"]:
+            raise HTTPException(status_code=403, detail="Can only register your own identity as arbitrator")
+        success = service.register_arbitrator(user["sub"])
 
         return {"success": success, "address": address, "message": "Arbitrator registered"}
 
