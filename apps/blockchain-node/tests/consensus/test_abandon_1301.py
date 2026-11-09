@@ -168,3 +168,11 @@ async def test_no_publish_when_flag_off(monkeypatch):
     prop = SimpleNamespace(_config=SimpleNamespace(chain_id=CHAIN), _validator_keys={PROP: PROP_KEY}, _logger=None)
     await PoAProposer._publish_abandon(prop, SimpleNamespace(proposer=PROP, height=H), HASH)
     broker.publish.assert_not_awaited()
+
+
+def test_own_proposal_entry_is_not_released_self_lock():
+    from aitbc_chain.consensus.vote_journal import KIND_PROPOSE
+
+    get_vote_journal(CHAIN).record(H, OUR, HASH, KIND_PROPOSE, None, OUR)
+    assert _svc().handle_abandon(_stmt(key=OUR_KEY, proposer=OUR)) == 0
+    assert _live()
