@@ -285,12 +285,11 @@ class AgentAuditor:
         investigation_notes += f"Risk score: {audit_log.risk_score}. "
         investigation_notes += "Requires manual investigation."
         audit_log.investigation_notes = investigation_notes
-        audit_log.investigation_status = "pending"
-        audit_log.investigation_required = True
+        audit_log.requires_investigation = True
         (await run_in_threadpool(self.session.commit))
         logger.critical("SECURITY ALERT: High-risk event requires investigation - Event ID: %s", audit_log.id)
         logger.info("Investigation ticket would be created for event: %s", audit_log.id)
-        if audit_log.risk_score >= 0.9:
+        if audit_log.risk_score >= 90:
             logger.warning("Critical risk score (%s) - entity suspension recommended", audit_log.risk_score)
 
 
@@ -331,15 +330,17 @@ class AgentTrustManager:
         if security_violation:
             trust_score.security_violations += 1
             trust_score.last_violation = datetime.now(UTC)
-            cast(list[Any], trust_score.violation_history).append(
-                {"timestamp": datetime.now(UTC).isoformat(), "type": "security_violation"}
-            )
+            trust_score.violation_history = [
+                *trust_score.violation_history,
+                {"timestamp": datetime.now(UTC).isoformat(), "type": "security_violation"},
+            ]
         if policy_violation:
             trust_score.policy_violations += 1
             trust_score.last_violation = datetime.now(UTC)
-            cast(list[Any], trust_score.violation_history).append(
-                {"timestamp": datetime.now(UTC).isoformat(), "type": "policy_violation"}
-            )
+            trust_score.violation_history = [
+                *trust_score.violation_history,
+                {"timestamp": datetime.now(UTC).isoformat(), "type": "policy_violation"},
+            ]
         trust_score.trust_score = self._calculate_trust_score(trust_score)
         trust_score.reputation_score = self._calculate_reputation_score(trust_score)
         trust_score.verification_success_rate = (
@@ -369,7 +370,11 @@ class AgentTrustManager:
         policy_penalty = trust_score.policy_violations * 5
         base_score -= policy_penalty
         if trust_score.last_execution:
-            days_since_last = (datetime.now(UTC) - trust_score.last_execution).days
+            # SQLite round-trips datetimes without tzinfo — normalize before comparing
+            last_execution = trust_score.last_execution
+            if last_execution.tzinfo is None:
+                last_execution = last_execution.replace(tzinfo=UTC)
+            days_since_last = (datetime.now(UTC) - last_execution).days
             if days_since_last < 7:
                 base_score += 5
             elif days_since_last > 30:
@@ -616,7 +621,7 @@ class AgentSecurityManager:
             user_id="system",
             security_level=SecurityLevel.INTERNAL,
             event_data={"policy_name": name, "policy_id": policy.id},
-            new_state={"policy": policy.model_dump()},
+            new_state={"policy": policy.model_dump(mode="json")},
         )
         return policy
 
@@ -691,7 +696,9 @@ class AgentSecurityManager:
             if sandbox_monitoring["resource_usage"]["cpu_percent"] > 90:
                 monitoring_result["violations"].append("High CPU usage detected")
                 monitoring_result["alerts"].append("CPU usage exceeded 90%")
-            if sandbox_monitoring["resource_usage"]["memory_mb"] > sandbox_monitoring["resource_usage"]["memory_mb"] * 0.9:
+            resource_usage = sandbox_monitoring["resource_usage"]
+            memory_limit = resource_usage.get("memory_limit_mb")
+            if memory_limit and resource_usage["memory_mb"] > memory_limit * 0.9:
                 monitoring_result["violations"].append("High memory usage detected")
                 monitoring_result["alerts"].append("Memory usage exceeded 90% of limit")
             if sandbox_monitoring["security_events"]:
