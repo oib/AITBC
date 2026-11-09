@@ -644,16 +644,48 @@ class CrossChainReputationService:
         else:
             raise ValueError(f"Unsupported format: {format}")
 
+    @staticmethod
+    def _parse_dt(value: Any) -> datetime:
+        """#1371: export serializes datetimes via default=str — restore them."""
+        return datetime.fromisoformat(value) if isinstance(value, str) else value
+
     async def import_reputation_data(self, data: str, format: str = "json") -> None:
         """Import reputation data"""
         if format.lower() == "json":
             parsed_data = json.loads(data)
             for agent_id, rep_data in parsed_data.get("reputation_data", {}).items():
+                rep_data.pop("tier", None)  # init=False field — asdict exports it, ctor rejects it
+                rep_data["last_updated"] = self._parse_dt(rep_data["last_updated"])
+                rep_data["sync_timestamp"] = self._parse_dt(rep_data["sync_timestamp"])
                 self.reputation_data[agent_id] = ReputationScore(**rep_data)
             for agent_id, chain_data in parsed_data.get("chain_reputations", {}).items():
                 self.chain_reputations[agent_id] = {
-                    int(chain_id): ReputationScore(**rep_data) for chain_id, rep_data in chain_data.items()
+                    int(chain_id): ReputationScore(
+                        **{
+                            **{k: v for k, v in rep_data.items() if k != "tier"},
+                            "last_updated": self._parse_dt(rep_data["last_updated"]),
+                            "sync_timestamp": self._parse_dt(rep_data["sync_timestamp"]),
+                        }
+                    )
+                    for chain_id, rep_data in chain_data.items()
                 }
+            # #1371: export also carries stakes/delegations — restore them or
+            # the roundtrip silently drops that state.
+            for agent_id, stakes in parsed_data.get("reputation_stakes", {}).items():
+                self.reputation_stakes[agent_id] = [
+                    ReputationStake(
+                        **{
+                            **s,
+                            "start_time": self._parse_dt(s["start_time"]),
+                            "end_time": self._parse_dt(s["end_time"]),
+                        }
+                    )
+                    for s in stakes
+                ]
+            for agent_id, delegations in parsed_data.get("reputation_delegations", {}).items():
+                self.reputation_delegations[agent_id] = [
+                    ReputationDelegation(**{**d, "start_time": self._parse_dt(d["start_time"])}) for d in delegations
+                ]
             logger.info("Reputation data imported successfully")
         else:
             raise ValueError(f"Unsupported format: {format}")
