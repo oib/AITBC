@@ -356,6 +356,8 @@ async def analytics_overview(period: str = "24h") -> dict[str, Any]:
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=503, detail="Internal server error") from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Unhandled exception")
 
