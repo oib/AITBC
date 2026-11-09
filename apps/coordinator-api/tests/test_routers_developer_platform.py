@@ -9,7 +9,6 @@ get_auth_level).
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -43,15 +42,12 @@ class TestDeveloperProfile:
         assert body["success"] is True
         assert body["wallet_address"].lower() == WALLET
 
-        # profile GET covered by test_profile_lookup below (currently xfailed #1331)
-
     def test_duplicate_register_rejected(self, client: TestClient) -> None:
         body = {"wallet_address": WALLET2}
         assert client.post(f"{BASE}/register", json=body, headers=_headers()).status_code == 200
         resp = client.post(f"{BASE}/register", json=body, headers=_headers())
         assert resp.status_code == 400
 
-    @pytest.mark.xfail(strict=True, reason="#1332: profile GET 500s — service returns Row, not model")
     def test_profile_lookup(self, client: TestClient) -> None:
         client.post(
             f"{BASE}/register",
@@ -64,7 +60,7 @@ class TestDeveloperProfile:
     def test_leaderboard_and_stats(self, client: TestClient) -> None:
         assert client.get(f"{BASE}/leaderboard", headers=_headers()).status_code == 200
         resp = client.get(f"{BASE}/stats/{WALLET}", headers=_headers())
-        assert resp.status_code in (200, 404, 500)  # inherits #1332 Row defect
+        assert resp.status_code in (200, 404)
 
 
 class TestBountiesCertificationsHubsStaking:
