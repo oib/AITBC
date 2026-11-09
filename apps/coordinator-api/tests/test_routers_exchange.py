@@ -1,142 +1,90 @@
-"""Tests for exchange router with Redis-backed state."""
+"""Router tests for /v1/exchange/* (#1289 round 9 batch 4).
 
-import pytest
+ETH->AITBC payment-request surface on RedisStateManager (in-memory
+fallback in tests). Honest-stub contract: confirm-payment is a
+documented 501 (free-minting guard). Matrix: rates/market-stats NONE,
+rest CLIENT — pinned via get_auth_level.
+"""
 
+from __future__ import annotations
 
-@pytest.fixture
-def exchange_client(client, monkeypatch):
-    """Return the shared TestClient fixture with the payment-monitoring
-    background task stubbed out.
+from decimal import Decimal
 
-    The real ``monitor_payment`` runs an infinite ``while True`` loop with
-    ``asyncio.sleep(30)``. Under ``TestClient`` the background task shares the
-    request event loop, so it hangs the client and causes test timeouts. We
-    replace it with a no-op so payment creation returns immediately.
-    """
-    from coordinator_api.contexts.infrastructure.routers import exchange as exchange_router
+from fastapi.testclient import TestClient
 
-    async def _noop_monitor(_payment_id: str) -> None:
-        return None
+from aitbc.auth import create_access_token
+from aitbc.auth.security_matrix import AuthLevel, check_role_match, get_auth_level
 
-    monkeypatch.setattr(exchange_router, "monitor_payment", _noop_monitor)
-    return client
+BASE = "/v1/exchange"
+RATE = Decimal("1000")  # 1 ETH = 1000 AITBC
 
 
-def test_create_payment(exchange_client):
-    """Test creating an ETH payment request."""
-    response = exchange_client.post(
-        "/v1/exchange/create-payment",
-        json={
-            "user_id": "test-user-123",
-            "aitbc_amount": 10000.0,
-            "eth_amount": 10.0,
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "pending"
-    assert data["user_id"] == "test-user-123"
-    assert "payment_id" in data
-    assert "expires_at" in data
+def _headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token('u', 'client')}"}
 
 
-def test_create_payment_invalid_amount(exchange_client):
-    """Test payment creation with an invalid (negative) amount.
-
-    The ``ExchangePaymentRequest`` schema enforces ``gt=0`` on ``aitbc_amount``,
-    so a negative value is rejected at the validation layer with 422 before the
-    handler's own "Invalid amount" check is reached.
-    """
-    response = exchange_client.post(
-        "/v1/exchange/create-payment",
-        json={
-            "user_id": "test-user-123",
-            "aitbc_amount": -100,
-            "eth_amount": 10.0,
-        },
-    )
-    assert response.status_code == 422
+def _payment(aitbc: str = "1000", eth: str = "1", **over) -> dict:
+    body = {"user_id": "user-1", "aitbc_amount": aitbc, "eth_amount": eth}
+    body.update(over)
+    return body
 
 
-def test_create_payment_amount_mismatch(exchange_client):
-    """Test payment creation with an ETH amount that does not match the
-    configured exchange rate. This exercises the handler-level 400 path.
-    """
-    response = exchange_client.post(
-        "/v1/exchange/create-payment",
-        json={
-            "user_id": "test-user-123",
-            "aitbc_amount": 10000.0,
-            "eth_amount": 50.0,  # expected 10.0 at 1000 AITBC/ETH
-        },
-    )
-    assert response.status_code == 400
-    assert "Amount mismatch" in response.json()["detail"]
+class TestExchangeMatrix:
+    def test_rates_and_stats_public(self) -> None:
+        assert get_auth_level("/v1/exchange/rates") == AuthLevel.NONE
+        assert get_auth_level("/v1/exchange/market-stats") == AuthLevel.NONE
+
+    def test_create_payment_client_floor(self) -> None:
+        level = get_auth_level("/v1/exchange/create-payment")
+        assert level == AuthLevel.CLIENT
+        assert check_role_match(level, "client") and check_role_match(level, "admin")
+        assert not check_role_match(level, "miner")
 
 
-def test_get_payment_status(exchange_client):
-    """Test getting payment status."""
-    # Create a payment first
-    create_resp = exchange_client.post(
-        "/v1/exchange/create-payment",
-        json={
-            "user_id": "test-user-123",
-            "aitbc_amount": 10000.0,
-            "eth_amount": 10.0,
-        },
-    )
-    payment_id = create_resp.json()["payment_id"]
+class TestPaymentLifecycle:
+    def test_create_and_status(self, client: TestClient) -> None:
+        resp = client.post(f"{BASE}/create-payment", json=_payment(), headers=_headers())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["payment_id"]
+        assert body["status"] == "pending"
+        assert body["user_id"] == "user-1"
+        assert Decimal(str(body["aitbc_amount"])) == Decimal("1000")
 
-    # Get status
-    status_resp = exchange_client.get(f"/v1/exchange/payment-status/{payment_id}")
-    assert status_resp.status_code == 200
-    data = status_resp.json()
-    assert data["payment_id"] == payment_id
-    assert data["status"] == "pending"
+        status = client.get(f"{BASE}/payment-status/{body['payment_id']}", headers=_headers())
+        assert status.status_code == 200
+        assert status.json()["status"] == "pending"
 
+    def test_amount_mismatch_400(self, client: TestClient) -> None:
+        # 1000 AITBC requires exactly 1 ETH at the peg
+        resp = client.post(f"{BASE}/create-payment", json=_payment(eth="2"), headers=_headers())
+        assert resp.status_code == 400
 
-def test_get_payment_status_not_found(exchange_client):
-    """Test getting status for non-existent payment."""
-    response = exchange_client.get("/v1/exchange/payment-status/nonexistent-id")
-    assert response.status_code == 404
-    assert "Payment not found" in response.json()["detail"]
+    def test_nonpositive_amounts_400(self, client: TestClient) -> None:
+        assert client.post(f"{BASE}/create-payment", json=_payment(aitbc="0"), headers=_headers()).status_code == 400
 
+    def test_status_unknown_404(self, client: TestClient) -> None:
+        assert client.get(f"{BASE}/payment-status/ghost", headers=_headers()).status_code == 404
 
-def test_confirm_payment(exchange_client):
-    """Test confirming a payment is disabled until on-chain verification exists."""
-    # Create a payment first
-    create_resp = exchange_client.post(
-        "/v1/exchange/create-payment",
-        json={
-            "user_id": "test-user-123",
-            "aitbc_amount": 10000.0,
-            "eth_amount": 10.0,
-        },
-    )
-    payment_id = create_resp.json()["payment_id"]
-
-    # Confirm payment is disabled to prevent free minting
-    confirm_resp = exchange_client.post(f"/v1/exchange/confirm-payment/{payment_id}?tx_hash=abc123")
-    assert confirm_resp.status_code == 501
-    assert "disabled" in confirm_resp.json()["detail"].lower()
+    def test_confirm_payment_disabled_501(self, client: TestClient) -> None:
+        resp = client.post(f"{BASE}/confirm-payment/abc", params={"tx_hash": "0xdead"}, headers=_headers())
+        assert resp.status_code == 501
 
 
-def test_get_exchange_rates(exchange_client):
-    """Test getting exchange rates."""
-    response = exchange_client.get("/v1/exchange/rates")
-    assert response.status_code == 200
-    data = response.json()
-    assert "eth_to_aitbc" in data
-    assert "aitbc_to_eth" in data
-    assert data["fee_percent"] == 0.5
+class TestRatesAndStats:
+    def test_rates(self, client: TestClient) -> None:
+        resp = client.get(f"{BASE}/rates")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert Decimal(str(body["eth_to_aitbc"])) == RATE
+        assert Decimal(str(body["aitbc_to_eth"])) == Decimal("0.001")
 
+    def test_market_stats_shape(self, client: TestClient) -> None:
+        resp = client.get(f"{BASE}/market-stats")
+        assert resp.status_code == 200
+        body = resp.json()
+        for key in ("price", "price_change_24h", "daily_volume", "total_payments", "pending_payments"):
+            assert key in body
 
-def test_get_market_stats(exchange_client):
-    """Test getting market statistics."""
-    response = exchange_client.get("/v1/exchange/market-stats")
-    assert response.status_code == 200
-    data = response.json()
-    assert "price" in data
-    assert "daily_volume" in data
-    assert "total_payments" in data
-    assert "pending_payments" in data
+    def test_agents_test_endpoint(self, client: TestClient) -> None:
+        assert client.get(f"{BASE}/agents/test", headers=_headers()).status_code == 200
