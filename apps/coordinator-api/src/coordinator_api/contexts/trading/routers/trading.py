@@ -38,15 +38,15 @@ class TradeRequestRequest(BaseModel):
     description: str = Field(default="", max_length=1000)
     requirements: dict[str, Any] = Field(..., description="Trade requirements and specifications")
     budget_range: dict[str, Any] = Field(..., description="Budget range with min and max")
-    start_time: str | None = Field(default=None, description="Start time (ISO format)")
-    end_time: str | None = Field(default=None, description="End time (ISO format)")
+    start_time: datetime | None = Field(default=None, description="Start time (ISO format)")
+    end_time: datetime | None = Field(default=None, description="End time (ISO format)")
     duration_hours: int | None = Field(default=None, description="Duration in hours")
     urgency_level: str = Field(default="normal", description="urgency level")
     preferred_regions: list[str] = Field(default_factory=list, description="Preferred regions")
     excluded_regions: list[str] = Field(default_factory=list, description="Excluded regions")
     service_level_required: str = Field(default="standard", description="Service level required")
     tags: list[str] = Field(default_factory=list, description="Trade tags")
-    expires_at: str | None = Field(default=None, description="Expiration time (ISO format)")
+    expires_at: datetime | None = Field(default=None, description="Expiration time (ISO format)")
 
     @field_validator("buyer_agent_id")
     @classmethod
@@ -184,15 +184,6 @@ async def create_trade_request(
     """Create a new trade request"""
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
-        start_time = None
-        end_time = None
-        expires_at = None
-        if request_data.start_time:
-            start_time = datetime.fromisoformat(request_data.start_time)
-        if request_data.end_time:
-            end_time = datetime.fromisoformat(request_data.end_time)
-        if request_data.expires_at:
-            expires_at = datetime.fromisoformat(request_data.expires_at)
         trade_request = await run_in_threadpool(
             asyncio.run,
             trading_protocol.create_trade_request(
@@ -202,15 +193,15 @@ async def create_trade_request(
                 description=request_data.description,
                 requirements=request_data.requirements,
                 budget_range=request_data.budget_range,
-                start_time=start_time,
-                end_time=end_time,
+                start_time=request_data.start_time,
+                end_time=request_data.end_time,
                 duration_hours=request_data.duration_hours,
                 urgency_level=request_data.urgency_level,
                 preferred_regions=request_data.preferred_regions,
                 excluded_regions=request_data.excluded_regions,
                 service_level_required=request_data.service_level_required,
                 tags=request_data.tags,
-                expires_at=expires_at,
+                expires_at=request_data.expires_at,
             ),
         )
         return TradeRequestResponse(
