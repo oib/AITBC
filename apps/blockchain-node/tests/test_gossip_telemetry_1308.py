@@ -42,8 +42,10 @@ from aitbc_chain.gossip.telemetry import (
     gossip_peer_publish_terminal_total,
     gossip_peer_reconnect_attempts_total,
     gossip_peer_reconnect_delay_seconds,
+    gossip_ws_echo_forward_failed_total,
     gossip_ws_echo_forward_total,
     gossip_ws_rx_publish_total,
+    gossip_ws_subscriber_queue_depth,
 )
 
 TOPIC = "status"
@@ -602,3 +604,97 @@ def test_rx_publish_extra_fields_edges():
     assert "lag_ms" not in _rx_publish_extra_fields({"timestamp": True})
     assert _rx_publish_extra_fields([1, 2]) == {}
     assert _rx_publish_extra_fields("str") == {}
+
+
+def _collect_telemetry():
+    """Attach a direct handler to the telemetry logger (app logging config can
+    stop propagation under TestClient); returns (records, detach)."""
+    tele_logger = logging.getLogger(TELEMETRY_LOGGER)
+    records: list[str] = []
+
+    class _Collect(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record.getMessage())
+
+    handler = _Collect()
+    handler.setLevel(logging.DEBUG)
+    tele_logger.addHandler(handler)
+    return records, lambda: tele_logger.removeHandler(handler)
+
+
+def test_ws_queue_depth_value_and_gauge_under_backlog(caplog, _ws_test_settings, monkeypatch):
+    """#1308 respin-3: a stalled echo path must show a NON-ZERO queue depth in
+    the rx_publish event and the gauge. Kills mutants that hardcode
+    queue_depth=0 / gauge 0.0 (E review c23580-83, M3/M4)."""
+    topic = "transactions"
+    tc = bounded_topic_label(topic)
+    real_send = websocket_module._gossip_ws_send_json
+    gauge_at_send: list[float] = []
+    state = {"n": 0}
+
+    async def slow_send(ws, payload):
+        state["n"] += 1
+        gauge_at_send.append(float(gossip_ws_subscriber_queue_depth.labels(topic_class=tc)._value.get()))
+        if state["n"] == 1:
+            # Stall the first echo until all five publishes have been recorded —
+            # deterministic backlog instead of a fixed sleep that races suite load.
+            for _ in range(1000):
+                if sum("event=rx_publish" in m for m in records) >= 5:
+                    break
+                await asyncio.sleep(0.01)
+        return await real_send(ws, payload)
+
+    monkeypatch.setattr(websocket_module, "_gossip_ws_send_json", slow_send)
+    records, detach = _collect_telemetry()
+    try:
+        with caplog.at_level(logging.DEBUG, logger=TELEMETRY_LOGGER):
+            with TestClient(create_app()) as client:
+                with client.websocket_connect(f"/rpc/gossip/ws?topic={topic}") as ws:
+                    for i in range(5):
+                        ws.send_json({"tx_hash": f"0x{i:064x}", "proposer": "0xV", "timestamp": time.time()})
+                    for _ in range(5):
+                        ws.receive_json()
+    finally:
+        detach()
+    depths = [
+        int(m.split("queue_depth=")[1].split()[0].rstrip(","))
+        for m in records
+        if "event=rx_publish" in m and "queue_depth=" in m
+    ]
+    assert len(depths) == 5, depths
+    assert max(depths) >= 1, f"stalled echo must show backlog in rx_publish queue_depth, got {depths}"
+    echo_depths = [
+        int(m.split("queue_depth=")[1].split()[0].rstrip(","))
+        for m in records
+        if "event=echo_forward" in m and "queue_depth=" in m
+    ]
+    assert max(echo_depths) >= 1, echo_depths
+    assert max(gauge_at_send) >= 1.0, f"gauge never reflected backlog: {gauge_at_send}"
+
+
+def test_ws_echo_forward_failure_counted(caplog, _ws_test_settings, monkeypatch):
+    """#1308 respin-3: a failed echo send increments echo_forward_failed_total
+    and emits echo_forward_failed (kills M1)."""
+    topic = "transactions"
+    tc = bounded_topic_label(topic)
+    before_fail = _counter(gossip_ws_echo_forward_failed_total, topic_class=tc)
+    real_send = websocket_module._gossip_ws_send_json
+
+    async def failing_send(ws, payload):
+        if isinstance(payload, dict) and "tx_hash" in payload:
+            raise RuntimeError("injected echo send failure")
+        return await real_send(ws, payload)
+
+    monkeypatch.setattr(websocket_module, "_gossip_ws_send_json", failing_send)
+    records, detach = _collect_telemetry()
+    try:
+        with caplog.at_level(logging.DEBUG, logger=TELEMETRY_LOGGER):
+            with TestClient(create_app()) as client:
+                with client.websocket_connect(f"/rpc/gossip/ws?topic={topic}") as ws:
+                    ws.send_json({"tx_hash": "0x" + "d" * 64, "proposer": "0xV"})
+                    time.sleep(0.3)
+    finally:
+        detach()
+    assert _counter(gossip_ws_echo_forward_failed_total, topic_class=tc) == before_fail + 1
+    failed = [m for m in records if "event=echo_forward_failed" in m]
+    assert failed and "injected echo send failure" in failed[0]
