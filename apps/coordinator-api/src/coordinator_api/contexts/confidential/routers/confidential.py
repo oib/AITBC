@@ -76,7 +76,7 @@ def get_access_controller() -> AccessController:
 
 @router.post("/transactions", response_model=ConfidentialTransactionView)
 @rate_limit(rate=20, per=60)
-async def create_confidential_transaction(
+def create_confidential_transaction(
     request_http: Request,
     request: ConfidentialTransactionCreate,
 ) -> ConfidentialTransactionView:
@@ -133,7 +133,7 @@ async def create_confidential_transaction(
 
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
 @rate_limit(rate=200, per=60)
-async def get_confidential_transaction(
+def get_confidential_transaction(
     request: Request,
     transaction_id: str,
 ) -> ConfidentialTransactionView:
@@ -151,7 +151,7 @@ async def get_confidential_transaction(
 
 @router.post("/transactions/{transaction_id}/access", response_model=ConfidentialAccessResponse)
 @rate_limit(rate=20, per=60)
-async def access_confidential_data(
+def access_confidential_data(
     request: Request,
     request_data: ConfidentialAccessRequest,
     transaction_id: str,
@@ -212,7 +212,7 @@ async def access_confidential_data(
 
 @router.post("/transactions/{transaction_id}/audit", response_model=ConfidentialAccessResponse)
 @rate_limit(rate=20, per=60)
-async def audit_access_confidential_data(
+def audit_access_confidential_data(
     request: Request,
     transaction_id: str,
     authorization: str,
@@ -263,22 +263,20 @@ async def audit_access_confidential_data(
 async def register_encryption_key(
     request: Request,
     request_data: KeyRegistrationRequest,
+    _user: AdminOrClientDep,
 ) -> KeyRegistrationResponse:
     """Register public key for confidential transactions"""
     try:
         km = get_key_manager()
-        try:
-            existing_key = km.get_public_key(request_data.participant_id)
-            if existing_key:
-                return KeyRegistrationResponse(
-                    success=True,
-                    participant_id=request_data.participant_id,
-                    key_version=1,
-                    registered_at=datetime.now(UTC),
-                    error=None,
-                )
-        except Exception:
-            pass
+        existing_pair = km.storage.get_key_pair_sync(request_data.participant_id)
+        if existing_pair is not None:
+            return KeyRegistrationResponse(
+                success=True,
+                participant_id=request_data.participant_id,
+                key_version=existing_pair.version,
+                registered_at=existing_pair.created_at,
+                error=None,
+            )
         key_pair = await km.generate_key_pair(request_data.participant_id)
         return KeyRegistrationResponse(
             success=True,
@@ -308,6 +306,7 @@ async def register_encryption_key(
 async def rotate_encryption_key(
     request: Request,
     participant_id: str,
+    _user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Rotate encryption keys for participant"""
     try:
@@ -335,7 +334,7 @@ async def rotate_encryption_key(
 
 @router.get("/access/logs", response_model=AccessLogResponse)
 @rate_limit(rate=200, per=60)
-async def get_access_logs(
+def get_access_logs(
     request: Request,
     query: Annotated[AccessLogQuery, Depends()],
 ) -> AccessLogResponse:
@@ -375,7 +374,7 @@ async def get_confidential_status(
 
 @router.post("/payments", response_model=ConfidentialPaymentView)
 @rate_limit(rate=20, per=60)
-async def create_confidential_payment(
+def create_confidential_payment(
     request: ConfidentialPaymentCreate,
     _user: AdminOrClientDep,
 ) -> ConfidentialPaymentView:
