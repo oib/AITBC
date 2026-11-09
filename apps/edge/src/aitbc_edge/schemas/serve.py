@@ -1,6 +1,6 @@
 """Edge serve-related schemas for Edge API Service"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -24,8 +24,8 @@ class ComputeRequest(SQLModel, table=True):
     # EDGE-AUTHZ-BEFORE-COMMISSIONING (#1205): JWT ``sub`` of the submitter.
     # NULL on rows predating the column — admin-only until claimed.
     owner_id: str | None = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     error: str | None = Field(default=None)
@@ -51,5 +51,5 @@ class ComputeResult(SQLModel, table=True):
     status: str = Field(default="completed", index=True)
     extra_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
     cache_ttl: int = Field(default=3600)  # 1 hour default
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
