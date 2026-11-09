@@ -11,9 +11,12 @@ per-block diagnostic nonce cache is recorded — gated to ``>= 23``. The
 v22 control at the bottom pins that the stale read still applies below
 the gate.
 
-Cases follow the #1307 spec (c21379) T1-T10 plus a v22 control and a
-success-tail failure pin. All applies run the sequential path — the
-parallel path is version-capped at v8 and unreachable at v23.
+Cases follow the #1307 spec (c21379) T1-T10 plus a v22 control, a
+success-tail failure pin, and three mutation-gap pins (M1/M2/M5):
+recipient-then-sender ping-pong, a same-sender BRIDGE_LOCK pair, and a
+RECEIPT_CLAIM dirty-ORM tail under ``autoflush=False``. All applies run
+the sequential path — the parallel path is version-capped at v8 and
+unreachable at v23.
 
 Scope note: the refresh is gated to ``block_version >= 23``. ``<= 22``
 apply outcomes are preserved byte-for-byte; ``>= 23`` same-session apply
@@ -37,11 +40,13 @@ from sqlmodel import Session, create_engine, select
 
 from aitbc.crypto.crypto import derive_ethereum_address
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
-from aitbc_chain.base_models import Account, Block
+from aitbc_chain.base_models import Account, Block, ChainParameter
+from aitbc_chain.base_models import Receipt
 from aitbc_chain.base_models import Transaction as ChainTransaction
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.rpc.utils import sign_transaction_data
 from aitbc_chain.state import side_root_shadow
+from aitbc_chain.state.bridge_credit import sign_bridge_lock
 from aitbc_chain.state.state_root_utils import compute_state_root_full
 from aitbc_chain.state.state_transition import (
     StateTransition,
@@ -55,8 +60,9 @@ T0 = datetime(2026, 1, 1, tzinfo=UTC)
 VERSION = 23
 
 KEY_S = "0x" + "11" * 32
+KEY_R = "0x" + "33" * 32
 ADDR_S = derive_ethereum_address(KEY_S)
-ADDR_R = derive_ethereum_address("0x" + "33" * 32)
+ADDR_R = derive_ethereum_address(KEY_R)
 
 NONCE0 = 5
 BALANCE0 = 10**9
@@ -76,10 +82,13 @@ def _signed_tx(
     tx_type: str = "TRANSFER",
     payload: dict[str, Any] | None = None,
     label: str = "tx",
+    key: str = KEY_S,
+    sender: str = ADDR_S,
+    recipient: str = ADDR_R,
 ) -> dict[str, Any]:
     tx: dict[str, Any] = {
-        "from": ADDR_S,
-        "to": ADDR_R,
+        "from": sender,
+        "to": recipient,
         "amount": amount,
         "fee": fee,
         "nonce": nonce,
@@ -88,7 +97,7 @@ def _signed_tx(
         "chain_id": CHAIN,
         "tx_hash": _tx_hash(f"{label}-{nonce}-{amount}-{fee}-{tx_type}"),
     }
-    tx["signature"] = sign_transaction_data(tx, KEY_S)
+    tx["signature"] = sign_transaction_data(tx, key)
     return tx
 
 
@@ -721,3 +730,195 @@ def test_v22_retained_session_second_tx_still_rejected(fixture_db):
         ok2, err2 = _apply(st, session, _signed_tx(NONCE0 + 1, AMT, label="v22-b"), version=22)
         assert not ok2, "v22 must keep the pre-fix rejection semantics"
         assert "Invalid nonce" in err2
+
+
+# --- M2: recipient credit must be visible when it becomes the sender -------
+
+
+def test_recipient_then_sender_ping_pong_refreshes_balance(fixture_db):
+    """S->R credit lands via raw SQL while the retained R object stays
+    stale; R's next outbound tx must still spend the credited row. Without
+    the >=23 sender refresh, R validates against balance 0 and is rejected
+    for insufficient balance — a behavioral kill, not a call count."""
+    engine, _factory = fixture_db
+    st = StateTransition()
+
+    with Session(engine) as session:
+        # STRONG refs: the identity map holds weak references — without these
+        # the retained objects could be collected between applies.
+        s_obj = session.get(Account, (CHAIN, ADDR_S))
+        r_obj = session.get(Account, (CHAIN, ADDR_R))
+        assert s_obj is not None and r_obj is not None
+
+        tx1 = _signed_tx(NONCE0, 5_000_000, label="m2-s1")
+        tx2 = _signed_tx(0, 1_000_000, label="m2-r1", key=KEY_R, sender=ADDR_R, recipient=ADDR_S)
+        tx3 = _signed_tx(NONCE0 + 1, 1_000, label="m2-s2")
+        tx4 = _signed_tx(1, 1_000, label="m2-r2", key=KEY_R, sender=ADDR_R, recipient=ADDR_S)
+
+        ok, err = _apply(st, session, tx1)
+        assert ok, err
+        session.flush()
+        # Stale-recipient setup: the DB row was credited but the retained
+        # object still reads the pre-credit values.
+        assert _account_scalars(session, ADDR_R) == (0, 5_000_000)
+        assert r_obj.balance == 0 and r_obj.nonce == 0
+        assert _account_scalars(session) == (NONCE0 + 1, BALANCE0 - 5_000_000 - FEE)
+
+        ok, err = _apply(st, session, tx2)
+        assert ok, f"R->S rejected on the stale recipient balance: {err}"
+        session.flush()
+        assert _account_scalars(session, ADDR_R) == (1, 5_000_000 - 1_000_000 - FEE)
+        assert _account_scalars(session) == (NONCE0 + 1, BALANCE0 - 5_000_000 - FEE + 1_000_000)
+
+        ok, err = _apply(st, session, tx3)
+        assert ok, err
+        session.flush()
+        assert _account_scalars(session) == (NONCE0 + 2, BALANCE0 - 5_000_000 - FEE + 1_000_000 - 1_000 - FEE)
+        assert _account_scalars(session, ADDR_R) == (1, 5_000_000 - 1_000_000 - FEE + 1_000)
+
+        ok, err = _apply(st, session, tx4)
+        assert ok, err
+        session.flush()
+        assert _account_scalars(session) == (NONCE0 + 2, BALANCE0 - 4_000_000 - 2 * FEE)
+        assert _account_scalars(session, ADDR_R) == (2, 4_000_000 - 2 * FEE)
+        session.commit()
+
+    with Session(engine) as session:
+        assert _account_scalars(session) == (NONCE0 + 2, BALANCE0 - 4_000_000 - 2 * FEE)
+        assert _account_scalars(session, ADDR_R) == (2, 4_000_000 - 2 * FEE)
+
+
+# --- M1: same-sender BRIDGE_LOCK pair sees post-first-lock balance ---------
+
+
+def _bridge_lock_tx(*, transfer_id: str, amount: int, label: str, nonce: int = NONCE0) -> dict[str, Any]:
+    """Real bridge-authority-signed BRIDGE_LOCK envelope: the pre-registered
+    path exempts the user nonce and sender signature — validation binds the
+    bridge_signature to the authority instead."""
+    tx: dict[str, Any] = {
+        "from": ADDR_S,
+        "to": "bridge_lock",
+        "amount": amount,
+        "value": amount,
+        "fee": FEE,
+        "nonce": nonce,
+        "type": "BRIDGE_LOCK",
+        "chain_id": CHAIN,
+        "tx_hash": _tx_hash(label),
+        "payload": {
+            "transfer_id": transfer_id,
+            "target_chain": "other",
+            "target_recipient": ADDR_R,
+            "asset": "AIT",
+            "amount": amount,
+        },
+    }
+    tx["bridge_signature"] = sign_bridge_lock(tx, tx["tx_hash"], KEY_S)
+    return tx
+
+
+def test_bridge_lock_pair_uses_post_first_lock_balance(fixture_db):
+    """BRIDGE_LOCK apply early-returns before the normal success tail, so its
+    raw debit leaves the retained sender stale. The second same-sender lock
+    must validate against the post-first-lock balance — without the >=23
+    BRIDGE_LOCK-site refresh it overdraws to a negative balance."""
+    engine, _factory = fixture_db
+    st = StateTransition()
+
+    with Session(engine) as session:
+        session.add(
+            ChainParameter(
+                chain_id=CHAIN,
+                parameter="bridge_release_authority",
+                value=ADDR_S,
+                applied_height=None,  # NULL = in force at every height
+            )
+        )
+        session.flush()
+        s_obj = session.get(Account, (CHAIN, ADDR_S))
+        assert s_obj is not None
+
+        lock1 = _bridge_lock_tx(transfer_id="m1-lock-1", amount=BALANCE0 - FEE - 100, label="m1-lock-1")
+        lock2 = _bridge_lock_tx(transfer_id="m1-lock-2", amount=1, label="m1-lock-2", nonce=NONCE0 + 1)
+
+        ok, err = _apply(st, session, lock1)
+        assert ok, err
+        session.flush()
+        # First lock drains to exactly 100 and bumps the nonce — raw SQL only.
+        assert _account_scalars(session) == (NONCE0 + 1, 100)
+
+        ok2, err2 = _apply(st, session, lock2)
+        assert not ok2, f"second lock must reject on the post-first balance: {err2}"
+        assert "Insufficient balance" in err2
+        session.flush()
+        # Zero mutation from the rejected second lock.
+        assert _account_scalars(session) == (NONCE0 + 1, 100)
+        assert lock1["tx_hash"] in st._processed_tx_hashes
+        assert lock2["tx_hash"] not in st._processed_tx_hashes
+        # No bridge_lock recipient account is materialised by the lock path.
+        assert session.exec(select(Account).where(Account.chain_id == CHAIN, Account.address == "bridge_lock")).first() is None
+        session.commit()
+
+    with Session(engine) as session:
+        assert _account_scalars(session) == (NONCE0 + 1, 100)
+
+
+# --- M5: RECEIPT_CLAIM dirty-ORM mint survives the >=23 tail ---------------
+
+
+def test_receipt_claim_dirty_tail_preserves_mint_without_autoflush(fixture_db):
+    """The receipt handler does ``sender_account.balance += minted`` as a
+    dirty ORM write after the raw fee debit. The >=23 tail ``session.flush``
+    must persist that mint BEFORE ``session.refresh`` reloads the row —
+    under ``autoflush=False`` a missing flush makes refresh discard the 777.
+    This pins a supported Session configuration, not production's default."""
+    engine, _factory = fixture_db
+    st = StateTransition()
+    receipt_id = "receipt-m5-gap"
+
+    with Session(engine, autoflush=False) as session:
+        session.add(
+            Receipt(
+                chain_id=CHAIN,
+                job_id="job-m5",
+                receipt_id=receipt_id,
+                payload={},
+                miner_signature={"sig": "fixture"},
+                coordinator_attestations=[{"att": "fixture"}],
+                minted_amount=777,
+                status="pending",
+            )
+        )
+        session.flush()
+        s_obj = session.get(Account, (CHAIN, ADDR_S))
+        assert s_obj is not None
+
+        tx = _signed_tx(
+            NONCE0,
+            0,
+            tx_type="RECEIPT_CLAIM",
+            payload={"receipt_id": receipt_id},
+            label="m5-claim",
+            sender=ADDR_S,
+            recipient=ADDR_S,
+        )
+        ok, err = _apply(st, session, tx)
+        assert ok, err
+        session.flush()
+        # Raw fee debit + dirty +777 mint both landed: balance-fee+minted.
+        assert _account_scalars(session) == (NONCE0 + 1, BALANCE0 - FEE + 777)
+        assert s_obj.nonce == NONCE0 + 1
+        assert s_obj.balance == BALANCE0 - FEE + 777
+
+        receipt = session.exec(select(Receipt).where(Receipt.chain_id == CHAIN, Receipt.receipt_id == receipt_id)).one()
+        assert receipt.status == "claimed"
+        assert receipt.claimed_by == ADDR_S
+        assert receipt.minted_amount == 777
+        assert tx["tx_hash"] in st._processed_tx_hashes
+        assert st._processed_nonces.get(ADDR_S) == NONCE0 + 1
+        session.commit()
+
+    with Session(engine) as session:
+        assert _account_scalars(session) == (NONCE0 + 1, BALANCE0 - FEE + 777)
+        receipt = session.exec(select(Receipt).where(Receipt.chain_id == CHAIN, Receipt.receipt_id == receipt_id)).one()
+        assert receipt.status == "claimed" and receipt.claimed_by == ADDR_S
