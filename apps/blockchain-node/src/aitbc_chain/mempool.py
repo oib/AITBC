@@ -372,6 +372,15 @@ class InMemoryMempool:
                 self._update_gauge(chain_id)
             return removed
 
+    def batch_remove(self, hashes: list[str], chain_id: str | None = None) -> int:
+        """Parity with DatabaseMempool.batch_remove — in-memory has no
+        reservations, so every hash is removable."""
+        removed = 0
+        for tx_hash in hashes:
+            if self.remove(tx_hash, chain_id):
+                removed += 1
+        return removed
+
     def remove_superseded(self, chain_id: str, sender: str, nonce: int) -> int:
         """Drop pending entries whose (sender, nonce) slot a sealed block
         just consumed.
@@ -416,6 +425,15 @@ class InMemoryMempool:
             chain_id = settings.chain_id
         with self._lock:
             return set(self._get_chain_transactions(chain_id))
+
+    def reconcile_sealed(self, chain_id: str, sealed_tx_hashes: Iterable[str]) -> int:
+        """In-memory parity stub for the DatabaseMempool reconcile — removes
+        pooled rows the caller's chain-side check reports as sealed."""
+        removed = 0
+        for tx_hash in dict.fromkeys(sealed_tx_hashes):
+            if self.remove(tx_hash, chain_id):
+                removed += 1
+        return removed
 
     def get_pending_transactions(self, chain_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""

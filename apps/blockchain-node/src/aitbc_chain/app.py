@@ -306,6 +306,51 @@ def _evict_rejected_mempool_entries() -> int:
     return removed
 
 
+def _reconcile_sealed_mempool_entries() -> int:
+    """#1300 S2: evict pooled rows the chain has already sealed.
+
+    A tx sealed by a block (e.g. via a peer's proposal this node imported)
+    can linger in the local pool until drain/TTL — the next local proposal
+    would re-process it as a duplicate. reconcile_sealed removes exactly the
+    rows whose chain-side Transaction record is confirmed with a real
+    block_height; pending/rejected/pre-registered rows are untouched.
+    """
+    from sqlmodel import select
+
+    from .base_models import Transaction
+    from .database import session_scope
+    from .mempool import get_mempool
+
+    mempool = get_mempool()
+    chains = {settings.chain_id} | {c.strip() for c in settings.supported_chains.split(",") if c.strip()}
+    removed = 0
+    for chain_id in chains:
+        try:
+            pending = mempool.pending_tx_hashes(chain_id)
+            if not pending:
+                continue
+            sealed: set[str] = set()
+            hashes = sorted(pending)
+            with session_scope(chain_id) as session:
+                for i in range(0, len(hashes), 500):
+                    chunk = hashes[i : i + 500]
+                    rows = session.exec(
+                        select(Transaction.tx_hash).where(
+                            Transaction.chain_id == chain_id,
+                            Transaction.status == "confirmed",
+                            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+                            Transaction.tx_hash.in_(chunk),  # type: ignore[attr-defined]
+                        )
+                    ).all()
+                    sealed.update(rows)
+            if sealed:
+                removed += mempool.reconcile_sealed(chain_id, sealed)
+        except Exception as exc:
+            # One unreachable/foreign chain must not stall the others.
+            _app_logger.debug("Sealed-reconcile sweep skipped chain %s: %s", chain_id, exc)
+    return removed
+
+
 async def _sweep_mempool_forever() -> None:
     """Periodically drop mempool entries that have aged past the TTL.
 
@@ -327,6 +372,9 @@ async def _sweep_mempool_forever() -> None:
             rejected_removed = _evict_rejected_mempool_entries()
             if rejected_removed:
                 _app_logger.info("Mempool sweeper evicted %d apply-rejected entries", rejected_removed)
+            sealed_removed = _reconcile_sealed_mempool_entries()
+            if sealed_removed:
+                _app_logger.info("Mempool sweeper reconciled %d already-sealed entries", sealed_removed)
             from .database import ensure_chain_db_healthy
 
             for cid in get_supported_chains():
@@ -387,6 +435,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         max_size=settings.mempool_max_size,
         min_fee=settings.min_fee,
     )
+    # #1300 S2: one-shot sealed reconciliation at startup — rows sealed while
+    # this process was down must not be re-drained into a proposal.
+    try:
+        sealed_removed = _reconcile_sealed_mempool_entries()
+        if sealed_removed:
+            _app_logger.info("Startup sealed-reconcile evicted %d already-sealed mempool entries", sealed_removed)
+    except Exception as exc:
+        _app_logger.warning("Startup sealed-reconcile failed (non-fatal): %s", exc)
     _app_logger.info(
         "Initializing gossip backend: %s, url: %s",
         settings.gossip_backend,

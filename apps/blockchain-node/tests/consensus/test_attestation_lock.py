@@ -609,7 +609,7 @@ async def test_signature_stamped_before_consensus_gates(monkeypatch):
     monkeypatch.setattr(proposer, "_passes_early_gates", _passes_early_gates)
     monkeypatch.setattr(proposer, "_resolve_proposal_head", lambda *_: (head, 1, b"parent", 1))
     monkeypatch.setattr(proposer, "_select_round_proposer", lambda *_: ("0x" + "0" * 40, 0))
-    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_: ([], {}, {}))
+    monkeypatch.setattr(proposer, "_collect_proposal_txs", lambda *_, **__: ([], {}, {}, set()))
     monkeypatch.setattr(proposer, "_process_proposal_txs", lambda *_: ([], set(), True))
     monkeypatch.setattr(proposer, "_reject_if_all_invalid", lambda *_: False)
     monkeypatch.setattr(proposer, "_assemble_proposal_block", lambda *_: (block, b"fake-block-hash"))
