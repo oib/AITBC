@@ -1373,6 +1373,9 @@ async def get_pricing(
             }
     except Exception:
         market_analysis = None
+    # #1373: zero-priced listings make the static average 0 — the percent
+    # change denominator must be guarded.
+    avg_static_price = sum(static_prices) / len(static_prices)
     return {
         "model": model,
         "static_pricing": {
@@ -1395,10 +1398,10 @@ async def get_pricing(
             "recommended_price": best_value_gpu["dynamic_price"],
         },
         "price_comparison": {
-            "avg_price_change": avg_dynamic_price - sum(static_prices) / len(static_prices),
-            "avg_price_change_percent": (avg_dynamic_price - sum(static_prices) / len(static_prices))
-            / (sum(static_prices) / len(static_prices))
-            * 100,
+            "avg_price_change": avg_dynamic_price - avg_static_price,
+            "avg_price_change_percent": (
+                (avg_dynamic_price - avg_static_price) / avg_static_price * 100 if avg_static_price != 0 else 0
+            ),
             "gpus_with_price_increase": len([dp for dp in dynamic_prices if dp["price_change"] > 0]),
             "gpus_with_price_decrease": len([dp for dp in dynamic_prices if dp["price_change"] < 0]),
         },
