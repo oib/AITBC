@@ -58,6 +58,7 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
+from ..state.authoritative_reads import read_current_account
 from ..state.v9_policy import count_v9_would_reject
 from ..cross_chain import bridge_lock_guard
 from ..cross_chain.bridge_leaf import lock_leaf_value, unknown_lock_leaf
@@ -2980,6 +2981,12 @@ class PoAProposer:
                     existing_tx_record.block_height = next_height
                     existing_tx_record.timestamp = timestamp.isoformat()
                     session.add(existing_tx_record)
+                    if block_version >= 24:
+                        # #1314 R2 path (a): no apply/savepoint on this path —
+                        # the explicit flush is the ONLY thing making the row
+                        # visible to later same-block reads (e.g. :2759
+                        # _refund_lock_record on a following BRIDGE_REFUND).
+                        session.flush()
                     processed_txs.append(tx)
                     existing_tx_map[tx.tx_hash] = next_height
                     self._logger.info(
@@ -3030,6 +3037,12 @@ class PoAProposer:
                         type=tx_type,
                     )
                     pending_transaction_records.append(transaction)
+                    if block_version >= 24:
+                        # #1314 R2: match importer visibility — the row must be
+                        # flushed before the next transaction's apply queries
+                        # Transaction rows (e.g. refund/lock lookups).
+                        session.add(transaction)
+                        session.flush()
                     changed_addresses.add(recipient)
                     existing_tx_map[tx.tx_hash] = next_height
                     processed_txs.append(tx)
@@ -3052,7 +3065,17 @@ class PoAProposer:
                     self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
                     _reject(tx, f"sender account not found for {sender}")
                     continue
-                sender_balance = sender_account.balance if sender_account else 0
+                if block_version >= 24:
+                    # #1314 V5: authoritative scalar read — the account_map /
+                    # session.get path can serve identity-map-stale balance
+                    # and nonce. Same session/transaction; creates no Account;
+                    # virtual (0,0) semantics preserved for missing accounts.
+                    auth_balance, auth_nonce, auth_exists = read_current_account(session, self._config.chain_id, sender)
+                    sender_balance = auth_balance if auth_balance is not None else 0
+                    authoritative_nonce = auth_nonce if auth_exists else 0
+                else:
+                    sender_balance = sender_account.balance if sender_account else 0
+                    authoritative_nonce = sender_account.nonce if sender_account and sender_account.nonce is not None else 0
                 total_cost = value + fee
                 if sender_balance < total_cost:
                     self._logger.warning(
@@ -3106,9 +3129,7 @@ class PoAProposer:
                 state_transition = get_state_transition()
                 tx_data_for_transition = tx.content.copy()
                 if use_account_nonce_override(tx_data_for_transition, block_version):
-                    tx_data_for_transition["nonce"] = (
-                        sender_account.nonce if sender_account and sender_account.nonce is not None else 0
-                    )
+                    tx_data_for_transition["nonce"] = authoritative_nonce
                 tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
                 success, error_msg = state_transition.apply_transaction_guarded(
                     session,
@@ -3138,6 +3159,9 @@ class PoAProposer:
                     if existing_tx_record.envelope is None:
                         existing_tx_record.envelope = dict(tx.content)
                     pending_transaction_records.append(existing_tx_record)
+                    if block_version >= 24:
+                        session.add(existing_tx_record)
+                        session.flush()
                 else:
                     transaction = Transaction(
                         chain_id=self._config.chain_id,
@@ -3156,6 +3180,9 @@ class PoAProposer:
                         type=tx_type,
                     )
                     pending_transaction_records.append(transaction)
+                    if block_version >= 24:
+                        session.add(transaction)
+                        session.flush()
                 # Track changed addresses for incremental state root computation
                 changed_addresses.add(sender)
                 changed_addresses.add(recipient)

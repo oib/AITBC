@@ -69,7 +69,11 @@ def reset_chain(chain_id: str) -> None:
 
 
 def open_session(chain_id: str) -> Session:
-    return Session(get_engine(chain_id, create_ok=True))
+    # #1314: golden replay must run production session semantics —
+    # autoflush=True/expire_on_commit=True masked the stale-read class.
+    from aitbc_chain.database import prod_parity_sessionmaker
+
+    return prod_parity_sessionmaker(bind=get_engine(chain_id, create_ok=True))()
 
 
 def seed_rows(session: Session, table: str, rows: list[dict[str, Any]]) -> None:

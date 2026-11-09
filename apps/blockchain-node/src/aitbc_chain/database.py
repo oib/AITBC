@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -15,6 +16,7 @@ from sqlalchemy import Column, ColumnDefault, Engine, event, inspect, literal, t
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
+from sqlalchemy.sql.dml import Delete, Insert, Update
 from sqlmodel import Session, create_engine, select
 
 from aitbc.aitbc_logging import get_logger
@@ -50,6 +52,7 @@ from .base_models import (  # noqa: F401
 )
 from .chain_id import resolve_chain_id
 from .config import settings
+from .v24_rules import v24_rules_is_active
 from .mempool import MempoolEntry  # noqa: F401
 from .metadata import chain_metadata
 from .state.gpu_resources import EdgeNodeRegistration, GPUAllocation, GPURegistration  # noqa: F401
@@ -467,8 +470,100 @@ def _on_engine_connect(dbapi_connection: Any, connection_record: Any) -> None:
     _set_sqlite_pragmas(dbapi_connection, connection_record)
 
 
+# --- #1314 R1: identity-map invalidation after raw-SQL writes (v24-gated) ---
+#
+# Raw ``session.execute(text("UPDATE account ..."))`` writes bypass the ORM
+# identity map: objects already loaded in the session keep stale attribute
+# values, so a later ``session.get``/attribute read returns pre-write state.
+# ``ParitySession.execute`` detects writes to mapped tables and expires the
+# matching identity-map instances — but ONLY while the v24 rules context is
+# active (set by ``apply_transaction_guarded`` for block_version >= 24). With
+# the flag off the session behaves exactly like a plain ``Session``, keeping
+# the primitive inert until STATE_TRANSITION_V24_HEIGHT is pinned.
+
+
+_DML_WRITE_RE = re.compile(
+    r"^\s*(?:/\*.*?\*/\s*)*(?:UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+[`\"'\[]?(\w+)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _written_table_names(statement: Any) -> set[str]:
+    """Best-effort extraction of table names written by a statement."""
+    if isinstance(statement, (Insert, Update, Delete)):
+        table = getattr(statement, "table", None)
+        name = getattr(table, "name", None)
+        return {name} if name else set()
+    try:
+        text_form = str(statement)
+    except Exception:
+        return set()
+    match = _DML_WRITE_RE.match(text_form)
+    return {match.group(1)} if match else set()
+
+
+class ParitySession(Session):
+    """Session that expires identity-map objects after raw-SQL writes (v24 only).
+
+    When ``_v24_rules_active`` is set, any ``execute()`` of an
+    UPDATE/INSERT/DELETE against a mapped table expires every loaded instance
+    of the corresponding mapped class in this session's identity map, so the
+    next read reloads committed state instead of serving stale attributes.
+    Outside the v24 context this is a no-op — byte-identical behavior to a
+    plain ``Session``.
+    """
+
+    def _expire_written_tables(self, tables: set[str]) -> None:
+        if not tables or not v24_rules_is_active():
+            return
+        normalized = {t.rsplit(".", 1)[-1].strip("`\"'[]") for t in tables}
+        # E c23626 item 1: expire() on a dirty instance silently DISCARDS its
+        # pending (unflushed) attribute changes — under autoflush=False that
+        # would lose an ORM mutation the raw write was never meant to erase.
+        # Pre-v24 semantics keep the pending change; expire only clean
+        # instances so stale reads are still refreshed.
+        dirty = self.dirty
+        for obj in list(self.identity_map.values()):
+            if obj in dirty:
+                continue
+            table = getattr(type(obj), "__table__", None)
+            if table is not None and table.name in normalized:
+                self.expire(obj)
+
+    def execute(self, statement: Any, *args: Any, **kwargs: Any) -> Any:
+        result = super().execute(statement, *args, **kwargs)
+        tables = _written_table_names(statement)
+        if tables:
+            self._expire_written_tables(tables)
+        return result
+
+
+# Production session configuration — the single source of truth for how
+# consensus-relevant sessions must behave. autoflush=False + expire_on_commit=False
+# are load-bearing: raw-SQL writes and identity-map staleness semantics differ
+# under any other configuration, and tests that diverge from this prove nothing
+# about production behavior (#1314; golden engine and tests/conftest.py previously
+# diverged — see ADQ-1109-16).
+PROD_SESSION_KWARGS: dict[str, Any] = {
+    "autoflush": False,
+    "autocommit": False,
+    "class_": ParitySession,
+    "expire_on_commit": False,
+}
+
+
+def prod_parity_sessionmaker(bind: Any = None) -> sessionmaker:
+    """Return a sessionmaker configured identically to production sessions.
+
+    Tests and tooling that exercise apply/state-transition paths must use this
+    (or ``session_scope``) — a plain ``Session(engine)`` or ``sessionmaker``
+    with default kwargs silently diverges from production semantics.
+    """
+    return sessionmaker(bind=bind, **PROD_SESSION_KWARGS)
+
+
 # Session factory for the module-level engine (sessionmaker factory pattern).
-_session_factory = sessionmaker(bind=_engine, autoflush=False, autocommit=False, class_=Session, expire_on_commit=False)
+_session_factory = sessionmaker(bind=_engine, **PROD_SESSION_KWARGS)
 
 # Cache of session factories per chain_id (chain-specific engines are created
 # lazily by get_engine; reuse a sessionmaker once the engine exists).
@@ -480,9 +575,7 @@ def _get_session_factory(chain_id: str, create_ok: bool = False, allow_foreign: 
     resolved_chain_id = resolve_chain_id(chain_id)
     if resolved_chain_id not in _session_factories:
         engine = get_engine(chain_id, create_ok=create_ok, allow_foreign=allow_foreign)
-        _session_factories[resolved_chain_id] = sessionmaker(
-            bind=engine, autoflush=False, autocommit=False, class_=Session, expire_on_commit=False
-        )
+        _session_factories[resolved_chain_id] = prod_parity_sessionmaker(bind=engine)
     return _session_factories[resolved_chain_id]
 
 
