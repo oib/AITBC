@@ -423,7 +423,21 @@ class BlockImportMixin(SyncBase):
         saved_nonces, saved_hashes = dict(st._processed_nonces), set(st._processed_tx_hashes)
         verdict = "inconclusive"
         try:
-            if our_segment and ancestor is not None:
+            if our_segment and self._blocks_provably_empty(session, list(our_segment)):
+                # Same branch as the real reorg: an empty losing segment is
+                # simply deleted (rolled back below), no journal revert.
+                for old_block in our_segment:
+                    for tx in session.exec(
+                        select(ChainTransaction)
+                        .where(ChainTransaction.chain_id == self._chain_id)
+                        .where(ChainTransaction.block_height == old_block.height)
+                    ).all():
+                        session.delete(tx)
+                    session.delete(old_block)
+                session.flush()
+            elif our_segment:
+                if ancestor is None:
+                    return "inconclusive"
                 reverted = revert_losing_segment(
                     session, self._chain_id, list(our_segment), ancestor, self._blocks_provably_empty, reverted_accounts=set()
                 )
