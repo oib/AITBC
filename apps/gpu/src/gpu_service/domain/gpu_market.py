@@ -81,6 +81,16 @@ class GPUArchitecture(StrEnum):
     UNKNOWN = "unknown"
 
 
+# Liveness paths (miner heartbeat/register, GPU re-register, edge GPU
+# discovery) may only mark *uncommitted* GPUs bookable again, using the
+# canonical "available" spelling. booked/in_use capacity is committed to a
+# client and must survive routine liveness — flipping it back to bookable
+# is a double-booking (#1388). "online" is the legacy off-vocabulary
+# spelling older heartbeats wrote; including it here canonicalizes those
+# rows to "available" on the next liveness event.
+BOOKABLE_GPU_STATUSES = ("available", "offline", "online")
+
+
 class GPURegistry(GpuBase, table=True):
     """Registered GPUs available in the market."""
 
