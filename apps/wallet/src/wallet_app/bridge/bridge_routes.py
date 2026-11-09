@@ -96,7 +96,7 @@ def list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -
     """
     limit = max(0, min(limit, 500))
     if status == "pending":
-        deposits = get_pending_deposits()
+        deposits = get_pending_deposits(limit=limit, offset=offset)
     else:
         deposits = get_all_deposits(limit=limit, offset=offset)
 
@@ -469,7 +469,7 @@ def bridge_list_deposits(status: str | None = None, limit: int = 50, offset: int
     """List bridge deposits."""
     limit = max(0, min(limit, 500))
     if status == "pending":
-        deposits = get_pending_deposits()
+        deposits = get_pending_deposits(limit=limit, offset=offset)
     else:
         deposits = get_all_deposits(limit=limit, offset=offset)
     return {

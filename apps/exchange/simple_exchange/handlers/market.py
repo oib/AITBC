@@ -55,6 +55,10 @@ class MarketMixin:
     def handle_market_offers(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
         status_filter = query.get("status", [None])[0]
+        try:
+            limit = max(1, min(int(query.get("limit", ["200"])[0]), 1000))
+        except (TypeError, ValueError):
+            limit = 200
         conn = sqlite3.connect(get_db_path())
         try:
             cursor = conn.cursor()
@@ -65,15 +69,20 @@ class MarketMixin:
                     FROM marketplace_offers
                     WHERE status = ?
                     ORDER BY created_at DESC
+                    LIMIT ?
                 """,
-                    (status_filter,),
+                    (status_filter, limit),
                 )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT id, item, item_type, price, wallet, status, description, created_at
                     FROM marketplace_offers
                     ORDER BY created_at DESC
-                """)
+                    LIMIT ?
+                """,
+                    (limit,),
+                )
             offers = [self._market_offer_row(row) for row in cursor.fetchall()]
         finally:
             conn.close()
@@ -244,6 +253,11 @@ class MarketMixin:
     def handle_market_orders(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
         wallet = query.get("wallet", [None])[0]
+        # Bounded public read — was an unbounded full-table scan (#1408).
+        try:
+            limit = max(1, min(int(query.get("limit", ["200"])[0]), 1000))
+        except (TypeError, ValueError):
+            limit = 200
         conn = sqlite3.connect(get_db_path())
         try:
             cursor = conn.cursor()
@@ -254,15 +268,20 @@ class MarketMixin:
                     FROM marketplace_orders
                     WHERE wallet = ?
                     ORDER BY created_at DESC
+                    LIMIT ?
                 """,
-                    (wallet,),
+                    (wallet, limit),
                 )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT id, order_type, item, price, wallet, status, created_at
                     FROM marketplace_orders
                     ORDER BY created_at DESC
-                """)
+                    LIMIT ?
+                """,
+                    (limit,),
+                )
             orders = [self._market_order_row(row) for row in cursor.fetchall()]
         finally:
             conn.close()
