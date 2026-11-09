@@ -57,9 +57,13 @@ class DatabaseService:
                 records_synced=0,
             )
             session.add(db)
+            # Capture before commit: AsyncSession expires attributes on commit,
+            # so reading db.id afterwards raises MissingGreenlet (#1390). The
+            # default_factory populates id client-side, so it is set already.
+            db_id = db.id
             await session.commit()
 
-            return {"success": True, "message": f"Database {database_id} initialized", "database": database_id, "id": db.id}
+            return {"success": True, "message": f"Database {database_id} initialized", "database": database_id, "id": db_id}
 
     async def get_database(self, database_id: str) -> dict[str, Any] | None:
         """Get database details"""
