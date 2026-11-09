@@ -177,7 +177,6 @@ def test_forecast_clamped_to_unit_interval(engine):
         assert 0.0 <= s <= 1.0
 
 
-
 # ---------------------------------------------------------------------------
 # demand multiplier floor — #1363 clamp regression pin (was strict-xfail pre-fix)
 # ---------------------------------------------------------------------------
@@ -190,3 +189,94 @@ def test_demand_multiplier_never_negative(engine, strategy):
     m = engine._calculate_demand_multiplier(-3.0, strategy)
     assert m >= Decimal("0.5")
     assert m <= Decimal("2.0")
+
+
+# ---------------------------------------------------------------------------
+# #1375 market conditions — real listings or honest neutral, never random
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+async def test_market_conditions_neutral_for_non_gpu(engine):
+    """Non-GPU resource types get deterministic neutral conditions."""
+    cond = await engine._load_market_conditions(ResourceType.SERVICE, "global")
+    assert cond.demand_level == 0.5
+    assert cond.supply_level == 0.5
+    assert cond.utilization_rate == 0.5
+    assert cond.price_volatility == 0.0
+    assert cond.competitor_prices == []
+    assert cond.market_sentiment == 0.0
+    # Deterministic: a second call returns identical values (no random walk).
+    again = await engine._load_market_conditions(ResourceType.STORAGE, "eu")
+    assert again.demand_level == cond.demand_level
+    assert again.supply_level == cond.supply_level
+
+
+@pytest.mark.unit
+async def test_market_conditions_gpu_snapshot_from_listings(engine, monkeypatch):
+    """GPU conditions derive from live GPURegistry rows, not np.random."""
+    import coordinator_api.storage.db as dbmod
+
+    class _Gpu:
+        def __init__(self, status, price):
+            self.status = status
+            self.price_per_hour = price
+
+    rows = [_Gpu("available", Decimal("0.05")), _Gpu("available", Decimal("0.05")), _Gpu("booked", Decimal("0.07"))]
+
+    class _Scalars:
+        def all(self):
+            return rows
+
+    class _Result:
+        def scalars(self):
+            return _Scalars()
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def execute(self, stmt):
+            return _Result()
+
+    monkeypatch.setattr(dbmod, "session_scope", lambda: _Session())
+    cond = await engine._load_market_conditions(ResourceType.GPU, "global")
+    assert cond.supply_level == pytest.approx(2 / 3)
+    assert cond.utilization_rate == pytest.approx(1 / 3)
+    assert cond.average_price == Decimal("0.06")
+    assert cond.competitor_prices == [Decimal("0.05"), Decimal("0.07")]
+    assert cond.demand_level == 0.5
+    assert cond.market_sentiment == 0.0
+
+
+@pytest.mark.unit
+async def test_market_conditions_gpu_empty_falls_back_neutral(engine, monkeypatch):
+    """No active listings -> neutral conditions, not fabricated prices."""
+    import coordinator_api.storage.db as dbmod
+
+    class _Scalars:
+        def all(self):
+            return []
+
+    class _Result:
+        def scalars(self):
+            return _Scalars()
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def execute(self, stmt):
+            return _Result()
+
+    monkeypatch.setattr(dbmod, "session_scope", lambda: _Session())
+    cond = await engine._load_market_conditions(ResourceType.GPU, "global")
+    assert cond.supply_level == 0.5
+    assert cond.competitor_prices == []
+    assert cond.average_price == Decimal("0")
