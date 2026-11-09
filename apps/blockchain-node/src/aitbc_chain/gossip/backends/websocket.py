@@ -23,6 +23,7 @@ from ..telemetry import (
     gossip_peer_connection_events_total,
     gossip_peer_publish_ack_seconds,
     gossip_peer_publish_attempts_total,
+    gossip_peer_publish_retry_delay_seconds,
     gossip_peer_publish_terminal_total,
     gossip_peer_reconnect_attempts_total,
     gossip_peer_reconnect_delay_seconds,
@@ -85,12 +86,18 @@ class WebsocketGossipBackend(GossipBackend):
         self._reconnecting: set[str] = set()
         self._reconnect_backoff: dict[str, float] = {}
         self._ack_timeout = ack_timeout
-        self._ack_events: dict[str, asyncio.Event] = {}
+        # #1308: msg_id -> (ack event, attempt number) for the in-flight wait.
+        self._ack_events: dict[str, tuple[asyncio.Event, int]] = {}
         self._ack_lock = asyncio.Lock()
+        # #1308: msg_id -> (attempt that timed out, monotonic ts). Attempt
+        # correlation is required because echoes carry no attempt nonce: an
+        # echo that satisfies a *later* attempt's wait is that attempt's own
+        # ack, not a late ack for the earlier one.
+        self._ack_timeouts: dict[str, tuple[int, float]] = {}
+        # #1308: msg_id -> attempt number of a timeout superseded by a later
+        # attempt's ack (read once by the publish telemetry, then popped).
+        self._ack_prior_timeout: dict[str, int] = {}
         self._connect_locks: dict[str, asyncio.Lock] = {}
-        # #1308: msg_ids whose ack wait already timed out, so a later echo is
-        # distinguishable as a LATE ack rather than a missing one.
-        self._ack_timeouts: dict[str, float] = {}
 
     async def start(self) -> None:
         self._running = True
@@ -131,44 +138,80 @@ class WebsocketGossipBackend(GossipBackend):
                 if now - ts > self._echo_ttl:
                     del self._sent_message_ids[k]
 
-    async def _is_echo(self, topic: str, message: Any) -> bool:
-        msg_id = self._compute_message_id(topic, message)
-        # If we are waiting for an ack, the echo sets the event and is suppressed.
-        ack_event: asyncio.Event | None = None
-        late_ack = False
+    async def _ack_wait_snapshot(self, msg_id: str) -> tuple[tuple[asyncio.Event, int] | None, int | None]:
+        """(in-flight ack entry, timed-out attempt) for msg_id, pruning stale
+        timeout markers. Single lock acquisition keeps the pair consistent."""
         async with self._ack_lock:
-            ack_event = self._ack_events.get(msg_id)
-            if ack_event is not None and msg_id in self._ack_timeouts:
-                # #1308: this msg_id already timed out on an earlier attempt —
-                # the echo is a LATE (likely cross-attempt) ack, distinguishable
-                # from a missing one.
-                late_ack = True
-                del self._ack_timeouts[msg_id]
+            entry = self._ack_events.get(msg_id)
+            timed = self._ack_timeouts.get(msg_id)
             now = time.monotonic()
-            for k, ts in list(self._ack_timeouts.items()):
+            for k, (_, ts) in list(self._ack_timeouts.items()):
                 if now - ts > self._echo_ttl:
                     del self._ack_timeouts[k]
-        if ack_event is not None:
-            if late_ack:
-                gossip_peer_ack_late_total.labels(peer=self._peer_name, topic_class=bounded_topic_label(topic)).inc()
-                gossip_event(
-                    "ack_late",
-                    peer=self._peer_name,
-                    topic=topic,
-                    event_id=msg_id,
-                    _level="info",
-                )
-            ack_event.set()
-            return True
+            return entry, timed[0] if timed is not None else None
+
+    async def _supersede_timed_out(self, msg_id: str, timed_out_attempt: int) -> None:
+        """A later attempt's ack arrived: the earlier attempt's timeout marker
+        is superseded (its echo is unobservable — the socket was torn down at
+        retry) and recorded once for the publish_ack event."""
+        async with self._ack_lock:
+            if msg_id in self._ack_timeouts:
+                del self._ack_timeouts[msg_id]
+                self._ack_prior_timeout[msg_id] = timed_out_attempt
+
+    async def _suppressed_sent(self, msg_id: str) -> bool:
+        """Refresh-and-prune the sent-id echo-suppression set; True when this
+        id was sent recently enough that the echo must be swallowed."""
         now = time.monotonic()
+        suppressed = False
         async with self._sent_lock:
             if msg_id in self._sent_message_ids:
                 self._sent_message_ids[msg_id] = now
-                return True
+                suppressed = True
             for k, ts in list(self._sent_message_ids.items()):
                 if now - ts > self._echo_ttl:
                     del self._sent_message_ids[k]
-        return False
+        return suppressed
+
+    async def _record_late_ack(self, msg_id: str, topic: str, timed_out_attempt: int) -> None:
+        """Count a true late ack: an echo suppressed as already-sent for a
+        msg_id whose LAST attempt timed out — the only late-ack case that is
+        observable (echoes carry no attempt nonce)."""
+        async with self._ack_lock:
+            timed = self._ack_timeouts.get(msg_id)
+            if timed is None or timed[0] != timed_out_attempt:
+                return
+            del self._ack_timeouts[msg_id]
+        gossip_peer_ack_late_total.labels(
+            peer=self._peer_name,
+            topic_class=bounded_topic_label(topic),
+            attempt=str(timed_out_attempt),
+        ).inc()
+        gossip_event(
+            "ack_late",
+            peer=self._peer_name,
+            topic=topic,
+            event_id=msg_id,
+            attempt=timed_out_attempt,
+            _level="info",
+        )
+
+    async def _is_echo(self, topic: str, message: Any) -> bool:
+        msg_id = self._compute_message_id(topic, message)
+        # If we are waiting for an ack, the echo sets the event and is suppressed.
+        ack_entry, timed_out_attempt = await self._ack_wait_snapshot(msg_id)
+        if ack_entry is not None:
+            ack_event, waiting_attempt = ack_entry
+            if timed_out_attempt is not None and timed_out_attempt < waiting_attempt:
+                # This echo satisfies the CURRENT attempt's wait — it is that
+                # attempt's own ack, not a late ack for the timed-out one.
+                await self._supersede_timed_out(msg_id, timed_out_attempt)
+            ack_event.set()
+            return True
+        suppressed = await self._suppressed_sent(msg_id)
+        if suppressed and timed_out_attempt is not None:
+            await self._record_late_ack(msg_id, topic, timed_out_attempt)
+        return suppressed
 
     async def _ensure_connection(self, topic: str) -> None:
         """Acquire the per-topic lock and open/reopen the websocket."""
@@ -512,6 +555,73 @@ class WebsocketGossipBackend(GossipBackend):
             raise RuntimeError("Websocket backend not started")
         await self._publish_with_ack(topic, message, retry=True)
 
+    def _emit_attempt_telemetry(
+        self,
+        *,
+        topic: str,
+        topic_class: str,
+        msg_id: str,
+        attempt: int,
+        outcome: str,
+        ack_latency: float | None,
+        failure: BaseException | None,
+        retry: bool,
+        prior_timed_out_attempt: int | None,
+        publish_t0: float,
+    ) -> None:
+        """Best-effort publish telemetry for one attempt. The whole body is
+        guarded: a telemetry failure must never change publish control flow."""
+        from aitbc.aitbc_logging import get_logger
+
+        logger = get_logger(__name__)
+        try:
+            attempt_age_ms = round((time.monotonic() - publish_t0) * 1000.0, 1)
+            gossip_peer_publish_attempts_total.labels(
+                peer=self._peer_name, topic_class=topic_class, attempt=str(attempt), outcome=outcome
+            ).inc()
+            if outcome == "ack":
+                if ack_latency is not None:
+                    gossip_peer_publish_ack_seconds.labels(peer=self._peer_name, topic_class=topic_class).observe(ack_latency)
+                gossip_peer_publish_terminal_total.labels(peer=self._peer_name, topic_class=topic_class, outcome="acked").inc()
+                gossip_event(
+                    "publish_ack",
+                    peer=self._peer_name,
+                    topic=topic,
+                    event_id=msg_id,
+                    attempt=attempt,
+                    ack_latency_ms=round(ack_latency * 1000.0, 1) if ack_latency is not None else None,
+                    prior_timed_out_attempt=prior_timed_out_attempt,
+                    attempt_age_ms=attempt_age_ms,
+                )
+            else:
+                gossip_event(
+                    "publish_attempt_failed",
+                    peer=self._peer_name,
+                    topic=topic,
+                    event_id=msg_id,
+                    attempt=attempt,
+                    outcome=outcome,
+                    attempt_age_ms=attempt_age_ms,
+                    error=str(failure)[:120] if failure else None,
+                    _level="info",
+                )
+                if not retry:
+                    gossip_peer_publish_terminal_total.labels(
+                        peer=self._peer_name, topic_class=topic_class, outcome="failed"
+                    ).inc()
+                    gossip_event(
+                        "publish_failed",
+                        peer=self._peer_name,
+                        topic=topic,
+                        event_id=msg_id,
+                        attempts=attempt,
+                        outcome=outcome,
+                        attempt_age_ms=attempt_age_ms,
+                        _level="warning",
+                    )
+        except Exception as telemetry_exc:
+            logger.debug("Gossip publish telemetry failed for %s: %s", topic, telemetry_exc)
+
     async def _publish_with_ack(
         self,
         topic: str,
@@ -519,6 +629,7 @@ class WebsocketGossipBackend(GossipBackend):
         *,
         retry: bool,
         _attempt: int = 1,
+        _publish_t0: float | None = None,
     ) -> None:
         """Publish a message and wait for the server echo (ack).
 
@@ -527,17 +638,23 @@ class WebsocketGossipBackend(GossipBackend):
         the message is resent once.
 
         #1308: every attempt is measured — send→ack latency, timeout vs late
-        ack, retry/terminal outcome — all keyed by the deterministic message
-        id so a single publish is reconstructable across attempts and nodes.
+        ack, retry delay, attempt age and terminal outcome — all keyed by the
+        deterministic message id so a single publish is reconstructable
+        across attempts and nodes. There is no explicit publish deadline in
+        this backend; ``attempt_age_ms`` records elapsed time since the first
+        attempt so consumers can compare against their own cap (e.g. the
+        mesh 30 s peer-publish timeout).
         """
         from aitbc.aitbc_logging import get_logger
 
         logger = get_logger(__name__)
+        if _publish_t0 is None:
+            _publish_t0 = time.monotonic()
         msg_id = self._compute_message_id(topic, message)
         topic_class = bounded_topic_label(topic)
         ack_event = asyncio.Event()
         async with self._ack_lock:
-            self._ack_events[msg_id] = ack_event
+            self._ack_events[msg_id] = (ack_event, _attempt)
         outcome = "error"
         ack_latency: float | None = None
         failure: BaseException | None = None
@@ -566,52 +683,36 @@ class WebsocketGossipBackend(GossipBackend):
             async with self._ack_lock:
                 self._ack_events.pop(msg_id, None)
 
-        # --- telemetry (outside the connect lock; never blocks the send path)
-        gossip_peer_publish_attempts_total.labels(
-            peer=self._peer_name, topic_class=topic_class, attempt=str(_attempt), outcome=outcome
-        ).inc()
+        # --- telemetry (outside the connect lock; never blocks the send path).
+        # Metric/event emission is wrapped defensively inside the helper: a
+        # telemetry failure must not change publish control flow. Bookkeeping
+        # below (timeout marker, terminal raise, retry) stays outside the guard.
+        async with self._ack_lock:
+            prior_timed_out_attempt = self._ack_prior_timeout.pop(msg_id, None)
+        self._emit_attempt_telemetry(
+            topic=topic,
+            topic_class=topic_class,
+            msg_id=msg_id,
+            attempt=_attempt,
+            outcome=outcome,
+            ack_latency=ack_latency,
+            failure=failure,
+            retry=retry,
+            prior_timed_out_attempt=prior_timed_out_attempt,
+            publish_t0=_publish_t0,
+        )
+
         if outcome == "ack":
-            if ack_latency is not None:
-                gossip_peer_publish_ack_seconds.labels(peer=self._peer_name, topic_class=topic_class).observe(ack_latency)
-            gossip_peer_publish_terminal_total.labels(peer=self._peer_name, topic_class=topic_class, outcome="acked").inc()
-            gossip_event(
-                "publish_ack",
-                peer=self._peer_name,
-                topic=topic,
-                event_id=msg_id,
-                attempt=_attempt,
-                ack_latency_ms=round(ack_latency * 1000.0, 1) if ack_latency is not None else None,
-                late=msg_id in self._ack_timeouts or None,
-            )
             return
 
         # Missing-vs-late bookkeeping: a timed-out ack may still echo later —
-        # _is_echo flags it via _ack_timeouts. Errors tear the connection down
-        # so no late echo is expected on that socket.
+        # _is_echo counts it via _ack_timeouts attributed to the attempt
+        # recorded here. Errors tear the connection down so no late echo is
+        # expected on that socket.
         if outcome == "ack_timeout":
             async with self._ack_lock:
-                self._ack_timeouts[msg_id] = time.monotonic()
-        gossip_event(
-            "publish_attempt_failed",
-            peer=self._peer_name,
-            topic=topic,
-            event_id=msg_id,
-            attempt=_attempt,
-            outcome=outcome,
-            error=str(failure)[:120] if failure else None,
-            _level="info",
-        )
+                self._ack_timeouts[msg_id] = (_attempt, time.monotonic())
         if not retry:
-            gossip_peer_publish_terminal_total.labels(peer=self._peer_name, topic_class=topic_class, outcome="failed").inc()
-            gossip_event(
-                "publish_failed",
-                peer=self._peer_name,
-                topic=topic,
-                event_id=msg_id,
-                attempts=_attempt,
-                outcome=outcome,
-                _level="warning",
-            )
             raise RuntimeError(f"WebSocket gossip publish/ack failed for {topic}: {failure}") from failure
         logger.info(
             "WebSocket gossip publish/ack failed for %s peer=%s attempt=%s (will retry once): %s",
@@ -620,8 +721,22 @@ class WebsocketGossipBackend(GossipBackend):
             _attempt,
             failure,
         )
+        cleanup_t0 = time.monotonic()
         await self._cleanup_websocket(topic)
-        await self._publish_with_ack(topic, message, retry=False, _attempt=_attempt + 1)
+        retry_delay_s = time.monotonic() - cleanup_t0
+        gossip_peer_publish_retry_delay_seconds.labels(peer=self._peer_name, topic_class=topic_class).observe(retry_delay_s)
+        gossip_event(
+            "publish_retry",
+            peer=self._peer_name,
+            topic=topic,
+            event_id=msg_id,
+            attempt=_attempt,
+            next_attempt=_attempt + 1,
+            retry_delay_ms=round(retry_delay_s * 1000.0, 1),
+            attempt_age_ms=round((time.monotonic() - _publish_t0) * 1000.0, 1),
+            _level="info",
+        )
+        await self._publish_with_ack(topic, message, retry=False, _attempt=_attempt + 1, _publish_t0=_publish_t0)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         if not self._running:
