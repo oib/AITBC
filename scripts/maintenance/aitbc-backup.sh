@@ -198,8 +198,22 @@ if [ -d "$CHAIN_DB_DIR" ]; then
         # errors" (stderr is discarded above). A dump carrying that marker is
         # not a valid snapshot — delete it so the prune step can't take it
         # for a good one and throw away older good dumps (#894).
-        if sqlite3 "$dbfile" ".dump" 2>/dev/null | gzip > "$dest" \
-            && ! zcat "$dest" | grep -qE '^ROLLBACK; -- due to errors$'; then
+        # Post-boot Persistent catch-up can reach a chain.db that is still
+        # being created or is briefly locked by its starting node — retry the
+        # dump once after a pause before declaring failure (#1304).
+        _dump_ok=false
+        for _attempt in 1 2; do
+            if sqlite3 "$dbfile" ".dump" 2>/dev/null | gzip > "$dest" \
+                && ! zcat "$dest" | grep -qE '^ROLLBACK; -- due to errors$'; then
+                _dump_ok=true
+                break
+            fi
+            if [ "$_attempt" -eq 1 ]; then
+                warn "SQLite $(basename "$dbfile") dump attempt 1 failed — retrying in 30s"
+                sleep 30
+            fi
+        done
+        if [ "$_dump_ok" = true ]; then
             chmod 600 "$dest"
             log "SQLite $(basename "$dbfile"): OK"
         else
@@ -231,8 +245,21 @@ if [ -d "$SVC_DB_DIR" ]; then
         fi
         rel="${dbfile#"${SVC_DB_DIR}"/}"
         dest="${BACKUP_DIR}/svc_$(echo "$rel" | tr '/' '_')"
-        if sqlite3 -readonly "$dbfile" ".backup '${dest}'" 2>/dev/null \
-            && gzip -f "$dest"; then
+        # Same post-boot transient as the chain sweep (#1304): a service db
+        # can be briefly locked while its unit is still starting.
+        _svc_ok=false
+        for _attempt in 1 2; do
+            if sqlite3 -readonly "$dbfile" ".backup '${dest}'" 2>/dev/null \
+                && gzip -f "$dest"; then
+                _svc_ok=true
+                break
+            fi
+            if [ "$_attempt" -eq 1 ]; then
+                warn "SQLite svc $(basename "$dbfile") backup attempt 1 failed — retrying in 30s"
+                sleep 30
+            fi
+        done
+        if [ "$_svc_ok" = true ]; then
             chmod 600 "${dest}.gz"
             log "SQLite svc $(basename "$dbfile"): OK ($(du -sh "${dest}.gz" | cut -f1))"
         else
@@ -385,12 +412,25 @@ if [ -n "${REDISCLI_AUTH:-}" ]; then
 fi
 if command -v redis-cli >/dev/null 2>&1; then
     log "Triggering Redis snapshot..."
-    _redis_rc=0
-    _redis_out="$(redis-cli BGSAVE 2>&1)" || _redis_rc=$?
-    # Only the acknowledged reply passes; NOAUTH/ERR/any other text is a
-    # failure, and a failed BGSAVE means no fresh snapshot -- do not go on to
-    # copy a possibly stale dump file afterwards.
-    if [ "$_redis_rc" -eq 0 ] && [ "$_redis_out" = "Background saving started" ]; then
+    # Post-boot catch-up can hit redis while it is still loading its dataset —
+    # retry BGSAVE once before declaring failure (#1304).
+    _redis_ok=false
+    for _attempt in 1 2; do
+        _redis_rc=0
+        _redis_out="$(redis-cli BGSAVE 2>&1)" || _redis_rc=$?
+        # Only the acknowledged reply passes; NOAUTH/ERR/any other text is a
+        # failure, and a failed BGSAVE means no fresh snapshot -- do not go on
+        # to copy a possibly stale dump file afterwards.
+        if [ "$_redis_rc" -eq 0 ] && [ "$_redis_out" = "Background saving started" ]; then
+            _redis_ok=true
+            break
+        fi
+        if [ "$_attempt" -eq 1 ]; then
+            warn "Redis BGSAVE attempt 1 failed (rc=${_redis_rc}): ${_redis_out:-no output} — retrying in 20s"
+            sleep 20
+        fi
+    done
+    if [ "$_redis_ok" = true ]; then
         log "Redis BGSAVE: ${_redis_out}"
         sleep 2
         REDIS_RDB=$(redis-cli CONFIG GET dir 2>/dev/null | tail -1)
@@ -407,7 +447,7 @@ if command -v redis-cli >/dev/null 2>&1; then
             _BACKUP_RC=1
         fi
     else
-        error "Redis BGSAVE FAILED (rc=${_redis_rc}): ${_redis_out:-no output}"
+        error "Redis BGSAVE FAILED after 2 attempts (rc=${_redis_rc}): ${_redis_out:-no output}"
         _BACKUP_RC=1
     fi
 else
