@@ -20,7 +20,12 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc.aitbc_logging import get_logger
 
-from coordinator_api.contexts.agent_coordination.domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
+from coordinator_api.contexts.agent_coordination.domain.agent import (
+    AgentExecution,
+    AgentStep,
+    AgentStepExecution,
+    VerificationLevel,
+)
 from .orchestrator_service import AIAgentOrchestrator
 from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
 from starlette.concurrency import run_in_threadpool
@@ -125,6 +130,9 @@ class AgentDeploymentConfig(SQLModel, table=True):
     enable_logging: bool = Field(default=True)
     enable_tracing: bool = Field(default=False)
     log_level: str = Field(default="INFO")
+    alerting_rules: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    agent_version: str = Field(default="")
+    previous_version: str = Field(default="")
     status: DeploymentStatus = Field(default=DeploymentStatus.PENDING)
     deployment_time: datetime | None = Field(default=None)
     last_health_check: datetime | None = Field(default=None)
@@ -187,6 +195,14 @@ class AgentIntegrationManager:
                     self.session.scalars, select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id)
                 )
             ).all()
+            # requires_proof lives on AgentStep, not AgentStepExecution — resolve
+            # it from the workflow's step definitions.
+            workflow_steps = (
+                await run_in_threadpool(
+                    self.session.scalars, select(AgentStep).where(AgentStep.workflow_id == execution.workflow_id)
+                )
+            ).all()
+            step_requires_proof = {step.id: step.requires_proof for step in workflow_steps}
             integration_result: dict[str, Any] = {
                 "execution_id": execution_id,
                 "integration_status": "in_progress",
@@ -195,7 +211,7 @@ class AgentIntegrationManager:
                 "integration_errors": [],
             }
             for step_execution in step_executions:
-                if getattr(step_execution, "requires_proof", False):
+                if step_requires_proof.get(step_execution.step_id, False):
                     try:
                         proof_result = await self._generate_step_zk_proof(step_execution, verification_level)
                         integration_result["zk_proofs_generated"].append(
@@ -355,10 +371,16 @@ class AgentDeploymentManager:
             for i in range(config.min_instances):
                 instance = await self._create_deployment_instance(config, target_environment, i)
                 deployment_result["instances"].append(instance)
+                if instance["status"] != "deployed":
+                    deployment_result["deployment_errors"].append(
+                        {"instance_id": instance["instance_id"], "error": instance.get("error", "deploy failed")}
+                    )
             if deployment_result["deployment_errors"]:
                 config.status = DeploymentStatus.FAILED
             else:
                 config.status = DeploymentStatus.DEPLOYED
+                config.previous_version = config.agent_version
+                config.agent_version = config.version
             (await run_in_threadpool(self.session.commit))
             await self.auditor.log_event(
                 AuditEventType.EXECUTION_STARTED,
@@ -403,6 +425,7 @@ class AgentDeploymentManager:
             self.session.add(instance)
             (await run_in_threadpool(self.session.commit))
             (await run_in_threadpool(self.session.refresh, instance))
+            instance_error: str | None = None
             try:
                 await self._deploy_agent_systemd(instance, config)
                 instance.status = DeploymentStatus.DEPLOYED
@@ -413,13 +436,17 @@ class AgentDeploymentManager:
                 logger.error("Systemd deployment failed for %s: %s", instance_id, deploy_error)
                 instance.status = DeploymentStatus.FAILED
                 instance.health_status = "unhealthy"
+                instance_error = str(deploy_error)
             (await run_in_threadpool(self.session.commit))
-            return {
+            result = {
                 "instance_id": instance_id,
-                "status": "deployed",
+                "status": "deployed" if instance.status == DeploymentStatus.DEPLOYED else "failed",
                 "endpoint_url": instance.endpoint_url,
                 "port": instance.port,
             }
+            if instance_error is not None:
+                result["error"] = instance_error
+            return result
         except Exception as e:
             logger.error("Failed to create instance %s: %s", instance_number, e)
             return {
@@ -564,9 +591,9 @@ class AgentDeploymentManager:
                 "response_time": response_time,
                 "service_active": service_active,
             }
-            instance.health_check_history.append(health_check_record)
-            if len(instance.health_check_history) > 100:
-                instance.health_check_history = instance.health_check_history[-100:]
+            # Reassign (not append) so SQLAlchemy's change tracking persists
+            # the record — a plain JSON column does not track in-place mutation.
+            instance.health_check_history = [*instance.health_check_history, health_check_record][-100:]
             (await run_in_threadpool(self.session.commit))
             return {
                 "instance_id": instance.instance_id,
