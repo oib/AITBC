@@ -1098,6 +1098,16 @@ class ChainSettings(BaseSettings):
     # the restart wave — a mid-rollout mixed set would apply different
     # settlement rules and fork.
     state_transition_v23_height: int | None = None
+    # v24 (#1314 R1/R2): stale-state and proposer/importer parity fixes —
+    # central identity-map invalidation after raw-SQL writes, authoritative
+    # reads at the V-site inventory, and Transaction-row visibility parity
+    # between proposer and importer. ``None`` (the default) keeps every
+    # rule unarmed: the activation height is an operator pin set fleet-wide
+    # with the restart wave — a mid-rollout mixed set would apply different
+    # state rules and fork. Second independent boundary per AD ruling: the
+    # existing v23 ruleset stays untouched; v24 activates only the #1314
+    # changes on top of it.
+    state_transition_v24_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
