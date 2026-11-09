@@ -1198,7 +1198,12 @@ def get_gpu_reviews(
     """Get GPU reviews."""
     gpu = _get_gpu_or_404(session, gpu_id)
     reviews = (
-        session.execute(select(GPUReview).where(GPUReview.gpu_id == gpu_id).order_by(GPUReview.created_at.desc()))  # type: ignore[attr-defined]
+        session.execute(
+            select(GPUReview)
+            .where(GPUReview.gpu_id == gpu_id)
+            .order_by(GPUReview.created_at.desc())  # type: ignore[attr-defined]
+            .limit(limit)
+        )
         .scalars()
         .all()
     )
@@ -1215,18 +1220,22 @@ def get_gpu_reviews(
 
 @router.post("/market/gpu/{gpu_id}/reviews", status_code=http_status.HTTP_201_CREATED)
 def add_gpu_review(
-    gpu_id: str, request: GPUReviewRequest, session: Annotated[Session, Depends(get_session)]
+    gpu_id: str,
+    request: GPUReviewRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Add a review for a GPU."""
     try:
         gpu = _get_gpu_or_404(session, gpu_id)
         if not 1 <= request.rating <= 5:
             raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="Rating must be between 1 and 5")
-        review = GPUReview(gpu_id=gpu_id, user_id="current_user", rating=request.rating, comment=request.comment)
+        reviewer_id = str(user.get("sub") or user.get("user_id") or "unknown")
+        review = GPUReview(gpu_id=gpu_id, user_id=reviewer_id, rating=request.rating, comment=request.comment)
         logger.info(
             "Starting review transaction for GPU %s",
             gpu_id,
-            extra={"gpu_id": gpu_id, "rating": request.rating, "user_id": "current_user"},
+            extra={"gpu_id": gpu_id, "rating": request.rating, "user_id": reviewer_id},
         )
         session.add(review)
         session.flush()

@@ -1078,3 +1078,43 @@ def test_pricing_endpoint_survives_zero_static_price(client, client_token, miner
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["price_comparison"]["avg_price_change_percent"] == 0
+
+
+@pytest.mark.unit
+def test_add_gpu_review_binds_authenticated_user(client, client_token, db_session, available_gpu):
+    """#1377: review user_id comes from the JWT sub, not a hardcoded placeholder."""
+    from coordinator_api.contexts.market.domain.gpu_market import GPUReview
+
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/reviews",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"rating": 5, "comment": "fast"},
+    )
+    assert resp.status_code == 201, resp.text
+    review = db_session.query(GPUReview).filter_by(gpu_id=available_gpu).one()
+    assert review.user_id == "client1"
+
+
+@pytest.mark.unit
+def test_add_gpu_review_requires_auth(client, db_session, available_gpu):
+    """#1377: the review write route must reject unauthenticated callers."""
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/reviews",
+        json={"rating": 4, "comment": "x"},
+    )
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.unit
+def test_get_gpu_reviews_respects_limit(client, client_token, available_gpu):
+    """#1377: the limit query param was accepted but never applied."""
+    for rating in (5, 4, 3):
+        resp = client.post(
+            f"/v1/market/gpu/{available_gpu}/reviews",
+            headers={"Authorization": f"Bearer {client_token}"},
+            json={"rating": rating, "comment": f"r{rating}"},
+        )
+        assert resp.status_code == 201, resp.text
+    resp = client.get(f"/v1/market/gpu/{available_gpu}/reviews?limit=2")
+    assert resp.status_code == 200, resp.text
+    assert len(resp.json()["reviews"]) == 2
