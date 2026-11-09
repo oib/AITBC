@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-08
+**Last Updated**: 2026-11-09
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1519
+- **Markdown files under docs/**: 1520
 
 | Directory | Files | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 47 | Operational runbooks and key handling |
+| [ops](ops/) | 48 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
@@ -1139,6 +1139,7 @@ Inbound markdown links per document (top referrers).
 | [ops/bridge-release-exercise.md](ops/bridge-release-exercise.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [decisions/v1-v9-live-exercise-waivers.md](decisions/v1-v9-live-exercise-waivers.md), +4 more |
 | [ops/chain-reset-runbook.md](ops/chain-reset-runbook.md) | [README.md](README.md), [deployment/reset2-runbook.md](deployment/reset2-runbook.md), [design/v14-aux-root-nondeterminism.md](design/v14-aux-root-nondeterminism.md) |
 | [ops/companion-island-deploy.md](ops/companion-island-deploy.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), +1 more |
+| [ops/consensus-domain-separation-activation-runbook.md](ops/consensus-domain-separation-activation-runbook.md) | [ops/version-gated-activation-runbook.md](ops/version-gated-activation-runbook.md) |
 | [ops/counter-to-journal-recipe.md](ops/counter-to-journal-recipe.md) | [README.md](README.md) |
 | [ops/escrow-relays.md](ops/escrow-relays.md) | [api/market-api.md](api/market-api.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/44_stuck_tee_refund.md](scenarios/44_stuck_tee_refund.md) |
 | [ops/escrow-routing.md](ops/escrow-routing.md) | [README.md](README.md) |

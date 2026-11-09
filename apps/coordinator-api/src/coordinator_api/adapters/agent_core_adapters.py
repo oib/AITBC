@@ -26,6 +26,7 @@ from aitbc_agent_core.protocols.zk_proof import IZKProofService
 # Import from coordinator-api's own domain models
 from coordinator_api.contexts.agent_coordination.domain.agent import (
     AgentExecution,
+    AgentExecutionRequest,
     AgentStepExecution,
 )
 from coordinator_api.contexts.agent_coordination.services.orchestrator_service import AIAgentOrchestrator
@@ -128,13 +129,25 @@ class AgentAuditorAdapter(IAuditor):
 class AgentOrchestratorAdapter(IAgentOrchestrator):
     """Adapter for AIAgentOrchestrator"""
 
-    def __init__(self, orchestrator: AIAgentOrchestrator):
+    def __init__(self, orchestrator: Any, client_id: str = "agent-core-adapter"):
         self._orchestrator = orchestrator
+        self._client_id = client_id
 
     async def execute_workflow(self, workflow_id: str, inputs: dict[str, Any]) -> dict[str, Any]:
+        # The real AIAgentOrchestrator takes (AgentExecutionRequest, client_id)
+        # and returns a response model — the protocol wants (workflow_id,
+        # inputs) -> dict, so translate at the boundary (#1379).
+        if isinstance(self._orchestrator, AIAgentOrchestrator):
+            request = AgentExecutionRequest(workflow_id=workflow_id, inputs=inputs)
+            try:
+                response = await self._orchestrator.execute_workflow(request, self._client_id)
+            except ValueError as e:
+                return {"workflow_id": workflow_id, "status": "error", "error": str(e)}
+            return response.model_dump(mode="json")
         # Delegate to app-specific implementation
         if hasattr(self._orchestrator, "execute_workflow"):
-            return await self._orchestrator.execute_workflow(workflow_id, inputs)  # type: ignore[arg-type, return-value]
+            result: dict[str, Any] = await self._orchestrator.execute_workflow(workflow_id, inputs)
+            return result
         # Fallback: return mock result
         return {
             "execution_id": f"exec_{workflow_id}",
@@ -143,9 +156,15 @@ class AgentOrchestratorAdapter(IAgentOrchestrator):
         }
 
     async def get_status(self, execution_id: str) -> dict[str, Any]:
+        # The real orchestrator exposes get_execution_status (not get_status);
+        # its ValueError for unknown executions is the honest contract (#1379).
+        if isinstance(self._orchestrator, AIAgentOrchestrator):
+            status = await self._orchestrator.get_execution_status(execution_id)
+            return status.model_dump(mode="json")
         # Delegate to app-specific implementation
         if hasattr(self._orchestrator, "get_status"):
-            return await self._orchestrator.get_status(execution_id)  # type: ignore[no-any-return]
+            status_result: dict[str, Any] = await self._orchestrator.get_status(execution_id)
+            return status_result
         # Fallback: return mock status
         return {
             "execution_id": execution_id,
