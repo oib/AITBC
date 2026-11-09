@@ -116,6 +116,8 @@ class EconomicProposalService:
             raise ValueError(f"proposal {proposal_id} not found")
 
         total_votes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain
+        if total_votes <= 0:
+            raise ValueError("no votes cast")
         if total_votes < proposal.quorum:
             raise ValueError("quorum not reached")
 
