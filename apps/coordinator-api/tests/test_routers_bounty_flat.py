@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 BASE = "/v1/bounty"
 
 
-def _create(client: TestClient, **over) -> dict:
+def _create(**over) -> dict:
     body = {
         "title": "fix the thing",
         "description": "a sufficiently long description",
