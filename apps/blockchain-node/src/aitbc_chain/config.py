@@ -1489,6 +1489,16 @@ class ChainSettings(BaseSettings):
     # an abandon statement; voters whose journal holds an attest vote for that
     # exact hash from that proposer release the entry. Needs vote_journal_enabled.
     vote_journal_abandon_enabled: bool = False
+    # #1311: replicate signature-bearing attestation-equivocation evidence over
+    # the restricted ``consensus.equivocation.<chain>`` topic. Default OFF:
+    # nothing is published, subscribed or stored. Advisory only — ingest never
+    # slashes; it records into the same advisory event list local detection uses.
+    equivocation_replication_enabled: bool = False
+    equivocation_replication_ring_cap: int = 10000  # records per chain, FIFO eviction
+    equivocation_replication_max_record_bytes: int = 4096
+    equivocation_replication_max_hashes_per_slot: int = 4  # distinct hashes per (validator, height, round)
+    equivocation_replication_rate_per_minute: int = 20  # per reporting validator, sliding window
+    equivocation_replication_max_publishes: int = 3  # per record, per process lifetime
     # #1280 VALVE-P15-1: a peer serving a DIFFERENT block at the voted height
     # is positive contention evidence. While such a sighting is fresh it
     # suppresses the re-vote path (delay only — never a signature outside the

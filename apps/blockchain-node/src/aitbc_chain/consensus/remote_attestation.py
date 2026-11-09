@@ -114,7 +114,7 @@ def _attestation_message(header: dict[str, Any], chain_id: str, round_: int | No
 
 from ..models import Block
 from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
-from . import abandon, unavail
+from . import abandon, evidence_replication, unavail
 from .vote_fetch import contention_hold, kick_pull, locate_voted_block
 from .vote_journal import KIND_ATTEST, VoteJournalError, get_vote_journal, valve_open, vote_journal_enabled
 
@@ -261,6 +261,7 @@ class RemoteAttestationService:
         self._listener_task: asyncio.Task[None] | None = None
         self._unavail_task: asyncio.Task[None] | None = None
         self._abandon_task: asyncio.Task[None] | None = None
+        self._evidence_task: asyncio.Task[None] | None = None
         self._response_index_task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
         # #1281: unlock justification produced by the armed evidence valve
@@ -515,6 +516,10 @@ class RemoteAttestationService:
         )
         if abandon.abandon_enabled():
             self._abandon_task = create_task_with_logging(self._listen_abandon(), name=f"abandon_listener_{self._chain_id}")
+        if evidence_replication.enabled():
+            self._evidence_task = create_task_with_logging(
+                self._listen_evidence(), name=f"equivocation_evidence_listener_{self._chain_id}"
+            )
         if unavail.justification_enabled():
             # #1281: the unavailability-query listener and the persistent
             # attest_response observer that feeds the GossipObservationIndex.
@@ -530,7 +535,13 @@ class RemoteAttestationService:
 
     async def stop(self) -> None:
         self._stop_event.set()
-        for task in (self._listener_task, self._unavail_task, self._response_index_task, self._abandon_task):
+        for task in (
+            self._listener_task,
+            self._unavail_task,
+            self._response_index_task,
+            self._abandon_task,
+            self._evidence_task,
+        ):
             if task:
                 task.cancel()
                 try:
@@ -541,6 +552,7 @@ class RemoteAttestationService:
         self._unavail_task = None
         self._response_index_task = None
         self._abandon_task = None
+        self._evidence_task = None
 
     async def _listen(self) -> None:
         try:
@@ -579,6 +591,85 @@ class RemoteAttestationService:
                     logger.warning("Error handling abandon statement: %s", e)
         finally:
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
+
+    async def _listen_evidence(self) -> None:
+        """#1311: ingest replicated attestation-equivocation evidence."""
+        topic = evidence_replication.equivocation_topic(self._chain_id)
+        try:
+            sub = await gossip_broker.subscribe(topic, max_queue_size=256)
+        except Exception as e:
+            logger.warning("Failed to subscribe to equivocation evidence: %s", e)
+            return
+        try:
+            async for payload in sub:
+                if self._stop_event.is_set():
+                    break
+                try:
+                    self.handle_evidence(payload)
+                except Exception as e:
+                    logger.warning("Error handling equivocation evidence: %s", e)
+        finally:
+            sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
+
+    def handle_evidence(self, payload: Any) -> evidence_replication.Outcome:
+        """Ingest one replicated record; a slashable pair is recorded as advisory
+        evidence through the same recorder local detection uses. Never re-published
+        (a record received from a peer is not a local observation)."""
+        outcome = evidence_replication.ingest(self._chain_id, payload, self._validator_set_addresses())
+        if outcome.status != "stored" or not outcome.slashable or outcome.record is None:
+            return outcome
+        rec = outcome.record
+        recorder = self._equivocation_recorder()
+        defer_save = callable(getattr(recorder, "save_state", None))
+        extra: dict[str, Any] = {"persist": False} if defer_save else {}
+        try:
+            recorder.record_attestation_equivocation(
+                validator_address=rec["validator"],
+                height=rec["height"],
+                round_number=rec["round"],
+                block_hash_a=rec["block_hash_a"],
+                block_hash_b=rec["block_hash_b"],
+                proposer=str(rec["attestations"][0].get("proposer", "")),
+                attestations=rec["attestations"],
+                **extra,
+            )
+        except Exception as e:  # noqa: BLE001 - evidence is advisory; never break the listener
+            metrics_registry.increment("equivocation_ingest_record_failed_total")
+            logger.warning("Failed to record replicated equivocation evidence: %s", e)
+            return outcome
+        metrics_registry.increment("equivocation_ingest_recorded_total")
+        if defer_save:
+            self._schedule_deferred_state_save(recorder)
+        return outcome
+
+    def _emit_evidence(
+        self, signer: str, height: int, round_: int | None, hash_a: str, hash_b: str, attestations: list[dict[str, Any]]
+    ) -> None:
+        """#1311: publish one locally observed signed pair (bounded, best effort).
+
+        Only round-bound same-round pairs are emitted — a cross-round or legacy
+        pair is local context, not slashable. Called only from local detection,
+        so ingested records are never re-emitted.
+        """
+        if not evidence_replication.enabled() or round_ is None:
+            return
+        record = evidence_replication.build_record(self._chain_id, signer, height, round_, hash_a, hash_b, attestations)
+        if evidence_replication.classify_attestation_pair(record) is not evidence_replication.PairClass.ROUND_BOUND_SAME_ROUND:
+            return
+        store = evidence_replication.get_store(self._chain_id)
+        key = evidence_replication.pair_key(self._chain_id, signer, height, round_, hash_a, hash_b)
+        store.add_if_absent(key, record)
+        if not store.may_publish(key):
+            metrics_registry.increment("equivocation_republish_suppressed_total")
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        task = loop.create_task(gossip_broker.publish(evidence_replication.equivocation_topic(self._chain_id), record))
+        self._deferred_state_saves.add(task)
+        task.add_done_callback(self._deferred_state_saves.discard)
+        metrics_registry.increment("equivocation_published_total")
 
     def handle_abandon(self, payload: Any) -> int:
         """Apply one abandon statement; returns how many local votes it released.
@@ -1800,6 +1891,12 @@ class RemoteAttestationService:
                 )
             except Exception as e:
                 logger.warning("Failed to record attestation equivocation for %s: %s", canon, e)
+            else:
+                if attestations is not None and justification is None:
+                    try:
+                        self._emit_evidence(canon, height, request_round, prior_hash, block_hash, attestations)
+                    except Exception as e:  # noqa: BLE001 - replication is best effort
+                        logger.warning("Failed to emit equivocation evidence for %s: %s", canon, e)
         if defer_save and recorded:
             self._schedule_deferred_state_save(recorder)
 
