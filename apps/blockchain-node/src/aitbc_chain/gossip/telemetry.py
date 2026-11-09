@@ -105,6 +105,31 @@ gossip_mesh_message_forward_total = Counter(
     "First-delivery (non-duplicate) gossip messages forwarded into the merged subscription queue, by source link",
     ["source", "topic_class"],
 )
+gossip_ws_rx_publish_total = Counter(
+    "blockchain_gossip_ws_rx_publish_total",
+    "Client publishes received on the WS gossip server path",
+    ["topic_class"],
+)
+gossip_ws_echo_forward_total = Counter(
+    "blockchain_gossip_ws_echo_forward_total",
+    "Broker messages echoed back to WS subscribers",
+    ["topic_class"],
+)
+gossip_ws_echo_forward_failed_total = Counter(
+    "blockchain_gossip_ws_echo_forward_failed_total",
+    "WS echo sends that failed",
+    ["topic_class"],
+)
+gossip_ws_subscriber_queue_depth = Gauge(
+    "blockchain_gossip_ws_subscriber_queue_depth",
+    "WS subscriber queue depth observed on the server path (backpressure signal)",
+    ["topic_class"],
+)
+gossip_mesh_cap_terminal_total = Counter(
+    "blockchain_gossip_mesh_cap_terminal_total",
+    "Peer publishes terminated by the peer_publish_timeout cap",
+    ["peer", "topic_class", "outcome"],
+)
 gossip_event_loop_lag_seconds = Histogram(
     "blockchain_gossip_event_loop_lag_seconds",
     "Event-loop scheduling lag samples (sleep overshoot) — starvation detector",

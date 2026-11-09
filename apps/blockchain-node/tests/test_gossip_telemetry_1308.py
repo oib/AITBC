@@ -17,7 +17,12 @@ import time
 from typing import Any
 
 import pytest
-from aitbc_chain.gossip._internal import _message_id
+from fastapi.testclient import TestClient
+from aitbc_chain.app import create_app
+from aitbc_chain.config import settings
+from aitbc_chain.gossip._internal import _message_id, bounded_topic_label
+from aitbc_chain.rpc import websocket as websocket_module
+from aitbc.security import RateLimiter
 from aitbc_chain.gossip.backends.base import GossipBackend, TopicSubscription
 from aitbc_chain.gossip.backends.mesh import MeshGossipBackend
 from aitbc_chain.gossip.backends.websocket import WebsocketGossipBackend
@@ -28,6 +33,7 @@ from aitbc_chain.gossip.telemetry import (
     ensure_event_loop_lag_monitor,
     event_loop_lag_monitor_for_tests,
     gossip_event_loop_lag_max_seconds,
+    gossip_mesh_cap_terminal_total,
     gossip_mesh_message_forward_total,
     gossip_peer_ack_late_total,
     gossip_peer_publish_ack_seconds,
@@ -36,6 +42,8 @@ from aitbc_chain.gossip.telemetry import (
     gossip_peer_publish_terminal_total,
     gossip_peer_reconnect_attempts_total,
     gossip_peer_reconnect_delay_seconds,
+    gossip_ws_echo_forward_total,
+    gossip_ws_rx_publish_total,
 )
 
 TOPIC = "status"
@@ -474,3 +482,123 @@ def test_create_backend_passes_peer_name():
     assert set(mesh.peer_names) == {"peer-one:8080", "peer-two:443"}
     for name, peer in mesh._peers.items():
         assert peer._peer_name == name  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_mesh_publish_cap_terminal(caplog):
+    """peer_publish_timeout exhaustion is cap-terminal, not generic failure —
+    distinct event + metric at INFO (production level), peer-attributed."""
+
+    class _Local(GossipBackend):
+        async def publish(self, topic, message):
+            return None
+
+        async def subscribe(self, topic, max_queue_size=100):
+            return TopicSubscription(topic, asyncio.Queue(), lambda: None)
+
+    class _SlowPeer(GossipBackend):
+        async def publish(self, topic, message):
+            await asyncio.sleep(5)
+
+        async def subscribe(self, topic, max_queue_size=100):
+            return TopicSubscription(topic, asyncio.Queue(), lambda: None)
+
+    mesh = MeshGossipBackend(_Local(), {"peer-slow:1": _SlowPeer()}, peer_publish_timeout=0.05)
+    mesh._running = True
+    labels = {"peer": "peer-slow:1", "topic_class": TOPIC, "outcome": "cap_timeout"}
+    before = _counter(gossip_mesh_cap_terminal_total, **labels)
+    with caplog.at_level(logging.INFO, logger=TELEMETRY_LOGGER):
+        await mesh.publish(TOPIC, {"type": "x"})
+        for _ in range(200):
+            if _events(caplog, "peer_publish_cap_terminal"):
+                break
+            await asyncio.sleep(0.01)
+    term = _events(caplog, "peer_publish_cap_terminal")
+    assert term, "cap-terminal event missing"
+    assert "peer=peer-slow:1" in term[0]
+    assert "bound_s=" in term[0] and "attempt_age_ms=" in term[0]
+    assert _counter(gossip_mesh_cap_terminal_total, **labels) == before + 1
+    # cap-terminal must not double-count as a generic failure
+    assert not _events(caplog, "peer_publish_failed")
+
+
+@pytest.fixture
+def _ws_test_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Same surface as test_websocket.py: auth off, limits raised."""
+    monkeypatch.setattr(settings, "gossip_auth_enabled", False)
+    monkeypatch.setattr(settings, "gossip_max_messages_per_minute", 1_000_000)
+    monkeypatch.setattr(settings, "gossip_max_concurrent_connections_per_ip", 100)
+    monkeypatch.setattr(
+        websocket_module,
+        "_gossip_msg_rate",
+        RateLimiter(rate=1_000_000, per=60),
+    )
+
+
+def test_ws_receiver_metrics_and_fields(caplog, _ws_test_settings):
+    """Production-level receiver observability (#1308): rx_publish and
+    echo_forward increment Prometheus counters regardless of log level, and
+    the DEBUG records carry the additive R3/R7 fields (publisher, lag_ms,
+    queue_depth) with stable event-id correlation."""
+    topic = "transactions"
+    tc = bounded_topic_label(topic)
+    before_rx = _counter(gossip_ws_rx_publish_total, topic_class=tc)
+    before_echo = _counter(gossip_ws_echo_forward_total, topic_class=tc)
+    payload = {
+        "tx_hash": "0x" + "c" * 64,
+        "proposer": "0xValidatorA",
+        "timestamp": time.time(),
+        "payload": {"amount": 1},
+    }
+    # The app configures its own logging (propagate may be off under
+    # TestClient), so attach a direct handler to the telemetry logger —
+    # caplog's root handler cannot be relied on across the portal thread.
+    tele_logger = logging.getLogger(TELEMETRY_LOGGER)
+    records: list[str] = []
+
+    class _Collect(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record.getMessage())
+
+    collector = _Collect()
+    tele_logger.addHandler(collector)
+    try:
+        with caplog.at_level(logging.DEBUG, logger=TELEMETRY_LOGGER):
+            with TestClient(create_app()) as client:
+                with client.websocket_connect(f"/rpc/gossip/ws?topic={topic}") as ws:
+                    ws.send_json(payload)
+                    echoed = ws.receive_json()
+                    assert echoed == payload
+    finally:
+        tele_logger.removeHandler(collector)
+    # Metrics advanced — this is the production-level pin: counters do not
+    # depend on the DEBUG log level being enabled.
+    assert _counter(gossip_ws_rx_publish_total, topic_class=tc) == before_rx + 1
+    assert _counter(gossip_ws_echo_forward_total, topic_class=tc) >= before_echo + 1
+    rx = [m for m in records if "event=rx_publish" in m]
+    assert rx, "rx_publish event missing"
+    assert "publisher=0xValidatorA" in rx[0]
+    assert "lag_ms=" in rx[0] and "queue_depth=" in rx[0]
+    # Same deterministic event id across the rx -> broker -> echo hop.
+    event_id = _message_id(topic, payload)
+    assert f"id={event_id}" in rx[0]
+    echo = [m for m in records if "event=echo_forward" in m]
+    assert echo and f"id={event_id}" in echo[0] and "queue_depth=" in echo[0]
+
+
+def test_rx_publish_extra_fields_edges():
+    """_rx_publish_extra_fields: publisher precedence + lag sanity bounds."""
+    from aitbc_chain.rpc.websocket import _rx_publish_extra_fields
+
+    now = time.time()
+    assert _rx_publish_extra_fields({"proposer": "0xP"}) == {"publisher": "0xP"}
+    assert _rx_publish_extra_fields({"validator": "0xV", "timestamp": now})["publisher"] == "0xV"
+    f = _rx_publish_extra_fields({"timestamp": now - 5})
+    assert 4000.0 <= f["lag_ms"] <= 8000.0  # type: ignore[index]
+    # stale / future / non-numeric / bool timestamps emit no lag_ms
+    assert "lag_ms" not in _rx_publish_extra_fields({"timestamp": now - 7200})
+    assert "lag_ms" not in _rx_publish_extra_fields({"timestamp": now + 100})
+    assert "lag_ms" not in _rx_publish_extra_fields({"timestamp": "soon"})
+    assert "lag_ms" not in _rx_publish_extra_fields({"timestamp": True})
+    assert _rx_publish_extra_fields([1, 2]) == {}
+    assert _rx_publish_extra_fields("str") == {}

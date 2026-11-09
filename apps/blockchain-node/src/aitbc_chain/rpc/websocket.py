@@ -20,7 +20,13 @@ from ..gossip import (
     gossip_broker,
 )
 from ..gossip._internal import _message_id, _peer_name, bounded_topic_label
-from ..gossip.telemetry import gossip_event
+from ..gossip.telemetry import (
+    gossip_event,
+    gossip_ws_echo_forward_failed_total,
+    gossip_ws_echo_forward_total,
+    gossip_ws_rx_publish_total,
+    gossip_ws_subscriber_queue_depth,
+)
 from ..gossip.gossip_auth import (
     channel_scope,
     create_challenge,
@@ -103,6 +109,29 @@ async def _gossip_ws_send_json(websocket: WebSocket, payload: object) -> None:
     other send failure and unwind so _gossip_ip_connections is released.
     """
     await asyncio.wait_for(websocket.send_json(payload), timeout=_GOSSIP_WS_OP_TIMEOUT)
+
+
+def _rx_publish_extra_fields(data: object) -> dict[str, object]:
+    """R7 publisher-identity + R3 lag fields for ``rx_publish`` records (#1308).
+
+    ``publisher``: first identity-ish field present — transport peer stays in
+    ``peer=``; this is the gossip-level signer/proposer when the payload
+    carries one. ``lag_ms``: only emitted when the message carries a recent
+    epoch ``timestamp`` — absent or stale (>1h, clock-skewed, or non-send-time
+    timestamps like block time) fields emit nothing rather than mislead.
+    """
+    extra: dict[str, object] = {}
+    if not isinstance(data, dict):
+        return extra
+    publisher = data.get("proposer") or data.get("validator") or data.get("publisher") or data.get("signer")
+    if publisher:
+        extra["publisher"] = str(publisher)[:64]
+    ts = data.get("timestamp")
+    if isinstance(ts, (int, float)) and not isinstance(ts, bool):
+        lag = time.time() - float(ts)
+        if 0.0 <= lag < 3600.0:
+            extra["lag_ms"] = round(lag * 1000.0, 1)
+    return extra
 
 
 def _gossip_client_ip(websocket: WebSocket) -> str:
@@ -441,6 +470,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     try:
                         await _gossip_ws_send_json(websocket, message)
                     except Exception as send_exc:
+                        gossip_ws_echo_forward_failed_total.labels(topic_class=bounded_topic_label(topic)).inc()
                         gossip_event(
                             "echo_forward_failed",
                             peer=client_ip,
@@ -450,11 +480,16 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                             _level="warning",
                         )
                         break
+                    gossip_ws_echo_forward_total.labels(topic_class=bounded_topic_label(topic)).inc()
+                    gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
+                        float(subscription.queue.qsize())
+                    )
                     gossip_event(
                         "echo_forward",
                         peer=client_ip,
                         topic=topic,
                         event_id=event_id,
+                        queue_depth=subscription.queue.qsize(),
                     )
             except Exception as e:
                 logger.warning("Error forwarding broker message for %s: %s", topic, e)
@@ -591,11 +626,17 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 # event id the publisher used, so a client-side ack timeout
                 # can be matched against rx/broker/echo stages.
                 event_id = _message_id(topic, data)
+                gossip_ws_rx_publish_total.labels(topic_class=bounded_topic_label(topic)).inc()
+                gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
+                    float(subscription.queue.qsize())
+                )
                 gossip_event(
                     "rx_publish",
                     peer=client_ip,
                     topic=topic,
                     event_id=event_id,
+                    queue_depth=subscription.queue.qsize(),
+                    **_rx_publish_extra_fields(data),
                 )
                 try:
                     await broker.publish(topic, data)
