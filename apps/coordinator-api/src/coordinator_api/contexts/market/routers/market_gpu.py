@@ -665,7 +665,10 @@ async def buy_gpu(
             region=gpu.region,
         )
         current_price = dynamic_result.recommended_price
-    except Exception:
+    except Exception as exc:
+        # #1374: pricing-engine failure silently repriced the booking at the
+        # static rate — log it so the fallback is visible in ops.
+        logger.warning("Dynamic pricing failed for gpu %s, using static price: %s", gpu.id, exc)
         current_price = gpu.price_per_hour
     duration_dec = Decimal(str(duration_hours))
     total_cost = duration_dec * current_price
@@ -966,7 +969,10 @@ async def book_gpu(
             region=gpu.region,
         )
         current_price = dynamic_result.recommended_price
-    except Exception:
+    except Exception as exc:
+        # #1374: pricing-engine failure silently repriced the booking at the
+        # static rate — log it so the fallback is visible in ops.
+        logger.warning("Dynamic pricing failed for gpu %s, using static price: %s", gpu.id, exc)
         current_price = gpu.price_per_hour
     duration_dec = Decimal(str(request.duration_hours))
     total_cost = duration_dec * current_price
