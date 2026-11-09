@@ -6,8 +6,10 @@ Minimal FastAPI service wrapping faster-whisper for the software market.
 Port: 8210
 """
 
+import asyncio
 import hashlib
 import os
+import re
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -40,6 +42,22 @@ _MAX_AUDIO_SECONDS = float(os.getenv("WHISPER_MAX_AUDIO_MINUTES", "15")) * 60
 # Matches the bound coordinator-api already declares on WhisperRequest.beam_size
 # (ge=1, le=10). That contract existed; this service simply never enforced it.
 _MAX_BEAM_SIZE = int(os.getenv("WHISPER_MAX_BEAM_SIZE", "10"))
+# WHISPER-BLOCK-1 (#1422): faster-whisper's transcribe() is a synchronous
+# CPU/GPU-bound call — running it on the event loop stalls /health and every
+# other request for the whole decode, and unbounded concurrent jobs can each
+# allocate ~1G of transient memory per 10 minutes of audio. Two near-cap jobs
+# plus the ~730M resident model already exceed the unit's MemoryMax=3G, so the
+# default admits exactly one transcription at a time; raise it only together
+# with MemoryMax.
+_MAX_CONCURRENT = int(os.getenv("WHISPER_MAX_CONCURRENT", "1"))
+# Plain counter, not asyncio.Semaphore: the check-and-increment below has no
+# await between it and the increment, so it is atomic on the event loop, and
+# it survives loop restarts/test harnesses that a loop-bound primitive would
+# not (#1422).
+_inflight = 0
+# faster-whisper language tags look like "en" or "zh"; anything else is a 400,
+# not an unhandled decode error.
+_LANGUAGE_RE = re.compile(r"^[a-zA-Z]{2,3}(-[a-zA-Z]{2,8})?$")
 _UPLOAD_CHUNK = 1024 * 1024
 # The whole request body, not just the file part: multipart adds boundaries and
 # the other form fields on top, so the header check needs slack the per-file
@@ -187,6 +205,38 @@ def _audio_seconds(path: str) -> float | None:
         return None
 
 
+def _transcribe_sync(path: str, language: str | None, task: str, beam_size: int) -> dict:
+    """Run the blocking model call and drain the segment generator.
+
+    Everything in here is synchronous and CPU/GPU-bound; callers must run it
+    via ``asyncio.to_thread`` so the event loop stays responsive (#1422).
+    """
+    segments, info = _model.transcribe(
+        path,
+        beam_size=beam_size,
+        language=language,
+        task=task,
+    )
+    segment_list = []
+    full_text = []
+    for seg in segments:
+        segment_list.append(
+            {
+                "start": round(seg.start, 2),
+                "end": round(seg.end, 2),
+                "text": seg.text.strip(),
+            }
+        )
+        full_text.append(seg.text.strip())
+    return {
+        "segment_list": segment_list,
+        "full_text": full_text,
+        "language": info.language,
+        "language_probability": round(info.language_probability, 3),
+        "duration": round(info.duration, 2),
+    }
+
+
 @app.post("/transcribe", dependencies=[Depends(require_job_access)])
 async def transcribe(
     file: Annotated[UploadFile, File(...)],
@@ -201,8 +251,20 @@ async def transcribe(
         raise HTTPException(status_code=400, detail="task must be 'transcribe' or 'translate'")
     if not 1 <= beam_size <= _MAX_BEAM_SIZE:
         raise HTTPException(status_code=400, detail=f"beam_size must be between 1 and {_MAX_BEAM_SIZE}")
+    if language is not None and not _LANGUAGE_RE.fullmatch(language):
+        raise HTTPException(status_code=400, detail="language must be a language tag like 'en'")
 
-    tmp_path = await _spool_upload(file, _safe_suffix(file.filename))
+    # Refuse before spooling: a queued request would otherwise hold a temp
+    # file (and eventually memory) for work it cannot start yet (#1422).
+    global _inflight
+    if _inflight >= _MAX_CONCURRENT:
+        raise HTTPException(status_code=503, detail="Transcription service busy; retry later")
+    _inflight += 1
+    try:
+        tmp_path = await _spool_upload(file, _safe_suffix(file.filename))
+    except BaseException:
+        _inflight -= 1
+        raise
 
     try:
         try:
@@ -219,37 +281,20 @@ async def transcribe(
             )
 
         t_start = time.time()
-        segments, info = _model.transcribe(
-            tmp_path,
-            beam_size=beam_size,
-            language=language,
-            task=task,
-        )
-        segment_list = []
-        full_text = []
-        for seg in segments:
-            segment_list.append(
-                {
-                    "start": round(seg.start, 2),
-                    "end": round(seg.end, 2),
-                    "text": seg.text.strip(),
-                }
-            )
-            full_text.append(seg.text.strip())
-
+        result = await asyncio.to_thread(_transcribe_sync, tmp_path, language, task, beam_size)
         elapsed = round(time.time() - t_start, 2)
-        duration = round(info.duration, 2)
-        transcript = " ".join(full_text)
+        transcript = " ".join(result["full_text"])
         result_hash = hashlib.sha256(transcript.encode()).hexdigest()
+        duration = result["duration"]
 
         return JSONResponse(
             {
                 "text": transcript,
-                "language": info.language,
-                "language_probability": round(info.language_probability, 3),
+                "language": result["language"],
+                "language_probability": result["language_probability"],
                 "duration_seconds": duration,
                 "duration_minutes": round(duration / 60, 4),
-                "segments": segment_list,
+                "segments": result["segment_list"],
                 "model": _model_name,
                 "elapsed_seconds": elapsed,
                 "real_time_factor": round(elapsed / duration, 3) if duration > 0 else 0,
@@ -258,6 +303,7 @@ async def transcribe(
         )
     finally:
         os.unlink(tmp_path)
+        _inflight -= 1
 
 
 if __name__ == "__main__":
