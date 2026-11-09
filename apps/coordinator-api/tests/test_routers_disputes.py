@@ -25,9 +25,12 @@ PROVIDER = "0x" + "bb" * 20
 
 @pytest.fixture
 def dispute_service():
+    # app startup already ran _init_dispute_service(get_session); swap in a
+    # fresh in-memory service per test and restore the app-level one after
+    original = dr_mod._dispute_service
     svc = init_dispute_service(None)
     yield svc
-    dr_mod._dispute_service = None
+    dr_mod._dispute_service = original
 
 
 def _file(client: TestClient, **over) -> dict:
@@ -42,9 +45,10 @@ class TestDisputeLifecycle:
     def test_health(self, client: TestClient) -> None:
         assert client.get(f"{BASE}/health").json()["service"] == "disputes"
 
-    def test_service_unavailable_without_init(self, client: TestClient) -> None:
-        # no init_dispute_service in this test -> global is None -> 503
-        assert client.get(f"{BASE}/").status_code == 503
+    def test_list_empty_service(self, client: TestClient, dispute_service) -> None:
+        resp = client.get(f"{BASE}/")
+        assert resp.status_code == 200
+        assert resp.json()["count"] == 0
 
     def test_file_and_get(self, client: TestClient, dispute_service) -> None:
         dispute = _file(client)
