@@ -125,6 +125,72 @@ def verify_consensus_message(
 
 
 # ---------------------------------------------------------------------------
+# Domain-separated consensus signing (#1298 I3b — height-gated, inert until
+# ``consensus_domain_separation_height`` is armed)
+# ---------------------------------------------------------------------------
+
+CONSENSUS_DOMAIN_V1 = "aitbc-consensus-v1"
+DOMAIN_BLOCK_PROPOSAL = f"{CONSENSUS_DOMAIN_V1}:block_proposal"
+DOMAIN_BLOCK_ATTESTATION = f"{CONSENSUS_DOMAIN_V1}:block_attestation"
+
+
+def _domain_preimage(message: dict[str, Any], domain: str) -> bytes:
+    """``keccak256(domain + ":" + canonical_json(message))``.
+
+    Same convention as ``agent_envelope.domain_digest`` — the domain tag sits
+    outside the payload so it cannot collide with a payload field and survives
+    payload-schema evolution. Rebuilt locally to keep this module free of a
+    cross-package import.
+    """
+    from eth_utils import keccak
+
+    return keccak(domain.encode("utf-8") + b":" + _canonical_json(message))
+
+
+def sign_consensus_message_domain(message: dict[str, Any], private_key: str, domain: str) -> str:
+    """``sign_consensus_message`` over the domain-separated preimage.
+
+    The signature verifies ONLY under ``domain`` — a proposal signature can
+    never satisfy attestation verification and vice versa (#1298).
+    """
+    try:
+        from eth_keys import keys
+
+        pk_hex = private_key.removeprefix("0x")
+        pk = keys.PrivateKey(bytes.fromhex(pk_hex))
+        sig = pk.sign_msg_hash(_domain_preimage(message, domain))
+        return sig.to_hex()
+    except ImportError:
+        raise ImportError(
+            "eth-keys and eth-utils are required for consensus signing. Install with: pip install eth-keys eth-utils"
+        ) from None
+    except Exception as e:
+        raise ValueError(f"Failed to sign domain-separated consensus message: {e}") from e
+
+
+def verify_consensus_message_domain(
+    message: dict[str, Any],
+    signature: str,
+    expected_sender: str,
+    domain: str,
+) -> bool:
+    """Verify a signature produced by ``sign_consensus_message_domain``.
+
+    Deliberately has NO legacy fallback: post-activation attestation
+    verification must reject proposal-domain and pre-domain signatures.
+    """
+    if not signature:
+        return False
+    from .signature_recovery import SignatureMalformed, canonical_address, recover_address
+
+    try:
+        recovered = recover_address(_domain_preimage(message, domain), signature)
+    except (SignatureMalformed, ValueError):
+        return False
+    return canonical_address(recovered) == canonical_address(expected_sender)
+
+
+# ---------------------------------------------------------------------------
 # Block header signing (canonical JSON + secp256k1)
 # ---------------------------------------------------------------------------
 
@@ -146,6 +212,12 @@ def _block_header_message(block: Any) -> dict[str, Any]:
         "state_root": _get("state_root") or "",
         "bridge_state_root": _get("bridge_state_root") or "",
     }
+
+
+def block_header_message(block: Any) -> dict[str, Any]:
+    """Public accessor for the canonical 7-field header message (#1298 —
+    domain-separated proposal verification rebuilds the identical dict)."""
+    return _block_header_message(block)
 
 
 def sign_block_hash(block: Any, private_key: str) -> str:

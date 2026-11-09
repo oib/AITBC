@@ -222,6 +222,11 @@ class TestAttesterGate:
     @pytest.mark.asyncio
     async def test_rival_refused_after_a_restart(self, monkeypatch):
         """G3: a fresh process (new service, journal cache dropped) still knows."""
+        # #1298: the attestation-lock journal now also survives restart and
+        # would refuse the rival at the earlier lock gate — disable it here
+        # so the vote-journal gate stays the path under test (the rival is
+        # still refused either way; this asserts WHICH gate fires).
+        monkeypatch.setattr(settings, "attestation_lock_enabled", False)
         svc, broker, clock, proposer, our_addr, _ = _service(monkeypatch)
         await svc._handle_request(_request(100, "0xaaaa", proposer, clock))
 
