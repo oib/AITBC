@@ -65,31 +65,31 @@ async def create_security_policy(
 
 @router.get("/scan", response_model=dict[str, Any])
 def scan_security(
+    user: AdminDep,
     target: str = Query(default=None, description="Target to scan (agent, workflow, or resource)"),
     scan_type: str = Query(default="quick", description="Scan type: quick, full, or custom"),
 ) -> dict[str, Any]:
-    """Perform security scan on target"""
-    try:
-        return {
-            "target": target or "system",
-            "scan_type": scan_type,
-            "status": "completed",
-            "vulnerabilities_found": 0,
-            "security_score": 100,
-            "scan_results": [],
-        }
-    except Exception as e:
-        logger.error("Failed to perform security scan: %s", e)
-        logger.exception("Unhandled exception")
+    """Perform security scan on target.
 
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Honest stub contract (#1328): no scanner is implemented — the previous
+    version returned a fabricated clean bill (``security_score: 100``,
+    ``vulnerabilities_found: 0``) to any caller. Until a real scan exists
+    this endpoint reports 501 rather than false assurance.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="security scan is not implemented on this coordinator",
+    )
 
 
 @router.get("/policies", response_model=list[AgentSecurityPolicy])
-def list_security_policies() -> list[AgentSecurityPolicy]:
-    """List security policies with filtering"""
+def list_security_policies(
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
+) -> list[AgentSecurityPolicy]:
+    """List security policies"""
     try:
-        return []
+        return list(session.exec(select(AgentSecurityPolicy)).all())
     except Exception as e:
         logger.error("Failed to list security policies: %s", e)
         logger.exception("Unhandled exception")
