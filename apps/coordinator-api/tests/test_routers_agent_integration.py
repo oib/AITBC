@@ -463,10 +463,6 @@ class TestMetricsAndProduction:
         assert kwargs["workflow_id"] == wf.id
         assert kwargs["deployment_config"]["name"] == "prod-dep"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="join bug: select(AgentDeploymentConfig).join(AIAgentWorkflow) has no FK relationship -> InvalidRequestError -> 500 on every call (#1289 sweep find, needs follow-up row)",
-    )
     def test_dashboard_aggregates_own_deployments(self, client: TestClient, db_session: Session, managers) -> None:
         wf_a = _seed_workflow(db_session, ADMIN_A, "wf-a")
         wf_b = _seed_workflow(db_session, ADMIN_B, "wf-b")
@@ -487,10 +483,6 @@ class TestMetricsAndProduction:
         assert by_id[cfg_deployed.id]["healthy_instances"] == 1
         assert by_id[cfg_failed.id]["total_instances"] == 0
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="join bug: select(AgentDeploymentConfig).join(AIAgentWorkflow) has no FK relationship -> InvalidRequestError -> 500 on every call (#1289 sweep find, needs follow-up row)",
-    )
     def test_health_aggregates_status(self, client: TestClient, db_session: Session, managers) -> None:
         wf = _seed_workflow(db_session, ADMIN_A)
         _seed_config(db_session, wf.id, "dep-1", DeploymentStatus.DEPLOYED)
@@ -507,10 +499,6 @@ class TestMetricsAndProduction:
         assert data["healthy_deployments"] == 1
         assert data["total_instances"] == 2
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="join bug: select(AgentDeploymentConfig).join(AIAgentWorkflow) has no FK relationship -> InvalidRequestError -> 500 on every call (#1289 sweep find, needs follow-up row)",
-    )
     def test_health_unhealthy_and_degraded(self, client: TestClient, db_session: Session, managers) -> None:
         wf = _seed_workflow(db_session, ADMIN_A)
         _seed_config(db_session, wf.id, "dep-1", DeploymentStatus.DEPLOYED)
@@ -532,10 +520,6 @@ class TestMetricsAndProduction:
         assert data["unhealthy_deployments"] == 1
         assert data["unknown_deployments"] == 1
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="join bug: select(AgentDeploymentConfig).join(AIAgentWorkflow) has no FK relationship -> InvalidRequestError -> 500 on every call (#1289 sweep find, needs follow-up row)",
-    )
     def test_health_all_unknown_is_degraded(self, client: TestClient, db_session: Session, managers) -> None:
         wf = _seed_workflow(db_session, ADMIN_A)
         _seed_config(db_session, wf.id, "dep-1", DeploymentStatus.DEPLOYED)
