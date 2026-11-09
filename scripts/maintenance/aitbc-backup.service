@@ -1,7 +1,9 @@
 [Unit]
 Description=AITBC Daily Backup
-After=network.target redis.service postgresql.service
-Wants=redis.service
+# network-online (not just network.target): post-boot Persistent catch-up can
+# fire while interfaces/DNS are still settling (#1304).
+After=network-online.target network.target redis.service postgresql.service
+Wants=network-online.target redis.service
 
 [Service]
 Type=oneshot
@@ -13,4 +15,7 @@ ExecStart=/opt/aitbc/scripts/maintenance/aitbc-backup.sh
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-backup
+# The run is chatty; journald's default per-unit rate limit can suppress the
+# ERROR line exactly when a post-boot failure needs it most (#1304).
+LogRateLimitIntervalSec=0
 # No restart — timer handles scheduling
