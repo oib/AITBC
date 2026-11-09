@@ -965,6 +965,30 @@ class BlockImportMixin(SyncBase):
         block.block_metadata = block_data.get("block_metadata")
         session.add(block)
 
+        require_root_height = getattr(settings, "sync_require_state_root_height", None)
+        if (
+            require_root_height is not None
+            and not block_data.get("state_root")
+            and not skip_state_root_validation
+            and int(block_data["height"]) >= int(require_root_height)
+        ):
+            # #1325 (e): vote-only attestation leans on this comparison, so a
+            # block that omits its root cannot be allowed to skip it.
+            metrics_registry.increment("sync_state_root_missing_rejected_total")
+            session.rollback()
+            self._track_rejection(self._chain_id)
+            logger.error(
+                "[SYNC] Missing state root at height %s (required from %s) - BLOCK REJECTED",
+                block_data["height"],
+                require_root_height,
+            )
+            return self._make_import_result(
+                accepted=False,
+                height=block_data["height"],
+                block_hash=block_hash,
+                reason="Missing state root",
+            )
+
         if block_data.get("state_root") and (not skip_state_root_validation):
             session.flush()
             # Compute state root from the full account state. The previous

@@ -386,6 +386,11 @@ class ChainSettings(BaseSettings):
     # ISO-8601 timestamp; if in the future, signature validation is temporarily disabled.
     sync_validate_signatures_skip_until: str = ""
     sync_state_root_validation_enabled: bool = True  # validate state roots on push/gossip block import
+    # #1325 option (e): from this height on, a block that arrives without a state_root is
+    # refused at import instead of skipping the root comparison. None = off (legacy:
+    # an empty root bypasses the check). Apply-time rule: arm it fleet-wide at a height
+    # every validator already runs, never mid-history.
+    sync_require_state_root_height: int | None = None
 
     # SyncManager settings (v0.11.0)
     sync_manager_enabled: bool = True  # master kill switch; when False no SyncManager is started
