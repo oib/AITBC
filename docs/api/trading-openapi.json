@@ -199,6 +199,29 @@
               ],
               "title": "Trade Type"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
           }
         ],
         "responses": {
@@ -360,6 +383,29 @@
               ],
               "title": "Seller Agent Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
           }
         ],
         "responses": {
@@ -479,6 +525,29 @@
                 }
               ],
               "title": "Seller Agent Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
             }
           }
         ],
@@ -1282,6 +1351,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Idempotency-Key already used by another account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1347,7 +1426,7 @@
           "exchange"
         ],
         "summary": "Confirm Exchange Payment",
-        "description": "Confirm payment (webhook from payment processor, migrated from Coordinator API).",
+        "description": "Confirm payment (webhook from payment processor, migrated from Coordinator API).\n\nDisabled until real on-chain transaction verification and minting are\nimplemented \u2014 the migrated code accepted any caller-supplied tx_hash\nbehind only an HMAC check and \"minted\" via a log line, i.e. free\nconfirmation of unpaid deposits (#1410). Same contract as\ncoordinator-api's exchange router, which returns 501 here.",
         "operationId": "confirm_exchange_payment_v1_exchange_confirm_payment__payment_id__post",
         "parameters": [
           {
@@ -1401,16 +1480,6 @@
               }
             }
           },
-          "400": {
-            "description": "Payment not in pending state",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Invalid webhook signature",
             "content": {
@@ -1421,8 +1490,8 @@
               }
             }
           },
-          "404": {
-            "description": "Payment not found",
+          "501": {
+            "description": "Payment confirmation is disabled until on-chain transaction verification is implemented",
             "content": {
               "application/json": {
                 "schema": {
@@ -2596,25 +2665,37 @@
             }
           },
           "409": {
-            "description": "Escrow already created for this trade",
+            "description": "Escrow already created for this trade / Trade status '{trade.status}' cannot lock an escrow",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "title": "Error"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "title": "Error"
+                        }
+                      }
                     },
-                    "escrow_id": {
-                      "title": "Escrow Id"
-                    },
-                    "settlement_phase": {
-                      "title": "Settlement Phase"
-                    },
-                    "trade_id": {
-                      "title": "Trade Id"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "title": "Error"
+                        },
+                        "escrow_id": {
+                          "title": "Escrow Id"
+                        },
+                        "settlement_phase": {
+                          "title": "Settlement Phase"
+                        },
+                        "trade_id": {
+                          "title": "Trade Id"
+                        }
+                      }
                     }
-                  }
+                  ]
                 }
               }
             }
@@ -2702,6 +2783,21 @@
           },
           "404": {
             "description": "Trade not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trade cannot settle from status '{trade.status}' / phase '{trade.settlement_phase}'",
             "content": {
               "application/json": {
                 "schema": {

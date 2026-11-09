@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from ..dependencies import get_trading_service
 from ..services.trading_service import TradingService
@@ -16,9 +16,13 @@ async def get_requests(
     status: str | None = None,
     buyer_agent_id: str | None = None,
     trade_type: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ):
     """Get trade requests."""
-    return await svc.list_requests(status=status, buyer_agent_id=buyer_agent_id, trade_type=trade_type)
+    return await svc.list_requests(
+        status=status, buyer_agent_id=buyer_agent_id, trade_type=trade_type, limit=limit, offset=offset
+    )
 
 
 @router.get("/v1/trading/requests/{request_id}")
@@ -39,9 +43,13 @@ async def get_matches(
     status: str | None = None,
     buyer_agent_id: str | None = None,
     seller_agent_id: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ):
     """Get trade matches."""
-    return await svc.list_matches(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
+    return await svc.list_matches(
+        status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id, limit=limit, offset=offset
+    )
 
 
 @router.post("/v1/trading/matches")
@@ -56,9 +64,13 @@ async def get_agreements(
     status: str | None = None,
     buyer_agent_id: str | None = None,
     seller_agent_id: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ):
     """Get trade agreements."""
-    return await svc.list_agreements(status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id)
+    return await svc.list_agreements(
+        status=status, buyer_agent_id=buyer_agent_id, seller_agent_id=seller_agent_id, limit=limit, offset=offset
+    )
 
 
 @router.post("/v1/trading/agreements")

@@ -243,12 +243,6 @@ class TestCreateMatchAgreementSettlement:
 
 
 class TestUnboundedLists:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="TRADING-QUERY-1 (#1412): list_requests/list_matches/list_agreements "
-        "have no LIMIT — the legacy GET /v1/trading/* endpoints return every "
-        "row in the table; sibling services all take limit/offset",
-    )
     async def test_list_requests_supports_limit(self, db_session):
         import inspect
 

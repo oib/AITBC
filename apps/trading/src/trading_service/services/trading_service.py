@@ -81,6 +81,8 @@ class TradingService:
         status: str | None = None,
         buyer_agent_id: str | None = None,
         trade_type: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[TradeRequest]:
         """List trade requests"""
         stmt = select(TradeRequest)
@@ -90,7 +92,7 @@ class TradingService:
             stmt = stmt.where(TradeRequest.buyer_agent_id == buyer_agent_id)
         if trade_type:
             stmt = stmt.where(TradeRequest.trade_type == trade_type)
-        result = await self.session.execute(stmt)
+        result = await self.session.execute(stmt.limit(limit).offset(offset))
         return list(result.scalars().all())
 
     async def get_request(self, request_id: str) -> TradeRequest | None:
@@ -115,6 +117,8 @@ class TradingService:
         status: str | None = None,
         buyer_agent_id: str | None = None,
         seller_agent_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[TradeMatch]:
         """List trade matches"""
         stmt = select(TradeMatch)
@@ -124,7 +128,7 @@ class TradingService:
             stmt = stmt.where(TradeMatch.buyer_agent_id == buyer_agent_id)
         if seller_agent_id:
             stmt = stmt.where(TradeMatch.seller_agent_id == seller_agent_id)
-        result = await self.session.execute(stmt)
+        result = await self.session.execute(stmt.limit(limit).offset(offset))
         return list(result.scalars().all())
 
     async def create_match(self, match_data: dict[str, Any]) -> TradeMatch:
@@ -143,6 +147,8 @@ class TradingService:
         status: str | None = None,
         buyer_agent_id: str | None = None,
         seller_agent_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[TradeAgreement]:
         """List trade agreements"""
         stmt = select(TradeAgreement)
@@ -152,7 +158,7 @@ class TradingService:
             stmt = stmt.where(TradeAgreement.buyer_agent_id == buyer_agent_id)
         if seller_agent_id:
             stmt = stmt.where(TradeAgreement.seller_agent_id == seller_agent_id)
-        result = await self.session.execute(stmt)
+        result = await self.session.execute(stmt.limit(limit).offset(offset))
         return list(result.scalars().all())
 
     async def create_agreement(self, agreement_data: dict[str, Any]) -> TradeAgreement:

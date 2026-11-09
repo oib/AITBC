@@ -15,9 +15,17 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from aitbc.trading.types import InterChainTradeStatus
+
 from ..domain.inter_chain import InterChainTrade
 
 logger = logging.getLogger(__name__)
+
+_TERMINAL_TRADE_STATUSES = {
+    InterChainTradeStatus.COMPLETED,
+    InterChainTradeStatus.CANCELLED,
+    InterChainTradeStatus.FAILED,
+}
 
 
 class InterChainTradeService:
@@ -105,7 +113,27 @@ class InterChainTradeService:
         trade = await self.get_trade(trade_id)
         if not trade:
             return None
-        trade.status = status
+        # #1416: validate against InterChainTradeStatus and refuse writes out
+        # of terminal states (completed/cancelled/failed) — any string used to
+        # be persisted verbatim.
+        try:
+            new_status = InterChainTradeStatus(status)
+        except ValueError:
+            logger.warning("update_trade_status: invalid status %r for trade %s", status, trade_id)
+            return None
+        try:
+            current_status = InterChainTradeStatus(trade.status)
+        except ValueError:
+            current_status = None
+        if current_status in _TERMINAL_TRADE_STATUSES and new_status != current_status:
+            logger.warning(
+                "update_trade_status: refusing %s -> %s on terminal trade %s",
+                current_status.value,
+                new_status.value,
+                trade_id,
+            )
+            return None
+        trade.status = new_status.value
         trade.updated_at = datetime.now(UTC)
         if matched_trade_id:
             trade.matched_trade_id = matched_trade_id

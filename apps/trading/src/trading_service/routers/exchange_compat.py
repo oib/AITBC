@@ -76,6 +76,8 @@ async def create_exchange_payment(
     if idempotency_key:
         existing = await session.scalar(select(ExchangePayment).where(ExchangePayment.idempotency_key == idempotency_key))
         if existing:
+            if existing.user_id != payment_request.user_id:
+                raise HTTPException(status_code=409, detail="Idempotency-Key already used by another account")
             return _payment_dict(existing)
 
     now = int(time.time())
@@ -111,33 +113,29 @@ async def get_exchange_payment_status(
         payment.status = "expired"
         session.add(payment)
         await session.commit()
+        await session.refresh(payment)
     return _payment_dict(payment)
 
 
 @router.post("/v1/exchange/confirm-payment/{payment_id}", dependencies=[Depends(require_webhook_signature)])
-async def confirm_exchange_payment(
+def confirm_exchange_payment(
     payment_id: str,
     tx_hash: str,
     request: Request,
     session: Annotated[AsyncSession, Depends(get_session_dep)],
 ) -> dict[str, Any]:
-    """Confirm payment (webhook from payment processor, migrated from Coordinator API)."""
-    payment = await session.get(ExchangePayment, payment_id)
-    if payment is None:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    if payment.status != "pending":
-        raise HTTPException(status_code=400, detail="Payment not in pending state")
-    payment.status = "confirmed"
-    payment.tx_hash = tx_hash
-    payment.confirmed_at = int(time.time())
-    session.add(payment)
-    await session.commit()
-    try:
-        logger.info("Minting %s %s tokens for user %s", payment.aitbc_amount, _brand.token_symbol, payment.user_id)
-    except Exception as e:
-        logger.error("Error minting tokens: %s", e)
-    logger.info("Confirmed exchange payment %s with tx_hash %s", payment_id, tx_hash)
-    return {"status": "ok", "payment_id": payment_id, "aitbc_amount": str(payment.aitbc_amount)}
+    """Confirm payment (webhook from payment processor, migrated from Coordinator API).
+
+    Disabled until real on-chain transaction verification and minting are
+    implemented — the migrated code accepted any caller-supplied tx_hash
+    behind only an HMAC check and "minted" via a log line, i.e. free
+    confirmation of unpaid deposits (#1410). Same contract as
+    coordinator-api's exchange router, which returns 501 here.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Payment confirmation is disabled until on-chain transaction verification is implemented",
+    )
 
 
 @router.get("/v1/exchange/rates", dependencies=[Depends(require_trading_api_key)])

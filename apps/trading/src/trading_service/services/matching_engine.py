@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_
 from sqlmodel import select
 
 from ..domain.inter_chain import InterChainTrade
@@ -50,6 +51,20 @@ class MatchingEngine:
 
         # Find matching counterparty trades (lock for update to prevent double-matching)
         # A match is: counterparty source = our dest, counterparty dest = our source
+        # Documented party criterion (#1413): the counterparty must involve
+        # the same two parties — either mirrored (its sender is our recipient
+        # and vice versa) or identical ordering. Without this, unrelated
+        # trades between the same chains with equal amount get matched.
+        party_match = or_(
+            and_(
+                InterChainTrade.sender == trade.recipient,
+                InterChainTrade.recipient == trade.sender,
+            ),
+            and_(
+                InterChainTrade.sender == trade.sender,
+                InterChainTrade.recipient == trade.recipient,
+            ),
+        )
         match_stmt = (
             select(InterChainTrade)
             .where(
@@ -58,6 +73,7 @@ class MatchingEngine:
                 InterChainTrade.source_chain == trade.dest_chain,
                 InterChainTrade.dest_chain == trade.source_chain,
                 InterChainTrade.amount == trade.amount,
+                party_match,
             )
             .order_by(InterChainTrade.price.desc(), InterChainTrade.created_at.asc())  # type: ignore[attr-defined]
             .with_for_update()

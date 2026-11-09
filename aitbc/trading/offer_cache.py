@@ -50,6 +50,24 @@ class OfferCache:
     def _chain_meta_key(self, chain_id: str) -> str:
         return f"chain:{chain_id}:sync_meta"
 
+    _CHAINS_INDEX_KEY = "trading:offer_chains"
+
+    def _get_chain_registry(self) -> list[str]:
+        raw = self._cache.get(self._CHAINS_INDEX_KEY)
+        if isinstance(raw, list):
+            return [str(c) for c in raw]
+        return []
+
+    def _register_chain(self, chain_id: str) -> None:
+        chains = self._get_chain_registry()
+        if chain_id not in chains:
+            chains.append(chain_id)
+            self._cache.set(self._CHAINS_INDEX_KEY, chains)
+
+    def _unregister_chain(self, chain_id: str) -> None:
+        chains = [c for c in self._get_chain_registry() if c != chain_id]
+        self._cache.set(self._CHAINS_INDEX_KEY, chains)
+
     def get_offer(self, offer_id: str) -> SyncedOffer | None:
         """Get a single offer from the cache."""
         raw = self._cache.get(self._offer_key(offer_id))
@@ -67,6 +85,7 @@ class OfferCache:
         key = self._offer_key(offer.offer_id)
         self._cache.set(key, json.dumps(offer.to_dict()), ttl or self._config.cache_ttl_seconds)
         # Update chain index (store as JSON list since RedisCache doesn't expose sets)
+        self._register_chain(offer.chain_id)
         index_key = self._chain_index_key(offer.chain_id)
         existing = self._get_chain_index(offer.chain_id)
         if offer.offer_id not in existing:
@@ -116,8 +135,12 @@ class OfferCache:
             return True
         try:
             last = datetime.fromisoformat(offer.last_synced)
-        except ValueError:
+        except (ValueError, TypeError):
             return True
+        if last.tzinfo is None:
+            # Naive timestamps are UTC by convention here — an offset-aware
+            # now() minus a naive datetime raises TypeError (#1420).
+            last = last.replace(tzinfo=UTC)
         threshold = self._config.get_staleness_for_chain(offer.chain_id)
         elapsed = (datetime.now(UTC) - last).total_seconds()
         return elapsed > threshold
@@ -160,6 +183,7 @@ class OfferCache:
     def set_sync_metadata(self, chain_id: str, metadata: dict[str, Any]) -> None:
         """Update sync metadata for a chain."""
         metadata.setdefault("chain_id", chain_id)
+        self._register_chain(chain_id)
         offers = self.list_offers_by_chain(chain_id)
         metadata["offer_count"] = len(offers)
         metadata["stale_count"] = sum(1 for o in offers if self.is_stale(o.offer_id))
@@ -182,6 +206,7 @@ class OfferCache:
             self._cache.delete(self._offer_key(oid))
         self._cache.delete(self._chain_index_key(chain_id))
         self._cache.delete(self._chain_meta_key(chain_id))
+        self._unregister_chain(chain_id)
         return len(offer_ids)
 
     def is_available(self) -> bool:
@@ -209,13 +234,10 @@ class OfferCache:
             )
 
     def _get_known_chains(self) -> list[str]:
-        """Get all chain IDs that have sync metadata or offers.
+        """Get all chain IDs with cached offers or sync metadata.
 
-        Since RedisCache doesn't expose key scanning, we rely on the
-        sync metadata keys. Chains without metadata won't be returned.
-        """
-        # RedisCache doesn't expose SCAN, so we can't enumerate chains.
-        # In practice, the OfferSyncService maintains a list of known
-        # chains via the IslandRegistry. This method is a best-effort
-        # fallback for standalone cache usage.
-        return []
+        Maintained as a JSON-list registry key (``trading:offer_chains``)
+        updated by ``set_offer``/``set_sync_metadata``/``clear_chain`` —
+        RedisCache exposes no SCAN (#1418). Chains cached before this
+        index existed re-register on their next write or sync."""
+        return self._get_chain_registry()

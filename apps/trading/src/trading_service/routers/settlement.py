@@ -11,9 +11,10 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.settlement.client import SettlementClient
 from aitbc.settlement.types import SettlementConfig
-
+from aitbc.trading.types import SettlementPhase
 from ..dependencies import get_inter_chain_service
 from ..domain.inter_chain import InterChainTrade
+
 from ..services.inter_chain_service import InterChainTradeService
 
 router = APIRouter(tags=["settlement"])
@@ -65,6 +66,13 @@ async def lock_escrow(
                 "settlement_phase": trade.settlement_phase,
             },
         )
+    # #1415: only live trades may lock funds — a cancelled/completed/failed
+    # trade must never get a real HTLC escrow created for it.
+    if trade.status not in {"pending", "matched", "locked", "confirmed"}:
+        return JSONResponse(
+            status_code=409,
+            content={"error": f"Trade status '{trade.status}' cannot lock an escrow"},
+        )
     if trade.amount <= 0:
         return JSONResponse(status_code=400, content={"error": "Trade amount must be positive"})
     try:
@@ -80,7 +88,8 @@ async def lock_escrow(
             )
         # Persist settlement fields on the trade record
         trade.escrow_id = escrow.get("escrow_id")
-        trade.settlement_phase = "pending"
+        # #1414: the column stores SettlementPhase values — "pending" is not one.
+        trade.settlement_phase = SettlementPhase.ESCROW_CREATED.value
         trade.secret_hash = escrow.get("secret_hash", "")
         trade.source_timelock = escrow.get("source_timelock", 0)
         trade.dest_timelock = escrow.get("dest_timelock", 0)
@@ -120,13 +129,24 @@ async def settle_trade(
         return JSONResponse(status_code=404, content={"error": "Trade not found"})
     if not trade.escrow_id:
         return JSONResponse(status_code=400, content={"error": "Trade has no escrow — lock escrow first"})
-    # Idempotency: already settled
-    if trade.settlement_phase == "completed":
+    # Idempotency: already settled — accept both the enum terminal value and
+    # the legacy "completed" this router used to write (#1414).
+    if trade.settlement_phase in {SettlementPhase.SETTLED.value, "completed"}:
         return {"trade_id": trade.trade_id, "escrow_id": trade.escrow_id, "result": "already_settled"}
+    # #1415: terminal/invalid phases and dead trades must not settle — the
+    # HTLC secret alone is not sufficient authorization.
+    if trade.settlement_phase in {SettlementPhase.REFUNDED.value, SettlementPhase.DISPUTED.value} or trade.status in {
+        "cancelled",
+        "failed",
+    }:
+        return JSONResponse(
+            status_code=409,
+            content={"error": f"Trade cannot settle from status '{trade.status}' / phase '{trade.settlement_phase}'"},
+        )
     try:
         async with _get_settlement_client() as client:
             result = await client.settle(trade.escrow_id, secret)
-        trade.settlement_phase = "completed"
+        trade.settlement_phase = SettlementPhase.SETTLED.value
         await svc.session.commit()
         await svc.session.refresh(trade)
         return {"trade_id": trade.trade_id, "escrow_id": trade.escrow_id, "result": result}
