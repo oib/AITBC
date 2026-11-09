@@ -191,3 +191,89 @@ def test_fork_revert_releases_reservations(pool, chain, monkeypatch):
     # Signatures are fake so re-admission fails per-tx — irrelevant here:
     # the release must already have freed every marker.
     assert pool.live_reservations(chain) == {}
+
+
+def _proposer_stub(chain: str):
+    import logging
+    from types import SimpleNamespace
+
+    from aitbc_chain.consensus.poa import PoAProposer
+
+    p = PoAProposer.__new__(PoAProposer)
+    p._config = SimpleNamespace(chain_id=chain, max_txs_per_block=100, max_block_size_bytes=10_000_000)
+    p._logger = logging.getLogger("q1300-proposer")
+    return p
+
+
+def _chain_session(tmp_path):
+    from sqlmodel import Session, create_engine
+
+    from aitbc_chain.metadata import chain_metadata
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'chain.db'}")
+    chain_metadata.create_all(engine)
+    return Session(engine)
+
+
+def test_proposer_select_drains_when_flag_off(pool, chain, tmp_path, monkeypatch):
+    """Flag OFF: _select_mempool_txs takes the legacy drain path — rows
+    are consumed and no reservations exist."""
+    from aitbc_chain.config import settings
+
+    hashes = _seed(pool, chain)
+    monkeypatch.setattr(settings, "mempool_reservation_enabled", False)
+    proposer = _proposer_stub(chain)
+    with _chain_session(tmp_path) as session:
+        txs, reserved = proposer._select_mempool_txs(session, pool, 100, 10_000_000)
+    assert {t.tx_hash for t in txs} == set(hashes)
+    assert reserved == set()
+    assert pool.size(chain_id=chain) == 0
+
+
+def test_proposer_select_peek_reserves_when_armed(pool, chain, tmp_path, monkeypatch):
+    """Flag ON + database backend + owner/height: peek_reserve path —
+    rows stay pooled under the owner's markers, reserved_hashes returned."""
+    from aitbc_chain.config import settings
+
+    hashes = _seed(pool, chain)
+    monkeypatch.setattr(settings, "mempool_reservation_enabled", True)
+    proposer = _proposer_stub(chain)
+    with _chain_session(tmp_path) as session:
+        txs, reserved = proposer._select_mempool_txs(
+            session,
+            pool,
+            100,
+            10_000_000,
+            reservation_owner="owner-a",
+            reservation_proposer="0xproposer",
+            reservation_height=10,
+            reservation_round=0,
+        )
+    assert {t.tx_hash for t in txs} == set(hashes)
+    assert reserved == set(hashes)
+    assert pool.size(chain_id=chain) == len(hashes)  # NOT drained
+    assert pool.live_reservations(chain) == dict.fromkeys(hashes, "owner-a")
+
+
+def test_proposer_select_flag_on_but_memory_backend_drains(pool, chain, tmp_path, monkeypatch):
+    """Flag ON but InMemoryMempool: isinstance guard falls back to drain —
+    reservations are a database-backend feature only."""
+    from aitbc_chain.config import settings
+    from aitbc_chain.mempool import InMemoryMempool
+
+    mem = InMemoryMempool(max_size=100, min_fee=0, chain_id=chain)
+    hashes = [mem.add(_tx(i, chain), chain_id=chain) for i in range(1, 4)]
+    monkeypatch.setattr(settings, "mempool_reservation_enabled", True)
+    proposer = _proposer_stub(chain)
+    with _chain_session(tmp_path) as session:
+        txs, reserved = proposer._select_mempool_txs(
+            session,
+            mem,
+            100,
+            10_000_000,
+            reservation_owner="owner-a",
+            reservation_height=10,
+        )
+    assert {t.tx_hash for t in txs} == set(hashes)
+    assert reserved == set()
+    assert mem.size(chain_id=chain) == 0
