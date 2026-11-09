@@ -2,13 +2,12 @@
 
 import asyncio
 import time
-from collections.abc import Sequence
 from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
@@ -155,28 +154,29 @@ def get_exchange_rates() -> dict[str, Any]:
 async def get_market_stats(session: Annotated[AsyncSession, Depends(get_session_dep)]) -> dict[str, Any]:
     """Get market statistics (migrated from Coordinator API)."""
     yesterday_time = int(time.time()) - 24 * 60 * 60
-    result = await session.execute(
-        select(ExchangePayment).where(
+    volume_result = await session.execute(
+        select(func.coalesce(func.sum(ExchangePayment.aitbc_amount), 0)).where(
             ExchangePayment.status == "confirmed",
             ExchangePayment.confirmed_at > yesterday_time,
         )
     )
-    confirmed_today: Sequence[ExchangePayment] = result.scalars().all()
-    daily_volume = sum((p.aitbc_amount for p in confirmed_today), Decimal("0"))
+    daily_volume = Decimal(volume_result.scalar_one())
     base_price = Decimal("1") / ETHEREUM_CONFIG["exchange_rate"]
     # Configured peg, not a traded price — honest 24h change is 0 until a real rate feed exists.
     price_change_percent = Decimal("0")
-    total_stmt = select(ExchangePayment).where(ExchangePayment.status == "confirmed")
-    total_result = await session.execute(total_stmt)
-    pending_stmt = select(ExchangePayment).where(ExchangePayment.status == "pending")
-    pending_result = await session.execute(pending_stmt)
+    total_result = await session.execute(
+        select(func.count()).select_from(ExchangePayment).where(ExchangePayment.status == "confirmed")
+    )
+    pending_result = await session.execute(
+        select(func.count()).select_from(ExchangePayment).where(ExchangePayment.status == "pending")
+    )
     return {
         "price": str(base_price),
         "price_change_24h": price_change_percent,
         "daily_volume": str(daily_volume),
         "daily_volume_eth": str(daily_volume / ETHEREUM_CONFIG["exchange_rate"]),
-        "total_payments": len(total_result.scalars().all()),
-        "pending_payments": len(pending_result.scalars().all()),
+        "total_payments": total_result.scalar_one(),
+        "pending_payments": pending_result.scalar_one(),
     }
 
 

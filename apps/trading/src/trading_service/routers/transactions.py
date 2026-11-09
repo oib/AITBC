@@ -5,16 +5,75 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from ..dependencies import get_session_dep
+from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeStatus, TradeType
 from ..services.trading_service import TradingService
 
 router = APIRouter(tags=["transactions"])
 logger = get_logger(__name__)
+
+
+async def _filtered_rows(session: AsyncSession, model, status_enum, type_enum):
+    stmt = select(model)
+    if status_enum is not None:
+        stmt = stmt.where(model.status == status_enum.value)
+    if type_enum is not None:
+        stmt = stmt.where(model.trade_type == type_enum.value)
+    stmt = stmt.order_by(model.created_at)
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def _match_rows(session: AsyncSession, status_enum, type_enum):
+    stmt = select(TradeMatch)
+    if status_enum is not None:
+        stmt = stmt.where(TradeMatch.status == status_enum.value)
+    if type_enum is not None:
+        stmt = stmt.join(TradeRequest, TradeMatch.request_id == TradeRequest.request_id).where(
+            TradeRequest.trade_type == type_enum.value
+        )
+    stmt = stmt.order_by(TradeMatch.created_at)
+    return list((await session.execute(stmt)).scalars().all())
+
+
+def _serialize_request(r: TradeRequest) -> dict[str, Any]:
+    return {
+        "request_id": r.request_id,
+        "action": "request",
+        "buyer_agent_id": r.buyer_agent_id,
+        "trade_type": r.trade_type,
+        "status": r.status,
+        "island_id": getattr(r, "island_id", None),
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+def _serialize_match(m: TradeMatch) -> dict[str, Any]:
+    return {
+        "match_id": m.match_id,
+        "action": "match",
+        "request_id": m.request_id,
+        "seller_agent_id": m.seller_agent_id,
+        "status": m.status,
+        "island_id": getattr(m, "island_id", None),
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+
+
+def _serialize_agreement(a: TradeAgreement) -> dict[str, Any]:
+    return {
+        "agreement_id": a.agreement_id,
+        "action": "agreement",
+        "match_id": getattr(a, "match_id", None),
+        "status": a.status,
+        "island_id": getattr(a, "island_id", None),
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+    }
 
 
 @router.post("/v1/transactions")
@@ -54,68 +113,37 @@ async def get_transactions(
     action: str | None = None,
     status: str | None = None,
     island_id: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
 ):
     """Query trading transactions."""
-    from sqlalchemy import select
+    try:
+        status_enum = TradeStatus(status) if status else None
+        type_enum = TradeType(transaction_type) if transaction_type else None
+    except ValueError:
+        return []
 
-    from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest
+    fetchers = {
+        "request": lambda: _filtered_rows(session, TradeRequest, status_enum, type_enum),
+        "match": lambda: _match_rows(session, status_enum, type_enum),
+        "agreement": lambda: _filtered_rows(session, TradeAgreement, status_enum, type_enum),
+    }
+    serializers = {"request": _serialize_request, "match": _serialize_match, "agreement": _serialize_agreement}
 
     try:
+        wanted = [action] if action else list(fetchers)
         transactions = []
-        if action == "request" or not action:
-            req_result = await session.execute(select(TradeRequest))
-            requests = list(req_result.scalars().all())
-            transactions.extend(
-                [
-                    {
-                        "request_id": r.request_id,
-                        "action": "request",
-                        "buyer_agent_id": r.buyer_agent_id,
-                        "trade_type": r.trade_type,
-                        "status": r.status,
-                        "island_id": getattr(r, "island_id", None),
-                        "created_at": r.created_at.isoformat() if r.created_at else None,
-                    }
-                    for r in requests
-                ]
-            )
-        if action == "match" or not action:
-            match_result = await session.execute(select(TradeMatch))
-            matches = list(match_result.scalars().all())
-            transactions.extend(
-                [
-                    {
-                        "match_id": m.match_id,
-                        "action": "match",
-                        "request_id": m.request_id,
-                        "seller_agent_id": m.seller_agent_id,
-                        "status": m.status,
-                        "island_id": getattr(m, "island_id", None),
-                        "created_at": m.created_at.isoformat() if m.created_at else None,
-                    }
-                    for m in matches
-                ]
-            )
-        if action == "agreement" or not action:
-            agree_result = await session.execute(select(TradeAgreement))
-            agreements = list(agree_result.scalars().all())
-            transactions.extend(
-                [
-                    {
-                        "agreement_id": a.agreement_id,
-                        "action": "agreement",
-                        "match_id": getattr(a, "match_id", None),
-                        "status": a.status,
-                        "island_id": getattr(a, "island_id", None),
-                        "created_at": a.created_at.isoformat() if a.created_at else None,
-                    }
-                    for a in agreements
-                ]
-            )
-        if status:
-            transactions = [t for t in transactions if t.get("status") == status]
+        for act in wanted:
+            fetch, serialize = fetchers.get(act), serializers.get(act)
+            if fetch is None:
+                continue
+            transactions.extend(serialize(row) for row in await fetch())
         if island_id:
             transactions = [t for t in transactions if t.get("island_id") == island_id]
+        if offset:
+            transactions = transactions[offset:]
+        if limit is not None:
+            transactions = transactions[:limit]
         return transactions
     except Exception:
         logger.exception("Transaction query error")
