@@ -588,7 +588,7 @@ async def get_governance_platform_status(
                 "regional_councils": len(councils),
                 "treasury_management": True,
                 "staking_rewards": True,
-                "compliance_integration": True,
+                "compliance_integration": False,
             },
             "statistics": analytics,
             "treasury": treasury,
