@@ -193,6 +193,8 @@ class AgentService:
         Returns:
             List of created messages
         """
+        if sender not in self._agent_profiles:
+            raise ValueError(f"Sender agent not registered: {sender}")
         messages = []
         for agent_id in self._agent_profiles:
             if agent_id != sender:
