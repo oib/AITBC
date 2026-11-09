@@ -365,3 +365,24 @@ class TestExportImport:
         # channels and templates also round-trip
         assert len(svc2.channels) == len(svc.channels)
         assert "task_request_default" in svc2.message_templates
+
+    async def test_import_rebuilds_indexes_and_queue(self, svc: AgentCommunicationService) -> None:
+        """#1372: imported messages must be reachable via get_agent_messages
+        and PENDING messages must re-enter the delivery queue."""
+        await _pair(svc)
+        mid = await _send_deliver(svc, encryption_type=EncryptionType.NONE, content="indexed")
+        # a second message left PENDING exercises the queue rebuild
+        pending_id = await svc.send_message("ag1", "ag2", MessageType.TEXT, "queued-msg", encryption_type=EncryptionType.NONE)
+        data = await svc.export_communication_data()
+
+        svc2 = AgentCommunicationService(config={})
+        await svc2.import_communication_data(data)
+
+        for agent in ("ag1", "ag2"):
+            ids = await svc2.get_agent_messages(agent, limit=50)
+            assert mid in [m.id for m in ids], agent
+        # the PENDING message re-entered the queue (or was already picked up
+        # by svc2's background processor — either proves the rebuild worked)
+        queued = any(m.id == pending_id for m in svc2.message_queue)
+        delivered = svc2.messages[pending_id].status != MessageStatus.PENDING
+        assert queued or delivered

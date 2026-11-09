@@ -8,6 +8,7 @@ export/import, registry health/stats, and cross-chain mapping reads.
 from __future__ import annotations
 
 
+import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -82,6 +83,23 @@ class TestIdentityLifecycle:
         agent_id = _agent_id(created)
         exp = client.post(f"{BASE}/identities/{agent_id}/export", json={}, headers=_admin())
         assert exp.status_code in (200, 400, 404, 501)
+
+    def test_export_import_restores_under_new_agent_id(self, client: TestClient) -> None:
+        """#1372: a real export must survive import — the identity payload's
+        metadata lives under ``identity_data`` and the ctor kwarg is
+        ``meta_data``; the old code KeyError'd on ``metadata`` every time."""
+        created = client.post(f"{BASE}/identities", json=_create(client, display_name="Restorable"), headers=_admin()).json()
+        agent_id = _agent_id(created)
+        exp = client.post(f"{BASE}/identities/{agent_id}/export", json={}, headers=_admin())
+        if exp.status_code != 200:
+            pytest.skip(f"export unavailable: {exp.status_code}")
+        payload = exp.json()
+        payload["agent_id"] = "agent_reimported_1"
+        payload["identity"]["agent_id"] = "agent_reimported_1"
+        imp = client.post(f"{BASE}/identities/import", json=payload, headers=_admin())
+        assert imp.status_code == 200, imp.text
+        body = imp.json()
+        assert body.get("import_successful") is True, body
 
     def test_registry_health(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/registry/health", headers=_admin())
