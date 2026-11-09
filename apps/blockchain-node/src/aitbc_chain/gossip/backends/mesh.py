@@ -10,7 +10,8 @@ from typing import Any
 from aitbc.async_tasks import create_task_with_logging
 
 from ...metrics import metrics_registry
-from .._internal import _increment_publication, _message_id, _set_queue_gauge
+from .._internal import _increment_publication, _message_id, _set_queue_gauge, bounded_topic_label
+from ..telemetry import gossip_event, gossip_mesh_message_forward_total
 from .base import GossipBackend, TopicSubscription
 
 
@@ -72,6 +73,11 @@ class MeshGossipBackend(GossipBackend):
         from aitbc.aitbc_logging import get_logger
 
         logger = get_logger(__name__)
+        # #1308: event-loop lag sampler (idempotent per loop; peer backends
+        # also call it — covers the no-peer / local-bus-only case).
+        from ..telemetry import ensure_event_loop_lag_monitor
+
+        ensure_event_loop_lag_monitor()
         await self._local.start()
         for name, peer in self._peers.items():
             try:
@@ -98,11 +104,12 @@ class MeshGossipBackend(GossipBackend):
                 seen.popitem(last=False)
             return False
 
-    def _spawn_peer_publish(self, name: str, coro_factory: Callable[[], Any], topic: str) -> None:
+    def _spawn_peer_publish(self, name: str, coro_factory: Callable[[], Any], topic: str, message: Any) -> None:
         from aitbc.aitbc_logging import get_logger
 
         logger = get_logger(__name__)
         inflight = self._inflight[name]
+        event_id = _message_id(topic, message)
         if len(inflight) >= self._max_inflight_per_peer:
             metrics_registry.increment("gossip_mesh_peer_publish_dropped_total")
             logger.warning(
@@ -111,15 +118,40 @@ class MeshGossipBackend(GossipBackend):
                 len(inflight),
                 topic,
             )
+            gossip_event(
+                "publish_dropped",
+                peer=name,
+                topic=topic,
+                event_id=event_id,
+                inflight=len(inflight),
+                _level="warning",
+            )
             return
 
         async def _run() -> None:
+            t0 = time.monotonic()
             try:
                 await asyncio.wait_for(coro_factory(), timeout=self._peer_publish_timeout)
                 _increment_publication("gossip_mesh_peer_publish", topic)
+                gossip_event(
+                    "publish_done",
+                    peer=name,
+                    topic=topic,
+                    event_id=event_id,
+                    latency_ms=round((time.monotonic() - t0) * 1000.0, 1),
+                )
             except Exception as e:
                 _increment_publication("gossip_mesh_peer_publish_failed", topic)
                 logger.info("Mesh gossip publish to peer %s on %s failed: %s", name, topic, e)
+                gossip_event(
+                    "publish_failed",
+                    peer=name,
+                    topic=topic,
+                    event_id=event_id,
+                    latency_ms=round((time.monotonic() - t0) * 1000.0, 1),
+                    error=str(e)[:120],
+                    _level="info",
+                )
 
         task = create_task_with_logging(_run(), name=f"mesh-gossip-publish:{name}:{topic}")
         inflight.add(task)
@@ -142,7 +174,7 @@ class MeshGossipBackend(GossipBackend):
             raise RuntimeError("Mesh backend not started")
         await self._local.publish(topic, message)
         for name, peer in self._peers.items():
-            self._spawn_peer_publish(name, self._publish_factory(peer, topic, message), topic)
+            self._spawn_peer_publish(name, self._publish_factory(peer, topic, message), topic, message)
         _increment_publication("gossip_mesh_publications", topic)
 
     async def publish_batch(self, topic: str, messages: list[Any]) -> None:
@@ -152,7 +184,7 @@ class MeshGossipBackend(GossipBackend):
             return
         await self._local.publish_batch(topic, messages)
         for name, peer in self._peers.items():
-            self._spawn_peer_publish(name, self._publish_batch_factory(peer, topic, messages), topic)
+            self._spawn_peer_publish(name, self._publish_batch_factory(peer, topic, messages), topic, messages)
         _increment_publication("gossip_mesh_publications", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
@@ -240,8 +272,17 @@ class _MeshSubscription:
             except Exception as e:
                 delay = min(delay * 2, self._mesh._retry_max_delay)
                 logger.info("Mesh gossip peer %s still unavailable for %s (retry in %ss): %s", name, self._topic, delay, e)
+                gossip_event(
+                    "subscribe_retry",
+                    peer=name,
+                    topic=self._topic,
+                    next_delay_s=delay,
+                    error=str(e)[:120],
+                    _level="info",
+                )
                 continue
             logger.info("Mesh gossip peer %s attached for %s", name, self._topic)
+            gossip_event("subscribe_attached", peer=name, topic=self._topic, _level="info")
             self._sources[name] = source
             # Replace ourselves with the forwarding loop for this source.
             self._tasks[name] = create_task_with_logging(
@@ -253,9 +294,20 @@ class _MeshSubscription:
     async def _forward(self, name: str, source: TopicSubscription) -> None:
         while not self._closed:
             message = await source.queue.get()
-            if await self._mesh._remember(_message_id(self._topic, message)):
+            event_id = _message_id(self._topic, message)
+            if await self._mesh._remember(event_id):
                 metrics_registry.increment("gossip_mesh_dedup_skipped_total")
                 continue
+            # #1308: receiver-side attribution — which link delivered this
+            # message first, keyed by the same deterministic event id the
+            # publisher used, so a single publish is reconstructable end to end.
+            gossip_mesh_message_forward_total.labels(source=name, topic_class=bounded_topic_label(self._topic)).inc()
+            gossip_event(
+                "message_forward",
+                peer=name,
+                topic=self._topic,
+                event_id=event_id,
+            )
             await self._queue.put(message)
             _set_queue_gauge(self._topic, self._queue.qsize())
 
