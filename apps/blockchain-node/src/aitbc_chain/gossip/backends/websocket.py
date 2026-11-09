@@ -13,8 +13,20 @@ from aitbc.crypto.consensus_signing import sign_consensus_message
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ...config import settings
-from .._internal import _message_id
+from .._internal import _message_id, _peer_name, bounded_topic_label
 from ..gossip_auth import build_auth_message, channel_scope
+from ..telemetry import (
+    close_code_class,
+    ensure_event_loop_lag_monitor,
+    gossip_event,
+    gossip_peer_ack_late_total,
+    gossip_peer_connection_events_total,
+    gossip_peer_publish_ack_seconds,
+    gossip_peer_publish_attempts_total,
+    gossip_peer_publish_terminal_total,
+    gossip_peer_reconnect_attempts_total,
+    gossip_peer_reconnect_delay_seconds,
+)
 from .base import GossipBackend, TopicSubscription
 
 
@@ -38,8 +50,12 @@ class WebsocketGossipBackend(GossipBackend):
         chain_id: str | None = None,
         suppress_echo_ttl: float = 5.0,
         ack_timeout: float = 10.0,
+        peer_name: str | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        # #1308: peer attribution for telemetry — mesh passes the configured
+        # peer name; a bare websocket backend derives host[:port] from the URL.
+        self._peer_name = peer_name or _peer_name(self._base_url)
         self._client_id = uuid.uuid4().hex
         # Chain demux (#1159): an explicit chain_id wins; otherwise a
         # ``?chain=<id>`` already present in base_url is preserved. Neither
@@ -72,9 +88,15 @@ class WebsocketGossipBackend(GossipBackend):
         self._ack_events: dict[str, asyncio.Event] = {}
         self._ack_lock = asyncio.Lock()
         self._connect_locks: dict[str, asyncio.Lock] = {}
+        # #1308: msg_ids whose ack wait already timed out, so a later echo is
+        # distinguishable as a LATE ack rather than a missing one.
+        self._ack_timeouts: dict[str, float] = {}
 
     async def start(self) -> None:
         self._running = True
+        # #1308: event-loop lag sampler — the starvation signal behind the
+        # synchronized 1011 bursts. Idempotent per running loop.
+        ensure_event_loop_lag_monitor()
 
     def _connect_lock(self, topic: str) -> asyncio.Lock:
         """Return a per-topic lock used to serialize connection work."""
@@ -113,9 +135,29 @@ class WebsocketGossipBackend(GossipBackend):
         msg_id = self._compute_message_id(topic, message)
         # If we are waiting for an ack, the echo sets the event and is suppressed.
         ack_event: asyncio.Event | None = None
+        late_ack = False
         async with self._ack_lock:
             ack_event = self._ack_events.get(msg_id)
+            if ack_event is not None and msg_id in self._ack_timeouts:
+                # #1308: this msg_id already timed out on an earlier attempt —
+                # the echo is a LATE (likely cross-attempt) ack, distinguishable
+                # from a missing one.
+                late_ack = True
+                del self._ack_timeouts[msg_id]
+            now = time.monotonic()
+            for k, ts in list(self._ack_timeouts.items()):
+                if now - ts > self._echo_ttl:
+                    del self._ack_timeouts[k]
         if ack_event is not None:
+            if late_ack:
+                gossip_peer_ack_late_total.labels(peer=self._peer_name, topic_class=bounded_topic_label(topic)).inc()
+                gossip_event(
+                    "ack_late",
+                    peer=self._peer_name,
+                    topic=topic,
+                    event_id=msg_id,
+                    _level="info",
+                )
             ack_event.set()
             return True
         now = time.monotonic()
@@ -180,6 +222,7 @@ class WebsocketGossipBackend(GossipBackend):
             await self._cleanup_websocket_unsafe(topic)
 
         url = self._build_url(topic)
+        connect_t0 = time.monotonic()
         try:
             ws = await websockets.connect(
                 url,
@@ -188,6 +231,20 @@ class WebsocketGossipBackend(GossipBackend):
                 ping_timeout=10,
             )
         except Exception as e:
+            gossip_peer_connection_events_total.labels(
+                peer=self._peer_name,
+                topic_class=bounded_topic_label(topic),
+                event="connect_failed",
+                code_class="none",
+            ).inc()
+            gossip_event(
+                "connect_failed",
+                peer=self._peer_name,
+                topic=topic,
+                latency_ms=round((time.monotonic() - connect_t0) * 1000.0, 1),
+                error=str(e)[:120],
+                _level="info",
+            )
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
 
         try:
@@ -203,6 +260,18 @@ class WebsocketGossipBackend(GossipBackend):
             name=f"ws-gossip-reader:{topic}",
         )
         self._reconnect_backoff[topic] = 0.5
+        gossip_peer_connection_events_total.labels(
+            peer=self._peer_name,
+            topic_class=bounded_topic_label(topic),
+            event="connected",
+            code_class="none",
+        ).inc()
+        gossip_event(
+            "connected",
+            peer=self._peer_name,
+            topic=topic,
+            latency_ms=round((time.monotonic() - connect_t0) * 1000.0, 1),
+        )
 
     async def _authenticate(self, topic: str, ws: Any) -> None:
         """Perform the validator challenge/response handshake if the server requires it."""
@@ -298,18 +367,34 @@ class WebsocketGossipBackend(GossipBackend):
                 if queue:
                     await queue.put(message)
         except websockets.exceptions.ConnectionClosed as exc:
+            # #1308: peer-attributed close record — the churn bursts were
+            # unattributable because only the topic was logged.
+            gossip_peer_connection_events_total.labels(
+                peer=self._peer_name,
+                topic_class=bounded_topic_label(topic),
+                event="closed",
+                code_class=close_code_class(exc.code),
+            ).inc()
             from aitbc.aitbc_logging import get_logger
 
             get_logger(__name__).info(
-                "WebSocket gossip connection closed for %s: code=%s reason=%s",
+                "WebSocket gossip connection closed for %s peer=%s: code=%s reason=%s",
                 topic,
+                self._peer_name,
                 exc.code,
                 exc.reason,
+            )
+            gossip_event(
+                "closed",
+                peer=self._peer_name,
+                topic=topic,
+                code=exc.code,
+                reason=str(exc.reason)[:120],
             )
         except Exception as e:
             from aitbc.aitbc_logging import get_logger
 
-            get_logger(__name__).warning("WebSocket gossip reader error for %s: %s", topic, e)
+            get_logger(__name__).warning("WebSocket gossip reader error for %s peer=%s: %s", topic, self._peer_name, e)
         finally:
             keep_alive = self._running and self._ref_counts.get(topic, 0) > 0
             if keep_alive:
@@ -360,16 +445,53 @@ class WebsocketGossipBackend(GossipBackend):
             if not self._running or self._ref_counts.get(topic, 0) <= 0:
                 return
             delay = self._reconnect_backoff.get(topic, 0.5)
-            logger.info("WebSocket gossip reconnect for %s after %ss", topic, delay)
+            # #1308: reconnect attempt telemetry — attempts/delay/outcome per peer.
+            gossip_peer_reconnect_delay_seconds.labels(peer=self._peer_name, topic_class=bounded_topic_label(topic)).observe(
+                delay
+            )
+            gossip_peer_reconnect_attempts_total.labels(
+                peer=self._peer_name, topic_class=bounded_topic_label(topic), outcome="attempt"
+            ).inc()
+            logger.info("WebSocket gossip reconnect for %s peer=%s after %ss", topic, self._peer_name, delay)
+            gossip_event(
+                "reconnect_attempt",
+                peer=self._peer_name,
+                topic=topic,
+                delay_s=delay,
+                _level="info",
+            )
+            sleep_t0 = time.monotonic()
             await asyncio.sleep(delay)
+            sleep_overshoot = time.monotonic() - sleep_t0 - delay
             if self._ref_counts.get(topic, 0) <= 0:
                 return
             await self._ensure_connection(topic)
             self._reconnect_backoff[topic] = 0.5
+            gossip_peer_reconnect_attempts_total.labels(
+                peer=self._peer_name, topic_class=bounded_topic_label(topic), outcome="success"
+            ).inc()
+            gossip_event(
+                "reconnect_ok",
+                peer=self._peer_name,
+                topic=topic,
+                sleep_overshoot_s=round(max(sleep_overshoot, 0.0), 3),
+                _level="info",
+            )
         except Exception as e:
             current = self._reconnect_backoff.get(topic, 0.5)
             self._reconnect_backoff[topic] = min(current * 2, 30.0)
-            logger.warning("WebSocket gossip reconnect failed for %s: %s", topic, e)
+            gossip_peer_reconnect_attempts_total.labels(
+                peer=self._peer_name, topic_class=bounded_topic_label(topic), outcome="failed"
+            ).inc()
+            logger.warning("WebSocket gossip reconnect failed for %s peer=%s: %s", topic, self._peer_name, e)
+            gossip_event(
+                "reconnect_failed",
+                peer=self._peer_name,
+                topic=topic,
+                next_delay_s=self._reconnect_backoff[topic],
+                error=str(e)[:120],
+                _level="info",
+            )
             reschedule = True
         finally:
             # Discard before scheduling: the next task must own the marker,
@@ -396,42 +518,110 @@ class WebsocketGossipBackend(GossipBackend):
         message: Any,
         *,
         retry: bool,
+        _attempt: int = 1,
     ) -> None:
         """Publish a message and wait for the server echo (ack).
 
         If the ack does not arrive within ``_ack_timeout`` seconds the send is
         considered lost, the connection is torn down and (for ``retry=True``)
         the message is resent once.
+
+        #1308: every attempt is measured — send→ack latency, timeout vs late
+        ack, retry/terminal outcome — all keyed by the deterministic message
+        id so a single publish is reconstructable across attempts and nodes.
         """
         from aitbc.aitbc_logging import get_logger
 
         logger = get_logger(__name__)
         msg_id = self._compute_message_id(topic, message)
+        topic_class = bounded_topic_label(topic)
         ack_event = asyncio.Event()
         async with self._ack_lock:
             self._ack_events[msg_id] = ack_event
+        outcome = "error"
+        ack_latency: float | None = None
+        failure: BaseException | None = None
+        ack_wait_reached = False
         try:
             async with self._connect_lock(topic):
                 await self._ensure_connection_unsafe(topic)
                 await self._record_sent(topic, message)
                 ws = self._websockets[topic]
+                send_t0 = time.monotonic()
                 await ws.send(json.dumps(message, default=str))
                 logger.debug("Published websocket message for %s; awaiting ack", topic)
+                ack_wait_reached = True
                 await asyncio.wait_for(ack_event.wait(), timeout=self._ack_timeout)
-                logger.debug("Received ack for websocket message on %s", topic)
+                ack_latency = time.monotonic() - send_t0
+                outcome = "ack"
+        except asyncio.TimeoutError as e:
+            # Only the ack wait counts as ack_timeout — a connect/send timeout
+            # is a transport error, not a missing echo.
+            outcome = "ack_timeout" if ack_wait_reached else "error"
+            failure = e
         except Exception as e:
-            if not retry:
-                raise RuntimeError(f"WebSocket gossip publish/ack failed for {topic}: {e}") from e
-            logger.info(
-                "WebSocket gossip publish/ack failed for %s (will retry once): %s",
-                topic,
-                e,
-            )
-            await self._cleanup_websocket(topic)
-            await self._publish_with_ack(topic, message, retry=False)
+            outcome = "error"
+            failure = e
         finally:
             async with self._ack_lock:
                 self._ack_events.pop(msg_id, None)
+
+        # --- telemetry (outside the connect lock; never blocks the send path)
+        gossip_peer_publish_attempts_total.labels(
+            peer=self._peer_name, topic_class=topic_class, attempt=str(_attempt), outcome=outcome
+        ).inc()
+        if outcome == "ack":
+            if ack_latency is not None:
+                gossip_peer_publish_ack_seconds.labels(peer=self._peer_name, topic_class=topic_class).observe(ack_latency)
+            gossip_peer_publish_terminal_total.labels(peer=self._peer_name, topic_class=topic_class, outcome="acked").inc()
+            gossip_event(
+                "publish_ack",
+                peer=self._peer_name,
+                topic=topic,
+                event_id=msg_id,
+                attempt=_attempt,
+                ack_latency_ms=round(ack_latency * 1000.0, 1),
+                late=msg_id in self._ack_timeouts or None,
+            )
+            return
+
+        # Missing-vs-late bookkeeping: a timed-out ack may still echo later —
+        # _is_echo flags it via _ack_timeouts. Errors tear the connection down
+        # so no late echo is expected on that socket.
+        if outcome == "ack_timeout":
+            async with self._ack_lock:
+                self._ack_timeouts[msg_id] = time.monotonic()
+        gossip_event(
+            "publish_attempt_failed",
+            peer=self._peer_name,
+            topic=topic,
+            event_id=msg_id,
+            attempt=_attempt,
+            outcome=outcome,
+            error=str(failure)[:120] if failure else None,
+            _level="info",
+        )
+        if not retry:
+            gossip_peer_publish_terminal_total.labels(peer=self._peer_name, topic_class=topic_class, outcome="failed").inc()
+            gossip_event(
+                "publish_failed",
+                peer=self._peer_name,
+                topic=topic,
+                event_id=msg_id,
+                attempts=_attempt,
+                outcome=outcome,
+                _level="warning",
+            )
+            raise RuntimeError(f"WebSocket gossip publish/ack failed for {topic}: {failure}") from failure
+        logger.info(
+            "WebSocket gossip publish/ack failed for %s peer=%s attempt=%s (will retry once): %s",
+            topic,
+            self._peer_name,
+            _attempt,
+            failure,
+        )
+        await self._cleanup_websocket(topic)
+        await self._publish_with_ack(topic, message, retry=False, _attempt=_attempt + 1)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
         if not self._running:
