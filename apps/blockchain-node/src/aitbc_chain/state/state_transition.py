@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 from ..config import settings
 from ..logger import get_logger
 from ..metrics import metrics_registry
+from ..v24_rules import v24_rules_active
 from ..chain_isolation_metrics import (
     record_chain_id_validation_failure,
     record_chain_isolation_violation,
@@ -1376,6 +1377,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v24_threshold = getattr(settings, "state_transition_v24_height", None)
+    if v24_threshold and height >= v24_threshold:
+        return 24
     v23_threshold = getattr(settings, "state_transition_v23_height", None)
     if v23_threshold and height >= v23_threshold:
         return 23
@@ -2920,7 +2924,13 @@ class StateTransition:
             session.begin()
         savepoint = session.begin_nested()
         try:
-            result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
+            if block_version >= 24:
+                # #1314 R1: identity-map invalidation after raw-SQL writes is
+                # active for the duration of this transaction's apply.
+                with v24_rules_active():
+                    result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
+            else:
+                result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
         except Exception:
             savepoint.rollback()
             raise
