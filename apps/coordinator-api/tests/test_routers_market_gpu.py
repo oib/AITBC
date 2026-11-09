@@ -578,6 +578,25 @@ def test_buy_gpu_rejects_body_buyer_id_mismatch(client, client_token, db_session
     assert "buyer_id" in resp.text
 
 
+def test_buy_gpu_unresolvable_buyer_id_is_400_not_500(client, db_session, native_pricing, available_gpu):
+    """#1378: a JWT sub that resolves to no user/wallet/username must be a
+    caller error (400), not an uncaught ValueError -> 500."""
+    _seed_energy(db_session)
+    ghost_token = create_access_token("ghostbuyer-9f3", "client")
+    resp = client.post(
+        "/v1/market/gpu/purchase",
+        headers={"Authorization": f"Bearer {ghost_token}"},
+        json={
+            "buyer_id": "ghostbuyer-9f3",
+            "gpu_id": available_gpu,
+            "duration_hours": 1,
+            "payment_method": "blockchain",
+        },
+    )
+    assert resp.status_code == 400
+    assert "not found" in resp.text.lower() or "client reference" in resp.text.lower()
+
+
 # --- AGENT-SPEND-D-1: agent_id binding on GPU quote/purchase ---
 
 BUYER_AGENT = "gpu-buyer-agent-1"
