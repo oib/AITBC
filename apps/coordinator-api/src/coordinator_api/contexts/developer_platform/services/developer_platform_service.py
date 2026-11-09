@@ -44,9 +44,11 @@ class DeveloperPlatformService:
         self.session = session
 
     def register_developer(self, request: DeveloperCreate) -> DeveloperProfile:
-        existing = self.session.execute(
-            select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address)
-        ).first()
+        existing = (
+            self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address))
+            .scalars()
+            .first()
+        )
         if existing:
             raise HTTPException(status_code=400, detail="Developer profile already exists for this wallet")
         profile = DeveloperProfile(
@@ -216,9 +218,11 @@ class DeveloperPlatformService:
 
     def get_developer_profile(self, wallet_address: str) -> DeveloperProfile | None:
         """Get developer profile by wallet address"""
-        return self.session.execute(  # type: ignore[return-value]
-            select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address)
-        ).first()
+        return (
+            self.session.execute(select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address))
+            .scalars()
+            .first()
+        )
 
     def update_developer_profile(self, wallet_address: str, updates: dict) -> DeveloperProfile:
         """Update developer profile"""
@@ -253,12 +257,18 @@ class DeveloperPlatformService:
         profile = self.get_developer_profile(wallet_address)
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
-        completed_bounties = self.session.execute(
-            select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved),
-        ).all()
-        certifications = self.session.execute(
-            select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
-        ).all()
+        completed_bounties = (
+            self.session.execute(
+                select(BountySubmission).where(BountySubmission.developer_id == profile.id, BountySubmission.is_approved),
+            )
+            .scalars()
+            .all()
+        )
+        certifications = (
+            self.session.execute(select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id))
+            .scalars()
+            .all()
+        )
         return {
             "wallet_address": profile.wallet_address,
             "reputation_score": profile.reputation_score,
@@ -276,9 +286,13 @@ class DeveloperPlatformService:
         query = select(BountyTask)
         if status:
             query = query.where(BountyTask.status == status)
-        return self.session.execute(  # type: ignore[return-value]
-            query.order_by(desc(BountyTask.created_at)).offset(offset).limit(limit),  # type: ignore[arg-type]
-        ).all()
+        return (
+            self.session.execute(  # type: ignore[return-value]
+                query.order_by(desc(BountyTask.created_at)).offset(offset).limit(limit),  # type: ignore[arg-type]
+            )
+            .scalars()
+            .all()
+        )
 
     def get_bounty_details(self, bounty_id: str) -> BountyTask | None:
         """Get detailed bounty information"""
@@ -324,9 +338,13 @@ class DeveloperPlatformService:
         hub = self.session.get(RegionalHub, hub_id)
         if not hub:
             raise HTTPException(status_code=404, detail="Regional hub not found")
-        return self.session.execute(  # type: ignore[return-value]
-            select(DeveloperProfile).where(DeveloperProfile.is_active)
-        ).all()
+        return (
+            self.session.execute(  # type: ignore[return-value]
+                select(DeveloperProfile).where(DeveloperProfile.is_active)
+            )
+            .scalars()
+            .all()
+        )
 
     async def stake_on_developer(self, staker_address: str, developer_address: str, amount: Decimal) -> dict:
         """Stake tokens on a developer"""
