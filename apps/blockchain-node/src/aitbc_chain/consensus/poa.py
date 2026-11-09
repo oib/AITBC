@@ -2823,6 +2823,12 @@ class PoAProposer:
                         type=tx_type,
                     )
                     pending_transaction_records.append(transaction)
+                    if block_version >= 24:
+                        # #1314 R2: match importer visibility — the row must be
+                        # flushed before the next transaction's apply queries
+                        # Transaction rows (e.g. refund/lock lookups).
+                        session.add(transaction)
+                        session.flush()
                     changed_addresses.add(recipient)
                     existing_tx_map[tx.tx_hash] = next_height
                     processed_txs.append(tx)
@@ -2931,6 +2937,9 @@ class PoAProposer:
                     if existing_tx_record.envelope is None:
                         existing_tx_record.envelope = dict(tx.content)
                     pending_transaction_records.append(existing_tx_record)
+                    if block_version >= 24:
+                        session.add(existing_tx_record)
+                        session.flush()
                 else:
                     transaction = Transaction(
                         chain_id=self._config.chain_id,
@@ -2949,6 +2958,9 @@ class PoAProposer:
                         type=tx_type,
                     )
                     pending_transaction_records.append(transaction)
+                    if block_version >= 24:
+                        session.add(transaction)
+                        session.flush()
                 # Track changed addresses for incremental state root computation
                 changed_addresses.add(sender)
                 changed_addresses.add(recipient)
