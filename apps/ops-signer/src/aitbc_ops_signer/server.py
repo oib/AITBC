@@ -199,7 +199,7 @@ def handle_request(
                 tx_hash="-",
                 peer_uid=peer[1],
             )
-        except OSError:
+        except (OSError, ValueError):
             ledger.release(row_id)
             raise Refused("audit_unwritable") from None
         tx_hash = _sign_and_record(signer, ledger, row_id, to=req.to, amount_units=req.amount_units)
@@ -229,7 +229,7 @@ def handle_request(
                 tx_hash=tx_hash,
                 peer_uid=peer[1],
             )
-        except OSError:
+        except (OSError, ValueError):
             pass
 
 
