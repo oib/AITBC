@@ -135,11 +135,6 @@ from ..contexts.multimodal.routers.multi_modal_rl import router as multi_modal_r
 # routes) was imported here but never mounted; the module has been deleted.
 from ..contexts.zk_applications.routers.ml_zk_proofs import router as ml_zk_proofs  # noqa: E402
 
-# zk_applications is deliberately unmounted: imported for the module
-# contract, but main.py never include_router's it (the mounted ZK surface is
-# zk_proofs / ml_zk_proofs / fhe).
-from ..contexts.zk_applications.routers.zk_applications import router as zk_applications  # noqa: E402
-
 # Islands proxy router moved to contexts/infrastructure
 from ..contexts.infrastructure.routers.islands_proxy import router as islands_proxy  # noqa: E402
 from .media import router as media  # noqa: E402
@@ -171,7 +166,6 @@ __all__ = [
     "agent_security_router",
     "multi_modal_rl",
     "confidential",
-    "zk_applications",
     "ml_zk_proofs",
     "agent_router",
     "agent_integration_router",
