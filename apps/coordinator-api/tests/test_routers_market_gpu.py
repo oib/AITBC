@@ -1063,3 +1063,18 @@ def test_purchase_sibling_bookings_do_not_share_payment(
     assert resp_a.status_code == 409
     db_session.refresh(bookings[gpu_a])
     assert bookings[gpu_a].status == "active"
+
+
+@pytest.mark.unit
+def test_pricing_endpoint_survives_zero_static_price(client, client_token, miner_token, db_session, pricing_engine_override):
+    """#1373: zero-priced listings made avg_price_change_percent divide by
+    zero -> unhandled 500 on GET /market/pricing/{model}."""
+    from urllib.parse import quote
+
+    _register_gpu(client, miner_token, price_per_hour="0")
+    resp = client.get(
+        f"/v1/market/pricing/{quote(MODEL)}",
+        headers={"Authorization": f"Bearer {client_token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["price_comparison"]["avg_price_change_percent"] == 0
