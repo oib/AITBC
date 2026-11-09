@@ -33763,6 +33763,21 @@
             "title": "Log Level",
             "default": "INFO"
           },
+          "alerting_rules": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Alerting Rules"
+          },
+          "agent_version": {
+            "type": "string",
+            "title": "Agent Version",
+            "default": ""
+          },
+          "previous_version": {
+            "type": "string",
+            "title": "Previous Version",
+            "default": ""
+          },
           "status": {
             "$ref": "#/components/schemas/DeploymentStatus",
             "default": "pending"
