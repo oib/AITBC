@@ -15,6 +15,7 @@ from eth_utils import keccak
 from sqlmodel import Session
 
 from ..base_models import _to_ait_address
+from ..v24_rules import v24_rules_is_active
 from aitbc.crypto.signature_recovery import canonical_address
 from ..logger import get_logger
 from ..models import Account, LiquidityDistribution, LiquidityPool, LiquidityStake
@@ -69,6 +70,16 @@ def _ensure_pool_accounts(session: Session, chain_id: str) -> dict[str, Account]
         if not account:
             account = Account(chain_id=chain_id, address=ait_addr, balance=0, nonce=0)
             session.add(account)
+        elif v24_rules_is_active():
+            # #1314 V6: fence — flush pending writes, then expire+reload so
+            # downstream ORM ``balance +/-=`` mutations compute on committed
+            # state, not an identity-map snapshot taken before same-block
+            # raw-SQL writes.
+            session.flush()
+            session.expire(account)
+            refreshed = session.get(Account, (chain_id, ait_addr))
+            if refreshed is not None:
+                account = refreshed
         accounts[ait_addr] = account
     return accounts
 

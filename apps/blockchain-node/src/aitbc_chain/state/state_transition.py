@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 from ..config import settings
 from ..logger import get_logger
 from ..metrics import metrics_registry
-from ..v24_rules import v24_rules_active
+from ..v24_rules import v24_rules_active, v24_rules_is_active
 from .authoritative_reads import read_current_account
 from ..chain_isolation_metrics import (
     record_chain_id_validation_failure,
@@ -424,9 +424,18 @@ def _bond_release_row_verdict(session: Session, chain_id: str, bond: Bond, bond_
         return f"lock period for {bond_id} has not expired"
     if bond.amount <= 0:
         return "bond has nothing to release"
-    escrow = session.get(Account, (chain_id, _BOND_ESCROW_ADDRESS))
-    escrow_balance = escrow.balance if escrow is not None else 0
-    if escrow_balance < bond.amount:
+    if v24_rules_is_active():
+        # #1314 V3: authoritative scalar escrow-balance read — bypasses
+        # identity-map staleness. Contextvar is set for the whole v>=24
+        # apply, so this helper needs no block_version parameter.
+        _bal, _nonce, escrow_exists = read_current_account(session, chain_id, _BOND_ESCROW_ADDRESS)
+        escrow_balance = _bal if _bal is not None else 0
+        escrow_missing = not escrow_exists
+    else:
+        escrow = session.get(Account, (chain_id, _BOND_ESCROW_ADDRESS))
+        escrow_balance = escrow.balance if escrow is not None else 0
+        escrow_missing = escrow is None
+    if escrow_missing or escrow_balance < bond.amount:
         return f"escrow balance {escrow_balance} below release amount {bond.amount}"
     return None
 
@@ -647,8 +656,15 @@ def _validate_authority_parameter_value(session: Session, chain_id: str, paramet
     if parameter == "governance_executors":
         funded = False
         for address in canonical:
-            account = session.get(Account, (chain_id, address))
-            if account is not None and account.balance >= _EXECUTOR_MIN_BALANCE_UNITS:
+            if v24_rules_is_active():
+                # #1314 V2: scalar authoritative balance — bypasses
+                # identity-map staleness for executor funding checks.
+                _bal, _nonce, _exists = read_current_account(session, chain_id, address)
+                balance = _bal if _bal is not None else 0
+            else:
+                account = session.get(Account, (chain_id, address))
+                balance = account.balance if account is not None else 0
+            if balance >= _EXECUTOR_MIN_BALANCE_UNITS:
                 funded = True
                 break
         if not funded:
@@ -1934,14 +1950,23 @@ class StateTransition:
             sender_account = session.get(Account, (chain_id, sender_addr))
             if not sender_account:
                 return (False, f"Sender account not found: {sender_addr}")
-            if block_version >= 23:
+            if block_version >= 24:
+                # #1314 V4: scalar authoritative balance read — supersedes the
+                # v23 session.refresh pattern (same freshness guarantee
+                # without touching the identity-mapped object).
+                _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender_addr)
+                sender_balance = _sbal if _sbal is not None else 0
+            elif block_version >= 23:
                 # v23: earlier txs in this block updated the row with raw
                 # SQL, leaving this retained ORM object stale — reload it
                 # so the balance check sees post-tx state.
                 session.refresh(sender_account)
+                sender_balance = sender_account.balance
+            else:
+                sender_balance = sender_account.balance
             total_cost = value + fee
-            if sender_account.balance < total_cost:
-                return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
+            if sender_balance < total_cost:
+                return (False, f"Insufficient balance for {sender_addr}: {sender_balance} < {total_cost}")
             return (True, "Pre-registered bridge lock validated")
         if tx_type == "BRIDGE_WITHDRAW":
             # User-signed burn of AIT in exchange for an off-chain ETH release.
@@ -1984,7 +2009,18 @@ class StateTransition:
             if auth is not None and not self._verify_payload_auth(tx_type, auth, tx_data):
                 return (False, f"Invalid payload auth signature for transaction {tx_hash}")
         sender_account = session.get(Account, (chain_id, sender_addr))
-        if not sender_account:
+        if block_version >= 24:
+            # #1314 V4: scalar authoritative nonce/balance — covers both the
+            # exists and missing-sender cases without an identity-map read.
+            _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender_addr)
+            if not _sexists:
+                # v22+ virtual (balance=0, nonce=0) semantics preserved.
+                sender_nonce = 0
+                sender_balance = 0
+            else:
+                sender_nonce = _snonce
+                sender_balance = _sbal if _sbal is not None else 0
+        elif not sender_account:
             if block_version < 22:
                 return (False, f"Sender account not found: {sender_addr}")
             # v22 R1 (CONSENSUS-STATE-001): a missing sender reads as a
