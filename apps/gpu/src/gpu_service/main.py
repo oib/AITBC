@@ -7,7 +7,7 @@ import os
 import subprocess
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -82,6 +82,11 @@ _OFFER_TO_GPU_STATUS: dict[OfferStatus, str] = {
 # legacy off-vocabulary spelling older heartbeats wrote; including it here
 # canonicalizes those rows to "available" on the next heartbeat.
 _HEARTBEAT_BOOKABLE_STATUSES = ("available", "offline", "online")
+
+# GPURegistry.price_per_hour is Numeric(20,8): at most 12 integer digits.
+# The offer path stores caller-controlled values, so bound them before the
+# local write (#1389).
+_MAX_PRICE_PER_HOUR = Decimal("999999999999.99999999")
 
 
 def _validate_gpu_status_transition(current: str, new: str) -> str:
@@ -488,6 +493,39 @@ async def submit_transaction(
                     },
                 )
             payload = signed_tx.get("payload") or {}
+
+            # #1389: this path writes GPURegistry rows directly, bypassing the
+            # OfferFSM validation PUT /v1/gpu/{id} applies. A registration is a
+            # new listing, so the only legal initial status is "available" —
+            # anything else ("booked", "bogus", ...) would persist a committed
+            # or off-vocabulary state no reservation flow produced. The signed
+            # envelope's payload is authoritative; the outer transaction_data
+            # fields are unsigned caller input and only consulted as a
+            # fallback for callers that omit them.
+            offer_status = payload.get("status", transaction_data.get("status", "available"))
+            if offer_status != "available":
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": (
+                            f"GPU offers must register with status 'available', got {offer_status!r}; "
+                            "booked/in_use states are only reachable through the reservation flow"
+                        )
+                    },
+                )
+            price_raw = payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0))
+            try:
+                offer_price = Decimal(str(price_raw))
+            except InvalidOperation:
+                return JSONResponse(status_code=400, content={"error": f"invalid price_per_hour: {price_raw!r}"})
+            if not offer_price.is_finite() or offer_price < 0 or offer_price > _MAX_PRICE_PER_HOUR:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "error": f"price_per_hour out of range: {price_raw!r} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})"
+                    },
+                )
+
             logger.info(
                 "Relaying signed GPU_REGISTER for %s from %s",
                 payload.get("gpu_id") or payload.get("model", "unknown"),
@@ -526,8 +564,8 @@ async def submit_transaction(
                 "miner_id": miner_id,
                 "model": payload.get("model", gpu_specs.get("model", "Unknown")),
                 "memory_gb": payload.get("memory_gb", gpu_specs.get("memory_gb", 0)),
-                "price_per_hour": Decimal(str(payload.get("price_per_hour", transaction_data.get("price_per_gpu", 0)))),
-                "status": transaction_data.get("status", "available"),
+                "price_per_hour": offer_price,
+                "status": offer_status,
                 "region": payload.get("region", gpu_specs.get("region", "")),
                 "capabilities": payload.get("capabilities", gpu_specs.get("capabilities", [])),
                 "chain_id": signed_tx.get("chain_id", settings.default_chain_id),
