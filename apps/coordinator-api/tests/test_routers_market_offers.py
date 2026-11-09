@@ -1,9 +1,10 @@
 """Router tests for /v1/market/sync-offers + offer listings (#1289 round 9).
 
-POST /v1/market/sync-offers has a role contradiction (#1327): the route
-security matrix pins it to AuthLevel.MINER while the handler requires
-AdminDep (admin) — no role can pass both gates in production. Pinned at
-matrix level since AuthMiddleware is disabled under TEST_MODE.
+POST /v1/market/sync-offers is an admin batch op (#1327 fixed): the
+matrix admits ADMIN_OR_CLIENT and the handler's AdminDep narrows to
+admin — the previous MINER entry deadlocked the route (no role could
+pass both gates). Matrix-level pins below; AuthMiddleware is disabled
+under TEST_MODE so HTTP 401/403 for matrix-only routes is unobservable.
 """
 
 from __future__ import annotations
@@ -34,17 +35,18 @@ class TestSyncOffers:
     def test_requires_auth(self, client: TestClient) -> None:
         assert client.post("/v1/market/sync-offers").status_code == 401
 
-    def test_role_contradiction_documented(self, client: TestClient) -> None:
-        # Defect #1327: matrix MINER admits only role=="miner"; AdminDep
-        # admits only role=="admin" — no role satisfies both gates in
-        # production. Pinned at matrix level (AuthMiddleware is disabled
-        # under TEST_MODE, so HTTP-level contradiction is not observable
-        # here; admin reaches the handler -> 200 only without the matrix).
+    def test_matrix_admits_admin_client_not_miner(self) -> None:
+        # #1327 fix: matrix must not deadlock the AdminDep handler —
+        # ADMIN_OR_CLIENT admits admin (which AdminDep then requires) and
+        # client (which AdminDep rejects -> 403); miner is denied at matrix.
         level = get_auth_level("/v1/market/sync-offers")
-        assert level == AuthLevel.MINER
-        assert check_role_match(level, "miner")
-        assert not check_role_match(level, "admin")
-        # router-level truth: admin passes AdminDep when matrix is off
+        assert level == AuthLevel.ADMIN_OR_CLIENT
+        assert check_role_match(level, "admin")
+        assert check_role_match(level, "client")
+        assert not check_role_match(level, "miner")
+
+    def test_admin_reaches_handler(self, client: TestClient) -> None:
+        # router-level truth: admin passes AdminDep (matrix off in TEST_MODE)
         assert client.post("/v1/market/sync-offers", headers=_admin()).status_code == 200
 
     def test_miner_blocked_by_admindep(self, client: TestClient) -> None:
