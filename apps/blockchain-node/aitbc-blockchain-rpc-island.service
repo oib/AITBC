@@ -1,0 +1,61 @@
+[Unit]
+Description=AITBC Island Blockchain RPC
+After=network.target aitbc-blockchain-node-island.service
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src
+Environment="HOME=/var/lib/aitbc"
+Environment=RPC_BIND_HOST=127.0.0.1
+Environment=RPC_BIND_PORT=8302
+EnvironmentFile=-/etc/aitbc/blockchain-island.env
+EnvironmentFile=-/etc/aitbc/node-island.env
+EnvironmentFile=-/etc/aitbc/%N.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets-island.env
+EnvironmentFile=-/etc/aitbc/validator-secrets-island.env
+Environment=AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false
+Environment=enable_block_production=false
+# --workers scales the memory floor: each worker carries its own app +
+# connection pools. Sizing evidence (#1296/#1302 audit):
+#   2 workers ~450MB WS  -> MemoryHigh=768M / MemoryMax=1G (node1 live)
+#   1 worker  ~150MB WS  -> MemoryHigh=384M / MemoryMax=512M suffices on a
+#                        small VPS; hub1 currently runs the 768M/1G values
+#                        via drop-in regardless. Measure before lowering.
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host ${RPC_BIND_HOST} --port ${RPC_BIND_PORT} --workers 2 --timeout-keep-alive 30 --timeout-graceful-shutdown 15 --limit-concurrency 1000 --backlog 2048 --log-level critical --no-access-log --proxy-headers
+Restart=on-failure
+RestartSec=5
+# Graceful shutdown should finish quickly now that the gossip backend polls
+# Redis with a short timeout and app.py enforces a shutdown deadline.
+# 20s is a hard ceiling to prevent the previous 90s systemd default hangs.
+TimeoutStopSec=20
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=IslandBlockchainRPC
+# Working set ~450MB at 2 workers (#1302); the pre-#1296 410M/512M pair sat
+# below it and throttled permanently — see #1290. 1-worker small-VPS
+# variant: 384M/512M (see ExecStart comment).
+MemoryHigh=768M
+MemoryMax=1G
+# Security hardening (v0.5.0)
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+ReadWritePaths=/opt/aitbc /var/lib/aitbc /var/log/aitbc /run/aitbc
+[Install]
+WantedBy=multi-user.target
