@@ -29,9 +29,10 @@ from typing import Any
 
 from sqlmodel import Session
 
-from aitbc.crypto.consensus_signing import verify_consensus_message
+from aitbc.crypto.consensus_signing import verify_consensus_message, verify_consensus_message_domain
 from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_address
 
+from ..config import settings
 from ..consensus.equivocation_policy import pair_stands_as_evidence
 from ..consensus.slashing import SlashingCondition, SlashingEvent, SlashingManager
 
@@ -77,6 +78,38 @@ def _evidence_json(event: SlashingEvent) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _verify_stored_signature(att: dict[str, Any], message: dict[str, Any], validator: str, event_height: int) -> bool:
+    """Verify one stored consensus signature under its recorded domain (#1298).
+
+    ``signature_domain`` names the preimage the signer actually used; the
+    label is self-authenticating — the signature either verifies under it or
+    not — so labeled records need no height gate. Unlabeled records are
+    legacy (pre-activation) signatures: they verify only for heights below
+    ``consensus_domain_separation_height`` — hard cutover, no legacy fallback
+    at/above the armed height. The bounded dual-accept window for legacy
+    attestation signatures in ``[H, S)`` is a separate lane; when it lands
+    this branch is where window acceptance plugs in.
+    """
+    signature = str(att.get("signature", ""))
+    domain = att.get("signature_domain")
+    if domain is not None:
+        if not isinstance(domain, str) or not domain:
+            return False
+        return verify_consensus_message_domain(message, signature, validator, domain)
+    activation = getattr(settings, "consensus_domain_separation_height", None)
+    if activation is not None:
+        try:
+            height = int(att.get("height", event_height))
+        except (TypeError, ValueError):
+            height = None
+        if height is None or height >= activation:
+            return False
+    try:
+        return verify_consensus_message(message, signature, validator)
+    except SignatureMalformed:
+        return False
+
+
 def _verify_attestation_equivocation(payload: dict[str, Any], event: SlashingEvent, validator: str) -> bool:
     """Verify an ``attestation_equivocation`` event's two signed attestations."""
     attestations = payload.get("attestations")
@@ -103,10 +136,7 @@ def _verify_attestation_equivocation(payload: dict[str, Any], event: SlashingEve
         # was inside the signed message only under the round lock.
         if att.get("round_in_payload"):
             message["round"] = att.get("request_round")
-        try:
-            if not verify_consensus_message(message, str(att.get("signature", "")), validator):
-                return False
-        except SignatureMalformed:
+        if not _verify_stored_signature(att, message, validator, event.block_height):
             return False
         seen.add(block_hash.lower())
     return seen == expected
