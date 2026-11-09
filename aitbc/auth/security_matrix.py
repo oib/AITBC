@@ -115,7 +115,9 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # (#1073). The old "/v1/market/gpu/*/delete" entry matched no real route —
     # the real DELETE is /v1/market/gpu/{gpu_id}.
     "/v1/market/gpu/*": AuthLevel.ANY,
-    "/v1/market/sync-offers": AuthLevel.MINER,
+    # sync-offers is an admin batch op (handler requires AdminDep); MINER
+    # here deadlocked the route — no role could pass both gates (#1327).
+    "/v1/market/sync-offers": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/providers/*/capacity": AuthLevel.MINER,
     "/v1/tasks/ollama": AuthLevel.MINER,
     "/v1/state/dump": AuthLevel.ADMIN,
