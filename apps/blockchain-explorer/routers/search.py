@@ -16,6 +16,60 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+def _tx_search_params(
+    address: str | None,
+    amount_min: Decimal | None,
+    amount_max: Decimal | None,
+    tx_type: str | None,
+    since: str | None,
+    until: str | None,
+    limit: int,
+    offset: int,
+    chain_id: str | None,
+) -> dict[str, str | int | float]:
+    params: dict[str, str | int | float] = {}
+    if address:
+        params["address"] = address
+    if amount_min:
+        params["amount_min"] = str(amount_min)
+    if amount_max:
+        params["amount_max"] = str(amount_max)
+    if tx_type:
+        params["type"] = tx_type
+    if since:
+        params["since"] = since
+    if until:
+        params["until"] = until
+    params["limit"] = limit
+    params["offset"] = offset
+    params["chain_id"] = chain_id if chain_id else default_chain_id()
+    return params
+
+
+def _block_search_params(
+    validator: str | None,
+    since: str | None,
+    until: str | None,
+    min_tx: int | None,
+    limit: int,
+    offset: int,
+    chain_id: str | None,
+) -> dict[str, str | int]:
+    params: dict[str, str | int] = {}
+    if validator:
+        params["validator"] = validator
+    if since:
+        params["since"] = since
+    if until:
+        params["until"] = until
+    if min_tx:
+        params["min_tx"] = min_tx
+    params["limit"] = limit
+    params["offset"] = offset
+    params["chain_id"] = chain_id if chain_id else default_chain_id()
+    return params
+
+
 @router.get("/api/search/transactions")
 async def search_transactions(
     address: str | None = None,
@@ -42,23 +96,7 @@ async def search_transactions(
             return result if isinstance(result, dict) else {"transactions": result}  # type: ignore[unreachable]
         else:
             # Original implementation without data layer
-            # Build query parameters
-            params: dict[str, str | int | float] = {}
-            if address:
-                params["address"] = address
-            if amount_min:
-                params["amount_min"] = str(amount_min)
-            if amount_max:
-                params["amount_max"] = str(amount_max)
-            if tx_type:
-                params["type"] = tx_type
-            if since:
-                params["since"] = since
-            if until:
-                params["until"] = until
-            params["limit"] = limit
-            params["offset"] = offset
-            params["chain_id"] = chain_id if chain_id else default_chain_id()
+            params = _tx_search_params(address, amount_min, amount_max, tx_type, since, until, limit, offset, chain_id)
 
             rpc_url = rpc_url_for(chain_id if chain_id else default_chain_id())
             async with httpx.AsyncClient() as client:
@@ -77,6 +115,8 @@ async def search_transactions(
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=503, detail="Internal server error") from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Unhandled exception")
 
@@ -105,18 +145,7 @@ async def search_blocks(
             return result if isinstance(result, dict) else {"blocks": result}  # type: ignore[unreachable]
         else:
             # Original implementation without data layer
-            params: dict[str, str | int] = {}
-            if validator:
-                params["validator"] = validator
-            if since:
-                params["since"] = since
-            if until:
-                params["until"] = until
-            if min_tx:
-                params["min_tx"] = min_tx
-            params["limit"] = limit
-            params["offset"] = offset
-            params["chain_id"] = chain_id if chain_id else default_chain_id()
+            params = _block_search_params(validator, since, until, min_tx, limit, offset, chain_id)
 
             rpc_url = rpc_url_for(chain_id if chain_id else default_chain_id())
             async with httpx.AsyncClient() as client:
@@ -134,6 +163,8 @@ async def search_blocks(
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=503, detail="Internal server error") from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Unhandled exception")
 

@@ -75,7 +75,7 @@ def test_provider_reputation_score_levels(monkeypatch, tmp_path):
 
 
 def test_analytics_overview_rpc_404_via_client(client, monkeypatch):
-    """501 intent when RPC has no overview is wrapped as 500 by the outer handler."""
+    """501 intent when RPC has no overview now passes through unwrapped."""
     monkeypatch.setattr(analytics_router, "USE_DATA_LAYER", False)
 
     class FakeResponse:
@@ -94,7 +94,7 @@ def test_analytics_overview_rpc_404_via_client(client, monkeypatch):
 
     monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: FakeClient())
     resp = client.get("/api/analytics/overview")
-    assert resp.status_code == 500
+    assert resp.status_code == 501
 
 
 def test_block_by_height_includes_transactions(client, monkeypatch, tmp_path):
