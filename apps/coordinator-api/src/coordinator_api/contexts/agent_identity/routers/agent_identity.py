@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 from aitbc.aitbc_logging import get_logger
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
@@ -101,7 +101,6 @@ async def create_agent_identity(
 # Pinned by tests/security/test_no_unreachable_routes.py.
 @router.get("/identities/search", response_model=dict[str, Any])
 async def search_agent_identities(
-    chains: list[int] | None,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     query: str = "",
     status: IdentityStatus | None = None,
@@ -109,6 +108,7 @@ async def search_agent_identities(
     min_reputation: float | None = None,
     limit: int = 50,
     offset: int = 0,
+    chains: Annotated[list[int] | None, Query()] = None,
 ) -> dict[str, Any]:
     """Search agent identities with advanced filters"""
     try:

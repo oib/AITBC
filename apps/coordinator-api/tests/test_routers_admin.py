@@ -8,7 +8,6 @@ debug-create-test-miner lifecycle, and the dispute/payment admin paths'
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -39,10 +38,6 @@ class TestAdminReads:
             for masked in body[key]:
                 assert "..." in masked or masked == "***"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1342: func.count() .one() returns Row — int(Row) TypeError -> 500",
-    )
     def test_stats_shape(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/stats", headers=_headers())
         assert resp.status_code == 200
@@ -59,7 +54,6 @@ class TestAdminReads:
         assert resp.status_code == 200
         assert "items" in resp.json()
 
-    @pytest.mark.xfail(strict=True, reason="#1342: same Row bug — /status degrades to error shape")
     def test_system_status_shape(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/status", headers=_headers())
         assert resp.status_code == 200

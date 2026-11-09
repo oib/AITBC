@@ -4078,6 +4078,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "miner not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -16550,29 +16560,27 @@
               "default": 0,
               "title": "Offset"
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "integer"
-                    }
-                  },
-                  {
-                    "type": "null"
+          },
+          {
+            "name": "chains",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
                   }
-                ],
-                "title": "Chains"
-              }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chains"
             }
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -22284,8 +22292,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Compliance checking is not implemented: no KYC/AML provider is integrated",
             "content": {
               "application/json": {
                 "schema": {
