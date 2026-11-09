@@ -511,12 +511,16 @@ class DynamicPricingEngine:
             base_multiplier = 1.0 + (demand_level - 0.5) * 0.5
         else:
             base_multiplier = 0.8 + demand_level * 0.4
+        # #1363: clamp like the supply multiplier — the low-band formula goes
+        # negative for demand_level < -2.0, and an invalid (negative) factor
+        # must never reach price computation.
         if strategy == PricingStrategy.AGGRESSIVE_GROWTH:
-            return _D(base_multiplier * 0.9)
+            result = base_multiplier * 0.9
         elif strategy == PricingStrategy.PROFIT_MAXIMIZATION:
-            return _D(base_multiplier * 1.3)
+            result = base_multiplier * 1.3
         else:
-            return _D(base_multiplier)
+            result = base_multiplier
+        return _D(max(0.5, min(2.0, result)))
 
     def _calculate_supply_multiplier(self, supply_level: float, strategy: PricingStrategy) -> Decimal:
         """Calculate supply-based price multiplier"""
