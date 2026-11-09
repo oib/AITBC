@@ -482,17 +482,21 @@ def insert_exchange_prepay_deposit(tx_hash: str, from_address: str, amount_eth: 
         conn.close()
 
 
-def get_pending_deposits() -> list[dict[str, Any]]:
-    """Get all pending deposits."""
+def get_pending_deposits(limit: int = 500, offset: int = 0) -> list[dict[str, Any]]:
+    """Get pending deposits (bounded — was an unbounded full-table scan, #1408)."""
     conn = _connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
         FROM eth_deposits
         WHERE status = 'pending'
         ORDER BY created_at DESC
-    """)
+        LIMIT ? OFFSET ?
+    """,
+        (limit, offset),
+    )
 
     rows = cursor.fetchall()
     conn.close()
