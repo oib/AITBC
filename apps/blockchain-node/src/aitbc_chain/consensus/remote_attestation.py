@@ -2258,6 +2258,7 @@ class RemoteAttestationService:
         expected_remote = {canonical_address(v) for v in self._load_validator_set()} - {canonical_address(str(block.proposer))}
         answered: set[str] = set()
         counted: set[str] = set()
+        seen_validators: set[str] = set()
         quorum_at: float | None = None
         try:
             while time.monotonic() - start < effective_timeout:
@@ -2283,6 +2284,7 @@ class RemoteAttestationService:
                 # lands in this window is logged as stale.
                 arrived_ms = int((time.monotonic() - start) * 1000)
                 validator = response.get("validator", "")
+                seen_validators.add(str(validator))
                 if response.get("hash") != block.hash:
                     logger.info(
                         "Attestation arrival: height=%s validator=%s arrived_ms=%d outcome=stale response_height=%s",
@@ -2367,5 +2369,17 @@ class RemoteAttestationService:
                         break
         finally:
             sub.close()
+            # #1306: one line per collect round so a quorum miss can be read
+            # as "responses never reached us" vs "reached us and were refused".
+            metrics_registry.observe("attest_collect_responses_seen", float(len(seen_validators)))
+            logger.info(
+                "Attestation collect summary: height=%s hash=%s counted=%d seen=%d expected=%d elapsed_ms=%d",
+                block.height,
+                block.hash[:18],
+                len(attestations),
+                len(seen_validators),
+                len(expected_remote),
+                int((time.monotonic() - start) * 1000),
+            )
 
         return attestations
