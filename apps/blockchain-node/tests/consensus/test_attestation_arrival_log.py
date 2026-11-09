@@ -359,3 +359,55 @@ class TestPostQuorumLinger:
 
         assert [a["validator"] for a in got] == [ATTESTER_A[0], ATTESTER_B[0]]
         assert "outcome=duplicate" in _lines(caplog, ARRIVAL)[1]
+
+
+SUMMARY = "Attestation collect summary"
+
+
+class TestCollectSummaryLine:
+    """#1306: one line per collect round, so a quorum miss reads as 'responses never reached
+    the collector' (seen=0/1) versus 'reached it and were refused' (seen high, counted low)."""
+
+    @pytest.mark.asyncio
+    async def test_summary_reports_counted_and_seen_for_a_quorum(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        block = _block()
+        first = await _attest(monkeypatch, ATTESTER_A, block)
+        second = await _attest(monkeypatch, ATTESTER_B, block)
+
+        await _collect(monkeypatch, [(0.0, first), (0.0, second)], block)
+
+        (line,) = _lines(caplog, SUMMARY)
+        assert "height=100 " in line and "counted=2 seen=2 " in line
+
+    @pytest.mark.asyncio
+    async def test_summary_on_a_quorum_miss_shows_the_missing_responses(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        block = _block()
+        only = await _attest(monkeypatch, ATTESTER_A, block)
+
+        got = await _collect(monkeypatch, [(0.0, only)], block, timeout=0.3)
+
+        assert len(got) == 1
+        (line,) = _lines(caplog, SUMMARY)
+        assert "counted=1 seen=1 " in line
+
+    @pytest.mark.asyncio
+    async def test_summary_with_no_response_is_seen_zero(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+
+        await _collect(monkeypatch, [], _block(), timeout=0.2)
+
+        (line,) = _lines(caplog, SUMMARY)
+        assert "counted=0 seen=0 " in line
+
+    @pytest.mark.asyncio
+    async def test_summary_counts_a_refused_response_as_seen_not_counted(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger=ra_module.logger.name)
+        block = _block()
+        forged = {**await _attest(monkeypatch, ATTESTER_B, block), "validator": ATTESTER_A[0]}
+
+        await _collect(monkeypatch, [(0.0, forged)], block, timeout=0.3)
+
+        (line,) = _lines(caplog, SUMMARY)
+        assert "counted=0 seen=1 " in line
