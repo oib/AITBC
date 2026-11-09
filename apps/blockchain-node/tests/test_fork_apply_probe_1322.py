@@ -17,8 +17,8 @@ from aitbc_chain.models import Block
 from aitbc_chain.state.state_transition import get_state_transition
 from aitbc_chain.sync import settings as sync_settings
 
-import test_fork_choice as fc
-from test_fork_choice import T0, _heights, _mk_block, _seed, _store, _sync
+from . import test_fork_choice as fc
+from .test_fork_choice import T0, _heights, _mk_block, _seed, _store, _sync
 
 # Fixtures shared with the fork-choice suite (assignment, not import, so the
 # fixture argument names below do not shadow an imported binding).
