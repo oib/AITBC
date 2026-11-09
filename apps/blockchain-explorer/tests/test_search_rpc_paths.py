@@ -82,7 +82,7 @@ def test_search_transactions_rpc_404_empty(monkeypatch):
 
 
 def test_search_transactions_rpc_upstream_error(client, monkeypatch):
-    """Non-200 RPC responses raise HTTPException, but the broad handler maps them to 500."""
+    """Non-200 RPC responses propagate their status via HTTPException passthrough."""
     monkeypatch.setattr(search_router, "USE_DATA_LAYER", False)
 
     class FakeResponse:
@@ -101,7 +101,7 @@ def test_search_transactions_rpc_upstream_error(client, monkeypatch):
 
     monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: FakeClient())
     resp = client.get("/api/search/transactions")
-    assert resp.status_code == 500
+    assert resp.status_code == 502
 
 
 def test_search_transactions_rpc_connect_error(monkeypatch):
