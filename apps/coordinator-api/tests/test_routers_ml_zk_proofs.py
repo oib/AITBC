@@ -8,7 +8,6 @@ list is static data.
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 BASE = "/v1/ml-zk"
@@ -23,17 +22,10 @@ def _verify_req() -> dict:
 
 
 class TestMlZkProve:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1339: proving-runtime failure (missing snarkjs) is folded into "
-        "generate_proof's None and reported as 400 UNPROVABLE_INPUTS — infra outage "
-        "blamed on the caller's inputs",
-    )
     def test_prove_training_503_no_keys(self, client: TestClient) -> None:
         resp = client.post(f"{BASE}/prove/training", json=_proof_req())
         assert resp.status_code == 503
 
-    @pytest.mark.xfail(strict=True, reason="#1339: same infra-failure-as-400 misclassification")
     def test_prove_modular_503_no_keys(self, client: TestClient) -> None:
         resp = client.post(f"{BASE}/prove/modular", json=_proof_req())
         assert resp.status_code == 503
