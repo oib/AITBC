@@ -360,6 +360,7 @@ def propose(
                 _governance_voting_period_blocks(client, proposal_type),
             )
         if signer:
+            proposal_data["timestamp"] = time.time()
             proposal_data["signature"] = _sign_body(private_key, {k: v for k, v in proposal_data.items() if k != "signature"})
         result = client.post("/v1/governance/proposals", json=proposal_data)
         output(result, resolve_output_format(ctx, format))
@@ -451,6 +452,7 @@ def vote(
             )
         if signer:
             vote_data["voter_id"] = voter_address
+            vote_data["timestamp"] = time.time()
             vote_data["signature"] = _sign_body(private_key, {k: v for k, v in vote_data.items() if k != "signature"})
         result = client.post("/v1/governance/votes", json=vote_data)
         output(result, resolve_output_format(ctx, format))
@@ -552,7 +554,10 @@ def execute(
         if signer:
             body = body or {}
             body["caller_address"] = executor_address
-            body["signature"] = _sign_body(private_key, {"action": "execute", "proposal_id": proposal_id})
+            body["timestamp"] = time.time()
+            body["signature"] = _sign_body(
+                private_key, {"action": "execute", "proposal_id": proposal_id, "timestamp": body["timestamp"]}
+            )
         result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}", json=body)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
@@ -591,8 +596,11 @@ def close(
             signer_address, private_key = signer
             body = {
                 "caller_address": signer_address,
-                "signature": _sign_body(private_key, {"action": "close", "proposal_id": proposal_id}),
+                "timestamp": time.time(),
             }
+            body["signature"] = _sign_body(
+                private_key, {"action": "close", "proposal_id": proposal_id, "timestamp": body["timestamp"]}
+            )
         result = client.post(f"/v1/governance/proposals/{proposal_id}/close", json=body)
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:

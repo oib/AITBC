@@ -9,6 +9,7 @@ client-supplied power fields are ignored, and a voter can vote once.
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
 from eth_keys import keys
@@ -40,6 +41,7 @@ def proposal_id(client: TestClient) -> str:
         "category": "other",
         "voting_starts": now.isoformat(),
         "voting_ends": (now + timedelta(hours=4)).isoformat(),
+        "timestamp": time.time(),
     }
     body["signature"] = _sign(proposer, body.copy())
     r = client.post("/v1/governance/proposals", json=body)
@@ -161,6 +163,7 @@ def test_vote_client_supplied_power_ignored(client: TestClient, proposal_id: str
         "voter_address": voter.public_key.to_checksum_address(),
         "vote_type": "for",
         "voting_power": 1000000,
+        "timestamp": time.time(),
     }
     body["signature"] = _sign(voter, body)
     r = client.post("/v1/governance/votes", json=body)
@@ -175,9 +178,16 @@ def test_double_vote_rejected(client: TestClient, proposal_id: str) -> None:
         "proposal_id": proposal_id,
         "voter_address": voter.public_key.to_checksum_address(),
         "vote_type": "for",
+        "timestamp": time.time(),
     }
     body["signature"] = _sign(voter, body)
     assert client.post("/v1/governance/votes", json=body).status_code == 200
+    # Byte-identical replay is refused by the signature-reuse window (#1404)…
+    replay = client.post("/v1/governance/votes", json=body)
+    assert replay.status_code == 403
+    # …while a freshly signed second vote still reaches the dedup check.
+    body["timestamp"] = time.time()
+    body["signature"] = _sign(voter, {k: v for k, v in body.items() if k != "signature"})
     again = client.post("/v1/governance/votes", json=body)
     assert again.status_code in (400, 409, 500), again.status_code
     assert "already voted" in again.text or "not active" in again.text
@@ -202,6 +212,7 @@ def test_signer_who_is_not_the_voter_refused(client: TestClient, proposal_id: st
         "voter_address": signer.public_key.to_checksum_address(),
         "voter_id": victim.public_key.to_checksum_address(),
         "vote_type": "for",
+        "timestamp": time.time(),
     }
     body["signature"] = _sign(signer, body)
     r = client.post("/v1/governance/votes", json=body)
@@ -216,15 +227,18 @@ def test_one_signer_cannot_vote_twice_via_voter_id(client: TestClient, proposal_
         "proposal_id": proposal_id,
         "voter_address": voter.public_key.to_checksum_address(),
         "vote_type": "for",
+        "timestamp": time.time(),
     }
     body["signature"] = _sign(voter, body)
     assert client.post("/v1/governance/votes", json=body).status_code == 200
 
-    sneaky = dict(body)
+    sneaky = {k: v for k, v in body.items() if k != "signature"}
     sneaky["voter_id"] = "0x" + "ee" * 20
-    sneaky["signature"] = _sign(voter, sneaky)
+    sneaky["signature"] = _sign(voter, {k: v for k, v in sneaky.items() if k != "signature"})
     assert client.post("/v1/governance/votes", json=sneaky).status_code == 403
 
+    body["timestamp"] = time.time()
+    body["signature"] = _sign(voter, {k: v for k, v in body.items() if k != "signature"})
     again = client.post("/v1/governance/votes", json=body)
     assert again.status_code == 400 and "already voted" in again.text
 
@@ -252,11 +266,39 @@ def test_case_variant_of_same_voter_cannot_vote_twice(client: TestClient, propos
     voter = keys.PrivateKey(b"\x0c" * 32)
     checksum = voter.public_key.to_checksum_address()
 
-    first = {"proposal_id": proposal_id, "voter_address": checksum, "vote_type": "for"}
+    first = {"proposal_id": proposal_id, "voter_address": checksum, "vote_type": "for", "timestamp": time.time()}
     first["signature"] = _sign(voter, first)
     assert client.post("/v1/governance/votes", json=first).status_code == 200
 
-    second = {"proposal_id": proposal_id, "voter_address": checksum.lower(), "vote_type": "against"}
+    second = {
+        "proposal_id": proposal_id,
+        "voter_address": checksum.lower(),
+        "vote_type": "against",
+        "timestamp": time.time(),
+    }
     second["signature"] = _sign(voter, second)
     again = client.post("/v1/governance/votes", json=second)
     assert again.status_code == 400 and "already voted" in again.text
+
+
+def test_signed_proposal_replay_refused(client: TestClient) -> None:
+    """#1404: a captured signed proposal body must not replay — the freshness
+    window + used-signature store now cover the profile/proposal/vote/close/
+    execute routes, not just stake/delegate/transactions."""
+    from datetime import UTC, datetime, timedelta
+
+    proposer = keys.PrivateKey(b"\x0d" * 32)
+    now = datetime.now(UTC)
+    body = {
+        "proposer_address": proposer.public_key.to_checksum_address(),
+        "title": "replay pin",
+        "description": "d",
+        "category": "other",
+        "voting_starts": now.isoformat(),
+        "voting_ends": (now + timedelta(hours=4)).isoformat(),
+        "timestamp": time.time(),
+    }
+    body["signature"] = _sign(proposer, body)
+    assert client.post("/v1/governance/proposals", json=body).status_code == 200
+    replay = client.post("/v1/governance/proposals", json=body)
+    assert replay.status_code == 403
