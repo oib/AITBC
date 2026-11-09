@@ -173,7 +173,7 @@ class TestRestartReseed:
         svc2, broker2 = _service(monkeypatch, our_addr, our_key, proposer_addr, tmp_path)
         lock = svc2.attestation_lock(100, float(ROUND_SECONDS))
         assert lock is not None and lock[0] == "0xaaaa"
-        assert "0xaaaa" in svc2._signed_once.get(100, set())
+        assert svc2._signed_once_contains(100, "0xaaaa", None)
 
         # A rival at the locked height is still refused after restart.
         await svc2._handle_request(_header(100, "0xbbbb", proposer_addr))
@@ -213,13 +213,13 @@ class TestRestartReseed:
         svc, _ = _service(monkeypatch, our_addr, our_key, proposer_addr, tmp_path)
         await svc._handle_request(_header(100, "0xaaaa", proposer_addr))
         # Lapse the in-memory lock, then sign a rival (post-lapse is legal).
-        svc._attested[100] = ("0xaaaa", proposer_addr, time.monotonic() - 3600)
+        svc._attested[100] = {None: ("0xaaaa", proposer_addr, time.monotonic() - 3600)}
         await svc._handle_request(_header(100, "0xbbbb", proposer_addr))
 
         svc2, _ = _service(monkeypatch, our_addr, our_key, proposer_addr, tmp_path)
         svc2._ensure_round_locks_loaded()  # lazy journal load
-        assert svc2._attested[100][0] == "0xbbbb"
-        assert svc2._signed_once[100] == {"0xaaaa", "0xbbbb"}
+        assert svc2._attested[100][None][0] == "0xbbbb"
+        assert svc2._signed_once[100] == {None: {"0xaaaa", "0xbbbb"}}
 
 
 class TestWallAgePrune:
@@ -252,11 +252,11 @@ class TestWallAgePrune:
 
         svc._ensure_round_locks_loaded()
 
-        assert (100, "0xfresh") in svc._attested_lock_records
-        assert (101, "0xstale") not in svc._attested_lock_records
+        assert (100, "0xfresh", None) in svc._attested_lock_records
+        assert (101, "0xstale", None) not in svc._attested_lock_records
         assert 100 in svc._attested and 101 not in svc._attested
-        assert "0xfresh" in svc._signed_once.get(100, set())
-        assert "0xstale" not in svc._signed_once.get(101, set())
+        assert svc._signed_once_contains(100, "0xfresh", None)
+        assert not svc._signed_once_contains(101, "0xstale", None)
 
     def test_legacy_record_without_round_or_domain_reseeds(self, monkeypatch, tmp_path):
         """T21: minimal attestation record (no derived_round/signature_domain)
@@ -278,7 +278,7 @@ class TestWallAgePrune:
 
         lock = svc.attestation_lock(100, float(ROUND_SECONDS))
         assert lock is not None and lock[0] == "0xaaaa"
-        assert "0xaaaa" in svc._signed_once[100]
+        assert svc._signed_once_contains(100, "0xaaaa", None)
 
     def test_round_lock_records_still_load_alongside(self, monkeypatch, tmp_path):
         """Mixed file: kind-less records stay round locks; kind=attestation
@@ -296,9 +296,9 @@ class TestWallAgePrune:
 
         svc._ensure_round_locks_loaded()
 
-        assert (100, 0) in svc._round_locks
-        assert svc._round_locks[(100, 0)].block_hash == "0xrl"
-        assert svc._attested[100][0] == "0xal"
+        assert (100, 0, None) in svc._round_locks
+        assert svc._round_locks[(100, 0, None)].block_hash == "0xrl"
+        assert svc._attested[100][None][0] == "0xal"
 
 
 class TestRefuseToSign:

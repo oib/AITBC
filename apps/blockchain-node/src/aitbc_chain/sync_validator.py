@@ -9,7 +9,7 @@ from typing import Any
 from .logger import get_logger
 from .metrics import metrics_registry
 
-from .config import settings
+from .config import legacy_attestation_dual_accept_open, settings
 
 logger = get_logger(__name__)
 
@@ -246,10 +246,12 @@ class ProposerSignatureValidator:
         signature = att.get("signature", "")
         # #1298: at/above the armed activation height attestations are signed
         # under the attestation domain — legacy shared-preimage signatures
-        # must not verify (hard cutover per design v2.2 §7).
+        # must not verify (hard cutover per design v2.2 §7), EXCEPT inside
+        # the bounded dual-accept window [H, S) where both preimages count.
         activation = getattr(settings, "consensus_domain_separation_height", None)
         height = block_data.get("height", 0)
         domain_active = activation is not None and isinstance(height, int) and height >= activation
+        dual_accept = domain_active and legacy_attestation_dual_accept_open(height)
         rounds: list[int] = []
         att_round = att.get("round")
         if att_round is not None:
@@ -261,6 +263,46 @@ class ProposerSignatureValidator:
             derived = self._derive_attestation_round(block_data)
             if derived is not None:
                 rounds.append(derived)
+        if self._round_bound_attestation_ok(block_data, att, validator, domain_active, dual_accept, rounds):
+            return True
+        if domain_active:
+            msg7 = {
+                "chain_id": block_data.get("chain_id", ""),
+                "height": block_data.get("height", 0),
+                "hash": block_data.get("hash", ""),
+                "parent_hash": block_data.get("parent_hash", ""),
+                "proposer": block_data.get("proposer", ""),
+                "state_root": block_data.get("state_root", ""),
+                "bridge_state_root": block_data.get("bridge_state_root", ""),
+            }
+            if verify_consensus_message_domain(msg7, signature, validator, DOMAIN_BLOCK_ATTESTATION):
+                return True
+            # Window legacy accept is the shared-preimage header message only —
+            # the raw-hash fallback inside verify_block_signature stays gated
+            # to heights below the activation height (design v2.1 O4).
+            if dual_accept and verify_consensus_message(msg7, signature, validator):
+                metrics_registry.increment("consensus_legacy_attestation_accepted_total")
+                return True
+            return False
+        return verify_block_signature(block_data, signature, validator)
+
+    def _round_bound_attestation_ok(
+        self,
+        block_data: dict[str, Any],
+        att: dict[str, Any],
+        validator: str,
+        domain_active: bool,
+        dual_accept: bool,
+        rounds: list[int],
+    ) -> bool:
+        """Verify the round-bound 8-field attestation message per candidate round."""
+        from aitbc.crypto.consensus_signing import (
+            DOMAIN_BLOCK_ATTESTATION,
+            verify_consensus_message,
+            verify_consensus_message_domain,
+        )
+
+        signature = att.get("signature", "")
         for rnd in rounds:
             msg = {
                 "chain_id": block_data.get("chain_id", ""),
@@ -275,20 +317,12 @@ class ProposerSignatureValidator:
             if domain_active:
                 if verify_consensus_message_domain(msg, signature, validator, DOMAIN_BLOCK_ATTESTATION):
                     return True
+                if dual_accept and verify_consensus_message(msg, signature, validator):
+                    metrics_registry.increment("consensus_legacy_attestation_accepted_total")
+                    return True
             elif verify_consensus_message(msg, signature, validator):
                 return True
-        if domain_active:
-            msg7 = {
-                "chain_id": block_data.get("chain_id", ""),
-                "height": block_data.get("height", 0),
-                "hash": block_data.get("hash", ""),
-                "parent_hash": block_data.get("parent_hash", ""),
-                "proposer": block_data.get("proposer", ""),
-                "state_root": block_data.get("state_root", ""),
-                "bridge_state_root": block_data.get("bridge_state_root", ""),
-            }
-            return verify_consensus_message_domain(msg7, signature, validator, DOMAIN_BLOCK_ATTESTATION)
-        return verify_block_signature(block_data, signature, validator)
+        return False
 
     def _derive_attestation_round(self, block_data: dict[str, Any]) -> int | None:
         """Independently derive the proposer round for this block."""

@@ -575,7 +575,7 @@ class TestAttestationCapture:
         # refuses rivals, so age the recorded lock past the window. The hash
         # stays in _signed_once — that is the prior-signature index the
         # equivocation pairing reads.
-        svc._attested[100] = (HA, proposer, time.monotonic() - 10_000)
+        svc._attested[100] = {None: (HA, proposer, time.monotonic() - 10_000)}
         await svc._handle_request(_request(100, HB, proposer))
 
         assert recorded, "rival signing must record attestation equivocation"

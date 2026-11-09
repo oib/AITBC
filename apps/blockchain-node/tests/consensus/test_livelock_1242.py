@@ -177,7 +177,7 @@ class TestSingleValidatorLossChurn:
 
         # Every churn round is durably locked — the anti-equivocation record
         # accumulated one entry per (height, round), none overwritten.
-        assert set(svc._round_locks) == {(HEIGHT, r) for r in range(CHURN_ROUNDS)}
+        assert set(svc._round_locks) == {(HEIGHT, r, None) for r in range(CHURN_ROUNDS)}
 
         # Fork protection intact: a same-round RIVAL at the last round is
         # still refused (U1 fails — never sign backwards or sideways).

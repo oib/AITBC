@@ -1126,6 +1126,20 @@ class ChainSettings(BaseSettings):
     # after all nodes run a build that understands the new preimages —
     # a mixed fleet would refuse each other's signatures and fork.
     consensus_domain_separation_height: int | None = None
+    # #1298 dual-accept migration window (design v2.2 CARD5 / v2.6): while the
+    # message height sits in [consensus_domain_separation_height, this value),
+    # ATTESTATION-channel verification accepts EITHER the domain-separated
+    # preimage or the legacy shared preimage, so stragglers still minting
+    # pre-domain signatures keep counting while the fleet converges. At
+    # heights >= this value only the domain preimage verifies; below the
+    # activation height only the legacy preimage does (unchanged). The gate
+    # is height-derived, never wall-clock. ``None`` (the default) opens no
+    # window — legacy attestations verify only below the activation height
+    # (hard cutover). A value <= the activation height is an empty window,
+    # equivalent to unset. Proposal signatures NEVER dual-accept: at/above
+    # the activation height they require the proposal domain regardless of
+    # this setting.
+    consensus_legacy_attestation_until_height: int | None = None
     # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
     # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
     # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
@@ -1582,6 +1596,26 @@ class ChainSettings(BaseSettings):
 
 
 settings = ChainSettings()
+
+
+def legacy_attestation_dual_accept_open(height: int | None, cfg: ChainSettings = settings) -> bool:
+    """#1298: whether ``height`` sits inside the bounded dual-accept window.
+
+    True iff both ``consensus_domain_separation_height`` (H) and
+    ``consensus_legacy_attestation_until_height`` (S) are armed and
+    ``H <= height < S``. Inside the window attestation-channel verification
+    accepts legacy shared-preimage signatures alongside domain-separated
+    ones; at ``height >= S`` (or when S is unset) only the domain preimage
+    verifies at/above H, and below H only the legacy preimage does.
+    Proposal verification never consults this — it has no dual-accept.
+    """
+    if height is None:
+        return False
+    activation = cfg.consensus_domain_separation_height
+    until = cfg.consensus_legacy_attestation_until_height
+    if activation is None or until is None:
+        return False
+    return activation <= height < until
 
 
 def is_block_producer(cfg: ChainSettings = settings) -> bool:

@@ -544,7 +544,7 @@ class TestAdvisoryAndMigration:
 
         # Expire the height-only lock so the second rival hash is signed (the
         # #1242 comment 18430 scenario).
-        svc._attested[42] = ("0xaaaa", proposer_addr, _time.monotonic() - 3600)
+        svc._attested[42] = {None: ("0xaaaa", proposer_addr, _time.monotonic() - 3600)}
         await svc._handle_request(_req("0xbbbb"))
         assert len(published) == 2
 
@@ -616,7 +616,7 @@ class TestAdvisoryAndMigration:
             }
 
         await svc._handle_request(_req("0x1111"))
-        svc._attested[7] = ("0x1111", proposer_addr, _time.monotonic() - 3600)
+        svc._attested[7] = {None: ("0x1111", proposer_addr, _time.monotonic() - 3600)}
         await svc._handle_request(_req("0x2222"))
         assert len(slashing_manager.slashing_events) == before_len + 1
         slashing_manager.slashing_events.pop()

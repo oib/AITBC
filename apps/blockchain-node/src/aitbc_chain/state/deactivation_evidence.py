@@ -32,7 +32,7 @@ from sqlmodel import Session
 from aitbc.crypto.consensus_signing import verify_consensus_message, verify_consensus_message_domain
 from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_address
 
-from ..config import settings
+from ..config import legacy_attestation_dual_accept_open, settings
 from ..consensus.equivocation_policy import pair_stands_as_evidence
 from ..consensus.slashing import SlashingCondition, SlashingEvent, SlashingManager
 
@@ -86,9 +86,13 @@ def _verify_stored_signature(att: dict[str, Any], message: dict[str, Any], valid
     not — so labeled records need no height gate. Unlabeled records are
     legacy (pre-activation) signatures: they verify only for heights below
     ``consensus_domain_separation_height`` — hard cutover, no legacy fallback
-    at/above the armed height. The bounded dual-accept window for legacy
-    attestation signatures in ``[H, S)`` is a separate lane; when it lands
-    this branch is where window acceptance plugs in.
+    at/above the armed height — EXCEPT inside the bounded dual-accept
+    window ``[H, S)`` opened by
+    ``consensus_legacy_attestation_until_height`` (design v2.2 CARD5), where
+    a legacy attestation signature still verifies while the fleet
+    converges. This function only serves attestation-channel evidence, so
+    the attestation-only scope of the window applies unchanged; proposal
+    signatures never gain a window anywhere.
     """
     signature = str(att.get("signature", ""))
     domain = att.get("signature_domain")
@@ -97,12 +101,24 @@ def _verify_stored_signature(att: dict[str, Any], message: dict[str, Any], valid
             return False
         return verify_consensus_message_domain(message, signature, validator, domain)
     activation = getattr(settings, "consensus_domain_separation_height", None)
+    height: int | None = None
     if activation is not None:
         try:
             height = int(att.get("height", event_height))
         except (TypeError, ValueError):
             height = None
         if height is None or height >= activation:
+            # Dual-accept window: an unlabeled legacy signature whose height
+            # sits in [H, S) still verifies under the shared preimage.
+            if height is not None and legacy_attestation_dual_accept_open(height):
+                try:
+                    if verify_consensus_message(message, signature, validator):
+                        from ..metrics import metrics_registry
+
+                        metrics_registry.increment("consensus_legacy_attestation_accepted_total")
+                        return True
+                except SignatureMalformed:
+                    pass
             return False
     try:
         return verify_consensus_message(message, signature, validator)

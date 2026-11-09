@@ -229,7 +229,7 @@ class TestDomainScopedPairing:
         msg = _header(block_hash, OTHER_ADDR if domain == DOMAIN_BLOCK_ATTESTATION else signer_addr)
         signature = sign_consensus_message_domain(msg, signer_key, domain)
         svc._record_signed_attestation(H, block_hash, signer_addr, msg, None, False, signature, domain)
-        svc._signed_once.setdefault(H, set()).add(block_hash)
+        svc._signed_once_add(H, block_hash, domain)
 
     def test_cross_role_prior_does_not_signature_pair(self, monkeypatch):
         """A proposal record pairs only with proposal records (#1298 v2.3)."""
@@ -270,7 +270,7 @@ class TestDomainScopedPairing:
         svc, mgr, our_addr, our_key, _, _ = _setup_1278(monkeypatch)
         msg = _header(HA, OTHER_ADDR)
         svc._record_signed_attestation(H, HA, our_addr, msg, None, False, sign_consensus_message(msg, our_key))
-        svc._signed_once.setdefault(H, set()).add(HA)
+        svc._signed_once_add(H, HA, None)
 
         message = _header(HB, our_addr)
         svc.record_proposal_equivocation(message, sign_consensus_message(message, our_key), 0)

@@ -150,7 +150,7 @@ class TestAttesterLockRecord:
 
         await svc._handle_request(_header(100, "0xaaaa", proposer_addr))
         # Backdate the lock past the window.
-        svc._attested[100] = ("0xaaaa", proposer_addr, time.monotonic() - 3600)
+        svc._attested[100] = {None: ("0xaaaa", proposer_addr, time.monotonic() - 3600)}
 
         await svc._handle_request(_header(100, "0xbbbb", proposer_addr))
         assert len(broker.published) == 2
@@ -158,7 +158,7 @@ class TestAttesterLockRecord:
 
     def test_lock_accessor_expires_entries(self):
         svc = RemoteAttestationService("test-chain", {})
-        svc._attested[5] = ("0xaaaa", "0xPROP", time.monotonic() - 3600)
+        svc._attested[5] = {None: ("0xaaaa", "0xPROP", time.monotonic() - 3600)}
         assert svc.attestation_lock(5, 60.0) is None
         assert 5 not in svc._attested
 
