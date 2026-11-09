@@ -172,3 +172,22 @@ def test_admission_lock_timeout_raises(pool, chain, monkeypatch):
         blocker.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": key})
         with pytest.raises(MempoolAdmissionTimeout):
             pool.add(tx, chain_id=chain)
+
+
+def test_fork_revert_releases_reservations(pool, chain, monkeypatch):
+    """#1300 fork-revert leg: requeue_orphaned_transactions must release
+    live reservations on the reverted txs (reason fork_reverted) before
+    re-admission — stale markers would lock rows to a dead attempt."""
+    from aitbc_chain import mempool as mempool_mod
+    from aitbc_chain.state.block_deltas import requeue_orphaned_transactions
+
+    hashes = _seed(pool, chain)
+    pool.peek_reserve(chain, owner_id="owner-a", height=10)
+    assert pool.live_reservations(chain) == dict.fromkeys(hashes, "owner-a")
+
+    monkeypatch.setattr(mempool_mod, "_MEMPOOL", pool)
+    payloads = [{**_tx(i, chain), "tx_hash": h} for i, h in enumerate(hashes, 1)]
+    requeue_orphaned_transactions(chain, payloads)
+    # Signatures are fake so re-admission fails per-tx — irrelevant here:
+    # the release must already have freed every marker.
+    assert pool.live_reservations(chain) == {}

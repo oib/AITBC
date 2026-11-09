@@ -1216,6 +1216,22 @@ def requeue_orphaned_transactions(
     from ..mempool import get_mempool
 
     mempool = get_mempool()
+    # #1300 P2-v2.4: reservations held for txs in a reverted block belong to
+    # dead attempts — release them (any owner) so requeued rows are not
+    # locked to a stale owner until TTL. InMemoryMempool has no reservation
+    # layer, hence the getattr guard.
+    release = getattr(mempool, "release_reservations", None)
+    hashes = [str(tx.get("tx_hash") or "") for tx in payloads if tx.get("tx_hash")]
+    if release is not None and hashes:
+        try:
+            release(chain_id, hashes, "fork_reverted")
+        except Exception as exc:  # noqa: BLE001 - release failure must not block requeue
+            logger.warning(
+                "fork-revert reservation release failed for %d txs on %s: %s",
+                len(hashes),
+                chain_id,
+                exc,
+            )
     failed: list[dict[str, Any]] = []
     for tx in payloads:
         try:
