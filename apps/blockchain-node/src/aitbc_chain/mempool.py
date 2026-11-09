@@ -9,7 +9,7 @@ from threading import Lock, RLock
 from typing import Any, cast
 from collections.abc import Iterable
 
-from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, MetaData, Text, delete, func
+from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, MetaData, Text, bindparam, delete, func
 from sqlalchemy import select as sa_select
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlmodel import Field, Session, create_engine, select, text
@@ -18,7 +18,12 @@ from .metadata import ChainBase
 
 logger = logging.getLogger(__name__)
 
-from .metrics import mempool_pending_count, mempool_pending_size_bytes, metrics_registry
+from .metrics import (
+    mempool_pending_count,
+    mempool_pending_size_bytes,
+    mempool_reservation_release_total,
+    metrics_registry,
+)
 
 mempool_metadata = MetaData()
 
@@ -367,6 +372,15 @@ class InMemoryMempool:
                 self._update_gauge(chain_id)
             return removed
 
+    def batch_remove(self, hashes: list[str], chain_id: str | None = None) -> int:
+        """Parity with DatabaseMempool.batch_remove — in-memory has no
+        reservations, so every hash is removable."""
+        removed = 0
+        for tx_hash in hashes:
+            if self.remove(tx_hash, chain_id):
+                removed += 1
+        return removed
+
     def remove_superseded(self, chain_id: str, sender: str, nonce: int) -> int:
         """Drop pending entries whose (sender, nonce) slot a sealed block
         just consumed.
@@ -411,6 +425,15 @@ class InMemoryMempool:
             chain_id = settings.chain_id
         with self._lock:
             return set(self._get_chain_transactions(chain_id))
+
+    def reconcile_sealed(self, chain_id: str, sealed_tx_hashes: Iterable[str]) -> int:
+        """In-memory parity stub for the DatabaseMempool reconcile — removes
+        pooled rows the caller's chain-side check reports as sealed."""
+        removed = 0
+        for tx_hash in dict.fromkeys(sealed_tx_hashes):
+            if self.remove(tx_hash, chain_id):
+                removed += 1
+        return removed
 
     def get_pending_transactions(self, chain_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""
@@ -482,8 +505,57 @@ class InMemoryMempool:
         return removed
 
 
+class MempoolAdmissionTimeout(Exception):
+    """A mempool admission lock/statement wait exceeded its bound (#1300).
+
+    Raised instead of a raw ``OperationalError`` so callers can answer with a
+    clean admission refusal. Covers ``lock_timeout`` (55P03) and
+    ``statement_timeout`` (57014) inside the admission transaction.
+    """
+
+
+_PG_LOCK_NOT_AVAILABLE = "55P03"
+_PG_QUERY_CANCELED = "57014"
+
+
+def _is_admission_timeout(exc: BaseException) -> bool:
+    orig = getattr(exc, "orig", exc)
+    code = getattr(orig, "pgcode", None) or getattr(orig, "sqlstate", None)
+    return code in {_PG_LOCK_NOT_AVAILABLE, _PG_QUERY_CANCELED}
+
+
+def _normalize_lock_key(key: str) -> str:
+    """Sanitize a lock-key string: alnum kept, everything else -> '-'.
+
+    Applied BEFORE sorting and BEFORE hashing so every process derives the
+    same acquisition order and the same ``hashtext`` input from raw slot
+    data. The sort key is this sanitized string, never the 32-bit hash —
+    hashtext collisions cannot invert acquisition order (they only merge
+    two keys into one lock, a bounded liveness corner covered by
+    ``lock_timeout``).
+    """
+    return "".join(c if c.isalnum() else "-" for c in key)
+
+
+def _slot_lock_key_str(chain_id: str, slot: tuple[str, int]) -> str:
+    return _normalize_lock_key(f"{chain_id}|{slot[0]}|{slot[1]}")
+
+
+def _apply_admission_timeouts(session: Session) -> None:
+    """Bound lock and statement waits for this transaction (PostgreSQL).
+
+    ``SET LOCAL`` scopes both GUCs to the current transaction, so pooled
+    connections return to the server defaults on commit/rollback.
+    """
+    from .config import settings
+
+    ms = int(settings.mempool_admission_lock_timeout_ms)
+    session.exec(text(f"SET LOCAL lock_timeout = {ms}"))  # type: ignore[call-overload]
+    session.exec(text(f"SET LOCAL statement_timeout = {ms}"))  # type: ignore[call-overload]
+
+
 def _slot_advisory_lock(session: Session, chain_id: str, slot: tuple[str, int]) -> None:
-    """Serialize same-slot admissions across processes (Refs #743).
+    """Serialize same-slot admissions across processes (Refs #743, #1300).
 
     The occupancy rule is check-then-insert inside one transaction; under
     READ COMMITTED two uvicorn workers can both observe an empty slot and
@@ -493,11 +565,31 @@ def _slot_advisory_lock(session: Session, chain_id: str, slot: tuple[str, int]) 
     occupant and applies the fee rule normally. PostgreSQL only — sqlite
     serializes writers at the file level and the in-process ``self._lock``
     already covers threads.
+
+    #1300 P2-v2.4: the key is a bound parameter (never string-interpolated),
+    lock/statement waits are bounded by ``mempool_admission_lock_timeout_ms``
+    and surface as :class:`MempoolAdmissionTimeout`.
     """
     if session.get_bind().dialect.name != "postgresql":
         return
-    key = "".join(c if c.isalnum() else "-" for c in f"{chain_id}|{slot[0]}|{slot[1]}")
-    session.exec(text(f"SELECT pg_advisory_xact_lock(hashtext('{key}'))"))  # type: ignore[call-overload]
+    _slot_advisory_lock_by_key(session, _slot_lock_key_str(chain_id, slot))
+
+
+def _slot_advisory_lock_by_key(session: Session, lock_key: str) -> None:
+    """Acquire one normalized advisory-lock key (PostgreSQL only).
+
+    Separated from :func:`_slot_advisory_lock` so batch callers can sort the
+    normalized strings first and then acquire in that exact order.
+    """
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    _apply_admission_timeouts(session)
+    try:
+        session.exec(text("SELECT pg_advisory_xact_lock(hashtext(:key))").bindparams(key=lock_key))  # type: ignore[call-overload]
+    except Exception as exc:
+        if _is_admission_timeout(exc):
+            raise MempoolAdmissionTimeout(f"mempool advisory lock timed out for key {lock_key!r}") from exc
+        raise
 
 
 class DatabaseMempool:
@@ -552,6 +644,34 @@ class DatabaseMempool:
                 session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
                 self._ensure_slot_columns(session)
                 session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_sender_nonce ON mempool(chain_id, sender, nonce)"))  # type: ignore[call-overload]
+                # #1300 P2-v2.4: owner/epoch reservation markers. Rows here
+                # never own mempool state — they annotate pooled rows for the
+                # duration of one proposer attempt.
+                session.exec(
+                    text("""
+                    CREATE TABLE IF NOT EXISTS mempool_reservation (
+                        chain_id TEXT NOT NULL,
+                        tx_hash TEXT NOT NULL,
+                        owner_id TEXT NOT NULL,
+                        attempt_seq INTEGER NOT NULL,
+                        height INTEGER,
+                        round INTEGER,
+                        proposer TEXT,
+                        reserved_at DOUBLE PRECISION NOT NULL,
+                        expires_at DOUBLE PRECISION NOT NULL,
+                        state TEXT NOT NULL DEFAULT 'reserved',
+                        release_reason TEXT,
+                        released_at DOUBLE PRECISION,
+                        PRIMARY KEY (chain_id, tx_hash)
+                    )
+                """)
+                )  # type: ignore[call-overload]
+                session.exec(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_mempool_reservation_live "
+                        "ON mempool_reservation(chain_id, state, expires_at)"
+                    )
+                )  # type: ignore[call-overload]
                 session.commit()
 
     @staticmethod
@@ -620,6 +740,42 @@ class DatabaseMempool:
                 )  # type: ignore[call-overload]
             )
 
+    def _sealed_on_chain_tx_hashes(self, chain_id: str, tx_hashes: Iterable[str]) -> set[str]:
+        """Hashes already sealed on chain — admission must refuse re-pooling.
+
+        Predicate: ``Transaction.status='confirmed' AND block_height IS NOT
+        NULL``. A NULL-height row is a pending writeback, not a seal, and
+        does NOT refuse — that is the height_recorded edge (#1300). The
+        mempool database is separate from chain.db, so the lookup runs
+        through the chain session scope inside the admission critical
+        section; a lookup failure fails OPEN with a warning because
+        ``reconcile_sealed`` remains the sweeper for anything that slips.
+        """
+        hashes = [h for h in dict.fromkeys(tx_hashes) if h]
+        if not hashes:
+            return set()
+        try:
+            from .base_models import Transaction
+            from .database import session_scope
+
+            with session_scope(chain_id) as session:
+                rows = session.execute(
+                    select(Transaction.tx_hash).where(
+                        Transaction.chain_id == chain_id,
+                        Transaction.tx_hash.in_(hashes),  # type: ignore[attr-defined]
+                        Transaction.status == "confirmed",
+                        Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+                    )
+                ).all()
+            return {r[0] for r in rows}
+        except Exception:
+            logger.warning(
+                "[MEMPOOL] sealed-on-chain check failed for %d hashes on %s — failing open",
+                len(hashes),
+                chain_id,
+            )
+            return set()
+
     def add(
         self,
         tx: dict[str, Any],
@@ -654,6 +810,14 @@ class DatabaseMempool:
                         session.commit()
                     return tx_hash
 
+                # #1300 P2-v2.4 §4/F8: never re-pool a sealed tx — the
+                # on-chain check lives inside the admission critical
+                # section so every entry path (RPC, p2p, requeue, orphan)
+                # inherits it.
+                if self._sealed_on_chain_tx_hashes(chain_id, [tx_hash]):
+                    metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+                    raise ValueError(f"transaction {tx_hash} is already sealed on chain {chain_id}")
+
                 # Signed transactions compete for their (sender, nonce) slot:
                 # a second occupant is admitted only as a strictly better bid,
                 # replacing the first.
@@ -675,6 +839,9 @@ class DatabaseMempool:
                                 f"{occupant.tx_hash} with fee {occupant.fee} >= {fee}"
                             )
                         session.delete(occupant)
+                        # #1300: the ONLY mid-flight release besides owner
+                        # release/TTL/sealed — recorded atomically here.
+                        self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
                         metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
 
                 _reject_conflicting_stake_release(tx, _pending_tx_rows(session, chain_id))
@@ -754,18 +921,34 @@ class DatabaseMempool:
                     ).all()
                     existing_hashes = set(existing_rows)
 
+                # #1300 P2-v2.4 §4/F8: sealed txs are never re-pooled —
+                # same predicate as add(), applied per hash inside the
+                # batch admission critical section.
+                sealed_hashes = self._sealed_on_chain_tx_hashes(chain_id, tx_hashes)
+                if sealed_hashes:
+                    metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}", float(len(sealed_hashes)))
+                    logger.warning(
+                        "[MEMPOOL] refusing %d already-sealed transactions on %s",
+                        len(sealed_hashes),
+                        chain_id,
+                    )
+
                 # Fetch current count once before the loop (N+1 → 1)
                 current_count = session.exec(
                     select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
                 ).one()
 
-                for lock_slot in sorted(
-                    {s for s in (_tx_slot_key(t) for t in transactions) if s is not None},
+                # #1300 P2-v2.4: normalize -> sort -> acquire. The sort key is
+                # the sanitized lock-key STRING (the same string
+                # _slot_advisory_lock hashes), so every process acquires in
+                # one total order and hashtext collisions cannot reorder it.
+                for lock_key in sorted(
+                    {_slot_lock_key_str(chain_id, s) for s in (_tx_slot_key(t) for t in transactions) if s is not None}
                 ):
-                    _slot_advisory_lock(session, chain_id, lock_slot)
+                    _slot_advisory_lock_by_key(session, lock_key)
                 for tx, tx_hash in zip(transactions, tx_hashes, strict=True):
                     # O(1) duplicate check using the pre-fetched set
-                    if tx_hash in existing_hashes:
+                    if tx_hash in existing_hashes or tx_hash in sealed_hashes:
                         hashes.append(tx_hash)
                         continue
 
@@ -789,6 +972,7 @@ class DatabaseMempool:
                                 metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
                                 continue
                             session.delete(occupant)
+                            self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
                             current_count -= 1
                             metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
 
@@ -931,6 +1115,12 @@ class DatabaseMempool:
         Same contract as ``InMemoryMempool.pending_cost``: only signed entries
         count, so protocol-internal writes (escrow, bridge) are not charged to
         the sender's admission budget.
+
+        #1300 P2-v2.4: this read opens its own session OUTSIDE any advisory
+        lock — it is a best-effort fast-reject only. The authoritative gate
+        is the locked re-check inside the admission transaction (slot
+        occupancy under ``_slot_advisory_lock``); no correctness claim rests
+        on this unlocked read.
         """
         from .config import settings
 
@@ -974,6 +1164,22 @@ class DatabaseMempool:
                 ).first()
         return row
 
+    def _live_reserved_set(self, session: Session, chain_id: str, now: float | None = None) -> set[str]:
+        """tx_hashes holding a live reservation on this chain (any owner)."""
+        now = now if now is not None else time.time()
+        try:
+            rows = session.execute(
+                text(
+                    "SELECT tx_hash FROM mempool_reservation WHERE chain_id=:chain_id AND state='reserved' AND expires_at>:now"
+                ),
+                {"chain_id": chain_id, "now": now},
+            ).all()
+        except Exception:
+            # Pre-migration database without the reservation table — nothing
+            # is reserved, so every deleter keeps baseline behavior.
+            return set()
+        return {r[0] for r in rows}
+
     def remove(self, tx_hash: str, chain_id: str | None = None, commit: bool = True) -> bool:
         from .config import settings
 
@@ -981,6 +1187,12 @@ class DatabaseMempool:
             chain_id = settings.chain_id
         with self._lock:
             with Session(self._engine) as session:
+                # #1300: a live-reserved row is mid-attempt — generic removes
+                # (dead-occupant sweeps, import-path deletes) must not take it.
+                # Sealed reconciliation goes through reconcile_sealed, which
+                # releases the marker in the same transaction.
+                if tx_hash in self._live_reserved_set(session, chain_id):
+                    return False
                 entry = session.exec(
                     select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
                 ).first()
@@ -1017,6 +1229,9 @@ class DatabaseMempool:
                         MempoolEntry.signed.is_(True),  # type: ignore[union-attr]
                     )
                 ).all()
+                # #1300: never sweep a row mid-attempt.
+                reserved = self._live_reserved_set(session, chain_id)
+                rows = [r for r in rows if r.tx_hash not in reserved]
                 for row in rows:
                     session.delete(row)
                 if commit:
@@ -1036,16 +1251,418 @@ class DatabaseMempool:
 
         with self._lock:
             with Session(self._engine) as session:
+                # #1300: reserved rows are mid-attempt — batch_remove is not
+                # the sealed-reconcile path (that is reconcile_sealed).
+                reserved = self._live_reserved_set(session, chain_id)
+                removable = [h for h in hashes if h not in reserved]
+                if not removable:
+                    return 0
                 result = session.exec(
                     delete(MempoolEntry).where(
                         MempoolEntry.chain_id == chain_id,  # type: ignore[arg-type]
-                        MempoolEntry.tx_hash.in_(hashes),  # type: ignore[attr-defined]
+                        MempoolEntry.tx_hash.in_(removable),  # type: ignore[attr-defined]
                     )
                 )
                 session.commit()
                 removed = result.rowcount if result.rowcount is not None else 0
             self._update_gauge(chain_id)
         return removed
+
+    # ------------------------------------------------------------------
+    # #1300 P2-v2.4: owner/epoch reservations (peek_reserve lifecycle)
+    # ------------------------------------------------------------------
+
+    _RESERVATION_ADVISORY_KEY = "mempool-peek-reserve"
+
+    def _sweep_expired_reservations(self, session: Session, chain_id: str, now: float) -> int:
+        """Release reservations whose TTL lapsed. Caller holds the txn."""
+        result = session.execute(
+            text(
+                "UPDATE mempool_reservation SET state = 'released', release_reason = 'expired', "
+                "released_at = :now WHERE chain_id = :chain_id AND state = 'reserved' AND expires_at <= :now"
+            ),
+            {"now": now, "chain_id": chain_id},
+        )
+        return cast(Any, result).rowcount or 0
+
+    def peek_reserve(
+        self,
+        chain_id: str,
+        *,
+        owner_id: str,
+        proposer: str = "",
+        height: int | None = None,
+        round: int | None = None,
+        attempt_seq: int = 0,
+        ttl_seconds: float | None = None,
+        max_count: int = 0,
+        max_bytes: int = 0,
+    ) -> list[PendingTransaction]:
+        """Atomically select drain candidates and mark them reserved — no delete.
+
+        P2-v2.4 §2: one backend transaction sweeps expired reservations,
+        orders candidates with the unchanged ``_order_for_drain`` over slim
+        columns, excludes rows under a live reservation owned by someone
+        else, then writes reservation markers and commits. The caller gets
+        the tx contents; the rows stay pooled until release or reconcile.
+
+        SQLite takes ``BEGIN IMMEDIATE`` on a dedicated connection so a
+        concurrent admission's write serializes behind the peek; PostgreSQL
+        serializes reservers on a transaction-scoped advisory lock (slot
+        advisory locks already bound the admission side).
+        """
+        from .config import settings
+
+        if ttl_seconds is None:
+            ttl_seconds = float(settings.mempool_reservation_ttl_seconds)
+        now = time.time()
+        expires = now + ttl_seconds
+
+        with self._lock:
+            if self._engine.dialect.name == "sqlite":
+                return self._peek_reserve_sqlite(
+                    chain_id,
+                    owner_id=owner_id,
+                    proposer=proposer,
+                    height=height,
+                    round=round,
+                    attempt_seq=attempt_seq,
+                    now=now,
+                    expires=expires,
+                    max_count=max_count,
+                    max_bytes=max_bytes,
+                )
+            return self._peek_reserve_session(
+                chain_id,
+                owner_id=owner_id,
+                proposer=proposer,
+                height=height,
+                round=round,
+                attempt_seq=attempt_seq,
+                now=now,
+                expires=expires,
+                max_count=max_count,
+                max_bytes=max_bytes,
+            )
+
+    def _live_reserved_hashes(self, session: Session, chain_id: str, now: float, exclude_owner: str) -> set[str]:
+        rows = session.execute(
+            text(
+                "SELECT tx_hash FROM mempool_reservation WHERE chain_id = :chain_id "
+                "AND state = 'reserved' AND expires_at > :now AND owner_id != :owner"
+            ),
+            {"chain_id": chain_id, "now": now, "owner": exclude_owner},
+        ).all()
+        return {r[0] for r in rows}
+
+    def _ordered_candidates(self, session: Session, chain_id: str) -> list[_DrainCand]:
+        entries = session.execute(
+            sa_select(
+                cast(Any, MempoolEntry.tx_hash),
+                cast(Any, MempoolEntry.fee),
+                cast(Any, MempoolEntry.size_bytes),
+                cast(Any, MempoolEntry.received_at),
+                cast(Any, MempoolEntry.sender),
+                cast(Any, MempoolEntry.nonce),
+            ).where(cast(Any, MempoolEntry.chain_id == chain_id))
+        ).all()
+        return list(
+            _order_for_drain(
+                _DrainCand(fee=f, tx_hash=h, size_bytes=s, sender=snd or None, nonce=n, payload=r)
+                for h, f, s, r, snd, n in entries
+            )
+        )
+
+    def _pick_within_bounds(
+        self, cands: list[_DrainCand], reserved: set[str], max_count: int, max_bytes: int
+    ) -> list[_DrainCand]:
+        """First-fit within count/byte bounds, skipping other-owner rows and
+        byte-blocked senders — mirrors drain()'s selection rules."""
+        picked: list[_DrainCand] = []
+        total_bytes = 0
+        blocked: set[str] = set()
+        for c in cands:
+            if c.tx_hash in reserved:
+                continue
+            if max_count and len(picked) >= max_count:
+                break
+            if c.sender is not None and c.sender in blocked:
+                continue
+            if max_bytes and total_bytes + c.size_bytes > max_bytes:
+                if c.sender is not None:
+                    blocked.add(c.sender)
+                continue
+            picked.append(c)
+            total_bytes += c.size_bytes
+        return picked
+
+    def _reserve_rows(
+        self,
+        session: Session,
+        chain_id: str,
+        picked: list[_DrainCand],
+        *,
+        owner_id: str,
+        proposer: str,
+        height: int | None,
+        round: int | None,
+        attempt_seq: int,
+        now: float,
+        expires: float,
+    ) -> None:
+        for c in picked:
+            session.execute(
+                text(
+                    "INSERT INTO mempool_reservation (chain_id, tx_hash, owner_id, attempt_seq, height, round, "
+                    "proposer, reserved_at, expires_at, state) VALUES (:chain_id, :tx_hash, :owner_id, :attempt_seq, "
+                    ":height, :round, :proposer, :now, :expires, 'reserved') "
+                    "ON CONFLICT (chain_id, tx_hash) DO UPDATE SET owner_id = :owner_id, attempt_seq = :attempt_seq, "
+                    "height = :height, round = :round, proposer = :proposer, reserved_at = :now, expires_at = :expires, "
+                    "state = 'reserved', release_reason = NULL, released_at = NULL "
+                    "WHERE mempool_reservation.state = 'released' OR mempool_reservation.owner_id = :owner_id"
+                ),
+                {
+                    "chain_id": chain_id,
+                    "tx_hash": c.tx_hash,
+                    "owner_id": owner_id,
+                    "attempt_seq": attempt_seq,
+                    "height": height,
+                    "round": round,
+                    "proposer": proposer,
+                    "now": now,
+                    "expires": expires,
+                },
+            )
+
+    def _contents_for(self, session: Session, chain_id: str, picked: list[_DrainCand]) -> list[PendingTransaction]:
+        if not picked:
+            return []
+        hashes = [c.tx_hash for c in picked]
+        content_by_hash = {
+            row[0]: row[1]
+            for row in session.exec(
+                select(MempoolEntry.tx_hash, MempoolEntry.content).where(
+                    MempoolEntry.chain_id == chain_id,
+                    MempoolEntry.tx_hash.in_(hashes),  # type: ignore[attr-defined]
+                )
+            ).all()
+        }
+        return [
+            PendingTransaction(
+                tx_hash=c.tx_hash,
+                content=json.loads(content_by_hash[c.tx_hash]),
+                fee=c.fee,
+                size_bytes=c.size_bytes,
+                received_at=c.payload,
+            )
+            for c in picked
+            if c.tx_hash in content_by_hash
+        ]
+
+    def _peek_reserve_session(self, chain_id: str, **kw: Any) -> list[PendingTransaction]:
+        owner_id = kw["owner_id"]
+        with Session(self._engine) as session:
+            if session.get_bind().dialect.name == "postgresql":
+                # Serialize reservers; admissions don't take this lock —
+                # they only add rows, which a later peek simply won't see.
+                session.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtext(:key))").bindparams(key=self._RESERVATION_ADVISORY_KEY)
+                )
+            self._sweep_expired_reservations(session, chain_id, kw["now"])
+            reserved = self._live_reserved_hashes(session, chain_id, kw["now"], owner_id)
+            picked = self._pick_within_bounds(
+                self._ordered_candidates(session, chain_id), reserved, kw["max_count"], kw["max_bytes"]
+            )
+            self._reserve_rows(
+                session,
+                chain_id,
+                picked,
+                now=kw["now"],
+                expires=kw["expires"],
+                **{k: kw[k] for k in ("owner_id", "proposer", "height", "round", "attempt_seq")},
+            )
+            result = self._contents_for(session, chain_id, picked)
+            session.commit()
+        self._update_gauge(chain_id)
+        return result
+
+    def _peek_reserve_sqlite(self, chain_id: str, **kw: Any) -> list[PendingTransaction]:
+        """BEGIN IMMEDIATE path: the write lock is taken up front so a
+        concurrent admission's write transaction serializes behind the peek
+        instead of observing pre-reservation state (P2-v2.4 §2/F5)."""
+        raw = self._engine.raw_connection()
+        try:
+            cur = raw.cursor()
+            cur.execute("BEGIN IMMEDIATE")
+            try:
+                now = kw["now"]
+                cur.execute(
+                    "UPDATE mempool_reservation SET state='released', release_reason='expired', released_at=? "
+                    "WHERE chain_id=? AND state='reserved' AND expires_at<=?",
+                    (now, chain_id, now),
+                )
+                cur.execute(
+                    "SELECT tx_hash FROM mempool_reservation WHERE chain_id=? AND state='reserved' "
+                    "AND expires_at>? AND owner_id!=?",
+                    (chain_id, now, kw["owner_id"]),
+                )
+                reserved = {r[0] for r in cur.fetchall()}
+                cur.execute(
+                    "SELECT tx_hash, fee, size_bytes, received_at, sender, nonce FROM mempool WHERE chain_id=?",
+                    (chain_id,),
+                )
+                rows = cur.fetchall()
+                # Reuse the ORM-free candidate ordering: build _DrainCand list.
+                cands = list(
+                    _order_for_drain(
+                        _DrainCand(fee=int(f), tx_hash=h, size_bytes=int(s), sender=snd or None, nonce=n, payload=r)
+                        for h, f, s, r, snd, n in rows
+                    )
+                )
+                picked = self._pick_within_bounds(cands, reserved, kw["max_count"], kw["max_bytes"])
+                for c in picked:
+                    cur.execute(
+                        "INSERT INTO mempool_reservation (chain_id, tx_hash, owner_id, attempt_seq, height, round, "
+                        "proposer, reserved_at, expires_at, state) VALUES (?,?,?,?,?,?,?,?,?,'reserved') "
+                        "ON CONFLICT (chain_id, tx_hash) DO UPDATE SET owner_id=excluded.owner_id, "
+                        "attempt_seq=excluded.attempt_seq, height=excluded.height, round=excluded.round, "
+                        "proposer=excluded.proposer, reserved_at=excluded.reserved_at, "
+                        "expires_at=excluded.expires_at, state='reserved', release_reason=NULL, released_at=NULL "
+                        "WHERE mempool_reservation.state='released' OR mempool_reservation.owner_id=excluded.owner_id",
+                        (
+                            chain_id,
+                            c.tx_hash,
+                            kw["owner_id"],
+                            kw["attempt_seq"],
+                            kw["height"],
+                            kw["round"],
+                            kw["proposer"],
+                            now,
+                            kw["expires"],
+                        ),
+                    )
+                hashes = [c.tx_hash for c in picked]
+                content_by_hash: dict[str, str] = {}
+                if hashes:
+                    marks = ",".join("?" for _ in hashes)
+                    cur.execute(
+                        f"SELECT tx_hash, content FROM mempool WHERE chain_id=? AND tx_hash IN ({marks})",  # nosec B608 — marks is only '?' placeholders
+                        (chain_id, *hashes),
+                    )
+                    content_by_hash = {r[0]: r[1] for r in cur.fetchall()}
+                cur.execute("COMMIT")
+            except BaseException:
+                cur.execute("ROLLBACK")
+                raise
+            finally:
+                cur.close()
+        finally:
+            raw.close()
+        self._update_gauge(chain_id)
+        return [
+            PendingTransaction(
+                tx_hash=c.tx_hash,
+                content=json.loads(content_by_hash[c.tx_hash]),
+                fee=c.fee,
+                size_bytes=c.size_bytes,
+                received_at=c.payload,
+            )
+            for c in picked
+            if c.tx_hash in content_by_hash
+        ]
+
+    def _release_update(
+        self,
+        session: Session,
+        chain_id: str,
+        reason: str,
+        *,
+        tx_hashes: Iterable[str] | None = None,
+        owner_id: str | None = None,
+        now: float | None = None,
+    ) -> int:
+        now = now if now is not None else time.time()
+        clauses = ["chain_id = :chain_id", "state = 'reserved'"]
+        params: dict[str, Any] = {"chain_id": chain_id, "reason": reason, "now": now}
+        if tx_hashes is not None:
+            hashes = list(tx_hashes)
+            if not hashes:
+                return 0
+            clauses.append("tx_hash IN :hashes")
+            params["hashes"] = tuple(hashes)
+        if owner_id is not None:
+            clauses.append("owner_id = :owner_id")
+            params["owner_id"] = owner_id
+        stmt = text(
+            "UPDATE mempool_reservation SET state='released', release_reason=:reason, released_at=:now "
+            f"WHERE {' AND '.join(clauses)}"  # nosec B608 — clauses are static literals, values are bound params
+        )
+        if tx_hashes is not None:
+            stmt = stmt.bindparams(bindparam("hashes", expanding=True))
+        result = session.execute(stmt, params)
+        count = cast(Any, result).rowcount or 0
+        if count:
+            mempool_reservation_release_total.labels(chain_id=chain_id, reason=reason).inc(count)
+        return count
+
+    def release_reservations(self, chain_id: str, tx_hashes: Iterable[str], reason: str, owner_id: str | None = None) -> int:
+        """Release specific reservations (owner release, outbid, sealed…)."""
+        with self._lock:
+            with Session(self._engine) as session:
+                count = self._release_update(session, chain_id, reason, tx_hashes=tx_hashes, owner_id=owner_id)
+                session.commit()
+        return count
+
+    def release_owner_reservations(self, chain_id: str, owner_id: str, reason: str) -> int:
+        """Release every live reservation held by one owner (abort/rotate)."""
+        with self._lock:
+            with Session(self._engine) as session:
+                count = self._release_update(session, chain_id, reason, owner_id=owner_id)
+                session.commit()
+        return count
+
+    def live_reservations(self, chain_id: str, *, now: float | None = None) -> dict[str, str]:
+        """tx_hash -> owner_id for live reservations on a chain."""
+        now = now if now is not None else time.time()
+        with self._lock:
+            with Session(self._engine) as session:
+                rows = session.execute(
+                    text(
+                        "SELECT tx_hash, owner_id FROM mempool_reservation WHERE chain_id=:chain_id "
+                        "AND state='reserved' AND expires_at>:now"
+                    ),
+                    {"chain_id": chain_id, "now": now},
+                ).all()
+        return {r[0]: r[1] for r in rows}
+
+    def reconcile_sealed(self, chain_id: str, sealed_tx_hashes: Iterable[str]) -> int:
+        """Evict pooled rows the chain has sealed and release their markers.
+
+        ``sealed_tx_hashes`` must come from the caller's chain-side check —
+        the mempool database is separate from chain.db, so the
+        ``status='confirmed' AND block_height IS NOT NULL`` predicate is
+        enforced by whoever supplies the set (import path, sweeper). A
+        NULL-height row is NOT sealed and must never appear in the set —
+        that is the height_recorded edge: pending writeback rows keep
+        their pool entry until a real seal.
+        """
+        hashes = list(dict.fromkeys(sealed_tx_hashes))
+        if not hashes:
+            return 0
+        with self._lock:
+            with Session(self._engine) as session:
+                removed = session.exec(
+                    delete(MempoolEntry).where(
+                        MempoolEntry.chain_id == chain_id,  # type: ignore[arg-type]
+                        MempoolEntry.tx_hash.in_(hashes),  # type: ignore[attr-defined]
+                    )
+                )
+                released = self._release_update(session, chain_id, "sealed_reconciled", tx_hashes=hashes)
+                session.commit()
+                count = removed.rowcount if removed.rowcount is not None else 0
+            if count or released:
+                self._update_gauge(chain_id)
+        return count
 
     def evict_expired(self, max_age: float) -> int:
         """Delete entries older than ``max_age`` seconds, across every chain.
@@ -1058,16 +1675,43 @@ class DatabaseMempool:
         cutoff = time.time() - max_age
         with self._lock:
             with Session(self._engine) as session:
+                # #1300: age eviction must not take a row mid-attempt —
+                # reserved entries re-enter eligibility only via owner
+                # release or TTL expiry (P2-v2.4 §2 deleter map).
+                now = time.time()
                 stale_chains = session.exec(select(MempoolEntry.chain_id).where(MempoolEntry.received_at < cutoff)).all()
                 if not stale_chains:
                     return 0
-                result = session.exec(
-                    delete(MempoolEntry).where(MempoolEntry.received_at < cutoff)  # type: ignore[arg-type]
-                )
+                reserved_by_chain: dict[str, set[str]] = {}
+                for cid in set(stale_chains):
+                    reserved_by_chain[cid] = self._live_reserved_set(session, cid, now)
+                # Delete per-chain with the reserved exclusion applied.
+                total_removed = 0
+                removed_by_chain: dict[str, int] = {}
+                for cid in set(stale_chains):
+                    keep = reserved_by_chain.get(cid, set())
+                    cid_rows = session.exec(
+                        select(MempoolEntry.tx_hash).where(
+                            MempoolEntry.chain_id == cid,
+                            MempoolEntry.received_at < cutoff,
+                        )
+                    ).all()
+                    cid_hashes = [r[0] for r in cid_rows if r[0] not in keep]
+                    if not cid_hashes:
+                        continue
+                    res = session.exec(
+                        delete(MempoolEntry).where(
+                            MempoolEntry.chain_id == cid,  # type: ignore[arg-type]
+                            MempoolEntry.tx_hash.in_(cid_hashes),  # type: ignore[attr-defined]
+                        )
+                    )
+                    n = res.rowcount if res.rowcount is not None else len(cid_hashes)
+                    total_removed += n
+                    removed_by_chain[cid] = n
                 session.commit()
-                removed = result.rowcount if result.rowcount is not None else len(stale_chains)
-            for chain_id in set(stale_chains):
-                metrics_registry.increment(f"mempool_evictions_total_{chain_id}", float(stale_chains.count(chain_id)))
+                removed = total_removed
+            for chain_id in removed_by_chain:
+                metrics_registry.increment(f"mempool_evictions_total_{chain_id}", float(removed_by_chain[chain_id]))
                 self._update_gauge(chain_id)
         return removed
 
