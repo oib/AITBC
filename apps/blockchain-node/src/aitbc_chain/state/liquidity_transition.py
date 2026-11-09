@@ -18,6 +18,8 @@ from sqlmodel import Session
 from ..base_models import _to_ait_address
 from ..logger import get_logger
 from ..models import Account
+from ..v24_rules import v24_rules_is_active
+from .authoritative_reads import read_current_account
 from .liquidity import (
     _ensure_pool_accounts,
     _generate_stake_id,
@@ -94,8 +96,15 @@ def apply_liquidity_deposit(
     if not sender_account:
         return (False, f"Sender account not found: {sender}")
     total_cost = value + fee
-    if sender_account.balance < total_cost:
-        return (False, f"Insufficient balance: {sender_account.balance} < {total_cost}")
+    if v24_rules_is_active():
+        # #1314 V7: scalar authoritative balance — bypasses identity-map
+        # staleness after earlier same-block raw-SQL writes.
+        _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender)
+        sender_balance = _sbal if _sbal is not None else 0
+    else:
+        sender_balance = sender_account.balance
+    if sender_balance < total_cost:
+        return (False, f"Insufficient balance: {sender_balance} < {total_cost}")
 
     _debit_nonce(session, chain_id, sender, value, fee)
     main_account.balance += value
@@ -164,8 +173,13 @@ def apply_liquidity_claim(
     sender_account = session.get(Account, (chain_id, sender))
     if not sender_account:
         return (False, f"Sender account not found: {sender}")
-    if sender_account.balance < fee:
-        return (False, f"Insufficient balance for fee: {sender_account.balance} < {fee}")
+    if v24_rules_is_active():
+        _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender)
+        sender_fee_balance = _sbal if _sbal is not None else 0
+    else:
+        sender_fee_balance = sender_account.balance
+    if sender_fee_balance < fee:
+        return (False, f"Insufficient balance for fee: {sender_fee_balance} < {fee}")
 
     pool = _get_or_create_pool(session, chain_id, pool_id)
 
@@ -190,8 +204,13 @@ def apply_liquidity_claim(
 
     accounts = _ensure_pool_accounts(session, chain_id)
     treasury_account = accounts[pool_treasury_address()]
-    if treasury_account.balance < rewards:
-        return (False, f"Pool treasury has insufficient rewards: {treasury_account.balance} < {rewards}")
+    if v24_rules_is_active():
+        _tbal, _tnonce, _texists = read_current_account(session, chain_id, pool_treasury_address())
+        treasury_balance = _tbal if _tbal is not None else 0
+    else:
+        treasury_balance = treasury_account.balance
+    if treasury_balance < rewards:
+        return (False, f"Pool treasury has insufficient rewards: {treasury_balance} < {rewards}")
 
     # Debit sender fee
     session.execute(
@@ -253,8 +272,13 @@ def apply_liquidity_withdraw(
     sender_account = session.get(Account, (chain_id, sender))
     if not sender_account:
         return (False, f"Sender account not found: {sender}")
-    if sender_account.balance < fee:
-        return (False, f"Insufficient balance for fee: {sender_account.balance} < {fee}")
+    if v24_rules_is_active():
+        _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender)
+        sender_fee_balance = _sbal if _sbal is not None else 0
+    else:
+        sender_fee_balance = sender_account.balance
+    if sender_fee_balance < fee:
+        return (False, f"Insufficient balance for fee: {sender_fee_balance} < {fee}")
 
     pool = _get_or_create_pool(session, chain_id, pool_id)
 
@@ -267,10 +291,18 @@ def apply_liquidity_withdraw(
     treasury_account = accounts[pool_treasury_address()]
 
     total_return = stake.amount + rewards
-    if main_account.balance < stake.amount:
-        return (False, f"Pool main reserves insufficient: {main_account.balance} < {stake.amount}")
-    if rewards > 0 and treasury_account.balance < rewards:
-        return (False, f"Pool treasury has insufficient rewards: {treasury_account.balance} < {rewards}")
+    if v24_rules_is_active():
+        _mbal, _mnonce, _mexists = read_current_account(session, chain_id, pool_main_address())
+        main_balance = _mbal if _mbal is not None else 0
+        _tbal2, _tnonce2, _texists2 = read_current_account(session, chain_id, pool_treasury_address())
+        treasury_balance2 = _tbal2 if _tbal2 is not None else 0
+    else:
+        main_balance = main_account.balance
+        treasury_balance2 = treasury_account.balance
+    if main_balance < stake.amount:
+        return (False, f"Pool main reserves insufficient: {main_balance} < {stake.amount}")
+    if rewards > 0 and treasury_balance2 < rewards:
+        return (False, f"Pool treasury has insufficient rewards: {treasury_balance2} < {rewards}")
 
     # Debit fee
     session.execute(

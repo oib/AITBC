@@ -57,6 +57,7 @@ GATE_ATTRS: tuple[str, ...] = (
     "state_transition_v21_height",
     "state_transition_v22_height",
     "state_transition_v23_height",
+    "state_transition_v24_height",
     "bridge_lock_leaf_v2_height",
     "escrow_fee_sweep_pass_min_height",
 )
@@ -84,6 +85,7 @@ DEPLOYED_PINS: dict[str, int] = {
     "state_transition_v21_height": 0,
     "state_transition_v22_height": 0,
     "state_transition_v23_height": 0,
+    "state_transition_v24_height": 0,
     "bridge_lock_leaf_v2_height": 51000,
     "escrow_fee_sweep_pass_min_height": 35400,
 }

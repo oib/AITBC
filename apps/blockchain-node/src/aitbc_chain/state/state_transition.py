@@ -20,6 +20,8 @@ from sqlmodel import Session, select
 from ..config import settings
 from ..logger import get_logger
 from ..metrics import metrics_registry
+from ..v24_rules import v24_rules_active, v24_rules_is_active
+from .authoritative_reads import read_current_account
 from ..chain_isolation_metrics import (
     record_chain_id_validation_failure,
     record_chain_isolation_violation,
@@ -330,7 +332,9 @@ def bond_tx_verdict(
     now = _bond_verdict_now(block_time)
     if tx_type == "BOND_LOCK":
         return _bond_lock_verdict(session, chain_id, bond_id, payload, sender_addr, recipient, value, now=now)
-    return _bond_release_verdict(session, chain_id, bond_id, sender_addr, recipient, value, now=now)
+    return _bond_release_verdict(
+        session, chain_id, bond_id, sender_addr, recipient, value, now=now, block_version=block_version
+    )
 
 
 def _bond_verdict_now(block_time: datetime | None) -> datetime:
@@ -394,6 +398,7 @@ def _bond_release_verdict(
     value: Any,
     *,
     now: datetime,
+    block_version: int,
 ) -> str | None:
     """v22 BOND_RELEASE verdict: provider recipient, zero value, active bond,
     persisted-provider binding, expiry/amount/escrow sufficiency."""
@@ -408,10 +413,12 @@ def _bond_release_verdict(
         return f"unknown or inactive bond {bond_id}"
     if _to_ait_address(bond.provider or "") != sender_addr:
         return "not signed by the bond provider"
-    return _bond_release_row_verdict(session, chain_id, bond, bond_id, now)
+    return _bond_release_row_verdict(session, chain_id, bond, bond_id, now, block_version=block_version)
 
 
-def _bond_release_row_verdict(session: Session, chain_id: str, bond: Bond, bond_id: str, now: datetime) -> str | None:
+def _bond_release_row_verdict(
+    session: Session, chain_id: str, bond: Bond, bond_id: str, now: datetime, *, block_version: int
+) -> str | None:
     """Expiry (NULL fails closed), positive amount, escrow sufficiency."""
     if bond.locked_until is None:
         return "no lock expiry recorded"
@@ -422,9 +429,18 @@ def _bond_release_row_verdict(session: Session, chain_id: str, bond: Bond, bond_
         return f"lock period for {bond_id} has not expired"
     if bond.amount <= 0:
         return "bond has nothing to release"
-    escrow = session.get(Account, (chain_id, _BOND_ESCROW_ADDRESS))
-    escrow_balance = escrow.balance if escrow is not None else 0
-    if escrow_balance < bond.amount:
+    if block_version >= 24 or v24_rules_is_active():
+        # #1314 V3: authoritative scalar escrow-balance read — bypasses
+        # identity-map staleness. The version term covers admission callers
+        # outside the apply contextvar; the contextvar covers in-apply ones.
+        _bal, _nonce, escrow_exists = read_current_account(session, chain_id, _BOND_ESCROW_ADDRESS)
+        escrow_balance = _bal if _bal is not None else 0
+        escrow_missing = not escrow_exists
+    else:
+        escrow = session.get(Account, (chain_id, _BOND_ESCROW_ADDRESS))
+        escrow_balance = escrow.balance if escrow is not None else 0
+        escrow_missing = escrow is None
+    if escrow_missing or escrow_balance < bond.amount:
         return f"escrow balance {escrow_balance} below release amount {bond.amount}"
     return None
 
@@ -605,7 +621,9 @@ _EXECUTOR_MIN_BALANCE_UNITS = DEFAULT_TX_FEE_UNITS
 _ZERO_ADDRESS = "0x" + "00" * 20
 
 
-def _validate_authority_parameter_value(session: Session, chain_id: str, parameter: str, value: Any, fee: int) -> str | None:
+def _validate_authority_parameter_value(
+    session: Session, chain_id: str, parameter: str, value: Any, fee: int, *, block_version: int
+) -> str | None:
     """v12 value check for a ``parameter_change`` to an authority parameter.
 
     Returns the rejection message — ``GOVERNANCE_EXECUTE rejected: <parameter>
@@ -645,8 +663,17 @@ def _validate_authority_parameter_value(session: Session, chain_id: str, paramet
     if parameter == "governance_executors":
         funded = False
         for address in canonical:
-            account = session.get(Account, (chain_id, address))
-            if account is not None and account.balance >= _EXECUTOR_MIN_BALANCE_UNITS:
+            if block_version >= 24 or v24_rules_is_active():
+                # #1314 V2: scalar authoritative balance — bypasses
+                # identity-map staleness for executor funding checks. The
+                # version term covers admission callers outside the apply
+                # contextvar; the contextvar covers in-apply callers.
+                _bal, _nonce, _exists = read_current_account(session, chain_id, address)
+                balance = _bal if _bal is not None else 0
+            else:
+                account = session.get(Account, (chain_id, address))
+                balance = account.balance if account is not None else 0
+            if balance >= _EXECUTOR_MIN_BALANCE_UNITS:
                 funded = True
                 break
         if not funded:
@@ -886,7 +913,9 @@ def _authority_parameter_change_error(
     parameter = execution_payload.get("parameter")
     if parameter not in _AUTHORITY_PARAMETERS:
         return None
-    return _validate_authority_parameter_value(session, chain_id, parameter, execution_payload.get("value"), fee)
+    return _validate_authority_parameter_value(
+        session, chain_id, parameter, execution_payload.get("value"), fee, block_version=block_version
+    )
 
 
 def _get_escrow_lock(session: Session, chain_id: str, job_id: str) -> Transaction | None:
@@ -1376,6 +1405,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v24_threshold = getattr(settings, "state_transition_v24_height", None)
+    if v24_threshold and height >= v24_threshold:
+        return 24
     v23_threshold = getattr(settings, "state_transition_v23_height", None)
     if v23_threshold and height >= v23_threshold:
         return 23
@@ -1929,14 +1961,23 @@ class StateTransition:
             sender_account = session.get(Account, (chain_id, sender_addr))
             if not sender_account:
                 return (False, f"Sender account not found: {sender_addr}")
-            if block_version >= 23:
+            if block_version >= 24:
+                # #1314 V4: scalar authoritative balance read — supersedes the
+                # v23 session.refresh pattern (same freshness guarantee
+                # without touching the identity-mapped object).
+                _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender_addr)
+                sender_balance = _sbal if _sbal is not None else 0
+            elif block_version >= 23:
                 # v23: earlier txs in this block updated the row with raw
                 # SQL, leaving this retained ORM object stale — reload it
                 # so the balance check sees post-tx state.
                 session.refresh(sender_account)
+                sender_balance = sender_account.balance
+            else:
+                sender_balance = sender_account.balance
             total_cost = value + fee
-            if sender_account.balance < total_cost:
-                return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
+            if sender_balance < total_cost:
+                return (False, f"Insufficient balance for {sender_addr}: {sender_balance} < {total_cost}")
             return (True, "Pre-registered bridge lock validated")
         if tx_type == "BRIDGE_WITHDRAW":
             # User-signed burn of AIT in exchange for an off-chain ETH release.
@@ -1979,7 +2020,18 @@ class StateTransition:
             if auth is not None and not self._verify_payload_auth(tx_type, auth, tx_data):
                 return (False, f"Invalid payload auth signature for transaction {tx_hash}")
         sender_account = session.get(Account, (chain_id, sender_addr))
-        if not sender_account:
+        if block_version >= 24:
+            # #1314 V4: scalar authoritative nonce/balance — covers both the
+            # exists and missing-sender cases without an identity-map read.
+            _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender_addr)
+            if not _sexists:
+                # v22+ virtual (balance=0, nonce=0) semantics preserved.
+                sender_nonce = 0
+                sender_balance = 0
+            else:
+                sender_nonce = _snonce
+                sender_balance = _sbal if _sbal is not None else 0
+        elif not sender_account:
             if block_version < 22:
                 return (False, f"Sender account not found: {sender_addr}")
             # v22 R1 (CONSENSUS-STATE-001): a missing sender reads as a
@@ -2147,10 +2199,17 @@ class StateTransition:
             if lock_version >= 3:
                 # Funds are in the per-escrow address.
                 escrow_addr = _escrow_address(job_id)
-                escrow_account = session.get(Account, (chain_id, escrow_addr))
-                if escrow_account is None or escrow_account.balance < value:
-                    escrow_bal = escrow_account.balance if escrow_account else 0
-                    return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
+                if block_version >= 24:
+                    # #1314 V1: authoritative scalar custody read — bypasses
+                    # identity-map staleness after raw-SQL writes.
+                    _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                    escrow_balance = _ebal if _ebal is not None else 0
+                else:
+                    escrow_account = session.get(Account, (chain_id, escrow_addr))
+                    escrow_exists = escrow_account is not None
+                    escrow_balance = escrow_account.balance if escrow_account else 0
+                if not escrow_exists or escrow_balance < value:
+                    return (False, f"Escrow {job_id} has insufficient balance: {escrow_balance} < {value}")
                 # The settlement authority pays only the fee, not the value.
                 if sender_balance < fee:
                     return (False, f"Insufficient balance for fee: {sender_balance} < {fee}")
@@ -2187,10 +2246,15 @@ class StateTransition:
             if _to_ait_address(recipient_addr) != fee_recipient:
                 return (False, f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {recipient_addr}")
             escrow_addr = _escrow_address(job_id)
-            escrow_account = session.get(Account, (chain_id, escrow_addr))
-            if escrow_account is None or escrow_account.balance < value:
-                escrow_bal = escrow_account.balance if escrow_account else 0
-                return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
+            if block_version >= 24:
+                _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                escrow_balance = _ebal if _ebal is not None else 0
+            else:
+                escrow_account = session.get(Account, (chain_id, escrow_addr))
+                escrow_exists = escrow_account is not None
+                escrow_balance = escrow_account.balance if escrow_account else 0
+            if not escrow_exists or escrow_balance < value:
+                return (False, f"Escrow {job_id} has insufficient balance: {escrow_balance} < {value}")
             if block_version >= 23:
                 # v23: a sweep may take custody residue plus the governed fee
                 # allowance (#1261) — never more of the job's outstanding
@@ -2207,7 +2271,7 @@ class StateTransition:
                         False,
                         f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing",
                     )
-                custody = escrow_account.balance if escrow_account else 0
+                custody = escrow_balance
                 sweepable = escrow_sweep_ceiling(custody, obligation["remaining"], obligation["fee_allowance"])
                 if value > sweepable:
                     return (
@@ -2665,9 +2729,15 @@ class StateTransition:
                         ),
                         {"value": value, "chain_id": chain_id, "sender_addr": sender_addr},
                     )
-                    escrow_account = session.get(Account, (chain_id, escrow_addr))
-                    if escrow_account is None or escrow_account.balance < value:
-                        raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                    if block_version >= 24:
+                        _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                        escrow_balance = _ebal if _ebal is not None else 0
+                        if not escrow_exists or escrow_balance < value:
+                            raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                    else:
+                        escrow_account = session.get(Account, (chain_id, escrow_addr))
+                        if escrow_account is None or escrow_account.balance < value:
+                            raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
                     session.execute(
                         text(
                             "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :escrow_addr"
@@ -2706,9 +2776,15 @@ class StateTransition:
                     ),
                     {"value": value, "chain_id": chain_id, "sender_addr": sender_addr},
                 )
-                escrow_account = session.get(Account, (chain_id, escrow_addr))
-                if escrow_account is None or escrow_account.balance < value:
-                    raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                if block_version >= 24:
+                    _ebal, _enonce, escrow_exists = read_current_account(session, chain_id, escrow_addr)
+                    escrow_balance = _ebal if _ebal is not None else 0
+                    if not escrow_exists or escrow_balance < value:
+                        raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                else:
+                    escrow_account = session.get(Account, (chain_id, escrow_addr))
+                    if escrow_account is None or escrow_account.balance < value:
+                        raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
                 session.execute(
                     text(
                         "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :escrow_addr"
@@ -2920,7 +2996,13 @@ class StateTransition:
             session.begin()
         savepoint = session.begin_nested()
         try:
-            result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
+            if block_version >= 24:
+                # #1314 R1: identity-map invalidation after raw-SQL writes is
+                # active for the duration of this transaction's apply.
+                with v24_rules_active():
+                    result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
+            else:
+                result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
         except Exception:
             savepoint.rollback()
             raise

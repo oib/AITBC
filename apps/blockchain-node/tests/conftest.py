@@ -30,7 +30,7 @@ from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Block, Receipt, Transaction  # noqa: F401 - ensure models imported for metadata
 from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, create_engine
+from sqlmodel import create_engine
 
 
 # Chain IDs used by isolated blockchain-node tests. AITBC's real chain whitelist
@@ -209,7 +209,11 @@ def engine_fixture():
 
 @pytest.fixture(name="session")
 def session_fixture(engine):
-    with Session(engine) as session:
+    # #1314: parity with production sessions (autoflush=False,
+    # expire_on_commit=False) — plain Session(engine) diverges.
+    from aitbc_chain.database import prod_parity_sessionmaker
+
+    with prod_parity_sessionmaker(bind=engine)() as session:
         yield session
         session.rollback()
 
