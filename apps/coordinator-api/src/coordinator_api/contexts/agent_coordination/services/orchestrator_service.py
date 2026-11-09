@@ -266,7 +266,9 @@ class AIAgentOrchestrator:
             for step_id in step_order:
                 step = next(s for s in steps if s.id == step_id)
                 step_result = await self._execute_single_step(execution_id, step, current_inputs)
-                step_results[step_id] = step_result
+                # step_states/final_result are JSON columns — store a
+                # serializable dump, not the ORM instance.
+                step_results[step_id] = step_result.model_dump(mode="json")
                 if step_result.output_data:
                     current_inputs.update(step_result.output_data)
                 await self.state_manager.update_execution_status(
@@ -404,7 +406,11 @@ class AIAgentOrchestrator:
         """Mark execution as completed"""
         completed_at = datetime.now(UTC)
         execution = await self.state_manager.get_execution(execution_id)
-        total_execution_time = (completed_at - execution.started_at).total_seconds() if execution.started_at else 0.0  # type: ignore[union-attr]
+        started_at = execution.started_at  # type: ignore[union-attr]
+        if started_at is not None and started_at.tzinfo is None:
+            # SQLite round-trips datetimes without tzinfo — normalize before subtracting
+            started_at = started_at.replace(tzinfo=UTC)
+        total_execution_time = (completed_at - started_at).total_seconds() if started_at else 0.0
         await self.state_manager.update_execution_status(
             execution_id,
             status=AgentStatus.COMPLETED,
