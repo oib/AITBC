@@ -4,7 +4,7 @@ REST API endpoints for multi-jurisdictional DAO governance, regional councils, t
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -495,30 +495,12 @@ def check_compliance_status(
 ) -> dict[str, Any]:
     """Check compliance status for a user in a specific jurisdiction"""
 
-    try:
-        # Mock compliance check - would integrate with real compliance systems
-        compliance_status = {
-            "user_address": user_address,
-            "jurisdiction": jurisdiction,
-            "is_compliant": True,
-            "compliance_level": "full",
-            "last_check": datetime.now(UTC).isoformat(),
-            "requirements_met": {
-                "kyc_verified": True,
-                "aml_screened": True,
-                "tax_id_provided": True,
-                "minimum_stake_met": True,
-            },
-            "restrictions": [],
-            "next_review_date": (datetime.now(UTC) + timedelta(days=365)).isoformat(),
-        }
-
-        return compliance_status
-
-    except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    # No real compliance/KYC integration exists — returning a hardcoded
+    # is_compliant=True for any address was fabricated approval (#1345).
+    raise HTTPException(
+        status_code=501,
+        detail="Compliance checking is not implemented: no KYC/AML provider is integrated",
+    )
 
 
 # System Health and Status
@@ -617,9 +599,9 @@ async def get_governance_platform_status(
             },
             "performance": {
                 "average_proposal_time": "2.5 days",
-                "voting_participation": f"{analytics['voting']['average_voter_participation']}%",
-                "treasury_utilization": f"{analytics['treasury']['utilization_rate']}%",
-                "staking_apy": f"{analytics['staking']['average_apy']}%",
+                "voting_participation": f"{analytics['proposals'].get('participation_rate', 0.0)}%",
+                "treasury_utilization": "0.0%",
+                "staking_apy": "0.0%",
             },
             "last_updated": datetime.now(UTC).isoformat(),
         }

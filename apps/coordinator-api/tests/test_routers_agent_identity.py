@@ -7,7 +7,6 @@ export/import, registry health/stats, and cross-chain mapping reads.
 
 from __future__ import annotations
 
-import pytest
 
 from fastapi.testclient import TestClient
 
@@ -66,24 +65,8 @@ class TestIdentityLifecycle:
         resp = client.get(f"{BASE}/identities/ghost-agent", headers=_admin())
         assert resp.status_code in (404, 400)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1346: bare `chains: list[int] | None` is parsed by FastAPI as a required BODY param on a GET — plain GET search always 422",
-    )
     def test_search_shape(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/identities/search", params={"q": "test", "chains": "1"}, headers=_admin())
-        assert resp.status_code == 200
-
-    def test_search_with_body_contract(self, client: TestClient) -> None:
-        # documents the actual (defective) contract while #1346 is open:
-        # the endpoint only responds when a JSON body is supplied on GET
-        resp = client.request(
-            "GET",
-            f"{BASE}/identities/search",
-            params={"q": "test"},
-            json=[1],
-            headers=_admin(),
-        )
         assert resp.status_code == 200
 
     def test_deactivate(self, client: TestClient) -> None:

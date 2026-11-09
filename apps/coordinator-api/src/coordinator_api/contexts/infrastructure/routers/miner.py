@@ -365,7 +365,10 @@ async def poll(
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
 ) -> AssignedJob | Response:
-    job = await run_in_threadpool(MinerService(session).poll, user["sub"], req.max_wait_seconds)
+    try:
+        job = await run_in_threadpool(MinerService(session).poll, user["sub"], req.max_wait_seconds)
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not registered") from None
     if job is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     return job  # type: ignore[no-any-return]

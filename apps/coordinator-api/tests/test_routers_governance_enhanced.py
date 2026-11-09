@@ -9,7 +9,6 @@ it); tests pin the service contracts and flag anything fabricated.
 
 from __future__ import annotations
 
-import pytest
 
 from fastapi.testclient import TestClient
 
@@ -25,10 +24,6 @@ class TestGovernanceReads:
         resp = client.get(f"{BASE}/health")
         assert resp.status_code == 200
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1344: /status reads analytics['voting']/['treasury']['utilization_rate']/['staking']['average_apy'] — keys the service never returns -> KeyError -> always 500",
-    )
     def test_status_shape(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/status")
         assert resp.status_code == 200
@@ -56,10 +51,6 @@ class TestGovernanceReads:
         resp = client.get(f"{BASE}/analytics/governance")
         assert resp.status_code in (200, 503)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#1345: endpoint returns hardcoded is_compliant=True for any address — fabricated compliance approval on a mounted route",
-    )
     def test_compliance_check_shape(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/compliance/check/0x" + "11" * 20, params={"jurisdiction": "eu"})
         assert resp.status_code == 501
