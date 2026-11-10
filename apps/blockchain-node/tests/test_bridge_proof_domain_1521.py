@@ -18,6 +18,8 @@ verify path on a real ``CrossChainBridge`` (same harness as
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -37,6 +39,13 @@ from aitbc_chain.config import bridge_header_signature_domains, bridge_header_si
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Block
+
+# Sibling test-module import: only resolves under the app's own pyproject
+# (pythonpath includes tests/). Under the repo-root pytest config the
+# tests dir is not importable, so put it on sys.path explicitly (#1655).
+_tests_dir = str(Path(__file__).resolve().parent)
+if _tests_dir not in sys.path:
+    sys.path.insert(0, _tests_dir)
 
 from test_bridge_proof_signature_augmentation import (
     HEIGHT,
