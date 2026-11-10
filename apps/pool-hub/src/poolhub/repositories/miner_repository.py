@@ -143,11 +143,43 @@ class MinerRepository:
     async def get_status(self, miner_id: str) -> MinerStatus | None:
         return await self._session.get(MinerStatus, miner_id)
 
-    async def list_active_miners(self) -> list[tuple[Miner, MinerStatus | None, float]]:
+    async def list_active_miners(
+        self, fresh_window_seconds: float | None = None
+    ) -> list[tuple[Miner, MinerStatus | None, float]]:
+        """Miners that checked in recently enough to be matchable (#1554).
+
+        Postgres miner/miner_status rows never expire, so without a freshness
+        filter a dead miner stayed matchable forever. The window defaults to
+        ``heartbeat_grace_seconds + session_ttl_seconds`` — the same bound the
+        Redis ranking keys already use. A miner counts as fresh on its most
+        recent contact of either kind (heartbeat or status update).
+        """
+        window = (
+            fresh_window_seconds
+            if fresh_window_seconds is not None
+            else float(settings.heartbeat_grace_seconds + settings.session_ttl_seconds)
+        )
+        cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=window)
         stmt = select(Miner, MinerStatus).join(MinerStatus, MinerStatus.miner_id == Miner.miner_id, isouter=True)
         result = await self._session.execute(stmt)
         records: list[tuple[Miner, MinerStatus | None, float]] = []
+
+        def _aware(value: dt.datetime) -> dt.datetime:
+            # sqlite drops tzinfo on DateTime(timezone=True) round-trips;
+            # treat naive values as already-UTC (same convention as the SLA
+            # collector's _as_utc).
+            return value if value.tzinfo is not None else value.replace(tzinfo=dt.UTC)
+
         for miner, status in result.all():
+            last_seen = _aware(miner.last_seen_at) if miner.last_seen_at is not None else None
+            if status is not None and status.last_heartbeat_at is not None:
+                hb = _aware(status.last_heartbeat_at)
+                if last_seen is None or hb > last_seen:
+                    last_seen = hb
+            if last_seen is None:
+                continue
+            if last_seen < cutoff:
+                continue
             score = self._compute_score(miner, status)
             records.append((miner, status, score))
         return records

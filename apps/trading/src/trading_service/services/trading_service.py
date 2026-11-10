@@ -12,7 +12,7 @@ from uuid import uuid4
 from pydantic import ValidationError
 from sqlalchemy import and_, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from ..domain.trading import (
     NegotiationStatus,
@@ -25,6 +25,17 @@ from ..domain.trading import (
     TradeStatus,
     TradeType,
 )
+
+_DEFAULT_SETTLEMENT_TTL_SECONDS = 7 * 24 * 3600
+
+
+def _settlement_ttl() -> timedelta:
+    """Settlement lifetime before a stuck SETTLING row is failed (#1554)."""
+    try:
+        seconds = int(os.environ.get("TRADE_SETTLEMENT_TTL_SECONDS", str(_DEFAULT_SETTLEMENT_TTL_SECONDS)))
+    except (TypeError, ValueError):
+        seconds = _DEFAULT_SETTLEMENT_TTL_SECONDS
+    return timedelta(seconds=max(60, seconds))
 
 
 _REQUEST_SERVER_FIELDS = frozenset(
@@ -82,6 +93,7 @@ _SETTLEMENT_SERVER_FIELDS = frozenset(
         "transaction_hash",
         "block_number",
         "dispute_raised",
+        "expires_at",
     }
 )
 
@@ -358,16 +370,48 @@ class TradingService:
         return agreement
 
     async def create_settlement(self, settlement_data: dict[str, Any]) -> TradeSettlement:
-        """Create a new trade settlement"""
+        """Create a new trade settlement.
+
+        #1554: settlements get a finite lifetime — TRADE_SETTLEMENT_TTL_SECONDS
+        (default 7d, mirroring the inter-chain trade TTL). Stale SETTLING rows
+        are failed lazily on the next create, the only write path this table
+        has.
+        """
+        await self._expire_stale_settlements()
         data = {k: v for k, v in settlement_data.items() if k not in _SETTLEMENT_SERVER_FIELDS}
         data.setdefault("settlement_id", f"settle_{uuid4().hex[:8]}")
         _validate_settlement_data(data)
         settlement = _model_or_value_error(TradeSettlement, data)
         settlement.status = TradeStatus.SETTLING
+        settlement.expires_at = datetime.now(UTC).replace(tzinfo=None) + _settlement_ttl()
         self.session.add(settlement)
         await self.session.commit()
         await self.session.refresh(settlement)
         return settlement
+
+    async def _expire_stale_settlements(self) -> int:
+        """Fail SETTLING settlements past expires_at (#1554).
+
+        Lazy, like the inter-chain trade expiry: there is no sweeper in this
+        service and create_settlement is the only write path, so the sweep
+        runs here. Rows predating the column (NULL expires_at) are left
+        alone — no created_at fallback because a settlement legitimately
+        waits on counterparty action and there is no safe age guess.
+        """
+        # Naive UTC like the inter-chain trade expiry — sqlite drops tzinfo
+        # and lexicographic comparison needs both sides in the same shape.
+        now = datetime.now(UTC).replace(tzinfo=None)
+        result = await self.session.execute(
+            update(TradeSettlement)
+            .where(col(TradeSettlement.status) == TradeStatus.SETTLING)
+            .where(col(TradeSettlement.expires_at).is_not(None))
+            .where(col(TradeSettlement.expires_at) < now)
+            .values(status=TradeStatus.FAILED)
+        )
+        expired = result.rowcount or 0
+        if expired:
+            await self.session.commit()
+        return expired
 
     async def get_analytics(self, period_type: str = "daily") -> dict[str, Any]:
         """Get trading analytics"""

@@ -1,5 +1,6 @@
 """Market matching service for matching GPU providers with consumers"""
 
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -14,7 +15,7 @@ from aitbc.utils.chain_id import resolve_chain_id
 from ..config import settings
 from ..domain.market import MarketOffer
 from ..domain.offer_status import spellings_of, to_offer_status
-from .market_service import max_page_size
+from .market_service import max_page_size, offer_reservation_ttl_seconds
 
 logger = get_logger(__name__)
 
@@ -179,6 +180,15 @@ class MatchingService:
             fsm = OfferFSM(current)
             fsm.transition(OfferStatus.RESERVED)
             best_offer.status = OfferStatus.RESERVED.value
+            # #1554: a matched offer stays RESERVED until the coordinator
+            # task completes or the reservation TTL lapses — the sweeper
+            # returns expired holds to AVAILABLE. Stored in attributes (JSON)
+            # because MarketOffer is a shared model (see book_offer).
+            reserved_attrs = dict(best_offer.attributes or {})
+            reserved_attrs["_reserved_until"] = (
+                datetime.now(UTC) + timedelta(seconds=offer_reservation_ttl_seconds())
+            ).isoformat()
+            best_offer.attributes = reserved_attrs
             await self.session.commit()
 
             # Submit task to agent-coordinator
@@ -217,6 +227,9 @@ class MatchingService:
                 # Release the reservation so the offer does not stay stuck.
                 fsm.transition(OfferStatus.AVAILABLE)
                 best_offer.status = OfferStatus.AVAILABLE.value
+                released_attrs = dict(best_offer.attributes or {})
+                released_attrs.pop("_reserved_until", None)
+                best_offer.attributes = released_attrs
                 await self.session.commit()
 
             logger.info(

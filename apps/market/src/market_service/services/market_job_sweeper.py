@@ -21,7 +21,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.market import BlockchainRPCClient
 
 from ..config import settings
-from ..domain.market import MarketJob, MarketJobPayment
+from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer
 from ..storage import get_session_context
 
 logger = get_logger(__name__)
@@ -126,6 +126,7 @@ class MarketJobSweeper:
             now_naive = now.replace(tzinfo=None)
 
             await self._expire_stale_jobs(session, now_naive)
+            await self._expire_stale_reservations(session, now_naive)
 
             # 1. Release: jobs that completed or expired and are past the grace period.
             # expires_at/updated_at are naive-UTC columns (domain
@@ -222,6 +223,53 @@ class MarketJobSweeper:
                     job.payment_status = "refund_pending"
             session.add(job)
             logger.info("Market job %s expired (expires_at=%s)", job.id, job.expires_at)
+
+    async def _expire_stale_reservations(self, session: AsyncSession, now_naive: datetime) -> None:
+        """Expire pending bids and release stale offer reservations (#1554).
+
+        Two holds used to live forever: a ``pending`` Bid awaiting its
+        on-chain payment, and a MarketOffer stuck in ``reserved``/``booked``
+        after a match or booking whose follow-through never arrived. Bids
+        carry ``expires_at``; offers carry ``attributes['_reserved_until']``
+        (the shared model has no expires_at column — see book_offer). Offers
+        in ``in_use`` run paid work and are never touched; legacy held rows
+        without the marker are left alone rather than guessed at.
+        """
+        bid_stmt = (
+            select(Bid)
+            .where(col(Bid.status) == "pending")
+            .where(col(Bid.expires_at).is_not(None))
+            .where(col(Bid.expires_at) < now_naive)
+            .limit(self.batch_size)
+        )
+        for bid in (await session.execute(bid_stmt)).scalars().all():
+            bid.status = "expired"
+            session.add(bid)
+            logger.info("Pending bid %s expired (expires_at=%s)", bid.id, bid.expires_at)
+
+        offer_stmt = select(MarketOffer).where(col(MarketOffer.status).in_({"reserved", "booked"})).limit(self.batch_size * 4)
+        for offer in (await session.execute(offer_stmt)).scalars().all():
+            attrs = offer.attributes or {}
+            raw_until = attrs.get("_reserved_until")
+            if not raw_until:
+                continue
+            try:
+                reserved_until = datetime.fromisoformat(str(raw_until))
+            except (TypeError, ValueError):
+                continue
+            if reserved_until.tzinfo is not None:
+                reserved_until = reserved_until.replace(tzinfo=None)
+            if reserved_until >= now_naive:
+                continue
+            # RESERVED -> AVAILABLE is a legal FSM transition; "booked" maps
+            # to RESERVED so the same edge applies. Clear the marker so a
+            # later re-reservation stamps a fresh deadline.
+            offer.status = "available"
+            new_attrs = dict(attrs)
+            new_attrs.pop("_reserved_until", None)
+            offer.attributes = new_attrs
+            session.add(offer)
+            logger.info("Offer %s reservation expired; released to available", offer.id)
 
     async def _release_payment(
         self,

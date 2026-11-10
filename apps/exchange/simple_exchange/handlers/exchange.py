@@ -620,6 +620,8 @@ class ExchangeMixin:
             # the user. Orders are therefore database-only and tx_hash stays empty.
             tx_hash = ""
 
+            unsigned_expiry = self._unsigned_order_expiry_height()
+
             # B1: Insert order and match within a single transaction.
             # BEGIN IMMEDIATE acquires the write lock before we read open orders,
             # preventing concurrent requests from double-matching the same counterparty.
@@ -647,8 +649,8 @@ class ExchangeMixin:
                 cursor.execute(
                     """
                     INSERT INTO orders (order_type, amount, price, total, remaining, user_address, tx_hash,
-                                        amount_ticks, price_ticks, filled_ticks, remaining_ticks)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        amount_ticks, price_ticks, filled_ticks, remaining_ticks, expiry_height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         order_type,
@@ -662,6 +664,7 @@ class ExchangeMixin:
                         price_ticks,
                         0,
                         amount_ticks,
+                        unsigned_expiry,
                     ),
                 )
 
@@ -727,6 +730,22 @@ class ExchangeMixin:
                 if isinstance(real, str) and real.strip():
                     return real.strip()
         return peer
+
+    def _unsigned_order_expiry_height(self) -> int | None:
+        """expiry_height for an unsigned-path order (#1554).
+
+        head + EXCHANGE_UNSIGNED_ORDER_TTL_BLOCKS when the chain head is
+        reachable; None when the RPC is down — the flag-off path tolerates
+        a dead RPC by design and the NULL residual is documented on #1554.
+        """
+        head = self._chain_head_height()
+        if not isinstance(head, int):
+            logger.warning(
+                "Unsigned order placed without expiry_height — chain head unavailable; "
+                "order will not auto-expire (#1554 flag-off residual)"
+            )
+            return None
+        return head + _env_int("EXCHANGE_UNSIGNED_ORDER_TTL_BLOCKS", 100_000)
 
     def _chain_head_height(self) -> int | None:
         """Current chain height for expiry checks; None when the node RPC is down."""
