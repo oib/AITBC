@@ -2,6 +2,10 @@
 Description=AITBC Wallet Daemon with Multi-Chain Support
 After=network.target aitbc-blockchain-node.service
 Wants=aitbc-blockchain-node.service
+# StartLimit* belong in [Unit] — in [Service] systemd ignores them, so the
+# restart throttle silently never applied.
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -24,8 +28,6 @@ KillMode=mixed
 TimeoutStopSec=5
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=60
-StartLimitBurst=3
 # Logging
 StandardOutput=journal
 StandardError=journal
