@@ -1690,3 +1690,85 @@ class TestNullSubmittedHeight:
         assert d["status"] == BridgeDepositStatus.SUBMITTED.value
         assert d["rebroadcast_count"] == 1
         assert d["submitted_height"] == 100  # real height written back
+
+
+class TestOrphanedManualPending:
+    """BRIDGE-MON-PAYOUT-1 residual (#1433): a crash between the admin
+    ``create_deposit`` and the SUBMITTED write orphans a ``manual-*`` row
+    in PENDING — the retry queue never selects PENDING and a manual row's
+    zero ETH amount could never be priced. The sweep now fails stale
+    manual rows; every other pending row belongs to the wallet side and
+    must stay untouched (ledger state-machine invariant)."""
+
+    @staticmethod
+    def _manual_row(tx_hash="manual-20261108T120000.000001"):
+        from bridge_monitor.storage import create_deposit
+
+        create_deposit(tx_hash, "manual", "0", "0x" + "d" * 40)
+
+    @staticmethod
+    def _backdate(tx_hash, created_at="2000-01-01T00:00:00+00:00"):
+        import sqlite3
+
+        import bridge_monitor.storage as storage
+
+        conn = sqlite3.connect(storage.DB_PATH)
+        try:
+            conn.execute("UPDATE eth_deposits SET created_at = ? WHERE tx_hash = ?", (created_at, tx_hash))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_stale_manual_pending_row_fails(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        self._manual_row()
+        self._backdate("manual-20261108T120000.000001")
+        monitor._fail_orphaned_manual_payouts()
+
+        d = get_deposit("manual-20261108T120000.000001")
+        assert d["status"] == BridgeDepositStatus.FAILED.value
+        assert "orphaned" in (d["error_message"] or "")
+        assert d["processed_at"]  # terminal rows carry the completion stamp
+
+    def test_fresh_manual_pending_row_untouched(self, monitor):
+        """A manual row mid-command (created seconds ago) is not an orphan."""
+        from bridge_monitor.storage import get_deposit
+
+        self._manual_row("manual-20261108T120001.000002")
+        monitor._fail_orphaned_manual_payouts()
+
+        assert get_deposit("manual-20261108T120001.000002")["status"] == BridgeDepositStatus.PENDING.value
+
+    def test_non_manual_pending_row_never_touched(self, monitor):
+        """Invariant: 'pending' is the wallet side's live vocabulary — the
+        orphan sweep must not reach it even when the row is ancient."""
+        from bridge_monitor.storage import create_deposit, get_deposit
+
+        create_deposit("0xwalletpending", "0xfrom", "1.0", "0x" + "e" * 40)
+        self._backdate("0xwalletpending")
+        monitor._fail_orphaned_manual_payouts()
+
+        assert get_deposit("0xwalletpending")["status"] == BridgeDepositStatus.PENDING.value
+
+    def test_manual_submitted_row_untouched(self, monitor):
+        """A manual row that reached SUBMITTED owns a live envelope — the
+        confirmation sweep owns it, the orphan sweep must not fail it."""
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        tx_hash = "manual-20261108T120002.000003"
+        create_deposit(tx_hash, "manual", "0", "0x" + "d" * 40)
+        update_deposit(
+            tx_hash,
+            ait_amount="100",
+            signed_tx=_json.dumps({"type": "TRANSFER", "nonce": 3}),
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        self._backdate(tx_hash)
+        monitor._fail_orphaned_manual_payouts()
+
+        d = get_deposit(tx_hash)
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert d["signed_tx"]  # envelope preserved for the sweep
