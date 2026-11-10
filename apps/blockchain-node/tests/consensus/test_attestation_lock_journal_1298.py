@@ -123,8 +123,17 @@ class TestJournalWrite:
         our_addr, our_key, proposer_addr, _ = _keys()
         monkeypatch.setattr(settings, "consensus_domain_separation_height", 1)
         svc, _ = _service(monkeypatch, our_addr, our_key, proposer_addr, tmp_path)
+        # #1298 T7a/T14: at/above the activation height the request must
+        # declare the derived round and carry the signed block timestamp it
+        # derives from — round authentication is unconditional post-H.
+        monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+        monkeypatch.setattr(settings, "attestation_header_future_skew_seconds", 3600.0)
+        svc._parent_timestamp = lambda p: PARENT_TS if p == "0xparent" else None  # type: ignore[method-assign]
+        req = _header(100, "0xaaaa", proposer_addr)
+        req["header"]["timestamp"] = (PARENT_TS + timedelta(seconds=61)).isoformat()
+        req["header"]["round"] = 1
 
-        await svc._handle_request(_header(100, "0xaaaa", proposer_addr))
+        await svc._handle_request(req)
 
         from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION
 

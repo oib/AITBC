@@ -533,13 +533,24 @@ class PoAProposer:
         return False
 
     async def _collect_attestations(
-        self, block: Block, transactions: list[dict[str, Any]] | None = None
+        self,
+        block: Block,
+        transactions: list[dict[str, Any]] | None = None,
+        round_number: int | None = None,
     ) -> list[dict[str, str]]:
         """Collect canonical header signatures from local and remote validators.
 
         Local attestations are produced immediately. Remote attestations are
         requested over the gossip broker and collected up to the configured
         timeout. Duplicates are de-duplicated by validator address.
+
+        ``round_number`` is the proposer round this node selected for the
+        block — the same deterministic derivation attesters apply to the
+        attest_request header. #1298 T7a: at/above the armed
+        domain-separation height the round is inside the signed attestation
+        payload unconditionally (round_lock does not gate it), so local
+        attestations must bind it exactly like remote ones or every importer
+        rejects them.
         """
         attestations: list[dict[str, str]] = []
         seen: set[str] = set()
@@ -552,20 +563,8 @@ class PoAProposer:
         # set is small or a member is offline.
         effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
 
-        if self._validator_keys:
-            from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION
-
-            domain = _active_consensus_domain(block.height, DOMAIN_BLOCK_ATTESTATION)
-            message = self._block_header_message(block)
-            for address, private_key in self._validator_keys.items():
-                if canonical_address(address) == canonical_address(block.proposer):
-                    continue
-                try:
-                    signature = _sign_consensus(message, private_key, domain)
-                    attestations.append({"validator": address, "signature": signature})
-                    seen.add(canonical_address(address))
-                except Exception as e:
-                    self._logger.warning("Failed to collect attestation from %s: %s", address, e)
+        attestations = self._local_attestations(block, round_number)
+        seen.update(canonical_address(att["validator"]) for att in attestations)
 
         if self._remote_attestation is not None:
             min_remote = max(0, effective_min - len(attestations))
@@ -591,6 +590,54 @@ class PoAProposer:
                 except Exception as e:
                     self._logger.warning("Failed to collect remote attestations: %s", e)
 
+        return attestations
+
+    def _local_attestations(self, block: Block, round_number: int | None) -> list[dict[str, str]]:
+        """Sign this node's validator keys over the block header.
+
+        #1298 T7a: at/above the armed domain-separation height the round is
+        inside the signed attestation payload unconditionally (round_lock
+        does not gate it), so local attestations must bind it exactly like
+        remote ones or every importer rejects them.
+        """
+        attestations: list[dict[str, str]] = []
+        if not self._validator_keys:
+            return attestations
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION
+
+        domain = _active_consensus_domain(block.height, DOMAIN_BLOCK_ATTESTATION)
+        att_round: int | None = None
+        if domain is not None:
+            att_round = round_number
+            if att_round is None and self._remote_attestation is not None:
+                # No round threaded through (direct/test callers): derive
+                # it exactly the way remote attesters will.
+                att_round = self._remote_attestation._collect_round_for_block(block)
+            if att_round is None:
+                # Underivable round: sign the unbound domain preimage —
+                # verifiers still accept it (mixed round-bound/unbound
+                # handling) — rather than dropping the attestation.
+                self._logger.warning(
+                    "Attestation round underivable for block %s at height %s — signing unbound",
+                    getattr(block, "hash", "")[:18],
+                    block.height,
+                )
+        message = self._block_header_message(block)
+        if att_round is not None:
+            message["round"] = att_round
+        for address, private_key in self._validator_keys.items():
+            if canonical_address(address) == canonical_address(block.proposer):
+                continue
+            try:
+                signature = _sign_consensus(message, private_key, domain)
+                attestation: dict[str, str] = {"validator": address, "signature": signature}
+                if att_round is not None:
+                    # Import-side verification rebuilds the same
+                    # round-bound preimage from this hint (or derives it).
+                    attestation["round"] = str(att_round)
+                attestations.append(attestation)
+            except Exception as e:
+                self._logger.warning("Failed to collect attestation from %s: %s", address, e)
         return attestations
 
     async def start(self) -> None:
@@ -2065,7 +2112,9 @@ class PoAProposer:
             session.rollback()
             return False
 
-        if not await self._collect_and_gate_attestations(block, block_hash, metadata_dict, transactions):
+        if not await self._collect_and_gate_attestations(
+            block, block_hash, metadata_dict, transactions, round_number=round_number
+        ):
             session.rollback()
             return False
         return True
@@ -2814,6 +2863,7 @@ class PoAProposer:
         block_hash: str,
         metadata_dict: dict[str, Any],
         transactions: list[dict[str, Any]] | None = None,
+        round_number: int | None = None,
     ) -> bool:
         """Collect gossip attestations and apply the multi-validator gate.
 
@@ -2838,7 +2888,7 @@ class PoAProposer:
                 metadata_dict["pbft_certificate"] = pbft_certificate
 
         if self._multi_validator:
-            attestations = await self._collect_attestations(block, transactions=transactions)
+            attestations = await self._collect_attestations(block, transactions=transactions, round_number=round_number)
             configured_min = getattr(settings, "multi_validator_min_attestations", 0)
             # _collect_attestations already ran the #693 anomaly re-read, so the
             # participants here are the post-recovery view.

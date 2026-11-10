@@ -114,12 +114,25 @@ class TestCaptureStamping:
         proposer_key = "0x" + "22" * 32
         proposer = derive_ethereum_address(proposer_key)
         svc, _broker = _attester_service(monkeypatch, signer, signer_key, proposer)
+        # #1298 T7a/T14: post-activation the request must declare the derived
+        # round and carry the signed block timestamp it derives from.
+        from datetime import UTC, datetime, timedelta
 
-        await svc._handle_request(_request(H, HA, proposer))
+        monkeypatch.setattr(settings, "consensus_proposer_round_seconds", 60)
+        parent_ts = datetime(2026, 1, 1, tzinfo=UTC)
+        svc._parent_timestamp = lambda p: parent_ts if p == "0xparent" else None  # type: ignore[method-assign]
+        req = _request(H, HA, proposer)
+        # +30s derives round 0 — the round whose schedule slot names `proposer`
+        req["header"]["timestamp"] = (parent_ts + timedelta(seconds=30)).isoformat()
+        req["header"]["round"] = 0
+
+        await svc._handle_request(req)
 
         key = svc._signed_attestation_key(H, HA, signer, DOMAIN_BLOCK_ATTESTATION)
         rec = svc._signed_attestations[key]
         assert rec["signature_domain"] == DOMAIN_BLOCK_ATTESTATION
+        assert rec["round_in_payload"] is True
+        assert rec["request_round"] == 0
         message = {
             "chain_id": rec["chain_id"],
             "height": rec["height"],
@@ -128,6 +141,7 @@ class TestCaptureStamping:
             "proposer": rec["proposer"],
             "state_root": rec["state_root"],
             "bridge_state_root": rec["bridge_state_root"],
+            "round": rec["request_round"],
         }
         assert verify_consensus_message_domain(message, rec["signature"], signer, DOMAIN_BLOCK_ATTESTATION)
         # the signature is NOT a legacy shared-preimage signature anymore
