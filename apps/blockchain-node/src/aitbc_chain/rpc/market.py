@@ -177,14 +177,14 @@ def market_listings(request: Request) -> dict[str, Any]:
                     "compute_capability": payload.get("compute_capability", ""),
                     "endpoint": payload.get("endpoint", ""),
                     "status": "active",
-                    "created_at": timestamp or datetime.now().isoformat(),
+                    "created_at": timestamp or datetime.now(UTC).isoformat(),
                 }
                 listings.append(listing)
 
         # Merge on-chain listings with in-memory listings
         listings.extend(_market_listings)
 
-        return {"listings": listings, "total": len(listings), "timestamp": datetime.now().isoformat()}
+        return {"listings": listings, "total": len(listings), "timestamp": datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
     except Exception as e:
@@ -247,7 +247,7 @@ async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
             "memory_gb": request.memory_gb,
             "compute_capability": request.compute_capability,
             "status": "active",
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         # Add to storage

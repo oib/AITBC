@@ -111,7 +111,7 @@ def export_chain(request: Request, chain_id: str | None = None) -> dict[str, Any
             transactions = list(txs_result.scalars().all())
             export_data = {
                 "chain_id": chain_id,
-                "export_timestamp": datetime.now().isoformat(),
+                "export_timestamp": datetime.now(UTC).isoformat(),
                 "block_count": len(blocks),
                 "account_count": len(accounts),
                 "transaction_count": len(transactions),
