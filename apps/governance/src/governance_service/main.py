@@ -761,14 +761,15 @@ async def execute_cross_chain(
     # caller to that identity (#1178).
     caller = await _require_cross_chain_signature(_signed_call_body(request))
     _bind_actor(caller, {"proposer_id": proposal.proposer_id})
-    if proposal.status not in ("passed", "executed"):
+    # ProposalStatus has no 'passed' value — close_proposal writes 'succeeded'.
+    if proposal.status not in ("succeeded", "executed"):
         return JSONResponse(  # type: ignore[return-value]
             status_code=400,
-            content={"error": f"Proposal must be in 'passed' status to execute cross-chain (current: {proposal.status})"},
+            content={"error": f"Proposal must be in 'succeeded' status to execute cross-chain (current: {proposal.status})"},
         )
 
     # Determine target chains from proposal metadata or default to hub chain
-    parameters = proposal.proposal_value
+    parameters = proposal.proposal_value if isinstance(proposal.proposal_value, dict) else {}
     target_chains = parameters.get("target_chains", [settings.default_chain_id])
 
     executed_on: list[str] = []

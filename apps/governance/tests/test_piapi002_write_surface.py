@@ -211,3 +211,26 @@ def test_aggregate_votes_counts_real_votes(client: TestClient) -> None:
     assert r.json()["total_for"] == 1
     assert r.json()["total_against"] == 0
     assert r.json()["total_abstain"] == 0
+
+
+def test_execute_cross_chain_accepts_succeeded_status(client: TestClient, test_database_path) -> None:
+    """#1502: the gate checked 'passed', a status the lifecycle never writes —
+    only 'succeeded' — so every legitimately passed proposal got a 400."""
+    import sqlite3
+
+    pid = _create_proposal(client)
+    conn = sqlite3.connect(test_database_path)
+    try:
+        conn.execute("UPDATE proposals SET status='succeeded' WHERE proposal_id=?", (pid,))
+        conn.commit()
+    finally:
+        conn.close()
+
+    r = client.post(
+        f"/v1/governance/proposals/{pid}/execute-cross-chain",
+        json=_signed({}),
+    )
+    # Past the status gate: per-chain submission may fail, but the route
+    # answers 200 with executed_on/failed lists, never the old 400.
+    assert r.status_code == 200, r.text
+    assert "failed" in r.json() or "executed_on" in r.json()
