@@ -11,7 +11,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from aitbc_explorer_main import app
+from main import app
 import routers.search as search_router
 
 
