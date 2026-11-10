@@ -128,8 +128,11 @@ def _chain_db_path() -> Path:
 
 @router.get("/market/listings", summary="List market items", tags=["market"])
 @rate_limit(rate=30, per=60)
-def market_listings(request: Request) -> dict[str, Any]:
-    """Get all market listings from blockchain"""
+def market_listings(request: Request, limit: int = 100) -> dict[str, Any]:
+    """Get market listings from blockchain (bounded — newest first)."""
+    # Same clamp as the other list endpoints (#1057): an unbounded SELECT used
+    # to materialise every confirmed GPU_MARKET tx ever anchored (#1622).
+    limit = max(1, min(limit, 500))
     try:
         metrics_registry.increment("rpc_market_listings_total")
 
@@ -146,7 +149,8 @@ def market_listings(request: Request) -> dict[str, Any]:
             conn = sqlite3.connect(str(chain_db_path), timeout=60.0)
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, sender, payload, timestamp FROM \"transaction\" WHERE type = 'GPU_MARKET' AND status = 'confirmed' ORDER BY timestamp DESC"
+                "SELECT id, sender, payload, timestamp FROM \"transaction\" WHERE type = 'GPU_MARKET' AND status = 'confirmed' ORDER BY timestamp DESC LIMIT ?",
+                (limit,),
             )
             rows = cursor.fetchall()
             conn.close()
