@@ -736,3 +736,59 @@ class TestDiscoverOffersCrossChainDedup:
             ("chain-a", "shared"),
             ("chain-b", "shared"),
         }
+
+    async def test_dedup_preserves_full_offer_schema(self):
+        """#1677 + #1635 merged pin: the (chain_id, offer_id) dedup key must not
+        drop schema fields — every surviving offer keeps its full attribute
+        set, sync metadata, and wire-folded descriptive keys end to end
+        (legacy node wire → ``from_dict`` → cache roundtrip → discovery dedup).
+        """
+
+        # Faithful legacy node market-listing wire shape (listing_id /
+        # seller_address / item_type / status "active") plus descriptive keys
+        # that ``SyncedOffer.from_dict`` folds into ``attributes``.
+        def _legacy_wire(chain_hint: str) -> dict:
+            return {
+                "listing_id": "tx_shared",
+                "seller_address": f"0xSeller{chain_hint}",
+                "item_type": "GPU",
+                "price": "0.05",
+                "capacity": 8,
+                "status": "active",
+                "gpu_model": "NVIDIA H100",
+                "endpoint": f"http://10.0.0.{chain_hint[-1] if chain_hint[-1].isdigit() else '5'}:11434",
+                "region": "eu",
+            }
+
+        cache = OfferCache()
+        offers_in: dict[str, SyncedOffer] = {}
+        for chain_id in ("chain-a", "chain-b"):
+            wire = _legacy_wire(chain_id)
+            offer = SyncedOffer.from_dict(wire)
+            offer.chain_id = chain_id  # node payload carries no chain_id; envelope backfills it
+            offers_in[chain_id] = offer
+            cache.set_offer(offer, ttl=300)
+
+        svc = _sync_service(cache)
+        result = await svc.discover_offers(OfferDiscoveryRequest())
+
+        assert {(o.chain_id, o.offer_id) for o in result.offers} == {
+            ("chain-a", "tx_shared"),
+            ("chain-b", "tx_shared"),
+        }
+        for offer in result.offers:
+            # Core schema fields survive the cache roundtrip + dedup intact.
+            assert offer.offer_id == "tx_shared"
+            assert offer.provider == f"0xSeller{offer.chain_id}"
+            assert offer.service_type == "GPU"
+            assert offer.price == Decimal("0.05")
+            assert offer.quantity == 8
+            assert offer.status == "available"  # "active" normalized (#1635)
+            assert offer.sync_status == "fresh"
+            assert offer.sync_confidence == 1.0
+            # Wire-folded attributes survive — subscription filters depend on them.
+            assert offer.attributes["gpu_model"] == "NVIDIA H100"
+            assert offer.attributes["region"] == "eu"
+            assert offer.attributes["endpoint"].startswith("http://10.0.0.")
+            # to_dict/from_dict roundtrip keeps the same field set.
+            assert SyncedOffer.from_dict(offer.to_dict()).attributes == offer.attributes
