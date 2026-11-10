@@ -155,6 +155,14 @@ def test_concurrent_first_grant_claims_exactly_one_wins(monkeypatch, tmp_path) -
     monkeypatch.setenv("AGENT_DB_PATH", str(db))
 
     n = 8
+    # Pre-open the ledger once so the workers don't race the fresh-file
+    # schema creation inside _agent_db_conn — that first-open
+    # "database is locked" window is a separate defect tracked in #1658.
+    # The invariant pinned here is the claim path's BEGIN IMMEDIATE
+    # check-and-insert, which still runs fully concurrently below.
+    warm = agent_stream._agent_db_conn()
+    assert warm is not None
+    warm.close()
     barrier = threading.Barrier(n)
     results: list[tuple[str | None, bool]] = []
     results_lock = threading.Lock()
