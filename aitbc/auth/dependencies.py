@@ -8,6 +8,7 @@ Provides Bearer token extraction and role-based dependency injection.
 from __future__ import annotations
 
 import hmac
+import json
 import os
 from typing import Annotated, Any
 
@@ -205,6 +206,40 @@ def _configured_miner_keys() -> list[str]:
     return list(dict.fromkeys(keys))
 
 
+def _configured_miner_key_bindings() -> dict[str, str]:
+    """Optional per-key miner bindings from ``MINER_API_KEY_BINDINGS``.
+
+    Two shapes are accepted: a JSON object ``{"<api_key>": "<miner_id>"}`` or a
+    comma-separated ``key=miner_id`` list. A bound key may only act as its bound
+    miner id — ``X-Miner-ID`` must match it (or be omitted, in which case the
+    bound id is used). This closes the shared-key impersonation hole (#1597)
+    for deployments that provision per-miner keys; keys without a binding keep
+    the legacy caller-asserted ``X-Miner-ID`` behaviour.
+    """
+    raw = os.getenv("MINER_API_KEY_BINDINGS", "").strip()
+    if not raw:
+        return {}
+    bindings: dict[str, str] = {}
+    if raw.startswith("{"):
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            for key, miner in data.items():
+                if key and miner:
+                    bindings[str(key)] = str(miner)
+            return bindings
+        # Malformed JSON falls through to the pair parser, which finds nothing.
+        return {}
+    for pair in raw.split(","):
+        key, sep, miner = pair.partition("=")
+        key, miner = key.strip(), miner.strip()
+        if sep and key and miner:
+            bindings[key] = miner
+    return bindings
+
+
 def require_miner_api_key(request: Request) -> dict[str, Any]:
     """Authenticate miner via X-Api-Key header (legacy/internal service auth).
 
@@ -243,9 +278,12 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
     # not secret, and this avoids a short-circuit timing leak.
     api_key_str = str(api_key)
     valid = False
+    matched_key: str | None = None
     for allowed in allowed_keys:
         try:
-            valid = valid | hmac.compare_digest(api_key_str, str(allowed))
+            if hmac.compare_digest(api_key_str, str(allowed)):
+                matched_key = str(allowed)
+                valid = True
         except TypeError:
             pass
     if not valid:
@@ -254,7 +292,21 @@ def require_miner_api_key(request: Request) -> dict[str, Any]:
             detail="Invalid or missing API key",
         )
 
-    sub = miner_id or api_key
+    # Per-key miner binding (#1597): when MINER_API_KEY_BINDINGS names this key,
+    # the caller-asserted X-Miner-ID must equal the bound miner — a shared key
+    # can no longer impersonate an arbitrary miner id. Unbound keys keep the
+    # legacy behaviour so existing single-key deployments are unaffected.
+    bound = _configured_miner_key_bindings().get(matched_key or "")
+    if bound is not None:
+        claimed = (miner_id or "").strip()
+        if claimed and claimed != bound:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="X-Miner-ID does not match the miner this API key is bound to",
+            )
+        sub = bound
+    else:
+        sub = miner_id or api_key
     return {"sub": sub, "role": "miner"}
 
 

@@ -79,8 +79,24 @@ def sweeper(monkeypatch):
 
 
 def _jobs_response(jobs):
+    """Offset-aware market stub: honours ``offset``/``limit`` on the list route
+    and serves ``GET /v1/market/jobs/{id}`` for the per-job unpin check."""
+    by_id = {str(j.get("job_id") or j.get("id")): j for j in jobs}
+
     def fake_get(url, **kwargs):
-        return _resp(jobs)
+        if "/v1/market/jobs/" in url:
+            job_id = url.rsplit("/", 1)[-1]
+            job = by_id.get(job_id)
+            if job is None:
+                return _resp({}, status=404)
+            return _resp(job)
+        params = kwargs.get("params", {})
+        try:
+            offset = int(params.get("offset", 0) or 0)
+            limit = int(params.get("limit", 500) or 500)
+        except (TypeError, ValueError):
+            offset, limit = 0, 500
+        return _resp(jobs[offset : offset + limit])
 
     return fake_get
 
@@ -89,7 +105,15 @@ def _jobs_response(jobs):
 def test_sweep_disabled_by_env(monkeypatch, state_path, sweeper):
     monkeypatch.setenv("IPFS_HOSTING_ENABLED", "0")
     result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
-    assert result == {"pinned": 0, "confirmed": 0, "unpinned": 0, "skipped_quota": 0, "errors": 0}
+    assert result == {
+        "pinned": 0,
+        "confirmed": 0,
+        "unpinned": 0,
+        "skipped_quota": 0,
+        "errors": 0,
+        "truncated": 0,
+        "deferred": 0,
+    }
     assert sweeper["ipfs"] == []
 
 
@@ -324,3 +348,79 @@ def test_sweep_quota_skip(state_path, sweeper):
     # job-1 is already provider_confirmed -> exempt from the quota gate; the
     # pin is state-recovery, not new spend.
     assert result["pinned"] == 1
+
+
+@pytest.mark.unit
+def test_sweep_paginates_job_listing(state_path, sweeper, monkeypatch):
+    """#1489: the sweeper must page past the first 500 jobs, not truncate."""
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_JOB_PAGE_SIZE", 2)
+    jobs = [_job(f"job-{i}", state="RUNNING") for i in range(3)]
+    seen_offsets = []
+
+    def fake_get(url, **kwargs):
+        if "/v1/market/jobs/" in url:
+            return _resp({}, status=404)
+        params = kwargs.get("params", {})
+        offset = int(params.get("offset", 0))
+        seen_offsets.append(offset)
+        return _resp(jobs[offset : offset + 2])
+
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=fake_get):
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    assert seen_offsets == [0, 2, 3]  # pages until an empty page
+    assert result["pinned"] == 3
+    assert result["truncated"] == 0
+
+
+@pytest.mark.unit
+def test_sweep_truncated_listing_skips_unpin(state_path, sweeper, monkeypatch):
+    """#1489: when the page cap is hit the inspected set may be incomplete —
+    reclamation is deferred rather than unpinning live rentals."""
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_JOB_PAGE_SIZE", 1)
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_JOB_MAX_PAGES", 2)
+    jobs = [_job(f"job-{i}", state="RUNNING") for i in range(5)]
+    ipfs_pinning_sweeper._save_state(state_path, {"orphan-1": {"cid": "Qmorphan", "size": 1, "pinned_at": "t"}})
+
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=_jobs_response(jobs)):
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    assert result["truncated"] == 1
+    assert result["unpinned"] == 0
+    # The tracked pin survives for a later, complete sweep.
+    assert "orphan-1" in ipfs_pinning_sweeper._load_state(state_path)
+
+
+@pytest.mark.unit
+def test_unpin_verifies_job_before_removing_pin(state_path, sweeper):
+    """#1489: a tracked job missing from the listing is unpinned only after a
+    direct lookup confirms it terminal or gone — an active job keeps its pin."""
+    ipfs_pinning_sweeper._save_state(state_path, {"job-live": {"cid": "Qmlive", "size": 1, "pinned_at": "t"}})
+    # The list endpoint returns nothing, but the per-job lookup says RUNNING.
+    live = _job("job-live", state="RUNNING", cid="Qmlive")
+
+    def fake_get(url, **kwargs):
+        if "/v1/market/jobs/" in url:
+            return _resp(live)
+        return _resp([])
+
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=fake_get):
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    assert result["unpinned"] == 0
+    assert result["deferred"] == 1
+    assert "job-live" in ipfs_pinning_sweeper._load_state(state_path)
+
+
+@pytest.mark.unit
+def test_unpin_proceeds_when_job_lookup_fails_closed(state_path, sweeper):
+    """An unverifiable lookup (HTTP error) defers the unpin — fail closed."""
+    ipfs_pinning_sweeper._save_state(state_path, {"job-x": {"cid": "Qmx", "size": 1, "pinned_at": "t"}})
+
+    def fake_get(url, **kwargs):
+        if "/v1/market/jobs/" in url:
+            return _resp({}, status=500)
+        return _resp([])
+
+    with patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=fake_get):
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    assert result["unpinned"] == 0
+    assert result["deferred"] == 1
+    assert "job-x" in ipfs_pinning_sweeper._load_state(state_path)

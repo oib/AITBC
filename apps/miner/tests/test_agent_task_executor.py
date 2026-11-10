@@ -735,3 +735,105 @@ class TestShopAccessHeaders:
         monkeypatch.setattr(ate.requests, "post", fake_post)
         ate._exec_whisper(_task_request(), b"audio")
         assert not captured["headers"]
+
+
+class TestTaskAcceptSenderBinding:
+    """#1614: a task_accept must come from the buyer the quote was issued to."""
+
+    def _quote_task(self, task_id="t-1", buyer=BUYER):
+        state = ate._load_state()
+        state["quotes"][task_id] = {
+            "buyer": buyer,
+            "price": "0.02",
+            "offer_id": "whisper-base",
+            "request": _task_request(task_id),
+        }
+        ate._save_state(state)
+
+    def test_accept_from_non_buyer_is_ignored(self, executor, monkeypatch):
+        self._quote_task()
+        msg = _msg("m-evil", "task_accept", {"task_id": "t-1"}, sender="mallory-node")
+        monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [msg])
+        monkeypatch.setattr(ate, "_task_escrow_status", lambda t: _locked_escrow("t-1"))
+        called = []
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: called.append(cid) or b"x")
+        stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
+        assert stats["executed"] == 0 and stats["failed"] == 0
+        assert called == []  # no paid work triggered by the impostor
+        assert executor["sent"] == []  # no result delivered to the attacker
+        # The quote survives for the real buyer's accept.
+        assert "t-1" in ate._load_state()["quotes"]
+
+    def test_accept_from_quoting_buyer_still_executes(self, executor, monkeypatch):
+        self._quote_task()
+        msg = _msg("m-ok", "task_accept", {"task_id": "t-1"}, sender=BUYER)
+        monkeypatch.setattr(ate, "_fetch_inbox", lambda *a, **k: [msg])
+        monkeypatch.setattr(ate, "_task_escrow_status", lambda t: _locked_escrow("t-1"))
+        monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: b"audio")
+        monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b"{}")
+        monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
+        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
+        stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
+        assert stats["executed"] == 1
+
+
+class TestExecutorResourceBounds:
+    """#1614: ollama prompt/num_predict caps and the ipfs pin size/quota gates."""
+
+    def test_ollama_num_predict_is_clamped(self, monkeypatch):
+        captured = {}
+
+        def fake_post(url, **kwargs):
+            captured["json"] = kwargs.get("json")
+            return _resp({"response": "ok"}, content=b'{"response":"ok"}')
+
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        ate._exec_ollama({"model": "m"}, json.dumps({"prompt": "hi", "num_predict": 999999}).encode())
+        assert captured["json"]["options"]["num_predict"] == ate._OLLAMA_MAX_NUM_PREDICT
+
+    def test_ollama_prompt_over_cap_rejected(self, monkeypatch):
+        monkeypatch.setattr(ate, "_OLLAMA_MAX_PROMPT_CHARS", 100)
+        with pytest.raises(ValueError, match="prompt"):
+            ate._exec_ollama({"model": "m"}, json.dumps({"prompt": "x" * 101}).encode())
+
+    def test_exec_ipfs_reclaims_oversize_pin(self, monkeypatch):
+        posts = []
+
+        def fake_post(url, **kwargs):
+            posts.append(url)
+            if url.endswith("/object/stat"):
+                return _resp({"CumulativeSize": 5 * 1024 * 1024})
+            return _resp({})
+
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        monkeypatch.setattr(ate, "_task_max_payload_bytes", lambda: 1024)
+        with pytest.raises(ValueError, match="cap"):
+            ate._exec_ipfs({"payload_ref": "QmBig"}, b"")
+        assert any(u.endswith("/api/v0/pin/add") for u in posts)
+        assert any(u.endswith("/api/v0/pin/rm") for u in posts)  # reclaimed
+
+    def test_exec_ipfs_requires_cid(self, monkeypatch):
+        monkeypatch.setattr(ate.requests, "post", lambda *a, **k: _resp({}))
+        with pytest.raises(ValueError, match="payload_ref"):
+            ate._exec_ipfs({}, b"")
+
+    def test_ipfs_buyer_quota_reclaims_and_raises(self, monkeypatch):
+        monkeypatch.setattr(ate, "_ipfs_buyer_quota_bytes", lambda: 100)
+        unpinned = []
+        monkeypatch.setattr(ate, "_ipfs_unpin", lambda cid: unpinned.append(cid))
+        state = {}
+        with pytest.raises(ValueError, match="quota"):
+            ate._account_ipfs_pin(state, "buyer1", {"payload_ref": "QmX"}, json.dumps({"pinned": "QmX", "size": 200}).encode())
+        assert unpinned == ["QmX"]
+        assert "ipfs_usage" not in state or state["ipfs_usage"].get("buyer1", 0) == 0
+
+    def test_ipfs_buyer_quota_accumulates_under_cap(self, monkeypatch):
+        monkeypatch.setattr(ate, "_ipfs_buyer_quota_bytes", lambda: 1000)
+        monkeypatch.setattr(ate, "_ipfs_unpin", lambda cid: None)
+        state = {}
+        ate._account_ipfs_pin(state, "buyer1", {"payload_ref": "QmA"}, json.dumps({"size": 400}).encode())
+        ate._account_ipfs_pin(state, "buyer1", {"payload_ref": "QmB"}, json.dumps({"size": 400}).encode())
+        assert state["ipfs_usage"]["buyer1"] == 800
+        # A different buyer has an independent budget.
+        ate._account_ipfs_pin(state, "buyer2", {"payload_ref": "QmC"}, json.dumps({"size": 900}).encode())
+        assert state["ipfs_usage"]["buyer2"] == 900
