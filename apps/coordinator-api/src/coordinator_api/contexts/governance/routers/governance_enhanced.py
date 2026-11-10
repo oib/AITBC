@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session, func, select
 from starlette.concurrency import run_in_threadpool
 
@@ -190,8 +190,8 @@ async def get_treasury_transactions(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     region: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get treasury transaction history"""

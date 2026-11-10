@@ -453,7 +453,7 @@ def list_trade_requests(
     agent_id: str | None = None,
     trade_type: str | None = None,
     status: str | None = None,
-    limit: int | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[TradeRequestResponse]:
     """List trade requests with filters"""
     try:
@@ -497,7 +497,7 @@ def list_trade_matches(
     agent_id: str | None = None,
     min_score: float | None = None,
     status: str | None = None,
-    limit: int | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[TradeMatchResponse]:
     """List trade matches with filters"""
     try:
@@ -544,7 +544,7 @@ def list_negotiations(
     agent_id: str | None = None,
     status: str | None = None,
     strategy: str | None = None,
-    limit: int | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[NegotiationResponse]:
     """List negotiations with filters"""
     try:

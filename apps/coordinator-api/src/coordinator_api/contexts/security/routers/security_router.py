@@ -302,8 +302,8 @@ def list_trust_scores(
     entity_id: str | None = None,
     min_score: float | None = None,
     max_score: float | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
+    limit: int = Query(default=500, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ) -> list[AgentTrustScore]:
     """List trust scores with filtering"""
     try:

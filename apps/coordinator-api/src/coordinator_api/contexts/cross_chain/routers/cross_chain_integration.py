@@ -32,7 +32,7 @@ from coordinator_api.contexts.cross_chain.services.multi_chain_transaction_manag
     TransactionPriority,
 )
 from coordinator_api.storage.db import get_session
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
@@ -241,8 +241,8 @@ async def get_wallet_transaction_history(
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
     chain_id: int | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     from_block: int | None = None,
     to_block: int | None = None,
 ) -> list[dict[str, Any]]:
@@ -498,8 +498,8 @@ async def get_transaction_history(
     transaction_type: TransactionType | None = None,
     status: TransactionStatus | None = None,
     priority: TransactionPriority | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     from_date: datetime | None = None,
     to_date: datetime | None = None,
 ) -> list[dict[str, Any]]:
