@@ -122,8 +122,12 @@ class MarketJobSweeper:
         counts = {"released": 0, "refunded": 0, "failed": 0}
 
         async with self._session_factory() as session:
-            # 1. Release: jobs that completed or expired and are past the grace period.
             now = datetime.now(UTC)
+            now_naive = now.replace(tzinfo=None)
+
+            await self._expire_stale_jobs(session, now_naive)
+
+            # 1. Release: jobs that completed or expired and are past the grace period.
             release_cutoff = now - timedelta(seconds=self.refund_grace_seconds)
 
             release_stmt = (
@@ -185,6 +189,36 @@ class MarketJobSweeper:
         )
         return counts
 
+    async def _expire_stale_jobs(self, session: AsyncSession, now_naive: datetime) -> None:
+        """Expire QUEUED/RUNNING jobs past expires_at -> EXPIRED (#1554).
+
+        ttl_seconds was stored but never enforced and only the access-token
+        path lazily expired jobs, so an escrowed job could sit forever. An
+        escrowed payment flips to refund_pending so the refund pass below
+        returns the funds to the buyer — an expired unfinished job must not
+        pay the provider.
+        """
+        expire_stmt = (
+            select(MarketJob)
+            .where(col(MarketJob.state).in_({"QUEUED", "RUNNING"}))
+            .where(col(MarketJob.expires_at).is_not(None))
+            .where(col(MarketJob.expires_at) < now_naive)
+            .limit(self.batch_size)
+        )
+        expire_result = await session.execute(expire_stmt)
+        for job in expire_result.scalars().all():
+            job.state = "EXPIRED"
+            job.updated_at = now_naive
+            if job.payment_id:
+                pay = await session.get(MarketJobPayment, job.payment_id)
+                if pay is not None and pay.status == "escrowed":
+                    pay.status = "refund_pending"
+                    pay.updated_at = now_naive
+                    session.add(pay)
+                    job.payment_status = "refund_pending"
+            session.add(job)
+            logger.info("Market job %s expired (expires_at=%s)", job.id, job.expires_at)
+
     async def _release_payment(
         self,
         session: AsyncSession,
@@ -192,23 +226,17 @@ class MarketJobSweeper:
         payment: MarketJobPayment,
     ) -> bool:
         """Release escrow to the provider. Returns True on success."""
-        if not job.escrow_contract_id:
-            logger.warning("Job %s has no escrow_contract_id; skipping release", job.id)
-            job.state = "FAILED"
-            job.error = "missing escrow_contract_id"
-            job.updated_at = datetime.now(UTC)
-            session.add(job)
-            return False
-
+        # The chain escrow is keyed by job_id — the market job id IS the
+        # escrow's job_id. escrow_contract_id stores the opaque contract id,
+        # which is not a valid /rpc/escrow/{id} path key (#1564).
+        escrow_key = job.id
         try:
-            result = await self._rpc_client.release_escrow(job.escrow_contract_id)
+            result = await self._rpc_client.release_escrow(escrow_key)
         except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
             # Any raised answer (425 'lock not sealed', 5xx, transport) is a
             # 'not yet' too -- it shares the bounded deferral instead of
             # retrying forever and silently.
-            return await self._settlement_not_yet(
-                session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id, "released"
-            )
+            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "released")
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
             job.state = "RELEASED"
@@ -234,7 +262,7 @@ class MarketJobSweeper:
             if result is None
             else f"rolled back by the node, retryable ({result.get('message')})"
         )
-        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id, "released")
+        return await self._settlement_not_yet(session, job, payment, outcome, escrow_key, "released")
 
     async def _refund_payment(
         self,
@@ -243,20 +271,13 @@ class MarketJobSweeper:
         payment: MarketJobPayment,
     ) -> bool:
         """Refund escrow to the buyer. Returns True on success."""
-        if not job.escrow_contract_id:
-            logger.warning("Job %s has no escrow_contract_id; skipping refund", job.id)
-            job.state = "FAILED"
-            job.error = "missing escrow_contract_id"
-            job.updated_at = datetime.now(UTC)
-            session.add(job)
-            return False
-
+        # Same canonical binding as release: the escrow path key is the
+        # market job id, not escrow_contract_id (#1564).
+        escrow_key = job.id
         try:
-            result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
+            result = await self._rpc_client.refund_escrow(escrow_key)
         except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
-            return await self._settlement_not_yet(
-                session, job, payment, f"{type(e).__name__}: {e}", job.escrow_contract_id, "refunded"
-            )
+            return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "refunded")
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
             job.state = "REFUNDED"
@@ -280,7 +301,7 @@ class MarketJobSweeper:
             if result is None
             else f"rolled back by the node, retryable ({result.get('message')})"
         )
-        return await self._settlement_not_yet(session, job, payment, outcome, job.escrow_contract_id, "refunded")
+        return await self._settlement_not_yet(session, job, payment, outcome, escrow_key, "refunded")
 
     @staticmethod
     def _clear_deferral(payment: MarketJobPayment) -> None:
