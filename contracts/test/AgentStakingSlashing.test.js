@@ -379,6 +379,41 @@ describe("AgentStaking slashing (SC-06)", function () {
     });
   });
 
+  describe("appeal window anchored at the slash (#1461)", function () {
+    // #1461 stamped slashedAt in BOTH slash paths: slashStake (single) and
+    // _slashAllStakesForAgent (the batch path used by checkAndSlashAgent and
+    // reportMaliciousAgent). The existing pin only exercised slashStake;
+    // this covers the batch path, where the stake is slashed inside the
+    // loop and appealed afterwards.
+    it("allows appeal on a batch-slash of a stake older than the window", async function () {
+      await makeStakes(2);
+
+      // The stakes are now 10 days old -- already past the 3-day appeal
+      // window measured from creation -- but still ACTIVE (30-day lock).
+      await ethers.provider.send("evm_increaseTime", [10 * 24 * 60 * 60]);
+      await ethers.provider.send("evm_mine");
+
+      // Give the agent reportable performance, then slash via the oracle
+      // report path (goes through _slashAllStakesForAgent).
+      await staking.connect(oracle).updateAgentPerformance(agent.address, 30, false);
+      await staking.connect(oracle).reportMaliciousAgent(agent.address, "bad output");
+
+      // Under the old code appealSlashing measured from lastRewardTime
+      // (stake creation, ~10 days ago) and reverted "Appeal window
+      // expired"; measured from slashedAt the window is fresh.
+      await expect(
+        staking.connect(staker).appealSlashing(0, "appeal"),
+      ).to.emit(staking, "SlashAppealFiled");
+
+      // The window still expires -- measured from the slash, not forever.
+      await ethers.provider.send("evm_increaseTime", [3 * 24 * 60 * 60 + 1]);
+      await ethers.provider.send("evm_mine");
+      await expect(
+        staking.connect(staker).appealSlashing(1, "appeal"),
+      ).to.be.revertedWith("Appeal window expired");
+    });
+  });
+
   describe("batch size control", function () {
     it("is owner-only", async function () {
       await expect(staking.connect(reporter).setMaxSlashBatch(5)).to.revert(ethers);
