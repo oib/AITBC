@@ -46,15 +46,31 @@ def auth_client() -> TestClient:
 
 
 def test_ipfs_prefix_resolves_to_any() -> None:
-    """Matrix pin: /v1/ipfs* must stay AuthLevel.ANY, not NONE or DENY."""
+    """Matrix pin: read + signature-gated /v1/ipfs routes stay AuthLevel.ANY.
+
+    IPFS-API-AUTHZ-1 (#1686) moved the mutating memory/pin routes to
+    ADMIN_OR_CLIENT — asserted separately below.
+    """
     for path in (
         "/v1/ipfs/stats",
         "/v1/ipfs/health",
         "/v1/ipfs/list/some-agent",
-        "/v1/ipfs/upload",
         "/v1/ipfs/island/swarm-key",
+        "/v1/ipfs/island/swarm-key/nonce",
     ):
         assert get_auth_level(path) is AuthLevel.ANY, f"{path} resolved to {get_auth_level(path)}"
+
+
+def test_ipfs_mutating_routes_require_admin_or_client() -> None:
+    """IPFS-API-AUTHZ-1 (#1686): pin/unpin/deal routes are not ANY-role."""
+    for path in (
+        "/v1/ipfs/upload",
+        "/v1/ipfs/batch-upload",
+        "/v1/ipfs/create-deal",
+        "/v1/ipfs/delete",
+    ):
+        assert get_auth_level(path) is AuthLevel.ADMIN_OR_CLIENT, f"{path} resolved to {get_auth_level(path)}"
+        assert get_auth_level(path, "POST") is AuthLevel.ADMIN_OR_CLIENT
 
 
 @pytest.mark.parametrize(
