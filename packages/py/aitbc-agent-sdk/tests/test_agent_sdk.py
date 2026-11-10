@@ -270,6 +270,117 @@ class TestComputeConsumer:
         call_kwargs = mock_client.get.call_args.kwargs
         assert call_kwargs["headers"] == {"Authorization": "Bearer test-jwt-token"}
 
+    # -- merged-state regression (#1635): pending_jobs may only gain an entry
+    #    after the coordinator ACCEPTS the job. Before the fix the job was
+    #    appended before the HTTP call, so every transport/serialization
+    #    failure left a phantom pending job and a synthetic job_ id.
+
+    def _consumer(self) -> ComputeConsumer:
+        return ComputeConsumer.create(
+            name="pending-jobs-consumer",
+            agent_type="consumer",
+            capabilities={"compute_type": "inference"},
+            coordinator_url="http://coordinator:8203",
+        )
+
+    def _run_submit(self, consumer, mock_client):
+        async def _run():
+            with patch("aitbc_agent.compute_consumer.httpx.AsyncClient", return_value=mock_client):
+                return await consumer.submit_job(
+                    job_type="inference",
+                    input_data={"prompt": "hi"},
+                    max_price=Decimal("1.25"),
+                )
+
+        return asyncio.run(_run())
+
+    def _mock_client(self, post_side_effect=None, post_return=None):
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = False
+        if post_side_effect is not None:
+            mock_client.post.side_effect = post_side_effect
+        else:
+            mock_client.post.return_value = post_return
+        return mock_client
+
+    def test_submit_job_non_201_leaves_pending_jobs_empty(self):
+        consumer = self._consumer()
+        resp = AsyncMock()
+        resp.status_code = 500
+        resp.text = "boom"
+        client = self._mock_client(post_return=resp)
+
+        assert self._run_submit(consumer, client) == ""
+        assert consumer.pending_jobs == []
+
+    def test_submit_job_transport_error_leaves_pending_jobs_empty(self):
+        consumer = self._consumer()
+        client = self._mock_client(post_side_effect=ConnectionError("coordinator down"))
+
+        assert self._run_submit(consumer, client) == ""
+        assert consumer.pending_jobs == []
+
+    def test_submit_job_accepted_without_job_id_leaves_pending_jobs_empty(self):
+        consumer = self._consumer()
+        resp = AsyncMock()
+        resp.status_code = 201
+        resp.json = Mock(return_value={"status": "queued"})  # no job_id
+        client = self._mock_client(post_return=resp)
+
+        assert self._run_submit(consumer, client) == ""
+        assert consumer.pending_jobs == []
+
+    def test_submit_job_success_tracks_pending_job_once(self):
+        consumer = self._consumer()
+        resp = AsyncMock()
+        resp.status_code = 201
+        resp.json = Mock(return_value={"job_id": "job_real_1"})
+        client = self._mock_client(post_return=resp)
+
+        assert self._run_submit(consumer, client) == "job_real_1"
+        assert len(consumer.pending_jobs) == 1
+        assert consumer.pending_jobs[0].job_id == "job_real_1"
+
+    def test_submit_job_payment_amount_is_json_safe_string(self):
+        """str(Decimal) must survive httpx json= serialization for high-precision
+        prices — the TypeError this replaces was swallowed and looked like a
+        successful submit while the job never left pending_jobs."""
+        import json as _json
+
+        consumer = self._consumer()
+        captured = {}
+
+        async def _capture_post(url, json=None, headers=None, timeout=None):
+            captured["json"] = json
+            resp = AsyncMock()
+            resp.status_code = 201
+            resp.json = Mock(return_value={"job_id": "job_precise"})
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = False
+        mock_client.post = AsyncMock(side_effect=_capture_post)
+
+        async def _run():
+            with patch("aitbc_agent.compute_consumer.httpx.AsyncClient", return_value=mock_client):
+                return await consumer.submit_job(
+                    job_type="training",
+                    input_data={},
+                    max_price=Decimal("0.00000001"),
+                )
+
+        assert asyncio.run(_run()) == "job_precise"
+        sent = captured["json"]
+        # str(Decimal) may use exponent notation — Decimal("1E-8") parses back
+        # to exactly the same value on the coordinator side.
+        assert sent["payment_amount"] == str(Decimal("0.00000001"))
+        assert Decimal(sent["payment_amount"]) == Decimal("0.00000001")
+        assert isinstance(sent["payment_amount"], str)
+        # The whole payload must be JSON-serializable — no Decimal leaks.
+        _json.dumps(sent)
+
 
 class TestAgentIntegration:
     """Integration tests for agent workflows"""
