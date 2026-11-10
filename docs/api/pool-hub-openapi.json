@@ -2232,26 +2232,36 @@
           },
           "current_jobs": {
             "type": "integer",
+            "maximum": 10000000.0,
+            "minimum": 0.0,
             "title": "Current Jobs",
             "default": 0
           },
           "gpu_utilization": {
             "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
             "title": "Gpu Utilization",
             "default": 0
           },
           "memory_used": {
             "type": "integer",
+            "maximum": 10000000.0,
+            "minimum": 0.0,
             "title": "Memory Used",
             "default": 0
           },
           "memory_total": {
             "type": "integer",
+            "maximum": 10000000.0,
+            "minimum": 0.0,
             "title": "Memory Total",
             "default": 0
           },
           "network_latency_ms": {
             "type": "number",
+            "maximum": 600000.0,
+            "minimum": 0.0,
             "title": "Network Latency Ms",
             "default": 0.0
           }

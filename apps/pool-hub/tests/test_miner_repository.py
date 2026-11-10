@@ -1,8 +1,9 @@
 """MinerRepository tests — registration, status updates, Redis sync, scoring.
 
-#1399 (POOLHUB-INPUT-1): miner-reported numerics are stored unvalidated —
-negative queue_len inflates _compute_score above its theoretical maximum and
-negative latency flows into MatchResult.eta_ms / SLA response-time metrics.
+#1399 (POOLHUB-INPUT-1) regression coverage: heartbeat numerics are bounded
+at the schema edge and clamped in update_status, so a negative queue_len can
+no longer inflate _compute_score above its theoretical maximum and negative
+latency cannot reach MatchResult.eta_ms / SLA response-time metrics.
 """
 
 from __future__ import annotations
@@ -181,10 +182,6 @@ class TestComputeScore:
         score = repo._compute_score(self._miner_ns(), None)
         assert score > 0
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="negative queue_len → utilization<0 → load_factor>1 → score above theoretical max; fix tracked in #1399",
-    )
     def test_negative_queue_len_cannot_inflate_score(self, repo):
         """Weights sum to 1.0, so no legitimate state may exceed this bound."""
         w = settings.default_score_weights
@@ -195,21 +192,13 @@ class TestComputeScore:
 
 
 class TestHeartbeatInputValidation:
-    """#1399: the heartbeat schema accepts negatives today — pinned as xfail."""
+    """#1399: heartbeat numerics carry ge/le bounds — regression tests."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="MinerHeartbeatRequest has no ge=0 bounds — negative jobs/latency are accepted and stored; fix tracked in #1399",
-    )
     def test_heartbeat_schema_bounds_numerics(self):
         # Documents the intended contract: non-negative counters only.
         with pytest.raises(ValidationError):
             MinerHeartbeatRequest(current_jobs=-5, network_latency_ms=-1.0, memory_used=-100)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="update_status persists negative queue_len/avg_latency_ms reported by the miner; fix tracked in #1399",
-    )
     async def test_update_status_stores_only_sane_values(self, db_session, redis):
         """Negative queue_len/latency must not reach MinerStatus."""
         async with db_session() as s:
