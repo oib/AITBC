@@ -110,9 +110,12 @@ class TestSweeperSettlesOwnedEscrow:
                 "payment": {"status": "escrowed", "amount": "5"},
             }
         )
-        job = (await session.execute(select(MarketJob))).scalars().all()[-1]
+        job = (await session.execute(select(MarketJob).where(MarketJob.offer_id == "o1"))).scalars().all()[-1]
         payment = (await session.execute(select(MarketJobPayment).where(MarketJobPayment.job_id == job.id))).scalar_one()
         assert job.state != "FAILED"
-        assert job.escrow_contract_id is None
+        # #1634: escrow_contract_id is now bound to the job id at creation —
+        # the splat must still not let the caller's "victim-escrow-3" through.
+        assert job.escrow_contract_id == job.id
+        assert job.escrow_contract_id != "victim-escrow-3"
         assert payment.status != "escrowed"
         assert payment.escrowed_at is None
