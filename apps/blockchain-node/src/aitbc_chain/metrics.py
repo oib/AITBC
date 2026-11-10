@@ -177,11 +177,21 @@ GOSSIP_REJECT_REASONS = (
     "rate",
     "rate_total",
     "auth",
+    "chain_membership_unconfigured",
 )
 gossip_ws_rejected_total = Counter(
     "blockchain_gossip_ws_rejected_total",
     "Gossip websocket refusals by served chain, topic class and reason",
     ["chain", "topic_class", "reason"],
+)
+# #1259 (D2 option P): connections to a connectable NON-default chain whose
+# validator membership is not configured separately (the process-global set
+# would be consulted). Read this before flipping
+# GOSSIP_AUTH_REQUIRE_CHAIN_MEMBERSHIP; ``chain`` is a bounded label.
+gossip_auth_membership_unconfigured_total = Counter(
+    "gossip_auth_membership_unconfigured_total",
+    "Gossip connections to a non-default chain relying on the process-global validator set",
+    ["chain"],
 )
 gossip_ws_open_connections = Gauge(
     "blockchain_gossip_ws_open_connections",

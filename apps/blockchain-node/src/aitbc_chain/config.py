@@ -580,6 +580,20 @@ class ChainSettings(BaseSettings):
         "true",
         "yes",
     )
+    # Per-chain validator membership guard (#1259, D2 option P). The validator
+    # set is process-global (``VALIDATOR_SET``), so on a process that connectably
+    # serves a NON-default chain a validator of the default chain could pass the
+    # membership check on that chain. While this flag is off the situation is
+    # only counted (``gossip_auth_membership_unconfigured_total``); on, such
+    # connections are refused (1008, reason ``chain_membership_unconfigured``)
+    # unless the chain is listed in ``GOSSIP_SHARED_VALIDATOR_CHAINS``.
+    # Single-chain hosts are unaffected either way. Counter-first rollout.
+    gossip_auth_require_chain_membership: bool = os.getenv("GOSSIP_AUTH_REQUIRE_CHAIN_MEMBERSHIP", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    gossip_shared_validator_chains: str = os.getenv("GOSSIP_SHARED_VALIDATOR_CHAINS", "")
     # Dialer side of the same rollout (#1255, #1159 design v2 D1): what THIS
     # node signs when it dials a peer. Split from ``..._require_chain_scope``
     # (server strictness) so the flip is staged: sign=on fleet-wide first
@@ -1601,6 +1615,10 @@ class ChainSettings(BaseSettings):
         if not chains and self.chain_id:
             chains = [self.chain_id]
         return chains
+
+    def gossip_shared_validator_chain_ids(self) -> set[str]:
+        """Chains that deliberately share the default ``VALIDATOR_SET`` (#1259 opt-in)."""
+        return {c.strip() for c in self.gossip_shared_validator_chains.split(",") if c.strip()}
 
     def gossip_backend_map(self) -> dict[str, str]:
         """Parsed ``GOSSIP_BACKENDS`` as ``{chain_id: url}`` (empty entries dropped).
