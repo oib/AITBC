@@ -140,6 +140,21 @@ def test_forwarded_headers_use_realip_peer(nginx_conf: str) -> None:
             assert "proxy_set_header X-Real-IP $remote_addr;" in body, "a location injects X-Real-IP from a non-realip source"
 
 
+# ── #1694: X-Forwarded-Proto must be the connection scheme, not the
+# client-supplied header (the sibling proxy examples already use $scheme) ──
+
+
+def test_forwarded_proto_uses_connection_scheme(nginx_conf: str) -> None:
+    """``$http_x_forwarded_proto`` echoes the raw client header — a client can
+    claim ``https`` on a plain-http request and the backend sees a spoofed
+    scheme. Every location must pass ``$scheme`` instead."""
+    assert "$http_x_forwarded_proto" not in nginx_conf, "client-controlled X-Forwarded-Proto passthrough present — use $scheme"
+    proto_lines = [ln for ln in nginx_conf.splitlines() if "proxy_set_header X-Forwarded-Proto" in ln]
+    assert proto_lines, "no X-Forwarded-Proto headers found"
+    for ln in proto_lines:
+        assert ln.rstrip().endswith("$scheme;"), f"X-Forwarded-Proto not sourced from $scheme: {ln.strip()}"
+
+
 # ── #1204: public-by-policy gated bridge reads get edge key injection ──
 #
 # With WALLET_AUTH_ENABLED=true the wallet app 401s admin routes without
