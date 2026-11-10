@@ -1888,6 +1888,36 @@ class MarketService:
 
     # Reuse _parse_iso_dt from the IPFS rental token helpers above.
 
+    async def _require_known_offer(self, offer_id: str) -> None:
+        """#1564: a job may only reference an offer the market actually lists.
+
+        Resolution mirrors what buyers see in ``list_software_services``: a
+        local ``SoftwareService`` row matched on its live ``offer_id`` or
+        ``plugin_id``, else an on-chain GPU offer via ``GET /rpc/gpu/info/{id}``.
+        Anything else raises — previously ``create_market_job`` persisted any
+        caller-supplied ``offer_id`` unchecked.
+        """
+        from ..domain.market import SoftwareService
+
+        stmt = select(SoftwareService).where((SoftwareService.offer_id == offer_id) | (SoftwareService.plugin_id == offer_id))
+        if (await self.session.execute(stmt)).scalars().first() is not None:
+            return
+        # On-chain fallbacks, same sources the listing merges: a GPU offer by
+        # id, then a software offer anchored as a sealed GPU_MARKET tx whose
+        # payload carries this offer_id.
+        try:
+            if await self._rpc_client.get_offer(offer_id):
+                return
+        except Exception as e:
+            logger.warning("GPU offer lookup for %s failed on chain RPC: %s", offer_id, e)
+        try:
+            txs = await self._rpc_client.query_transactions(transaction_type="GPU_MARKET", order_id=offer_id, limit=1)
+            if txs:
+                return
+        except Exception as e:
+            logger.warning("GPU_MARKET anchor lookup for %s failed on chain RPC: %s", offer_id, e)
+        raise ValueError(f"Unknown offer_id: {offer_id}")
+
     async def create_market_job(self, data: dict[str, Any]) -> dict[str, Any]:
         """Create a MarketJob and MarketJobPayment for a software job."""
         try:
@@ -1899,6 +1929,12 @@ class MarketService:
             job_id = data.get("id") or uuid4().hex
             if not job_id:
                 raise ValueError("job_id is required")
+
+            # #1564: a job may only reference an offer the market actually
+            # lists — the old code persisted any caller-supplied offer_id.
+            offer_id = data.get("offer_id")
+            if offer_id:
+                await self._require_known_offer(str(offer_id))
 
             # Normalize timestamps
             for field in ("requested_at", "expires_at", "created_at", "updated_at"):
@@ -1951,10 +1987,16 @@ class MarketService:
             # refunded timestamps) are written by the payment path, never from
             # the request — a caller-set "escrowed" row is what the sweeper
             # steering relied on (#815).
+            try:
+                payment_amount = Decimal(str(payment_data.get("amount", payment_data.get("payment_amount", 0))))
+            except Exception as e:
+                raise ValueError("payment amount must be a valid number") from e
+            if not payment_amount.is_finite() or payment_amount < 0:
+                raise ValueError("payment amount must be a finite non-negative number")
             payment = MarketJobPayment(
                 id=payment_data.get("id") or uuid4().hex,
                 job_id=job.id,
-                amount=Decimal(str(payment_data.get("amount", payment_data.get("payment_amount", 0)))),
+                amount=payment_amount,
                 currency=payment_data.get("currency", "AITBC"),
                 status="pending",
                 payment_method=payment_data.get("payment_method", "aitbc_token"),
@@ -2101,6 +2143,52 @@ class MarketService:
             logger.error("Error in cancel_market_job: %s: %s", type(e).__name__, e)
             raise
 
+    @staticmethod
+    def _addresses_match(left: Any, right: Any) -> bool:
+        """Best-effort address equality: canonical EIP-55 when both parse,
+        case-insensitive string compare otherwise."""
+        if not left or not right:
+            return False
+        try:
+            return canonical_address(str(left)) == canonical_address(str(right))
+        except Exception:
+            return str(left).strip().lower() == str(right).strip().lower()
+
+    async def _require_locked_escrow(self, job: MarketJob, payment: MarketJobPayment) -> None:
+        """#1564: the pending->escrowed flip needs on-chain escrow proof.
+
+        The chain escrow is keyed by the market job id (``/rpc/escrow/{job_id}``),
+        so proof is: the escrow row exists, it is in a locked state (not
+        created/released/refunded/expired), and — where the response and the
+        job both name them — the locked amount and the buyer/provider parties
+        match this job's payment record. Anything less used to flip the
+        payment to ``escrowed`` on an HTTP call alone.
+        """
+        escrow = await self._rpc_client.verify_escrow(job.id)
+        if not escrow:
+            raise ValueError(f"No on-chain escrow found for job {job.id}; payment cannot be marked escrowed")
+        # Whitelist, not blacklist: the node reports contract states
+        # (created/funded/job_started/job_completed/disputed/resolved/released/
+        # refunded/expired) or the escrow row status (locked/released/refunded/
+        # settlement_failed). Only the states where funds are actually locked
+        # qualify — anything else (created-but-unfunded, settlement_failed,
+        # terminal) must not flip the payment.
+        state = str(escrow.get("state") or "").lower()
+        if state not in {"funded", "locked", "job_started", "job_completed", "disputed", "resolved"}:
+            raise ValueError(f"On-chain escrow for job {job.id} is not locked (state={state or 'unknown'})")
+        amount = escrow.get("amount")
+        if amount is not None:
+            try:
+                locked = Decimal(str(amount))
+            except Exception as e:
+                raise ValueError(f"On-chain escrow for job {job.id} has an unreadable amount") from e
+            if not locked.is_finite() or locked != payment.amount:
+                raise ValueError(f"On-chain escrow amount {locked} does not match job payment amount {payment.amount}")
+        for field, expected in (("buyer", job.buyer_address), ("provider", job.provider_address)):
+            actual = escrow.get(field)
+            if actual and expected and not self._addresses_match(actual, expected):
+                raise ValueError(f"On-chain escrow {field} does not match job {job.id}")
+
     async def confirm_market_job_pin(
         self,
         job_id: str,
@@ -2117,6 +2205,16 @@ class MarketService:
             if job.state not in {"QUEUED", "RUNNING"}:
                 return self._job_to_dict(job)
 
+            payment = None
+            if job.payment_id:
+                payment = await self.session.get(MarketJobPayment, job.payment_id)
+            # #1564: pending->escrowed is a settlement claim — it requires the
+            # escrow to exist on-chain with matching amount and parties. The
+            # check runs before any mutation so a failed proof leaves the job
+            # untouched and the provider can retry once the lock lands.
+            if payment is not None and payment.status == "pending":
+                await self._require_locked_escrow(job, payment)
+
             # payload is a plain JSON column: reassign, don't mutate in place,
             # or SQLAlchemy never sees the change and the update is dropped.
             payload = dict(job.payload or {})
@@ -2132,15 +2230,12 @@ class MarketService:
             job.state = "RUNNING"
             job.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
-            payment = None
-            if job.payment_id:
-                payment = await self.session.get(MarketJobPayment, job.payment_id)
-                if payment and payment.status == "pending":
-                    payment.status = "escrowed"
-                    payment.escrowed_at = datetime.now(UTC).replace(tzinfo=None)
-                    payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                    self.session.add(payment)
-                    job.payment_status = "escrowed"
+            if payment and payment.status == "pending":
+                payment.status = "escrowed"
+                payment.escrowed_at = datetime.now(UTC).replace(tzinfo=None)
+                payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                self.session.add(payment)
+                job.payment_status = "escrowed"
 
             self.session.add(job)
             await self.session.commit()

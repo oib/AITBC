@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from market_service.domain.market import IpfsRentalToken, MarketJob
+from market_service.domain.market import IpfsRentalToken, MarketJob, SoftwareService
 from market_service.services.market_service import (
     MarketService,
     hash_access_secret,
@@ -105,6 +105,9 @@ async def test_legacy_plaintext_row_still_verifies(session: AsyncSession) -> Non
 async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
     svc = MarketService(session)
     jak = _unique("jak")
+    # #1564: create_market_job rejects unknown offer_ids — register the offer.
+    session.add(SoftwareService(service_type="ipfs", offer_id="offer-1"))
+    await session.commit()
     job = await svc.create_market_job(
         {
             "offer_id": "offer-1",

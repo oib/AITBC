@@ -32,7 +32,7 @@ from aitbc.market.job_request_signature import jobs_request_message
 from aitbc.utils.chain_id import resolve_chain_id
 from market_service.config import settings
 from market_service.main import app
-from market_service.domain.market import MarketJob, MarketJobPayment
+from market_service.domain.market import MarketJob, MarketJobPayment, SoftwareService
 from market_service.services.market_service import (
     PUBLIC_JOB_FIELDS,
     MarketService,
@@ -97,6 +97,14 @@ def _seed_ipfs_job(private_key: str = _TEST_PRIVATE_KEY, **overrides: Any) -> di
         "payment": {"amount": "1.0", "status": "escrowed", "escrow_address": "0xescrow", "refund_address": "0xrefund"},
     }
     fields.update(overrides)
+
+    # #1564: create_market_job rejects unknown offer_ids — register the offer.
+    async def _seed_offer() -> None:
+        async with get_session_context() as session:
+            session.add(SoftwareService(service_type="ipfs", offer_id=str(fields["offer_id"])))
+            await session.commit()
+
+    asyncio.run(_seed_offer())
     record = _seed_job(**fields)
 
     # #815: create_market_job ignores caller-set lifecycle fields — drive the
