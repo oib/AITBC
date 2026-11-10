@@ -190,3 +190,24 @@ def test_execute_cross_chain_signed_proposer_reaches_status_check(client: TestCl
     )
     # Proposal is 'active', not 'passed' — auth passed, status gate answers 400.
     assert r.status_code == 400
+
+
+def test_aggregate_votes_counts_real_votes(client: TestClient) -> None:
+    """#1501: the tally read ``v.get(...)`` on Vote ORM rows — 500 with votes."""
+    pid = _create_proposal(client)
+    voter = _address(PRIVKEY)
+    vote = {
+        "proposal_id": pid,
+        "voter_address": voter,
+        "vote_type": "for",
+        "timestamp": time.time(),
+    }
+    vote["signature"] = _sign_body(PRIVKEY, {k: v for k, v in vote.items() if k != "signature"})
+    r = client.post("/v1/governance/votes", json=vote)
+    assert r.status_code == 200, r.text
+
+    r = client.post(f"/v1/governance/proposals/{pid}/aggregate-votes", json=_signed({}))
+    assert r.status_code == 200, r.text
+    assert r.json()["total_for"] == 1
+    assert r.json()["total_against"] == 0
+    assert r.json()["total_abstain"] == 0
