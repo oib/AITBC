@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from ....config import settings
 from ..services.ipfs_service import IPFSService
-from ..services.island_ipfs_access import get_member_swarm_key
+from ..services.island_ipfs_access import get_member_swarm_key, issue_swarm_key_nonce
 from aitbc.rate_limiting import rate_limit
 
 router = APIRouter()
@@ -65,6 +65,14 @@ class IslandSwarmKeyRequest(BaseModel):
     member_address: str
     nonce: str
     signature: str
+
+
+class IslandSwarmKeyNonceRequest(BaseModel):
+    """Request model for a server-issued swarm-key challenge nonce."""
+
+    chain_id: str
+    island_id: str
+    member_address: str
 
 
 # Singleton IPFS service instance
@@ -318,6 +326,23 @@ async def health_check() -> dict[str, Any]:
             "service": "ipfs-storage",
             "message": f"IPFS service error: {str(e)}",
         }
+
+
+@router.post("/island/swarm-key/nonce")
+@rate_limit(rate=20, per=60)
+def issue_island_swarm_key_nonce(request: IslandSwarmKeyNonceRequest, *, http_request: Request) -> dict[str, Any]:
+    """Issue a single-use, expiring swarm-key challenge nonce (#1712).
+
+    The nonce is bound to (chain_id, island_id, member_address); the member
+    signs it and posts the signature to /island/swarm-key within the TTL.
+    """
+    try:
+        return {"success": True, **issue_swarm_key_nonce(request.chain_id, request.island_id, request.member_address)}
+    except PermissionError as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    except Exception as e:
+        logging.getLogger(__name__).exception("Unhandled exception")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/island/swarm-key")

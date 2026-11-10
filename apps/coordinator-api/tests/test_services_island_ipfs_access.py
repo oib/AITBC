@@ -146,8 +146,8 @@ class TestIslandSwarmKey:
 
 class TestVerifyMemberSignature:
     def test_empty_inputs_false(self) -> None:
-        assert svc.verify_member_signature(ISLAND, "", "n", "sig") is False
-        assert svc.verify_member_signature(ISLAND, MEMBER, "n", "") is False
+        assert svc.verify_member_signature(CHAIN_ID, ISLAND, "", "n", "sig") is False
+        assert svc.verify_member_signature(CHAIN_ID, ISLAND, MEMBER, "n", "") is False
 
     def test_delegates_to_verify_signature(self, monkeypatch: pytest.MonkeyPatch) -> None:
         calls = {}
@@ -157,16 +157,61 @@ class TestVerifyMemberSignature:
             return True
 
         monkeypatch.setattr(svc, "verify_signature", fake_verify)
-        assert svc.verify_member_signature(ISLAND, MEMBER, "nonce1", "0xsig") is True
+        assert svc.verify_member_signature(CHAIN_ID, ISLAND, MEMBER, "nonce1", "0xsig") is True
         assert calls["args"][1] == "0xsig"
         assert calls["args"][2] == MEMBER
+
+    def test_challenge_message_binds_chain_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """#1712: the signed message covers chain_id — same nonce+sig on a
+        different chain must hash differently."""
+        from eth_utils import keccak
+
+        seen: list[bytes] = []
+
+        def fake_verify(msg_hash: bytes, signature: str, address: str) -> bool:
+            seen.append(msg_hash)
+            return True
+
+        monkeypatch.setattr(svc, "verify_signature", fake_verify)
+        svc.verify_member_signature(CHAIN_ID, ISLAND, MEMBER, "n", "s")
+        svc.verify_member_signature("other-chain", ISLAND, MEMBER, "n", "s")
+        assert seen[0] != seen[1]
+        assert seen[0] == keccak(f"{CHAIN_ID}:{ISLAND}:{MEMBER}:n".encode())
 
     def test_verify_exception_returns_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def boom(*_a: object) -> bool:
             raise ValueError("bad sig")
 
         monkeypatch.setattr(svc, "verify_signature", boom)
-        assert svc.verify_member_signature(ISLAND, MEMBER, "n", "sig") is False
+        assert svc.verify_member_signature(CHAIN_ID, ISLAND, MEMBER, "n", "sig") is False
+
+
+class TestSwarmKeyNonce:
+    def test_issue_returns_nonce_and_expiry(self) -> None:
+        out = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)
+        assert out["nonce"]
+        assert out["expires_at"] > 0
+
+    def test_nonce_is_single_use(self) -> None:
+        nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
+        assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, nonce) is True
+        assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, nonce) is False
+
+    def test_nonce_bound_to_chain_island_member(self) -> None:
+        nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
+        assert svc._consume_swarm_nonce("other-chain", ISLAND, MEMBER, nonce) is False
+        nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
+        assert svc._consume_swarm_nonce(CHAIN_ID, "island-b", MEMBER, nonce) is False
+        nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
+        assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, "0x" + "cd" * 20, nonce) is False
+
+    def test_expired_nonce_rejected(self) -> None:
+        nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
+        svc._swarm_nonces[nonce]["expires_at"] = 0
+        assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, nonce) is False
+
+    def test_unknown_nonce_rejected(self) -> None:
+        assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, "never-issued") is False
 
 
 class TestGetMemberSwarmKey:
@@ -174,17 +219,35 @@ class TestGetMemberSwarmKey:
     def _good_sig(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(svc, "verify_signature", lambda *a: True)
 
+    def _nonce(self) -> str:
+        return svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
+
     def test_bad_signature_denied(self, monkeypatch: pytest.MonkeyPatch, chain_db: Path, swarm_key: Path) -> None:
         monkeypatch.setattr(svc, "verify_signature", lambda *a: False)
         with pytest.raises(PermissionError, match="Invalid signature"):
-            svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, "n", "sig")
+            svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, self._nonce(), "sig")
+
+    def test_client_chosen_nonce_denied(self, chain_db: Path, swarm_key: Path) -> None:
+        """#1712: a nonce the coordinator never issued cannot be replayed."""
+        with pytest.raises(PermissionError, match="challenge nonce"):
+            svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, "client-chosen-nonce", "sig")
+
+    def test_nonce_single_use_across_calls(self, chain_db: Path, swarm_key: Path) -> None:
+        nonce = self._nonce()
+        out = svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, nonce, "sig")
+        assert out["swarm_key"] == "test-swarm-key-material"
+        with pytest.raises(PermissionError, match="challenge nonce"):
+            svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, nonce, "sig")
 
     def test_no_subscription_denied(self, chain_db: Path, swarm_key: Path) -> None:
         with pytest.raises(PermissionError, match="No active IPFS subscription"):
-            svc.get_member_swarm_key(CHAIN_ID, "island-b", MEMBER, "n", "sig")
+            svc.get_member_swarm_key(CHAIN_ID, "island-b", MEMBER, self._nonce_for("island-b"), "sig")
+
+    def _nonce_for(self, island_id: str) -> str:
+        return svc.issue_swarm_key_nonce(CHAIN_ID, island_id, MEMBER)["nonce"]
 
     def test_success_returns_key_and_multiaddr(self, chain_db: Path, swarm_key: Path) -> None:
-        out = svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, "n", "sig")
+        out = svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, self._nonce(), "sig")
         assert out["swarm_key"] == "test-swarm-key-material"
         assert out["island_id"] == ISLAND
         assert out["member_address"] == canonical_address(MEMBER)
@@ -194,4 +257,4 @@ class TestGetMemberSwarmKey:
     def test_unknown_island_denied_after_subscription(self, data_dir: Path, chain_db: Path) -> None:
         # subscription exists for ISLAND but no swarm.key on disk
         with pytest.raises(PermissionError, match="Unknown island"):
-            svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, "n", "sig")
+            svc.get_member_swarm_key(CHAIN_ID, ISLAND, MEMBER, self._nonce(), "sig")

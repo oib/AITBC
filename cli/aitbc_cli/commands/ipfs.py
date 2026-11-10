@@ -10,7 +10,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import secrets
 import tempfile
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -710,8 +709,36 @@ def swarm_key(
     if not resolved_api_key:
         abort(None, "No API key available; set AITBC_API_KEY, add api_key to config, or pass --api-key")
 
-    nonce = f"{datetime.now(UTC).isoformat()}:{secrets.token_hex(8)}"
-    challenge = f"{island_id}:{member_address}:{nonce}".encode()
+    base = resolved_coordinator_url.rstrip("/")
+    if base.endswith("/v1"):
+        base = base[:-3]
+
+    # V13-RES2-IPFS-SWARM-1 (#1712): the nonce is server-issued — single-use,
+    # expiring, and bound to (chain_id, island_id, member_address) — and the
+    # signed challenge covers chain_id so it cannot be replayed elsewhere.
+    try:
+        nonce_response = requests.post(
+            f"{base}/v1/ipfs/island/swarm-key/nonce",
+            json={
+                "chain_id": chain_id,
+                "island_id": island_id,
+                "member_address": member_address,
+            },
+            headers={"X-Api-Key": resolved_api_key},
+            timeout=30,
+        )
+        nonce_response.raise_for_status()
+        nonce = str(nonce_response.json().get("nonce") or "")
+    except requests.RequestException as e:
+        if isinstance(e, requests.HTTPError) and e.response is not None:
+            click.echo(e.response.text, err=True)
+        abort(ctx, f"Failed to request swarm key: {e}", from_exception=e)
+        return
+    if not nonce:
+        abort(ctx, "Failed to request swarm key: coordinator returned no nonce", from_exception=None)
+        return
+
+    challenge = f"{chain_id}:{island_id}:{member_address}:{nonce}".encode()
     msg_hash = "0x" + keccak(challenge).hex()
     private_key_hex = private_key.to_hex()
     signature = sign_transaction_hash(msg_hash, private_key_hex)
@@ -724,9 +751,6 @@ def swarm_key(
         "signature": signature,
     }
 
-    base = resolved_coordinator_url.rstrip("/")
-    if base.endswith("/v1"):
-        base = base[:-3]
     url = f"{base}/v1/ipfs/island/swarm-key"
     try:
         response = requests.post(

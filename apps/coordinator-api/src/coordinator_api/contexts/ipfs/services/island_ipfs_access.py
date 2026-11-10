@@ -7,7 +7,10 @@ only to paid, signature-proving island members.
 from __future__ import annotations
 
 import os
+import secrets
 import sqlite3
+import threading
+import time
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
@@ -143,6 +146,56 @@ def is_ipfs_subscription_active(
     return True
 
 
+# V13-RES2-IPFS-SWARM-1 (#1712): the swarm-key challenge used a
+# client-chosen nonce that was never stored, so a captured
+# (nonce, signature) pair replayed for the subscription's lifetime. The
+# coordinator now issues the nonce: single-use, short-lived, and bound to
+# (chain_id, island_id, member_address). The signed message covers
+# chain_id too, so a signature cannot be moved across chains.
+_SWARM_NONCE_TTL_SECONDS = 300
+_SWARM_NONCE_MAX_PENDING = 10_000
+_swarm_nonces: dict[str, dict[str, Any]] = {}
+_swarm_nonces_lock = threading.Lock()
+
+
+def issue_swarm_key_nonce(chain_id: str, island_id: str, member_address: str) -> dict[str, Any]:
+    """Issue a single-use swarm-key challenge nonce bound to the requester."""
+    now = time.time()
+    with _swarm_nonces_lock:
+        expired = [n for n, rec in _swarm_nonces.items() if float(rec.get("expires_at", 0)) <= now]
+        for n in expired:
+            _swarm_nonces.pop(n, None)
+        if len(_swarm_nonces) >= _SWARM_NONCE_MAX_PENDING:
+            raise PermissionError("Too many pending swarm-key challenges")
+        nonce = secrets.token_urlsafe(24)
+        expires_at = now + _SWARM_NONCE_TTL_SECONDS
+        _swarm_nonces[nonce] = {
+            "chain_id": chain_id,
+            "island_id": island_id,
+            "member_address": _to_ait_address(member_address),
+            "expires_at": expires_at,
+        }
+    return {"nonce": nonce, "expires_at": int(expires_at)}
+
+
+def _consume_swarm_nonce(chain_id: str, island_id: str, member_address: str, nonce: str) -> bool:
+    """Atomically validate and burn a swarm-key nonce (single-use)."""
+    if not nonce:
+        return False
+    now = time.time()
+    with _swarm_nonces_lock:
+        record = _swarm_nonces.pop(nonce, None)
+    if record is None:
+        return False
+    if float(record.get("expires_at", 0)) <= now:
+        return False
+    return (
+        record.get("chain_id") == chain_id
+        and record.get("island_id") == island_id
+        and record.get("member_address") == _to_ait_address(member_address)
+    )
+
+
 def _swarm_key_dir(island_id: str) -> Path:
     """Directory where island IPFS swarm keys are stored.
 
@@ -175,17 +228,23 @@ def get_island_swarm_key(island_id: str) -> str:
 
 
 def verify_member_signature(
+    chain_id: str,
     island_id: str,
     member_address: str,
     nonce: str,
     signature: str,
 ) -> bool:
-    """Verify that member_address signed the swarm-key challenge message."""
+    """Verify that member_address signed the swarm-key challenge message.
+
+    The challenge binds chain_id, island_id, member address and the
+    server-issued nonce (#1712) — a signature captured for one chain or one
+    nonce cannot be replayed elsewhere.
+    """
     if not signature or not member_address:
         return False
     from eth_utils import keccak
 
-    message = f"{island_id}:{member_address}:{nonce}".encode()
+    message = f"{chain_id}:{island_id}:{member_address}:{nonce}".encode()
     msg_hash = keccak(message)
     try:
         return verify_signature(msg_hash, signature, member_address)
@@ -202,8 +261,10 @@ def get_member_swarm_key(
     signature: str,
 ) -> dict[str, Any]:
     """Return the swarm key and hub multiaddr for a paid, verified member."""
-    if not verify_member_signature(island_id, member_address, nonce, signature):
+    if not verify_member_signature(chain_id, island_id, member_address, nonce, signature):
         raise PermissionError("Invalid signature")
+    if not _consume_swarm_nonce(chain_id, island_id, member_address, nonce):
+        raise PermissionError("Invalid or expired swarm-key challenge nonce")
     if not is_ipfs_subscription_active(chain_id, island_id, member_address):
         raise PermissionError("No active IPFS subscription for this island")
     key = get_island_swarm_key(island_id)
