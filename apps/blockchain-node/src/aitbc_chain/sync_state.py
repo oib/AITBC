@@ -134,6 +134,17 @@ class StateSyncMixin(SyncBase):
         divergence, peer_height = await self.peer_head_divergence(source_url)
         with self._session_factory() as session:
             local_height, local_root = self._local_head(session)
+        # #1629: with zero local blocks there is no trusted anchor — both
+        # root checks below key on ``local_root``, so an empty head would
+        # commit whatever the source claims. Refuse and let block import
+        # rebuild state deterministically; once blocks exist the recorded
+        # head root engages the normal verification.
+        if local_height == 0 and not local_root:
+            return self._refuse_sync(
+                "empty_head",
+                f"state sync refused: no local blocks — {source_url} state cannot be verified "
+                "against a head root; import blocks first",
+            )
         if peer_height - local_height > max_gap:
             self._logger.info(
                 "State sync skipped: local head %s is %s blocks behind remote head %s (threshold %s)",
@@ -299,6 +310,15 @@ class StateSyncMixin(SyncBase):
         # block import must catch up first, so there is no snapshot fallback.
         with self._session_factory() as session:
             local_height, local_root = self._local_head(session)
+        # #1629: same empty-head hole as the snapshot path — with no recorded
+        # head root there is nothing to verify the delta against.
+        if local_height == 0 and not local_root:
+            return self._refuse_sync(
+                "empty_head",
+                f"delta sync refused: no local blocks — {source_url} state cannot be verified "
+                "against a head root; import blocks first",
+                to_height=to_height,
+            )
         if to_height < local_height:
             return self._refuse_sync(
                 "stale_target",
