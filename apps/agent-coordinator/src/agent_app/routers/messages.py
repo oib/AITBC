@@ -475,7 +475,7 @@ async def discover_agents(
     capability: str | None = Query(None, description="Filter by capability"),
     agent_type: str | None = Query(None, description="Filter by agent type"),
     min_health_score: float = Query(0.0, description="Minimum health score"),
-    limit: int = Query(50, description="Maximum results"),
+    limit: int = Query(50, ge=1, le=500, description="Maximum results"),
 ) -> dict[str, Any]:
     """Discover agents by criteria"""
     try:
