@@ -14,6 +14,10 @@ def to_decimal(value) -> Decimal:
     (e.g., ``Decimal(0.1)`` gives ``0.1000000000000000055511151231257827...``,
     but ``Decimal(str(0.1))`` gives ``0.1``).
     """
-    if isinstance(value, Decimal):
-        return value
-    return Decimal(str(value))
+    result = value if isinstance(value, Decimal) else Decimal(str(value))
+    # #1608: NaN/Infinity must never reach money math — comparisons and
+    # quantize on non-finite Decimals raise InvalidOperation (HTTP 500) or,
+    # worse, silently poison stored TEXT prices.
+    if not result.is_finite():
+        raise ValueError(f"non-finite decimal value: {value!r}")
+    return result

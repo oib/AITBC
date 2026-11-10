@@ -1334,7 +1334,7 @@
             }
           },
           "400": {
-            "description": "Invalid amount / Amount mismatch",
+            "description": "Amounts must be finite / Invalid amount / Amount mismatch",
             "content": {
               "application/json": {
                 "schema": {
@@ -1511,7 +1511,7 @@
           "exchange"
         ],
         "summary": "Get Exchange Rates",
-        "description": "Get current exchange rates (migrated from Coordinator API).",
+        "description": "Get current exchange rates (migrated from Coordinator API).\n\n#1608: ``fee_percent`` mirrors the exchange service's actual\n``EXCHANGE_FEE_PCT`` (the fraction ``_apply_exchange_fee`` multiplies\nthe gross AIT leg by) instead of the stale hardcoded 0.5. Unset or\nunparsable config reports 0.0 \u2014 the exchange's own default is no fee.",
         "operationId": "get_exchange_rates_v1_exchange_rates_get",
         "responses": {
           "200": {
@@ -1790,7 +1790,7 @@
             }
           },
           "400": {
-            "description": "Amount must be positive / Price cannot be negative",
+            "description": "Amount must be positive / Price must be finite / Price cannot be negative",
             "content": {
               "application/json": {
                 "schema": {
@@ -2687,6 +2687,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Price bounds must be finite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }

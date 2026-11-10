@@ -61,6 +61,9 @@ async def create_inter_chain_trade(
     """Create a new inter-chain trade."""
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be positive")
+    # #1608: Decimal("NaN") parses but raises InvalidOperation on compare.
+    if not price.is_finite():
+        raise HTTPException(status_code=400, detail="Price must be finite")
     if price < 0:
         raise HTTPException(status_code=400, detail="Price cannot be negative")
     return await svc.create_trade(
