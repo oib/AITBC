@@ -147,7 +147,7 @@ def test_block_by_height_reuses_embedded_transactions(monkeypatch):
     def _boom(*_a, **_k):
         raise AssertionError("api_block must not open a second DB connection")
 
-    monkeypatch.setattr(blocks_router.aiosqlite, "connect", _boom)
+    monkeypatch.setattr(blocks_router, "chain_db_connect", _boom)
 
     out = asyncio.run(blocks_router.api_block(1))
     assert out["transactions"] == [{"tx_hash": "0xt"}]
