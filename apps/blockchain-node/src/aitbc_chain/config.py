@@ -470,6 +470,10 @@ class ChainSettings(BaseSettings):
     subscription_enabled: bool = True  # enable lease-based block subscription from hub
     subscription_transport: str = "websocket"  # transport: websocket, http, redis
     lease_duration: int = 3600  # lease duration in seconds (1 hour)
+    # Upper bound for a client-requested lease duration on /rpc/subscribe and
+    # /rpc/heartbeat (#1703): without it a peer-key holder could pin an
+    # effectively eternal lease (or 500 the route with a non-numeric value).
+    subscription_max_lease_duration: int = 86400  # 24 hours
     lease_renewal_threshold: int = 300  # renew lease N seconds before expiry
     heartbeat_interval: int = 60  # heartbeat interval in seconds to extend lease
 
