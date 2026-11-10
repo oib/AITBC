@@ -519,6 +519,24 @@ class TestTaskSubmit:
         assert resp.json()["escrow_id"] is None
         assert resp.json()["escrow_status"] is None
 
+    def test_enforce_idempotent_replay_still_requires_auth(self, enforce, fake_state, monkeypatch):
+        """#1553 x Phase C merge interaction: the #1553 dedup replay must sit
+        behind the principal gate — an anonymous resubmit of an escrowed
+        task_id is 401, never a replayed 200 that leaks the escrow_id."""
+        monkeypatch.setattr(settings, "task_payment_escrow_enabled", True)
+        escrow = PaymentEscrow()
+        fake_state.payment_escrow = escrow
+
+        body = self._submission("t-replay-auth")
+        first = enforce.post("/v1/tasks/submit", json=body, headers=_admin_headers())
+        assert first.status_code == 200, first.text
+
+        replay = enforce.post("/v1/tasks/submit", json=body)  # no credentials
+        assert replay.status_code == 401, replay.text
+
+        entries = [e for e in escrow._escrows.values() if e.task_id == "t-replay-auth"]
+        assert len(entries) == 1
+
 
 # --------------------------------------------------------------------------- #
 # complete/fail — both signature schemes

@@ -22,7 +22,7 @@ Trading service for automated and manual trading strategies — offer discovery,
 
 Environment variables read by `trading_service/config.py` and the systemd unit:
 
-- `TRADING_API_KEY` — API key required on most routers (`X-Api-Key` header)
+- `TRADING_API_KEY` — API key required on most routers (`X-Trading-Api-Key` header)
 - `TRADING_BIND_HOST` / `TRADING_BIND_PORT` — bind address (defaults `127.0.0.1:8104`)
 - `DATABASE_URL` — SQLAlchemy async URL (SQLite default; `postgresql+asyncpg://` for Postgres)
 - `REDIS_URL` — gossip broadcast and lease tracker
@@ -75,7 +75,7 @@ pytest apps/trading/tests/
 
 ## API Reference
 
-All routes below are real. Most routers are gated by `require_trading_api_key` (`X-Api-Key` header matching `TRADING_API_KEY`); `/v1/exchange/confirm-payment/{payment_id}` uses a webhook signature instead.
+All routes below are real. Most routers are gated by `require_trading_api_key` (`X-Trading-Api-Key` header matching `TRADING_API_KEY`); `/v1/exchange/confirm-payment/{payment_id}` uses a webhook signature instead.
 
 ### System (unauthenticated)
 
@@ -127,7 +127,7 @@ GET  /v1/trading/offers/subscription-status
 ```http
 POST /v1/exchange/create-payment                GET /v1/exchange/rates
 GET  /v1/exchange/payment-status/{payment_id}   GET /v1/exchange/market-stats
-POST /v1/exchange/confirm-payment/{payment_id}  # webhook signature, not X-Api-Key
+POST /v1/exchange/confirm-payment/{payment_id}  # webhook signature, not X-Trading-Api-Key
 GET  /v1/exchange/wallet/balance                GET /v1/exchange/wallet/info
 ```
 
@@ -153,7 +153,7 @@ the shipped service is `apps/trading` with the `/v1/trading/*` and
 
 ## Troubleshooting
 
-**401 on API calls**: set `X-Api-Key` to the configured `TRADING_API_KEY`.
+**401 on API calls**: set `X-Trading-Api-Key` to the configured `TRADING_API_KEY`.
 
 **Trades not settling**: check escrow state via `/v1/trading/trades/{trade_id}/settlement-status` and confirm the blockchain RPC is reachable.
 

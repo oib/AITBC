@@ -78,7 +78,7 @@ Authentication is per-service:
 
 - **Coordinator API (8203)**: the canonical customer credential is a wallet-signed JWT sent as `Authorization: Bearer <jwt>` (login flow issues the token). `X-Api-Key` remains accepted for service/legacy callers (e.g. miner routes via `require_miner`).
 - **Blockchain node RPC (8202)**: admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` (router-level, GETs included), `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/importBlock`, `/rpc/chains/*`) require the `X-API-Key` header. `POST /rpc/transaction` and `POST /rpc/staking/stake` (retired since v9 — returns 410; see [design/v9-unsigned-protocol-transfers](../design/v9-unsigned-protocol-transfers.md)) are **signature-verified** (wallet signature in the body, no API key). Node-to-hub subscription routes (`/rpc/subscribe`, `/rpc/heartbeat`) take a peer key from `BLOCKCHAIN_RPC_API_KEY_PEERS`, and `/rpc/force-sync` requires an admin-signed body.
-- **Market (8102)**: only the admin `POST /v1/market/parameters/apply` route is key-gated (`X-Api-Key`); the rest are unauthenticated in the current deployment.
+- **Market (8102)**: mutating routes are key-gated with `X-Api-Key` (`require_market_api_key`, `auth_enabled`/`api_key` settings) — offer create/book/cancel, bid complete, match, market-job create/cancel/pin-confirm/release/refund, plugins, ratings sync, transactions, edge-advertise, knowledge-graph writes, dynamic-pricing, and `POST /v1/market/parameters/apply`. Read routes stay public; `GET /v1/market/jobs` returns a stripped public view to anonymous callers and full rows to key/admin callers.
 
 ## Quick Start
 
