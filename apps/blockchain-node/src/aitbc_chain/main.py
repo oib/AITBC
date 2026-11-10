@@ -2,6 +2,7 @@ import asyncio
 import functools
 import json
 import os
+import signal
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,7 +15,7 @@ from aitbc.sync import SyncSourceResolver
 from .config import is_block_producer, settings
 from .consensus import PoAProposer, ProposerConfig
 from .consensus.multi_validator_poa import get_consensus
-from .database import init_db, session_scope
+from .database import init_db, session_scope, shutdown_db
 from .gossip import create_backend, gossip_broker
 from .lease_tracker import lease_tracker
 from .logger import get_logger
@@ -660,6 +661,18 @@ class BlockchainNode:
         finally:
             await self._shutdown()
 
+    def request_stop(self) -> None:
+        """Signal the run loop to exit through the normal shutdown path.
+
+        Used by the SIGTERM/SIGINT handlers in ``_run`` (#1705): systemd stops
+        the unit with SIGTERM, which ``asyncio.run`` does not translate into a
+        cancellation — without a handler the process dies before
+        ``_shutdown`` ever runs. Synchronous on purpose: it is a loop signal
+        callback.
+        """
+        logger.info("Stop requested via signal")
+        self._stop_event.set()
+
     async def stop(self) -> None:
         logger.info("Stopping blockchain node")
         self._stop_event.set()
@@ -757,6 +770,14 @@ class BlockchainNode:
         self._proposers.clear()
         await gossip_broker.shutdown()
         await lease_tracker.stop()
+        # #1705: dispose the chain engines last — shutdown_db also re-encrypts
+        # a db_encryption_enabled chain.db back from its temp plaintext path,
+        # which a hard kill used to leave behind unencrypted.
+        for chain_id in self._supported_chains():
+            try:
+                shutdown_db(chain_id)
+            except Exception as e:
+                logger.error("Error shutting down db for chain %s: %s", chain_id, e)
 
 
 @asynccontextmanager
@@ -775,8 +796,27 @@ def run() -> None:
     asyncio.run(_run())
 
 
+def _install_stop_signal_handlers(node: "BlockchainNode") -> None:
+    """Route SIGTERM/SIGINT through the node's stop event (#1705).
+
+    systemd stop sends SIGTERM, which ``asyncio.run`` does not translate into
+    a cancellation — the process used to die mid-flight with tasks, gossip and
+    lease trackers, and chain DBs left unclosed. Factored out so tests can
+    exercise the same wiring ``_run`` installs.
+    """
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(sig, node.request_stop)
+        except (NotImplementedError, RuntimeError, ValueError):
+            # Non-Unix platforms / non-main-thread loops have no
+            # add_signal_handler; KeyboardInterrupt still covers SIGINT.
+            pass
+
+
 async def _run() -> None:
     async with node_app() as node:
+        _install_stop_signal_handlers(node)
         await node.start()
 
 
