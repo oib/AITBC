@@ -8,6 +8,7 @@ import os
 import secrets
 import urllib.parse
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
@@ -17,6 +18,25 @@ from ..db import connect_db, get_db_path
 from .base import _idempotency_key, get_operation_ledger
 
 logger = get_logger(__name__)
+
+# #1675: marketplace prices are money. to_decimal() only guarantees *finite* —
+# 0, negatives and absurd magnitudes (1e30) used to be stored verbatim as TEXT
+# and later fed order math. Require strictly positive and cap at 1e15, the
+# same ceiling trading's subscription price filter uses.
+_MARKET_MAX_PRICE = Decimal("1000000000000000")
+
+
+def _market_price_or_raise(value) -> Decimal:
+    """Validate a caller-supplied marketplace price; ValueError -> HTTP 400."""
+    try:
+        price = _to_decimal(value)
+    except (ArithmeticError, TypeError, ValueError) as exc:
+        raise ValueError("price must be a finite decimal") from exc
+    if price <= 0:
+        raise ValueError("price must be positive")
+    if price > _MARKET_MAX_PRICE:
+        raise ValueError(f"price must not exceed {_MARKET_MAX_PRICE}")
+    return price
 
 
 class MarketMixin:
@@ -164,8 +184,15 @@ class MarketMixin:
             data = self._read_json_body()  # type: ignore[attr-defined]
             item = data.get("item") or data.get("item_type") or "service"
             item_type = data.get("item_type") or item
-            # B2: Use Decimal for price (stored as TEXT)
-            price = str(_to_decimal(data.get("price") or data.get("price_per_hour") or 0))
+            # B2: Use Decimal for price (stored as TEXT). #1675: the old
+            # ``or 0`` fallback turned None/[]/{} into a free offer — price is
+            # now required and must be finite, > 0 and <= _MARKET_MAX_PRICE.
+            price_raw = data.get("price")
+            if price_raw is None:
+                price_raw = data.get("price_per_hour")
+            if price_raw is None:
+                raise ValueError("price is required")
+            price = str(_market_price_or_raise(price_raw))
             wallet = data.get("wallet")
             description = data.get("description", "")
             idempotency_key = _idempotency_key(self)
@@ -272,8 +299,14 @@ class MarketMixin:
                     self.send_json_response({"success": False, "error": "Offer not found or not active"}, status=404)  # type: ignore[attr-defined]
                     return
                 matched_offer_id, item, offer_price = row
-                # B2: Use Decimal for price (stored as TEXT)
-                price = str(_to_decimal(data.get("price") or offer_price or 0))
+                # B2: Use Decimal for price (stored as TEXT). #1675: an
+                # explicit buyer price gets the same bounds as offer prices;
+                # absent/empty falls back to the (already validated) offer price.
+                price_raw = data.get("price")
+                if price_raw:
+                    price = str(_market_price_or_raise(price_raw))
+                else:
+                    price = str(offer_price)
                 order_id = self._new_market_id("order")
                 cursor.execute(
                     """
