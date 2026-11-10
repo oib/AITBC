@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 
+from aitbc.middleware import RequestValidationMiddleware
 from aitbc.aitbc_logging import configure_logging, get_logger
 
 from .api import router
@@ -12,6 +13,16 @@ logger = get_logger(__name__)
 
 app = FastAPI(title=settings.service_name, version="0.11.0")
 app.include_router(router, prefix=settings.api_prefix)
+
+# MEMORY-BODY-1 (#1652): the per-blob caps in config bound ``data``, but the
+# route's encoded-length check runs only after FastAPI has read and parsed
+# the whole request body — an unbounded JSON envelope (huge ``tags``, or a
+# chunked body with no Content-Length) is a heap-exhaustion path the blob
+# caps do not cover. The shared middleware enforces the cap on the bytes
+# actually read and answers 413. Sized to the largest legal store payload
+# (base64 inflates ~4/3) plus slack for the owner/tags envelope.
+_MAX_REQUEST_BYTES = (settings.memory_max_blob_bytes * 4) // 3 + 1024 * 1024
+app.add_middleware(RequestValidationMiddleware, max_request_size=_MAX_REQUEST_BYTES)
 
 
 @app.on_event("startup")
