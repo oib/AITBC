@@ -238,7 +238,14 @@ class PoolHubBlockchainClient:
                 # {"success": true, "transaction_hash": ...} — "tx_hash" is the
                 # legacy/test alias. Reading only "tx_hash" recorded every
                 # payout as paid with an empty hash (#1570 residual).
-                tx_hash = str(result.get("tx_hash") or result.get("transaction_hash") or "")
+                # Canonical key first: if a response ever carries both with
+                # different values, the node's own field name wins over the
+                # alias. A non-string or empty hash is not a hash — skip it
+                # and route through the failure path like a missing one.
+                tx_hash = next(
+                    (c for c in (result.get("transaction_hash"), result.get("tx_hash")) if isinstance(c, str) and c),
+                    "",
+                )
                 if not tx_hash:
                     # A success response without any transaction hash is
                     # ambiguous — the tx may or may not have reached the
