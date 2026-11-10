@@ -3,5 +3,5 @@
 #   /opt/aitbc/venv/bin/pip show mcp pydantic
 # Only third-party imports in mcp-server/*.py are `mcp` and `pydantic`
 # (plus the local `aitbc` package) — verified 2026-11-07, R15-F1.
-mcp==2.1.1
+mcp==2.2.0
 pydantic==2.13.3
