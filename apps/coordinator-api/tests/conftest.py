@@ -13,12 +13,6 @@ from sqlmodel import Session, SQLModel
 os.environ.setdefault("URL", "sqlite:////tmp/aitbc-coordinator-test.db")
 os.environ.setdefault("JWT_SECRET", "test-secret-for-coordinator-tests" * 2)
 os.environ.setdefault("TEST_MODE", "true")
-# #1601 added @rate_limit to ~75 mutating routes; per-endpoint buckets are
-# keyed on the TestClient peer, so suites that POST repeatedly would trip
-# 429s. Same convention as apps/blockchain-node/tests/conftest.py — the
-# decorator itself is covered by tests/test_rate_limiting.py and the
-# route-coverage pin is AST-based, neither needs live enforcement here.
-os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 
 os.environ.setdefault("EXPLORER_API_URL", "http://127.0.0.1:8100/health")
 os.environ.setdefault("MARKET_STATS_URL", "http://127.0.0.1:8102/health")
@@ -33,6 +27,23 @@ os.environ.setdefault("CHAIN_ID", "ait-testchain")
 
 from coordinator_api.main import app  # noqa: E402
 from coordinator_api.storage import get_session  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _rate_limiting_off(monkeypatch) -> None:
+    """Disable the shared rate-limit middleware for this suite — and only for it.
+
+    #1601 added @rate_limit to ~75 mutating routes; per-endpoint buckets are
+    keyed on the TestClient peer, so suites that POST repeatedly would trip
+    429s. The decorator itself is covered by tests/test_rate_limiting.py and
+    the route-coverage pin is AST-based, neither needs live enforcement here.
+    This used to be ``os.environ.setdefault`` at conftest import time, which
+    leaked the flag into every suite collected afterwards in the same pytest
+    process and silently disabled rate limiting for the trading/pool-hub 429
+    pins (#1657). ``monkeypatch`` restores the previous value after each
+    test; the flag is read per request, not at import.
+    """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
 
 
 @pytest.fixture

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -47,7 +46,6 @@ def fake_connection_manager():
 @pytest.fixture
 def client(monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager):
     """TestClient with messaging dependencies patched."""
-    os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"
     monkeypatch.setattr(messages_router, "state", MagicMock(message_storage=fake_storage))
     monkeypatch.setattr(messages_router, "get_connection_manager", lambda: fake_connection_manager)
     return TestClient(messaging_app)

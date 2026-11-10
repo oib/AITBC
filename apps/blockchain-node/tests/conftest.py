@@ -18,8 +18,6 @@ atexit.register(shutil.rmtree, _TEST_DATA_DIR, True)
 os.makedirs(os.path.join(_TEST_DATA_DIR, "data"), exist_ok=True)
 os.environ.setdefault("AITBC_DATA_DIR", _TEST_DATA_DIR)
 
-# Disable rate limiting in tests to avoid 429s from tight loops
-os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 # Isolate tests from the deployment's blockchain.env. Sub-directories (e.g.
 # consensus/) can opt back in by setting AITBC_CHAIN_ENV_FILE or by patching
 # ``settings`` directly in their conftest.
@@ -74,6 +72,20 @@ def pin_heights_above(monkeypatch):
                 monkeypatch.setattr(settings, name, None)
 
     return _pin
+
+
+@pytest.fixture(autouse=True)
+def _rate_limiting_off(monkeypatch) -> None:
+    """Disable the shared rate-limit middleware for this suite — and only for it.
+
+    Tight loops in these tests would trip the per-IP buckets. This used to be
+    ``os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")`` at conftest
+    import time, which leaked the flag into every suite collected afterwards
+    in the same pytest process and silently disabled rate limiting for the
+    trading/pool-hub 429 pins (#1657). ``monkeypatch`` restores the previous
+    value after each test; the flag is read per request, not at import.
+    """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
 
 
 @pytest.fixture(autouse=True)
