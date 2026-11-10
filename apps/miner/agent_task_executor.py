@@ -607,11 +607,36 @@ def _ipfs_add(data: bytes, filename: str = "result.bin") -> str:
 # result_hash). Handlers raise on failure — the sweep catches and reports.
 
 
+def _shop_access_headers(req: dict[str, Any]) -> dict[str, str]:
+    """Shop-gate credential headers (#803) carried on the task request (#1612).
+
+    Paid shop endpoints (whisper ``/transcribe``, ffmpeg ``/process``) require
+    ``X-Access-Key`` + ``X-Access-Secret`` bound to the market job via
+    ``X-Job-Id``. A buyer agent places the credential triple in the
+    task_request content — ``access_key``/``access_secret`` plus the market
+    job id under ``access_job_id``/``job_id`` — and this executor forwards it
+    verbatim; ``task_id`` is the fallback binding. Without it the gated
+    service answers 401 and paid A2A work fails. Absent credentials omit the
+    headers (the gate's intended refusal for unpaid calls).
+    """
+    key = req.get("access_key")
+    secret = req.get("access_secret")
+    if not key or not secret:
+        return {}
+    bound_job = req.get("access_job_id") or req.get("job_id") or req.get("task_id")
+    return {
+        "X-Access-Key": str(key),
+        "X-Access-Secret": str(secret),
+        "X-Job-Id": str(bound_job),
+    }
+
+
 def _exec_whisper(req: dict[str, Any], payload: bytes) -> bytes:
     resp = requests.post(
         f"{WHISPER_URL}/transcribe",
         files={"file": ("audio", payload)},
         data={"task": "transcribe"},
+        headers=_shop_access_headers(req),
         timeout=600,
         stream=True,
     )
@@ -624,6 +649,7 @@ def _exec_ffmpeg(req: dict[str, Any], payload: bytes) -> bytes:
         f"{FFMPEG_URL}/process",
         files={"file": ("input", payload)},
         data={"output_format": "mp4", "codec": "h264"},
+        headers=_shop_access_headers(req),
         timeout=1800,
         stream=True,
     )

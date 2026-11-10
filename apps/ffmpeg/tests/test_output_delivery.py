@@ -93,3 +93,16 @@ def test_ffmpeg_failure_also_cleans(client, monkeypatch):
         data={"output_format": "mp4", "codec": "h264"},
     )
     assert resp.status_code in (500, 503)
+
+
+def test_process_rejects_non_allowlisted_output_format(client):
+    """#1612: free-form output_format could select sidecar-fanning muxers."""
+    tc, created = client
+    for fmt in ("hls", "dash", "image2", "segment", "mp4/../../x"):
+        resp = tc.post(
+            "/process",
+            files={"file": ("clip.mp4", b"\x00\x01fake-media", "video/mp4")},
+            data={"output_format": fmt, "codec": "h264"},
+        )
+        assert resp.status_code == 400, f"{fmt}: {resp.status_code} {resp.text}"
+    assert created == []
