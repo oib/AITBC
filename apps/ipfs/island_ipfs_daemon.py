@@ -122,13 +122,20 @@ def _generate_swarm_key() -> str:
 
 def _write_swarm_key(repo: Path, key: str | None, allow_generate: bool = False) -> None:
     key_file = repo / "swarm.key"
+
+    # The swarm key is a secret: create 0o600 — write_text-then-chmod leaves
+    # a umask-permission window.
+    def _write_secret(text: str) -> None:
+        fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+
     if key is not None:
-        key_file.write_text(key)
-        key_file.chmod(0o600)
+        _write_secret(key)
     elif not key_file.exists():
         if allow_generate:
-            key_file.write_text(_generate_swarm_key())
-            key_file.chmod(0o600)
+            _write_secret(_generate_swarm_key())
         else:
             raise RuntimeError(
                 f"Missing swarm key for island IPFS repo {repo}. Set ISLAND_SWARM_KEY or place swarm.key in the repo."

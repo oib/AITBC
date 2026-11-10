@@ -135,7 +135,10 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, r
             "joined_at": datetime.now().isoformat(),
         }
 
-        with open(credentials_path, "w") as f:
+        # Island credentials carry API secrets — create 0o600, no umask window.
+        fd = os.open(credentials_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(credentials_data, f, indent=2)
 
         # Ensure the runtime user can read its own island credentials.

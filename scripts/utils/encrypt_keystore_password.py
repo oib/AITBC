@@ -31,9 +31,10 @@ def main():
     else:
         # Generate new secure password if none exists
         password = token_bytes(32).hex()
-        with open(password_file, "w") as f:
+        fd = os.open(password_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
             f.write(password)
-        os.chmod(password_file, 0o600)
 
     # Get encryption password from environment or prompt
     enc_password = os.environ.get("KEYSTORE_ENCRYPTION_PASSWORD")
@@ -48,13 +49,13 @@ def main():
     nonce = token_bytes(encryption.nonce_bytes)
     ciphertext = encryption.encrypt(password=enc_password, plaintext=password.encode(), salt=salt, nonce=nonce)
 
-    # Write encrypted file with salt and nonce
-    with open(encrypted_file, "wb") as f:
+    # Write encrypted file with salt and nonce — 0o600 at creation.
+    fd = os.open(encrypted_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "wb") as f:
         f.write(salt)
         f.write(nonce)
         f.write(ciphertext)
-
-    os.chmod(encrypted_file, 0o600)
 
     print(f"Encrypted keystore password saved to: {encrypted_file}")
     print(f"Original password file: {password_file} (will be removed)")

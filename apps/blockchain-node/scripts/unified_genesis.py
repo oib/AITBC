@@ -158,14 +158,20 @@ def save_genesis_wallet(wallet_data: dict, keystore_path: Path, password: str):
     """Save genesis wallet to keystore"""
     keystore_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(keystore_path, "w") as f:
+    # Both files carry secrets (encrypted keystore + the password that opens
+    # it): create them 0o600 — the old write-then-chmod left a umask window,
+    # and the keystore had no chmod at all.
+    fd = os.open(keystore_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # tighten pre-existing loose files
+    with os.fdopen(fd, "w") as f:
         json.dump(wallet_data, f, indent=2)
 
     # Save password securely
     password_path = keystore_path.parent / ".genesis_password"
-    with open(password_path, "w") as f:
+    fd = os.open(password_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # tighten pre-existing loose files
+    with os.fdopen(fd, "w") as f:
         f.write(password)
-    os.chmod(password_path, 0o600)
 
 
 def save_genesis_json(genesis_block: dict, allocations: list[dict], genesis_path: Path):
