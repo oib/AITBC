@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException, Request
 from ....auth import AuthDep
 from pydantic import BaseModel
 
-from ..services.dispute_resolution import get_dispute_service
+from ..services.dispute_resolution import DisputeStatus, get_dispute_service
 
 router = APIRouter(prefix="/disputes", tags=["disputes"])
 
@@ -155,8 +155,17 @@ def cast_vote(request: Request, req: CastVoteRequest, user: AuthDep) -> dict[str
 
 @router.get("/health", summary="Health check")
 def disputes_health(request: Request) -> dict[str, Any]:
-    """Check disputes service health"""
-    return {"status": "healthy", "active_disputes": 0, "service": "disputes"}
+    """Check disputes service health.
+
+    The service is process-local (``init_dispute_service`` wires it at
+    startup); when it was never initialized every route below 503s, so
+    health must say so instead of reporting a hardcoded zero.
+    """
+    service = get_dispute_service()
+    if service is None:
+        return {"status": "unhealthy", "active_disputes": 0, "service": "disputes"}
+    active = [d for d in service.list_disputes() if d.status not in (DisputeStatus.resolved,)]
+    return {"status": "healthy", "active_disputes": len(active), "service": "disputes"}
 
 
 @router.get("/{dispute_id}", summary="Get dispute details")

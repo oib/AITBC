@@ -257,4 +257,10 @@ async def inference_health(request: Request) -> dict[str, Any]:
         ollama_available = response.status_code == 200
     except Exception:
         ollama_available = False
-    return {"status": "healthy", "ollama_available": ollama_available, "service": "inference"}
+    # Ollama is the only backend this router serves; reporting "healthy"
+    # while it is down told every probe the inference surface was fine.
+    return {
+        "status": "healthy" if ollama_available else "degraded",
+        "ollama_available": ollama_available,
+        "service": "inference",
+    }

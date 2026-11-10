@@ -125,9 +125,28 @@ def health_check() -> dict[str, str]:
 
 
 @app.get("/ready")
-def readiness_check() -> dict[str, str]:
-    """Readiness check endpoint"""
-    return {"status": "ready", "service": "edge-api", "version": "0.1.0"}
+async def readiness_check() -> dict[str, str] | JSONResponse:
+    """Readiness check - verifies the service database answers a query.
+
+    Every router this app serves reads through ``get_session``; a dead
+    database means every one of them fails, so it is the readiness gate.
+    The reason stays in the log: a dependency error can carry a DSN, and
+    /ready is unauthenticated.
+    """
+    try:
+        from sqlalchemy import text
+
+        from .storage import get_session
+
+        async with get_session() as session:
+            await session.execute(text("SELECT 1"))
+        return {"status": "ready", "service": "edge-api", "version": "0.1.0"}
+    except Exception:
+        logger.exception("Readiness check failed")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "service": "edge-api", "error": "readiness check failed"},
+        )
 
 
 app.include_router(islands, prefix=f"{settings.api_prefix}/islands", tags=["islands"])
