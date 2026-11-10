@@ -44,7 +44,7 @@ def test_umask_077_is_restored_after_setup_credentials():
 def test_venv_readability_checked_as_aitbc_user():
     body = _func(SETUP, "setup_venvs")
     assert "sudo -u aitbc" in body, "post-install readability check must run as aitbc"
-    assert re.search(r"sudo -u aitbc test -r /opt/aitbc/venv", body)
+    assert re.search(r"sudo -u aitbc test -r \$\{AITBC_ROOT\}/venv", body)
 
 
 # --- #871 -----------------------------------------------------------------
@@ -67,7 +67,7 @@ def test_profiles_step_seeds_template_for_followers():
 def test_identities_step_adds_missing_p2p_node_id_to_existing_env():
     body = _func(SETUP, "setup_node_identities")
     m = re.search(
-        r"Preserving existing /etc/aitbc/blockchain\.env(.*?)(?:elif)",
+        r"Preserving existing \$\{AITBC_ETC_DIR\}/blockchain\.env(.*?)(?:elif)",
         body,
         re.S,
     )
@@ -124,3 +124,42 @@ def test_listen_addresses_change_restarts_postgresql():
         body = _func(PG, name)
         assert "pg_ensure_listen_addresses" in body, f"{name}: must restart-and-verify via pg_ensure_listen_addresses"
         assert "systemctl reload" not in body, f"{name}: a reload cannot apply listen_addresses"
+
+
+# --- #1593 -----------------------------------------------------------------
+
+
+def test_setup_sh_declares_path_overrides():
+    """setup.sh must expose the AITBC_*_DIR seam so pins can run it against a
+    scratch tree (INC-NODE2-BACKUP-HISTORY-LOST-1 precedent)."""
+    for var, default in [
+        ("AITBC_ROOT", "/opt/aitbc"),
+        ("AITBC_ETC_DIR", "/etc/aitbc"),
+        ("AITBC_SYSTEMD_DIR", "/etc/systemd/system"),
+        ("AITBC_DATA_DIR", "/var/lib/aitbc"),
+        ("AITBC_LOG_DIR", "/var/log/aitbc"),
+        ("AITBC_RUN_DIR", "/run/aitbc"),
+        ("AITBC_BIN_DIR", "/usr/local/bin"),
+    ]:
+        assert f'{var}="${{{var}:-{default}}}"' in SETUP, f"missing override {var}"
+
+
+def test_setup_sh_has_no_bare_system_paths_outside_defaults():
+    """Every operational use of the deploy paths must go through the override
+    vars — a bare literal means a scratch run would still hit the real tree."""
+    body = re.sub(r'^AITBC_\w+="\$\{AITBC_\w+:\-[^}]*\}"$', "", SETUP, flags=re.M)
+    literals = (
+        "/opt/aitbc",
+        "/etc/aitbc",
+        "/var/lib/aitbc",
+        "/var/log/aitbc",
+        "/run/aitbc",
+        "/etc/systemd/system",
+        "/usr/local/bin/aitbc",
+    )
+    for i, line in enumerate(body.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        for lit in literals:
+            assert lit not in line, f"bare {lit} outside the override defaults (line {i}): {stripped}"
