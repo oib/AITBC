@@ -686,3 +686,52 @@ class TestEscrowGateAndInboundSig:
         monkeypatch.setattr(ate, "_task_escrow_status", lambda t: _locked_escrow())
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["quoted"] == 1
+
+
+class TestShopAccessHeaders:
+    """#1612: paid shop calls must forward the job access credential (#803)."""
+
+    def test_exec_whisper_sends_access_headers(self, monkeypatch):
+        captured = {}
+
+        def fake_post(url, **kwargs):
+            captured["url"] = url
+            captured["headers"] = kwargs.get("headers")
+            return _resp(content=b"{}")
+
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        req = _task_request(
+            access_key="ak-12345678",
+            access_secret="sec",
+            access_job_id="mkt-job-1",
+        )
+        ate._exec_whisper(req, b"audio")
+        assert captured["headers"] == {
+            "X-Access-Key": "ak-12345678",
+            "X-Access-Secret": "sec",
+            "X-Job-Id": "mkt-job-1",
+        }
+
+    def test_exec_ffmpeg_sends_access_headers(self, monkeypatch):
+        captured = {}
+
+        def fake_post(url, **kwargs):
+            captured["headers"] = kwargs.get("headers")
+            return _resp(content=b"{}")
+
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        req = _task_request(job_id="job-in-req", access_key="ak-12345678", access_secret="sec")
+        ate._exec_ffmpeg(req, b"media")
+        # No access_job_id: falls back to the request's job_id, then task_id.
+        assert captured["headers"]["X-Job-Id"] == "job-in-req"
+
+    def test_no_credentials_omits_headers(self, monkeypatch):
+        captured = {}
+
+        def fake_post(url, **kwargs):
+            captured["headers"] = kwargs.get("headers")
+            return _resp(content=b"{}")
+
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        ate._exec_whisper(_task_request(), b"audio")
+        assert not captured["headers"]

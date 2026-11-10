@@ -377,3 +377,32 @@ def test_publish_default_offers_failure_does_not_consume_cycle(mock_run, monkeyp
     production_miner.publish_default_offers([])
 
     assert mock_run.call_count == 2
+
+
+@pytest.mark.unit
+def test_shop_access_headers_maps_payload_fields():
+    """#1612: the miner forwards the job's shop-gate credential triple."""
+    headers = production_miner._shop_access_headers(
+        {"access_key": "ak-1", "access_secret": "s3", "market_job_id": "mkt-9"}, "coord-job-1"
+    )
+    assert headers == {"X-Access-Key": "ak-1", "X-Access-Secret": "s3", "X-Job-Id": "mkt-9"}
+
+
+@pytest.mark.unit
+def test_shop_access_headers_empty_without_pair():
+    """A lone key or secret is not a credential — headers stay empty."""
+    assert production_miner._shop_access_headers({"access_key": "ak-1"}, "j") == {}
+    assert production_miner._shop_access_headers({}, "j") == {}
+
+
+@pytest.mark.unit
+@patch("production_miner.requests.post")
+def test_run_whisper_forwards_access_headers(mock_post, tmp_path):
+    """_run_whisper passes the credential headers through to the service."""
+    mock_post.return_value.json.return_value = {"text": "ok"}
+    mock_post.return_value.raise_for_status.return_value = None
+
+    audio = tmp_path / "a.mp3"
+    audio.write_bytes(b"fake")
+    production_miner._run_whisper(str(audio), access_headers={"X-Access-Key": "k", "X-Access-Secret": "s", "X-Job-Id": "j"})
+    assert mock_post.call_args.kwargs["headers"]["X-Job-Id"] == "j"
