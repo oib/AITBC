@@ -144,6 +144,25 @@ class ContractEventSubscriber:
         except Exception as e:
             logger.error("Error initializing block tracking: %s", e)
 
+    def _checkpoint_for(self, contract_name: str, current_height: int) -> int:
+        """Last processed block for ``contract_name``, seeding a bounded
+        lookback when no checkpoint exists.
+
+        Defaulting a missing entry to the scan tip would skip this contract
+        forever (BRIDGE-EVT-CHECKPOINT-1, #1429) — init may have failed or
+        the contract added after startup. Same 100-block first-run lookback
+        ``_initialize_block_tracking`` uses.
+        """
+        if contract_name not in self.last_processed_blocks:
+            self.last_processed_blocks[contract_name] = max(0, current_height - 100)
+            logger.warning(
+                "No checkpoint for %s at poll time; starting at %s (head: %s)",
+                contract_name,
+                self.last_processed_blocks[contract_name],
+                current_height,
+            )
+        return self.last_processed_blocks[contract_name]
+
     async def _poll_contract_events(self) -> None:
         """Poll for contract events from blockchain.
 
@@ -159,7 +178,7 @@ class ContractEventSubscriber:
                 head_data = await client.get("/head")
                 current_height = head_data.get("height", 0)
                 to_block = max(0, current_height - _FINALITY_BLOCKS)
-                last_height = self.last_processed_blocks.get(contract_name, to_block)
+                last_height = self._checkpoint_for(contract_name, current_height)
 
                 if to_block <= last_height:
                     # Nothing new in the finalized range yet.
