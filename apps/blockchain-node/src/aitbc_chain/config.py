@@ -4,6 +4,7 @@ import os
 import uuid
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -55,6 +56,59 @@ V13_HEIGHT_NOT_ARMED = 2**62
 # overrides STATE_TRANSITION_V13_HEIGHT / STATE_TRANSITION_V14_HEIGHT keep the
 # heights movable (the STOP-rule "move H" path sets BOTH on every host).
 SHARED_ACTIVATION_HEIGHT = 46100
+
+
+UC_TIMING_MARGIN_SECONDS = 5.0  # slack on top of evidence + collect for signing/propagation
+
+# Flags that only take effect with the vote-journal master on (#1281/#1301/#1306).
+_JOURNAL_DEPENDENT_FLAGS = (
+    "vote_journal_justification_enabled",
+    "vote_journal_abandon_enabled",
+    "vote_journal_sealed_rival_pull",
+    "unavail_nonblocking_persist_enabled",
+)
+
+
+def uc_combo_findings(s: Any) -> tuple[list[str], list[str]]:
+    """(errors, warnings) for UC flag combinations that freeze or silently disable liveness.
+
+    Errors are the combinations measured to stall the chain (an armed UC whose evidence +
+    collect window outlives the header/cert freshness bound); warnings are inert or
+    degenerate settings. #1722; see ``_guard_unsafe_uc_flag_combinations`` for removal.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    journal = bool(s.vote_journal_enabled)
+    for name in _JOURNAL_DEPENDENT_FLAGS:
+        if getattr(s, name) and not journal:
+            warnings.append(f"{name} is set but vote_journal_enabled is off, so it has no effect")
+    if journal and s.vote_journal_justification_enabled:
+        window = float(s.unavail_evidence_seconds) + float(s.unavail_collect_seconds) + UC_TIMING_MARGIN_SECONDS
+        header_max = float(s.attestation_header_max_age_seconds)
+        cert_max = float(s.unavail_cert_max_age_seconds)
+        if 0 < header_max <= window:
+            errors.append(
+                f"unavail_evidence_seconds + unavail_collect_seconds + {UC_TIMING_MARGIN_SECONDS:g}s = {window:g}s "
+                f"is not below attestation_header_max_age_seconds={header_max:g}s; the header goes stale before "
+                "the UC wait ends and every attestation is refused as stale_header"
+            )
+        if 0 < cert_max <= window:
+            errors.append(
+                f"unavail_evidence_seconds + unavail_collect_seconds + {UC_TIMING_MARGIN_SECONDS:g}s = {window:g}s "
+                f"is not below unavail_cert_max_age_seconds={cert_max:g}s; a certificate expires before it can be used"
+            )
+    if s.proposer_same_hash_retry_enabled:
+        header = float(s.attestation_header_max_age_seconds)
+        bound = (
+            min(float(s.consensus_proposer_round_seconds), header) if header > 0 else float(s.consensus_proposer_round_seconds)
+        )
+        reserved = float(s.multi_validator_attestation_timeout_seconds) + float(s.proposer_same_hash_retry_margin_seconds)
+        if bound - reserved <= 0:
+            warnings.append(
+                "proposer_same_hash_retry_enabled is on but the retry horizon is 0 "
+                f"(min(round, header max age)={bound:g}s <= collect + margin={reserved:g}s), so retries never reuse a header"
+            )
+    return errors, warnings
 
 
 class ChainSettings(BaseSettings):
@@ -1602,6 +1656,32 @@ class ChainSettings(BaseSettings):
             "SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=%s; it re-enables itself after that time",
             self.sync_validate_signatures_skip_until,
         )
+        return self
+
+    @model_validator(mode="after")
+    def _guard_unsafe_uc_flag_combinations(self) -> ChainSettings:
+        """Refuse (production) or warn about UC flag combinations measured to freeze the chain (#1722).
+
+        Non-consensus: it reads settings only and changes no default. Source: the #1301
+        armed-combo matrix (c29699).
+
+        TEMPORARY -- remove or invert when ``unavail_prewarm_enabled`` (#1701) lands. Prewarm
+        stamps the header after the UC wait, which makes the evidence + collect window
+        independent of ``attestation_header_max_age_seconds``; until then the bound below is
+        what keeps an armed UC from refusing every attestation as ``stale_header``.
+        """
+        import logging
+
+        from aitbc.utils.env import is_production
+
+        errors, warnings = uc_combo_findings(self)
+        logger = logging.getLogger(__name__)
+        for message in warnings:
+            logger.warning("UC flag guard: %s", message)
+        if errors and is_production():
+            raise ValueError("unsafe UC flag combination: " + "; ".join(errors))
+        for message in errors:
+            logger.warning("UC flag guard (refused in production): %s", message)
         return self
 
     def served_chain_ids(self) -> list[str]:
