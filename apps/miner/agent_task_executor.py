@@ -83,8 +83,13 @@ def _load_state() -> dict[str, Any]:
             data.setdefault("done", [])
             data.setdefault("quotes", {})
             return data
-    except Exception:
-        pass
+    except FileNotFoundError:
+        pass  # first run — no state yet, nothing to warn about
+    except Exception as e:
+        # A corrupt state file silently resets `done` (dedup) and `quotes` —
+        # every seen message looks new again and paid work can re-run. Say so
+        # loudly instead of passing (#1486).
+        logger.warning("Agent executor state file %s unreadable (%s); starting with empty state", STATE_PATH, e)
     return {"done": [], "quotes": {}}
 
 
@@ -733,20 +738,54 @@ def _offer_reject_reason(
     return None
 
 
+# Quote hygiene (#1487): entries expire after this TTL and the map is capped;
+# quoted_at was stored but never enforced, so stale quotes could drive work
+# days later and a request flood grew the state file without bound.
+_QUOTE_TTL_SECONDS = float(os.environ.get("AGENT_QUOTE_TTL_SECONDS", "3600"))
+_QUOTE_MAX_ENTRIES = int(os.environ.get("AGENT_QUOTE_MAX_ENTRIES", "500"))
+
+
+def _quote_age_ok(entry: dict[str, Any], now: float) -> bool:
+    ts = entry.get("quoted_at")
+    if ts is None:
+        # Legacy entry written before quoted_at existed — keep it; the entry
+        # cap still bounds the map.
+        return True
+    try:
+        return now - float(ts) <= _QUOTE_TTL_SECONDS
+    except (TypeError, ValueError):
+        return False
+
+
+def _prune_quotes(quotes: dict[str, Any]) -> dict[str, Any]:
+    """Drop expired quotes, then evict the oldest beyond the entry cap."""
+    now = time.time()
+    live = {k: q for k, q in quotes.items() if isinstance(q, dict) and _quote_age_ok(q, now)}
+    if len(live) > _QUOTE_MAX_ENTRIES:
+        live = dict(sorted(live.items(), key=lambda kv: float(kv[1].get("quoted_at") or 0))[-_QUOTE_MAX_ENTRIES:])
+    return live
+
+
 def _escrow_reject_reason(task_id: str, provider_wallet: str, offer: dict[str, Any]) -> str | None:
     """Escrow-side rejection reason, or None when the lock pays this provider.
 
     Verifies the buyer's escrow exists, is locked on-chain, and pays this
-    provider.
+    provider. Field parsing is defensive: an unparseable amount rejects the
+    task (fail closed) instead of raising and aborting the whole sweep (#1488).
     """
     escrow = _task_escrow_status(task_id)
     if not escrow or escrow.get("escrow_status") != "locked":
         return "no locked escrow for task"
     if not _escrow_lock_confirmed(escrow):
         return "escrow lock not anchored on-chain (no tx_hash_lock/contract_id)"
-    if provider_wallet and escrow.get("agent", "").lower() != provider_wallet.lower():
-        return f"escrow pays {escrow.get('agent')}, not this provider"
-    if int(escrow.get("amount", 0)) < ait_to_units(Decimal(str(offer["price"]))):
+    agent = str(escrow.get("agent") or "")
+    if provider_wallet and agent.lower() != provider_wallet.lower():
+        return f"escrow pays {agent}, not this provider"
+    try:
+        amount = int(escrow.get("amount") or 0)
+    except (TypeError, ValueError):
+        return "escrow amount unreadable"
+    if amount < ait_to_units(Decimal(str(offer["price"]))):
         return "escrow amount below offer price"
     return None
 
@@ -836,7 +875,7 @@ def _handle_task_accept(
             escrow,
         )
         return None
-    if provider_wallet and escrow.get("agent", "").lower() != provider_wallet.lower():
+    if provider_wallet and str(escrow.get("agent") or "").lower() != provider_wallet.lower():
         logger.warning("Task %s escrow agent %s != our wallet %s — skipping", task_id, escrow.get("agent"), provider_wallet)
         return None
 
@@ -908,12 +947,18 @@ def _process_inbox_message(
         return
 
     outcome = None
-    if message_type == "task_request":
-        outcome = _handle_task_request(message, content, AGENT_EXECUTOR_ID, provider_wallet, price_table, state)
-    elif message_type == "task_accept":
-        outcome = _handle_task_accept(message, content, AGENT_EXECUTOR_ID, provider_wallet, state)
-    elif message_type == "task_reject":
-        state["quotes"].pop(content.get("task_id", ""), None)
+    try:
+        # One malformed envelope must not abort the sweep — an exception here
+        # leaves the message unread so it is retried next pass (#1488).
+        if message_type == "task_request":
+            outcome = _handle_task_request(message, content, AGENT_EXECUTOR_ID, provider_wallet, price_table, state)
+        elif message_type == "task_accept":
+            outcome = _handle_task_accept(message, content, AGENT_EXECUTOR_ID, provider_wallet, state)
+        elif message_type == "task_reject":
+            state["quotes"].pop(content.get("task_id", ""), None)
+    except Exception as e:
+        logger.error("Inbox message %s (%s) handling failed: %s", msg_id, message_type, e)
+        return
     if outcome in stats:
         stats[outcome] += 1
     done.append(msg_id)
@@ -931,6 +976,7 @@ def sweep_once(provider_wallet: str, price_table: dict[str, dict[str, Any]] | No
     if price_table is None:
         price_table = {}
     state = _load_state()
+    state["quotes"] = _prune_quotes(state.get("quotes", {}))
     done: list[str] = state["done"]
 
     if not _register_agent(AGENT_EXECUTOR_ID, provider_wallet, list(price_table.keys() or SERVICE_HANDLERS.keys())):

@@ -7,8 +7,9 @@ import base64
 from functools import partial
 import ipaddress
 import math
-import socket
 import os
+import re
+import socket
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,21 @@ RETRY_DELAY = 30
 # In-memory set of job IDs currently running in worker threads. Used to report
 # accurate inflight counts to the coordinator and to respect max_concurrent_jobs.
 ACTIVE_JOB_IDS: set[str] = set()
+
+
+def _claim_job_slot(job_id: str) -> bool:
+    """Claim a job slot; False when the job is already running locally.
+
+    The coordinator can re-offer a job that is still executing here (poll
+    overlap, redelivery); without this check the miner would run it twice and
+    submit a duplicate result (#1485).
+    """
+    if job_id in ACTIVE_JOB_IDS:
+        return False
+    ACTIVE_JOB_IDS.add(job_id)
+    return True
+
+
 coordinator_client = AITBCHTTPClient(
     base_url=COORDINATOR_URL, headers={"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}, timeout=30
 )
@@ -410,6 +426,22 @@ def send_heartbeat():
         logger.error("Heartbeat error: %s", e)
 
 
+def _total_ram_gb() -> float:
+    """Host RAM in GiB, measured — never a hardcoded advertisement (#1484)."""
+    try:
+        return round(os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / (1024**3), 1)
+    except (ValueError, OSError, AttributeError):
+        pass
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    return round(int(line.split()[1]) / (1024 * 1024), 1)
+    except OSError:
+        pass
+    return 0.0
+
+
 def build_pool_hub_register_data():
     """Build the payload the pool hub expects for miner registration."""
     gpu_info = get_gpu_info()
@@ -422,7 +454,7 @@ def build_pool_hub_register_data():
         "gpu_vram_gb": (gpu_info["memory_total"] / 1024) if gpu_info else 0.0,
         "gpu_name": gpu_info["name"] if gpu_info else None,
         "cpu_cores": os.cpu_count() or 1,
-        "ram_gb": 16.0,
+        "ram_gb": _total_ram_gb(),
         "max_parallel": caps.get("max_concurrent_jobs", 1),
         "base_price": str(caps.get("price", 0.01)),
         "tags": {"platform": caps.get("platform", "CPU"), "cuda": caps.get("cuda", "unknown")},
@@ -642,6 +674,26 @@ def _download_media(url: str, dest: str) -> None:
         raise Exception(f"Failed to download media from {url}: {e}") from e
 
 
+# Buyer-controlled payload strings that end up in local file paths or ffmpeg
+# arguments must match this shape — anything else is a job failure, not a path
+# (#1483). Covers output_format and the derived file extension.
+_SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9]{1,16}$")
+
+
+def _safe_name(value: str | None, default: str) -> str:
+    """Return *value* when it is a plain alphanumeric token, else *default*."""
+    candidate = (value or "").lstrip(".")
+    return candidate if _SAFE_NAME_RE.match(candidate) else default
+
+
+def _require_safe_name(value: str | None, field: str) -> str:
+    """Return *value* when safe, else raise — used where a wrong value is a job bug."""
+    candidate = (value or "").strip()
+    if not _SAFE_NAME_RE.match(candidate):
+        raise Exception(f"Invalid {field} {value!r}: must be 1-16 alphanumeric characters")
+    return candidate
+
+
 def _shop_access_headers(payload: dict[str, Any], job_id) -> dict[str, str]:
     """Shop-gate credential headers (#803) forwarded from the job payload (#1612).
 
@@ -842,8 +894,8 @@ def _execute_transcribe(job):
     start_time = time.time()
     with tempfile.TemporaryDirectory() as tmp:
         source = filename or url.split("?")[0]
-        ext = os.path.splitext(source)[1] or ".bin"
-        input_path = os.path.join(tmp, f"input{ext}")
+        ext = _safe_name(os.path.splitext(source)[1], "bin")
+        input_path = os.path.join(tmp, f"input.{ext}")
         _download_media(url, input_path)
         constraints = job.get("constraints") or {}
         text = _run_whisper(
@@ -873,9 +925,12 @@ def _execute_reencode(job):
     start_time = time.time()
     with tempfile.TemporaryDirectory() as tmp:
         source = filename or url.split("?")[0]
-        input_ext = os.path.splitext(source)[1] or ".bin"
-        input_path = os.path.join(tmp, f"input{input_ext}")
+        input_ext = _safe_name(os.path.splitext(source)[1], "bin")
+        input_path = os.path.join(tmp, f"input.{input_ext}")
         _download_media(url, input_path)
+        # output_format lands in the output filename AND ffmpeg's -f argument;
+        # a buyer-controlled value with separators would escape tmp (#1483).
+        output_format = _require_safe_name(payload.get("output_format") or payload.get("format") or "mp4", "output_format")
         output_path = os.path.join(tmp, f"output.{output_format}")
         summary = _run_ffmpeg(input_path, output_path, output_format)
     execution_time = time.time() - start_time
@@ -1146,8 +1201,9 @@ async def main():
                     job = poll_for_jobs()
                     if job:
                         job_id = job.get("job_id")
-                        if job_id:
-                            ACTIVE_JOB_IDS.add(job_id)
+                        if job_id and not _claim_job_slot(job_id):
+                            logger.debug("Job %s already running locally; skipping duplicate dispatch", job_id)
+                        elif job_id:
                             # Run the blocking, potentially slow model execution in a
                             # worker thread so heartbeats and the next poll continue.
                             task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
