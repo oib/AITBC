@@ -151,10 +151,15 @@ class ChainSyncService:
         await pubsub.subscribe(channel)
         self._receiver_ready.set()
         logger.info("Subscribed to block broadcasts on channel: %s", channel)
-        async for message in pubsub.listen():
-            if self._stop_event.is_set():
-                break
-            if message["type"] == "message":
+        # Poll with get_message(timeout=...) instead of listen(): listen()
+        # blocks on the socket until a message arrives, so a silently-dead
+        # connection left the loop parked forever and stop() could not take
+        # effect (#1535). Same pattern as gossip/backends/broadcast.py.
+        try:
+            while not self._stop_event.is_set():
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
+                if message is None or message["type"] != "message":
+                    continue
                 try:
                     from .network.compression import decode_payload
 
@@ -162,6 +167,11 @@ class ChainSyncService:
                     await self._import_block(block_data)
                 except Exception as e:
                     logger.error("Error processing received block: %s", e)
+        finally:
+            try:
+                await pubsub.aclose()
+            except Exception:
+                pass
 
     async def _get_block_by_height(self, height: int) -> dict[str, Any] | None:
         """Get block data by height from local RPC"""
