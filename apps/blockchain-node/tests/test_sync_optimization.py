@@ -328,3 +328,6 @@ class TestDeltaSync:
             assert sorted(r["amount"] for r in full["tables"]["stakes"]) == [1, 2]
             capped = serialize_aux_rows(s, "test", max_rows=1)
             assert capped["truncated"] is True
+            # An overflowing table forces the caller's full-snapshot fallback,
+            # so its rows are never serialized into the (discarded) payload.
+            assert "stakes" not in capped["tables"]

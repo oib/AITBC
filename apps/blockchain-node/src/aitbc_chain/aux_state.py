@@ -103,9 +103,18 @@ def serialize_aux_rows(
         stmt = select(spec.model).where(spec.model.chain_id == chain_id)
         if changed_since is not None:
             stmt = stmt.where(getattr(spec.model, spec.ts_field) >= changed_since)
-        rows = session.exec(stmt.order_by(getattr(spec.model, spec.ts_field))).all()
+        stmt = stmt.order_by(getattr(spec.model, spec.ts_field))
+        if max_rows is not None:
+            # Fetch one past the cap: an overflowing table forces the caller
+            # to fall back to a full snapshot, so its rows are never shipped —
+            # don't materialize (or serialize) them at all. The previous code
+            # ran .all() and appended every row before flagging truncation,
+            # an unbounded read+serialize on every delta request.
+            stmt = stmt.limit(max_rows + 1)
+        rows = session.exec(stmt).all()
         if max_rows is not None and len(rows) > max_rows:
             truncated = True
+            continue
         for row in rows:
             item: dict[str, Any] = {}
             for f in spec.fields:
