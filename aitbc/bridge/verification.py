@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from aitbc.crypto.consensus_signing import recover_signer_domain
 from aitbc.crypto.crypto import recover_signer
 
 from .types import BridgeBlockHeader, FinalityConfig, ValidatorSet
@@ -49,6 +50,8 @@ def build_verification_message(header: BridgeBlockHeader) -> dict[str, Any]:
 def validate_block_header(
     header: BridgeBlockHeader,
     validator_set: ValidatorSet | None = None,
+    *,
+    signature_domains: list[str | None] | None = None,
 ) -> tuple[bool, str, str | None]:
     """Validate a block header's proposer signature.
 
@@ -58,6 +61,11 @@ def validate_block_header(
             If provided, the recovered signer must be a member of the
             validator set's active addresses. If None, only signature
             validity is checked (not membership).
+        signature_domains: #1521 — preimages the signature may verify under.
+            ``None`` entries are the legacy shared preimage; strings are
+            domain tags (``aitbc.crypto.consensus_signing``). Defaults to
+            ``[None]`` — legacy-only. Node callers pass the height-gated set
+            from ``aitbc_chain.config.bridge_header_signature_domains``.
 
     Returns:
         ``(valid, error_message, recovered_address)``. If valid,
@@ -70,7 +78,16 @@ def validate_block_header(
         return False, "Block header has no signature", None
 
     message_data = build_verification_message(header)
-    recovered = recover_signer(message_data, header.signature)
+    recovered = None
+    for domain in signature_domains if signature_domains is not None else [None]:
+        # Keep the legacy path on the module-level recover_signer so existing
+        # patch points (and metrics inside it) are unchanged.
+        if domain is None:
+            recovered = recover_signer(message_data, header.signature)
+        else:
+            recovered = recover_signer_domain(message_data, header.signature, domain)
+        if recovered is not None:
+            break
     if recovered is None:
         return False, "Invalid block header signature", None
 

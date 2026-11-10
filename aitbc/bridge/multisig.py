@@ -22,7 +22,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from aitbc.crypto.crypto import recover_signer
 
 from .types import ThresholdProof, ValidatorSet
 
@@ -48,7 +47,11 @@ def _proof_message_data(proof: ThresholdProof) -> dict[str, Any]:
     }
 
 
-def recover_all_signers(message_data: dict[str, Any], signatures: list[str]) -> list[str]:
+def recover_all_signers(
+    message_data: dict[str, Any],
+    signatures: list[str],
+    domains: list[str | None] | None = None,
+) -> list[str]:
     """Recover signer addresses from multiple signatures over the same message.
 
     Each signature is verified independently via ``recover_signer``. Invalid
@@ -56,17 +59,28 @@ def recover_all_signers(message_data: dict[str, Any], signatures: list[str]) -> 
     recovered addresses are preserved here — deduplication happens in
     :func:`check_threshold`.
 
+    ``domains`` (#1521) optionally lists the preimages a signature may verify
+    under: ``None`` is the legacy shared preimage, a string is a
+    domain-separated tag (see ``aitbc.crypto.consensus_signing``). Each
+    signature is tried against the candidates in order and counts under the
+    first that recovers. Defaults to ``[None]`` — legacy-only, unchanged.
+
     Returns:
         List of recovered checksum addresses (in signature order, skipping
         invalid entries).
     """
+    from aitbc.crypto.consensus_signing import recover_signer_domain
+
+    candidates = domains if domains is not None else [None]
     signers: list[str] = []
     for sig in signatures:
         if not sig:
             continue
-        addr = recover_signer(message_data, sig)
-        if addr:
-            signers.append(addr)
+        for domain in candidates:
+            addr = recover_signer_domain(message_data, sig, domain)
+            if addr:
+                signers.append(addr)
+                break
     return signers
 
 

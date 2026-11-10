@@ -1055,6 +1055,7 @@ class BridgeTransferMixin(BridgeBase):
         validator_signatures: list[str],
     ) -> list[str]:
         from aitbc.bridge import check_threshold, recover_all_signers
+        from aitbc_chain.config import bridge_header_signature_domains
 
         threshold = int(getattr(settings, "bridge_multisig_threshold", 3) or 0)
         if threshold <= 1:
@@ -1066,10 +1067,15 @@ class BridgeTransferMixin(BridgeBase):
 
         message = self._proof_header_message(block)
         proposer_sig = block.signature or ""
-        all_sigs = list(validator_signatures)
-        if proposer_sig and proposer_sig not in all_sigs:
-            all_sigs.append(proposer_sig)
-        signers = recover_all_signers(message, all_sigs)
+        # #1521: count existing signatures under the same height-gated
+        # preimages the verifier uses — proposal domain for the block's own
+        # signature, attestation domain (+legacy in the dual-accept window)
+        # for validator signatures.
+        height = getattr(block, "height", None)
+        proposer_domains = bridge_header_signature_domains(height, "proposal")
+        attester_domains = bridge_header_signature_domains(height, "attestation")
+        signers = recover_all_signers(message, [proposer_sig] if proposer_sig else [], proposer_domains)
+        signers += recover_all_signers(message, validator_signatures, attester_domains)
         meets, count, deduped = check_threshold(signers, vset, threshold)
         if meets:
             # Cheap path: sealed attestations + proposer already satisfy the
@@ -1120,9 +1126,13 @@ class BridgeTransferMixin(BridgeBase):
         needed: int,
     ) -> int:
         # (a) local validator keys — always reachable in this process.
-        from aitbc.crypto.consensus_signing import sign_consensus_message
+        from aitbc.crypto.consensus_signing import sign_consensus_message, sign_consensus_message_domain
         from aitbc.crypto.signature_recovery import canonical_address
+        from aitbc_chain.config import bridge_header_signing_domain
 
+        # #1521: minted under the same height-gated attestation domain the
+        # verifier expects — legacy preimage below the activation height.
+        signing_domain = bridge_header_signing_domain(getattr(block, "height", None), "attestation")
         for address, private_key in local_keys.items():
             if needed <= 0:
                 break
@@ -1133,7 +1143,10 @@ class BridgeTransferMixin(BridgeBase):
             if canon == (block.proposer or "").lower() or canon in covered or canon not in member_addrs:
                 continue
             try:
-                signature = sign_consensus_message(message, private_key)
+                if signing_domain is None:
+                    signature = sign_consensus_message(message, private_key)
+                else:
+                    signature = sign_consensus_message_domain(message, private_key, signing_domain)
             except Exception as e:
                 logger.warning("Failed to sign proof attestation with local key %s: %s", address, e)
                 continue
@@ -1154,13 +1167,17 @@ class BridgeTransferMixin(BridgeBase):
         needed: int,
     ) -> int:
         from aitbc.bridge import recover_all_signers
+        from aitbc_chain.config import bridge_header_signature_domains
 
+        # #1521: remote attestations verify under the height-gated attestation
+        # domains, same as the proof verifier.
+        attester_domains = bridge_header_signature_domains(getattr(block, "height", None), "attestation")
         for att in self._collect_remote_proof_attestations(block, source_chain, needed, local_keys):
             signature = str(att.get("signature") or "")
             if not signature:
                 continue
             try:
-                recovered = recover_all_signers(message, [signature])
+                recovered = recover_all_signers(message, [signature], attester_domains)
             except Exception:
                 recovered = []
             if not recovered:

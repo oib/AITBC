@@ -409,7 +409,13 @@ class BridgeFinalityMixin(BridgeBase):
             logger.warning("No validator set registered for chain=%s; rejecting header", header.chain_id)
             return False
 
-        valid, error, _recovered = validate_block_header(sdk_header, vset)
+        # #1521: the header signature is the sealed block's consensus
+        # proposal signature — height-gated domain preimages, hard cutover
+        # at the armed activation height (mirrors sync_validator).
+        from aitbc_chain.config import bridge_header_signature_domains
+
+        signature_domains = bridge_header_signature_domains(header.height, "proposal")
+        valid, error, _recovered = validate_block_header(sdk_header, vset, signature_domains=signature_domains)
         if not valid:
             logger.warning("Block header signature invalid: %s", error)
             return False
