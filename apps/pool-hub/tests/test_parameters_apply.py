@@ -328,3 +328,47 @@ async def test_apply_statement_filters_by_target_service_type() -> None:
     compiled = str(session.statements[0].compile())
     assert "service_type" in compiled
     assert "llm_inference" in str(session.statements[0].compile().params.values())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_value", [0, 11, 10**30, -1, True, 4.0, "4"])
+async def test_apply_max_concurrent_out_of_service_bounds_is_400(bad_value: Any) -> None:
+    """#1421 second pass: governance apply must honour the same 1..10 bound the
+    service's own ServiceConfig schemas enforce — 0 would drain capacity and
+    an out-of-range int overflows the Integer column on PostgreSQL."""
+    cfg = _config(max_concurrent=1)
+    session = _Session([cfg])
+    with pytest.raises(HTTPException) as exc:
+        await apply_parameter_change(_change(new_value=bad_value), session, MagicMock())  # type: ignore[arg-type]
+    assert exc.value.status_code == 400
+    assert session.commit.await_count == 0
+    assert cfg.max_concurrent == 1
+
+
+@pytest.mark.asyncio
+async def test_apply_capabilities_rejects_non_string_items() -> None:
+    """capabilities is list[str] on the service schema; [1, 2] is a list but
+    violates the column contract."""
+    cfg = _config(capabilities=["gpu"])
+    session = _Session([cfg])
+    with pytest.raises(HTTPException) as exc:
+        await apply_parameter_change(
+            _change(parameter_name="capabilities", new_value=[1, 2]),
+            session,
+            MagicMock(),  # type: ignore[arg-type]
+        )
+    assert exc.value.status_code == 400
+    assert session.commit.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_apply_capabilities_accepts_string_list() -> None:
+    cfg = _config(capabilities=[])
+    session = _Session([cfg])
+    resp = await apply_parameter_change(
+        _change(parameter_name="capabilities", new_value=["gpu", "cuda"]),
+        session,
+        MagicMock(),  # type: ignore[arg-type]
+    )
+    assert resp.applied is True
+    assert cfg.capabilities == ["gpu", "cuda"]
