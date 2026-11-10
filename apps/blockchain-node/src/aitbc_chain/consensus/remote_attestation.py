@@ -597,7 +597,7 @@ class RemoteAttestationService:
         topic = evidence_replication.equivocation_topic(self._chain_id)
         try:
             sub = await gossip_broker.subscribe(topic, max_queue_size=256)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - evidence replication is advisory; a dead listener must not break startup
             logger.warning("Failed to subscribe to equivocation evidence: %s", e)
             return
         try:
@@ -606,7 +606,7 @@ class RemoteAttestationService:
                     break
                 try:
                     self.handle_evidence(payload)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - one malformed record is a drop, never a listener crash
                     logger.warning("Error handling equivocation evidence: %s", e)
         finally:
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
@@ -614,7 +614,10 @@ class RemoteAttestationService:
     def handle_evidence(self, payload: Any) -> evidence_replication.Outcome:
         """Ingest one replicated record; a slashable pair is recorded as advisory
         evidence through the same recorder local detection uses. Never re-published
-        (a record received from a peer is not a local observation)."""
+        (a record received from a peer is not a local observation). Handler-level
+        flag gate (like ``handle_abandon``): OFF ingests nothing, whoever calls it."""
+        if not evidence_replication.enabled():
+            return evidence_replication.Outcome("disabled")
         outcome = evidence_replication.ingest(self._chain_id, payload, self._validator_set_addresses())
         if outcome.status != "stored" or not outcome.slashable or outcome.record is None:
             return outcome
