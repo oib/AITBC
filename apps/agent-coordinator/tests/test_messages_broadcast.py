@@ -5,7 +5,6 @@ Tests for protocol-driven send/broadcast and the REST broadcast route.
 from __future__ import annotations
 
 import asyncio
-import os
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -48,7 +47,6 @@ def fake_connection_manager():
 @pytest.fixture
 def client(monkeypatch, tmp_path, messaging_app, fake_connection_manager):
     """TestClient with broadcast dependencies patched."""
-    os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"
 
     # Wire the protocol layer to our fake connection manager.
     monkeypatch.setattr(communication_module, "get_connection_manager", lambda: fake_connection_manager)
