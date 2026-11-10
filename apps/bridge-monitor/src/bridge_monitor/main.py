@@ -770,12 +770,11 @@ class BridgeMonitor:
                     # Stay SUBMITTED — the sweep rebroadcasts the same envelope.
                     update_deposit(tx_hash, error_message="Retry submit failed — awaiting rebroadcast")
                     if self._post_rejection_is_nonce_conflict():
-                        logger.critical(
-                            "ALERT: retry payout %s for deposit %s rejected — nonce slot occupied (%s). "
+                        self._float_alert(
+                            f"retry_nonce:{tx_hash}",
+                            f"ALERT: retry payout {payout_hash} for deposit {tx_hash} rejected — "
+                            f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
                             "The sweep's auto-abandon proof owns recovery",
-                            payout_hash,
-                            tx_hash,
-                            (self._last_post_rejection or "")[:160],
                         )
             finally:
                 os.close(lock_fd)
@@ -803,8 +802,13 @@ class BridgeMonitor:
             signed_raw = d.get("signed_tx")
             if not signed_raw:
                 # Corrupt row — signed with an unknown key shape we cannot
-                # rebroadcast; alert rather than guess.
-                logger.critical("ALERT: deposit %s is SUBMITTED with no stored envelope", tx_hash)
+                # rebroadcast; alert rather than guess. Throttled (#1706):
+                # the row stays SUBMITTED, so an unthrottled critical would
+                # repeat every poll cycle forever.
+                self._float_alert(
+                    f"submitted_no_env:{tx_hash}",
+                    f"ALERT: deposit {tx_hash} is SUBMITTED with no stored envelope",
+                )
                 continue
             sealed_height = None
             failed_on_chain = False
@@ -820,10 +824,10 @@ class BridgeMonitor:
                 except Exception as e:  # noqa: BLE001 - status probe — a fetch failure leaves the payout SUBMITTED
                     logger.warning("payout status fetch failed for %s: %s", payout_hash, e)
             if failed_on_chain:
-                logger.critical(
-                    "ALERT: payout %s for deposit %s sealed with failed status — staying SUBMITTED for operator review",
-                    payout_hash,
-                    tx_hash,
+                self._float_alert(
+                    f"submitted_failed:{tx_hash}",
+                    f"ALERT: payout {payout_hash} for deposit {tx_hash} sealed with failed status — "
+                    "staying SUBMITTED for operator review",
                 )
                 continue
             if sealed_height and head and head - int(sealed_height) >= self.payout_seal_depth:
@@ -853,11 +857,10 @@ class BridgeMonitor:
             if head - int(submitted_height) <= self.rebroadcast_blocks:
                 continue  # still within the seal window
             if rebroadcast_count >= self.max_rebroadcasts:
-                logger.critical(
-                    "ALERT: payout %s for deposit %s unsealed after %s rebroadcasts — staying SUBMITTED",
-                    payout_hash,
-                    tx_hash,
-                    rebroadcast_count,
+                self._float_alert(
+                    f"submitted_unsealed:{tx_hash}",
+                    f"ALERT: payout {payout_hash} for deposit {tx_hash} unsealed after "
+                    f"{rebroadcast_count} rebroadcasts — staying SUBMITTED",
                 )
                 continue
             envelope = json.loads(signed_raw)
@@ -886,12 +889,11 @@ class BridgeMonitor:
             else:
                 update_deposit(tx_hash, rebroadcast_count=new_count, error_message="Rebroadcast failed")
                 if self._post_rejection_is_nonce_conflict():
-                    logger.critical(
-                        "ALERT: rebroadcast of payout %s for deposit %s rejected — nonce slot occupied (%s). "
+                    self._float_alert(
+                        f"rebroadcast_nonce:{tx_hash}",
+                        f"ALERT: rebroadcast of payout {payout_hash} for deposit {tx_hash} rejected — "
+                        f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
                         "Auto-abandon will re-queue the deposit once the nonce proof holds",
-                        payout_hash,
-                        tx_hash,
-                        (self._last_post_rejection or "")[:160],
                     )
 
     def _account_nonce(self, address: str) -> int | None:
@@ -1022,23 +1024,31 @@ class BridgeMonitor:
                     key=lambda t: t[1],
                 )
                 if head is not None and head - oldest_height > self.stuck_payout_blocks:
-                    logger.critical(
-                        "ALERT: payout slot blocked — deposit %s SUBMITTED for %s blocks (>%s); "
-                        "%s row(s) holding the slot, retry queue cannot drain. Release via "
-                        "admin.py abandon-and-resign (nonce passed + unsealed) or write-off after review",
-                        oldest_tx,
-                        head - oldest_height,
-                        self.stuck_payout_blocks,
-                        len(submitted),
+                    # #1706: throttled — the slot stays blocked until an
+                    # operator acts, so an unthrottled critical repeated
+                    # every poll cycle (~12/hour at the default interval).
+                    self._float_alert(
+                        "queue_slot_blocked",
+                        f"ALERT: payout slot blocked — deposit {oldest_tx} SUBMITTED for "
+                        f"{head - oldest_height} blocks (>{self.stuck_payout_blocks}); "
+                        f"{len(submitted)} row(s) holding the slot, retry queue cannot drain. "
+                        "Release via admin.py abandon-and-resign (nonce passed + unsealed) "
+                        "or write-off after review",
                     )
+                elif head is not None:
+                    # Cleared — let a recurrence alert immediately.
+                    self._float_alert_last.pop("queue_slot_blocked", None)
+            else:
+                self._float_alert_last.pop("queue_slot_blocked", None)
             depth = count_pending_retry()
             if depth >= self.queue_alert_depth:
-                logger.critical(
-                    "ALERT: %s deposits in PENDING_RETRY (>= %s) — check payout float, "
-                    "RPC health, and any blocked SUBMITTED row gating the queue",
-                    depth,
-                    self.queue_alert_depth,
+                self._float_alert(
+                    "retry_queue_depth",
+                    f"ALERT: {depth} deposits in PENDING_RETRY (>= {self.queue_alert_depth}) — "
+                    "check payout float, RPC health, and any blocked SUBMITTED row gating the queue",
                 )
+            else:
+                self._float_alert_last.pop("retry_queue_depth", None)
         except Exception as e:  # noqa: BLE001 - queue health-check containment
             logger.warning("queue health check failed: %s", e)
 
@@ -1207,6 +1217,9 @@ class BridgeMonitor:
             # a reorg of an unconfirmed deposit must never have been paid.
             latest_block = max(0, w3.eth.block_number - self.confirmations)
             self._poll_fail_streak = 0  # RPC answered — endpoint is live
+            # Poll recovered — a later outage alerts immediately, not on the
+            # throttle's remaining interval (#1706).
+            self._float_alert_last.pop("eth_poll_failures", None)
             self._watch_eth_head(latest_block)
             logger.debug("Latest confirmed block: %s", latest_block)
 
@@ -1318,11 +1331,13 @@ class BridgeMonitor:
                             except Exception:
                                 logger.exception("Failed to mark deposit %s for retry", tx_hash)
                                 block_ok = False
-                                logger.critical(
-                                    "ALERT: block %s deposit %s could not be processed or queued — "
-                                    "block cursor held so the next poll retries it",
-                                    block_num,
-                                    tx_hash,
+                                # #1706: throttled per deposit — the cursor
+                                # stays held and this re-fires every poll
+                                # until the row lands or is resolved.
+                                self._float_alert(
+                                    f"block_cursor:{tx_hash}",
+                                    f"ALERT: block {block_num} deposit {tx_hash} could not be processed "
+                                    "or queued — block cursor held so the next poll retries it",
                                 )
                 # Advance cursor only after every deposit in this block is
                 # in a terminal or PENDING_RETRY state (or was skipped).
@@ -1335,10 +1350,13 @@ class BridgeMonitor:
         except Exception as e:  # noqa: BLE001 - poll containment — failures streak-count toward the alert
             self._poll_fail_streak += 1
             if self._poll_fail_streak >= 3:
-                logger.critical(
-                    "ALERT: Ethereum poll failed %s consecutive times — deposits are NOT being scanned: %s",
-                    self._poll_fail_streak,
-                    e,
+                # #1706: throttled — while the RPC stays down this fired on
+                # every failed poll; the streak count keeps climbing in the
+                # message so each hourly reminder shows the damage.
+                self._float_alert(
+                    "eth_poll_failures",
+                    f"ALERT: Ethereum poll failed {self._poll_fail_streak} consecutive times — "
+                    f"deposits are NOT being scanned: {e}",
                 )
             else:
                 logger.error("Error polling Ethereum (%s consecutive): %s", self._poll_fail_streak, e)
