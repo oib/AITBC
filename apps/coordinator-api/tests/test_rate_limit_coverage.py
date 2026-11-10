@@ -101,13 +101,16 @@ def test_rate_limited_handlers_can_identify_the_caller() -> None:
     assert not offenders, "Rate-limited mutating handlers without a Request parameter:\n" + "\n".join(offenders)
 
 
-def test_newly_limited_route_returns_429(client) -> None:
+def test_newly_limited_route_returns_429(client, monkeypatch) -> None:
     """Functional pin: a previously unthrottled mutating route now 429s.
 
     ``POST /v1/agent-creativity/capabilities`` was one of the 75 endpoints
     with no throttle (#1601); it is limited to 20/minute. The handler may
     fail internally — the decorator runs first, so every attempt counts.
+    The suite conftest disables rate limiting globally, so this test
+    re-enables it for its own requests.
     """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "true")
     from aitbc.auth import create_access_token
 
     headers = {"Authorization": f"Bearer {create_access_token('rl-pin', 'admin')}"}
