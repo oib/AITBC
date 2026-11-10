@@ -121,3 +121,58 @@ async def test_unsubscribed_topic_aborts_pending_reconnect() -> None:
     assert attempts == 0
     assert TOPIC not in backend._reconnecting
     backend._running = False
+
+
+@pytest.mark.asyncio
+async def test_subscribe_gives_each_subscriber_its_own_queue() -> None:
+    """#1704: two subscribers on one topic must not share a queue — a shared
+    queue made them competing consumers and split every message."""
+    backend = WebsocketGossipBackend("ws://127.0.0.1:1/rpc/gossip/ws")
+    backend._running = True
+
+    async def _no_connect(topic: str) -> None:
+        return None
+
+    backend._ensure_connection = _no_connect  # type: ignore[method-assign]
+    sub1 = await backend.subscribe(TOPIC, max_queue_size=10)
+    sub2 = await backend.subscribe(TOPIC, max_queue_size=10)
+    try:
+        assert sub1.queue is not sub2.queue
+        queues = backend._queues[TOPIC]
+        assert isinstance(queues, list) and len(queues) == 2
+        assert sub1.queue in queues and sub2.queue in queues
+        # The reader fans out: one inbound message lands in BOTH queues.
+        for queue in list(queues):
+            queue.put_nowait({"type": "block", "n": 1})
+        assert await asyncio.wait_for(sub1.queue.get(), timeout=1.0) == {"type": "block", "n": 1}
+        assert await asyncio.wait_for(sub2.queue.get(), timeout=1.0) == {"type": "block", "n": 1}
+    finally:
+        sub1.close()
+        sub2.close()
+        await asyncio.sleep(0.05)  # let the unsubscribe tasks run
+    # Both unsubscribed -> refcount zero -> topic cleaned up entirely.
+    assert backend._ref_counts.get(TOPIC, 0) == 0
+    assert TOPIC not in backend._queues
+
+
+@pytest.mark.asyncio
+async def test_unsubscribe_removes_only_its_own_queue() -> None:
+    """#1704: unsubscribing one of two subscribers keeps the other's queue
+    and the shared connection alive."""
+    backend = WebsocketGossipBackend("ws://127.0.0.1:1/rpc/gossip/ws")
+    backend._running = True
+
+    async def _no_connect(topic: str) -> None:
+        return None
+
+    backend._ensure_connection = _no_connect  # type: ignore[method-assign]
+    sub1 = await backend.subscribe(TOPIC, max_queue_size=10)
+    sub2 = await backend.subscribe(TOPIC, max_queue_size=10)
+    sub1.close()
+    await asyncio.sleep(0.05)
+    queues = backend._queues.get(TOPIC)
+    assert isinstance(queues, list) and queues == [sub2.queue]
+    assert backend._ref_counts[TOPIC] == 1
+    sub2.close()
+    await asyncio.sleep(0.05)
+    assert TOPIC not in backend._queues
