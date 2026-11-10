@@ -90,7 +90,8 @@ def temp_db(tmp_path):
             wallet TEXT,
             status TEXT DEFAULT 'active',
             description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT
         )
     """)
     cursor.execute("""
@@ -102,7 +103,8 @@ def temp_db(tmp_path):
             wallet TEXT,
             status TEXT DEFAULT 'open',
             offer_id TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TEXT
         )
     """)
     conn.commit()
@@ -482,6 +484,8 @@ class TestB2MarketDecimal:
         )
         handler.send_json_response = MagicMock()
         handler._new_market_id = MarketMixin._new_market_id.__get__(handler, MarketMixin)
+        handler._marketplace_ttl_seconds = lambda: 7 * 24 * 3600
+        handler._marketplace_expires_at = MarketMixin._marketplace_expires_at.__get__(handler, MarketMixin)
         handler.handle_market_create_offer = MarketMixin.handle_market_create_offer.__get__(handler, MarketMixin)
 
         with patch("apps.exchange.simple_exchange.handlers.market.get_db_path", return_value=temp_db):
