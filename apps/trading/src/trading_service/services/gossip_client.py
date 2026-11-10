@@ -133,6 +133,11 @@ class GossipClient:
         self._redis_url = redis_url
         self._redis: Any = None
         self._started = False
+        # #1618: start() has an await point between assigning self._redis and
+        # finishing, so racing subscribe() calls each opened their own
+        # connection while only the last assignment stayed tracked. The lock
+        # makes the connect block run exactly once; losers wait and re-check.
+        self._start_lock = asyncio.Lock()
         # In-memory fallback topics (used when Redis is unavailable)
         self._mem_topics: dict[str, list[asyncio.Queue[Any]]] = defaultdict(list)
         self._mem_lock = asyncio.Lock()
@@ -151,22 +156,25 @@ class GossipClient:
         """Start the gossip client — connect to Redis if configured."""
         if self._started:
             return
-        if self._backend in {"broadcast", "redis"}:
-            try:
-                import redis.asyncio as aioredis
+        async with self._start_lock:
+            if self._started:
+                return
+            if self._backend in {"broadcast", "redis"}:
+                try:
+                    import redis.asyncio as aioredis
 
-                self._redis = aioredis.Redis.from_url(self._redis_url, socket_timeout=5, socket_connect_timeout=5)
-                await asyncio.to_thread(lambda: None)  # yield
-                pong = await self._redis.ping()
-                logger.info("GossipClient connected to Redis (%s): ping=%s", _sanitize_url(self._redis_url), pong)
-            except Exception as e:
-                logger.warning(
-                    "GossipClient Redis connection failed (%s), using in-memory fallback: %s",
-                    _sanitize_url(self._redis_url),
-                    e,
-                )
-                self._redis = None
-        self._started = True
+                    self._redis = aioredis.Redis.from_url(self._redis_url, socket_timeout=5, socket_connect_timeout=5)
+                    await asyncio.to_thread(lambda: None)  # yield
+                    pong = await self._redis.ping()
+                    logger.info("GossipClient connected to Redis (%s): ping=%s", _sanitize_url(self._redis_url), pong)
+                except Exception as e:
+                    logger.warning(
+                        "GossipClient Redis connection failed (%s), using in-memory fallback: %s",
+                        _sanitize_url(self._redis_url),
+                        e,
+                    )
+                    self._redis = None
+            self._started = True
 
     async def stop(self) -> None:
         """Stop the gossip client and release resources."""

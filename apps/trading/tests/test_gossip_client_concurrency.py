@@ -132,10 +132,6 @@ class TestConcurrentRedisSubscriptions:
         assert main_redis.closed
         assert client._tasks == set()
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="GossipClient.start() races: N concurrent first-subscribe calls each open a Redis connection, N-1 are untracked and never closed — #1618",
-    )
     async def test_cold_start_race_opens_single_main_connection(self, fake_redis):
         """N subscribes racing an un-started client must not each win
         start() and leak the losers' connections (#1618, #1534-adjacent)."""
