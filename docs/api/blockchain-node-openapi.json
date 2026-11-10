@@ -10516,7 +10516,7 @@
           "gpu_resources"
         ],
         "summary": "List all registered GPUs",
-        "description": "List all GPUs registered on blockchain.",
+        "description": "List GPUs registered on blockchain (bounded \u2014 sibling list convention).",
         "operationId": "list_gpus_rpc_gpus_get",
         "parameters": [
           {
@@ -10549,6 +10549,16 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
             }
           }
         ],
@@ -11155,7 +11165,7 @@
           "gpu_resources"
         ],
         "summary": "List edge node registrations",
-        "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.",
+        "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.\nRows are bounded like the other list endpoints (#1626); ``total`` still\nreports the full committed count so row-count checks stay exact.",
         "operationId": "list_edge_nodes_rpc_edge_nodes_get",
         "parameters": [
           {
@@ -11172,6 +11182,16 @@
                 }
               ],
               "title": "Chain Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
             }
           }
         ],
@@ -22303,7 +22323,7 @@
           "gpu_resources"
         ],
         "summary": "List all registered GPUs",
-        "description": "List all GPUs registered on blockchain.",
+        "description": "List GPUs registered on blockchain (bounded \u2014 sibling list convention).",
         "operationId": "list_gpus_v1_gpus_get",
         "parameters": [
           {
@@ -22336,6 +22356,16 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
             }
           }
         ],
@@ -22942,7 +22972,7 @@
           "gpu_resources"
         ],
         "summary": "List edge node registrations",
-        "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.",
+        "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.\nRows are bounded like the other list endpoints (#1626); ``total`` still\nreports the full committed count so row-count checks stay exact.",
         "operationId": "list_edge_nodes_v1_edge_nodes_get",
         "parameters": [
           {
@@ -22959,6 +22989,16 @@
                 }
               ],
               "title": "Chain Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
             }
           }
         ],
