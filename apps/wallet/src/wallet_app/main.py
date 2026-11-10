@@ -221,15 +221,39 @@ async def _operations_reconcile_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     init_db()
-    start_monitoring()
-    start_withdrawal_monitoring()
-    start_sell_monitoring()
-    start_exchange_settlement_monitoring()
+    # WALLET-BGTASK-1 (#1606): the start_* helpers return the asyncio.Task
+    # they spawned (None when disabled or when they fell back to a daemon
+    # thread). Keep them so shutdown can cancel the monitor loops instead of
+    # letting them outlive the app.
+    monitor_tasks = [
+        task
+        for task in (
+            start_monitoring(),
+            start_withdrawal_monitoring(),
+            start_sell_monitoring(),
+            start_exchange_settlement_monitoring(),
+        )
+        if task is not None
+    ]
 
-    create_task_with_logging(_import_genesis_wallet_from_env(), name="import_genesis_wallet")
-    create_task_with_logging(_import_file_wallets(), name="import_file_wallets")
-    create_task_with_logging(_operations_reconcile_loop(), name="operations_reconcile")
-    yield
+    background_tasks = [
+        task
+        for task in (
+            create_task_with_logging(_import_genesis_wallet_from_env(), name="import_genesis_wallet"),
+            create_task_with_logging(_import_file_wallets(), name="import_file_wallets"),
+            create_task_with_logging(_operations_reconcile_loop(), name="operations_reconcile"),
+        )
+        if task is not None
+    ]
+    background_tasks.extend(monitor_tasks)
+    try:
+        yield
+    finally:
+        for task in background_tasks:
+            task.cancel()
+        # return_exceptions keeps an already-failed task (its done-callback
+        # has logged it) from breaking shutdown.
+        await asyncio.gather(*background_tasks, return_exceptions=True)
 
 
 def create_app() -> FastAPI:

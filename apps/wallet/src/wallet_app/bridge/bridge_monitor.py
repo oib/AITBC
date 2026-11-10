@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import SharedHttpClient
 from aitbc.utils import ait_to_units
 from aitbc.utils.chain_id import resolve_chain_id
@@ -579,7 +580,7 @@ def start_monitoring() -> asyncio.Task[None] | None:
         return None
 
     try:
-        task = asyncio.create_task(monitor_loop())
+        task = create_task_with_logging(monitor_loop(), name="bridge_deposit_monitor")
         return task
     except RuntimeError:
         # No event loop running — fall back to running in a thread

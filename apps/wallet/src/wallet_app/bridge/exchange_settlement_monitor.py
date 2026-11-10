@@ -58,6 +58,7 @@ from typing import Any
 import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.constants import DATA_DIR
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import ait_to_units, units_to_ait
@@ -1518,7 +1519,7 @@ def start_exchange_settlement_monitoring() -> asyncio.Task[None] | None:
         logger.error("Exchange settlement monitor refused to start: %s", e)
         return None
     try:
-        task = asyncio.create_task(exchange_settlement_loop())
+        task = create_task_with_logging(exchange_settlement_loop(), name="exchange_settlement_monitor")
         return task
     except RuntimeError:
         logger.debug("No event loop running; starting exchange settlement monitor in a thread", exc_info=True)
