@@ -13,6 +13,20 @@ set -e
 GITHUB_REMOTE="https://github.com/oib/AITBC.git"
 GITEA_REMOTE="${AITBC_GITEA_REMOTE:-}"
 
+# Path overrides — the AITBC_*_DIR convention shared with update.sh,
+# run-migrations.sh and link-systemd.sh. They relocate every path this
+# script reads and writes so pins/tests can point it at a scratch tree
+# (INC-NODE2-BACKUP-HISTORY-LOST-1 precedent: deploy scripts are never run
+# against real /var//etc in tests). They do NOT make a run sandbox-safe:
+# systemctl/useradd/apt/chown still hit the real system.
+AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
+AITBC_ETC_DIR="${AITBC_ETC_DIR:-/etc/aitbc}"
+AITBC_SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
+AITBC_DATA_DIR="${AITBC_DATA_DIR:-/var/lib/aitbc}"
+AITBC_LOG_DIR="${AITBC_LOG_DIR:-/var/log/aitbc}"
+AITBC_RUN_DIR="${AITBC_RUN_DIR:-/run/aitbc}"
+AITBC_BIN_DIR="${AITBC_BIN_DIR:-/usr/local/bin}"
+
 # Parse command line arguments
 OPEN_ISLAND_HUB=""
 NODE_ID=""
@@ -144,23 +158,23 @@ if [ -n "$AGENT_FOLLOWUP_PATH" ] && [ -f "$AGENT_FOLLOWUP_PATH" ]; then
     trap 'agent_print_followup' EXIT
 fi
 
-HEALTH_CHECK_SCRIPT="/opt/aitbc/scripts/monitoring/health_check.sh"
-LEGACY_HEALTH_CHECK_PATH="/opt/aitbc/health-check.sh"
+HEALTH_CHECK_SCRIPT="${AITBC_ROOT}/scripts/monitoring/health_check.sh"
+LEGACY_HEALTH_CHECK_PATH="${AITBC_ROOT}/health-check.sh"
 
 # Determine the node role from config for service selection
 # Roles: hub, follower, shop, customer
 get_node_role() {
     local blockchain_mode="" market_role="" hardware_profile=""
-    if [ -f "/etc/aitbc/blockchain.env" ]; then
+    if [ -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
         # shellcheck disable=SC1091
-        source /etc/aitbc/blockchain.env 2>/dev/null
+        source "${AITBC_ETC_DIR}/blockchain.env" 2>/dev/null
         blockchain_mode="$BLOCKCHAIN_MODE"
         market_role="$MARKET_ROLE"
         hardware_profile="$HARDWARE_PROFILE"
     fi
-    if [ -f "/etc/aitbc/node.env" ]; then
+    if [ -f "${AITBC_ETC_DIR}/node.env" ]; then
         # shellcheck disable=SC1091
-        source /etc/aitbc/node.env 2>/dev/null
+        source "${AITBC_ETC_DIR}/node.env" 2>/dev/null
         blockchain_mode="${blockchain_mode:-$BLOCKCHAIN_MODE}"
         market_role="${market_role:-$MARKET_ROLE}"
         hardware_profile="${hardware_profile:-$HARDWARE_PROFILE}"
@@ -412,7 +426,7 @@ clone_repo() {
     log "Cloning AITBC repository..."
 
     # Check if repository already exists
-    if [ -d "/opt/aitbc/.git" ]; then
+    if [ -d "${AITBC_ROOT}/.git" ]; then
         success "AITBC repository already exists, skipping clone"
         return 0
     fi
@@ -436,7 +450,7 @@ clone_repo() {
     cd /opt
     git clone "$git_remote" aitbc || error "Failed to clone repository"
 
-    cd /opt/aitbc
+    cd "${AITBC_ROOT}"
     # Ensure both the canonical Gitea and the GitHub public mirror are available
     # as named remotes, whichever one was used as the clone source.
     local origin_url
@@ -474,15 +488,15 @@ setup_runtime_directories() {
 
     # Create standard Linux directories
     directories=(
-        "/var/lib/aitbc"
-        "/var/lib/aitbc/keystore"
-        "/var/lib/aitbc/keystore/config"
-        "/var/lib/aitbc/keystore/passwords"
-        "/var/lib/aitbc/data"
-        "/var/log/aitbc"
-        "/etc/aitbc"
-        "/etc/aitbc/credentials"
-        "/run/aitbc/secrets"
+        "${AITBC_DATA_DIR}"
+        "${AITBC_DATA_DIR}/keystore"
+        "${AITBC_DATA_DIR}/keystore/config"
+        "${AITBC_DATA_DIR}/keystore/passwords"
+        "${AITBC_DATA_DIR}/data"
+        "${AITBC_LOG_DIR}"
+        "${AITBC_ETC_DIR}"
+        "${AITBC_ETC_DIR}/credentials"
+        "${AITBC_RUN_DIR}/secrets"
     )
 
     for dir in "${directories[@]}"; do
@@ -492,8 +506,8 @@ setup_runtime_directories() {
 
     # Set permissions
     #
-    # /var/lib/aitbc is setgid group-writable, NOT 755, because the API key store lives at
-    # its top level: aitbc/auth/api_key.py defaults to /var/lib/aitbc/api_keys.json and takes
+    # ${AITBC_DATA_DIR} is setgid group-writable, NOT 755, because the API key store lives at
+    # its top level: aitbc/auth/api_key.py defaults to ${AITBC_DATA_DIR}/api_keys.json and takes
     # a filelock on <path>.lock beside it. filelock unlinks that lock on release, so the lock
     # is created fresh on every acquisition -- which needs write permission on the *directory*,
     # not just on api_keys.json. With 755 root:root, every service running as `aitbc` that
@@ -502,69 +516,69 @@ setup_runtime_directories() {
     # and systemd restart-loops it. That took down coordinator-api, pool-hub, gpu, market
     # and trading simultaneously, since APIKeyManager() is instantiated at module scope.
     # The setgid bit keeps new entries in the aitbc group so this cannot drift back.
-    chmod 2775 /var/lib/aitbc
+    chmod 2775 ${AITBC_DATA_DIR}
 
     # If island credentials already exist (or are created later by node join),
     # keep them owned by the runtime aitbc user. The file is the node's identity
     # and must remain 0600; root can still read it when needed.
-    if [ -f "/var/lib/aitbc/island_credentials.json" ]; then
-        chown aitbc:aitbc /var/lib/aitbc/island_credentials.json 2>/dev/null || true
-        chmod 0600 /var/lib/aitbc/island_credentials.json
+    if [ -f "${AITBC_DATA_DIR}/island_credentials.json" ]; then
+        chown aitbc:aitbc ${AITBC_DATA_DIR}/island_credentials.json 2>/dev/null || true
+        chmod 0600 ${AITBC_DATA_DIR}/island_credentials.json
     fi
 
-    chmod 700 /var/lib/aitbc/keystore  # Secure keystore
-    chmod 700 /var/lib/aitbc/keystore/config
-    chmod 700 /var/lib/aitbc/keystore/passwords
-    chmod 755 /var/lib/aitbc/data
-    chmod 755 /var/log/aitbc
-    chmod 755 /etc/aitbc
-    chmod 700 /etc/aitbc/credentials  # Secure credentials
-    chmod 700 /run/aitbc/secrets  # Runtime secrets (tmpfs)
+    chmod 700 ${AITBC_DATA_DIR}/keystore  # Secure keystore
+    chmod 700 ${AITBC_DATA_DIR}/keystore/config
+    chmod 700 ${AITBC_DATA_DIR}/keystore/passwords
+    chmod 755 ${AITBC_DATA_DIR}/data
+    chmod 755 ${AITBC_LOG_DIR}
+    chmod 755 ${AITBC_ETC_DIR}
+    chmod 700 ${AITBC_ETC_DIR}/credentials  # Secure credentials
+    chmod 700 ${AITBC_RUN_DIR}/secrets  # Runtime secrets (tmpfs)
 
     # Set ownership
     # Group is aitbc so the services can create api_keys.json.lock here (see chmod above).
     # Owner stays root: keystore/ and credentials/ below remain root-only at 700, so widening
     # the group on the parent does not expose them.
-    chown root:aitbc /var/lib/aitbc 2>/dev/null || chown root:root /var/lib/aitbc
-    chown root:root /var/lib/aitbc/keystore
-    chown root:root /var/lib/aitbc/keystore/config
-    chown root:root /var/lib/aitbc/keystore/passwords
-    chown root:root /var/lib/aitbc/data
+    chown root:aitbc ${AITBC_DATA_DIR} 2>/dev/null || chown root:root ${AITBC_DATA_DIR}
+    chown root:root ${AITBC_DATA_DIR}/keystore
+    chown root:root ${AITBC_DATA_DIR}/keystore/config
+    chown root:root ${AITBC_DATA_DIR}/keystore/passwords
+    chown root:root ${AITBC_DATA_DIR}/data
     # Fix data directory permissions for blockchain-node service (runs as aitbc user)
-    chown -R aitbc:aitbc /var/lib/aitbc/data 2>/dev/null || log "aitbc user not yet created — will chown after service users are set up"
-    chown root:root /var/log/aitbc
-    chown root:root /etc/aitbc
-    chown root:root /etc/aitbc/credentials
-    chown root:root /run/aitbc/secrets
+    chown -R aitbc:aitbc ${AITBC_DATA_DIR}/data 2>/dev/null || log "aitbc user not yet created — will chown after service users are set up"
+    chown root:root ${AITBC_LOG_DIR}
+    chown root:root ${AITBC_ETC_DIR}
+    chown root:root ${AITBC_ETC_DIR}/credentials
+    chown root:root ${AITBC_RUN_DIR}/secrets
 
     # Disable Btrfs CoW on data directory to prevent SQLite corruption
     # SQLite expects overwrite-in-place behavior, which conflicts with CoW
     if command -v chattr >/dev/null 2>&1; then
-        chattr +C /var/lib/aitbc 2>/dev/null || log "Could not disable CoW (not Btrfs or no permissions)"
-        log "Disabled Btrfs CoW on /var/lib/aitbc to prevent SQLite corruption"
+        chattr +C ${AITBC_DATA_DIR} 2>/dev/null || log "Could not disable CoW (not Btrfs or no permissions)"
+        log "Disabled Btrfs CoW on ${AITBC_DATA_DIR} to prevent SQLite corruption"
     fi
 
     # Create README files
-    echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
-    echo "# Keystore for blockchain keys (SECURE)" > /var/lib/aitbc/keystore/README.md
-    echo "# Encrypted configuration secrets" > /var/lib/aitbc/keystore/config/README.md
-    echo "# Encrypted password storage" > /var/lib/aitbc/keystore/passwords/README.md
-    echo "# Application databases" > /var/lib/aitbc/data/README.md
-    echo "# Application logs" > /var/log/aitbc/README.md
-    echo "# AITBC Configuration Files" > /etc/aitbc/README.md
-    echo "# Secure credential storage (600 permissions)" > /etc/aitbc/credentials/README.md
-    echo "# Runtime secrets (tmpfs, cleared on reboot)" > /run/aitbc/secrets/README.md
+    echo "# AITBC Runtime Data Directory" > ${AITBC_DATA_DIR}/README.md
+    echo "# Keystore for blockchain keys (SECURE)" > ${AITBC_DATA_DIR}/keystore/README.md
+    echo "# Encrypted configuration secrets" > ${AITBC_DATA_DIR}/keystore/config/README.md
+    echo "# Encrypted password storage" > ${AITBC_DATA_DIR}/keystore/passwords/README.md
+    echo "# Application databases" > ${AITBC_DATA_DIR}/data/README.md
+    echo "# Application logs" > ${AITBC_LOG_DIR}/README.md
+    echo "# AITBC Configuration Files" > ${AITBC_ETC_DIR}/README.md
+    echo "# Secure credential storage (600 permissions)" > ${AITBC_ETC_DIR}/credentials/README.md
+    echo "# Runtime secrets (tmpfs, cleared on reboot)" > ${AITBC_RUN_DIR}/secrets/README.md
 
     success "Runtime directories setup completed"
 }
 
 # Setup service users for security isolation
-# Install the canonical logrotate stanza. Without it /var/log/aitbc/*.log
+# Install the canonical logrotate stanza. Without it ${AITBC_LOG_DIR}/*.log
 # never rotate and grow forever (seen fleet-wide 2026-10).
 install_logrotate_config() {
     local src="$SCRIPT_DIR/aitbc-logrotate.conf"
     if ! command -v logrotate >/dev/null 2>&1; then
-        warning "logrotate not installed — /var/log/aitbc logs will not rotate"
+        warning "logrotate not installed — ${AITBC_LOG_DIR} logs will not rotate"
         return 0
     fi
     if [ -f "$src" ]; then
@@ -587,7 +601,7 @@ setup_service_users() {
     # Create primary aitbc user (all services run as User=aitbc)
     if ! id aitbc >/dev/null 2>&1; then
         log "Creating aitbc user (primary service user)..."
-        useradd -r -s /bin/false -g aitbc -d /opt/aitbc aitbc || warning "Failed to create aitbc user (may already exist)"
+        useradd -r -s /bin/false -g aitbc -d ${AITBC_ROOT} aitbc || warning "Failed to create aitbc user (may already exist)"
     else
         log "aitbc user already exists"
     fi
@@ -634,28 +648,30 @@ setup_service_users() {
 
     # Create additional directories for service users
     log "Creating service-specific directories..."
-    mkdir -p /var/lib/aitbc/wallets
-    mkdir -p /var/lib/aitbc/whisper-cache
-    mkdir -p /var/lib/aitbc/hermes
+    mkdir -p ${AITBC_DATA_DIR}/wallets
+    mkdir -p ${AITBC_DATA_DIR}/whisper-cache
+    mkdir -p ${AITBC_DATA_DIR}/hermes
 
     # Set ownership for service-specific directories
-    chown -R aitbc-wallet:aitbc-services /var/lib/aitbc/wallets
-    chown -R aitbc-public:aitbc-services /var/lib/aitbc/whisper-cache
-    chown -R aitbc:aitbc /var/lib/aitbc/hermes
-    chmod 750 /var/lib/aitbc/wallets
-    chmod 750 /var/lib/aitbc/whisper-cache
-    chmod 750 /var/lib/aitbc/hermes
+    chown -R aitbc-wallet:aitbc-services ${AITBC_DATA_DIR}/wallets
+    chown -R aitbc-public:aitbc-services ${AITBC_DATA_DIR}/whisper-cache
+    chown -R aitbc:aitbc ${AITBC_DATA_DIR}/hermes
+    chmod 750 ${AITBC_DATA_DIR}/wallets
+    chmod 750 ${AITBC_DATA_DIR}/whisper-cache
+    chmod 750 ${AITBC_DATA_DIR}/hermes
 
     # Fix data directory ownership now that aitbc user exists
     # (setup_runtime_directories runs before this step, so chown may have been skipped)
-    chown -R aitbc:aitbc /var/lib/aitbc/data 2>/dev/null || true
+    chown -R aitbc:aitbc ${AITBC_DATA_DIR}/data 2>/dev/null || true
 
-    # Flat monitor logs sit directly in root-owned /var/log/aitbc while the
+    # Flat monitor logs sit directly in root-owned ${AITBC_LOG_DIR} while the
     # User=aitbc monitor units append to them. Pre-create (or repair) them
     # aitbc-owned so a manual root run of a monitor script cannot leave a
     # root-owned file that makes every later service run fail with EACCES.
-    grep -hoE 'LOG_FILE="(/var/log/aitbc/[^"]+)"' \
-        /opt/aitbc/scripts/monitoring/*.sh 2>/dev/null | cut -d'"' -f2 | sort -u | \
+    # Match any absolute LOG_FILE= path the monitor scripts declare (the dir
+    # itself is overridable, so don't pin the pattern to one literal).
+    grep -hoE 'LOG_FILE="(/[^"]+)"' \
+        ${AITBC_ROOT}/scripts/monitoring/*.sh 2>/dev/null | cut -d'"' -f2 | sort -u | \
     while IFS= read -r monitor_log; do
         [ -n "$monitor_log" ] || continue
         if [ -f "$monitor_log" ]; then
@@ -669,24 +685,24 @@ setup_service_users() {
     install_logrotate_config
 
     # Same for the parent: setup_runtime_directories runs before the aitbc group exists, so
-    # its `chown root:aitbc /var/lib/aitbc` falls back to root:root on a first install. Redo
+    # its `chown root:aitbc ${AITBC_DATA_DIR}` falls back to root:root on a first install. Redo
     # it here or every aitbc.auth importer restart-loops on api_keys.json.lock.
-    chown root:aitbc /var/lib/aitbc 2>/dev/null || true
-    chmod 2775 /var/lib/aitbc
+    chown root:aitbc ${AITBC_DATA_DIR} 2>/dev/null || true
+    chmod 2775 ${AITBC_DATA_DIR}
 
     # Island credentials must be owned by the runtime user, mode 0600.
-    if [ -f "/var/lib/aitbc/island_credentials.json" ]; then
-        chown aitbc:aitbc /var/lib/aitbc/island_credentials.json 2>/dev/null || true
-        chmod 0600 /var/lib/aitbc/island_credentials.json
+    if [ -f "${AITBC_DATA_DIR}/island_credentials.json" ]; then
+        chown aitbc:aitbc ${AITBC_DATA_DIR}/island_credentials.json 2>/dev/null || true
+        chmod 0600 ${AITBC_DATA_DIR}/island_credentials.json
     fi
 
     # Verify the thing that actually breaks, rather than trusting the chmod above.
     # error() exits, so the explanation goes out as warnings first.
-    if ! sudo -u aitbc test -w /var/lib/aitbc; then
-        warning "/var/lib/aitbc is not writable by the aitbc user."
+    if ! sudo -u aitbc test -w ${AITBC_DATA_DIR}; then
+        warning "${AITBC_DATA_DIR} is not writable by the aitbc user."
         warning "Every service importing aitbc.auth fails at import on api_keys.json.lock,"
         warning "and systemd restart-loops it -- coordinator-api, pool-hub, gpu, market, trading."
-        error "Fix: chown root:aitbc /var/lib/aitbc && chmod 2775 /var/lib/aitbc"
+        error "Fix: chown root:aitbc ${AITBC_DATA_DIR} && chmod 2775 ${AITBC_DATA_DIR}"
     fi
 
     success "Service users setup completed"
@@ -715,9 +731,9 @@ setup_postgresql_databases() {
     fi
 
     # Use centralized database setup script if available
-    if [ -f "/opt/aitbc/scripts/deployment/setup_postgresql_databases.sh" ]; then
+    if [ -f "${AITBC_ROOT}/scripts/deployment/setup_postgresql_databases.sh" ]; then
         log "Using centralized PostgreSQL setup script..."
-        /opt/aitbc/scripts/deployment/setup_postgresql_databases.sh
+        ${AITBC_ROOT}/scripts/deployment/setup_postgresql_databases.sh
     else
         warning "Centralized PostgreSQL setup script not found"
         warning "Creating individual databases manually..."
@@ -742,8 +758,8 @@ setup_postgresql_databases() {
             db_password=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))" 2>/dev/null || openssl rand -base64 32 2>/dev/null || echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)")
 
             # Store password in credentials directory
-            echo "$db_password" > "/etc/aitbc/credentials/postgres_${db_user}_password"
-            chmod 600 "/etc/aitbc/credentials/postgres_${db_user}_password"
+            echo "$db_password" > "${AITBC_ETC_DIR}/credentials/postgres_${db_user}_password"
+            chmod 600 "${AITBC_ETC_DIR}/credentials/postgres_${db_user}_password"
 
             # Create user if not exists with secure password
             sudo -u postgres psql -c "DO \$\$
@@ -783,7 +799,7 @@ generate_uuid() {
 # - BLOCKCHAIN_MODE: follower (receives blocks) or hub (produces blocks)
 # - MARKET_ROLE: customer (consumes GPU) or shop (provides GPU)
 # - HARDWARE_PROFILE: nogpu (no GPU) or gpu (GPU available)
-# These profiles are set in /etc/aitbc/blockchain.env (read by blockchain node)
+# These profiles are set in ${AITBC_ETC_DIR}/blockchain.env (read by blockchain node)
 setup_node_profiles() {
     log "Setting up node profiles..."
 
@@ -795,18 +811,18 @@ setup_node_profiles() {
     # template keys (websocket gossip, ENABLE_BLOCK_PRODUCTION=false).
     seed_blockchain_template() {
         if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ] \
-            && [ ! -f "/etc/aitbc/blockchain.env" ] \
-            && [ -f "/opt/aitbc/examples/blockchain.env.open-island" ]; then
-            cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
-            log "Seeded /etc/aitbc/blockchain.env from open-island template"
+            && [ ! -f "${AITBC_ETC_DIR}/blockchain.env" ] \
+            && [ -f "${AITBC_ROOT}/examples/blockchain.env.open-island" ]; then
+            cp ${AITBC_ROOT}/examples/blockchain.env.open-island ${AITBC_ETC_DIR}/blockchain.env
+            log "Seeded ${AITBC_ETC_DIR}/blockchain.env from open-island template"
         fi
     }
 
     # Skip interactive prompts if blockchain.env already exists or --open-island was used
-    if [ "$SKIP_INTERACTIVE" = true ] || [ -f "/etc/aitbc/blockchain.env" ]; then
+    if [ "$SKIP_INTERACTIVE" = true ] || [ -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
         log "Skipping interactive prompts (configuration already exists or --open-island mode)"
-        if [ -f "/etc/aitbc/blockchain.env" ]; then
-            log "Using existing /etc/aitbc/blockchain.env"
+        if [ -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
+            log "Using existing ${AITBC_ETC_DIR}/blockchain.env"
         else
             log "Using default follower configuration for open island"
             BLOCKCHAIN_MODE="follower"
@@ -821,10 +837,10 @@ setup_node_profiles() {
                 local key="$1"
                 local value="$2"
 
-                if grep -q "^${key}=" /etc/aitbc/blockchain.env; then
-                    sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/blockchain.env
+                if grep -q "^${key}=" ${AITBC_ETC_DIR}/blockchain.env; then
+                    sed -i "s|^${key}=.*|${key}=${value}|g" ${AITBC_ETC_DIR}/blockchain.env
                 else
-                    echo "${key}=${value}" >> /etc/aitbc/blockchain.env
+                    echo "${key}=${value}" >> ${AITBC_ETC_DIR}/blockchain.env
                 fi
             }
 
@@ -919,10 +935,10 @@ setup_node_profiles() {
         local key="$1"
         local value="$2"
 
-        if grep -q "^${key}=" /etc/aitbc/blockchain.env; then
-            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/blockchain.env
+        if grep -q "^${key}=" ${AITBC_ETC_DIR}/blockchain.env; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" ${AITBC_ETC_DIR}/blockchain.env
         else
-            echo "${key}=${value}" >> /etc/aitbc/blockchain.env
+            echo "${key}=${value}" >> ${AITBC_ETC_DIR}/blockchain.env
         fi
     }
 
@@ -947,26 +963,26 @@ setup_node_identities() {
         local key="$1"
         local value="$2"
 
-        if grep -q "^${key}=" /etc/aitbc/blockchain.env; then
-            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/blockchain.env
+        if grep -q "^${key}=" ${AITBC_ETC_DIR}/blockchain.env; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" ${AITBC_ETC_DIR}/blockchain.env
         else
-            echo "${key}=${value}" >> /etc/aitbc/blockchain.env
+            echo "${key}=${value}" >> ${AITBC_ETC_DIR}/blockchain.env
         fi
     }
 
-    # Helper for /etc/aitbc/node.env (mirrors set_env for blockchain.env)
+    # Helper for ${AITBC_ETC_DIR}/node.env (mirrors set_env for blockchain.env)
     set_env_node() {
         local key="$1"
         local value="$2"
 
-        if [ ! -f /etc/aitbc/node.env ]; then
-            touch /etc/aitbc/node.env
+        if [ ! -f ${AITBC_ETC_DIR}/node.env ]; then
+            touch ${AITBC_ETC_DIR}/node.env
         fi
 
-        if grep -q "^${key}=" /etc/aitbc/node.env 2>/dev/null; then
-            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/node.env
+        if grep -q "^${key}=" ${AITBC_ETC_DIR}/node.env 2>/dev/null; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" ${AITBC_ETC_DIR}/node.env
         else
-            echo "${key}=${value}" >> /etc/aitbc/node.env
+            echo "${key}=${value}" >> ${AITBC_ETC_DIR}/node.env
         fi
     }
 
@@ -976,8 +992,8 @@ setup_node_identities() {
     # as a follower: it would rewrite GOSSIP_BACKEND to websocket and point
     # GOSSIP_WEBSOCKET_URL/DEFAULT_PEER_RPC_URL at localhost, breaking the
     # node's link to its real hub. Recover the mode from the env file.
-    if [ -z "${BLOCKCHAIN_MODE:-}" ] && [ -f /etc/aitbc/blockchain.env ]; then
-        BLOCKCHAIN_MODE=$(sed -n 's/^BLOCKCHAIN_MODE=//p' /etc/aitbc/blockchain.env | tail -n1 | tr -d '[:space:]')
+    if [ -z "${BLOCKCHAIN_MODE:-}" ] && [ -f ${AITBC_ETC_DIR}/blockchain.env ]; then
+        BLOCKCHAIN_MODE=$(sed -n 's/^BLOCKCHAIN_MODE=//p' ${AITBC_ETC_DIR}/blockchain.env | tail -n1 | tr -d '[:space:]')
     fi
     BLOCKCHAIN_MODE="${BLOCKCHAIN_MODE:-follower}"
 
@@ -990,28 +1006,28 @@ setup_node_identities() {
     P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
 
     # Use pre-configured example if available AND no existing config, otherwise create minimal config
-    if [ -f "/etc/aitbc/blockchain.env" ]; then
+    if [ -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
         # Existing config — preserve it, only add missing IDs
-        log "Preserving existing /etc/aitbc/blockchain.env"
-        if ! grep -q "^PROPOSER_ID=" /etc/aitbc/blockchain.env; then
+        log "Preserving existing ${AITBC_ETC_DIR}/blockchain.env"
+        if ! grep -q "^PROPOSER_ID=" ${AITBC_ETC_DIR}/blockchain.env; then
             if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
                 set_env PROPOSER_ID "$PROPOSER_ID"
-                log "Added unique proposer_id to /etc/aitbc/blockchain.env"
+                log "Added unique proposer_id to ${AITBC_ETC_DIR}/blockchain.env"
             else
                 log "Hub mode: leaving PROPOSER_ID for init_proposer.py"
             fi
         else
-            log "proposer_id already exists in /etc/aitbc/blockchain.env"
+            log "proposer_id already exists in ${AITBC_ETC_DIR}/blockchain.env"
         fi
         # #871: a file created by the profiles step holds only the profile
         # keys -- the identity keys still have to be added.
-        if ! grep -q "^P2P_NODE_ID=" /etc/aitbc/blockchain.env; then
+        if ! grep -q "^P2P_NODE_ID=" ${AITBC_ETC_DIR}/blockchain.env; then
             set_env P2P_NODE_ID "$P2P_NODE_ID"
-            log "Added unique p2p_node_id to /etc/aitbc/blockchain.env"
+            log "Added unique p2p_node_id to ${AITBC_ETC_DIR}/blockchain.env"
         fi
-    elif [ -f "/opt/aitbc/examples/blockchain.env.open-island" ]; then
+    elif [ -f "${AITBC_ROOT}/examples/blockchain.env.open-island" ]; then
         log "Using pre-configured open-island example as base..."
-        cp /opt/aitbc/examples/blockchain.env.open-island /etc/aitbc/blockchain.env
+        cp ${AITBC_ROOT}/examples/blockchain.env.open-island ${AITBC_ETC_DIR}/blockchain.env
         # Override with unique IDs
         if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
             set_env PROPOSER_ID "$PROPOSER_ID"
@@ -1020,7 +1036,7 @@ setup_node_identities() {
         log "Configured blockchain.env from open-island example with unique IDs"
     else
         log "Creating minimal blockchain.env with unique IDs..."
-        cat > /etc/aitbc/blockchain.env << EOF
+        cat > ${AITBC_ETC_DIR}/blockchain.env << EOF
 # AITBC Blockchain Configuration (public bootstrap safe)
 # Auto-generated unique node identities
 P2P_NODE_ID=$P2P_NODE_ID
@@ -1036,7 +1052,7 @@ EOF
         if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
             set_env PROPOSER_ID "$PROPOSER_ID"
         fi
-        log "Created /etc/aitbc/blockchain.env with unique IDs"
+        log "Created ${AITBC_ETC_DIR}/blockchain.env with unique IDs"
     fi
 
     # Ensure blockchain gossip defaults exist.
@@ -1056,7 +1072,7 @@ EOF
         if [ -n "$OPEN_ISLAND_HUB" ]; then
             HUB_WS_URL="$(printf '%s' "$OPEN_ISLAND_HUB" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
             set_env GOSSIP_WEBSOCKET_URL "$HUB_WS_URL"
-        elif ! grep -q "^GOSSIP_WEBSOCKET_URL=" /etc/aitbc/blockchain.env 2>/dev/null; then
+        elif ! grep -q "^GOSSIP_WEBSOCKET_URL=" ${AITBC_ETC_DIR}/blockchain.env 2>/dev/null; then
             set_env GOSSIP_WEBSOCKET_URL "ws://127.0.0.1:8202/rpc/gossip/ws"
         fi
         set_env GOSSIP_BACKEND websocket
@@ -1079,12 +1095,12 @@ EOF
     # reset a joined node's hub URL or NODE_ID to localhost/aitbc defaults.
     if [ -n "$OPEN_ISLAND_HUB" ] && [ "$BLOCKCHAIN_MODE" != "hub" ]; then
         set_env_node "DEFAULT_PEER_RPC_URL" "$OPEN_ISLAND_HUB"
-    elif ! grep -q "^DEFAULT_PEER_RPC_URL=" /etc/aitbc/node.env 2>/dev/null; then
+    elif ! grep -q "^DEFAULT_PEER_RPC_URL=" ${AITBC_ETC_DIR}/node.env 2>/dev/null; then
         set_env_node "DEFAULT_PEER_RPC_URL" "$DEFAULT_PEER_RPC"
     fi
     if [ -n "$NODE_ID" ]; then
         set_env_node "NODE_ID" "$NODE_ID"
-    elif ! grep -q "^NODE_ID=" /etc/aitbc/node.env 2>/dev/null; then
+    elif ! grep -q "^NODE_ID=" ${AITBC_ETC_DIR}/node.env 2>/dev/null; then
         set_env_node "NODE_ID" "aitbc"
     fi
     if [ -n "$OPEN_ISLAND_HUB" ] && [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
@@ -1130,25 +1146,25 @@ EOF
     fi
 
     # Use pre-configured node.env example if available AND no existing config
-    if [ -f "/etc/aitbc/node.env" ]; then
+    if [ -f "${AITBC_ETC_DIR}/node.env" ]; then
         # Existing config — preserve it, only add missing p2p_node_id
-        log "Preserving existing /etc/aitbc/node.env"
-        if ! grep -q "^P2P_NODE_ID=" /etc/aitbc/node.env; then
-            echo "P2P_NODE_ID=$P2P_NODE_ID" >> /etc/aitbc/node.env
-            log "Added unique p2p_node_id to /etc/aitbc/node.env"
+        log "Preserving existing ${AITBC_ETC_DIR}/node.env"
+        if ! grep -q "^P2P_NODE_ID=" ${AITBC_ETC_DIR}/node.env; then
+            echo "P2P_NODE_ID=$P2P_NODE_ID" >> ${AITBC_ETC_DIR}/node.env
+            log "Added unique p2p_node_id to ${AITBC_ETC_DIR}/node.env"
         else
-            log "p2p_node_id already exists in /etc/aitbc/node.env"
+            log "p2p_node_id already exists in ${AITBC_ETC_DIR}/node.env"
         fi
-    elif [ -f "/opt/aitbc/examples/node.env.open-island" ]; then
+    elif [ -f "${AITBC_ROOT}/examples/node.env.open-island" ]; then
         log "Using pre-configured open-island node.env example as base..."
-        cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
+        cp ${AITBC_ROOT}/examples/node.env.open-island ${AITBC_ETC_DIR}/node.env
         # Override with unique NODE_ID and p2p_node_id
-        sed -i "s|^NODE_ID=.*|NODE_ID=aitbc|" /etc/aitbc/node.env
-        sed -i "s|^P2P_NODE_ID=.*|P2P_NODE_ID=$P2P_NODE_ID|" /etc/aitbc/node.env
+        sed -i "s|^NODE_ID=.*|NODE_ID=aitbc|" ${AITBC_ETC_DIR}/node.env
+        sed -i "s|^P2P_NODE_ID=.*|P2P_NODE_ID=$P2P_NODE_ID|" ${AITBC_ETC_DIR}/node.env
         log "Configured node.env from open-island example with unique IDs"
     else
         log "Creating minimal node.env with unique p2p_node_id..."
-        cat > /etc/aitbc/node.env << EOF
+        cat > ${AITBC_ETC_DIR}/node.env << EOF
 # AITBC Node-Specific Environment Configuration
 # This file contains variables unique to each node - DO NOT share across nodes
 
@@ -1163,7 +1179,7 @@ P2P_NODE_ID=$P2P_NODE_ID
 # Format: hostname:port (e.g., "aitbc1:7070,aitbc2:7070")
 p2p_peers=
 EOF
-        log "Created /etc/aitbc/node.env with unique p2p_node_id"
+        log "Created ${AITBC_ETC_DIR}/node.env with unique p2p_node_id"
     fi
 
     success "Node identities setup completed"
@@ -1173,16 +1189,16 @@ EOF
 # These are added only if the key does not already exist so an operator's
 # explicit choice is never overwritten.
 ensure_consensus_env_defaults() {
-    if [ ! -f "/etc/aitbc/blockchain.env" ]; then
+    if [ ! -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
         return
     fi
-    if ! grep -q "^BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=" /etc/aitbc/blockchain.env; then
-        echo "BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true" >> /etc/aitbc/blockchain.env
-        log "Added BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true to /etc/aitbc/blockchain.env"
+    if ! grep -q "^BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=" ${AITBC_ETC_DIR}/blockchain.env; then
+        echo "BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true" >> ${AITBC_ETC_DIR}/blockchain.env
+        log "Added BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true to ${AITBC_ETC_DIR}/blockchain.env"
     fi
-    if ! grep -q "^SYNC_STATE_ROOT_VALIDATION_ENABLED=" /etc/aitbc/blockchain.env; then
-        echo "SYNC_STATE_ROOT_VALIDATION_ENABLED=true" >> /etc/aitbc/blockchain.env
-        log "Added SYNC_STATE_ROOT_VALIDATION_ENABLED=true to /etc/aitbc/blockchain.env"
+    if ! grep -q "^SYNC_STATE_ROOT_VALIDATION_ENABLED=" ${AITBC_ETC_DIR}/blockchain.env; then
+        echo "SYNC_STATE_ROOT_VALIDATION_ENABLED=true" >> ${AITBC_ETC_DIR}/blockchain.env
+        log "Added SYNC_STATE_ROOT_VALIDATION_ENABLED=true to ${AITBC_ETC_DIR}/blockchain.env"
     fi
 }
 
@@ -1197,105 +1213,105 @@ setup_credentials() {
     _creds_umask=$(umask)
 
     # Generate secure secrets if they don't exist
-    if [ ! -f "/etc/aitbc/credentials/api_hash_secret" ]; then
+    if [ ! -f "${AITBC_ETC_DIR}/credentials/api_hash_secret" ]; then
         log "Generating API_KEY_HASH_SECRET..."
-        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/api_hash_secret 2>/dev/null; then
-            chmod 600 /etc/aitbc/credentials/api_hash_secret
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > ${AITBC_ETC_DIR}/credentials/api_hash_secret 2>/dev/null; then
+            chmod 600 ${AITBC_ETC_DIR}/credentials/api_hash_secret
             log "Generated API_KEY_HASH_SECRET"
         else
             warning "Failed to generate API_KEY_HASH_SECRET"
             warning "Using fallback random value"
-            openssl rand -hex 32 > /etc/aitbc/credentials/api_hash_secret 2>/dev/null || {
+            openssl rand -hex 32 > ${AITBC_ETC_DIR}/credentials/api_hash_secret 2>/dev/null || {
                 warning "OpenSSL also failed, using timestamp-based fallback"
-                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/api_hash_secret
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > ${AITBC_ETC_DIR}/credentials/api_hash_secret
             }
-            chmod 600 /etc/aitbc/credentials/api_hash_secret
+            chmod 600 ${AITBC_ETC_DIR}/credentials/api_hash_secret
         fi
     else
         log "API_KEY_HASH_SECRET already exists"
     fi
 
-    if [ ! -f "/etc/aitbc/credentials/keystore_password" ]; then
+    if [ ! -f "${AITBC_ETC_DIR}/credentials/keystore_password" ]; then
         log "Generating keystore password..."
-        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/keystore_password 2>/dev/null; then
-            chmod 600 /etc/aitbc/credentials/keystore_password
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > ${AITBC_ETC_DIR}/credentials/keystore_password 2>/dev/null; then
+            chmod 600 ${AITBC_ETC_DIR}/credentials/keystore_password
             log "Generated keystore password"
         else
             warning "Failed to generate keystore password"
             warning "Using fallback random value"
-            openssl rand -hex 32 > /etc/aitbc/credentials/keystore_password 2>/dev/null || {
+            openssl rand -hex 32 > ${AITBC_ETC_DIR}/credentials/keystore_password 2>/dev/null || {
                 warning "OpenSSL also failed, using timestamp-based fallback"
-                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/keystore_password
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > ${AITBC_ETC_DIR}/credentials/keystore_password
             }
-            chmod 600 /etc/aitbc/credentials/keystore_password
+            chmod 600 ${AITBC_ETC_DIR}/credentials/keystore_password
         fi
     else
         log "Keystore password already exists"
     fi
 
     # Generate JWT authentication secrets (required for JWT token signing/verification)
-    if [ ! -f "/etc/aitbc/credentials/jwt_secret" ]; then
+    if [ ! -f "${AITBC_ETC_DIR}/credentials/jwt_secret" ]; then
         log "Generating JWT_SECRET..."
-        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/jwt_secret 2>/dev/null; then
-            chmod 600 /etc/aitbc/credentials/jwt_secret
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > ${AITBC_ETC_DIR}/credentials/jwt_secret 2>/dev/null; then
+            chmod 600 ${AITBC_ETC_DIR}/credentials/jwt_secret
             log "Generated JWT_SECRET"
         else
             warning "Failed to generate JWT_SECRET"
-            openssl rand -hex 32 > /etc/aitbc/credentials/jwt_secret 2>/dev/null || {
+            openssl rand -hex 32 > ${AITBC_ETC_DIR}/credentials/jwt_secret 2>/dev/null || {
                 warning "OpenSSL also failed, using timestamp-based fallback"
-                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/jwt_secret
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > ${AITBC_ETC_DIR}/credentials/jwt_secret
             }
-            chmod 600 /etc/aitbc/credentials/jwt_secret
+            chmod 600 ${AITBC_ETC_DIR}/credentials/jwt_secret
         fi
     else
         log "JWT_SECRET already exists"
     fi
 
-    if [ ! -f "/etc/aitbc/credentials/secret_key" ]; then
+    if [ ! -f "${AITBC_ETC_DIR}/credentials/secret_key" ]; then
         log "Generating SECRET_KEY..."
-        if python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/secret_key 2>/dev/null; then
-            chmod 600 /etc/aitbc/credentials/secret_key
+        if python3 -c "import secrets; print(secrets.token_hex(32))" > ${AITBC_ETC_DIR}/credentials/secret_key 2>/dev/null; then
+            chmod 600 ${AITBC_ETC_DIR}/credentials/secret_key
             log "Generated SECRET_KEY"
         else
             warning "Failed to generate SECRET_KEY"
-            openssl rand -hex 32 > /etc/aitbc/credentials/secret_key 2>/dev/null || {
+            openssl rand -hex 32 > ${AITBC_ETC_DIR}/credentials/secret_key 2>/dev/null || {
                 warning "OpenSSL also failed, using timestamp-based fallback"
-                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/secret_key
+                echo "$(date +%s)-$(head -c 16 /dev/urandom | xxd -p)" > ${AITBC_ETC_DIR}/credentials/secret_key
             }
-            chmod 600 /etc/aitbc/credentials/secret_key
+            chmod 600 ${AITBC_ETC_DIR}/credentials/secret_key
         fi
     else
         log "SECRET_KEY already exists"
     fi
 
     # Copy proposer_id from blockchain.env to credentials
-    if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^PROPOSER_ID=" /etc/aitbc/blockchain.env; then
-        grep "^PROPOSER_ID=" /etc/aitbc/blockchain.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
-        chmod 600 /etc/aitbc/credentials/proposer_id
+    if [ -f "${AITBC_ETC_DIR}/blockchain.env" ] && grep -q "^PROPOSER_ID=" ${AITBC_ETC_DIR}/blockchain.env; then
+        grep "^PROPOSER_ID=" ${AITBC_ETC_DIR}/blockchain.env | cut -d'=' -f2 > ${AITBC_ETC_DIR}/credentials/proposer_id
+        chmod 600 ${AITBC_ETC_DIR}/credentials/proposer_id
         log "Copied proposer_id to credentials"
     else
-        log "No proposer_id found in /etc/aitbc/blockchain.env, generating random ID"
-        if python3 -c "import secrets; print(secrets.token_hex(16))" > /etc/aitbc/credentials/proposer_id 2>/dev/null; then
-            chmod 600 /etc/aitbc/credentials/proposer_id
+        log "No proposer_id found in ${AITBC_ETC_DIR}/blockchain.env, generating random ID"
+        if python3 -c "import secrets; print(secrets.token_hex(16))" > ${AITBC_ETC_DIR}/credentials/proposer_id 2>/dev/null; then
+            chmod 600 ${AITBC_ETC_DIR}/credentials/proposer_id
             log "Generated random proposer_id"
         else
             warning "Failed to generate proposer_id"
-            echo "proposer-$(date +%s)-$(head -c 8 /dev/urandom | xxd -p)" > /etc/aitbc/credentials/proposer_id
-            chmod 600 /etc/aitbc/credentials/proposer_id
+            echo "proposer-$(date +%s)-$(head -c 8 /dev/urandom | xxd -p)" > ${AITBC_ETC_DIR}/credentials/proposer_id
+            chmod 600 ${AITBC_ETC_DIR}/credentials/proposer_id
             log "Generated fallback proposer_id"
         fi
     fi
 
     # Create the cluster-wide secrets file. This is loaded by services via
     # EnvironmentFile and must not be served as a public bootstrap file.
-    local SECRETS_ENV="/etc/aitbc/blockchain-secrets.env"
+    local SECRETS_ENV="${AITBC_ETC_DIR}/blockchain-secrets.env"
     if [ ! -f "$SECRETS_ENV" ]; then
         umask 077
         {
             echo "# AITBC cluster-wide secrets - DO NOT share with followers"
-            echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)"
-            echo "JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)"
-            echo "SECRET_KEY=$(cat /etc/aitbc/credentials/secret_key)"
+            echo "API_KEY_HASH_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/api_hash_secret)"
+            echo "JWT_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/jwt_secret)"
+            echo "SECRET_KEY=$(cat ${AITBC_ETC_DIR}/credentials/secret_key)"
         } > "$SECRETS_ENV"
         chown root:aitbc "$SECRETS_ENV"
         chmod 600 "$SECRETS_ENV"
@@ -1303,7 +1319,7 @@ setup_credentials() {
     else
         for pair in "API_KEY_HASH_SECRET:api_hash_secret" "JWT_SECRET:jwt_secret" "SECRET_KEY:secret_key"; do
             local var="${pair%%:*}"
-            local cred_file="/etc/aitbc/credentials/${pair##*:}"
+            local cred_file="${AITBC_ETC_DIR}/credentials/${pair##*:}"
             if ! grep -q "^${var}=" "$SECRETS_ENV" && [ -f "$cred_file" ]; then
                 echo "${var}=$(cat "$cred_file")" >> "$SECRETS_ENV"
                 log "Added $var to $SECRETS_ENV"
@@ -1315,9 +1331,9 @@ setup_credentials() {
     # Consensus-signing keys are scoped to the blockchain services only
     # (aitbc-blockchain-node, -rpc, -p2p) via validator-secrets.env.
     # Keep them out of the shared secrets file and the public blockchain.env.
-    local VALIDATOR_SECRETS_ENV="/etc/aitbc/validator-secrets.env"
+    local VALIDATOR_SECRETS_ENV="${AITBC_ETC_DIR}/validator-secrets.env"
     for var in PROPOSER_KEY VALIDATOR_KEYS; do
-        for src in /etc/aitbc/blockchain.env /etc/aitbc/node.env "$SECRETS_ENV"; do
+        for src in ${AITBC_ETC_DIR}/blockchain.env ${AITBC_ETC_DIR}/node.env "$SECRETS_ENV"; do
             [ -f "$src" ] || continue
             if grep -q "^${var}=" "$src"; then
                 umask 077
@@ -1336,32 +1352,32 @@ setup_credentials() {
     fi
 
     # Remove legacy in-blockchain copy if it exists.
-    if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^API_KEY_HASH_SECRET=" /etc/aitbc/blockchain.env; then
-        sed -i '/^API_KEY_HASH_SECRET=/d' /etc/aitbc/blockchain.env
+    if [ -f "${AITBC_ETC_DIR}/blockchain.env" ] && grep -q "^API_KEY_HASH_SECRET=" ${AITBC_ETC_DIR}/blockchain.env; then
+        sed -i '/^API_KEY_HASH_SECRET=/d' ${AITBC_ETC_DIR}/blockchain.env
         log "Removed API_KEY_HASH_SECRET from blockchain.env"
     fi
 
     # Write JWT_SECRET and API_KEY_HASH_SECRET to coordinator-api %N.env file
     # systemd %N expands to unit name without .service suffix
-    local COORD_ENV="/etc/aitbc/aitbc-coordinator-api.env"
-    mkdir -p /etc/aitbc
+    local COORD_ENV="${AITBC_ETC_DIR}/aitbc-coordinator-api.env"
+    mkdir -p ${AITBC_ETC_DIR}
     if [ -f "$COORD_ENV" ]; then
         # Update existing values or append
         if grep -q "^JWT_SECRET=" "$COORD_ENV"; then
-            sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)|g" "$COORD_ENV"
+            sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/jwt_secret)|g" "$COORD_ENV"
         else
-            echo "JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)" >> "$COORD_ENV"
+            echo "JWT_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/jwt_secret)" >> "$COORD_ENV"
         fi
         if grep -q "^API_KEY_HASH_SECRET=" "$COORD_ENV"; then
-            sed -i "s|^API_KEY_HASH_SECRET=.*|API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)|g" "$COORD_ENV"
+            sed -i "s|^API_KEY_HASH_SECRET=.*|API_KEY_HASH_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/api_hash_secret)|g" "$COORD_ENV"
         else
-            echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)" >> "$COORD_ENV"
+            echo "API_KEY_HASH_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/api_hash_secret)" >> "$COORD_ENV"
         fi
     else
         cat > "$COORD_ENV" << EOF
 # AITBC Coordinator API service-specific configuration
-JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)
-API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)
+JWT_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/jwt_secret)
+API_KEY_HASH_SECRET=$(cat ${AITBC_ETC_DIR}/credentials/api_hash_secret)
 REDIS_URL=redis://localhost:6379/0
 EOF
     fi
@@ -1369,7 +1385,7 @@ EOF
 
     # Create agent-coordinator env file (service references EnvironmentFile without '-' prefix,
     # so a missing file is a hard error on fresh installs). Binds to 127.0.0.1:8107 (v0.5.5 §1).
-    local AGENT_COORD_ENV="/etc/aitbc/aitbc-agent-coordinator.env"
+    local AGENT_COORD_ENV="${AITBC_ETC_DIR}/aitbc-agent-coordinator.env"
     if [ ! -f "$AGENT_COORD_ENV" ]; then
         cat > "$AGENT_COORD_ENV" << EOF
 # AITBC Agent Coordinator service-specific configuration
@@ -1383,10 +1399,10 @@ EOF
 
     # Generate runtime secrets file for systemd services
     log "Generating runtime secrets file..."
-    if [ -f "/opt/aitbc/scripts/utils/load-keystore-secrets.sh" ]; then
-        /opt/aitbc/scripts/utils/load-keystore-secrets.sh || {
+    if [ -f "${AITBC_ROOT}/scripts/utils/load-keystore-secrets.sh" ]; then
+        ${AITBC_ROOT}/scripts/utils/load-keystore-secrets.sh || {
             warning "Failed to generate runtime secrets file"
-            warning "Services may fail to start without /run/aitbc/secrets/.env"
+            warning "Services may fail to start without ${AITBC_RUN_DIR}/secrets/.env"
         }
     else
         warning "load-keystore-secrets.sh not found, skipping runtime secrets generation"
@@ -1404,15 +1420,15 @@ setup_proposer_wallet() {
     if [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
         return 0
     fi
-    if [ ! -f "/opt/aitbc/venv/bin/python" ]; then
+    if [ ! -f "${AITBC_ROOT}/venv/bin/python" ]; then
         warning "Virtual environment not found, cannot generate proposer wallet"
         return 0
     fi
     log "Setting up hub proposer wallet..."
-    if PYTHONPATH=/opt/aitbc /opt/aitbc/venv/bin/python /opt/aitbc/scripts/deployment/init_proposer.py; then
+    if PYTHONPATH=${AITBC_ROOT} ${AITBC_ROOT}/venv/bin/python ${AITBC_ROOT}/scripts/deployment/init_proposer.py; then
         success "Proposer wallet configured"
     else
-        warning "Proposer wallet setup failed — check /opt/aitbc/scripts/deployment/init_proposer.py"
+        warning "Proposer wallet setup failed — check ${AITBC_ROOT}/scripts/deployment/init_proposer.py"
     fi
 }
 
@@ -1422,19 +1438,19 @@ setup_venvs() {
     log "Setting up Python virtual environments..."
 
     # Create central virtual environment if it doesn't exist
-    if [ ! -d "/opt/aitbc/venv" ]; then
+    if [ ! -d "${AITBC_ROOT}/venv" ]; then
         log "Creating central virtual environment..."
-        cd /opt/aitbc
+        cd "${AITBC_ROOT}"
         if ! python3 -m venv venv; then
             warning "Failed to create virtual environment"
             warning "Checking if configs exist that might need cleanup..."
 
             # Check for existing configs that might have been created before venv failure
-            if [ -d "/etc/aitbc" ] && [ "$(ls -A /etc/aitbc 2>/dev/null)" ]; then
-                warning "Found existing configs in /etc/aitbc"
+            if [ -d "${AITBC_ETC_DIR}" ] && [ "$(ls -A ${AITBC_ETC_DIR} 2>/dev/null)" ]; then
+                warning "Found existing configs in ${AITBC_ETC_DIR}"
                 warning "Virtual environment creation failed, but configs exist"
                 warning "You may need to manually create the venv or remove configs and retry"
-                warning "Manual venv creation: cd /opt/aitbc && python3 -m venv venv"
+                warning "Manual venv creation: cd ${AITBC_ROOT} && python3 -m venv venv"
                 # Don't fail the entire setup, just warn
                 return 0
             else
@@ -1448,7 +1464,7 @@ setup_venvs() {
         if ! source venv/bin/activate; then
             warning "Failed to activate virtual environment"
             warning "Virtual environment may be corrupted"
-            warning "Manual fix: rm -rf /opt/aitbc/venv && python3 -m venv /opt/aitbc/venv"
+            warning "Manual fix: rm -rf ${AITBC_ROOT}/venv && python3 -m venv ${AITBC_ROOT}/venv"
             return 0
         fi
 
@@ -1460,10 +1476,10 @@ setup_venvs() {
     else
         log "Central virtual environment already exists, activating..."
         # shellcheck disable=SC1091
-        if ! source /opt/aitbc/venv/bin/activate; then
+        if ! source "${AITBC_ROOT}/venv/bin/activate"; then
             warning "Failed to activate existing virtual environment"
             warning "Virtual environment may be corrupted"
-            warning "Manual fix: rm -rf /opt/aitbc/venv && python3 -m venv /opt/aitbc/venv"
+            warning "Manual fix: rm -rf ${AITBC_ROOT}/venv && python3 -m venv ${AITBC_ROOT}/venv"
             return 0
         fi
     fi
@@ -1475,7 +1491,7 @@ setup_venvs() {
     local PROFILE="server-no-gpu"  # default
 
     # Check if install-profiles.sh exists
-    if [ -f "/opt/aitbc/scripts/deployment/install-profiles.sh" ]; then
+    if [ -f "${AITBC_ROOT}/scripts/deployment/install-profiles.sh" ]; then
         log "Using install-profiles.sh for dependency installation..."
 
         # Try to detect profile from environment if available
@@ -1484,9 +1500,9 @@ setup_venvs() {
         #   hub             — hub node without GPU
         #   customer-no-gpu — follower + customer, no GPU (lightweight CLI + wallet)
         #   server-no-gpu   — follower + shop, no GPU (core blockchain services)
-        if [ -f "/etc/aitbc/blockchain.env" ]; then
+        if [ -f "${AITBC_ETC_DIR}/blockchain.env" ]; then
             # shellcheck disable=SC1091
-            source /etc/aitbc/blockchain.env
+            source "${AITBC_ETC_DIR}/blockchain.env"
             if [ "$HARDWARE_PROFILE" = "gpu" ]; then
                 PROFILE="provider-gpu"
             elif [ "$BLOCKCHAIN_MODE" = "hub" ]; then
@@ -1499,14 +1515,14 @@ setup_venvs() {
         fi
 
         log "Installing profile: $PROFILE"
-        /opt/aitbc/scripts/deployment/install-profiles.sh "$PROFILE" || warning "Failed to install profile $PROFILE"
+        ${AITBC_ROOT}/scripts/deployment/install-profiles.sh "$PROFILE" || warning "Failed to install profile $PROFILE"
     else
         log "install-profiles.sh not found, using manual installation..."
 
         # Fallback to manual installation
-        if [ -f "/opt/aitbc/requirements.txt" ]; then
+        if [ -f "${AITBC_ROOT}/requirements.txt" ]; then
             log "Installing core production dependencies..."
-            pip install -r /opt/aitbc/requirements.txt || warning "Failed to install core dependencies"
+            pip install -r ${AITBC_ROOT}/requirements.txt || warning "Failed to install core dependencies"
         else
             warning "requirements.txt not found — refusing unpinned installs (#838); aborting install"
             exit 1
@@ -1516,22 +1532,22 @@ setup_venvs() {
         # every node (pyproject's addopts hard-require pytest-rerunfailures, so
         # without it pytest cannot even collect); the dev tier goes only on the
         # designated dev node.
-        if [ -f "/opt/aitbc/requirements-test.txt" ]; then
+        if [ -f "${AITBC_ROOT}/requirements-test.txt" ]; then
             log "Installing test tier..."
             # requirements-dev.txt is not constraint-legal as-is (it carries
             # extras); dev-constraints.sh strips them.
             TEST_CONSTRAINTS="$(mktemp)"
-            /opt/aitbc/scripts/utils/dev-constraints.sh > "$TEST_CONSTRAINTS" \
+            ${AITBC_ROOT}/scripts/utils/dev-constraints.sh > "$TEST_CONSTRAINTS" \
                 || error "Failed to build test constraints"
-            pip install -r /opt/aitbc/requirements-test.txt -c "$TEST_CONSTRAINTS" \
+            pip install -r ${AITBC_ROOT}/requirements-test.txt -c "$TEST_CONSTRAINTS" \
                 || error "Failed to install test dependencies"
             rm -f "$TEST_CONSTRAINTS"
         fi
 
-        if [ "${AITBC_DEV_NODE:-0}" = "1" ] || [ -f /etc/aitbc/dev-node ]; then
-            if [ -f "/opt/aitbc/requirements-dev.txt" ]; then
+        if [ "${AITBC_DEV_NODE:-0}" = "1" ] || [ -f ${AITBC_ETC_DIR}/dev-node ]; then
+            if [ -f "${AITBC_ROOT}/requirements-dev.txt" ]; then
                 log "Dev node: installing dev tier..."
-                pip install -r /opt/aitbc/requirements-dev.txt \
+                pip install -r ${AITBC_ROOT}/requirements-dev.txt \
                     || error "Failed to install dev dependencies"
             fi
         else
@@ -1552,48 +1568,48 @@ setup_venvs() {
     # loudly. Keep it fatal: continuing past this produces a node that looks
     # installed and is not.
     log "Installing repo-local packages..."
-    if ! /opt/aitbc/scripts/utils/install-path-packages.sh /opt/aitbc/venv; then
+    if ! ${AITBC_ROOT}/scripts/utils/install-path-packages.sh ${AITBC_ROOT}/venv; then
         error "Failed to install repo-local path packages"
     fi
 
     # Install AITBC CLI
     log "Installing AITBC CLI..."
-    if [ -d "/opt/aitbc/cli" ]; then
-        cd /opt/aitbc/cli
+    if [ -d "${AITBC_ROOT}/cli" ]; then
+        cd "${AITBC_ROOT}/cli"
         pip install -e . || warning "Failed to install AITBC CLI"
         log "AITBC CLI installed"
     else
-        warning "CLI directory not found at /opt/aitbc/cli"
+        warning "CLI directory not found at ${AITBC_ROOT}/cli"
     fi
 
     # #870: verify the thing that used to break, rather than trusting the
     # umask bookkeeping above -- a 077 leak left the venv 0700 and every
     # aitbc* service failed on import.
-    if [ -x /opt/aitbc/venv/bin/python ]; then
-        if ! sudo -u aitbc test -r /opt/aitbc/venv/bin/python \
-            || ! sudo -u aitbc /opt/aitbc/venv/bin/python -c "import sys; sys.exit(0)" 2>/dev/null; then
-            warning "/opt/aitbc/venv is not readable by the aitbc service user (umask leak?)."
+    if [ -x ${AITBC_ROOT}/venv/bin/python ]; then
+        if ! sudo -u aitbc test -r ${AITBC_ROOT}/venv/bin/python \
+            || ! sudo -u aitbc ${AITBC_ROOT}/venv/bin/python -c "import sys; sys.exit(0)" 2>/dev/null; then
+            warning "${AITBC_ROOT}/venv is not readable by the aitbc service user (umask leak?)."
             warning "Services run as aitbc-* users and cannot start from an unreadable venv."
-            error "Fix: chmod -R a+rX /opt/aitbc/venv"
+            error "Fix: chmod -R a+rX ${AITBC_ROOT}/venv"
         fi
-        log "Verified /opt/aitbc/venv is readable by the aitbc user"
+        log "Verified ${AITBC_ROOT}/venv is readable by the aitbc user"
     fi
 
     success "Virtual environments setup completed"
 }
 
-# Ensure every linked aitbc-* unit has a matching /etc/aitbc/%N.env file.
-# systemd EnvironmentFile=/etc/aitbc/%N.env fails hard when the file is absent.
+# Ensure every linked aitbc-* unit has a matching ${AITBC_ETC_DIR}/%N.env file.
+# systemd EnvironmentFile=${AITBC_ETC_DIR}/%N.env fails hard when the file is absent.
 ensure_service_env_files() {
     log "Ensuring per-service environment files exist..."
-    mkdir -p /etc/aitbc
+    mkdir -p ${AITBC_ETC_DIR}
     local unit base env_file
-    for unit in /etc/systemd/system/aitbc-*.service /etc/systemd/system/aitbc-*.timer; do
+    for unit in ${AITBC_SYSTEMD_DIR}/aitbc-*.service ${AITBC_SYSTEMD_DIR}/aitbc-*.timer; do
         [ -e "$unit" ] || continue
         base=$(basename "$unit")
         base="${base%.service}"
         base="${base%.timer}"
-        env_file="/etc/aitbc/${base}.env"
+        env_file="${AITBC_ETC_DIR}/${base}.env"
         if [ ! -f "$env_file" ]; then
             touch "$env_file"
             chmod 644 "$env_file"
@@ -1604,7 +1620,7 @@ ensure_service_env_files() {
     # Common shared env files referenced by many services. Create empty ones
     # if they do not exist; service files now use the '-' prefix so missing
     # files do not cause resource failures, but we still want them present.
-    for common in /etc/aitbc/node.env /etc/aitbc/blockchain.env; do
+    for common in ${AITBC_ETC_DIR}/node.env ${AITBC_ETC_DIR}/blockchain.env; do
         if [ ! -f "$common" ]; then
             touch "$common"
             chmod 644 "$common"
@@ -1612,14 +1628,14 @@ ensure_service_env_files() {
         fi
     done
 
-    # /etc/aitbc/redis.env feeds REDISCLI_AUTH to aitbc-cache-monitor on hosts
+    # ${AITBC_ETC_DIR}/redis.env feeds REDISCLI_AUTH to aitbc-cache-monitor on hosts
     # that run a local redis-server. Create it once; never overwrite. Populate
     # from redis.conf's requirepass when one is configured; empty otherwise --
     # the monitor then correctly reports a NOAUTH connection failure.
     # systemctl cat avoids a list-unit-files|grep -q pipe: under pipefail,
     # grep -q's early exit SIGPIPEs systemctl and the pipeline reports 141.
     if systemctl cat redis-server.service >/dev/null 2>&1 \
-        && [ ! -f /etc/aitbc/redis.env ]; then
+        && [ ! -f ${AITBC_ETC_DIR}/redis.env ]; then
         local redis_auth=""
         if [ -f /etc/redis/redis.conf ]; then
             redis_auth=$(awk '/^requirepass[[:space:]]/{print $2; exit}' /etc/redis/redis.conf)
@@ -1628,13 +1644,13 @@ ensure_service_env_files() {
             echo "# Redis credentials for aitbc-cache-monitor (REDISCLI_AUTH)."
             echo "# Only needed when the local redis-server requires auth."
             echo "REDISCLI_AUTH=${redis_auth}"
-        } > /etc/aitbc/redis.env
-        chmod 640 /etc/aitbc/redis.env
-        chown root:aitbc /etc/aitbc/redis.env 2>/dev/null || true
+        } > ${AITBC_ETC_DIR}/redis.env
+        chmod 640 ${AITBC_ETC_DIR}/redis.env
+        chown root:aitbc ${AITBC_ETC_DIR}/redis.env 2>/dev/null || true
         if [ -n "$redis_auth" ]; then
-            log "Created /etc/aitbc/redis.env (auth populated from redis.conf)"
+            log "Created ${AITBC_ETC_DIR}/redis.env (auth populated from redis.conf)"
         else
-            log "Created /etc/aitbc/redis.env (no auth configured)"
+            log "Created ${AITBC_ETC_DIR}/redis.env (no auth configured)"
         fi
     fi
     success "Per-service environment files verified"
@@ -1645,9 +1661,9 @@ install_services() {
     log "Installing systemd services..."
 
     # Use link-systemd.sh script for consistent service linking
-    if [ -f "/opt/aitbc/scripts/utils/link-systemd.sh" ]; then
+    if [ -f "${AITBC_ROOT}/scripts/utils/link-systemd.sh" ]; then
         log "Using link-systemd.sh to install services..."
-        /opt/aitbc/scripts/utils/link-systemd.sh
+        ${AITBC_ROOT}/scripts/utils/link-systemd.sh
     else
         warning "link-systemd.sh not found, using manual installation..."
         # Install services based on node role
@@ -1665,10 +1681,10 @@ install_services() {
                 local unit="${svc_base}.service"
             fi
             # Find unit file in app directories
-            svc_file=$(find /opt/aitbc/apps /opt/aitbc/scripts -name "$unit" -print -quit 2>/dev/null)
+            svc_file=$(find ${AITBC_ROOT}/apps ${AITBC_ROOT}/scripts -name "$unit" -print -quit 2>/dev/null)
             if [ -n "$svc_file" ]; then
                 log "Installing $unit..."
-                ln -sf "$svc_file" /etc/systemd/system/
+                ln -sf "$svc_file" ${AITBC_SYSTEMD_DIR}/
             else
                 warning "Unit file not found: $unit"
             fi
@@ -1680,17 +1696,17 @@ install_services() {
 
     # Add aitbc CLI to system PATH
     log "Adding aitbc CLI to system PATH..."
-    # Create wrapper script in /usr/local/bin/aitbc.
+    # Create wrapper script in ${AITBC_BIN_DIR}/aitbc.
     # Sourcing the venv keeps PYTHONPATH and editable package metadata
     # consistent with the way the repo is developed.
-    cat > /usr/local/bin/aitbc << 'EOF'
+    cat > "${AITBC_BIN_DIR}/aitbc" << EOF
 #!/bin/sh
 set -e
-. /opt/aitbc/venv/bin/activate
-exec /opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"
+. "${AITBC_ROOT}/venv/bin/activate"
+exec "${AITBC_ROOT}/venv/bin/python" -m aitbc_cli.core.main "\$@"
 EOF
-    chmod +x /usr/local/bin/aitbc
-    log "aitbc CLI installed to /usr/local/bin/aitbc"
+    chmod +x "${AITBC_BIN_DIR}/aitbc"
+    log "aitbc CLI installed to ${AITBC_BIN_DIR}/aitbc"
 
     ensure_service_env_files
 
@@ -1701,9 +1717,9 @@ EOF
 setup_backup() {
     log "Setting up backup service..."
 
-    local backup_script="/opt/aitbc/scripts/maintenance/aitbc-backup.sh"
-    local backup_service="/opt/aitbc/scripts/maintenance/aitbc-backup.service"
-    local backup_timer="/opt/aitbc/scripts/maintenance/aitbc-backup.timer"
+    local backup_script="${AITBC_ROOT}/scripts/maintenance/aitbc-backup.sh"
+    local backup_service="${AITBC_ROOT}/scripts/maintenance/aitbc-backup.service"
+    local backup_timer="${AITBC_ROOT}/scripts/maintenance/aitbc-backup.timer"
 
     if [ ! -f "$backup_script" ]; then
         warning "Backup script not found: $backup_script"
@@ -1718,13 +1734,13 @@ setup_backup() {
 
     # Link service and timer files if they exist
     if [ -f "$backup_service" ]; then
-        ln -sf "$backup_service" /etc/systemd/system/
+        ln -sf "$backup_service" ${AITBC_SYSTEMD_DIR}/
     else
         warning "Backup service file not found: $backup_service"
     fi
 
     if [ -f "$backup_timer" ]; then
-        ln -sf "$backup_timer" /etc/systemd/system/
+        ln -sf "$backup_timer" ${AITBC_SYSTEMD_DIR}/
     else
         warning "Backup timer file not found: $backup_timer"
     fi
@@ -1834,12 +1850,12 @@ main() {
     log "Starting AITBC setup..."
 
     # If already installed, forward to update.sh unless --force was given.
-    # Signals of an existing install: /etc/aitbc/node.env + /opt/aitbc/venv
+    # Signals of an existing install: ${AITBC_ETC_DIR}/node.env + ${AITBC_ROOT}/venv
     if [ "$FORCE_SETUP" = "false" ] \
-       && [ -f /etc/aitbc/node.env ] \
-       && [ -d /opt/aitbc/venv ]; then
-        local update_script="/opt/aitbc/scripts/deployment/update.sh"
-        warning "AITBC is already installed on this node (/etc/aitbc/node.env + /opt/aitbc/venv exist)"
+       && [ -f ${AITBC_ETC_DIR}/node.env ] \
+       && [ -d ${AITBC_ROOT}/venv ]; then
+        local update_script="${AITBC_ROOT}/scripts/deployment/update.sh"
+        warning "AITBC is already installed on this node (${AITBC_ETC_DIR}/node.env + ${AITBC_ROOT}/venv exist)"
         if [ -x "$update_script" ]; then
             log "Forwarding to update.sh (use --force to re-run full setup)..."
             exec "$update_script"
@@ -1928,27 +1944,27 @@ main() {
     echo "  Event Bridge: http://localhost:8205/health"
     echo ""
     echo "Runtime Directories:"
-    echo "  Keystore: /var/lib/aitbc/keystore/"
-    echo "  Data: /var/lib/aitbc/data/"
-    echo "  Logs: /var/log/aitbc/"
-    echo "  Config: /etc/aitbc/"
-    echo "  Credentials: /etc/aitbc/credentials/ (600 permissions)"
-    echo "  Runtime secrets: /run/aitbc/secrets/ (tmpfs)"
+    echo "  Keystore: ${AITBC_DATA_DIR}/keystore/"
+    echo "  Data: ${AITBC_DATA_DIR}/data/"
+    echo "  Logs: ${AITBC_LOG_DIR}/"
+    echo "  Config: ${AITBC_ETC_DIR}/"
+    echo "  Credentials: ${AITBC_ETC_DIR}/credentials/ (600 permissions)"
+    echo "  Runtime secrets: ${AITBC_RUN_DIR}/secrets/ (tmpfs)"
     echo "  Backups: /var/backups/aitbc/ (30-day retention)"
     echo ""
     echo "Management Commands:"
     echo "  Health check: $HEALTH_CHECK_SCRIPT"
-    echo "  Load secrets: /opt/aitbc/scripts/utils/load-keystore-secrets.sh"
+    echo "  Load secrets: ${AITBC_ROOT}/scripts/utils/load-keystore-secrets.sh"
     echo "  Restart services: systemctl restart aitbc-wallet aitbc-coordinator-api aitbc-exchange"
     echo "  View logs: journalctl -u aitbc-wallet -f"
-    echo "  Manual backup: /opt/aitbc/scripts/maintenance/aitbc-backup.sh"
+    echo "  Manual backup: ${AITBC_ROOT}/scripts/maintenance/aitbc-backup.sh"
     echo "  Backup timer: systemctl status aitbc-backup.timer"
     echo ""
     echo "Security Notes:"
-    echo "  - Secrets stored in /etc/aitbc/credentials/ with 600 permissions"
+    echo "  - Secrets stored in ${AITBC_ETC_DIR}/credentials/ with 600 permissions"
     echo "  - Services load secrets at runtime via systemd ExecStartPre"
     echo "  - API_KEY_HASH_SECRET required (no insecure default)"
-    echo "  - Per-service env files in /etc/aitbc/<service-name>.env (systemd %N.env)"
+    echo "  - Per-service env files in ${AITBC_ETC_DIR}/<service-name>.env (systemd %N.env)"
     echo "  - DATABASE_URL includes credentials (generated by setup_postgresql_databases.sh)"
     echo ""
 
@@ -1973,19 +1989,19 @@ main() {
 
     echo "Nginx Configuration (next steps):"
     echo "  Container config (install inside this container):"
-    echo "    cp /opt/aitbc/examples/nginx/$_container_conf /etc/nginx/sites-available/aitbc"
+    echo "    cp ${AITBC_ROOT}/examples/nginx/$_container_conf /etc/nginx/sites-available/aitbc"
     echo "    ln -sf /etc/nginx/sites-available/aitbc /etc/nginx/sites-enabled/aitbc"
     echo "    # Edit: replace YOUR_DOMAIN and CONTAINER_GATEWAY_IP"
     echo ""
     echo "  Host reverse proxy (install on the HOST machine, NOT in this container):"
     echo "    # From the host, copy from the container or repo:"
-    echo "    cp /opt/aitbc/examples/nginx/$_host_conf /etc/nginx/sites-available/aitbc-proxy"
+    echo "    cp ${AITBC_ROOT}/examples/nginx/$_host_conf /etc/nginx/sites-available/aitbc-proxy"
     echo "    ln -sf /etc/nginx/sites-available/aitbc-proxy /etc/nginx/sites-enabled/aitbc-proxy"
     echo "    # Edit: replace YOUR_DOMAIN and CONTAINER_IP"
     echo "    # This edge proxy terminates TLS — install certs with:"
     echo "    #   certbot --nginx -d YOUR_DOMAIN"
     echo ""
-    echo "  See: /opt/aitbc/examples/nginx/README.md for full instructions"
+    echo "  See: ${AITBC_ROOT}/examples/nginx/README.md for full instructions"
 
     agent_print_followup
 }
