@@ -421,3 +421,64 @@ class TestAsyncDetailSuffix:
         with patch("httpx.AsyncClient.get", side_effect=err):
             with pytest.raises(NetworkError, match="forbidden here"):
                 await client.get("/x")
+
+
+class TestRedirectCredentialStrip:
+    """#1577: requests strips Authorization on cross-host redirects but
+    replays X-API-Key/X-Trading-Api-Key verbatim — the session must drop
+    every credential header when a redirect leaves the origin."""
+
+    def _client(self):
+        return AITBCHTTPClient(
+            base_url="https://trusted.example",
+            headers={"X-API-Key": "secret-key", "X-Custom": "keepme"},
+        )
+
+    def _prepared(self, url):
+        return requests.Request(
+            "GET",
+            url,
+            headers={
+                "X-API-Key": "secret-key",
+                "X-Trading-Api-Key": "trade-key",
+                "Authorization": "Bearer jwt",
+                "X-Custom": "keepme",
+            },
+        ).prepare()
+
+    def _redirect_response(self, from_url):
+        resp = requests.Response()
+        resp.status_code = 302
+        resp.url = from_url
+        # requests' rebuild_auth reads response.request.url as the previous hop
+        resp.request = requests.Request("GET", from_url).prepare()
+        return resp
+
+    def test_cross_host_redirect_strips_credentials(self):
+        client = self._client()
+        prepared = self._prepared("https://evil.example/collect")
+        client.session.rebuild_auth(prepared, self._redirect_response("https://trusted.example/start"))
+        assert "X-API-Key" not in prepared.headers
+        assert "X-Trading-Api-Key" not in prepared.headers
+        assert "Authorization" not in prepared.headers
+        assert prepared.headers["X-Custom"] == "keepme"
+
+    def test_same_host_redirect_keeps_credentials(self):
+        client = self._client()
+        prepared = self._prepared("https://trusted.example/next")
+        client.session.rebuild_auth(prepared, self._redirect_response("https://trusted.example/start"))
+        assert prepared.headers["X-API-Key"] == "secret-key"
+        assert prepared.headers["X-Trading-Api-Key"] == "trade-key"
+
+    def test_scheme_downgrade_strips_credentials(self):
+        client = self._client()
+        prepared = self._prepared("http://trusted.example/insecure")
+        client.session.rebuild_auth(prepared, self._redirect_response("https://trusted.example/start"))
+        assert "X-API-Key" not in prepared.headers
+        assert "Authorization" not in prepared.headers
+
+    def test_session_is_credential_safe(self):
+        from aitbc.network.client import _CredentialSafeSession
+
+        client = self._client()
+        assert isinstance(client.session, _CredentialSafeSession)
