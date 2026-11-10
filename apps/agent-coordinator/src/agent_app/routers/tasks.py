@@ -6,6 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.payment_escrow import EscrowStatus
 from aitbc.rate_limiting import rate_limit
 
 from .. import state
@@ -42,6 +43,11 @@ def _lock_escrow_on_chain(escrow: Any, payment: TaskPayment, task_id: str) -> st
     # Only called from _create_task_escrow, which returns early when
     # state.payment_escrow is unset — re-narrow for mypy.
     assert state.payment_escrow is not None
+    if escrow.status == EscrowStatus.LOCKED:
+        # #1553 replay: the escrow for this task already locked on-chain —
+        # return its contract id instead of submitting a second lock tx.
+        stored_contract_id = escrow.contract_id or escrow.metadata.get("contract_id")
+        return stored_contract_id if isinstance(stored_contract_id, str) else None
     submitter = None
     if state.escrow_rpc and (payment.lock_tx or payment.lock_signature):
         from ..services.chain_escrow import make_lock_submitter
@@ -78,21 +84,29 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
     the submission carries no payment or escrow is disabled/unavailable."""
     if not (request.payment and settings.task_payment_escrow_enabled and state.payment_escrow):
         return None, None, None
-    escrow = state.payment_escrow.create_escrow(
-        task_id=task_id,
-        chain_id=chain_id,
-        requester=request.payment.requester,
-        agent=request.payment.agent,
-        amount=request.payment.amount,
-        fee=request.payment.fee,
-        timeout=request.payment.timeout_seconds,
-    )
-    # P2.4/GAP-43: the release path reads this back off the entry and forwards
-    # it to the chain; keep it on the entry so it survives a restart between
-    # submit and complete (the store serialises metadata).
-    if request.payment.auto_reinvest_pct is not None:
-        escrow.metadata["auto_reinvest_pct"] = str(request.payment.auto_reinvest_pct)
-        state.payment_escrow.persist_entry(escrow)
+    # #1553: task_id is the caller-visible natural key — a retry after a lost
+    # response must not mint a second escrow and POST a second on-chain lock.
+    # Reuse the still-active escrow for this task; a terminal one means this
+    # is a genuinely new submission and gets a fresh escrow.
+    existing = state.payment_escrow.get_escrow_for_task(task_id)
+    if existing is not None and existing.status in (EscrowStatus.PENDING, EscrowStatus.LOCKED):
+        escrow = existing
+    else:
+        escrow = state.payment_escrow.create_escrow(
+            task_id=task_id,
+            chain_id=chain_id,
+            requester=request.payment.requester,
+            agent=request.payment.agent,
+            amount=request.payment.amount,
+            fee=request.payment.fee,
+            timeout=request.payment.timeout_seconds,
+        )
+        # P2.4/GAP-43: the release path reads this back off the entry and forwards
+        # it to the chain; keep it on the entry so it survives a restart between
+        # submit and complete (the store serialises metadata).
+        if request.payment.auto_reinvest_pct is not None:
+            escrow.metadata["auto_reinvest_pct"] = str(request.payment.auto_reinvest_pct)
+            state.payment_escrow.persist_entry(escrow)
     contract_id = _lock_escrow_on_chain(escrow, request.payment, task_id)
     return escrow.escrow_id, contract_id, escrow.status.value
 
