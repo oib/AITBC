@@ -60,7 +60,7 @@ async def api_activity_timeline(
                 WHERE {where}
                 GROUP BY DATE(created_at), type
                 ORDER BY day
-                """,
+                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
 
@@ -137,7 +137,7 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             acct_clause = f"WHERE {acct_where}" if acct_where else ""
 
             # Circulating supply: sum of account balances (base units -> AIT)
-            await cursor.execute(f"SELECT COALESCE(SUM(balance), 0) FROM account {acct_clause}", acct_params)
+            await cursor.execute(f"SELECT COALESCE(SUM(balance), 0) FROM account {acct_clause}", acct_params)  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
             row = await cursor.fetchone()
             total_ait = float(units_to_ait((row[0] if row else 0) or 0))
 
@@ -150,7 +150,7 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
                 SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
                 FROM "transaction"
                 WHERE {where}
-            """,
+            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
             row = await cursor.fetchone()
@@ -168,7 +168,7 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
                     json_extract(payload, '$.gpu_id')))
                 FROM "transaction"
                 WHERE {where}
-            """,
+            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
             row = await cursor.fetchone()
@@ -178,7 +178,7 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             where, params = scoped_where("", tx_scope, [], tx_scope_params)
             all_tx_clause = f"WHERE {where}" if where else ""
             all_tx_params = list(params)
-            await cursor.execute(f'SELECT COUNT(DISTINCT sender) FROM "transaction" {all_tx_clause}', all_tx_params)
+            await cursor.execute(f'SELECT COUNT(DISTINCT sender) FROM "transaction" {all_tx_clause}', all_tx_params)  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
             row = await cursor.fetchone()
             unique_nodes = (row[0] if row else 0) or 0
 
@@ -208,14 +208,14 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
                     WHERE {where}
                 )
                 WHERE pid IS NOT NULL
-            """,
+            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
             row = await cursor.fetchone()
             unique_providers = (row[0] if row else 0) or 0
 
             # Total transactions
-            await cursor.execute(f'SELECT COUNT(*) FROM "transaction" {all_tx_clause}', all_tx_params)
+            await cursor.execute(f'SELECT COUNT(*) FROM "transaction" {all_tx_clause}', all_tx_params)  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
             row = await cursor.fetchone()
             total_transactions = (row[0] if row else 0) or 0
 
@@ -274,7 +274,7 @@ async def api_top_addresses(
                 GROUP BY addr
                 ORDER BY tx_count DESC
                 LIMIT ?
-            """,
+            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
 
@@ -324,7 +324,7 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = None)
                        MIN(created_at)
                 FROM "transaction"
                 WHERE {where}
-            """,
+            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
 

@@ -206,7 +206,7 @@ async def get_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce
                     FROM "transaction"
                     WHERE {where}
-                """,
+                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                     params,
                 )
 
@@ -266,7 +266,7 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
                     WHERE {block_where}
-                """,
+                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                     block_params,
                 )
 
@@ -285,7 +285,7 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                         FROM "transaction"
                         WHERE {tx_where}
                         ORDER BY created_at
-                    """,
+                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                         tx_params,
                     )
 
@@ -365,7 +365,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                     {where_clause}
                     ORDER BY height DESC
                     LIMIT ? OFFSET ?
-                """,
+                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                     [*block_params, limit, offset],
                 )
 
@@ -383,7 +383,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                         FROM "transaction"
                         WHERE {tx_where}
                         ORDER BY created_at
-                    """,
+                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                         tx_params,
                     )
 
