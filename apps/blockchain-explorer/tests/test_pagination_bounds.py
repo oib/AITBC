@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app
+from aitbc_explorer_main import app
 
 
 @pytest.fixture()

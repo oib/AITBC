@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -10,9 +11,15 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).parents[1]))
-
-import main as gate  # noqa: E402
+# Load under a unique module name — sibling root-layout apps ship their own
+# main.py and a bare ``import main`` collides in sys.modules across suites
+# (whoever imports first wins; the loser's tests get the wrong FastAPI app).
+# Same convention as apps/ffmpeg/tests/test_smoke.py.
+_spec = importlib.util.spec_from_file_location("aitbc_ollama_gate_main", Path(__file__).resolve().parents[1] / "main.py")
+gate = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+sys.modules["aitbc_ollama_gate_main"] = gate
+_spec.loader.exec_module(gate)
 
 
 @pytest.fixture()

@@ -22,7 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import chain_client
-from main import app
+from aitbc_explorer_main import app
 from routers import analytics
 
 _CHAIN = chain_client.default_chain_id()
