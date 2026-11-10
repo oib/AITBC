@@ -5,7 +5,7 @@ REST API for agent creativity enhancement, ideation, and cross-domain synthesis
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -215,11 +215,14 @@ def list_agent_creative_capabilities(
     agent_id: str,
     user: AdminDep,
     session: Annotated[Session, Depends(get_session)],
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[CreativeCapability]:
     """List all creative capabilities for a specific agent"""
     try:
         capabilities = (
-            session.execute(select(CreativeCapability).where(CreativeCapability.agent_id == agent_id)).scalars().all()
+            session.execute(select(CreativeCapability).where(CreativeCapability.agent_id == agent_id).limit(limit))
+            .scalars()
+            .all()
         )
         return capabilities  # type: ignore[return-value]
     except Exception as e:
