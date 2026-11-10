@@ -340,17 +340,14 @@ def ai_cancel_job(job_id: str, cancel: AIJobCancelRequest, request: Request) -> 
             raise HTTPException(status_code=403, detail="Invalid transaction signature")
 
         with session_scope("") as session:
-            # The job id is usually the tx hash — look it up directly first.
-            tx = session.get(Transaction, job_id)
-            txs: list[Transaction] = [tx] if tx and tx.type in AI_JOB_TX_TYPES else []
-            if not txs:
-                # Same SQL identity resolution as ai_get_job (#1509) — the old
-                # fallback hydrated every AI job row before the Python scan.
-                stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
-                identity = _job_identity_column(session)
-                if identity is not None:
-                    stmt = stmt.where(identity == job_id)
-                txs = list(session.exec(stmt).all())
+            # job_id is a tx hash / payload job_id, never the int pk — the old
+            # session.get(Transaction, job_id) probe could never hit. Resolve
+            # by the same SQL identity as ai_get_job (#1509) directly.
+            stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
+            identity = _job_identity_column(session)
+            if identity is not None:
+                stmt = stmt.where(identity == job_id)
+            txs = list(session.exec(stmt).all())
             cancelled_ids = _cancelled_job_ids(session)
 
             for tx in txs:
