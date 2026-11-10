@@ -186,7 +186,7 @@ def connect_ro(db_path: str) -> sqlite3.Connection:
     Plain ``mode=ro`` (not ``immutable=1``) so the probe honors the WAL of a
     live database and reads the rows the node just committed."""
     uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
+    conn = sqlite3.connect(uri, uri=True, timeout=30.0)
     conn.execute("PRAGMA query_only=ON")
     return conn
 
