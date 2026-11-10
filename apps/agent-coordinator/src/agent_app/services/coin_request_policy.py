@@ -120,23 +120,41 @@ def agent_db_granted_since(db_path: str, since_iso: str) -> int | None:
     vanished store must not block the grant path outright.
     """
     import sqlite3
+    import time
 
     if not os.path.exists(db_path):
         return 0
-    try:
-        conn = sqlite3.connect(db_path, timeout=30)
-        # #1560: WAL + busy_timeout on the coin-request ledger.
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=30000")
-        total = conn.execute(
-            "SELECT COALESCE(SUM(amount), 0) FROM coin_requests WHERE status = 'APPROVED' "
-            "AND approval_mode = 'automatic' AND created_at >= ?",  # nosec B608 - static SQL, param tuple
-            (since_iso,),
-        ).fetchone()[0]
-        conn.close()
-        return int(total or 0)
-    except Exception:
-        return 0
+    # #1658 sibling: this read opens the same ledger file, so it races the
+    # same fresh-file journal_mode/CREATE window — busy_timeout does not
+    # cover it. Retry briefly on 'database is locked' before failing open.
+    last_error: Exception | None = None
+    for attempt in range(10):
+        conn: sqlite3.Connection | None = None
+        try:
+            conn = sqlite3.connect(db_path, timeout=30)
+            # #1560: WAL + busy_timeout on the coin-request ledger.
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=30000")
+            total = conn.execute(
+                "SELECT COALESCE(SUM(amount), 0) FROM coin_requests WHERE status = 'APPROVED' "
+                "AND approval_mode = 'automatic' AND created_at >= ?",  # nosec B608 - static SQL, param tuple
+                (since_iso,),
+            ).fetchone()[0]
+            conn.close()
+            return int(total or 0)
+        except Exception as e:
+            last_error = e
+            if conn is not None:
+                try:
+                    conn.close()
+                except sqlite3.Error:
+                    pass
+            locked = isinstance(e, sqlite3.OperationalError) and "locked" in str(e).lower()
+            if not locked or attempt + 1 >= 10:
+                break
+            time.sleep(0.05 * (attempt + 1))
+    logger.debug("coin-request ledger unreadable at %s: %s", db_path, last_error)
+    return 0
 
 
 def ws_budget_allows(db_path: str, amount: int) -> tuple[bool, str]:
