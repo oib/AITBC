@@ -1,5 +1,6 @@
 "\nGPU market endpoints backed by persistent SQLModel tables.\n"
 
+import asyncio
 import statistics
 import time
 from datetime import UTC, datetime, timedelta
@@ -54,6 +55,10 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["market-gpu"])
 pricing_engine = None
 market_collector = None
+# Serialize lazy singleton init: two racing first requests must not each
+# construct + initialize (MarketDataCollector.initialize spawns ~10 loops and
+# binds a WebSocket port — a loser instance would orphan its loops).
+_singleton_init_lock = asyncio.Lock()
 
 # GPURegistry.price_per_hour is Numeric(20,8): at most 12 integer digits.
 # sell_gpu/register_gpu take caller-controlled prices — bound them before
@@ -79,10 +84,17 @@ async def get_pricing_engine() -> DynamicPricingEngine:
     """Get pricing engine instance"""
     global pricing_engine
     if pricing_engine is None:
-        pricing_engine = DynamicPricingEngine(
-            {"min_price": Decimal("0.001"), "max_price": Decimal("1000"), "update_interval": 300, "forecast_horizon": 72}
-        )
-        await pricing_engine.initialize()
+        async with _singleton_init_lock:
+            if pricing_engine is None:
+                pricing_engine = DynamicPricingEngine(
+                    {
+                        "min_price": Decimal("0.001"),
+                        "max_price": Decimal("1000"),
+                        "update_interval": 300,
+                        "forecast_horizon": 72,
+                    }
+                )
+                await pricing_engine.initialize()
     return pricing_engine
 
 
@@ -90,8 +102,10 @@ async def get_market_collector() -> MarketDataCollector:
     """Get market data collector instance"""
     global market_collector
     if market_collector is None:
-        market_collector = MarketDataCollector({"websocket_port": 8765})
-        await market_collector.initialize()
+        async with _singleton_init_lock:
+            if market_collector is None:
+                market_collector = MarketDataCollector({"websocket_port": 8765})
+                await market_collector.initialize()
     return market_collector
 
 

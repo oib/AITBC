@@ -306,10 +306,19 @@ class PaymentEscrow:
         return entry
 
     def get_escrow_for_task(self, task_id: str) -> EscrowEntry | None:
-        """Get the escrow entry for a task."""
-        for entry in self._escrows.values():
-            if entry.task_id == task_id:
-                return entry
+        """Get the escrow entry for a task.
+
+        ``task_id`` is caller-chosen, so a task can accumulate several rows
+        over time (a terminal escrow followed by a resubmission). Prefer the
+        newest *active* (PENDING/LOCKED) entry — otherwise the first-inserted
+        terminal row shadows the live escrow and complete/fail/status keep
+        operating on a dead record while the active one becomes unreachable.
+        When nothing is active, return the newest entry overall.
+        """
+        matches = [entry for entry in self._escrows.values() if entry.task_id == task_id]
+        if matches:
+            active = [e for e in matches if e.status in (EscrowStatus.PENDING, EscrowStatus.LOCKED)]
+            return max(active or matches, key=lambda e: e.created_at)
         if self._store is not None:
             load_by_task = getattr(self._store, "load_by_task", None)
             if load_by_task is not None:

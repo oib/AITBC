@@ -78,10 +78,20 @@ class TaskEscrowStore:
             return self._to_entry(row) if row is not None else None
 
     def load_by_task(self, task_id: str) -> EscrowEntry | None:
-        """Point lookup by task id — same coverage as :meth:`load`."""
+        """Point lookup by task id — same coverage as :meth:`load`.
+
+        A reused ``task_id`` can have several rows; mirror
+        ``PaymentEscrow.get_escrow_for_task`` and prefer the newest active
+        (PENDING/LOCKED) entry so a terminal row cannot shadow the live
+        escrow after a restart.
+        """
         with get_db_session() as session:
-            row = session.query(TaskEscrow).filter(TaskEscrow.task_id == task_id).order_by(TaskEscrow.created_at).first()
-            return self._to_entry(row) if row is not None else None
+            rows = session.query(TaskEscrow).filter(TaskEscrow.task_id == task_id).all()
+            if not rows:
+                return None
+            entries = [self._to_entry(row) for row in rows]
+            active = [e for e in entries if e.status in (EscrowStatus.PENDING, EscrowStatus.LOCKED)]
+            return max(active or entries, key=lambda e: e.created_at)
 
     @staticmethod
     def _to_entry(row: TaskEscrow) -> EscrowEntry:
