@@ -17,6 +17,7 @@ import json
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -555,6 +556,34 @@ class TestOfferSyncDiscovery:
         # After completion a fresh sync runs normally.
         third = await svc.sync_chain("chain-a")
         assert "skipped" not in third
+
+    async def test_sync_chain_single_flight_across_instances(self):
+        """#1680 residual: the FastAPI dependency builds a fresh
+        OfferSyncService per request — instance-level locks never
+        single-flighted concurrent HTTP syncs. Locks/status are
+        process-global (class-level) so two instances still collide."""
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        chain = f"chain-shared-{uuid4().hex[:8]}"
+        gate = asyncio.Event()
+
+        async def _slow_query(**kwargs):
+            await gate.wait()
+            return []
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(side_effect=_slow_query)
+        svc_a = OfferSyncService(session=AsyncMock(), cache=OfferCache(), blockchain_client=blockchain)
+        svc_b = OfferSyncService(session=AsyncMock(), cache=OfferCache(), blockchain_client=blockchain)
+
+        first = asyncio.create_task(svc_a.sync_chain(chain))
+        await asyncio.sleep(0)  # let the first sync reach the RPC await
+        second = await svc_b.sync_chain(chain)
+        assert second["skipped"] == "sync_in_progress"
+
+        gate.set()
+        first_result = await first
+        assert "error" not in first_result
 
 
 # ---------------------------------------------------------------------------
