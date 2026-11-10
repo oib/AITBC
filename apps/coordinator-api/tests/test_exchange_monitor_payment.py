@@ -19,10 +19,10 @@ class _FakeState:
         self.payment = payment
         self.set_payloads: list[dict] = []
 
-    async def hget(self, ns: str, pid: str):
+    async def get_doc(self, ns: str, pid: str):
         return self.payment
 
-    async def hset(self, ns: str, pid: str, payload) -> None:
+    async def set_doc(self, ns: str, pid: str, payload, ttl: int | None = None) -> None:
         self.set_payloads.append(payload)
 
     async def get_doc(self, ns: str, key: str):
