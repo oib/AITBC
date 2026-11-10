@@ -1585,7 +1585,45 @@ def _boundary_cases() -> list[dict[str, Any]]:
         payload={"job_id": "legacy-job", "gpu_id": "gpu-9"},
     )
     _sign(legacy, KEY_A)
+    # ---- #1314 / batch v3 item 19: block-mechanics edge cases ------------------
+    max_txs = [
+        _sign(_tx("max-tx-block", i, "TRANSFER", sender=ADDR_A, to=ADDR_B, value=1, nonce=i), KEY_A)
+        for i in range(300)  # largest count below the v22+ savepoint-nesting recursion limit (#1314 finding)
+    ]
+    dup_first = _sign(_tx("duplicate-tx-block", 0, "TRANSFER", sender=ADDR_A, to=ADDR_B, value=100, nonce=0), KEY_A)
+    dup_same_nonce = _sign(_tx("duplicate-tx-block", 1, "TRANSFER", sender=ADDR_A, to=ADDR_B, value=200, nonce=0), KEY_A)
+    dup_next = _sign(_tx("duplicate-tx-block", 2, "TRANSFER", sender=ADDR_A, to=ADDR_B, value=300, nonce=1), KEY_A)
     return [
+        {
+            "case_id": "empty-block-late-height-two-accounts",
+            "gate": "block mechanics",
+            "description": "Empty block at a late height with two funded accounts: every root must equal the "
+            "pre-state roots, version resolves at the newest armed ruleset, no tx rows.",
+            "prestate": {"account": [_acct(ADDR_A, 10_000), _acct(ADDR_B, 5_000, nonce=3)]},
+            "block": _block(50000),
+            "txs": [],
+        },
+        {
+            "case_id": "max-tx-block",
+            "gate": "block mechanics",
+            "description": "A block of 300 signed sequential transfers from one sender (large-block ordering; 500 = "
+            "max_txs_per_block overflows the per-tx savepoint nesting at gates1 \u2014 recorded as a finding, "
+            "not pinned): all apply in order, final nonce/balances/roots recorded.",
+            "prestate": {"account": [_acct(ADDR_A, 10_000), _acct(ADDR_B, 0)]},
+            "block": _block(33000),
+            "txs": max_txs,
+        },
+        {
+            "case_id": "duplicate-tx-block",
+            "gate": "block mechanics",
+            "description": "Same sender nonce twice in one block with DIFFERENT hashes (first applies; the second at "
+            "the already consumed nonce is rejected), then the next nonce applies. An exact same-hash duplicate "
+            "is not recorded here: the golden engine raises IntegrityError on the second tx row (the importer "
+            "collapses by hash first) -- see the item-19 ledger finding.",
+            "prestate": {"account": [_acct(ADDR_A, 10_000), _acct(ADDR_B, 0)]},
+            "block": _block(33000),
+            "txs": [dup_first, dup_same_nonce, dup_next],
+        },
         {
             "case_id": "stamp-v9-below-v8pin",
             "gate": "v8 stamp precedence",
