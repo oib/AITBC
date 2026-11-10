@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import Generator
 
 import pytest
@@ -10,7 +11,12 @@ from sqlalchemy import StaticPool, create_engine
 from sqlmodel import Session, SQLModel
 
 # Point the app at a throwaway DB and disable auth middleware before importing main.
-os.environ.setdefault("URL", "sqlite:////tmp/aitbc-coordinator-test.db")
+# The path is per-process: a fixed /tmp name made two pytest processes on one
+# host open the same file and die on "database is locked".
+os.environ.setdefault(
+    "URL",
+    f"sqlite:///{tempfile.mkdtemp(prefix='aitbc-coordinator-test-')}/coordinator.db",
+)
 os.environ.setdefault("JWT_SECRET", "test-secret-for-coordinator-tests" * 2)
 os.environ.setdefault("TEST_MODE", "true")
 

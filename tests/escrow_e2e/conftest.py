@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 
 # Snapshot the environment this conftest is about to overwrite — the writes
 # are needed for exactly one window: the coordinator_api.config import below,
@@ -51,7 +52,10 @@ if _HAD_CONFIG:
 # Hard-assign, not setdefault: when the coordinator test conftest already ran
 # in the same pytest session its values would win and this suite would build
 # an app against the wrong DB/secret/RPC URL.
-os.environ["URL"] = "sqlite:////tmp/aitbc-escrow-e2e.db"
+# Per-process DB path: the old fixed /tmp name made two pytest processes on
+# one host open the same file and die on "database is locked".
+_E2E_DB_URL = f"sqlite:///{tempfile.mkdtemp(prefix='aitbc-escrow-e2e-')}/escrow_e2e.db"
+os.environ["URL"] = _E2E_DB_URL
 os.environ["JWT_SECRET"] = "escrow-e2e-test-secret-key-material-0123456789"
 os.environ["AUTH_ENABLED"] = "true"
 os.environ["CHAIN_ID"] = "ait-testchain"
@@ -79,7 +83,7 @@ def _apply_e2e_settings() -> None:
     _settings.test_mode = False
     _settings.auth_enabled = True
     _settings.jwt_secret = "escrow-e2e-test-secret-key-material-0123456789"
-    _settings.url = "sqlite:////tmp/aitbc-escrow-e2e.db"
+    _settings.url = _E2E_DB_URL
     _settings.blockchain_rpc_url = "http://settlement-node.test"
 
 
