@@ -1381,7 +1381,7 @@
     "/v1/market/ipfs/rental/{access_key}": {
       "get": {
         "summary": "Get Ipfs Rental Token",
-        "description": "Validate an IPFS rental token and return its details.",
+        "description": "Validate an IPFS rental token and return its details.\n\nSame credential transport rule as ``/v1/market/access/{key}``: the secret\nmay arrive as the ``access_secret`` query parameter (legacy callers) or\nthe ``X-Access-Secret`` header, which keeps it out of URLs and access\nlogs (#1448). Header wins when both are sent.",
         "operationId": "get_ipfs_rental_token_v1_market_ipfs_rental__access_key__get",
         "parameters": [
           {
@@ -1396,10 +1396,33 @@
           {
             "name": "access_secret",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Access Secret"
+            }
+          },
+          {
+            "name": "x-access-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Access-Secret"
             }
           }
         ],
@@ -1420,6 +1443,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "access_secret is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
@@ -2035,6 +2073,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "size must be a non-negative integer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }
