@@ -107,6 +107,57 @@ class TestBookOfferCAS:
         assert not bids
 
 
+class TestBidPriceBounds:
+    """#1634 second pass: booking_data.price feeds bid.price, and complete_bid
+    only enforces tx_value >= price when that value is positive — a negative
+    or NaN price would settle a 'completed' bid for dust."""
+
+    async def _book_with_price(self, session: AsyncSession, price: object) -> None:
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProviderAddr",
+                "price": "5",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        await svc.book_offer(offer.id, {"wallet": "0xBuyerOne", "price": price})
+
+    async def test_negative_price_is_rejected(self, session):
+        with pytest.raises(ValueError, match="non-negative"):
+            await self._book_with_price(session, "-100")
+
+    async def test_nan_price_is_rejected(self, session):
+        with pytest.raises(ValueError, match="non-negative"):
+            await self._book_with_price(session, "nan")
+
+    async def test_over_cap_price_is_rejected(self, session):
+        with pytest.raises(ValueError, match="must not exceed"):
+            await self._book_with_price(session, "1000000000000001")
+
+    async def test_unparseable_price_is_rejected(self, session):
+        with pytest.raises(ValueError, match="valid number"):
+            await self._book_with_price(session, "not-a-number")
+
+    async def test_valid_price_still_books(self, session):
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProviderAddr",
+                "price": "5",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        result = await svc.book_offer(offer.id, {"wallet": "0xBuyerOne", "price": "7.5"})
+        assert result["status"] == "pending"
+        bid = (await session.execute(select(Bid).where(Bid.id == result["bid_id"]))).scalar_one()
+        assert bid.price == Decimal("7.5")
+
+
 class TestMatchAndAssignCAS:
     async def _mock_coordinator(self, svc: MatchingService) -> None:
         resp = Mock()
