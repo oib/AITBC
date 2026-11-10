@@ -54,6 +54,25 @@ router = APIRouter(tags=["market-gpu"])
 pricing_engine = None
 market_collector = None
 
+# GPURegistry.price_per_hour is Numeric(20,8): at most 12 integer digits.
+# sell_gpu/register_gpu take caller-controlled prices — bound them before
+# the write, mirroring the gpu_service #1389 pattern (#1566).
+_MAX_PRICE_PER_HOUR = Decimal("999999999999.99999999")
+
+
+def _validated_price_per_hour(raw: Any) -> Decimal:
+    """Return a finite Decimal price in [0, _MAX_PRICE_PER_HOUR] or raise 400."""
+    try:
+        price = Decimal(str(raw))
+    except Exception as exc:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"invalid price_per_hour: {raw!r}") from exc
+    if not price.is_finite() or price < 0 or price > _MAX_PRICE_PER_HOUR:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"price_per_hour out of range: {raw!r} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})",
+        )
+    return price
+
 
 async def get_pricing_engine() -> DynamicPricingEngine:
     """Get pricing engine instance"""
@@ -423,7 +442,7 @@ def register_gpu(
     miner_id = user.get("sub") or gpu_specs.get("miner_id") or gpu_specs.get("miner") or "default_miner"
     compute_capability = gpu_specs.get("compute_capability", "")
     cuda_version = compute_capability if compute_capability else ""
-    price_per_hour = Decimal(str(gpu_specs.get("price_per_hour", "0.05")))
+    price_per_hour = _validated_price_per_hour(gpu_specs.get("price_per_hour", "0.05"))
     gpu_record = GPURegistry(
         id=gpu_id,
         miner_id=miner_id,
@@ -926,14 +945,17 @@ def sell_gpu(request: GPUSellRequest, session: Annotated[Session, Depends(get_se
     gpu = _get_gpu_or_404(session, request.gpu_id)
     if gpu.miner_id != user.get("sub"):
         raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="only the GPU owner may reprice it")
-    gpu.price_per_hour = request.listing_price
+    # #1566: listing_price was stored verbatim — 0/negative/NaN/huge values
+    # listable and could win matching or break Numeric(20,8) on overflow.
+    listing_price = _validated_price_per_hour(request.listing_price)
+    gpu.price_per_hour = listing_price
     gpu.status = "available"
     session.commit()
     session.refresh(gpu)
     return {
         "gpu_id": request.gpu_id,
         "seller_id": request.seller_id,
-        "listing_price": request.listing_price,
+        "listing_price": listing_price,
         "status": "listed",
         "description": request.description,
         "timestamp": datetime.now(UTC).isoformat() + "Z",
