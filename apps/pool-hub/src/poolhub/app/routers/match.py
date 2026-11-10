@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 import uuid
 from typing import Annotated, Any
@@ -29,6 +30,28 @@ def _normalize_requirements(requirements: dict[str, Any]) -> dict[str, Any]:
 
 def _candidate_from_payload(payload: dict[str, Any]) -> MatchCandidate:
     return MatchCandidate(**payload)
+
+
+def _minimum_hardware(requirements: dict[str, Any], key: str) -> float:
+    """Validate a caller-supplied hardware minimum (#1494).
+
+    ``requirements`` is arbitrary JSON; a malformed value must be a 400, not a
+    float()/set() crash surfaced as 500 — and NaN must never reach the
+    comparison, where every ``vram < NaN`` is False and the filter is bypassed.
+    """
+    raw = requirements.get(key, 0)
+    if isinstance(raw, bool):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"requirements.{key} must be a number, got bool")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"requirements.{key} must be a number") from exc
+    if not math.isfinite(value) or value < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"requirements.{key} must be a finite number >= 0",
+        )
+    return value
 
 
 @router.post("/match", response_model=MatchResponse, summary="Find top miners for a job")
@@ -70,6 +93,8 @@ async def match_endpoint(
             job_id=payload.job_id,
             candidates=[_candidate_from_payload(candidate) for candidate in candidates],
         )
+    except HTTPException:
+        raise
     except Exception as exc:  # pragma: no cover - safeguards unexpected failures
         match_failures_total.inc()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="match_failed") from exc
@@ -81,9 +106,15 @@ def _select_candidates(
     active_miners: list[tuple[Any, ...]],
     top_k: int,
 ) -> list[dict[str, Any]]:
-    min_vram = float(requirements.get("min_vram_gb", 0))
-    min_ram = float(requirements.get("min_ram_gb", 0))
-    capabilities_required = set(requirements.get("capabilities_any", []))
+    min_vram = _minimum_hardware(requirements, "min_vram_gb")
+    min_ram = _minimum_hardware(requirements, "min_ram_gb")
+    capabilities_raw = requirements.get("capabilities_any", [])
+    if not isinstance(capabilities_raw, (list, tuple)) or not all(isinstance(c, str) for c in capabilities_raw):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="requirements.capabilities_any must be a list of strings",
+        )
+    capabilities_required = set(capabilities_raw)
     region_hint = hints.get("region")
 
     ranked: list[dict[str, Any]] = []

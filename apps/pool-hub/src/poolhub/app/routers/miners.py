@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +34,20 @@ class MinerRegisterRequest(BaseModel):
     region: str | None = "localhost"
     chain_id: str = "ait-hub"
     wallet_address: str | None = None
+
+    @field_validator("base_price")
+    @classmethod
+    def _valid_base_price(cls, v: str) -> str:
+        # #1495: base_price reaches Decimal() and the Numeric(20,8) column
+        # unvalidated — "abc" was a 500, NaN/negative/oversized values were
+        # storable. Bound matches Numeric(20,8): 12 integer + 8 fraction digits.
+        try:
+            price = Decimal(v)
+        except InvalidOperation as exc:
+            raise ValueError("base_price must be a decimal number") from exc
+        if not price.is_finite() or price < 0 or price > Decimal("999999999999.99999999"):
+            raise ValueError("base_price must be a finite Decimal in [0, 999999999999.99999999]")
+        return v
 
 
 class MinerHeartbeatRequest(BaseModel):
