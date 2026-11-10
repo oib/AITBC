@@ -97,3 +97,31 @@ def test_full_downgrade_base_sweep(tmp_path: Path) -> None:
         con.close()
     assert version == []
     _run_alembic(tmp_path, "upgrade", "head")
+
+
+def _revision_chain() -> list[str]:
+    """pool-hub's alembic revision ids, oldest first (base excluded)."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    cfg = Config(str(POOL_HUB / "alembic.ini"))
+    cfg.set_main_option("script_location", str(POOL_HUB / "migrations"))
+    return [s.revision for s in ScriptDirectory.from_config(cfg).walk_revisions()]
+
+
+def test_downgrade_step_matrix(tmp_path: Path) -> None:
+    """Every pool-hub revision must survive a one-step downgrade + re-upgrade.
+
+    Catalog (verified on SQLite, 2026-11): all seven revisions
+    (a58c1f3b3e87, b2a1c4d5e6f7, c3b2d6e7f8a9, d4c3e7f8a9b0, e5d4f8a9b0c1,
+    21da5cfdcc95, f6a1b2c3d4e5) downgrade -1 and re-upgrade cleanly — no
+    known lossy or undowngradable revisions in this app. Each revision gets
+    a fresh database so a failure names the culprit exactly.
+    """
+    chain = _revision_chain()
+    assert len(chain) >= 7, f"suspiciously short chain: {chain}"
+    for i, rev in enumerate(chain):
+        db_name = f"matrix_{i}.db"
+        _run_alembic(tmp_path, "upgrade", rev, db_name=db_name)
+        _run_alembic(tmp_path, "downgrade", "-1", db_name=db_name)
+        _run_alembic(tmp_path, "upgrade", "head", db_name=db_name)
