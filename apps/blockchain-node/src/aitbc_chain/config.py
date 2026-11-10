@@ -824,8 +824,14 @@ class ChainSettings(BaseSettings):
     # looks this far back from the range start so submit→seal lag and minor
     # clock skew cannot drop a row. SYNC_AUX_MAX_ROWS caps per-table rows in a
     # delta response; above it the peer falls back to a full snapshot.
+    # SYNC_AUX_MAX_PAYLOAD_BYTES bounds the serialized size of the whole
+    # aux_state object a sync SOURCE ships us (#1628): aux tables sit outside
+    # the account state root, so ingest-side caps are the only pre-commit
+    # bound on a hostile or broken peer payload. 64 MiB matches
+    # sync_state_diff_max_bytes — far above any legitimate aux payload.
     sync_aux_lookback_seconds: int = 900
     sync_aux_max_rows: int = 5000
+    sync_aux_max_payload_bytes: int = 67_108_864
     # Decompressed-size cap for a peer-supplied state diff (#1627): the delta
     # endpoint's payload is decoded before the state-root check runs, so the
     # bound has to live at decompress time or a compressed bomb OOMs first.

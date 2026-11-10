@@ -221,7 +221,16 @@ class StateSyncMixin(SyncBase):
                     existing.nonce = nonce
                     updated += 1
             _upsert_chain_parameters(session, self._chain_id, remote_parameters, remote_parameter_history)
-            aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
+            # Aux tables are outside the state root (#1628): bound the
+            # peer-controlled payload before applying — an overflow raises
+            # and rolls back this whole transaction.
+            aux_counts = upsert_aux_rows(
+                session,
+                self._chain_id,
+                remote_aux,
+                max_rows_per_table=settings.sync_aux_max_rows,
+                max_payload_bytes=settings.sync_aux_max_payload_bytes,
+            )
             if any(aux_counts.values()):
                 self._logger.info("Aux state upserted from snapshot: %s", aux_counts)
             # Verify against the LOCAL head's recorded root before committing —
@@ -404,7 +413,13 @@ class StateSyncMixin(SyncBase):
                         session.delete(db_acc)
                 # Existing accounts were mutated in place (SQLModel tracks changes)
             _upsert_chain_parameters(session, self._chain_id, remote_parameters, remote_parameter_history)
-            aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
+            aux_counts = upsert_aux_rows(
+                session,
+                self._chain_id,
+                remote_aux,
+                max_rows_per_table=settings.sync_aux_max_rows,
+                max_payload_bytes=settings.sync_aux_max_payload_bytes,
+            )
             if any(aux_counts.values()):
                 self._logger.info("Aux state upserted from delta: %s", aux_counts)
             # Verify against the LOCAL head's recorded root in the same
