@@ -192,6 +192,20 @@ def public_job_view(job: dict[str, Any]) -> dict[str, Any]:
     return view
 
 
+def _isoformat(value: Any) -> str | None:
+    """ISO-format a stored timestamp, tolerating legacy non-datetime values.
+
+    ``_job_to_dict``/``_payment_to_dict`` feed the public job routes; a row
+    whose timestamp column holds a raw string (a pre-normalization write)
+    must degrade to the stored string rather than 500 the read (#1449).
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
 _LOOPBACK_HOSTS = {"localhost", "localhost.localdomain", "ip6-localhost"}
 
 # Fields a provider may set on their own offer through POST /v1/market/offer.
@@ -1846,9 +1860,9 @@ class MarketService:
             "payload": job.payload,
             "constraints": job.constraints,
             "ttl_seconds": job.ttl_seconds,
-            "requested_at": job.requested_at.isoformat() if job.requested_at else None,
-            "expires_at": job.expires_at.isoformat() if job.expires_at else None,
-            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "requested_at": _isoformat(job.requested_at),
+            "expires_at": _isoformat(job.expires_at),
+            "completed_at": _isoformat(job.completed_at),
             "error": job.error,
             "result": job.result,
             "receipt": job.receipt,
@@ -1860,8 +1874,8 @@ class MarketService:
             "escrow_contract_id": job.escrow_contract_id,
             "tx_hash": job.tx_hash,
             "refund_tx_hash": job.refund_tx_hash,
-            "created_at": job.created_at.isoformat() if job.created_at else None,
-            "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+            "created_at": _isoformat(job.created_at),
+            "updated_at": _isoformat(job.updated_at),
         }
 
     def _payment_to_dict(self, payment: MarketJobPayment) -> dict[str, Any]:
@@ -1877,12 +1891,12 @@ class MarketService:
             "refund_address": payment.refund_address,
             "transaction_hash": payment.transaction_hash,
             "refund_transaction_hash": payment.refund_transaction_hash,
-            "created_at": payment.created_at.isoformat() if payment.created_at else None,
-            "updated_at": payment.updated_at.isoformat() if payment.updated_at else None,
-            "escrowed_at": payment.escrowed_at.isoformat() if payment.escrowed_at else None,
-            "released_at": payment.released_at.isoformat() if payment.released_at else None,
-            "refunded_at": payment.refunded_at.isoformat() if payment.refunded_at else None,
-            "expires_at": payment.expires_at.isoformat() if payment.expires_at else None,
+            "created_at": _isoformat(payment.created_at),
+            "updated_at": _isoformat(payment.updated_at),
+            "escrowed_at": _isoformat(payment.escrowed_at),
+            "released_at": _isoformat(payment.released_at),
+            "refunded_at": _isoformat(payment.refunded_at),
+            "expires_at": _isoformat(payment.expires_at),
             "meta_data": payment.meta_data,
         }
 
@@ -2501,7 +2515,7 @@ class MarketService:
                 "cid": job.payload.get("cid"),
                 "ipfs_api": job.payload.get("ipfs_api"),
                 "public_endpoint": job.payload.get("public_endpoint"),
-                "expires_at": job.expires_at.isoformat() if job.expires_at else None,
+                "expires_at": _isoformat(job.expires_at),
                 "size": job.payload.get("size"),
                 # The paid model — shop gates bind the request body's model
                 # to it (APIGW-OLLAMA-DEPTH2-1, #1613). Column first, payload
@@ -2531,7 +2545,18 @@ class MarketService:
             )
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())
-            return sum(int(j.payload.get("size", 0) or 0) for j in jobs)
+            # payload.size is caller-influenced (pin-confirm) and legacy rows
+            # predate the non-negative-int validation (#1449): a non-numeric
+            # or negative value must not 500 or corrupt the usage total.
+            total = 0
+            for j in jobs:
+                payload = j.payload if isinstance(j.payload, dict) else {}
+                try:
+                    size = int(payload.get("size", 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+                total += max(size, 0)
+            return total
         except Exception as e:
             logger.error("Error in get_market_job_usage: %s: %s", type(e).__name__, e)
             raise
