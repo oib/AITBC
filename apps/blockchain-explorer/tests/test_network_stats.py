@@ -16,7 +16,13 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
+import chain_client
 from routers import analytics
+
+# Rows are scoped to the configured chain (#1620); resolve it the same way
+# the app does so the fixture follows CHAIN_ID/AITBC_CHAIN_ID overrides.
+_CHAIN = chain_client.default_chain_id()
+_FOREIGN = "ait-otherchain"
 
 
 @pytest.fixture(name="chain_db")
@@ -30,18 +36,22 @@ def chain_db_fixture(tmp_path: Path, monkeypatch) -> Path:
         'CREATE TABLE "transaction" (id INTEGER PRIMARY KEY, chain_id VARCHAR, tx_hash VARCHAR, block_height INTEGER, sender VARCHAR, recipient VARCHAR, payload JSON, created_at DATETIME, nonce BIGINT, value BIGINT, fee BIGINT, type VARCHAR, status VARCHAR, timestamp VARCHAR, tx_metadata VARCHAR)'
     )
     conn.executemany(
-        "INSERT INTO account (chain_id, address, balance, nonce, updated_at) VALUES ('c', ?, ?, 0, '2026-01-01')",
-        # 1 AIT + 2 AIT in base units (36e6 per AIT)
-        [("0xaaa", 36_000_000), ("0xbbb", 72_000_000)],
+        "INSERT INTO account (chain_id, address, balance, nonce, updated_at) VALUES (?, ?, ?, 0, '2026-01-01')",
+        # 1 AIT + 2 AIT in base units (36e6 per AIT); a foreign-chain row
+        # proves the reads are chain-scoped (#1620).
+        [(_CHAIN, "0xaaa", 36_000_000), (_CHAIN, "0xbbb", 72_000_000), (_FOREIGN, "0xccc", 360_000_000)],
     )
     conn.executemany(
-        "INSERT INTO \"transaction\" (chain_id, tx_hash, sender, recipient, payload, value, type, status) VALUES ('c', ?, '0xs', '0xr', ?, ?, ?, 'confirmed')",
+        "INSERT INTO \"transaction\" (chain_id, tx_hash, sender, recipient, payload, value, type, status) VALUES (?, ?, '0xs', '0xr', ?, ?, ?, 'confirmed')",
         [
-            ("0xt1", '{"offer_id": "sw_1"}', 0, "GPU_MARKET"),
-            ("0xt2", '{"offer_id": "sw_2"}', 0, "GPU_MARKET"),
-            ("0xt3", '{"gpu_id": "gpu-1"}', 0, "GPU_REGISTER"),
-            ("0xt4", '{"gpu_id": "gpu-1"}', 0, "GPU_REGISTER"),  # re-register: counts once
-            ("0xt5", "{}", 36_000_000, "TRANSFER"),  # 1 AIT volume
+            (_CHAIN, "0xt1", '{"offer_id": "sw_1"}', 0, "GPU_MARKET"),
+            (_CHAIN, "0xt2", '{"offer_id": "sw_2"}', 0, "GPU_MARKET"),
+            (_CHAIN, "0xt3", '{"gpu_id": "gpu-1"}', 0, "GPU_REGISTER"),
+            (_CHAIN, "0xt4", '{"gpu_id": "gpu-1"}', 0, "GPU_REGISTER"),  # re-register: counts once
+            (_CHAIN, "0xt5", "{}", 36_000_000, "TRANSFER"),  # 1 AIT volume
+            # Foreign-chain rows that must not leak into any aggregate.
+            (_FOREIGN, "0xt9", '{"offer_id": "sw_foreign"}', 0, "GPU_MARKET"),
+            (_FOREIGN, "0xt10", "{}", 360_000_000, "TRANSFER"),
         ],
     )
     conn.commit()
@@ -104,7 +114,8 @@ def test_network_stats_db_path_oserror_is_503(monkeypatch):
 def test_network_stats_provider_fields(chain_db):
     conn = sqlite3.connect(chain_db)
     conn.execute(
-        "INSERT INTO \"transaction\" (chain_id, tx_hash, sender, recipient, payload, value, type, status) VALUES ('c', '0xt6', '0xs', '0xr', '{\"offer_id\":\"sw_3\",\"provider_address\":\"0xprov\"}', 0, 'GPU_MARKET', 'confirmed')"
+        "INSERT INTO \"transaction\" (chain_id, tx_hash, sender, recipient, payload, value, type, status) VALUES (?, '0xt6', '0xs', '0xr', '{\"offer_id\":\"sw_3\",\"provider_address\":\"0xprov\"}', 0, 'GPU_MARKET', 'confirmed')",
+        (_CHAIN,),
     )
     conn.commit()
     conn.close()

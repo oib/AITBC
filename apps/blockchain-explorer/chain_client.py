@@ -33,6 +33,8 @@ __all__ = [
     "get_data_layer",
     "chain_db_path",
     "chain_db_connect",
+    "chain_scope",
+    "scoped_where",
     "normalize_block",
     "get_chain_head",
     "get_transaction",
@@ -101,6 +103,50 @@ async def chain_db_connect(db_path: Path) -> AsyncIterator[aiosqlite.Connection]
         yield conn
 
 
+async def chain_scope(
+    conn: aiosqlite.Connection,
+    table: str,
+    chain_id: str,
+    *,
+    alias: str = "",
+) -> tuple[str, list[str]]:
+    """Chain-id predicate fragment for ``table`` plus its bind params (#1620).
+
+    Returns ``("chain_id = ?", [chain_id])`` — or ``("<alias>.chain_id = ?",
+    ...)`` — when the table carries the ``chain_id`` column every consensus
+    table has had since the multi-chain schema (``base_models``: ``block``,
+    ``transaction``, ``account``, ``receipt``). The fallback
+    ``/var/lib/aitbc/data/chain.db`` is a multi-chain store, so without this
+    predicate a read for one chain returns another chain's rows.
+
+    A legacy single-chain ``chain.db`` that predates the column yields
+    ``("", [])``: the read stays unscoped instead of erroring into the RPC
+    fallback, and on such a store there is only one chain anyway, so nothing
+    leaks. Callers append the fragment to their WHERE clause and extend the
+    bind params — an empty fragment means "no predicate, no params".
+    """
+    cursor = await conn.execute(f'PRAGMA table_info("{table}")')
+    columns = {row[1] for row in await cursor.fetchall()}
+    if "chain_id" not in columns:
+        return "", []
+    qualified = f"{alias}.chain_id" if alias else "chain_id"
+    return f"{qualified} = ?", [chain_id]
+
+
+def scoped_where(base_where: str, scope_sql: str, params: list[Any], scope_params: list[str]) -> tuple[str, list[Any]]:
+    """Append a ``chain_scope`` fragment to a WHERE clause and merge params.
+
+    ``base_where`` may be empty (aggregate/count queries with no other
+    predicate); the result is then just the scope fragment or ``""`` —
+    callers must omit the WHERE keyword entirely when it is empty.
+    """
+    where = base_where
+    if scope_sql:
+        where = f"{where} AND {scope_sql}" if where else scope_sql
+        params = [*params, *scope_params]
+    return where, params
+
+
 def __getattr__(name: str) -> Any:
     # Backward-compatible lazy shims: ``from chain_client import DEFAULT_CHAIN``
     # or ``BLOCKCHAIN_RPC_URLS`` resolves the environment on first access
@@ -153,13 +199,15 @@ async def get_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str
             async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
+                scope_sql, scope_params = await chain_scope(conn, "transaction", chain_id)
+                where, params = scoped_where("tx_hash = ?", scope_sql, [tx_hash], scope_params)
                 await cursor.execute(
-                    """
+                    f"""
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce
                     FROM "transaction"
-                    WHERE tx_hash = ?
+                    WHERE {where}
                 """,
-                    (tx_hash,),
+                    params,
                 )
 
                 result = await cursor.fetchone()
@@ -209,14 +257,17 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
             async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
-                # Get block data
+                # Get block data — scoped to the requested chain so a
+                # multi-chain store cannot return another chain's block.
+                block_scope, block_scope_params = await chain_scope(conn, "block", chain_id)
+                block_where, block_params = scoped_where("height = ?", block_scope, [height], block_scope_params)
                 await cursor.execute(
-                    """
+                    f"""
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
-                    WHERE height = ?
+                    WHERE {block_where}
                 """,
-                    (height,),
+                    block_params,
                 )
 
                 result = await cursor.fetchone()
@@ -224,15 +275,18 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                 if result:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
 
-                    # Get transactions for this block
+                    # Get transactions for this block — same chain scope:
+                    # block_height alone collides across chains.
+                    tx_scope, tx_scope_params = await chain_scope(conn, "transaction", chain_id)
+                    tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
                     await cursor.execute(
-                        """
+                        f"""
                         SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                         FROM "transaction"
-                        WHERE block_height = ?
+                        WHERE {tx_where}
                         ORDER BY created_at
                     """,
-                        (height,),
+                        tx_params,
                     )
 
                     transactions = []
@@ -299,15 +353,20 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
             async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
-                # Get latest blocks with offset
+                # Get latest blocks with offset — scoped to the requested
+                # chain; height ordering alone interleaves chains.
+                block_scope, block_scope_params = await chain_scope(conn, "block", chain_id)
+                block_where, block_params = scoped_where("", block_scope, [], block_scope_params)
+                where_clause = f"WHERE {block_where}" if block_where else ""
                 await cursor.execute(
-                    """
+                    f"""
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
+                    {where_clause}
                     ORDER BY height DESC
                     LIMIT ? OFFSET ?
                 """,
-                    (limit, offset),
+                    [*block_params, limit, offset],
                 )
 
                 blocks = []
@@ -315,15 +374,17 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                 for row in rows:
                     height, block_hash, proposer, timestamp, tx_count, state_root = row
 
-                    # Get transactions for this block
+                    # Get transactions for this block — scoped like get_block.
+                    tx_scope, tx_scope_params = await chain_scope(conn, "transaction", chain_id)
+                    tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
                     await cursor.execute(
-                        """
+                        f"""
                         SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                         FROM "transaction"
-                        WHERE block_height = ?
+                        WHERE {tx_where}
                         ORDER BY created_at
                     """,
-                        (height,),
+                        tx_params,
                     )
 
                     transactions = []
