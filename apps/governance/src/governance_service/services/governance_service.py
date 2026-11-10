@@ -809,9 +809,18 @@ class GovernanceService:
     # Token Staking Methods
     async def stake_tokens(self, staker_address: str, amount: Decimal, lock_period_days: int) -> TokenStake:
         """Stake tokens for enhanced voting power"""
+        # #1644: amounts feed staked_tokens → voting power, and vote tallies.
+        # A negative or zero amount is never legitimate — it would drive
+        # voting power (and voting_power_used) negative and subtract from
+        # proposal tallies.
+        amount = Decimal(str(amount))
+        if amount <= 0:
+            raise ValueError(f"Stake amount must be positive, got {amount}")
+        if lock_period_days < 0:
+            raise ValueError(f"lock_period_days must be non-negative, got {lock_period_days}")
         stake = TokenStake(
             staker_address=staker_address,
-            amount_staked=Decimal(str(amount)),
+            amount_staked=amount,
             lock_period_days=lock_period_days,
             staked_at=datetime.now(UTC).replace(tzinfo=None),
             unstakes_at=(datetime.now(UTC) + timedelta(days=lock_period_days)).replace(tzinfo=None),
@@ -865,6 +874,11 @@ class GovernanceService:
         # Verify delegator has enough power
         delegator_power = await self.calculate_voting_power(delegator_address)
         amount_dec = Decimal(str(amount))
+        # #1644: the power check only rejects amount > power — a zero or
+        # negative amount slipped through and stored a meaningless (or
+        # tally-subtracting) delegation row.
+        if amount_dec <= 0:
+            raise ValueError(f"Delegation amount must be positive, got {amount_dec}")
         if delegator_power < amount_dec:
             raise ValueError(f"Insufficient voting power: {delegator_power} < {amount_dec}")
 
