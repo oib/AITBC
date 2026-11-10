@@ -450,9 +450,16 @@ async def book_offer(
         logger.info("POST /v1/market/offers/%s/book completed", offer_id)
         buyer = booking_data.get("wallet") or booking_data.get("buyer")
         provider = booking_data.get("provider") or result.get("provider")
-        amount = Decimal(str(booking_data.get("amount") or booking_data.get("price") or 0))
+        # The booking already committed — a malformed amount must not turn a
+        # successful booking into a 500, and a non-finite one must never reach
+        # the on-chain escrow payload (svc.book_offer rejects these up front;
+        # this is the belt-and-braces read of the same fields).
+        try:
+            amount = Decimal(str(booking_data.get("amount") or booking_data.get("price") or 0))
+        except Exception:
+            amount = Decimal("0")
         bid_id = result.get("bid_id")
-        if bid_id and buyer and provider and amount:
+        if bid_id and buyer and provider and amount.is_finite() and amount > 0:
             background_tasks.add_task(_create_escrow_bg, bid_id, buyer, provider, amount)
             result["escrow_contract_id"] = "(pending — created in background)"
         if key:

@@ -586,6 +586,64 @@ class TestOfferSyncDiscovery:
         assert "error" not in first_result
 
 
+class TestOfferSync1680Residuals:
+    """#1680: unscoped discovery syncs every stale chain; per-chain tracking
+    dicts are LRU-bounded at 256 entries."""
+
+    async def test_unscoped_discover_syncs_every_stale_chain(self):
+        """Pre-fix, ``discover_offers`` with no ``source_chain`` returned stale
+        offers silently — the on-demand sync only fired for scoped requests."""
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        cache = OfferCache()
+        stale_ts = "2020-01-01T00:00:00+00:00"
+        cache.set_offer(_offer("a1", chain_id="chain-a", last_synced=stale_ts), ttl=300)
+        cache.set_offer(_offer("b1", chain_id="chain-b", last_synced=stale_ts), ttl=300)
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(return_value=[])
+        svc = OfferSyncService(session=AsyncMock(), cache=cache, blockchain_client=blockchain)
+
+        result = await svc.discover_offers(OfferDiscoveryRequest())
+
+        assert result.sync_triggered is True
+        synced_chains = {call.kwargs.get("chain_id") for call in blockchain.query_offers.await_args_list}
+        assert {"chain-a", "chain-b"} <= synced_chains
+
+    async def test_scoped_discover_still_syncs_only_that_chain(self):
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        cache = OfferCache()
+        stale_ts = "2020-01-01T00:00:00+00:00"
+        cache.set_offer(_offer("a1", chain_id="chain-a", last_synced=stale_ts), ttl=300)
+        cache.set_offer(_offer("b1", chain_id="chain-b", last_synced=stale_ts), ttl=300)
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(return_value=[])
+        svc = OfferSyncService(session=AsyncMock(), cache=cache, blockchain_client=blockchain)
+
+        await svc.discover_offers(OfferDiscoveryRequest(source_chain="chain-a"))
+
+        synced_chains = {call.kwargs.get("chain_id") for call in blockchain.query_offers.await_args_list}
+        assert synced_chains == {"chain-a"}
+
+    async def test_tracked_chain_dicts_are_lru_bounded(self):
+        """``/v1/trading/offers/sync`` accepts arbitrary chain_ids — both
+        ``_sync_status`` and ``_sync_locks`` must stay capped at 256."""
+        from trading_service.services.offer_sync_service import _MAX_TRACKED_CHAINS
+
+        svc = _sync_service()
+        for i in range(_MAX_TRACKED_CHAINS + 40):
+            svc._init_status_entry(f"chain-{i}")  # noqa: SLF001
+            svc._sync_lock_for(f"chain-{i}")  # noqa: SLF001
+
+        assert len(svc._sync_status) <= _MAX_TRACKED_CHAINS  # noqa: SLF001
+        assert len(svc._sync_locks) <= _MAX_TRACKED_CHAINS  # noqa: SLF001
+        # Newest entries survive; oldest were evicted.
+        assert f"chain-{_MAX_TRACKED_CHAINS + 39}" in svc._sync_status  # noqa: SLF001
+        assert "chain-0" not in svc._sync_status  # noqa: SLF001
+
+
 # ---------------------------------------------------------------------------
 # OfferCache staleness — naive/aware datetime mixing
 # ---------------------------------------------------------------------------

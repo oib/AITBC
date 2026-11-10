@@ -90,6 +90,21 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
     # is a genuinely new submission and gets a fresh escrow.
     existing = state.payment_escrow.get_escrow_for_task(task_id)
     if existing is not None and existing.status in (EscrowStatus.PENDING, EscrowStatus.LOCKED):
+        # The replay is scoped to identical payment terms: task_id is
+        # caller-chosen, so a different requester/agent/amount reusing it must
+        # not inherit the first submission's escrow — that would let one
+        # buyer's retry key hijack (or be hijacked by) another buyer's
+        # payment. Mismatched terms are a conflict, not a replay.
+        p = request.payment
+        same_terms = (
+            existing.requester == p.requester
+            and existing.agent == p.agent
+            and existing.amount == p.amount
+            and existing.fee == p.fee
+            and existing.chain_id == chain_id
+        )
+        if not same_terms:
+            raise ValueError(f"task_id {task_id} already has an active escrow with different payment terms")
         escrow = existing
     else:
         escrow = state.payment_escrow.create_escrow(
