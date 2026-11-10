@@ -18,6 +18,7 @@ from .sync import ChainSync
 from .sync_divergence import clear_divergence, report_divergence
 
 from aitbc.async_tasks import create_task_with_logging
+from aitbc.utils.time_utils import ExponentialBackoff
 
 logger = get_logger(__name__)
 
@@ -44,6 +45,12 @@ class SubscriptionClient:
         # Consecutive divergent rejections. The counter has to live here: ChainSync is rebuilt for
         # every pushed block, so its own _rejection_counts can never reach a threshold (V23-90).
         self._consecutive_divergence = 0
+        # AUDIT-RETRY (#1576): reconnect delays grow exponentially with jitter
+        # instead of a fixed 30s/5s sleep, so a hub outage does not produce a
+        # lockstep retry storm across the fleet. Delays are capped; the loops
+        # themselves stay alive for the life of the client.
+        self._subscribe_backoff = ExponentialBackoff(base_delay=5.0, max_delay=30.0)
+        self._ws_backoff = ExponentialBackoff(base_delay=5.0, max_delay=60.0)
 
     @staticmethod
     def _auth_headers() -> dict[str, str]:
@@ -187,12 +194,13 @@ class SubscriptionClient:
             try:
                 if not await self._subscribe():
                     logger.warning(
-                        "Subscription failed, retrying in 30s",
+                        "Subscription failed, retrying with backoff",
                         extra={"hub_url": self._hub_url, "node_id": self._node_id, "transport": self._transport},
                     )
                     subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
-                    await asyncio.sleep(30)
+                    await asyncio.sleep(self._subscribe_backoff.next_delay())
                     continue
+                self._subscribe_backoff.reset()
                 if self._transport == "websocket":
                     await self._receive_via_websocket()
                 elif self._transport == "http":
@@ -212,7 +220,7 @@ class SubscriptionClient:
                     extra={"hub_url": self._hub_url, "node_id": self._node_id},
                 )
                 self._set_sync_mode("pull")
-                await asyncio.sleep(30)
+                await asyncio.sleep(self._subscribe_backoff.next_delay())
 
     async def _heartbeat_loop(self) -> None:
         """Heartbeat loop to extend lease."""
@@ -283,6 +291,7 @@ class SubscriptionClient:
                         "WebSocket connected successfully",
                         extra={"ws_url": ws_url, "node_id": self._node_id, "hub_url": self._hub_url},
                     )
+                    self._ws_backoff.reset()
                     self._set_sync_mode("push")
                     import json
 
@@ -334,7 +343,7 @@ class SubscriptionClient:
                 )
                 subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
                 self._set_sync_mode("pull")
-                await asyncio.sleep(5)
+                await asyncio.sleep(self._ws_backoff.next_delay())
             except Exception as e:
                 logger.warning(
                     "WebSocket connection error, falling back to pull: %s",
@@ -343,7 +352,7 @@ class SubscriptionClient:
                 )
                 subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
                 self._set_sync_mode("pull")
-                await asyncio.sleep(30)
+                await asyncio.sleep(self._ws_backoff.next_delay())
                 break
 
     async def _receive_via_http_poll(self) -> None:
