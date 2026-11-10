@@ -70,10 +70,6 @@ class TestSendUsageArithmetic:
         ts = datetime.fromisoformat(sent_events[0]["timestamp"])
         assert ts.tzinfo is not None
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="explicit unit_price=Decimal('0') is falsy → fallback price substituted; fix tracked in #1400",
-    )
     async def test_explicit_zero_unit_price_is_honored(self, billing, sent_events):
         await billing.send_usage(
             tenant_id="t-1",
@@ -84,10 +80,6 @@ class TestSendUsageArithmetic:
         assert sent_events[0]["unit_price"] == "0"
         assert sent_events[0]["total_amount"] == "0"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="negative quantity produces a negative total_amount billing event; no sign validation; fix tracked in #1400",
-    )
     async def test_negative_quantity_is_rejected(self, billing, sent_events):
         with pytest.raises(ValueError):
             await billing.send_usage(

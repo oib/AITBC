@@ -11,7 +11,6 @@ from __future__ import annotations
 from decimal import Decimal
 from types import SimpleNamespace
 
-import pytest
 
 from poolhub.app.routers.match import _select_candidates
 
@@ -52,20 +51,12 @@ class TestHardwareMinimums:
         candidates = _select_candidates({"min_vram_gb": 8}, {}, [_entry(miner)], top_k=5)
         assert [c["miner_id"] for c in candidates] == ["m-1"]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="gpu_vram_gb=0.0 is falsy so the min_vram check is skipped — GPU-less miner matches GPU jobs; fix tracked in #1398",
-    )
     def test_zero_vram_does_not_satisfy_min_vram(self):
         """A miner reporting 0 VRAM (the registration default) must not pass."""
         miner = _miner(gpu_vram_gb=0.0)
         candidates = _select_candidates({"min_vram_gb": 8}, {}, [_entry(miner)], top_k=5)
         assert candidates == []
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="ram_gb=0.0 is falsy so the min_ram check is skipped; fix tracked in #1398",
-    )
     def test_zero_ram_does_not_satisfy_min_ram(self):
         miner = _miner(ram_gb=0.0)
         candidates = _select_candidates({"min_ram_gb": 32}, {}, [_entry(miner)], top_k=5)

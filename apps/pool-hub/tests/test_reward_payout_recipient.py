@@ -27,10 +27,6 @@ def client():
 
 
 class TestRewardRecipient:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="reward tx 'to' is contrib.miner_id (e.g. 'miner-1'), not Miner.wallet_address — dormant payout path pays invalid/wrong recipient; fix tracked in #1401",
-    )
     async def test_payout_goes_to_wallet_address_not_miner_id(self, client, payout_session):
         client.record_contribution("miner-1", score=90.0, shares=5000)
         session = payout_session
