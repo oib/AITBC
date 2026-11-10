@@ -820,8 +820,34 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
                     "Oracle verification delay not elapsed"
                 );
             }
+        } else if (escrow.releaseCondition == ReleaseCondition.PerformanceMet) {
+            // EscrowService has no dedicated performance-proof store;
+            // performance is proven through the same oracle-verified
+            // condition path as OracleVerified (setReleaseCondition +
+            // verifyCondition), so it inherits that check including the
+            // post-verification delay (#1471). Without this the beneficiary
+            // could self-release a 'performance' escrow with no proof.
+            ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
+            require(condRelease.conditionMet, "Performance condition not met");
+            if (condRelease.finalVerificationTime != 0) {
+                require(
+                    block.timestamp >= condRelease.finalVerificationTime + oracleVerificationDelay,
+                    "Oracle verification delay not elapsed"
+                );
+            }
+        } else if (escrow.releaseCondition == ReleaseCondition.Automatic) {
+            // 'Automatic' still needs an authorized trigger hand: mirror the
+            // Manual caller set so the beneficiary cannot self-release
+            // (#1471).
+            require(msg.sender == escrow.depositor || msg.sender == escrow.arbiter, "Automatic release requires depositor or arbiter");
         } else if (escrow.releaseCondition == ReleaseCondition.MultiSignature) {
             require(escrow.currentSignatures >= escrow.requiredSignatures, "Insufficient signatures");
+        } else if (escrow.releaseCondition == ReleaseCondition.Emergency) {
+            // Emergency escrows release only through the quorum + timelock
+            // path (requestEmergencyRelease -> voteEmergencyRelease ->
+            // executeEmergencyRelease). releaseEscrow must never shortcut
+            // it (#1471).
+            revert("Emergency release requires executeEmergencyRelease");
         }
 
         _releaseEscrow(_escrowId, _reason);
