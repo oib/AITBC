@@ -302,8 +302,12 @@ async def transcribe(
             }
         )
     finally:
-        os.unlink(tmp_path)
-        _inflight -= 1
+        try:
+            os.unlink(tmp_path)
+        finally:
+            # Release the slot even if the unlink raises — a missed
+            # decrement would wedge the service at 503 forever.
+            _inflight -= 1
 
 
 if __name__ == "__main__":
