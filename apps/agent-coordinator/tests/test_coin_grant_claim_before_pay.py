@@ -28,7 +28,7 @@ def _rows(db: str) -> list[sqlite3.Row]:
 def test_claim_row_exists_before_pay(scratch_db):
     """The claim lands BEFORE signing — a crash mid-send leaves a findable
     claiming: marker, not an unrecorded payout."""
-    rid = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
+    rid, _dup = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
     assert rid and rid.startswith("auto-agent-1-")
     rows = _rows(scratch_db)
     assert len(rows) == 1
@@ -37,11 +37,11 @@ def test_claim_row_exists_before_pay(scratch_db):
 
 
 def test_finish_claim_writes_tx_hash_and_failed(scratch_db):
-    rid = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
+    rid, _dup = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
     agent_stream._finish_claimed_coin_request(rid, "0x" + "cd" * 32)
     assert _rows(scratch_db)[0]["transaction_hash"] == "0x" + "cd" * 32
 
-    rid2 = agent_stream._record_claiming_coin_request("agent-2", 5, "0x" + "bb" * 20)
+    rid2, _dup2 = agent_stream._record_claiming_coin_request("agent-2", 5, "0x" + "bb" * 20)
     agent_stream._finish_claimed_coin_request(rid2, "", failed=True)
     rows = {r["id"]: r for r in _rows(scratch_db)}
     assert rows[rid2]["status"] == "FAILED"
@@ -55,11 +55,11 @@ def test_unreadable_db_parks_instead_of_paying(monkeypatch, tmp_path):
     monkeypatch.setenv("AGENT_DB_PATH", str(bad))
     assert agent_stream._has_received_initial_coins("agent-1", "0x" + "aa" * 20) is None
     # a claim insert against the same unreadable store must not claim a row
-    assert agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20) is None
+    assert agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20) == (None, False)
 
 
 def test_claim_ids_are_uuid_not_timestamp(scratch_db):
     """#1082: two grants in the same second no longer collide on a timestamp id."""
-    a = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
-    b = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
+    a, _da = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
+    b, _db2 = agent_stream._record_claiming_coin_request("agent-1", 5, "0x" + "aa" * 20)
     assert a != b

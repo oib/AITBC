@@ -468,23 +468,60 @@ def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
+# The agent DB and the SQLAlchemy ``CoinRequest`` table are the SAME sqlite file and the
+# SAME ``coin_requests`` table (``aitbc.db.agent_db.get_db_path`` resolves the identical
+# AGENT_DB_PATH/HERMES_DB_PATH env vars). This raw writer therefore has to produce rows the
+# ORM can read and a table the ORM can write: the schema below carries every column
+# ``aitbc.models.coin_request.CoinRequest`` declares, and ``_ensure_agent_db_columns``
+# upgrades databases where this narrower schema was created first (#1604 — a raw-created
+# table missing ``rejection_reason``/``signed_transaction`` made every ORM INSERT fail with
+# "no such column"). Status strings match the ORM's stored enum names ('APPROVED',
+# 'PENDING', 'FAILED'), which is what lets ``has_prior_grant`` and the rolling budgets in
+# ``coin_request_policy`` see WS-granted rows without a second store (#1542).
 _AGENT_DB_SCHEMA = (
     "CREATE TABLE IF NOT EXISTS coin_requests (id TEXT, sender TEXT, recipient TEXT, amount INTEGER, "
     "wallet_address TEXT, status TEXT, approval_mode TEXT, approved_by TEXT, approved_at TEXT, "
-    "created_at TEXT, expires_at TEXT, transaction_hash TEXT, audit_log TEXT)"
+    "created_at TEXT, expires_at TEXT, transaction_hash TEXT, audit_log TEXT, "
+    "rejection_reason TEXT, signed_transaction TEXT)"
 )
+
+# Columns the ORM model declares that the historical raw schema lacked. Only nullable
+# columns may be ALTER-added; anything else missing means the file is not a coin-request
+# ledger at all and the caller's park-on-unreadable path takes over.
+_AGENT_DB_COMPAT_COLUMNS = {"rejection_reason": "TEXT", "signed_transaction": "TEXT"}
+
+
+def _ensure_agent_db_columns(conn: sqlite3.Connection) -> None:
+    """Bring a pre-existing ``coin_requests`` table up to the ORM column set.
+
+    Idempotent: PRAGMA table_info + ALTER TABLE ADD COLUMN only for columns still
+    missing, so every process start and every grant is a no-op once converged.
+    """
+    try:
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(coin_requests)")}
+    except sqlite3.Error as e:
+        logger.warning("Could not inspect coin_requests schema: %s", e)
+        return
+    for name, decl in _AGENT_DB_COMPAT_COLUMNS.items():
+        if name not in existing:
+            # nosec B608 - identifiers come from the static _AGENT_DB_COMPAT_COLUMNS map
+            conn.execute(f"ALTER TABLE coin_requests ADD COLUMN {name} {decl}")
+            logger.info("Added missing column %s to agent coin_requests ledger", name)
 
 
 def _agent_db_conn() -> sqlite3.Connection | None:
     """Open the agent coin-request DB, creating the table on a fresh node.
 
     Returns ``None`` when the store exists but cannot be opened or written —
-    the callers then park instead of paying blind (#1082).
+    the callers then park instead of paying blind (#1082). The connection is in
+    autocommit mode (``isolation_level=None``) so the first-grant claim path can
+    take an explicit ``BEGIN IMMEDIATE`` write lock around its check-and-insert.
     """
     db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(db_path, isolation_level=None)
         conn.execute(_AGENT_DB_SCHEMA)
+        _ensure_agent_db_columns(conn)
         return conn
     except Exception as e:
         logger.warning("Could not open coin-request ledger %s: %s", db_path, e)
@@ -527,49 +564,99 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
         logger.warning("Could not record coin request in DB: %s", e)
 
 
-def _record_claiming_coin_request(sender: str, amount: int, wallet_address: str) -> str | None:
+def _record_claiming_coin_request(
+    sender: str, amount: int, wallet_address: str, *, first_grant: bool = False
+) -> tuple[str | None, bool]:
     """Insert the request row BEFORE paying it, claim marker in transaction_hash.
 
     The ``claiming:<ts>`` marker is the same convention /register's execute
     path uses (EXECUTION_CLAIM_PREFIX): the row proves the hub committed to
     this payout *before* signing, so a crash mid-send leaves a findable claim
-    instead of an unrecorded payout. Returns the request id, or None when the
-    ledger could not be written — the caller must then NOT pay.
+    instead of an unrecorded payout.
+
+    Returns ``(request_id, already_granted)``:
+
+    - ``(id, False)`` — the claim row is committed; the caller may pay.
+    - ``(None, False)`` — the ledger could not be written; the caller must
+      NOT pay (same contract as the old ``None`` return).
+    - ``(None, True)`` — only possible with ``first_grant=True``: the
+      prior-grant check and the INSERT ran inside one ``BEGIN IMMEDIATE``
+      transaction, and an APPROVED row for this sender or wallet was already
+      there. SQLite serializes writers, so exactly one of N concurrent
+      first-grant claims across workers can win; the losers must park for
+      review instead of paying (#1542 dual-ledger, #1604).
+
+    ``first_grant`` stays False on the strategy-approved path: a repeat grant
+    there is legitimate (the strategy already ruled on it and the rolling
+    budget bounds the aggregate), so only the unguarded first-grant path
+    needs the atomic "no prior APPROVED" gate.
     """
     conn = _agent_db_conn()
     if conn is None:
-        return None
+        return None, False
     try:
         from datetime import UTC, datetime, timedelta
 
+        from ..services.coin_request_policy import address_spellings
+
         now = datetime.now(UTC).replace(tzinfo=None)
         request_id = f"auto-{sender}-{uuid4().hex[:12]}"
-        conn.execute(
+        insert_sql = (
             "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
             "approval_mode, approved_by, approved_at, created_at, expires_at, transaction_hash, audit_log) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                request_id,
-                sender,
-                os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
-                amount,
-                wallet_address,
-                "APPROVED",
-                "automatic",
-                "request_coins_handler",
-                now.isoformat(),
-                now.isoformat(),
-                (now + timedelta(hours=24)).isoformat(),
-                f"claiming:{now.isoformat()}",
-                json.dumps({"action": "initial_coin_grant", "auto_approved": True}),
-            ),
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
-        conn.commit()
+        insert_params = (
+            request_id,
+            sender,
+            os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
+            amount,
+            wallet_address,
+            "APPROVED",
+            "automatic",
+            "request_coins_handler",
+            now.isoformat(),
+            now.isoformat(),
+            (now + timedelta(hours=24)).isoformat(),
+            f"claiming:{now.isoformat()}",
+            json.dumps({"action": "initial_coin_grant", "auto_approved": True}),
+        )
+        if first_grant:
+            # BEGIN IMMEDIATE takes the sqlite write lock up front, so the
+            # EXISTS probe and the INSERT are one atomic step against every
+            # other connection — including other uvicorn workers on the same
+            # host sharing this file. Without it two workers can both pass the
+            # earlier SELECT-then-INSERT check and both pay (#1542).
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                spellings = address_spellings(wallet_address)
+                # `?` placeholders, one per spelling — values still bind through
+                # the parameter tuple; same idiom as _has_received_initial_coins.
+                placeholders = ",".join("?" * len(spellings))
+                exists = conn.execute(
+                    "SELECT 1 FROM coin_requests WHERE status = 'APPROVED' "  # nosec
+                    f"AND (sender = ? OR lower(wallet_address) IN ({placeholders})) LIMIT 1",
+                    (sender, *spellings),
+                ).fetchone()
+                if exists is not None:
+                    conn.execute("ROLLBACK")
+                    conn.close()
+                    return None, True
+                conn.execute(insert_sql, insert_params)
+                conn.execute("COMMIT")
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK")
+                except Exception:
+                    pass
+                raise
+        else:
+            conn.execute(insert_sql, insert_params)
         conn.close()
-        return request_id
+        return request_id, False
     except Exception as e:
         logger.warning("Could not write claiming coin request in DB: %s", e)
-        return None
+        return None, False
 
 
 def _finish_claimed_coin_request(request_id: str, tx_hash: str, *, failed: bool = False) -> None:
@@ -742,8 +829,9 @@ async def request_coins_handler(
                     }
                 # Strategy approved — record the claim BEFORE paying (#1082),
                 # so the ledger proves the payout was committed, not recorded
-                # after the fact.
-                claim_id = _record_claiming_coin_request(sender, amount, wallet_address)
+                # after the fact. Repeat grants are legitimate here (the
+                # strategy ruled on them), so no first-grant dedupe gate.
+                claim_id, _dup = _record_claiming_coin_request(sender, amount, wallet_address)
                 if claim_id is None:
                     return {
                         "action": "coin_request_failed",
@@ -818,8 +906,25 @@ async def request_coins_handler(
 
         # The row exists BEFORE the payout (#1082): a claim marker stands in
         # for the tx hash so a mid-send crash leaves a findable claim instead
-        # of an unrecorded payout.
-        claim_id = _record_claiming_coin_request(sender, grant_amount, wallet_address)
+        # of an unrecorded payout. first_grant=True folds the prior-grant
+        # probe into the INSERT's IMMEDIATE transaction, so a second worker
+        # racing the same wallet loses atomically instead of double-paying
+        # (#1542/#1604).
+        claim_id, already_granted = _record_claiming_coin_request(sender, grant_amount, wallet_address, first_grant=True)
+        if already_granted:
+            # Lost the race: another claim for this sender/wallet committed
+            # between the earlier probe and this insert. Park for review
+            # exactly like a detected prior grant — never pay twice.
+            request_id = _record_pending_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address)
+            return {
+                "action": "coin_request_received",
+                "request_id": request_id,
+                "amount": INITIAL_COIN_AMOUNT,
+                "wallet_address": wallet_address,
+                "status": "pending_approval",
+                "reason": "a coin grant for this wallet is already recorded",
+                "message": ("Coin request requires approval. Reason: a coin grant for this wallet is already recorded."),
+            }
         if claim_id is None:
             return {"action": "coin_request_failed", "error": "coin-request ledger unavailable — not paying without a record"}
 
