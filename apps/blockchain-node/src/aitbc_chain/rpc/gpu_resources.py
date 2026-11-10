@@ -7,6 +7,8 @@ from typing import Any
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from aitbc.rate_limiting import rate_limit
+
 from ..chain_id import resolve_chain_id
 from ..metrics import metrics_registry
 from .escrow_routes import verify_rpc_api_key
@@ -79,10 +81,14 @@ async def _submit_gpu_tx(tx: dict[str, Any], tx_type: str) -> str:
 
 
 @router.get("/gpus", summary="List all registered GPUs", tags=["gpu_resources"])
-def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[str, Any]:
-    """List all GPUs registered on blockchain."""
+@rate_limit(rate=100, per=60)
+def list_gpus(chain_id: str | None = None, status: str | None = None, limit: int = 100) -> dict[str, Any]:
+    """List GPUs registered on blockchain (bounded — sibling list convention)."""
     if chain_id is None:
         chain_id = resolve_chain_id()
+    # Same clamp as the other list endpoints (#1057): the unbounded .all()
+    # used to materialise every registration row (#1626).
+    limit = max(1, min(limit, 500))
 
     try:
         metrics_registry.increment("rpc_gpu_list_total")
@@ -98,6 +104,7 @@ def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[st
             if status:
                 query = query.where(GPURegistration.status == status)  # type: ignore[arg-type]
 
+            query = query.limit(limit)
             result = session.execute(query)
             gpus = result.scalars().all()
 
@@ -477,28 +484,37 @@ def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, Any]:
 
 
 @router.get("/edge/nodes", summary="List edge node registrations", tags=["gpu_resources"])
-def list_edge_nodes(chain_id: str | None = None) -> dict[str, Any]:
+@rate_limit(rate=100, per=60)
+def list_edge_nodes(chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """List edge node registrations for the chain.
 
     Read-only. Exists so wave-Y row B4 ("edge_node_registration has no stray
     rows") and similar checks can count committed rows through the RPC without
     touching the chain database file — every field returned is the public
     registration record already produced by ``POST /rpc/edge/register``.
+    Rows are bounded like the other list endpoints (#1626); ``total`` still
+    reports the full committed count so row-count checks stay exact.
     """
     if chain_id is None:
         chain_id = resolve_chain_id()
+    limit = max(1, min(limit, 500))
 
     try:
         metrics_registry.increment("rpc_edge_list_total")
+
+        from sqlalchemy import func, select
 
         from ..database import session_scope
         from ..state.gpu_resources import EdgeNodeRegistration
 
         with session_scope() as session:
-            from sqlalchemy import select
-
+            total = session.execute(
+                select(func.count()).select_from(EdgeNodeRegistration).where(EdgeNodeRegistration.chain_id == chain_id)  # type: ignore[arg-type]
+            ).scalar_one()
             result = session.execute(
-                select(EdgeNodeRegistration).where(EdgeNodeRegistration.chain_id == chain_id)  # type: ignore[arg-type]
+                select(EdgeNodeRegistration)
+                .where(EdgeNodeRegistration.chain_id == chain_id)  # type: ignore[arg-type]
+                .limit(limit)
             )
             rows = result.scalars().all()
             nodes = [
@@ -515,7 +531,7 @@ def list_edge_nodes(chain_id: str | None = None) -> dict[str, Any]:
                 }
                 for node in rows
             ]
-            return {"chain_id": chain_id, "count": len(nodes), "nodes": nodes}
+            return {"chain_id": chain_id, "count": len(nodes), "total": int(total or 0), "nodes": nodes}
 
     except HTTPException:
         raise
