@@ -205,7 +205,13 @@ def mesh_for(path: tuple[str, ...], mesh: dict[tuple[str, ...], MeshEntry]) -> M
 
 def _default_str(p: click.Parameter) -> str:
     d = p.default
-    if d is None or str(type(d)).endswith("Sentinel'>") or repr(d) == "Sentinel.UNSET":
+    is_unset = str(type(d)).endswith("Sentinel'>") or repr(d) == "Sentinel.UNSET"
+    if d is None or is_unset:
+        # click>=8.5 stores bool-flag defaults as Sentinel.UNSET instead of
+        # False; the flag still defaults to off, so render `false` to keep the
+        # generated docs identical across click versions (CI-DRIFT-1, #1742).
+        if is_unset and getattr(p, "is_flag", False) and getattr(p, "flag_value", True) is not False:
+            return "`false`"
         return "—"
     if callable(d):
         return "—"
