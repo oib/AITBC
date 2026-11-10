@@ -734,11 +734,27 @@ async def subscription_websocket(websocket: WebSocket) -> None:
     # even when the client disconnects before sending its subscription message.
     chain_id: str = ""
     try:
-        message = await websocket.receive_text()
+        # The handshake frame is the only inbound message this endpoint reads,
+        # but it was unbounded: a client that never sends (or trickles one)
+        # held the connection — and its slot in _active_subscribers bookkeeping
+        # — forever, and an oversized frame was buffered whole. Same bounds as
+        # the gossip ws path: a receive timeout plus the gossip message cap.
+        try:
+            message = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+        except (asyncio.TimeoutError, WebSocketDisconnect):
+            await _gossip_ws_close(websocket, code=1008)
+            return
+        if len(message) > settings.gossip_max_message_size:
+            await _gossip_ws_close(websocket, code=1009)
+            return
         try:
             data = json.loads(message)
         except json.JSONDecodeError:
             await websocket.send_json({"error": "Invalid JSON"})
+            await websocket.close(code=1008)
+            return
+        if not isinstance(data, dict):
+            await websocket.send_json({"error": "Subscription message must be a JSON object"})
             await websocket.close(code=1008)
             return
         node_id = data.get("node_id")

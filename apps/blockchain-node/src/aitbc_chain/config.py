@@ -382,6 +382,11 @@ class ChainSettings(BaseSettings):
     getlogs_max_block_span: int = 2000
     getlogs_max_receipts: int = 5000
     getlogs_max_logs: int = 1000
+    # /rpc/blocks-range span budget: the route feeds peer bulk sync (batches
+    # are <= max_bulk_sync_batch_size) but is otherwise public — an
+    # unbounded start/end used to serialize the entire chain plus every
+    # transaction envelope in one response. Wider windows paginate.
+    blocks_range_max_span: int = 10_000
     sync_validate_signatures: bool = True  # validate proposer signatures on import
     # ISO-8601 timestamp; if in the future, signature validation is temporarily disabled.
     sync_validate_signatures_skip_until: str = ""

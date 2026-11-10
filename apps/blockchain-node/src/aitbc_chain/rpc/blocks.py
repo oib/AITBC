@@ -238,6 +238,15 @@ def get_blocks_range(
         end: Ending block height (inclusive)
         include_tx: Whether to include transaction data (default: True)
     """
+    # Span budget (same rule as eth_getLogs): the range is public input, so
+    # the served window is clamped to blocks_range_max_span blocks whatever
+    # the caller asks for. Bulk sync requests small batches; wider windows
+    # paginate. An inverted range serves nothing rather than scanning.
+    max_span = max(1, settings.blocks_range_max_span)
+    if end < start:
+        return {"success": True, "blocks": [], "count": 0}
+    if end - start + 1 > max_span:
+        end = start + max_span - 1
     with session_scope() as session:
         chain_id = get_chain_id(chain_id)
         blocks = session.exec(
