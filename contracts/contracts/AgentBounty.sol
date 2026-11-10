@@ -88,6 +88,9 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     mapping(address => uint256[]) public creatorBounties;
     mapping(BountyTier => uint256) public tierRequirements;
     mapping(uint256 => mapping(address => bool)) public hasSubmitted;
+    // #1469: records who filed a dispute so resolveDispute can refund the
+    // dispute fee to the disputer rather than to the resolving owner.
+    mapping(uint256 => address) public submissionDisputer;
     // Verifiers allowed to settle submissions: the owner and any address the
     // owner authorizes (e.g. the BountyIntegration contract).
     mapping(address => bool) public authorizedVerifiers;
@@ -402,8 +405,23 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
         require(submission.status == SubmissionStatus.VERIFIED, "Can only dispute verified submissions");
         require(block.timestamp - submission.submissionTime <= 86400, "Dispute window expired"); // 24 hours
 
+        // #1469: only bounty participants may dispute — the permissionless
+        // version let any address freeze a verified payout for the price of
+        // the dispute fee. Mirrors PaymentProcessor.initiateDispute, which
+        // likewise restricts disputes to the payment's two parties.
+        require(
+            msg.sender == bounty.creator || msg.sender == submission.submitter,
+            "Only bounty participants can dispute"
+        );
+        // Only an still-open bounty can be disputed: a COMPLETED bounty has
+        // already paid its winner, and dragging it back to DISPUTED would
+        // let a later resolution pay out a second time from other bounties'
+        // escrowed funds.
+        require(bounty.status == BountyStatus.ACTIVE, "Bounty not disputable");
+
         submission.status = SubmissionStatus.DISPUTED;
         submission.disputeReason = _reason;
+        submissionDisputer[_submissionId] = msg.sender;
         _setBountyStatus(bounty, BountyStatus.DISPUTED);
 
         // Collect dispute fee
@@ -437,15 +455,26 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
             submission.status = SubmissionStatus.REJECTED;
             _setBountyStatus(bounty, BountyStatus.ACTIVE);
 
-            // Return dispute fee
+            // Return dispute fee to the recorded disputer — the owner who
+            // resolves the dispute is not necessarily the one who paid it
+            // (#1469).
+            address disputer = submissionDisputer[_submissionId];
+            require(disputer != address(0), "No disputer recorded");
             uint256 disputeFee = (bounty.rewardAmount * disputeFeePercentage) / 10000;
             if (disputeFee > 0) {
-                require(paymentToken.transfer(msg.sender, disputeFee), "Dispute fee return failed");
+                require(paymentToken.transfer(disputer, disputeFee), "Dispute fee return failed");
             }
         } else {
-            // Uphold the submission
+            // Reject the dispute: the submission stands. Restore ACTIVE
+            // first — _completeBounty requires it and would otherwise
+            // revert on the DISPUTED status (#1469 residual: the reject
+            // path could never succeed). Mirror verifySubmission: only a
+            // submission meeting minAccuracy completes the bounty.
             submission.status = SubmissionStatus.VERIFIED;
-            _completeBounty(_bountyId, _submissionId);
+            _setBountyStatus(bounty, BountyStatus.ACTIVE);
+            if (submission.accuracy >= bounty.minAccuracy) {
+                _completeBounty(_bountyId, _submissionId);
+            }
         }
     }
 
