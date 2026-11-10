@@ -517,13 +517,13 @@ curl -s http://localhost:9090/api/v1/rules
 
 Every node runs Prometheus with the package default retention: no `--storage.tsdb.retention.*` flags, which Prometheus 2.53 resolves to 15 days and no size limit. Do not set per-node retention overrides; to change retention, change it on every node.
 
-The flags live in `/etc/default/prometheus` (`ARGS=`, read by `prometheus.service`) and only role flags belong there. Today that is one: `hub` receives remote writes.
+The flags live in `/etc/default/prometheus` (`ARGS=`, read by `prometheus.service`) and only role flags belong there. Every node pins the UI/API to loopback — nothing scrapes `:9090` cross-host (fleet scrape targets are all `127.0.0.1`, and remote-write is push-based), so `0.0.0.0` only exposes an unauthenticated metrics/query surface. `hub` additionally receives remote writes.
 
 ```
 # every node except hub
-ARGS=""
+ARGS="--web.listen-address=127.0.0.1:9090"
 # hub
-ARGS="--web.enable-remote-write-receiver"
+ARGS="--web.enable-remote-write-receiver --web.listen-address=127.0.0.1:9090"
 ```
 
 Check the effective value on a node (it should print `15d`):
