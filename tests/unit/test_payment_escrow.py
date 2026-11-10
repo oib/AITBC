@@ -267,6 +267,27 @@ def test_get_escrow_for_task() -> None:
     assert escrow.get_escrow_for_task("missing") is None
 
 
+def test_get_escrow_for_task_prefers_active_over_terminal() -> None:
+    """A reused task_id must resolve to the live escrow, not the first row.
+
+    Regression: a terminal (RELEASED) escrow for task-x used to shadow a
+    later resubmission's active escrow — complete/fail then 409'd on the
+    dead record while the funded one was unreachable by task_id.
+    """
+    escrow = PaymentEscrow()
+    old = escrow.create_escrow("task-x", CHAIN_ID, REQUESTER, AGENT, amount=100)
+    old.created_at = 1000.0
+    escrow.lock(old.escrow_id)
+    escrow.release(old.escrow_id)
+    new = escrow.create_escrow("task-x", CHAIN_ID, REQUESTER, AGENT, amount=200)
+    new.created_at = 2000.0
+    escrow.lock(new.escrow_id)
+    assert escrow.get_escrow_for_task("task-x") is new
+    # Once the active escrow also goes terminal, the newest row wins.
+    escrow.release(new.escrow_id)
+    assert escrow.get_escrow_for_task("task-x") is new
+
+
 def test_get_escrows_by_status() -> None:
     escrow = PaymentEscrow()
     e1 = escrow.create_escrow("t1", CHAIN_ID, REQUESTER, AGENT, amount=100)
