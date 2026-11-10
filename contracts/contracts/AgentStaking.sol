@@ -104,6 +104,17 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => Stake) public stakes;
     mapping(address => uint256[]) public stakerStakes;
     mapping(address => uint256[]) public agentStakes;
+    // Active stakes per agent (#1465). agentStakes is append-only history --
+    // completed, unbonded and slashed ids are never removed -- so iterating it
+    // to refresh stake APYs on a tier change grows without bound and can
+    // exceed the block gas limit, permanently freezing tier/APY updates for
+    // that agent. agentActiveStakes holds only stakes that can still accrue
+    // APY and is kept in sync on every status transition by
+    // _addAgentActiveStake / _removeAgentActiveStake (O(1) swap-remove).
+    mapping(address => uint256[]) public agentActiveStakes;
+    // Position of stakeId inside agentActiveStakes[stakes[stakeId].agentWallet].
+    // A stake belongs to exactly one agent, so a single index map suffices.
+    mapping(uint256 => uint256) public agentActiveStakeIndex;
     mapping(address => AgentMetrics) public agentMetrics;
     mapping(address => StakingPool) public stakingPools;
     mapping(PerformanceTier => uint256) public tierMultipliers;
@@ -382,6 +393,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         // Update tracking arrays
         stakerStakes[msg.sender].push(stakeId);
         agentStakes[_agentWallet].push(stakeId);
+        _addAgentActiveStake(_agentWallet, stakeId);
         activeStakeIds.push(stakeId);
 
         // Transfer tokens to contract
@@ -455,6 +467,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
 
         // Remove from active stakes
         _removeFromActiveStakes(_stakeId);
+        _removeAgentActiveStake(stake.agentWallet, _stakeId);
     }
 
     /**
@@ -811,6 +824,14 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Gets the agent's currently-active stake IDs (#1465)
+     * @param _agentWallet Agent wallet address
+     */
+    function getAgentActiveStakes(address _agentWallet) external view returns (uint256[] memory) {
+        return agentActiveStakes[_agentWallet];
+    }
+
+    /**
      * @dev Gets all supported agents
      */
     function getSupportedAgents() external view returns (address[] memory) {
@@ -964,6 +985,39 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Adds a stake to the agent's active-stake list (#1465). Idempotent:
+     * a stake already present is left untouched.
+     */
+    function _addAgentActiveStake(address _agentWallet, uint256 _stakeId) internal {
+        uint256[] storage list = agentActiveStakes[_agentWallet];
+        uint256 existing = agentActiveStakeIndex[_stakeId];
+        if (existing < list.length && list[existing] == _stakeId) {
+            return;
+        }
+        agentActiveStakeIndex[_stakeId] = list.length;
+        list.push(_stakeId);
+    }
+
+    /**
+     * @dev Removes a stake from the agent's active-stake list (#1465) via
+     * swap-with-last, O(1). Tolerates stakes that were never added or already
+     * removed so every status transition can call it unconditionally.
+     */
+    function _removeAgentActiveStake(address _agentWallet, uint256 _stakeId) internal {
+        uint256[] storage list = agentActiveStakes[_agentWallet];
+        uint256 idx = agentActiveStakeIndex[_stakeId];
+        if (idx >= list.length || list[idx] != _stakeId) {
+            return;
+        }
+        uint256 lastIdx = list.length - 1;
+        uint256 movedId = list[lastIdx];
+        list[idx] = movedId;
+        agentActiveStakeIndex[movedId] = idx;
+        list.pop();
+        delete agentActiveStakeIndex[_stakeId];
+    }
+
+    /**
      * @dev Emergency pause function
      */
     function pause() external onlyOwner {
@@ -1000,6 +1054,8 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
         stake.amount -= slashAmount;
         stake.status = StakeStatus.SLASHED;
+
+        _removeAgentActiveStake(stake.agentWallet, _stakeId);
 
         require(paymentToken.transfer(owner(), slashAmount), "Transfer failed");
 
@@ -1069,6 +1125,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
                 uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
                 stake.amount -= slashAmount;
                 stake.status = StakeStatus.SLASHED;
+                _removeAgentActiveStake(_agentWallet, stakeId);
                 slashedTotal += slashAmount;
 
                 emit StakeSlashed(stakeId, stake.staker, slashAmount, _reason);
@@ -1155,6 +1212,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         if (_approved) {
             Stake storage stake = stakes[_stakeId];
             stake.status = StakeStatus.ACTIVE;
+            _addAgentActiveStake(stake.agentWallet, _stakeId);
             emit SlashAppealApproved(_stakeId);
         } else {
             emit SlashAppealRejected(_stakeId);
@@ -1325,8 +1383,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         if (newTier != oldTier) {
             metrics.currentTier = newTier;
 
-            // Update APY for all active stakes on this agent
-            uint256[] storage stakesForAgent = agentStakes[_agentWallet];
+            // Update APY for all active stakes on this agent. Walks
+            // agentActiveStakes (#1465) -- only stakes that can still accrue
+            // APY -- instead of the append-only agentStakes history, so the
+            // cost no longer grows with an agent's lifetime stake count.
+            uint256[] storage stakesForAgent = agentActiveStakes[_agentWallet];
             for (uint256 i = 0; i < stakesForAgent.length; i++) {
                 uint256 stakeId = stakesForAgent[i];
                 Stake storage stake = stakes[stakeId];
