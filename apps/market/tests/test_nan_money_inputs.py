@@ -21,7 +21,7 @@ from sqlmodel import select
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from market_service.domain.market import Bid
-from market_service.services.market_service import MarketService
+from market_service.services.market_service import MarketService, _money_decimal
 from market_service.storage import get_session_context
 
 
@@ -138,3 +138,63 @@ class TestBookRouteRawNaNBody:
             headers={"Content-Type": "application/json", "X-API-Key": "test-market-key"},
         )
         assert resp.status_code == 400, f"{resp.status_code}: {resp.text[:300]}"
+
+
+class TestMoneyDecimalBoundary:
+    """V16 round-5 money-edge: the 1e15 ceiling is INCLUSIVE, exponent
+    overflow ('1e999') and type-confused inputs must raise ValueError —
+    never persist, never 500."""
+
+    @pytest.mark.parametrize(
+        "ok",
+        [
+            "0",
+            "0.00000001",
+            "999999999999999.99999999",
+            "1000000000000000",  # exactly the ceiling — inclusive
+            "1e15",
+            Decimal("1000000000000000"),
+            5,
+            5.5,
+            "-0",  # negative zero compares equal to zero — non-negative
+            "١٢٣",  # Unicode decimal digits parse to a real number (123)
+            "1_000",  # Decimal accepts digit underscores — same as float()/int()
+        ],
+    )
+    def test_boundary_and_valid_inputs_accepted(self, ok):
+        parsed = _money_decimal(ok, "price")
+        assert parsed >= 0
+        assert parsed <= Decimal("1000000000000000")
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "1000000000000000.00000001",  # ceiling + epsilon
+            "1e999",  # exponent overflow — finite Decimal, way over cap
+            Decimal("1e999"),
+            1e30,
+            float("inf"),
+            float("-inf"),
+            "NaN",
+            "Infinity",
+            "-Infinity",
+            "-0.00000001",  # genuinely negative
+            "-5",
+            True,  # bool is not a number here
+            False,
+            [],
+            {},
+            b"5",  # bytes stringify to "b'5'" — not a number
+            "  ",
+            "abc",
+            None,
+        ],
+    )
+    def test_over_ceiling_and_type_confused_rejected(self, bad):
+        with pytest.raises(ValueError):
+            _money_decimal(bad, "price")
+
+    def test_unicode_digits_parse_to_their_value(self):
+        """'١٢٣' is a legitimate numeric string — pin the parse so a future
+        'fix' that rejects it is a deliberate change, not an accident."""
+        assert _money_decimal("١٢٣", "price") == Decimal("123")

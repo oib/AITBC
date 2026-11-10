@@ -110,6 +110,36 @@ async def test_small_output_not_flagged_truncated(tmp_path: Path, monkeypatch: p
 
 
 @pytest.mark.asyncio
+async def test_mid_run_failure_kills_process_group(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1683 residual: a non-timeout mid-run failure (e.g. a pipe error inside
+    the bounded drain) must kill the child too — the BaseException path does
+    the same killpg+reap as timeout/cancel, then propagates."""
+    pidfile = tmp_path / "hermes.pid"
+    fake = tmp_path / "fake-hermes"
+    fake.write_text(f"#!/bin/sh\necho $$ > {pidfile}\nexec sleep 300\n")
+    fake.chmod(0o755)
+    _patch_hermes(monkeypatch, fake)
+
+    async def boom(proc, limit):
+        # Wait until the child has recorded its pid, then fail mid-run.
+        for _ in range(200):
+            if pidfile.exists():
+                break
+            await asyncio.sleep(0.05)
+        raise RuntimeError("simulated pipe failure")
+
+    monkeypatch.setattr(hermes, "_communicate_bounded", boom)
+
+    with pytest.raises(RuntimeError, match="simulated pipe failure"):
+        await hermes._run_hermes_inner(HermesRunRequest(prompt="x", max_time=300))
+
+    # killpg+reap ran before the exception propagated: the child is gone.
+    pid = int(pidfile.read_text().strip())
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+
+
+@pytest.mark.asyncio
 async def test_timeout_still_504s_with_bounded_drain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The #1473 timeout path still works after the communicate() rewrite."""
     fake = tmp_path / "fake-hermes"

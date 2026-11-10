@@ -6,6 +6,9 @@ request provably left the gateway: pre-send failures retry for every method,
 post-send failures only for safe methods or writes carrying Idempotency-Key.
 """
 
+import asyncio
+import time
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -203,3 +206,44 @@ def test_ambiguous_write_retry_allowed_via_v2_spelling(client, monkeypatch):
 
     assert flaky.calls == 2
     assert response.status_code == 201
+
+
+class _DeadlineProbeClient:
+    """First attempt: slow post-send failure. Later attempts: hang."""
+
+    def __init__(self, first_attempt_seconds: float):
+        self.calls = 0
+        self._first = first_attempt_seconds
+
+    def build_request(self, method, url, **kwargs):
+        return httpx.Request(method, url, **kwargs)
+
+    async def send(self, request, stream=False):
+        self.calls += 1
+        if self.calls == 1:
+            await asyncio.sleep(self._first)
+            raise httpx.ReadTimeout("timed out", request=request)
+        await asyncio.sleep(30)
+
+    async def aclose(self):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_upstream_deadline_is_total_across_retries(monkeypatch):
+    """#1667: UPSTREAM_DEADLINE_SECONDS is ONE budget shared by all attempts,
+    not a per-attempt allowance. A slow first attempt plus the inter-attempt
+    backoff can exhaust it before attempt two ever sends — under per-attempt
+    semantics the second send would still have gone out."""
+    monkeypatch.setattr(gateway, "UPSTREAM_DEADLINE_SECONDS", 0.3)
+    flaky = _DeadlineProbeClient(first_attempt_seconds=0.2)
+
+    start = time.monotonic()
+    with pytest.raises(TimeoutError):
+        await gateway.proxy_with_retry(flaky, "POST", "http://upstream.invalid/x", retry_ambiguous=True)
+    elapsed = time.monotonic() - start
+
+    # Attempt 1 burned 0.2s of the 0.3s budget; the 0.5s retry backoff pushed
+    # past the deadline, so _send_and_read_bounded refused before sending.
+    assert flaky.calls == 1
+    assert elapsed < 1.5
