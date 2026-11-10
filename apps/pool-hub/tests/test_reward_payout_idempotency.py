@@ -159,6 +159,75 @@ class TestDistributionIsIdempotent:
         assert row.tx_hash == "tx-abc"
         assert row.paid_at is not None
 
+    @pytest.mark.asyncio
+    async def test_node_transaction_hash_key_is_accepted(self, client, payout_session):
+        """POST /rpc/transaction answers {"success": true, "transaction_hash": ...}.
+
+        Reading only "tx_hash" marked every payout paid with an empty hash —
+        the #1570 residual. The real node key must produce a paid row with the
+        hash recorded.
+        """
+        client.record_contribution("miner-1", score=90.0, shares=5000)
+        session = payout_session
+
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(
+                client._rpc,
+                "submit_transaction",
+                new_callable=AsyncMock,
+                return_value={"success": True, "transaction_hash": "0xabc123", "message": "ok"},
+            ),
+        ):
+            payouts = await client.distribute_rewards(block_height=100, session=session)
+
+        assert [p["status"] for p in payouts] == ["paid"]
+        assert payouts[0]["tx_hash"] == "0xabc123"
+        row = session.added[-1]
+        assert row.status == "paid"
+        assert row.tx_hash == "0xabc123"
+
+    @pytest.mark.asyncio
+    async def test_empty_tx_hash_is_failure_not_paid(self, client, payout_session):
+        """A success-shaped response with no hash must not wedge the epoch slot as 'paid'."""
+        client.record_contribution("miner-1", score=90.0, shares=5000)
+        session = payout_session
+
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(
+                client._rpc,
+                "submit_transaction",
+                new_callable=AsyncMock,
+                return_value={"success": True, "message": "no hash"},
+            ),
+        ):
+            payouts = await client.distribute_rewards(block_height=100, session=session)
+
+        assert [p["status"] for p in payouts] == ["failed"]
+        row = session.added[-1]
+        assert row.status == "failed"
+        assert not row.tx_hash
+
+    @pytest.mark.asyncio
+    async def test_explicit_rejection_is_failure_not_paid(self, client, payout_session):
+        client.record_contribution("miner-1", score=90.0, shares=5000)
+        session = payout_session
+
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(
+                client._rpc,
+                "submit_transaction",
+                new_callable=AsyncMock,
+                return_value={"success": False, "error": "insufficient funds"},
+            ),
+        ):
+            payouts = await client.distribute_rewards(block_height=100, session=session)
+
+        assert [p["status"] for p in payouts] == ["failed"]
+        assert session.added[-1].status == "failed"
+
 
 class TestRewardRecipientIsWalletAddress:
     """#1401 — the signed tx's `to` must be the miner's wallet_address, not miner_id."""
