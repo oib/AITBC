@@ -8,10 +8,12 @@ only handles the create → match → agree lifecycle.
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+import os
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import and_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -26,6 +28,23 @@ _TERMINAL_TRADE_STATUSES = {
     InterChainTradeStatus.CANCELLED,
     InterChainTradeStatus.FAILED,
 }
+
+# #1562: pending trades get a finite lifetime — INTER_CHAIN_TRADE_TTL_SECONDS
+# (default 7d). Naive UTC datetimes match how the column is written below and
+# keep sqlite comparisons lexicographic-correct.
+_DEFAULT_TRADE_TTL_SECONDS = 7 * 24 * 3600
+
+
+def _trade_ttl() -> timedelta:
+    try:
+        seconds = int(os.environ.get("INTER_CHAIN_TRADE_TTL_SECONDS", str(_DEFAULT_TRADE_TTL_SECONDS)))
+    except (TypeError, ValueError):
+        seconds = _DEFAULT_TRADE_TTL_SECONDS
+    return timedelta(seconds=max(60, seconds))
+
+
+def _utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class InterChainTradeService:
@@ -56,6 +75,7 @@ class InterChainTradeService:
             price=price,
             quantity=quantity,
             status="pending",
+            expires_at=_utcnow_naive() + _trade_ttl(),
         )
         self.session.add(trade)
         await self.session.commit()
@@ -63,8 +83,40 @@ class InterChainTradeService:
         logger.info("Created inter-chain trade %s: %s → %s", trade.trade_id, source_chain, dest_chain)
         return trade
 
+    async def _expire_stale_pending(self) -> int:
+        """#1562 lazy expiry: pending trades past expires_at become 'cancelled'.
+
+        Runs on the read paths (list/get/history) — there is no background
+        sweeper in this service. Rows predating the column (NULL expires_at)
+        fall back to created_at + TTL. Returns the number of rows expired.
+        """
+        now = _utcnow_naive()
+        # Rows predating the expires_at column (NULL) fall back to
+        # created_at + TTL so legacy pending trades still expire.
+        cutoff = now - _trade_ttl()
+        result = await self.session.execute(
+            update(InterChainTrade)
+            .where(
+                InterChainTrade.status == "pending",  # type: ignore[arg-type]
+                or_(  # type: ignore[operator]
+                    InterChainTrade.expires_at < now,  # type: ignore[operator]
+                    and_(  # type: ignore[operator]
+                        InterChainTrade.expires_at.is_(None),  # type: ignore[union-attr]
+                        InterChainTrade.created_at < cutoff,  # type: ignore[operator]
+                    ),
+                ),
+            )
+            .values(status="cancelled", updated_at=now)
+        )
+        expired = result.rowcount or 0
+        if expired:
+            await self.session.commit()
+            logger.info("Expired %d stale pending inter-chain trade(s)", expired)
+        return expired
+
     async def get_trade(self, trade_id: str) -> InterChainTrade | None:
         """Get a trade by ID."""
+        await self._expire_stale_pending()
         stmt = select(InterChainTrade).where(InterChainTrade.trade_id == trade_id)
         result = await self.session.execute(stmt)
         return result.scalars().first()
@@ -82,6 +134,7 @@ class InterChainTradeService:
         ``limit``/``offset`` are clamped — a negative limit would otherwise
         reach ``.limit()`` as SQLite "unlimited" (#1543).
         """
+        await self._expire_stale_pending()
         limit = min(max(int(limit), 1), 500)
         offset = max(int(offset), 0)
         stmt = select(InterChainTrade)
@@ -179,6 +232,7 @@ class InterChainTradeService:
         Returns completed/cancelled/failed trades, optionally filtered
         by source/dest chain.
         """
+        await self._expire_stale_pending()
         limit = min(max(int(limit), 1), 500)
         stmt = select(InterChainTrade).where(InterChainTrade.status.in_(["completed", "cancelled", "failed"]))  # type: ignore[attr-defined]
         if source_chain:

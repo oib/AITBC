@@ -25,12 +25,14 @@ from ..services.inter_chain_service import InterChainTradeService
 router = APIRouter(tags=["settlement"])
 logger = get_logger(__name__)
 
-# Claim-then-call bound for the escrow_creating marker (#1562): the external
-# create_escrow RPC is bounded by the HTTP timeout, so a marker older than
-# this can only mean the claiming request died mid-flight — a retry may
-# reclaim it. Fresh markers refuse with 409 so two callers cannot both reach
-# the RPC (with_for_update is a no-op on sqlite, the default backend).
+# Claim-then-call bound for the in-flight markers (#1562): the external
+# create_escrow/settle RPCs are bounded by the HTTP timeout, so a marker
+# older than this can only mean the claiming request died mid-flight — a
+# retry may reclaim it. Fresh markers refuse with 409 so two callers cannot
+# both reach the RPC (with_for_update is a no-op on sqlite, the default
+# backend).
 _ESCROW_CREATE_CLAIM_TTL = timedelta(seconds=300)
+_SETTLE_CLAIM_TTL = timedelta(seconds=300)
 
 
 def _get_settlement_client() -> SettlementClient:
@@ -48,44 +50,66 @@ async def _lock_trade_for_update(svc: InterChainTradeService, trade_id: str) -> 
     return result.scalars().first()
 
 
-async def _claim_escrow_creation(
-    svc: InterChainTradeService, trade: InterChainTrade, trade_id: str
+async def _claim_phase(
+    svc: InterChainTradeService,
+    trade: InterChainTrade,
+    trade_id: str,
+    marker: SettlementPhase,
+    ttl: timedelta,
+    in_flight_error: str,
 ) -> tuple[str, JSONResponse | None]:
-    """Commit the ``escrow_creating`` claim marker before the external RPC (#1562).
+    """Commit an in-flight claim marker before the external RPC (#1562).
 
-    Returns ``(prior_phase, refusal)`` — ``refusal`` is a 409 JSONResponse when
-    a fresh claim by another caller is still within ``_ESCROW_CREATE_CLAIM_TTL``;
+    ``marker`` is a non-terminal SettlementPhase (``escrow_creating`` /
+    ``settling``). Returns ``(prior_phase, refusal)`` — ``refusal`` is a 409
+    JSONResponse when a fresh claim by another caller is still within ``ttl``;
     otherwise the marker is committed and ``refusal`` is None.
     """
     prior_phase = trade.settlement_phase
-    if prior_phase == SettlementPhase.ESCROW_CREATING.value:
+    if prior_phase == marker.value:
         claimed_at = trade.updated_at
         if claimed_at is not None and claimed_at.tzinfo is None:
             claimed_at = claimed_at.replace(tzinfo=UTC)
-        if claimed_at is not None and datetime.now(UTC) - claimed_at < _ESCROW_CREATE_CLAIM_TTL:
-            return prior_phase, JSONResponse(
-                status_code=409,
-                content={"error": "Escrow creation already in progress for this trade"},
-            )
-        logger.warning("Reclaiming stale escrow_creating claim on trade %s", trade_id)
-    trade.settlement_phase = SettlementPhase.ESCROW_CREATING.value
+        if claimed_at is not None and datetime.now(UTC) - claimed_at < ttl:
+            return prior_phase, JSONResponse(status_code=409, content={"error": in_flight_error})
+        logger.warning("Reclaiming stale %s claim on trade %s", marker.value, trade_id)
+    trade.settlement_phase = marker.value
     trade.updated_at = datetime.now(UTC)
     await svc.session.commit()
     await svc.session.refresh(trade)
     return prior_phase, None
 
 
-async def _release_escrow_claim(svc: InterChainTradeService, trade_id: str, prior_phase: str) -> None:
-    """Undo the claim marker after a failed create_escrow so the trade can retry."""
+async def _release_phase_claim(svc: InterChainTradeService, trade_id: str, marker: SettlementPhase, prior_phase: str) -> None:
+    """Undo the claim marker after a failed external RPC so the trade can retry."""
     try:
         trade = await _lock_trade_for_update(svc, trade_id)
-        if trade is not None and trade.settlement_phase == SettlementPhase.ESCROW_CREATING.value:
+        if trade is not None and trade.settlement_phase == marker.value:
             trade.settlement_phase = prior_phase
             trade.updated_at = datetime.now(UTC)
             await svc.session.commit()
     except Exception:
         await svc.session.rollback()
-        logger.exception("Failed to release escrow_creating claim on trade %s", trade_id)
+        logger.exception("Failed to release %s claim on trade %s", marker.value, trade_id)
+
+
+async def _claim_escrow_creation(
+    svc: InterChainTradeService, trade: InterChainTrade, trade_id: str
+) -> tuple[str, JSONResponse | None]:
+    """Commit the ``escrow_creating`` claim marker before create_escrow (#1562)."""
+    return await _claim_phase(
+        svc,
+        trade,
+        trade_id,
+        SettlementPhase.ESCROW_CREATING,
+        _ESCROW_CREATE_CLAIM_TTL,
+        "Escrow creation already in progress for this trade",
+    )
+
+
+async def _release_escrow_claim(svc: InterChainTradeService, trade_id: str, prior_phase: str) -> None:
+    """Undo the escrow_creating claim after a failed create_escrow."""
+    await _release_phase_claim(svc, trade_id, SettlementPhase.ESCROW_CREATING, prior_phase)
 
 
 @router.post("/v1/trading/trades/{trade_id}/lock-escrow")
@@ -217,6 +241,20 @@ async def settle_trade(
             status_code=409,
             content={"error": f"Trade cannot settle from status '{trade.status}' / phase '{trade.settlement_phase}'"},
         )
+    # Claim-then-call (#1562): the committed 'settling' marker is the guard —
+    # the settle RPC used to run with only the row lock, which is a no-op on
+    # sqlite, so a crash between RPC success and commit left the phase
+    # ambiguous and a retry could double-settle.
+    prior_phase, refusal = await _claim_phase(
+        svc,
+        trade,
+        trade_id,
+        SettlementPhase.SETTLING,
+        _SETTLE_CLAIM_TTL,
+        "Settlement already in progress for this trade",
+    )
+    if refusal is not None:
+        return refusal
     try:
         async with _get_settlement_client() as client:
             result = await client.settle(trade.escrow_id, secret)
@@ -226,6 +264,9 @@ async def settle_trade(
         return {"trade_id": trade.trade_id, "escrow_id": trade.escrow_id, "result": result}
     except Exception:
         await svc.session.rollback()
+        # Release the claim marker so the trade can be retried — but only
+        # back to the phase it held before this attempt.
+        await _release_phase_claim(svc, trade_id, SettlementPhase.SETTLING, prior_phase)
         logger.exception("Settle trade failed for trade %s", trade_id)
         return JSONResponse(status_code=502, content={"error": "Settle trade failed; the trade was not settled"})
 

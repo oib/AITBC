@@ -2772,7 +2772,7 @@
             }
           },
           "409": {
-            "description": "Escrow already created for this trade / Trade status '{trade.status}' cannot lock an escrow / Escrow creation already in progress for this trade",
+            "description": "Escrow already created for this trade / Trade status '{trade.status}' cannot lock an escrow",
             "content": {
               "application/json": {
                 "schema": {
