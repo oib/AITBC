@@ -38,6 +38,8 @@ from ..gossip.gossip_auth import (
 )
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
+from . import peer_keys
+from .escrow_routes import rpc_peer_key_accepted
 from ..metrics import (
     gossip_auth_accepted_total,
     gossip_auth_rejected_total,
@@ -797,6 +799,21 @@ async def subscription_websocket(websocket: WebSocket) -> None:
         transport = data.get("transport", "websocket")
         if not node_id:
             await _gossip_ws_send_json(websocket, {"error": "node_id is required"})
+            await _gossip_ws_close(websocket, code=1008)
+            return
+        # #1702: the lease check below proves a lease EXISTS for the claimed
+        # node_id — it says nothing about who is asking, and /rpc/subscribers
+        # is public, so any valid node_id could be claimed anonymously. Require
+        # the same peer-key credential the REST lease routes enforce, with the
+        # same issued-key node_id binding.
+        api_key = data.get("api_key")
+        if not isinstance(api_key, str) or not rpc_peer_key_accepted(api_key):
+            logger.warning("Subscribe websocket rejected: missing or invalid peer key (node_id=%s)", node_id)
+            await _gossip_ws_send_json(websocket, {"error": "Valid peer key required (api_key)"})
+            await _gossip_ws_close(websocket, code=1008)
+            return
+        if peer_keys.is_issued_key(api_key) and peer_keys.peer_key_node_scope(api_key) != node_id:
+            await _gossip_ws_send_json(websocket, {"error": "Peer key is bound to a different node_id"})
             await _gossip_ws_close(websocket, code=1008)
             return
         try:

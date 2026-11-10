@@ -295,9 +295,19 @@ class SubscriptionClient:
                     self._set_sync_mode("push")
                     import json
 
-                    await websocket.send(
-                        json.dumps({"node_id": self._node_id, "chain_id": self._chain_id, "transport": "websocket"})
-                    )
+                    # #1702: the hub now requires the same peer key the REST
+                    # lease routes use — without it the subscribe/ws handshake
+                    # is refused. The key travels inside the WS message (there
+                    # is no header channel on a websocket).
+                    subscribe_msg = {
+                        "node_id": self._node_id,
+                        "chain_id": self._chain_id,
+                        "transport": "websocket",
+                    }
+                    api_key = os.environ.get("BLOCKCHAIN_RPC_API_KEY")
+                    if api_key:
+                        subscribe_msg["api_key"] = api_key
+                    await websocket.send(json.dumps(subscribe_msg))
                     logger.debug("WebSocket subscription message sent", extra={"node_id": self._node_id})
                     async for message in websocket:
                         try:
