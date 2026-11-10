@@ -68,6 +68,12 @@ def justification_enabled() -> bool:
     )
 
 
+def nonblocking_persist_enabled() -> bool:
+    """#1306: attest-listener leg 1 reads the sampler instead of waiting on it.
+    Dormant default-off; only meaningful with the UC barrier armed."""
+    return bool(getattr(settings, "unavail_nonblocking_persist_enabled", False)) and justification_enabled()
+
+
 def _float(name: str, default: float) -> float:
     return float(getattr(settings, name, default))
 
@@ -700,8 +706,15 @@ async def unfetchable_persists(
     block_hashes: list[str] | tuple[str, ...] | set[str],
     *,
     timeout: float | None = None,
+    block: bool = True,
 ) -> bool:
     """Await until ``block_hashes`` have been unfetchable for T_evidence.
+
+    ``block=False`` (#1306, attest-listener path): start/join the shared
+    sampler and return its *current* verdict at once — True only if the
+    miss streak has already matured to T_evidence — never polling or
+    sleeping. The sampler keeps running, so a later call sees the matured
+    streak.
 
     Returns True when the shared sampler proves a continuous miss streak
     of ``unavail_evidence_seconds``; False on a fetch hit, sampler failure,
@@ -718,6 +731,8 @@ async def unfetchable_persists(
             sampler = _FetchSampler(chain_id, int(height), wanted)
             _FETCH_SAMPLERS[key] = sampler
             sampler.task = asyncio.ensure_future(sampler.run())
+    if not block:
+        return (not sampler.hit) and sampler.state()
     need = evidence_seconds()
     interval = max(1.0, sample_seconds())
     wait = timeout if timeout is not None else need + 3 * interval + 5.0
@@ -985,6 +1000,7 @@ async def unlock_justification(
     request_cert: dict[str, Any] | UnavailabilityCertificate | None = None,
     broker: Any | None = None,
     wait_for_probe: bool = True,
+    nonblocking_persist: bool = False,
 ) -> dict[str, Any] | None:
     """The armed-mode unlock justification, or None.
 
@@ -1002,12 +1018,17 @@ async def unlock_justification(
     ``wait_for_probe=False`` is for the attest-request listener path: it
     starts/shares the probe but returns None while a collection is in
     flight rather than blocking the listener for the collect window.
+
+    ``nonblocking_persist=True`` (#1306, flag-gated by the caller) applies the
+    same idea to leg 1: ``unfetchable_persists(..., block=False)`` reads the
+    sampler's current verdict instead of waiting out T_evidence inside the
+    listener. Default False = blocking, unchanged.
     """
     hashes = sorted({h for h in voted_hashes if h})
     if not hashes:
         return None
     # Leg 1: the voted block(s) must stay unfetchable for T_evidence.
-    if not await unfetchable_persists(chain_id, height, hashes):
+    if not await unfetchable_persists(chain_id, height, hashes, block=not nonblocking_persist):
         return None
     index = await get_observation_index(chain_id)
     # Per voted hash: quiet gate → probe → full re-verdict. All conflicting
@@ -1028,7 +1049,7 @@ async def unlock_justification(
         # Post-probe re-evaluation: a fetch hit or fresh attest traffic
         # during the collect window revokes the unlock; cert quorum alone
         # is not mesh visibility.
-        if not await unfetchable_persists(chain_id, height, hashes):
+        if not await unfetchable_persists(chain_id, height, hashes, block=not nonblocking_persist):
             return None
         verdict = index.clean_verdict(height, block_hash, ignore=ignore)
         verdicts[block_hash] = verdict
