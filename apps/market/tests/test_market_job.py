@@ -72,6 +72,23 @@ async def test_create_market_job(service: MarketService) -> None:
 
 
 @pytest.mark.asyncio
+async def test_create_market_job_rejects_unbounded_payment(service: MarketService) -> None:
+    """#1673-class residual: payment.amount had a finite/>=0 check but no
+    ceiling — 1e18/1e30 were stored verbatim."""
+    await _register_offer(service, "offer-cap")
+    with pytest.raises(ValueError, match="must not exceed"):
+        await service.create_market_job(
+            {
+                "service_type": "ipfs",
+                "offer_id": "offer-cap",
+                "buyer_address": "0x" + "11" * 20,
+                "provider_address": "0x" + "22" * 20,
+                "payment": {"amount": "1e30"},
+            }
+        )
+
+
+@pytest.mark.asyncio
 async def test_get_market_job(service: MarketService) -> None:
     created = await service.create_market_job(
         {
