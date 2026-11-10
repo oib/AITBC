@@ -14,7 +14,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils import format_ait
 from aitbc.utils.chain_id import resolve_chain_id
 
-from validation import check_page_offset, clamp_page_limit, validate_chain_id
+from validation import MAX_EMBEDDED_TXS_PER_BLOCK, check_page_offset, clamp_page_limit, validate_chain_id, validate_tx_hash
 
 logger = get_logger(__name__)
 
@@ -193,6 +193,12 @@ async def get_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str
     if not validate_chain_id(chain_id):
         logger.warning("Invalid chain_id format")
         return {}
+    # EXPLORER-VALID-1 (#1493): the RPC fallback interpolates tx_hash into the
+    # URL path — an unvalidated hash could climb or smuggle a query. The DB
+    # path is parameterized, but the fallback exists for DB-less deployments.
+    if not validate_tx_hash(tx_hash):
+        logger.warning("Invalid tx_hash format")
+        return {}
     try:
         db_path = chain_db_path()
         if db_path is not None:
@@ -276,7 +282,9 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
 
                     # Get transactions for this block — same chain scope:
-                    # block_height alone collides across chains.
+                    # block_height alone collides across chains. Capped per
+                    # block (EXPLORER-RESP-1, #1492): fetch one extra row to
+                    # detect truncation without a second COUNT query.
                     tx_scope, tx_scope_params = await chain_scope(conn, "transaction", chain_id)
                     tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
                     await cursor.execute(
@@ -285,13 +293,15 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                         FROM "transaction"
                         WHERE {tx_where}
                         ORDER BY created_at
+                        LIMIT ?
                     """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                        tx_params,
+                        [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
                     )
 
                     transactions = []
-                    rows = await cursor.fetchall()
-                    for row in rows:
+                    rows = list(await cursor.fetchall())
+                    truncated = len(rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+                    for row in rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
                         tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                         transactions.append(
                             {
@@ -318,6 +328,7 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                         "txCount": tx_count,
                         "stateRoot": state_root,
                         "transactions": transactions,
+                        "transactions_truncated": truncated,
                     }
                 else:
                     return {}
@@ -374,7 +385,9 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                 for row in rows:
                     height, block_hash, proposer, timestamp, tx_count, state_root = row
 
-                    # Get transactions for this block — scoped like get_block.
+                    # Get transactions for this block — scoped like get_block;
+                    # capped per block (EXPLORER-RESP-1, #1492) — +1 row
+                    # detects truncation.
                     tx_scope, tx_scope_params = await chain_scope(conn, "transaction", chain_id)
                     tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
                     await cursor.execute(
@@ -383,13 +396,15 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                         FROM "transaction"
                         WHERE {tx_where}
                         ORDER BY created_at
+                        LIMIT ?
                     """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                        tx_params,
+                        [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
                     )
 
                     transactions = []
-                    tx_rows = await cursor.fetchall()
-                    for tx_row in tx_rows:
+                    tx_rows = list(await cursor.fetchall())
+                    truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+                    for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
                         tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                         transactions.append(
                             {
@@ -417,6 +432,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                             "txCount": tx_count,
                             "stateRoot": state_root,
                             "transactions": transactions,
+                            "transactions_truncated": truncated,
                         }
                     )
 

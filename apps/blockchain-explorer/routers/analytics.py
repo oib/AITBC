@@ -160,7 +160,14 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
 
             # Anchored offers: distinct offer keys across all anchor tx types.
             # Software offers carry payload.offer_id; GPU registrations payload.gpu_id.
-            where, params = scoped_where("type IN ('GPU_MARKET', 'GPU_REGISTER')", tx_scope, [], tx_scope_params)
+            # json_valid keeps a malformed payload row from failing the whole
+            # stats read (EXPLORER-QUERY-1, #1490).
+            where, params = scoped_where(
+                "type IN ('GPU_MARKET', 'GPU_REGISTER') AND json_valid(payload)",
+                tx_scope,
+                [],
+                tx_scope_params,
+            )
             await cursor.execute(
                 f"""
                 SELECT COUNT(DISTINCT COALESCE(

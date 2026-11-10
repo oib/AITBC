@@ -41,6 +41,12 @@ def validate_chain_id(chain_id: str) -> bool:
 MAX_PAGE_LIMIT = 200
 MAX_PAGE_OFFSET = 10_000
 MAX_ANALYTICS_DAYS = 365
+# EXPLORER-RESP-1 (#1492): block payloads embed their transaction list, so a
+# page of blocks multiplies whatever one block can hold. Chain blocks are
+# small today, but nothing in the schema caps tx_count — bound the embedded
+# list per block and flag the truncation instead of serializing unbounded
+# rows (each carrying full payload JSON) per request.
+MAX_EMBEDDED_TXS_PER_BLOCK = 200
 
 
 def clamp_page_limit(limit: int) -> int:

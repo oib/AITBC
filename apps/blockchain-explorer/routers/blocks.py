@@ -20,7 +20,7 @@ from chain_client import (
     scoped_where,
 )
 from .common import like_pattern
-from validation import check_page_offset, clamp_page_limit, validate_tx_hash
+from validation import MAX_EMBEDDED_TXS_PER_BLOCK, check_page_offset, clamp_page_limit, validate_tx_hash
 
 logger = get_logger(__name__)
 
@@ -94,7 +94,8 @@ async def api_non_empty_blocks(
                 height, block_hash, proposer, timestamp, tx_count, state_root = row
 
                 # Get transactions for this block — chain-scoped like the
-                # join above (#1620).
+                # join above (#1620); capped per block (EXPLORER-RESP-1,
+                # #1492) — +1 row detects truncation.
                 tx_scope, tx_scope_params = await chain_scope(conn, "transaction", cid)
                 tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
                 await cursor.execute(
@@ -103,13 +104,15 @@ async def api_non_empty_blocks(
                     FROM "transaction"
                     WHERE {tx_where}
                     ORDER BY created_at
+                    LIMIT ?
                 """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                    tx_params,
+                    [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
                 )
 
                 transactions = []
-                tx_rows = await cursor.fetchall()
-                for tx_row in tx_rows:
+                tx_rows = list(await cursor.fetchall())
+                truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+                for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
                     tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                     transactions.append(
                         {
@@ -135,6 +138,7 @@ async def api_non_empty_blocks(
                         "txCount": tx_count,
                         "stateRoot": state_root,
                         "transactions": transactions,
+                        "transactions_truncated": truncated,
                     }
                 )
 
@@ -195,7 +199,9 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
                 if result:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
 
-                    # Get transactions for this block — chain-scoped (#1620).
+                    # Get transactions for this block — chain-scoped (#1620);
+                    # capped per block (EXPLORER-RESP-1, #1492) — +1 row
+                    # detects truncation.
                     tx_scope, tx_scope_params = await chain_scope(conn, "transaction", cid)
                     tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
                     await cursor.execute(
@@ -204,13 +210,15 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
                         FROM "transaction"
                         WHERE {tx_where}
                         ORDER BY created_at
+                        LIMIT ?
                     """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                        tx_params,
+                        [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
                     )
 
                     transactions = []
-                    rows = await cursor.fetchall()
-                    for row in rows:
+                    rows = list(await cursor.fetchall())
+                    truncated = len(rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+                    for row in rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
                         tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
                         transactions.append(
                             {
@@ -237,6 +245,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
                         "txCount": tx_count,
                         "stateRoot": state_root,
                         "transactions": transactions,
+                        "transactions_truncated": truncated,
                     }
 
         # Fallback to RPC method

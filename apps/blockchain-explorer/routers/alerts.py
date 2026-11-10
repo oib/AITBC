@@ -30,6 +30,11 @@ router = APIRouter()
 _ALERT_EVENTS = ("prometheus_alert_firing", "prometheus_alert_resolved", "prometheus_alert_still_firing")
 _WATCHER_STALE_SECONDS = 300.0
 _TAIL_HISTORY_BYTES = 512 * 1024
+# EXPLORER-LOG-1 (#1491): the replay/history path used to read_text() the
+# whole alert log and materialize every line as a dict — an unbounded
+# allocation cached for the process lifetime. Reads are now tail-windowed;
+# 8 MiB covers far more alert history than any firing alert's lifetime.
+_MAX_LOG_READ_BYTES = 8 * 1024 * 1024
 _ALERTS_TTL_SECONDS = 5.0
 
 # Parsed event log cache keyed by (mtime_ns, size).
@@ -61,8 +66,26 @@ def _parse_log_lines(lines: list[str]) -> list[dict[str, Any]]:
     return events
 
 
+def _tail_events(path: Path, size: int, nbytes: int) -> tuple[list[dict[str, Any]], int]:
+    """Parse the trailing ``nbytes`` of the log. Returns (events, lines_scanned)."""
+    if size == 0:
+        return [], 0
+    nbytes = min(size, nbytes)
+    try:
+        with path.open("rb") as fh:
+            fh.seek(size - nbytes)
+            chunk = fh.read(nbytes)
+    except OSError:
+        return [], 0
+    text = chunk.decode("utf-8", errors="replace")
+    lines = text.splitlines()
+    if nbytes < size and lines:
+        lines = lines[1:]  # drop partial first line after seek
+    return _parse_log_lines(lines), len(lines)
+
+
 def _read_events() -> list[dict[str, Any]]:
-    """Parse the watcher's JSON-lines log. Cached by (mtime_ns, size)."""
+    """Parse the watcher's JSON-lines log tail. Cached by (mtime_ns, size)."""
     global _events_cache
     path = _alert_log_path()
     try:
@@ -72,11 +95,7 @@ def _read_events() -> list[dict[str, Any]]:
     key = (st.st_mtime_ns, st.st_size)
     if _events_cache is not None and _events_cache[0:2] == key:
         return _events_cache[2]
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    events = _parse_log_lines(text.splitlines())
+    events, _scanned = _tail_events(path, st.st_size, _MAX_LOG_READ_BYTES)
     _events_cache = (key[0], key[1], events)
     return events
 
@@ -88,21 +107,7 @@ def _read_events_tail() -> tuple[list[dict[str, Any]], int]:
         size = path.stat().st_size
     except OSError:
         return [], 0
-    if size == 0:
-        return [], 0
-    nbytes = min(size, _TAIL_HISTORY_BYTES)
-    try:
-        with path.open("rb") as fh:
-            fh.seek(size - nbytes)
-            chunk = fh.read(nbytes)
-    except OSError:
-        return [], 0
-    text = chunk.decode("utf-8", errors="replace")
-    lines = text.splitlines()
-    if nbytes < size and lines:
-        lines = lines[1:]  # drop partial first line after seek
-    events = _parse_log_lines(lines)
-    return events, len(lines)
+    return _tail_events(path, size, _TAIL_HISTORY_BYTES)
 
 
 def _alert_key(record: dict[str, Any]) -> str:
