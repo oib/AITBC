@@ -105,6 +105,9 @@ def main() -> int:
     init_db()
 
     def cmd_list(status: str | None, limit: int) -> int:
+        # A negative LIMIT is unlimited in SQLite — clamp so --limit -1
+        # cannot dump the whole ledger.
+        limit = max(1, limit)
         filt = None
         if status is not None:
             try:
@@ -155,41 +158,66 @@ def main() -> int:
         print(msg)
         return 0 if ok else 1
 
+    def _report(msg: str, code: int) -> int:
+        print(msg)
+        return code
+
     def cmd_manual_payout(to: str, amount: str) -> int:
         try:
             ait_amount = Decimal(amount)
         except ArithmeticError:
-            print(f"invalid amount {amount!r}")
-            return 2
-        if ait_amount <= 0:
-            print("amount must be > 0")
-            return 2
-        if not (to.startswith("0x") and len(to) == 42):
-            print(f"invalid AIT recipient {to!r}")
-            return 2
+            return _report(f"invalid amount {amount!r}", 2)
+        # Decimal('NaN') parses fine but every comparison with it raises
+        # InvalidOperation; Decimal('Infinity') passes "> 0" and would sign
+        # an infinite payout. Both must die here, before a row exists.
+        if not ait_amount.is_finite() or ait_amount <= 0:
+            return _report("amount must be a finite number > 0", 2)
+        # Same recipient rule as every other payout path — a non-hex
+        # 'address' only fails later inside the signer, leaving an orphan
+        # row behind.
+        if not _valid_recipient(to):
+            return _report(f"invalid AIT recipient {to!r}", 2)
+        # Serialize like the monitor's own payout paths: the nonce comes
+        # from committed chain state, so a second in-flight envelope signs
+        # the SAME nonce and the two collide in the mempool — the exact
+        # failure _payout_in_flight exists to prevent. Construct the
+        # monitor before creating the row so a missing env var cannot
+        # leave an orphan PENDING row either.
+        mon = BridgeMonitor()
+        if mon._payout_in_flight():
+            return _report(
+                "a payout envelope is already in flight (SUBMITTED) — refusing: "
+                "a second envelope would sign the same nonce and collide. "
+                "Wait for it to seal or run abandon-and-resign first",
+                1,
+            )
         tx_hash = f"manual-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S.%f')}"
         if not create_deposit(tx_hash, "manual", "0", to):
-            print(f"cannot create manual payout row {tx_hash}")
-            return 1
-        mon = BridgeMonitor()
+            return _report(f"cannot create manual payout row {tx_hash}", 1)
         if not mon._submit_payout(tx_hash, to, ait_amount):
-            print(f"manual payout {tx_hash}: failed to build signed payout — row is PENDING_RETRY-able")
-            return 1
-        print(f"manual payout {tx_hash}: {ait_amount} AIT to {to} submitted — sweep owns sealing")
-        return 0
+            # Nothing was broadcast, and no sweep owns a 'manual-*' PENDING
+            # row (the retry pass would reprice eth_amount='0' forever) —
+            # leave the row terminally FAILED, not in limbo.
+            update_deposit(
+                tx_hash,
+                status=BridgeDepositStatus.FAILED,
+                error_message="manual payout: failed to build signed payout",
+            )
+            return _report(f"manual payout {tx_hash}: failed to build signed payout — row marked FAILED", 1)
+        return _report(f"manual payout {tx_hash}: {ait_amount} AIT to {to} submitted — sweep owns sealing", 0)
 
     if ns.command == "status":
-        return cmd_status(ns.args[0]) if ns.args else parser.error("status needs <tx_hash>")
+        return cmd_status(ns.args[0]) if len(ns.args) == 1 else parser.error("status needs <tx_hash>")
     if ns.command == "list":
         return cmd_list(ns.status, ns.limit)
     if ns.command == "write-off":
-        if not ns.args:
+        if len(ns.args) != 1:
             parser.error("write-off needs <tx_hash>")
         return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient)
     if ns.command == "abandon-and-resign":
-        return cmd_abandon(ns.args[0]) if ns.args else parser.error("abandon-and-resign needs <tx_hash>")
+        return cmd_abandon(ns.args[0]) if len(ns.args) == 1 else parser.error("abandon-and-resign needs <tx_hash>")
     if ns.command == "manual-payout":
-        if len(ns.args) < 2:
+        if len(ns.args) != 2:
             parser.error("manual-payout needs <to> <amount_ait>")
         return cmd_manual_payout(ns.args[0], ns.args[1])
     return 2

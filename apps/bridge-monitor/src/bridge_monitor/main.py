@@ -886,8 +886,16 @@ class BridgeMonitor:
         signed_raw = d.get("signed_tx")
         if not signed_raw:
             return False, f"deposit {tx_hash} has no stored envelope"
-        envelope = json.loads(signed_raw)
-        env_nonce = int(envelope.get("nonce", -1))
+        try:
+            envelope = json.loads(signed_raw)
+            env_nonce = int(envelope.get("nonce", -1))
+        except (ValueError, TypeError, AttributeError) as e:
+            return False, f"deposit {tx_hash} has an unreadable stored envelope ({e}) — refusing"
+        if env_nonce < 0:
+            # nonce=0 is a real first-send nonce; anything negative means the
+            # envelope carries no usable nonce, so the "account nonce passed
+            # the envelope nonce" proof cannot hold — refuse, don't skip it.
+            return False, f"deposit {tx_hash} envelope has no usable nonce ({env_nonce}) — refusing"
         payout_hash = d.get("ait_tx_hash") or d.get("envelope_hash") or self._envelope_tx_hash(envelope)
         chain_nonce = self._account_nonce(self.genesis_wallet_address)
         if chain_nonce is None:

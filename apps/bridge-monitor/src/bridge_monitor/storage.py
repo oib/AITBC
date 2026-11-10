@@ -570,7 +570,12 @@ def _tx_hash_keys(value: str) -> tuple[str, str]:
     #668 storage-boundary normalization. Pair with ``lower(tx_hash)`` in
     the WHERE clause so mixed-case legacy rows also match."""
     canon = canon_tx_hash(value)
-    return (canon, canon[2:] if canon.startswith("0x") else canon)
+    bare = canon[2:] if canon.startswith("0x") else canon
+    # The WHERE clause compares lower(tx_hash), so the bound parameters must
+    # be lowercase as well — a mixed-case synthetic id like manual-…T…
+    # otherwise matches its own row in INSERT but never in UPDATE/SELECT,
+    # orphaning the payout envelope updates silently (rowcount is unchecked).
+    return (canon.lower(), bare.lower())
 
 
 def release_sources() -> dict[str, str]:
