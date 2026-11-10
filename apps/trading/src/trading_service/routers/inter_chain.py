@@ -141,6 +141,28 @@ async def get_inter_chain_trade_status(
     return status
 
 
+@router.post("/v1/trading/inter-chain/{trade_id}/cancel")
+async def cancel_inter_chain_trade(
+    trade_id: str,
+    svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
+):
+    """Cancel a pending inter-chain trade.
+
+    Only ``pending`` trades can be cancelled (#1562); matched trades are
+    refused because settlement may already be in flight — the response
+    carries the trade's current status either way.
+    """
+    trade = await svc.cancel_trade(trade_id)
+    if not trade:
+        return JSONResponse(status_code=404, content={"error": "Trade not found"})
+    if trade.status != "cancelled":
+        return JSONResponse(
+            status_code=409,
+            content={"error": f"Trade cannot be cancelled from status '{trade.status}'", "status": trade.status},
+        )
+    return {"trade_id": trade.trade_id, "status": trade.status}
+
+
 @router.post("/v1/trading/inter-chain/{trade_id}/match")
 async def match_inter_chain_trade(
     trade_id: str,

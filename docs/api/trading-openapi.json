@@ -2102,6 +2102,80 @@
         }
       }
     },
+    "/v1/trading/inter-chain/{trade_id}/cancel": {
+      "post": {
+        "tags": [
+          "inter-chain"
+        ],
+        "summary": "Cancel Inter Chain Trade",
+        "description": "Cancel a pending inter-chain trade.\n\nOnly ``pending`` trades can be cancelled (#1562); matched trades are\nrefused because settlement may already be in flight \u2014 the response\ncarries the trade's current status either way.",
+        "operationId": "cancel_inter_chain_trade_v1_trading_inter_chain__trade_id__cancel_post",
+        "parameters": [
+          {
+            "name": "trade_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Trade Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trade not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Trade cannot be cancelled from status '{trade.status}'",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    },
+                    "status": {
+                      "title": "Status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/trading/inter-chain/{trade_id}/match": {
       "post": {
         "tags": [
@@ -2687,7 +2761,7 @@
             }
           },
           "409": {
-            "description": "Escrow already created for this trade / Trade status '{trade.status}' cannot lock an escrow",
+            "description": "Escrow already created for this trade / Trade status '{trade.status}' cannot lock an escrow / Escrow creation already in progress for this trade",
             "content": {
               "application/json": {
                 "schema": {
