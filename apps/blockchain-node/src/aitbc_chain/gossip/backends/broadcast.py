@@ -111,7 +111,9 @@ class BroadcastGossipBackend(GossipBackend):
                         continue
                     if message["type"] != "message":
                         continue
-                    logger.info("[BROKER SUB] Received message from redis for topic %s", topic)
+                    # Per-message chatter duplicates gossip.telemetry metrics —
+                    # DEBUG keeps the default journal readable (#1574).
+                    logger.debug("[BROKER SUB] Received message from redis for topic %s", topic)
                     try:
                         for decoded in _decode_batch(message["data"]):
                             await queue.put(decoded)
