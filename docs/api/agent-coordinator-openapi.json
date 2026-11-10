@@ -1492,6 +1492,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
               "description": "Maximum results",
               "default": 50,
               "title": "Limit"
