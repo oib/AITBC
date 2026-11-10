@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, Request
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from aitbc.rate_limiting import rate_limit
 
@@ -333,7 +333,11 @@ def get_staking_info(request: Request, address: str, chain_id: str | None = None
     address = _request_address(address)
     with session_scope() as session:
         # Pre-canonicalization rows may hold the lowercase spelling; match both.
-        statement = select(Stake).where(Stake.chain_id == chain_id, func.lower(Stake.address) == address.lower())
+        statement = (
+            select(Stake)
+            .where(Stake.chain_id == chain_id, func.lower(Stake.address) == address.lower())
+            .order_by(col(Stake.id))
+        )
         stakes = session.exec(statement).all()
         total_staked = sum(s.amount for s in stakes if s.status == "active")
         active_stakes = [

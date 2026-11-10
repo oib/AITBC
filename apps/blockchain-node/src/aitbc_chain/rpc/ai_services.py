@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import ColumnElement, literal_column, or_
-from sqlmodel import func as sql_func
+from sqlmodel import col, func as sql_func
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
@@ -248,7 +248,10 @@ def ai_list_jobs(
             if wallet_address:
                 # Verbatim column, so match every spelling of the account (V23-65).
                 stmt = stmt.where(sql_func.lower(Transaction.sender).in_(address_spellings(wallet_address)))
-            stmt = stmt.order_by(Transaction.created_at.desc())  # type: ignore[attr-defined]
+            # id is the tiebreaker: created_at can tie (same-millisecond
+            # inserts), and without a unique second key offset pages could
+            # skip or repeat rows.
+            stmt = stmt.order_by(col(Transaction.created_at).desc(), col(Transaction.id).desc())
             # The status filter runs on the effective status (the 'cancelled'
             # overlay), so paginate generously in SQL then trim in Python.
             txs = session.exec(stmt.offset(offset).limit(limit + offset)).all()

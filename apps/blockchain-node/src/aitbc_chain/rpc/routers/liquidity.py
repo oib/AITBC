@@ -60,7 +60,10 @@ def _resolve_chain_id(chain_id_arg: str | None) -> str:
 def list_pools(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
-        pools = session.exec(select(LiquidityPool).where(LiquidityPool.chain_id == resolved)).all()
+        # pool_id order keeps the listing deterministic between calls.
+        pools = session.exec(
+            select(LiquidityPool).where(LiquidityPool.chain_id == resolved).order_by(LiquidityPool.pool_id)
+        ).all()
         return {
             "success": True,
             "chain_id": resolved,
@@ -107,10 +110,12 @@ def list_stakes(request: Request, address: str, chain_id: str | None = None) -> 
     resolved = _resolve_chain_id(chain_id)
     with session_scope(resolved) as session:
         stakes = session.exec(
-            select(LiquidityStake).where(
+            select(LiquidityStake)
+            .where(
                 LiquidityStake.chain_id == resolved,
                 LiquidityStake.address == address,
             )
+            .order_by(LiquidityStake.stake_id)
         ).all()
         result = []
         for s in stakes:

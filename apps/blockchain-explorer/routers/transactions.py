@@ -137,7 +137,7 @@ async def api_search_transactions(
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
                     WHERE {where}
-                    ORDER BY created_at DESC
+                    ORDER BY created_at DESC, tx_hash DESC
                     LIMIT ? OFFSET ?
                 """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                     params,
