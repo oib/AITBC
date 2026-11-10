@@ -99,31 +99,36 @@ class ChainDiscoveryService:
             health = await client.get_chain_health(chain_id)
             block_height = await client.get_block_height(chain_id)
 
-            # Update registry entry
+            # Update registry entry — capture values before commit; the
+            # session expires ORM attrs on commit (MissingGreenlet on read).
+            endpoint = entry.endpoint
+            now = datetime.now(UTC)
             entry.block_height = block_height
             entry.status = "active"
-            entry.last_sync = datetime.now(UTC)
+            entry.last_sync = now
             await self.session.commit()
 
             return {
                 "chain_id": chain_id,
-                "endpoint": entry.endpoint,
+                "endpoint": endpoint,
                 "status": "active",
                 "block_height": block_height,
                 "health": health,
-                "last_sync": entry.last_sync.isoformat(),
+                "last_sync": now.isoformat(),
             }
         except Exception as e:
             logger.warning("Chain %s health check failed: %s", chain_id, e)
+            endpoint = entry.endpoint
+            now = datetime.now(UTC)
             entry.status = "unreachable"
-            entry.last_sync = datetime.now(UTC)
+            entry.last_sync = now
             await self.session.commit()
             return {
                 "chain_id": chain_id,
-                "endpoint": entry.endpoint,
+                "endpoint": endpoint,
                 "status": "unreachable",
                 "error": str(e),
-                "last_sync": entry.last_sync.isoformat(),
+                "last_sync": now.isoformat(),
             }
 
     async def sync_island_registry(self) -> dict[str, Any]:

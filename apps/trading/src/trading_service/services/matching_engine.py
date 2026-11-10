@@ -93,13 +93,9 @@ class MatchingEngine:
         match.status = "matched"
         match.matched_trade_id = trade.trade_id
 
-        await self.session.commit()
-        # Note: refresh after commit can fail with async sessions in some configurations.
-        # The trade objects are already updated in-memory, so refresh is optional.
-
-        logger.info("Matched trade %s with %s", trade.trade_id, match.trade_id)
-
-        return {
+        # Capture response fields before commit — expire_on_commit=True
+        # expires ORM attrs, and post-commit reads raise MissingGreenlet.
+        resp = {
             "trade_id": trade_id,
             "matched_trade_id": match.trade_id,
             "status": "matched",
@@ -109,6 +105,12 @@ class MatchingEngine:
             "amount": trade.amount,
             "price": match.price,
         }
+
+        await self.session.commit()
+
+        logger.info("Matched trade %s with %s", trade_id, resp["matched_trade_id"])
+
+        return resp
 
     async def match_all_pending(self) -> list[dict[str, Any]]:
         """Attempt to match all pending trades.
