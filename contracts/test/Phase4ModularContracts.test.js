@@ -13,6 +13,10 @@ describe("Phase 4 Modular Smart Contracts", function () {
   let stakingPoolFactory;
   let daoGovernanceEnhanced;
   let aiToken;
+  // Deployed stubs used as registry entries: registerContract rejects EOAs
+  // (NoCodeAtAddress) and one address claimed by two ids
+  // (AddressAliasedToOtherId) since #1122.
+  let registryStubs = [];
 
   // Test constants
   const INITIAL_SUPPLY = ethers.parseEther("1000000");
@@ -63,6 +67,22 @@ describe("Phase 4 Modular Smart Contracts", function () {
     daoGovernanceEnhanced = await DAOGovernanceEnhanced.deploy(await aiToken.getAddress(), MIN_STAKE);
     await daoGovernanceEnhanced.waitForDeployment();
 
+    // Deploy stub contracts for registry entries that only need to resolve
+    // to an address holding code. The registry rejects EOAs
+    // (NoCodeAtAddress) and rejects one address claimed by two different
+    // ids (AddressAliasedToOtherId) since #1122 — signer addresses can no
+    // longer stand in for contracts.
+    const MockVerifier = await ethers.getContractFactory("MockVerifier");
+    registryStubs = [];
+    // Indices 0-4 take registry ids below; 5-6 stay unregistered so the
+    // ad-hoc "TestContract"/"GasTest" registrations don't hit the
+    // AddressAliasedToOtherId check.
+    for (let i = 0; i < 7; i++) {
+      const stub = await MockVerifier.deploy();
+      await stub.waitForDeployment();
+      registryStubs.push(await stub.getAddress());
+    }
+
     // The registry's registerContract is owner-only, so a contract cannot
     // self-register inside initialize() — every id must be pre-registered
     // by the registry owner (here, deployer).
@@ -82,18 +102,16 @@ describe("Phase 4 Modular Smart Contracts", function () {
       ethers.keccak256(ethers.toUtf8Bytes("StakingPoolFactory")),
       await stakingPoolFactory.getAddress()
     );
+    // "DAOGovernanceEnhanced" is only a self-registration marker —
+    // initialize() just needs getContract(id) to succeed — so it points at
+    // a stub. The real contract keeps the "DAOGovernance" id below,
+    // because TreasuryManager.onlyAuthorized accepts proposal executions
+    // only from the address that id resolves to, and one address cannot
+    // hold both ids under the alias check.
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")),
-      await daoGovernanceEnhanced.getAddress()
+      registryStubs[4]
     );
-    // DAOGovernanceEnhanced.initialize() resolves CrossChainGovernance
-    // unconditionally, so a stub entry is required.
-    await contractRegistry.registerContract(
-      ethers.keccak256(ethers.toUtf8Bytes("CrossChainGovernance")),
-      user3.address
-    );
-    // TreasuryManager.initialize() resolves "DAOGovernance" for its
-    // onlyAuthorized checks; proposals that allocate funds go through it.
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("DAOGovernance")),
       await daoGovernanceEnhanced.getAddress()
@@ -101,16 +119,20 @@ describe("Phase 4 Modular Smart Contracts", function () {
 
     // Register mock contracts that PerformanceAggregator.initialize() requires
     await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("CrossChainGovernance")),
+      registryStubs[0]
+    );
+    await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("PerformanceVerifier")),
-      user1.address
+      registryStubs[1]
     );
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("AgentBounty")),
-      user2.address
+      registryStubs[2]
     );
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("AgentStaking")),
-      deployer.address
+      registryStubs[3]
     );
 
     // Initialize all contracts (after registration)
@@ -125,20 +147,20 @@ describe("Phase 4 Modular Smart Contracts", function () {
     it("Should register and retrieve contracts", async function () {
       const testContractId = ethers.keccak256(ethers.toUtf8Bytes("TestContract"));
 
-      await contractRegistry.registerContract(testContractId, user1.address);
+      await contractRegistry.registerContract(testContractId, registryStubs[5]);
 
       const retrievedAddress = await contractRegistry.getContract(testContractId);
-      expect(retrievedAddress).to.equal(user1.address);
+      expect(retrievedAddress).to.equal(registryStubs[5]);
     });
 
     it("Should update contract addresses", async function () {
       const testContractId = ethers.keccak256(ethers.toUtf8Bytes("TestContract"));
 
-      await contractRegistry.registerContract(testContractId, user1.address);
-      await contractRegistry.updateContract(testContractId, user2.address);
+      await contractRegistry.registerContract(testContractId, registryStubs[5]);
+      await contractRegistry.updateContract(testContractId, registryStubs[6]);
 
       const retrievedAddress = await contractRegistry.getContract(testContractId);
-      expect(retrievedAddress).to.equal(user2.address);
+      expect(retrievedAddress).to.equal(registryStubs[6]);
     });
 
     it("Should list all contracts", async function () {
@@ -491,7 +513,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
     it("Should track gas usage for key operations", async function () {
       // Test gas usage for contract registration
       const testContractId = ethers.keccak256(ethers.toUtf8Bytes("GasTest"));
-      const tx = await contractRegistry.registerContract(testContractId, user1.address);
+      const tx = await contractRegistry.registerContract(testContractId, registryStubs[5]);
       const receipt = await tx.wait();
 
       console.log("Gas used for contract registration:", receipt.gasUsed.toString());
