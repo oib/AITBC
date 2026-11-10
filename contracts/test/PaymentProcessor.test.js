@@ -133,6 +133,64 @@ describe("PaymentProcessor", function () {
           )
       ).to.be.revertedWith("Recipient not authorized");
     });
+
+    // #1611: createEscrow must enforce the same amount bounds as
+    // createPayment — above-max amounts were previously accepted.
+    it("Should enforce min/max payment amount bounds (#1611)", async function () {
+      const minAmt = await paymentProcessor.minPaymentAmount();
+      const maxAmt = await paymentProcessor.maxPaymentAmount();
+
+      // sufficientBalance/sufficientAllowance modifiers run before the
+      // in-body bound checks, so fund and approve enough to let the
+      // above-max amounts reach the "Amount above maximum" require.
+      // AIToken.mint enforces a 1-day cooldown (beforeEach already minted).
+      await time.increase(86401);
+      await token.mint(payer.address, ethers.parseEther("100"));
+      await token
+        .connect(payer)
+        .approve(await paymentProcessor.getAddress(), ethers.parseEther("10100"));
+
+      for (const amount of [0n, minAmt - 1n]) {
+        await expect(
+          paymentProcessor
+            .connect(payer)
+            .createEscrow(
+              payee.address,
+              amount,
+              0,
+              ESCROW_TYPE.Standard,
+              ethers.encodeBytes32String("manual")
+            )
+        ).to.be.revertedWith("Amount below minimum");
+      }
+
+      for (const amount of [maxAmt + 1n, maxAmt + ethers.parseEther("1")]) {
+        await expect(
+          paymentProcessor
+            .connect(payer)
+            .createEscrow(
+              payee.address,
+              amount,
+              0,
+              ESCROW_TYPE.Standard,
+              ethers.encodeBytes32String("manual")
+            )
+        ).to.be.revertedWith("Amount above maximum");
+      }
+
+      // Boundary: exactly maxPaymentAmount is still accepted.
+      await expect(
+        paymentProcessor
+          .connect(payer)
+          .createEscrow(
+            payee.address,
+            maxAmt,
+            0,
+            ESCROW_TYPE.Standard,
+            ethers.encodeBytes32String("manual")
+          )
+      ).to.not.revert(ethers);
+    });
   });
 
   describe("releaseEscrow", function () {
