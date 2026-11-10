@@ -245,12 +245,16 @@ class OfferSyncService:
         # Apply filters
         filtered = self._apply_filters(all_offers, request)
 
-        # Deduplicate by offer_id (source-chain-wins already applied during sync)
-        seen: set[str] = set()
+        # Deduplicate by (chain_id, offer_id) — post-#1567 two chains can
+        # legitimately carry the same offer_id (cache keys are
+        # ``offer:{chain_id}:{offer_id}``), so a bare offer_id dedup silently
+        # dropped every chain but the first (#1677).
+        seen: set[tuple[str, str]] = set()
         deduped: list[SyncedOffer] = []
         for offer in filtered:
-            if offer.offer_id not in seen:
-                seen.add(offer.offer_id)
+            key = (offer.chain_id, offer.offer_id)
+            if key not in seen:
+                seen.add(key)
                 deduped.append(offer)
 
         # Rank by price (lowest first) then by freshness

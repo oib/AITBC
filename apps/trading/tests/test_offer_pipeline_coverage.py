@@ -702,3 +702,37 @@ class TestSyncDeletionReconciliation:
 
         assert "error" in result
         assert cache.get_offer("safe", "chain-a") is not None
+
+
+class TestDiscoverOffersCrossChainDedup:
+    """#1677: discovery dedups on (chain_id, offer_id). Post-#1567 the same
+    offer_id on two chains is two distinct offers — a bare offer_id dedup
+    silently dropped every chain but the first."""
+
+    async def test_same_offer_id_on_two_chains_both_discoverable(self):
+        cache = OfferCache()
+        cache.set_offer(_offer("shared", chain_id="chain-a", price="1.0"), ttl=300)
+        cache.set_offer(_offer("shared", chain_id="chain-b", price="9.0"), ttl=300)
+        svc = _sync_service(cache)
+
+        result = await svc.discover_offers(OfferDiscoveryRequest())
+
+        assert {(o.chain_id, o.offer_id) for o in result.offers} == {
+            ("chain-a", "shared"),
+            ("chain-b", "shared"),
+        }
+        assert result.total_count == 2
+        # Ranked by price: chain-a's 1.0 offer precedes chain-b's 9.0.
+        assert [o.chain_id for o in result.offers] == ["chain-a", "chain-b"]
+
+    async def test_list_offers_by_type_keeps_cross_chain_duplicates(self):
+        cache = OfferCache()
+        cache.set_offer(_offer("shared", chain_id="chain-a", service_type="gpu_market"), ttl=300)
+        cache.set_offer(_offer("shared", chain_id="chain-b", service_type="gpu_market"), ttl=300)
+
+        offers = cache.list_offers_by_type("gpu_market")
+
+        assert {(o.chain_id, o.offer_id) for o in offers} == {
+            ("chain-a", "shared"),
+            ("chain-b", "shared"),
+        }
