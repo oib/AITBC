@@ -685,6 +685,158 @@ def _record_claiming_coin_request(
         return None, False
 
 
+def _claim_budget_gate(conn, amount: int, hour_since: str, day_since: str) -> str | None:
+    """Rolling hourly/daily auto-grant budget check inside the claim's
+    BEGIN IMMEDIATE transaction.
+
+    Emits the same gauges/trip counters ``ws_budget_allows`` produced so
+    the alerting that watches them sees identical series. Returns a
+    human-readable deny reason, or ``None`` when the grant fits.
+    """
+    from ..monitoring.prometheus_metrics import metrics_registry
+    from ..services import coin_request_policy as policy
+
+    def _spent(since_iso: str) -> int:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(amount), 0) FROM coin_requests WHERE status = 'APPROVED' "
+            "AND approval_mode = 'automatic' AND created_at >= ?",  # nosec B608 - static SQL, param tuple
+            (since_iso,),
+        ).fetchone()
+        return int(row[0] or 0)
+
+    hour_spent = _spent(hour_since)
+    day_spent = _spent(day_since)
+    gauge = metrics_registry.gauge(
+        "coin_request_auto_granted_window", "Automatic coin grants in the rolling window", ["window"]
+    )
+    gauge.set(float(hour_spent), window="hourly")
+    gauge.set(float(day_spent), window="daily")
+
+    for window, spent, budget, label in (
+        ("hourly", hour_spent, policy.auto_budget_per_hour(), "hourly"),
+        ("daily", day_spent, policy.auto_budget_per_day(), "daily"),
+    ):
+        if spent + amount > budget:
+            metrics_registry.counter(
+                "coin_request_auto_budget_trips_total",
+                "Requests parked by an exhausted automatic budget",
+                ["window"],
+            ).inc(window=window)
+            logger.warning(
+                "WS coin-request %s budget exceeded: %s + %s > %s — parked for review",
+                label,
+                spent,
+                amount,
+                budget,
+            )
+            return f"the automatic {label} budget is exhausted"
+    return None
+
+
+def _budgeted_claim_coin_request(
+    sender: str, amount: int, wallet_address: str, *, first_grant: bool = False
+) -> tuple[str | None, str, str | None]:
+    """Atomically check the rolling auto-grant budgets AND insert the claim row.
+
+    ``ws_budget_allows`` + ``_record_claiming_coin_request`` ran as two
+    separate transactions on separate connections: two concurrent grants
+    could both read the same ``spent`` total, both pass the budget check,
+    and both pay — the hourly/daily budget overshot by the loser (#1658
+    sibling residual). ``BEGIN IMMEDIATE`` here covers the SUM reads and
+    the INSERT in one write-locked step, so SQLite serializes the
+    check-and-claim across every connection and worker, exactly like the
+    first-grant prior-grant probe already did.
+
+    Returns ``(request_id, outcome, reason)``:
+
+    - ``("auto-...", "claimed", None)`` — claim committed; caller may pay.
+    - ``(None, "budget", "<reason>")`` — a rolling budget would be exceeded;
+      nothing was written.
+    - ``(None, "prior_grant", None)`` — ``first_grant`` only: an APPROVED row
+      for this sender/wallet already exists.
+    - ``(None, "unavailable", None)`` — the ledger could not be opened or
+      written; the caller must NOT pay.
+    """
+    conn = _agent_db_conn()
+    if conn is None:
+        return None, "unavailable", None
+    try:
+        from datetime import UTC, datetime, timedelta
+
+        from ..services import coin_request_policy as policy
+
+        now = datetime.now(UTC).replace(tzinfo=None)
+        hour_since = (now - timedelta(hours=1)).isoformat()
+        day_since = (now - timedelta(hours=24)).isoformat()
+        request_id = f"auto-{sender}-{uuid4().hex[:12]}"
+        insert_sql = (
+            "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
+            "approval_mode, approved_by, approved_at, created_at, expires_at, transaction_hash, audit_log) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        insert_params = (
+            request_id,
+            sender,
+            os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
+            amount,
+            wallet_address,
+            "APPROVED",
+            "automatic",
+            "request_coins_handler",
+            now.isoformat(),
+            now.isoformat(),
+            (now + timedelta(hours=24)).isoformat(),
+            f"claiming:{now.isoformat()}",
+            json.dumps({"action": "initial_coin_grant", "auto_approved": True}),
+        )
+
+        # BEGIN IMMEDIATE takes the sqlite write lock up front, so the budget
+        # SUMs, the optional prior-grant probe and the INSERT are one atomic
+        # step against every other connection — including other uvicorn
+        # workers on the same host sharing this file.
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            budget_reason = _claim_budget_gate(conn, amount, hour_since, day_since)
+            if budget_reason is not None:
+                conn.execute("ROLLBACK")
+                conn.close()
+                return None, "budget", budget_reason
+
+            if first_grant:
+                # Same EXISTS probe _record_claiming_coin_request ran — now
+                # inside the same write lock as the budget reads, so a loser
+                # of the race cannot slip a grant between check and insert.
+                spellings = policy.address_spellings(wallet_address)
+                placeholders = ",".join("?" * len(spellings))
+                exists = conn.execute(
+                    "SELECT 1 FROM coin_requests WHERE status = 'APPROVED' "  # nosec
+                    f"AND (sender = ? OR lower(wallet_address) IN ({placeholders})) LIMIT 1",
+                    (sender, *spellings),
+                ).fetchone()
+                if exists is not None:
+                    conn.execute("ROLLBACK")
+                    conn.close()
+                    return None, "prior_grant", None
+
+            conn.execute(insert_sql, insert_params)
+            conn.execute("COMMIT")
+            conn.close()
+            return request_id, "claimed", None
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            raise
+    except Exception as e:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        logger.warning("Could not write budgeted coin-request claim in DB: %s", e)
+        return None, "unavailable", None
+
+
 def _finish_claimed_coin_request(request_id: str, tx_hash: str, *, failed: bool = False) -> None:
     """Replace the claim marker with the real tx hash, or mark the claim FAILED."""
     conn = _agent_db_conn()
@@ -777,7 +929,7 @@ async def request_coins_handler(
 
         # #837: the amount is caller-supplied JSON — it must be a positive int
         # inside the automatic ceiling before anything signs with it.
-        from ..services.coin_request_policy import auto_approve_ceiling, ws_budget_allows
+        from ..services.coin_request_policy import auto_approve_ceiling
 
         if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
             return {"action": "coin_request_failed", "error": "amount must be a positive integer of compute-units"}
@@ -840,9 +992,12 @@ async def request_coins_handler(
             }
             approval_decision = strategy.approve(approval_request)
             if approval_decision["approved"]:
-                db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
-                ok, why = ws_budget_allows(db_path, amount)
-                if not ok:
+                # Budget check and claim insert are ONE BEGIN IMMEDIATE
+                # transaction now (#1658 sibling): the old ws_budget_allows +
+                # _record_claiming_coin_request pair let two concurrent grants
+                # both pass the same 'spent' read and both pay.
+                claim_id, outcome, why = _budgeted_claim_coin_request(sender, amount, wallet_address)
+                if outcome == "budget":
                     request_id = _record_pending_coin_request(sender, amount, wallet_address)
                     return {
                         "action": "coin_request_received",
@@ -857,7 +1012,6 @@ async def request_coins_handler(
                 # so the ledger proves the payout was committed, not recorded
                 # after the fact. Repeat grants are legitimate here (the
                 # strategy ruled on them), so no first-grant dedupe gate.
-                claim_id, _dup = _record_claiming_coin_request(sender, amount, wallet_address)
                 if claim_id is None:
                     return {
                         "action": "coin_request_failed",
@@ -913,10 +1067,10 @@ async def request_coins_handler(
                 }
 
         # First-time request: auto-transfer initial coins — through the same
-        # rolling hourly/daily budget the /register route enforces (#837).
-        db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
-        ok, why = ws_budget_allows(db_path, INITIAL_COIN_AMOUNT)
-        if not ok:
+        # rolling hourly/daily budget the /register route enforces (#837),
+        # now checked atomically with the claim insert (#1658 sibling).
+        claim_id, outcome, why = _budgeted_claim_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address, first_grant=True)
+        if outcome == "budget":
             request_id = _record_pending_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address)
             return {
                 "action": "coin_request_received",
@@ -932,11 +1086,11 @@ async def request_coins_handler(
 
         # The row exists BEFORE the payout (#1082): a claim marker stands in
         # for the tx hash so a mid-send crash leaves a findable claim instead
-        # of an unrecorded payout. first_grant=True folds the prior-grant
-        # probe into the INSERT's IMMEDIATE transaction, so a second worker
-        # racing the same wallet loses atomically instead of double-paying
-        # (#1542/#1604).
-        claim_id, already_granted = _record_claiming_coin_request(sender, grant_amount, wallet_address, first_grant=True)
+        # of an unrecorded payout. The fused claim runs the prior-grant probe
+        # inside the same IMMEDIATE transaction as the budget reads, so a
+        # second worker racing the same wallet loses atomically instead of
+        # double-paying (#1542/#1604) and cannot overspend the budget.
+        already_granted = outcome == "prior_grant"
         if already_granted:
             # Lost the race: another claim for this sender/wallet committed
             # between the earlier probe and this insert. Park for review
