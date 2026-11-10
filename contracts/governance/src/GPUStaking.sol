@@ -52,6 +52,13 @@ contract GPUStaking is Ownable, ReentrancyGuard {
     mapping(address => GPUResource) public gpuResources;
     mapping(uint256 => StakingPool) public stakingPools;
     mapping(address => RewardInfo) public rewards;
+    // Per-(pool,provider) staked-token contribution (#1462). GPUResource.
+    // stakeAmount is global across pools while stakeGPU accepts an arbitrary
+    // stakeAmount-per-gpuPower ratio per pool; without a per-pool stake
+    // ledger, unstakeGPU priced withdrawals off the global average and could
+    // debit more than the provider put into that pool — draining other
+    // providers' accounted stake and underflow-locking late unstakers.
+    mapping(uint256 => mapping(address => uint256)) public poolStakeAmounts;
 
     uint256 public poolCounter;
     // Per-pool reward accounting: a claim is bounded by the provider's
@@ -167,6 +174,7 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         pool.totalGPUPower = pool.totalGPUPower.add(gpuPower);
         pool.totalStaked = pool.totalStaked.add(stakeAmount);
         pool.providerContributions[msg.sender] = pool.providerContributions[msg.sender].add(gpuPower);
+        poolStakeAmounts[poolId][msg.sender] = poolStakeAmounts[poolId][msg.sender].add(stakeAmount);
 
         // Calculate reward rate based on reputation and utilization
         resource.rewardRate = _calculateRewardRate(msg.sender, poolId);
@@ -197,8 +205,20 @@ contract GPUStaking is Ownable, ReentrancyGuard {
             .add(_calculatePendingRewards(msg.sender, poolId));
         poolLastRewardTime[poolId][msg.sender] = block.timestamp;
 
-        // Calculate proportional stake amount to return
-        uint256 stakeToReturn = (gpuPower.mul(resource.stakeAmount)).div(resource.gpuPower);
+        // Update pool — resolved before the share math so the withdrawal is
+        // priced off THIS pool's contribution, not the cross-pool average
+        // (#1462).
+        StakingPool storage pool = stakingPools[poolId];
+        uint256 poolPower = pool.providerContributions[msg.sender];
+        require(poolPower >= gpuPower, "Exceeds pool contribution");
+
+        // Proportional stake return within the pool: gpuPower out of the
+        // provider's poolPower share of poolStakeAmounts. A withdrawal can
+        // never exceed what the provider staked into this pool, so
+        // pool.totalStaked stays solvent for every provider.
+        uint256 stakeToReturn = gpuPower == 0
+            ? 0
+            : gpuPower.mul(poolStakeAmounts[poolId][msg.sender]).div(poolPower);
 
         // Update resource
         resource.gpuPower = resource.gpuPower.sub(gpuPower);
@@ -209,10 +229,10 @@ contract GPUStaking is Ownable, ReentrancyGuard {
         }
 
         // Update pool
-        StakingPool storage pool = stakingPools[poolId];
         pool.totalGPUPower = pool.totalGPUPower.sub(gpuPower);
         pool.totalStaked = pool.totalStaked.sub(stakeToReturn);
         pool.providerContributions[msg.sender] = pool.providerContributions[msg.sender].sub(gpuPower);
+        poolStakeAmounts[poolId][msg.sender] = poolStakeAmounts[poolId][msg.sender].sub(stakeToReturn);
 
         // Return staked tokens
         require(stakingToken.transfer(msg.sender, stakeToReturn), "Transfer failed");
