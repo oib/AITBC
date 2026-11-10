@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
@@ -14,7 +15,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
  * @dev Secure cross-chain asset transfer protocol with ZK proof validation
  * @notice Enables bridging of assets between different blockchain networks
  */
-contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
+contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
@@ -26,6 +27,26 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant BRIDGE_TIMEOUT = 24 hours;
     uint256 public constant COMPLETION_TIMEOUT = 24 hours;
     uint256 public constant MAX_BRIDGE_AMOUNT = 1000000 * 1e18; // Max 1M tokens per bridge
+
+    // EIP-712 typehash for validator bridge confirmations (#1463). The signed
+    // struct binds requestId + lockTxHash; the domain separator binds the
+    // digest to this chain (chainid) and this deployment (verifyingContract =
+    // address(this)). The previous scheme hashed
+    // keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid)) under
+    // an "Ethereum Signed Message" prefix -- it carried chainid but NOT the
+    // contract address, so a validator signature minted for one bridge
+    // deployment replayed on any other deployment of the same contract on the
+    // same chain (requestIds are per-contract counters starting at 1, so
+    // collisions are trivial -- e.g. across the #795 redeploys).
+    //
+    // DEPLOYMENT NOTE: this changes the signed digest format. Every existing
+    // deployment (e.g. the live Sepolia bridge) keeps verifying the OLD format
+    // until it is replaced; validators must sign the EIP-712 digest produced
+    // by confirmationDigest() and the new bytecode must be deployed for the
+    // change to take effect. Signatures in the old format are rejected.
+    bytes32 private constant CONFIRMATION_TYPEHASH = keccak256(
+        "BridgeConfirmation(uint256 requestId,bytes32 lockTxHash)"
+    );
 
     // Enums
     enum BridgeStatus { PENDING, CONFIRMED, COMPLETED, FAILED, CANCELLED }
@@ -154,7 +175,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    constructor(address _feeRecipient) {
+    constructor(address _feeRecipient) EIP712("CrossChainBridge", "1") {
         feeRecipient = _feeRecipient;
         requiredConfirmations = MIN_CONFIRMATIONS;
 
@@ -261,9 +282,12 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         require(!request.hasConfirmed[msg.sender], "Already confirmed");
         require(block.timestamp <= request.createdAt + BRIDGE_TIMEOUT, "Bridge request expired");
 
-        // Verify signature
-        bytes32 messageHash = keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid));
-        require(_verifySignature(messageHash, signature, msg.sender), "Invalid signature");
+        // Verify signature. The digest is EIP-712 (#1463): the domain
+        // separator binds it to this chain and this contract deployment, so
+        // a signature minted for another bridge instance cannot be replayed
+        // here even when requestId and lockTxHash collide.
+        bytes32 digest = _confirmationDigest(requestId, lockTxHash);
+        require(_verifySignature(digest, signature, msg.sender), "Invalid signature");
 
         // Record confirmation. Every confirmer must sign the SAME lock tx
         // hash — each signature binds (requestId, lockTxHash, chainId), so
@@ -427,12 +451,27 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         view
         returns (bool isValid)
     {
-        bytes32 messageHash = keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid));
-        bytes32 ethSignedMessageHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
-        address recoveredAddress = ethSignedMessageHash.recover(signature);
+        bytes32 digest = _confirmationDigest(requestId, lockTxHash);
+        address recoveredAddress = digest.recover(signature);
         return validators[recoveredAddress].isActive;
+    }
+
+    /**
+     * @dev The exact digest validators must sign to confirm a bridge request
+     * (#1463). Exposed so off-chain signer tooling can compute it without
+     * re-implementing the EIP-712 domain separator: sign this 32-byte digest
+     * directly (eth_sign / EIP-191 is NOT applied -- the digest is already
+     * the EIP-712 \x19\x01 digest).
+     * @param requestId The bridge request ID
+     * @param lockTxHash The lock transaction hash
+     * @return The EIP-712 digest to sign
+     */
+    function confirmationDigest(uint256 requestId, bytes32 lockTxHash)
+        external
+        view
+        returns (bytes32)
+    {
+        return _confirmationDigest(requestId, lockTxHash);
     }
 
     // Admin functions
@@ -575,15 +614,30 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
 
     // Internal functions
 
+    /// @dev EIP-712 struct hash + domain separator for a bridge confirmation.
+    /// The domain carries name "CrossChainBridge", version "1", block.chainid
+    /// and address(this), so the digest cannot be replayed on another chain
+    /// or another deployment of this contract (#1463).
+    function _confirmationDigest(uint256 requestId, bytes32 lockTxHash)
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes32 structHash = keccak256(
+            abi.encode(CONFIRMATION_TYPEHASH, requestId, lockTxHash)
+        );
+        return _hashTypedDataV4(structHash);
+    }
+
+    /// @dev `digest` is already the EIP-712 digest -- recover directly, with
+    /// no "\x19Ethereum Signed Message" prefix (that prefix belonged to the
+    /// pre-#1463 format and is what made the digest chain/contract-agnostic).
     function _verifySignature(
-        bytes32 messageHash,
+        bytes32 digest,
         bytes memory signature,
         address signer
     ) internal pure returns (bool) {
-        bytes32 ethSignedMessageHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
-        );
-        return ethSignedMessageHash.recover(signature) == signer;
+        return digest.recover(signature) == signer;
     }
 
     function _requiredConfirmations() internal view returns (uint256) {
