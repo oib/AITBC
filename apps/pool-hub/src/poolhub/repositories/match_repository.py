@@ -13,6 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import MatchRequest, MatchResult
 from ..storage.redis_keys import RedisKeys
 
+# Bound on the match-requests Redis list. Nothing in the repo consumes it
+# today, so without a cap every create_request(enqueue=True) grows it
+# forever (#1531). Keep the newest entries — a FIFO consumer pops from the
+# head, so trimming the tail would silently drop pending work.
+_MATCH_REQUESTS_MAX = 10_000
+
 
 class MatchRepository:
     """Handles match request logging, result persistence, and Redis fan-out."""
@@ -49,7 +55,11 @@ class MatchRepository:
                 "hints": request.hints,
                 "top_k": request.top_k,
             }
-            await self._redis.rpush(RedisKeys.match_requests(), json.dumps(payload))
+            key = RedisKeys.match_requests()
+            await self._redis.rpush(key, json.dumps(payload))
+            # rpush appends at the tail; keep the newest _MATCH_REQUESTS_MAX
+            # entries and drop the oldest from the head.
+            await self._redis.ltrim(key, -_MATCH_REQUESTS_MAX, -1)
         return request
 
     async def add_results(
