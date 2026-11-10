@@ -1243,12 +1243,28 @@ class MarketService:
 
     async def _create_bid(self, offer_id: str, booking_data: dict[str, Any], offer: MarketOffer) -> Bid:
         """Create and persist a bid record for a market offer booking."""
+        from sqlmodel import col
+
         try:
             # A buyer identity is mandatory (#816): 'unknown' can never match
             # an on-chain sender in complete_bid, which stranded the offer.
             buyer = booking_data.get("wallet") or booking_data.get("buyer")
             if not buyer:
                 raise ValueError("booking requires a buyer identity (wallet or buyer)")
+            # #1553: booking commits the bid before the offer flips to
+            # "booked" — a crash or concurrent retry in that window must
+            # replay the pending bid this buyer already holds, not stack a
+            # second bid (each booking can spawn its own escrow).
+            existing = (
+                (await self.session.execute(select(Bid).where(col(Bid.offer_id) == offer_id, col(Bid.status) == "pending")))
+                .scalars()
+                .all()
+            )
+            canonical_buyer = self._canonical_address(str(buyer))
+            for pending in existing:
+                if self._canonical_address(str(pending.buyer)) == canonical_buyer:
+                    logger.info("Replaying existing pending bid %s for offer %s buyer %s", pending.id, offer_id, buyer)
+                    return pending
             price = Decimal(str(booking_data.get("price", offer.price or 0)))
             capacity = float(booking_data.get("duration_hours", 1.0))
             bid = Bid(
@@ -1958,6 +1974,24 @@ class MarketService:
             if not job_id:
                 raise ValueError("job_id is required")
 
+            # #1553: client_ref is the caller's idempotency handle — a retry
+            # of the same creation must replay the in-flight job, not stack a
+            # duplicate MarketJob+MarketJobPayment pair. Scoped to the buyer
+            # (or client_id when no buyer address is given) so two customers
+            # may reuse the same ref string. Only QUEUED/RUNNING jobs replay:
+            # a finished job under the same ref is a new job, not a retry.
+            client_ref = data.get("client_ref")
+            if client_ref:
+                replay = await self._find_inflight_job_by_client_ref(str(client_ref), data)
+                if replay is not None:
+                    logger.info("Replaying existing market job %s for client_ref %s", replay.id, client_ref)
+                    payment = await self.session.get(MarketJobPayment, replay.payment_id) if replay.payment_id else None
+                    return {
+                        **self._job_to_dict(replay),
+                        "payment": self._payment_to_dict(payment) if payment else None,
+                        "deduplicated": True,
+                    }
+
             # #1564: a job may only reference an offer the market actually
             # lists — the old code persisted any caller-supplied offer_id.
             offer_id = data.get("offer_id")
@@ -2056,6 +2090,39 @@ class MarketService:
             await self.session.rollback()
             logger.error("Error in create_market_job: %s: %s", type(e).__name__, e)
             raise
+
+    async def _find_inflight_job_by_client_ref(self, client_ref: str, data: dict[str, Any]) -> MarketJob | None:
+        """Return the in-flight job a ``client_ref`` retry refers to (#1553).
+
+        The natural key is ``client_ref`` scoped to the caller's identity —
+        ``buyer_address`` when present (canonicalised, since addresses are
+        stored EIP-55), else ``client_id``. With neither identity field the
+        ref is too weak to dedup on and ``None`` is returned.
+        """
+        from sqlmodel import col
+
+        buyer = data.get("buyer_address")
+        client_id = data.get("client_id")
+        if not buyer and not client_id:
+            return None
+        stmt = (
+            select(MarketJob)
+            .where(col(MarketJob.client_ref) == client_ref)
+            .where(col(MarketJob.state).in_({"QUEUED", "RUNNING"}))
+            .order_by(col(MarketJob.created_at).desc())
+            .limit(20)
+        )
+        candidates = (await self.session.execute(stmt)).scalars().all()
+        if buyer:
+            canonical = canonical_address(str(buyer))
+            for job in candidates:
+                if job.buyer_address and canonical_address(str(job.buyer_address)) == canonical:
+                    return job
+            return None
+        for job in candidates:
+            if job.client_id == client_id:
+                return job
+        return None
 
     async def get_market_job(self, job_id: str) -> dict[str, Any] | None:
         """Get a MarketJob by ID, including its payment."""
