@@ -10,7 +10,7 @@ import os
 import re
 import socket
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from urllib.parse import urlparse
@@ -947,6 +947,16 @@ class MarketService:
                     gpu = await self._rpc_client.get_offer(plugin_id)
                 except Exception:  # noqa: BLE001 - chain probe: unreachable RPC means no on-chain offer
                     gpu = None
+                if gpu is not None:
+                    # Same visibility rule as the list path (#1566): a GPU its
+                    # registrant deactivated (or any non-"active" status) must
+                    # not resolve as a bookable offer, and a row without a
+                    # price cannot be priced — Decimal(str(None)) would 500.
+                    gpu_status = gpu.get("status")
+                    if (gpu_status is not None and gpu_status != _GPU_LISTING_DEFAULT_STATUS) or gpu.get(
+                        "price_per_hour"
+                    ) is None:
+                        gpu = None
                 if gpu:
                     data = _gpu_offer_to_service_dict(gpu, None, settings.hub_rpc_url)
             if data is None:
@@ -1803,6 +1813,11 @@ class MarketService:
             job.id = job_id
             if not job.requested_at:
                 job.requested_at = datetime.now(UTC).replace(tzinfo=None)
+            # Derive expires_at from ttl_seconds when the caller did not set
+            # one (#1554): ttl was stored but never enforced, so jobs without
+            # an explicit expiry could hold escrowed funds forever.
+            if job.expires_at is None and job.ttl_seconds:
+                job.expires_at = job.requested_at + timedelta(seconds=int(job.ttl_seconds))
             if not job.created_at:
                 job.created_at = datetime.now(UTC).replace(tzinfo=None)
             if not job.updated_at:
@@ -2014,16 +2029,61 @@ class MarketService:
             logger.error("Error in confirm_market_job_pin: %s: %s", type(e).__name__, e)
             raise
 
-    async def _require_confirmed_settle_tx(self, tx_hash: str) -> None:
-        """Refuse a caller-supplied settle hash that is not confirmed on-chain.
+    async def _require_confirmed_settle_tx(self, tx_hash: str, job: MarketJob, expected_type: str) -> None:
+        """Refuse a caller-supplied settle hash that is not THIS job's escrow settlement.
 
         A caller-supplied hash is evidence, not authority: verify it on-chain
-        like complete_bid does before trusting the state flip (#814).
+        like complete_bid does before trusting the state flip (#814), and bind
+        it to this job — any confirmed transaction used to count (#1564). The
+        chain escrow is keyed by the market job id (``/rpc/escrow/{job_id}``),
+        so the sealed tx must be an ``expected_type`` transaction whose payload
+        ``job_id`` is this job's id.
         """
         chain_id = settings.default_chain_id or resolve_chain_id()
         tx = await self._rpc_client.get_transaction(tx_hash, chain_id=chain_id)
         if not tx or tx.get("status") != "confirmed":
             raise ValueError(f"Supplied tx_hash {tx_hash} is not a confirmed on-chain transaction")
+        tx_type = tx.get("type") or tx.get("transaction_type")
+        if tx_type != expected_type:
+            raise ValueError(f"Transaction {tx_hash} is type {tx_type!r}, not {expected_type}")
+        payload = tx.get("payload") or {}
+        if payload.get("job_id") != job.id:
+            raise ValueError(f"Transaction {tx_hash} is not bound to escrow for job {job.id}")
+
+    def _guard_release_settlement(
+        self, job: MarketJob, payment: MarketJobPayment | None, job_id: str
+    ) -> dict[str, Any] | None:
+        """#1564 release state guards.
+
+        Only an escrowed payment on a job that is not already
+        refunded/cancelled/failed may be released. An already-released pair
+        replays idempotently (returns the job dict); anything else raises.
+        """
+        if payment is None or payment.status not in {"escrowed", "released"}:
+            raise ValueError(f"Job {job_id} has no escrowed payment to release")
+        if payment.status == "released" and job.state == "RELEASED":
+            return self._job_to_dict(job)
+        if job.state in {"CANCELED", "FAILED", "REFUNDED"}:
+            raise ValueError(f"Cannot release escrow for job {job_id} in state {job.state}")
+        return None
+
+    def _guard_refund_settlement(self, job: MarketJob, payment: MarketJobPayment | None, job_id: str) -> dict[str, Any] | None:
+        """#1564 refund state guards.
+
+        Refund only escrowed (or already refund-pending) payments, never a
+        released one, and never a job that is still queued/running unless
+        cancel already flagged the payment refund_pending. An
+        already-refunded pair replays idempotently (returns the job dict).
+        """
+        if payment is None or payment.status not in {"escrowed", "refund_pending", "refunded"}:
+            raise ValueError(f"Job {job_id} has no refundable escrowed payment")
+        if payment.status == "refunded" and job.state == "REFUNDED":
+            return self._job_to_dict(job)
+        if payment.status == "released" or job.state in {"RELEASED", "COMPLETED"}:
+            raise ValueError(f"Cannot refund escrow for job {job_id}: payment already released")
+        if job.state in {"QUEUED", "RUNNING"} and payment.status != "refund_pending":
+            raise ValueError(f"Cannot refund escrow for job {job_id} in state {job.state}; cancel it first")
+        return None
 
     async def release_market_job_payment(self, job_id: str, release_data: dict[str, Any] | None = None) -> dict[str, Any]:
         """Release the escrow for a completed market job."""
@@ -2037,15 +2097,20 @@ class MarketService:
             if job.payment_id:
                 payment = await self.session.get(MarketJobPayment, job.payment_id)
 
-            if not job.escrow_contract_id:
-                raise ValueError(f"Job {job_id} has no escrow_contract_id")
+            replay = self._guard_release_settlement(job, payment, job_id)
+            if replay is not None:
+                return replay
 
             tx_hash = release_data.get("tx_hash")
             released_amount = release_data.get("released_amount")
             if tx_hash:
-                await self._require_confirmed_settle_tx(tx_hash)
+                await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_RELEASE")
             else:
-                result = await self._rpc_client.release_escrow(job.escrow_contract_id)
+                # The chain escrow is keyed by job_id — the market job id is
+                # the escrow's job_id (the buyer CLI escrows under it). The
+                # escrow_contract_id column stores the opaque contract id,
+                # which is NOT a valid /rpc/escrow/{id} path key (#1564).
+                result = await self._rpc_client.release_escrow(job.id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow release failed for job {job_id}: {result}")
                 tx_hash = str(result.get("tx_hash", ""))
@@ -2090,15 +2155,18 @@ class MarketService:
             if job.payment_id:
                 payment = await self.session.get(MarketJobPayment, job.payment_id)
 
-            if not job.escrow_contract_id:
-                raise ValueError(f"Job {job_id} has no escrow_contract_id")
+            replay = self._guard_refund_settlement(job, payment, job_id)
+            if replay is not None:
+                return replay
 
             tx_hash = refund_data.get("tx_hash")
             refunded_amount = refund_data.get("refunded_amount")
             if tx_hash:
-                await self._require_confirmed_settle_tx(tx_hash)
+                await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_REFUND")
             else:
-                result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
+                # Same canonical binding as release: the escrow path key is
+                # the market job id, not escrow_contract_id (#1564).
+                result = await self._rpc_client.refund_escrow(job.id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
                 tx_hash = str(result.get("tx_hash", ""))
