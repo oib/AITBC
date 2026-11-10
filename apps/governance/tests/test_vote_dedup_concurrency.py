@@ -100,3 +100,51 @@ async def test_concurrent_duplicate_votes_at_most_one_lands() -> None:
     duplicates = [r for r in results if isinstance(r, ValueError) and "already voted" in str(r)]
     assert len(successes) + len(duplicates) == 2, f"unexpected outcomes: {results!r}"
     assert count == 1, f"{count} vote rows for one voter on one proposal — duplicate scan raced: {results!r}"
+
+
+async def _seed_proposal(voting_starts, voting_ends) -> str:
+    datetime.now(UTC)
+    async with get_session() as session:
+        proposal = Proposal(
+            proposer_id="proposer-1",
+            title="Window probe",
+            description="test",
+            voting_starts=voting_starts,
+            voting_ends=voting_ends,
+            status="active",
+        )
+        session.add(proposal)
+        await session.commit()
+        return proposal.proposal_id
+
+
+@pytest.mark.asyncio
+async def test_vote_after_voting_ends_is_refused() -> None:
+    """#v11 item 11: status stays ACTIVE until close_proposal runs — a vote
+    landing after voting_ends must not count toward the tallies."""
+    now = datetime.now(UTC)
+    proposal_id = await _seed_proposal(now - timedelta(days=2), now - timedelta(hours=1))
+    async with get_session() as session:
+        svc = GovernanceService(session)
+        with pytest.raises(ValueError, match="has ended"):
+            await svc.create_vote({"proposal_id": proposal_id, "voter_id": "late-voter", "vote_type": "for", "reason": ""})
+
+
+@pytest.mark.asyncio
+async def test_vote_before_voting_starts_is_refused() -> None:
+    now = datetime.now(UTC)
+    proposal_id = await _seed_proposal(now + timedelta(hours=1), now + timedelta(days=7))
+    async with get_session() as session:
+        svc = GovernanceService(session)
+        with pytest.raises(ValueError, match="has not started"):
+            await svc.create_vote({"proposal_id": proposal_id, "voter_id": "early-voter", "vote_type": "for", "reason": ""})
+
+
+@pytest.mark.asyncio
+async def test_vote_inside_window_still_lands() -> None:
+    now = datetime.now(UTC)
+    proposal_id = await _seed_proposal(now - timedelta(hours=1), now + timedelta(days=7))
+    async with get_session() as session:
+        svc = GovernanceService(session)
+        vote = await svc.create_vote({"proposal_id": proposal_id, "voter_id": "in-window", "vote_type": "for", "reason": ""})
+        assert vote.vote_id
