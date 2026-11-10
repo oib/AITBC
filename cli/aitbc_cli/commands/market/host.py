@@ -469,7 +469,9 @@ def _resolve_download_cid(
 
     if access_key and access_secret and not cid:
         try:
-            result = _market_client().get(f"/v1/market/access/{access_key}", params={"access_secret": access_secret})
+            # Secret rides the header, not the URL query — keeps it out of
+            # market access logs (APIGW-OLLAMA-DEPTH2-1, #1613).
+            result = _market_client().get(f"/v1/market/access/{access_key}", headers={"X-Access-Secret": access_secret})
             cid = _apply_access_result(ipfs_api, result, cid)
         except NetworkError as e:
             warning(f"Could not resolve access token: {e}")

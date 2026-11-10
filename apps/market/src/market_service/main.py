@@ -1214,13 +1214,23 @@ async def get_market_job_access(
 @app.get("/v1/market/access/{access_key}")
 async def get_market_access_token(
     access_key: str,
-    access_secret: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
+    access_secret: str | None = None,
+    x_access_secret: Annotated[str | None, Header()] = None,
 ) -> Any:
-    """Validate an access token and return the CID and retrieval metadata."""
+    """Validate an access token and return the CID and retrieval metadata.
+
+    The secret may arrive as the ``access_secret`` query parameter (legacy
+    callers) or the ``X-Access-Secret`` header (shop_gate since #1613 — keeps
+    the credential out of URLs and access logs). Header wins when both are
+    sent so a stale query value cannot shadow the fresh credential.
+    """
+    secret = x_access_secret if x_access_secret is not None else access_secret
+    if not secret:
+        return JSONResponse(status_code=400, content={"error": "access_secret is required"})
     try:
         logger.info("GET /v1/market/access/%s called", access_key)
-        result = await svc.get_market_job_access_token(access_key, access_secret)
+        result = await svc.get_market_job_access_token(access_key, secret)
         if not result:
             return JSONResponse(status_code=404, content={"error": "Invalid, expired, or unknown access token"})
         return result

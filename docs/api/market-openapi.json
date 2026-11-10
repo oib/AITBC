@@ -2276,7 +2276,7 @@
     "/v1/market/access/{access_key}": {
       "get": {
         "summary": "Get Market Access Token",
-        "description": "Validate an access token and return the CID and retrieval metadata.",
+        "description": "Validate an access token and return the CID and retrieval metadata.\n\nThe secret may arrive as the ``access_secret`` query parameter (legacy\ncallers) or the ``X-Access-Secret`` header (shop_gate since #1613 \u2014 keeps\nthe credential out of URLs and access logs). Header wins when both are\nsent so a stale query value cannot shadow the fresh credential.",
         "operationId": "get_market_access_token_v1_market_access__access_key__get",
         "parameters": [
           {
@@ -2291,10 +2291,33 @@
           {
             "name": "access_secret",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Access Secret"
+            }
+          },
+          {
+            "name": "x-access-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Access-Secret"
             }
           }
         ],
@@ -2315,6 +2338,21 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "access_secret is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
                 }
               }
             }

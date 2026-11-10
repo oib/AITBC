@@ -62,6 +62,16 @@ class _RecordingClient:
         self.status_code = status_code
         self.fail: Exception | None = None
 
+    def build_request(self, method, url, **kwargs):
+        return httpx.Request(method, url, **kwargs)
+
+    async def send(self, request, stream=False):
+        url, _, query = str(request.url).partition("?")
+        kwargs = {"headers": dict(request.headers), "params": request.url.params}
+        if request.content:
+            kwargs["content"] = request.content
+        return await self._send(request.method, url, **kwargs)
+
     async def _send(self, method: str, url: str, **kwargs):
         self.calls.append({"method": method, "url": url, "kwargs": kwargs})
         if self.fail is not None:
