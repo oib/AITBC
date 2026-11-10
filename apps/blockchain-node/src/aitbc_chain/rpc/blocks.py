@@ -227,6 +227,22 @@ def _served_tx_body(tx: Transaction) -> dict[str, Any]:
     return t
 
 
+def _clamp_block_range(start: int, end: int, max_span: int) -> tuple[int, int] | None:
+    """Clamp an inclusive ``[start, end]`` height window to the span budget.
+
+    Pure helper for ``get_blocks_range`` (#1510-era bound): the served window
+    never exceeds ``max(1, max_span)`` heights and ``start`` is preserved, so
+    callers paginate forward by advancing ``start``. Returns ``None`` for an
+    inverted range — the caller serves an empty page rather than scanning.
+    """
+    if end < start:
+        return None
+    span = max(1, max_span)
+    if end - start + 1 > span:
+        end = start + span - 1
+    return start, end
+
+
 @rate_limit(rate=200, per=60)
 def get_blocks_range(
     request: Request, start: int = 0, end: int = 10, include_tx: bool = True, chain_id: str | None = None
@@ -242,11 +258,10 @@ def get_blocks_range(
     # the served window is clamped to blocks_range_max_span blocks whatever
     # the caller asks for. Bulk sync requests small batches; wider windows
     # paginate. An inverted range serves nothing rather than scanning.
-    max_span = max(1, settings.blocks_range_max_span)
-    if end < start:
+    clamped = _clamp_block_range(start, end, settings.blocks_range_max_span)
+    if clamped is None:
         return {"success": True, "blocks": [], "count": 0}
-    if end - start + 1 > max_span:
-        end = start + max_span - 1
+    start, end = clamped
     with session_scope() as session:
         chain_id = get_chain_id(chain_id)
         blocks = session.exec(
