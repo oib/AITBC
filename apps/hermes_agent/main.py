@@ -13,6 +13,7 @@ import hashlib
 import hmac
 import json
 import os
+import signal
 import shutil
 import tempfile
 import time
@@ -257,7 +258,15 @@ async def _run_hermes_inner(request: HermesRunRequest):
             out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=request.max_time)
             timed_out = False
         except TimeoutError:
-            proc.kill()
+            # The child is a session leader (start_new_session=True), so its
+            # pid is also its process-group id. Killing only the direct child
+            # leaves tool subprocesses alive holding the stdout/stderr pipes —
+            # communicate() below would then block until THEY exit, stretching
+            # the enforced max_time bound arbitrarily (#1473).
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError, OSError):
+                proc.kill()
             out_b, err_b = await proc.communicate()
             timed_out = True
         elapsed = time.time() - t_start
