@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from datetime import datetime, UTC
 from typing import Any
 
@@ -42,6 +43,13 @@ class OfferCache:
     ) -> None:
         self._config = config or OfferSyncConfig()
         self._cache = RedisCache(redis_url=redis_url, default_ttl=default_ttl or self._config.cache_ttl_seconds)
+        # #1680: the chain registry and per-chain offer indices are
+        # read-modify-write JSON blobs. This lock makes each RMW atomic
+        # within the process (covers the in-memory fallback fully and
+        # serializes Redis writers per process); a cross-process Redis race
+        # can still lose an index append, which self-heals on the next sync
+        # — documented residual, WATCH/MULTI is not exposed by RedisCache.
+        self._index_lock = threading.RLock()
 
     @staticmethod
     def _offer_key(chain_id: str, offer_id: str) -> str:
@@ -74,14 +82,16 @@ class OfferCache:
         return []
 
     def _register_chain(self, chain_id: str) -> None:
-        chains = self._get_chain_registry()
-        if chain_id not in chains:
-            chains.append(chain_id)
-            self._cache.set(self._CHAINS_INDEX_KEY, chains)
+        with self._index_lock:
+            chains = self._get_chain_registry()
+            if chain_id not in chains:
+                chains.append(chain_id)
+                self._cache.set(self._CHAINS_INDEX_KEY, chains)
 
     def _unregister_chain(self, chain_id: str) -> None:
-        chains = [c for c in self._get_chain_registry() if c != chain_id]
-        self._cache.set(self._CHAINS_INDEX_KEY, chains)
+        with self._index_lock:
+            chains = [c for c in self._get_chain_registry() if c != chain_id]
+            self._cache.set(self._CHAINS_INDEX_KEY, chains)
 
     def _read_offer_key(self, key: str) -> SyncedOffer | None:
         raw = self._cache.get(key)
@@ -118,12 +128,13 @@ class OfferCache:
         key = self._offer_key(offer.chain_id, offer.offer_id)
         self._cache.set(key, json.dumps(offer.to_dict()), ttl or self._config.cache_ttl_seconds)
         # Update chain index (store as JSON list since RedisCache doesn't expose sets)
-        self._register_chain(offer.chain_id)
-        index_key = self._chain_index_key(offer.chain_id)
-        existing = self._get_chain_index(offer.chain_id)
-        if offer.offer_id not in existing:
-            existing.append(offer.offer_id)
-            self._cache.set(index_key, json.dumps(existing), ttl or self._config.cache_ttl_seconds)
+        with self._index_lock:
+            self._register_chain(offer.chain_id)
+            index_key = self._chain_index_key(offer.chain_id)
+            existing = self._get_chain_index(offer.chain_id)
+            if offer.offer_id not in existing:
+                existing.append(offer.offer_id)
+                self._cache.set(index_key, json.dumps(existing), ttl or self._config.cache_ttl_seconds)
 
     def delete_offer(self, offer_id: str, chain_id: str | None = None) -> None:
         """Delete an offer from the cache and chain index."""
@@ -242,18 +253,19 @@ class OfferCache:
 
     def clear_chain(self, chain_id: str) -> int:
         """Clear all offers for a chain. Returns the number of offers removed."""
-        offer_ids = self._get_chain_index(chain_id)
-        for oid in offer_ids:
-            self._cache.delete(self._offer_key(chain_id, oid))
-            # Legacy unnamespaced keys can't be attributed to a chain without
-            # reading them — drop only this chain's.
-            legacy = self._read_offer_key(self._legacy_offer_key(oid))
-            if legacy is not None and legacy.chain_id == chain_id:
-                self._cache.delete(self._legacy_offer_key(oid))
-        self._cache.delete(self._chain_index_key(chain_id))
-        self._cache.delete(self._chain_meta_key(chain_id))
-        self._unregister_chain(chain_id)
-        return len(offer_ids)
+        with self._index_lock:
+            offer_ids = self._get_chain_index(chain_id)
+            for oid in offer_ids:
+                self._cache.delete(self._offer_key(chain_id, oid))
+                # Legacy unnamespaced keys can't be attributed to a chain without
+                # reading them — drop only this chain's.
+                legacy = self._read_offer_key(self._legacy_offer_key(oid))
+                if legacy is not None and legacy.chain_id == chain_id:
+                    self._cache.delete(self._legacy_offer_key(oid))
+            self._cache.delete(self._chain_index_key(chain_id))
+            self._cache.delete(self._chain_meta_key(chain_id))
+            self._unregister_chain(chain_id)
+            return len(offer_ids)
 
     def is_available(self) -> bool:
         """Check if Redis backend is available (vs in-memory fallback)."""
@@ -270,14 +282,15 @@ class OfferCache:
             return []
 
     def _remove_from_chain_index(self, chain_id: str, offer_id: str) -> None:
-        existing = self._get_chain_index(chain_id)
-        if offer_id in existing:
-            existing.remove(offer_id)
-            self._cache.set(
-                self._chain_index_key(chain_id),
-                json.dumps(existing),
-                self._config.cache_ttl_seconds,
-            )
+        with self._index_lock:
+            existing = self._get_chain_index(chain_id)
+            if offer_id in existing:
+                existing.remove(offer_id)
+                self._cache.set(
+                    self._chain_index_key(chain_id),
+                    json.dumps(existing),
+                    self._config.cache_ttl_seconds,
+                )
 
     def _get_known_chains(self) -> list[str]:
         """Get all chain IDs with cached offers or sync metadata.
