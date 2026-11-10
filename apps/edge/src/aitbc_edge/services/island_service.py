@@ -67,6 +67,13 @@ class IslandService:
                     stored_chain_id = ",".join(chain_id)
                 else:
                     stored_chain_id = chain_id
+                # island_id is indexed, not unique — a re-join (retry after a
+                # timeout, or join → failed leave → join) used to stack
+                # duplicate membership rows (#1643). Replace any existing row
+                # for this island so membership stays 1:1 with the chain.
+                from sqlmodel import delete
+
+                await session.execute(delete(IslandMembership).where(IslandMembership.island_id == island_id))  # type: ignore[arg-type]
                 membership = IslandMembership(
                     island_id=island_id,
                     island_name=island_name,
