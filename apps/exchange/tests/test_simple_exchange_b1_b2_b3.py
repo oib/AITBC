@@ -101,6 +101,7 @@ def temp_db(tmp_path):
             price TEXT NOT NULL,
             wallet TEXT,
             status TEXT DEFAULT 'open',
+            offer_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)

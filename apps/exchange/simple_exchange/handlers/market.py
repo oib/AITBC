@@ -145,10 +145,10 @@ class MarketMixin:
                 )
                 cursor.execute(
                     """
-                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status)
-                    VALUES (?, 'SELL', ?, ?, ?, 'open')
+                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status, offer_id)
+                    VALUES (?, 'SELL', ?, ?, ?, 'open', ?)
                 """,
-                    (order_id, item, price, wallet),
+                    (order_id, item, price, wallet, offer_id),
                 )
                 cursor.execute(
                     """
@@ -202,25 +202,34 @@ class MarketMixin:
                         self._send_operation_result(begin)  # type: ignore[attr-defined]
                         return
                     operation_attempt = begin.attempt
+                # Only an active offer may be booked (#1563): the old query
+                # had no status filter and fell back to item=offer_id, so a
+                # cancelled or nonexistent offer still produced a BUY order.
                 cursor.execute(
                     """
-                    SELECT item, price
+                    SELECT id, item, price
                     FROM marketplace_offers
-                    WHERE id = ? OR item = ?
+                    WHERE (id = ? OR item = ?) AND status = 'active'
                 """,
                     (offer_id, offer_id),
                 )
                 row = cursor.fetchone()
-                item = row[0] if row else offer_id
+                if row is None:
+                    conn.rollback()
+                    if idempotency_key and operation_attempt:
+                        get_operation_ledger().fail(idempotency_key, operation_attempt, "offer not found or not active")
+                    self.send_json_response({"success": False, "error": "Offer not found or not active"}, status=404)  # type: ignore[attr-defined]
+                    return
+                matched_offer_id, item, offer_price = row
                 # B2: Use Decimal for price (stored as TEXT)
-                price = str(_to_decimal(data.get("price") or (row[1] if row else 0) or 0))
+                price = str(_to_decimal(data.get("price") or offer_price or 0))
                 order_id = self._new_market_id("order")
                 cursor.execute(
                     """
-                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status)
-                    VALUES (?, 'BUY', ?, ?, ?, 'open')
+                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status, offer_id)
+                    VALUES (?, 'BUY', ?, ?, ?, 'open', ?)
                 """,
-                    (order_id, item, price, wallet),
+                    (order_id, item, price, wallet, matched_offer_id),
                 )
                 cursor.execute(
                     """
@@ -323,15 +332,28 @@ class MarketMixin:
         conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM marketplace_offers WHERE id = ? AND wallet = ?", (offer_id, wallet))
-            if not cursor.fetchone():
+            cursor.execute("SELECT id, item FROM marketplace_offers WHERE id = ? AND wallet = ?", (offer_id, wallet))
+            offer_row = cursor.fetchone()
+            if not offer_row:
                 self.send_json_response({"success": False, "error": "Offer not found for this wallet"}, status=404)  # type: ignore[attr-defined]
                 return
             cursor.execute(
                 "UPDATE marketplace_offers SET status = 'cancelled' WHERE id = ? AND wallet = ?", (offer_id, wallet)
             )
-            conn.commit()
             deleted = cursor.rowcount
+            # Cascade (#1563): the SELL order auto-created with the offer must
+            # not stay 'open' after its offer is cancelled. offer_id is the
+            # durable link; rows predating the column fall back to the
+            # item+wallet pair the order was created with.
+            cursor.execute(
+                """
+                UPDATE marketplace_orders SET status = 'cancelled'
+                WHERE status = 'open' AND order_type = 'SELL'
+                  AND (offer_id = ? OR (offer_id IS NULL AND item = ? AND wallet IS ?))
+                """,
+                (offer_id, offer_row[1], wallet),
+            )
+            conn.commit()
         finally:
             conn.close()
         self.send_json_response({"success": True, "offer_id": offer_id, "deleted": deleted})  # type: ignore[attr-defined]
