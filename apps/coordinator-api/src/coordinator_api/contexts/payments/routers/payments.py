@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session
 
+from aitbc.rate_limiting import rate_limit
 from aitbc_shared import JobPayment
 
 from ....auth import AdminOrClientDep  # NEW: JWT auth
@@ -22,6 +23,7 @@ router = APIRouter(tags=["payments"])
 @router.post(
     "/payments", response_model=JobPaymentView, status_code=status.HTTP_201_CREATED, summary="Create payment for a job"
 )
+@rate_limit(rate=20, per=60)
 async def create_payment(
     payment_data: JobPaymentCreate,
     session: Annotated[Session, Depends(get_session)],
@@ -96,6 +98,7 @@ def get_job_payment(
 
 
 @router.post("/payments/{payment_id}/release", response_model=dict, summary="Release payment from escrow")
+@rate_limit(rate=20, per=60)
 async def release_payment(
     payment_id: str,
     release_data: EscrowRelease,
@@ -139,6 +142,7 @@ async def release_payment(
 
 
 @router.post("/payments/{payment_id}/refund", response_model=dict, summary="Refund payment")
+@rate_limit(rate=20, per=60)
 async def refund_payment(
     payment_id: str,
     refund_data: RefundRequest,
