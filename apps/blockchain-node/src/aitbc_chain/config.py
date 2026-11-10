@@ -1405,6 +1405,17 @@ class ChainSettings(BaseSettings):
     # voted hash, and T_evidence seconds of continuous unfetchability —
     # independently verifiable protocol evidence per the #1274 ruling.
     vote_journal_justification_enabled: bool = False
+    # #1306 nonblocking persist -- dormant default-OFF, requires the UC barrier
+    # (vote_journal_enabled + vote_journal_justification_enabled). The attest-
+    # request listener's leg-1 ``unfetchable_persists`` otherwise polls inside
+    # the serial listener for the whole unavail_evidence_seconds window per
+    # rival hash, answering no attest requests meanwhile (driver11: 40 s
+    # stalls, frozen height). Armed, the listener starts/joins the shared
+    # sampler and reads its current verdict instead of waiting; the rival is
+    # refused now and re-evaluated on the next attest retry. No release can
+    # happen before T_evidence has matured -- only the waiting moves. The
+    # proposer path always blocks, unchanged.
+    unavail_nonblocking_persist_enabled: bool = False
     # UC collection window and certificate freshness bound.
     unavail_collect_seconds: float = 15.0
     unavail_cert_max_age_seconds: float = 120.0

@@ -458,6 +458,9 @@ class RemoteAttestationService:
                 # cached cert still releases, otherwise the probe finishes in
                 # the background and the next evaluation picks it up.
                 wait_for_probe=False,
+                # #1306: leg 1 would otherwise park this serial listener for
+                # the whole T_evidence window; flag-gated, default blocking.
+                nonblocking_persist=unavail.nonblocking_persist_enabled(),
             )
             just_elapsed = time.monotonic() - just_start
             metrics_registry.observe("attest_unlock_justification_seconds", just_elapsed)
