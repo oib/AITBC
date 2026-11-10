@@ -17,6 +17,7 @@ from sqlalchemy.pool import QueuePool
 from aitbc.aitbc_logging import get_logger
 
 from ..config import settings
+from ..sqlite_pragmas import install_sqlite_pragmas
 
 logger = get_logger(__name__)
 
@@ -39,6 +40,7 @@ def get_engine() -> Engine:
                 max_overflow=10,
                 pool_pre_ping=settings.db_pool_pre_ping,
             )
+            install_sqlite_pragmas(_engine)
         else:
             _engine = create_engine(
                 effective_url,
@@ -108,6 +110,7 @@ async def get_async_engine() -> AsyncEngine:
                 pool_recycle=settings.db_pool_recycle,
                 pool_pre_ping=settings.db_pool_pre_ping,
             )
+            install_sqlite_pragmas(_async_engine)
         else:
             _async_engine = create_async_engine(
                 async_url,

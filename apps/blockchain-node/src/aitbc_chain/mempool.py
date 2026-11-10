@@ -9,7 +9,7 @@ from threading import Lock, RLock
 from typing import Any, cast
 from collections.abc import Iterable
 
-from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, MetaData, Text, bindparam, delete, func
+from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, MetaData, Text, bindparam, delete, event, func
 from sqlalchemy import select as sa_select
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlmodel import Field, Session, create_engine, select, text
@@ -608,9 +608,30 @@ class DatabaseMempool:
         self._max_size = max_size
         self._min_fee = min_fee
         self._engine = create_engine(db_url, echo=False, pool_pre_ping=True)
+        self._install_sqlite_pragmas()
         with DatabaseMempool._db_locks_guard:
             self._lock = DatabaseMempool._db_locks.setdefault(db_url, RLock())
         self._init_table()
+
+    def _install_sqlite_pragmas(self) -> None:
+        """WAL + busy_timeout on pooled sqlite mempool connections (#1560).
+
+        The production mempool URL is PostgreSQL and this is a no-op there;
+        a ``sqlite:///`` URL previously got the 5s default timeout and a
+        rollback journal.
+        """
+        if self._engine.dialect.name != "sqlite":
+            return
+
+        @event.listens_for(self._engine, "connect")
+        def _apply(dbapi_conn: Any, _record: Any) -> None:
+            cursor = dbapi_conn.cursor()
+            try:
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.execute("PRAGMA busy_timeout=30000")
+            finally:
+                cursor.close()
 
     def _init_table(self) -> None:
         with self._lock:
