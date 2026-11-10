@@ -1,7 +1,10 @@
 """Platform analytics and health endpoints for the Developer Platform."""
 
+import os
 from datetime import UTC, datetime
 from typing import Annotated, Any
+
+import httpx
 
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -112,6 +115,55 @@ async def get_platform_overview(
         }
 
 
+_HEALTH_PROBE_TIMEOUT = 3.0
+
+
+def _probe_blockchain() -> str:
+    """Probe the AITBC chain RPC — same ``/rpc/head`` read /v1/blockchain/status uses."""
+    try:
+        from ....config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        response = httpx.get(f"{rpc_url}/rpc/head", timeout=_HEALTH_PROBE_TIMEOUT)
+        return "healthy" if response.status_code == 200 else "unhealthy"
+    except Exception:
+        return "unhealthy"
+
+
+def _probe_ipfs() -> str:
+    """Probe the IPFS API the way ``IPFSClient.check_availability`` does (POST /api/v0/id)."""
+    api_url = os.getenv("IPFS_API_URL", "http://localhost:5001").rstrip("/")
+    try:
+        response = httpx.post(f"{api_url}/api/v0/id", timeout=_HEALTH_PROBE_TIMEOUT)
+        return "healthy" if response.status_code == 200 else "unhealthy"
+    except Exception:
+        return "unhealthy"
+
+
+def _probe_smart_contracts() -> str:
+    """Probe the EVM JSON-RPC the settlement/energy rails use.
+
+    ``eth_rpc_url`` unset means no contract rail is configured on this
+    deployment — report ``not_configured`` rather than fabricating health.
+    """
+    try:
+        from ....config import settings
+
+        rpc_url = getattr(settings, "eth_rpc_url", None)
+        if not rpc_url:
+            return "not_configured"
+        response = httpx.post(
+            rpc_url.rstrip("/"),
+            json={"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []},
+            timeout=_HEALTH_PROBE_TIMEOUT,
+        )
+        if response.status_code == 200 and (response.json() or {}).get("result"):
+            return "healthy"
+        return "unhealthy"
+    except Exception:
+        return "unhealthy"
+
+
 @router.get("/health", response_model=dict[str, Any])
 @rate_limit(rate=1000, per=60)
 def get_platform_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
@@ -126,15 +178,18 @@ def get_platform_health(request: Request, session: Annotated[Session, Depends(ge
             database_status = "unhealthy"
             developer_count = 0
 
-        # Mock service health checks
+        # Real dependency probes (#1541): every field is an actual check, and
+        # any probed-but-failed dependency degrades the overall status.
+        # ``not_configured`` is reported honestly and does not count as a
+        # failure — there is nothing to probe.
         services_status = {
             "database": database_status,
-            "blockchain": "healthy",  # Would check actual blockchain connectivity
-            "ipfs": "healthy",  # Would check IPFS connectivity
-            "smart_contracts": "healthy",  # Would check smart contract deployment
+            "blockchain": _probe_blockchain(),
+            "ipfs": _probe_ipfs(),
+            "smart_contracts": _probe_smart_contracts(),
         }
 
-        overall_status = "healthy" if all(status == "healthy" for status in services_status.values()) else "degraded"
+        overall_status = "degraded" if "unhealthy" in services_status.values() else "healthy"
 
         return {
             "status": overall_status,

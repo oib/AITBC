@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, select, update
 
 from fastapi import HTTPException, status
 
@@ -492,9 +492,26 @@ class JobService:
                         # A better-suited, higher-reputation miner is online and
                         # has capacity. Leave this job for them to pick up.
                         continue
-                    job.state = "RUNNING"
-                    job.assigned_miner_id = miner.id
-                    self.session.add(job)
+                    # Atomic claim (#1597): the SELECT above only *found* a
+                    # QUEUED candidate — two miners polling concurrently could
+                    # both pass every gate and both commit RUNNING, leaving two
+                    # miners believing they own the job. The conditional
+                    # UPDATE ... WHERE state='QUEUED' is the compare-and-swap:
+                    # rowcount != 1 means another dispatcher (or a cancel /
+                    # expiry write) won the row first, so move to the next
+                    # candidate instead of overwriting the winner.
+                    claim = self.session.execute(
+                        update(Job)
+                        .where(Job.id == job.id, Job.state == "QUEUED")  # type: ignore[arg-type]
+                        .values(state="RUNNING", assigned_miner_id=miner.id)
+                    )
+                    if getattr(claim, "rowcount", 0) != 1:
+                        logger.info(
+                            "Job %s was claimed by another dispatcher before miner %s; skipping",
+                            job.id,
+                            miner.id,
+                        )
+                        continue
                     self.session.commit()
                     self.session.refresh(job)
                     return job
