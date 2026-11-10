@@ -723,9 +723,11 @@ async def aggregate_votes(
     """
     await _require_cross_chain_signature(_signed_call_body(request))
     votes = await svc.list_votes(proposal_id=proposal_id)
-    total_for = sum(1 for v in votes if v.get("vote_type") == "for" or v.get("vote_type") == "yes")  # type: ignore[attr-defined,misc]
-    total_against = sum(1 for v in votes if v.get("vote_type") == "against" or v.get("vote_type") == "no")  # type: ignore[attr-defined,misc]
-    total_abstain = sum(1 for v in votes if v.get("vote_type") == "abstain")  # type: ignore[attr-defined,misc]
+    # list_votes returns Vote SQLModel rows, not dicts — read the attribute.
+    # VoteType is a StrEnum, so it compares equal to its string value.
+    total_for = sum(1 for v in votes if v.vote_type in ("for", "yes"))
+    total_against = sum(1 for v in votes if v.vote_type in ("against", "no"))
+    total_abstain = sum(1 for v in votes if v.vote_type == "abstain")
     chains_aggregated = [svc._blockchain.rpc_url] if votes else []
 
     return {
