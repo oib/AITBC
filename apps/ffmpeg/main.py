@@ -69,6 +69,18 @@ _BITRATE_UNITS = {"k": 1_000, "m": 1_000_000, "g": 1_000_000_000}
 _MAX_CONCURRENT = int(os.getenv("FFMPEG_MAX_CONCURRENT", "2"))
 _inflight = 0
 
+# FFMPEG-OUT-1 (#1648): output_format is caller-controlled and lands in the
+# temp output's suffix, where ffmpeg picks the muxer from the extension. A
+# segmenting muxer (m3u8/hls/dash) writes sidecar files the finally-cleanup
+# never deletes, and nothing bounded the output's size — bitrate is capped
+# but duration is not, so a long input yields an unbounded file in the
+# unit's PrivateTmp. Allowlist non-segmenting containers, and pass -fs so an
+# oversized transcode fails loudly instead of filling the disk. 4G default:
+# generous for a legitimate 512MB-input transcode, small enough that two
+# concurrent jobs cannot exhaust a normal node disk.
+_OUTPUT_FORMATS = {"mp4", "mov", "mkv", "webm"}
+_MAX_OUTPUT_BYTES = int(os.getenv("FFMPEG_MAX_OUTPUT_MB", "4096")) * 1024 * 1024
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -288,6 +300,15 @@ async def process_video(
     if _num * _BITRATE_UNITS[_unit] > _MAX_BITRATE_BPS:
         raise HTTPException(status_code=400, detail=f"bitrate exceeds the {_MAX_BITRATE_BPS // 1_000_000}M cap")
 
+    # FFMPEG-OUT-1 (#1648): the format picks the muxer via the temp suffix —
+    # only non-segmenting containers are accepted. Empty means the default.
+    output_format_key = (output_format or "").strip().lower() or "mp4"
+    if output_format_key not in _OUTPUT_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"output_format must be one of {sorted(_OUTPUT_FORMATS)}",
+        )
+
     # Validate GPU acceleration is available
     try:
         result = await _run_cmd(["ffmpeg", "-hwaccels"], timeout=15)
@@ -316,7 +337,7 @@ async def process_video(
     output_path: str | None = None
     try:
         input_path = await _spool_upload(file, _safe_suffix(file.filename))
-        output_suffix = _safe_suffix(f"out.{output_format}")
+        output_suffix = _safe_suffix(f"out.{output_format_key}")
         with tempfile.NamedTemporaryFile(suffix=output_suffix, delete=False) as output_tmp:
             output_path = output_tmp.name
     except BaseException:
@@ -380,7 +401,10 @@ async def process_video(
         elif resolution == "480p":
             cmd.extend(["-vf", "scale=854:480"])
 
-        cmd.extend(["-y", output_path])
+        # -fs bounds the output file itself (#1648): bitrate is capped but
+        # duration is not, so without it a long input writes an unbounded
+        # file into PrivateTmp. ffmpeg exits non-zero when the limit hits.
+        cmd.extend(["-fs", str(_MAX_OUTPUT_BYTES), "-y", output_path])
 
         # Run FFmpeg
         process = await _run_cmd(cmd, timeout=3600)  # 1 hour timeout
