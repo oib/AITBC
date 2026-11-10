@@ -2797,6 +2797,16 @@ class MarketService:
             return self._job_to_dict(job)
         if job.state in {"CANCELED", "FAILED", "REFUNDED"}:
             raise ValueError(f"Cannot release escrow for job {job_id} in state {job.state}")
+        # Release pays the provider for delivered work. Legitimate callers
+        # reach it from RUNNING (pin-confirm is the delivery proof for IPFS
+        # rentals) or COMPLETED; QUEUED has no delivery at all and EXPIRED is
+        # owned by the refund path — releasing there would race the buyer's
+        # refund and could pay the provider for undelivered work (#v11 item
+        # 10 residual).
+        if job.state not in {"RUNNING", "COMPLETED"}:
+            raise ValueError(
+                f"Cannot release escrow for job {job_id} in state {job.state}; only RUNNING/COMPLETED jobs release"
+            )
         return None
 
     def _guard_refund_settlement(self, job: MarketJob, payment: MarketJobPayment | None, job_id: str) -> dict[str, Any] | None:
