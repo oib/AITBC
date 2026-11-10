@@ -298,15 +298,20 @@ class EthereumRPCClient:
             return {
                 "status": "connected",
                 "network": self.config.network,
-                "rpc_url": self._connected_url,
+                # Keyed gateway URLs carry the credential in the path — the
+                # health payload must never echo more than scheme://host.
+                "rpc_url": redact_url(self._connected_url),
                 "latest_block": block,
                 "gas_price_gwei": gas["gwei"],
             }
         except Exception as e:
+            # Provider errors can re-embed the request URL — the key — in
+            # their text, so the message goes through the same redaction the
+            # connect loop uses.
             return {
                 "status": "disconnected",
                 "network": self.config.network,
-                "error": str(e),
+                "error": redact_text(str(e)),
             }
 
 
