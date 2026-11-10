@@ -324,7 +324,79 @@ contract CrossChainBridgeOwnerSafeTest is Test {
 
     // ---------- 4. deposit → withdraw round trip under multisig ownership ----------
 
+    /// #1463: validators sign the EIP-712 digest; the domain separator binds
+    /// chainid + address(this). Computed locally (not via
+    /// bridge.confirmationDigest) because these helpers run inside
+    /// vm.prank(...) argument lists, where an external call would consume
+    /// the prank.
     function _signValidator(uint256 pk, uint256 requestId, bytes32 lockTxHash) internal view returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, _eip712Digest(requestId, lockTxHash));
+        return abi.encodePacked(r, s, v);
+    }
+
+    /// Local copy of the contract's EIP-712 digest for `bridge`:
+    /// EIP712("CrossChainBridge","1") domain +
+    /// BridgeConfirmation(uint256 requestId,bytes32 lockTxHash).
+    function _eip712Digest(uint256 requestId, bytes32 lockTxHash) internal view returns (bytes32) {
+        bytes32 domainTypehash = keccak256(
+            "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        );
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                domainTypehash,
+                keccak256("CrossChainBridge"),
+                keccak256("1"),
+                block.chainid,
+                address(bridge)
+            )
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("BridgeConfirmation(uint256 requestId,bytes32 lockTxHash)"),
+                requestId,
+                lockTxHash
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+
+    /// Same digest computation parameterized by target deployment (used by
+    /// the cross-instance replay test for bridge2).
+    function _eip712DigestFor(CrossChainBridge target, uint256 requestId, bytes32 lockTxHash)
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes32 domainTypehash = keccak256(
+            "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        );
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                domainTypehash,
+                keccak256("CrossChainBridge"),
+                keccak256("1"),
+                block.chainid,
+                address(target)
+            )
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("BridgeConfirmation(uint256 requestId,bytes32 lockTxHash)"),
+                requestId,
+                lockTxHash
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+
+    /// The pre-#1463 format: personal-sign over
+    /// keccak256(abi.encodePacked(requestId, lockTxHash, chainid)). Kept only
+    /// to prove the new contract rejects it.
+    function _signValidatorLegacy(uint256 pk, uint256 requestId, bytes32 lockTxHash)
+        internal
+        view
+        returns (bytes memory)
+    {
         bytes32 messageHash = keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid));
         bytes32 ethSigned = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, ethSigned);
@@ -507,5 +579,73 @@ contract CrossChainBridgeOwnerSafeTest is Test {
         assertEq(feeToken.balanceOf(user), userBefore - expectedFee);
         assertEq(feeToken.balanceOf(feeRecipient), feeBefore + expectedFee);
         assertEq(feeToken.balanceOf(address(bridge)), amount - amount); // amount refunded, fee already left
+    }
+
+    // ---------- 7. CONTRACT-CROSSCHAINBRIDGE-SIG-1 (#1463) ----------
+
+    /// @dev The pre-#1463 digest (personal-sign over
+    /// keccak256(requestId|lockTxHash|chainid)) must no longer verify: it has
+    /// no verifyingContract binding, which is exactly the replay hole.
+    function test_ConfirmBridge_RejectsLegacySignatureFormat() public {
+        uint256 amount = 100 * 10**18;
+        uint256 requestId = _initiate(sourceToken, amount, TARGET_CHAIN, recipient);
+        bytes32 lockTxHash = keccak256("lock-tx-legacy");
+
+        vm.prank(validator1);
+        vm.expectRevert("Invalid signature");
+        bridge.confirmBridge(requestId, lockTxHash, _signValidatorLegacy(V1_PK, requestId, lockTxHash));
+
+        // The view helper agrees: a legacy-format signature is not valid.
+        assertFalse(bridge.validateBridgeRequest(requestId, lockTxHash, _signValidatorLegacy(V1_PK, requestId, lockTxHash)));
+    }
+
+    /// @dev A signature minted for one bridge deployment must not confirm a
+    /// request on a second deployment of the same contract on the same chain,
+    /// even when requestId and lockTxHash are identical (both counters start
+    /// at 1). The EIP-712 domain separator carries address(this).
+    function test_ConfirmBridge_RejectsSignatureFromOtherDeployment() public {
+        // Second bridge instance on the same chain, same tokens/validators —
+        // the post-redeploy shape the #795 history makes plausible.
+        CrossChainBridge bridge2 = new CrossChainBridge(feeRecipient);
+        bridge2.addSupportedToken(address(sourceToken), 500_000 * 10**18, 0, false);
+        bridge2.addValidator(validator1, 1);
+        bridge2.addValidator(validator2, 1);
+        bridge2.addValidator(validator3, 1);
+
+        uint256 amount = 100 * 10**18;
+
+        // Request 1 on BOTH deployments: requestCounter starts at 1 on each,
+        // so requestId and (chosen) lockTxHash collide exactly.
+        uint256 requestId1 = _initiate(sourceToken, amount, TARGET_CHAIN, recipient);
+        vm.startPrank(user);
+        sourceToken.approve(address(bridge2), amount);
+        uint256 requestId2 = bridge2.initiateBridge(address(sourceToken), address(targetToken), amount, TARGET_CHAIN, recipient);
+        vm.stopPrank();
+        assertEq(requestId1, requestId2);
+
+        bytes32 lockTxHash = keccak256("shared-lock-tx");
+
+        // Validator signs for bridge (deployment 1) — the honest digest.
+        bytes memory sigForBridge1 = _signValidator(V1_PK, requestId1, lockTxHash);
+
+        // Replay it against bridge2's identical-looking request: the domain
+        // separator's verifyingContract differs, so recovery yields a
+        // different (non-validator) address -> rejected.
+        vm.prank(validator1);
+        vm.expectRevert("Invalid signature");
+        bridge2.confirmBridge(requestId2, lockTxHash, sigForBridge1);
+
+        // And the correctly-scoped signature still works on bridge2.
+        vm.prank(validator1);
+        bridge2.confirmBridge(requestId2, lockTxHash, _signValidatorFor(bridge2, V1_PK, requestId2, lockTxHash));
+    }
+
+    function _signValidatorFor(CrossChainBridge target, uint256 pk, uint256 requestId, bytes32 lockTxHash)
+        internal
+        view
+        returns (bytes memory)
+    {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, _eip712DigestFor(target, requestId, lockTxHash));
+        return abi.encodePacked(r, s, v);
     }
 }

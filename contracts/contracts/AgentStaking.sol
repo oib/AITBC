@@ -62,6 +62,12 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
         uint256 currentAPY;
         PerformanceTier agentTier;
         bool autoCompound;
+        // Timestamp of the most recent slash (#1461). The appeal window is
+        // measured from this, not lastRewardTime -- lastRewardTime is set at
+        // stake creation and only refreshed by _calculateRewards, so for any
+        // stake older than appealWindow the old check had already expired
+        // before the slash even happened.
+        uint256 slashedAt;
     }
 
     struct AgentMetrics {
@@ -1057,6 +1063,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
         uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
         stake.amount -= slashAmount;
         stake.status = StakeStatus.SLASHED;
+        stake.slashedAt = block.timestamp;
 
         _removeAgentActiveStake(stake.agentWallet, _stakeId);
 
@@ -1079,15 +1086,19 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
         uint256 maxMissed = conditions.maxMissedJobs > 0 ? conditions.maxMissedJobs : defaultMaxMissedJobs;
         uint256 slashPct = conditions.slashingPercentage > 0 ? conditions.slashingPercentage : defaultSlashingPercentage;
 
+        uint256 slashedTotal;
         if (metrics.averageAccuracy < minAccuracy) {
-            _slashAllStakesForAgent(_agentWallet, slashPct, "Low accuracy");
-            return;
+            slashedTotal = _slashAllStakesForAgent(_agentWallet, slashPct, "Low accuracy");
+        } else {
+            uint256 missedJobs = metrics.totalSubmissions - metrics.successfulSubmissions;
+            if (missedJobs > maxMissed) {
+                slashedTotal = _slashAllStakesForAgent(_agentWallet, slashPct, "Too many missed jobs");
+            }
         }
 
-        uint256 missedJobs = metrics.totalSubmissions - metrics.successfulSubmissions;
-        if (missedJobs > maxMissed) {
-            _slashAllStakesForAgent(_agentWallet, slashPct, "Too many missed jobs");
-        }
+        // The proceeds of this call go to the owner, same as before the
+        // transfer moved out of _slashAllStakesForAgent.
+        _payout(owner(), slashedTotal);
     }
 
     /**
@@ -1101,7 +1112,8 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
      * with no bound, and made a token transfer inside each iteration -- so the cost grew
      * without limit and an agent could make itself un-slashable simply by accumulating
      * stakes. It now walks at most maxSlashBatch entries starting from slashProgress, and
-     * transfers the slashed total once at the end rather than once per stake.
+     * performs no token transfer at all: the caller moves the returned slashedTotal once,
+     * which also lets reportMaliciousAgent pay its reward out of the proceeds (#1460).
      *
      * When stakes remain, SlashingIncomplete is emitted and continueSlashing finishes the
      * job. Nothing is lost: slashProgress only advances over stakes this call handled.
@@ -1128,6 +1140,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
                 uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
                 stake.amount -= slashAmount;
                 stake.status = StakeStatus.SLASHED;
+                stake.slashedAt = block.timestamp;
                 _removeAgentActiveStake(_agentWallet, stakeId);
                 slashedTotal += slashAmount;
 
@@ -1137,10 +1150,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
 
         slashProgress[_agentWallet] = i;
 
-        if (slashedTotal > 0) {
-            require(paymentToken.transfer(owner(), slashedTotal), "Transfer failed");
-        }
-
+        // The slashed tokens stay in the contract here; each caller decides
+        // where they go. reportMaliciousAgent (#1460) splits them between the
+        // owner and the reporter, so the reward can only ever come out of
+        // proceeds this call actually slashed -- never the general pool of
+        // other stakers' principal.
         if (i < total) {
             emit SlashingIncomplete(_agentWallet, i, total - i);
         }
@@ -1162,7 +1176,9 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
             slashPct = defaultSlashingPercentage;
         }
 
-        return _slashAllStakesForAgent(_agentWallet, slashPct, "Continued slashing");
+        uint256 slashedTotal = _slashAllStakesForAgent(_agentWallet, slashPct, "Continued slashing");
+        _payout(owner(), slashedTotal);
+        return slashedTotal;
     }
 
     /**
@@ -1184,7 +1200,13 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
         Stake storage stake = stakes[_stakeId];
         require(stake.staker == msg.sender, "Not your stake");
         require(stake.status == StakeStatus.SLASHED, "Not slashed");
-        require(block.timestamp - stake.lastRewardTime < appealWindow, "Appeal window expired");
+        // Measured from the slash itself (#1461). The old check used
+        // lastRewardTime, which is only set at stake creation and refreshed by
+        // _calculateRewards -- for any stake older than appealWindow the
+        // window had already expired before the slash, so no stake older
+        // than 3 days could ever be appealed.
+        require(stake.slashedAt > 0, "Slash time not recorded");
+        require(block.timestamp - stake.slashedAt < appealWindow, "Appeal window expired");
         require(slashAppeals[_stakeId].appellant == address(0), "Appeal already filed");
 
         slashAppeals[_stakeId] = SlashAppeal({
@@ -1226,14 +1248,23 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
      * @dev Report a malicious agent and earn reward
      * @param _agentWallet Agent wallet address
      * @param _evidence Evidence of malicious behavior
+     *
+     * Restricted to authorized oracles (#1460): the report triggers a real
+     * slash of stakers' principal and pays the reporter, so it cannot be a
+     * permissionless call. The accuracy check additionally requires at least
+     * one performance submission -- addSupportedAgent initializes
+     * averageAccuracy to 0, so without this guard every freshly listed agent
+     * looked "below minAccuracy" and could be slashed before its first oracle
+     * update through no fault of its own.
      */
     function reportMaliciousAgent(
         address _agentWallet,
         string memory _evidence
-    ) external {
+    ) external onlyAuthorizedOracle {
         require(agentMetrics[_agentWallet].agentWallet != address(0), "Agent not found");
 
         AgentMetrics storage metrics = agentMetrics[_agentWallet];
+        require(metrics.totalSubmissions > 0, "No performance submissions");
 
         SlashingCondition storage conditions = slashingConditions[_agentWallet];
         uint256 minAccuracy = conditions.minAccuracyThreshold > 0 ? conditions.minAccuracyThreshold : defaultMinAccuracy;
@@ -1253,11 +1284,26 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
             );
             uint256 reward = (totalSlashed * slashReporterReward) / 10000;
 
-            if (reward > 0) {
-                require(paymentToken.transfer(msg.sender, reward), "Reward transfer failed");
-            }
+            // Paid out of the proceeds this call slashed (#1460): the owner's
+            // share is totalSlashed - reward and the reporter gets reward, so
+            // the reward can never draw on the pooled principal of stakes the
+            // report did not touch.
+            _payout(owner(), totalSlashed - reward);
+            _payout(msg.sender, reward);
 
             emit MaliciousAgentReported(_agentWallet, msg.sender, reward);
+        }
+    }
+
+    /**
+     * @dev Single payout helper for slashed proceeds. Kept as one internal
+     * function so the three slash call sites share a single transfer code
+     * path -- AgentStaking sits at the 24KB contract-size limit, and three
+     * inlined copies of the transfer+require would push it over.
+     */
+    function _payout(address to, uint256 amount) internal {
+        if (amount > 0) {
+            require(paymentToken.transfer(to, amount), "Transfer failed");
         }
     }
 

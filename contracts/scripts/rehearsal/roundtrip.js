@@ -15,7 +15,10 @@
  *      contract refuses target == own chain and completeBridge can never
  *      run on Sepolia, so the withdraw leg is the owner emergency path.
  *   6  each signerN sends confirmBridge(requestId, lockTxHash, sig) from its
- *      own EOA — sig = personal_sign over keccak256(requestId|lockTxHash|chainId);
+ *      own EOA — sig = EIP-712 signature over the BridgeConfirmation struct
+ *      (requestId, lockTxHash) in the "CrossChainBridge"/"1" domain
+ *      (chainid + verifyingContract bound, #1463; matches
+ *      bridge.confirmationDigest(requestId, lockTxHash));
  *      onlyActiveValidator + signature-recover == msg.sender means no other
  *      account can submit on a validator's behalf. After 3 confirms the
  *      request is CONFIRMED (min falls back to MIN_CONFIRMATIONS=3).
@@ -413,16 +416,30 @@ if (existingCounter === 0) {
 }
 
 // 6 — validator confirmations, each sent by its own EOA (resume: skip
-// validators whose BridgeConfirmed log already exists for this request)
-const messageHash = ethers.keccak256(ethers.solidityPacked(
-  ["uint256", "bytes32", "uint256"], [requestId, lockTxHash, 11155111]));
+// validators whose BridgeConfirmed log already exists for this request).
+// #1463: signatures are EIP-712 over BridgeConfirmation{requestId,
+// lockTxHash} — domain {name:"CrossChainBridge", version:"1", chainId,
+// verifyingContract: bridge}. Sign the digest directly (no EIP-191 prefix);
+// this matches the contract's confirmationDigest() view exactly.
+const CONFIRM_TYPES = {
+  BridgeConfirmation: [
+    { name: "requestId", type: "uint256" },
+    { name: "lockTxHash", type: "bytes32" },
+  ],
+};
+const confirmDomain = {
+  name: "CrossChainBridge",
+  version: "1",
+  chainId: 11155111n,
+  verifyingContract: bridgeAddress,
+};
 for (const [i, wallet] of [[1, w1], [2, w2], [3, w3]]) {
   const confirms = await boundedFilter(ro.filters.BridgeConfirmed(requestId, signerAddresses[i - 1]), { fromBlock: depositBlock });
   if (confirms.length > 0) {
     note(`skip: confirmBridge signer${i} already confirmed`);
     continue;
   }
-  const sig = await wallet.signMessage(ethers.getBytes(messageHash));
+  const sig = await wallet.signTypedData(confirmDomain, CONFIRM_TYPES, { requestId, lockTxHash });
   await waitOk((await new ethers.Contract(bridgeAddress, BRIDGE_ABI, wallet)
     .confirmBridge(requestId, lockTxHash, sig,
       { nonce: await nextNonce(signerAddresses[i - 1]) })).hash, `confirmBridge signer${i}`, signerAddresses[i - 1]);
