@@ -449,7 +449,7 @@ async def test_gossip_websocket_hung_accept_still_releases_ip_count(monkeypatch:
 class _SubscribeWs:
     """Minimal WebSocket double for subscription_websocket unit tests."""
 
-    def __init__(self, client_ip: str) -> None:
+    def __init__(self, client_ip: str, handshake: dict | None = None) -> None:
         self.client = SimpleNamespace(host=client_ip)
         self.headers: dict = {}
         self.query_params: dict = {}
@@ -457,6 +457,12 @@ class _SubscribeWs:
         self.sent: list = []
         self.closed: list = []
         self._handshake_sent = False
+        self._handshake = handshake or {
+            "node_id": "node-1",
+            "chain_id": "chain-a",
+            "transport": "websocket",
+            "api_key": "test-peer-key",
+        }
 
     async def accept(self) -> None:
         self.accepted = True
@@ -464,7 +470,7 @@ class _SubscribeWs:
     async def receive_text(self) -> str:
         if not self._handshake_sent:
             self._handshake_sent = True
-            return json.dumps({"node_id": "node-1", "chain_id": "chain-a", "transport": "websocket"})
+            return json.dumps(self._handshake)
         await asyncio.Event().wait()
         raise AssertionError("unreachable")
 
@@ -491,6 +497,13 @@ class _FakeBlockBroker:
         return _Sub()
 
 
+def _accept_fleet_peer_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1702: /subscribe/ws now requires a peer key — accept the test key as a
+    fleet (unbound) key so the lease/broker paths under test still run."""
+    monkeypatch.setattr(websocket_module, "rpc_peer_key_accepted", lambda key: key == "test-peer-key")
+    monkeypatch.setattr(websocket_module.peer_keys, "is_issued_key", lambda key: False)
+
+
 @pytest.mark.asyncio
 async def test_subscribe_ws_per_ip_cap_refuses_before_accept(monkeypatch: pytest.MonkeyPatch) -> None:
     """#1587: a source IP at its connection cap is refused before accept —
@@ -512,6 +525,7 @@ async def test_subscribe_ws_per_ip_cap_refuses_before_accept(monkeypatch: pytest
 async def test_subscribe_ws_lease_expiry_closes_stream(monkeypatch: pytest.MonkeyPatch) -> None:
     """#1587: the lease was only checked at handshake — the heartbeat now
     revalidates it, so a lapsed lease closes the block push."""
+    _accept_fleet_peer_key(monkeypatch)
     monkeypatch.setattr(websocket_module, "_broker_for_chain", lambda chain_id: _FakeBlockBroker())
     calls = {"n": 0}
 
@@ -536,6 +550,105 @@ async def test_subscribe_ws_lease_expiry_closes_stream(monkeypatch: pytest.Monke
         assert 1008 in ws.closed
         assert websocket_module._subscribe_ip_connections.get(ip, 0) == 0
         assert ("node-1", "chain-a") not in websocket_module._active_subscribers
+    finally:
+        websocket_module._subscribe_ip_connections.pop(ip, None)
+        websocket_module._active_subscribers.pop(("node-1", "chain-a"), None)
+
+
+# ---------------------------------------------------------------------------
+# #1702: /subscribe/ws requires a peer key bound to the claimed node_id
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_subscribe_ws_rejects_missing_peer_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1702: a valid node_id alone is not enough — the lease proves a lease
+    exists, not that the caller may use it."""
+    monkeypatch.setattr(websocket_module, "rpc_peer_key_accepted", lambda key: bool(key))
+    lease_calls = {"n": 0}
+
+    async def _expiry(node_id: str, chain_id: str | None = None) -> float:
+        lease_calls["n"] += 1
+        return time.time() + 3600
+
+    monkeypatch.setattr(websocket_module.lease_tracker, "get_lease_expiry", _expiry)
+    ip = "198.51.100.40"
+    websocket_module._subscribe_ip_connections.pop(ip, None)
+    ws = _SubscribeWs(ip, handshake={"node_id": "node-1", "chain_id": "chain-a"})
+    try:
+        await websocket_module.subscription_websocket(ws)
+        assert ws.accepted is True
+        assert 1008 in ws.closed
+        assert any("peer key" in str(m.get("error", "")) for m in ws.sent)
+        # Rejected before the lease lookup — no oracle for valid node_ids.
+        assert lease_calls["n"] == 0
+        assert ("node-1", "chain-a") not in websocket_module._active_subscribers
+    finally:
+        websocket_module._subscribe_ip_connections.pop(ip, None)
+
+
+@pytest.mark.asyncio
+async def test_subscribe_ws_rejects_invalid_peer_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(websocket_module, "rpc_peer_key_accepted", lambda key: False)
+    ip = "198.51.100.41"
+    websocket_module._subscribe_ip_connections.pop(ip, None)
+    ws = _SubscribeWs(ip)
+    try:
+        await websocket_module.subscription_websocket(ws)
+        assert 1008 in ws.closed
+        assert any("peer key" in str(m.get("error", "")) for m in ws.sent)
+    finally:
+        websocket_module._subscribe_ip_connections.pop(ip, None)
+
+
+@pytest.mark.asyncio
+async def test_subscribe_ws_issued_key_bound_to_other_node_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1702: an issued join key may only subscribe for its own node_id —
+    same binding the REST routes enforce."""
+    monkeypatch.setattr(websocket_module, "rpc_peer_key_accepted", lambda key: key == "issued-key")
+    monkeypatch.setattr(websocket_module.peer_keys, "is_issued_key", lambda key: key == "issued-key")
+    monkeypatch.setattr(websocket_module.peer_keys, "peer_key_node_scope", lambda key: "node-9")
+    ip = "198.51.100.42"
+    websocket_module._subscribe_ip_connections.pop(ip, None)
+    ws = _SubscribeWs(
+        ip,
+        handshake={"node_id": "node-1", "chain_id": "chain-a", "api_key": "issued-key"},
+    )
+    try:
+        await websocket_module.subscription_websocket(ws)
+        assert 1008 in ws.closed
+        assert any("bound to a different node_id" in str(m.get("error", "")) for m in ws.sent)
+        assert ("node-1", "chain-a") not in websocket_module._active_subscribers
+    finally:
+        websocket_module._subscribe_ip_connections.pop(ip, None)
+
+
+@pytest.mark.asyncio
+async def test_subscribe_ws_issued_key_bound_to_node_reaches_lease_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1702: a correctly-bound issued key passes auth and reaches the lease
+    check — with an expired lease it gets the lease error, not an auth error."""
+    monkeypatch.setattr(websocket_module, "rpc_peer_key_accepted", lambda key: key == "issued-key")
+    monkeypatch.setattr(websocket_module.peer_keys, "is_issued_key", lambda key: key == "issued-key")
+    monkeypatch.setattr(websocket_module.peer_keys, "peer_key_node_scope", lambda key: "node-1")
+
+    async def _expiry(node_id: str, chain_id: str | None = None) -> float:
+        return 0.0
+
+    monkeypatch.setattr(websocket_module.lease_tracker, "get_lease_expiry", _expiry)
+    ip = "198.51.100.43"
+    websocket_module._subscribe_ip_connections.pop(ip, None)
+    ws = _SubscribeWs(
+        ip,
+        handshake={"node_id": "node-1", "chain_id": "chain-a", "api_key": "issued-key"},
+    )
+    try:
+        await websocket_module.subscription_websocket(ws)
+        assert 1008 in ws.closed
+        assert any("lease" in str(m.get("error", "")).lower() for m in ws.sent)
     finally:
         websocket_module._subscribe_ip_connections.pop(ip, None)
         websocket_module._active_subscribers.pop(("node-1", "chain-a"), None)
