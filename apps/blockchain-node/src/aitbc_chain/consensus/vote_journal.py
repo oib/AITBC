@@ -140,7 +140,7 @@ class VoteJournal:
             for raw in data.get("votes", []):
                 try:
                     rec = VoteRecord.from_json(raw)
-                except (KeyError, TypeError, ValueError):
+                except (KeyError, TypeError, ValueError, AttributeError):  # AttributeError: non-dict row
                     continue
                 self._votes.setdefault(rec.height, {}).setdefault(rec.voter, []).append(rec)
         except Exception as exc:  # noqa: BLE001 - a bad file must degrade to an empty journal, loudly
