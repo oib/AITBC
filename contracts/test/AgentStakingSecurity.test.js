@@ -247,7 +247,7 @@ describe("AgentStaking Security Tests", function () {
 
       await agentStaking.slashStake(stakeId, 10, "Test");
 
-      // Fast forward past appeal window (3 days)
+      // Fast forward past appeal window (3 days) measured from the SLASH.
       await ethers.provider.send("evm_increaseTime", [3 * 24 * 60 * 60 + 1]);
       await ethers.provider.send("evm_mine");
 
@@ -257,6 +257,29 @@ describe("AgentStaking Security Tests", function () {
           "Appeal reason"
         )
       ).to.be.revertedWith("Appeal window expired");
+    });
+
+    it("should allow appeal on a stake older than the window at slash time", async function () {
+      // #1461 regression: the window used to be measured from lastRewardTime
+      // (stake creation), so any stake older than appealWindow could never be
+      // appealed. It is now measured from slashedAt.
+      const stakeId = 0;
+
+      // Stake is 10 days old -- already past the 3-day appeal window -- but
+      // still ACTIVE (30-day lock), so it can be slashed.
+      await ethers.provider.send("evm_increaseTime", [10 * 24 * 60 * 60]);
+      await ethers.provider.send("evm_mine");
+
+      await agentStaking.slashStake(stakeId, 10, "Test");
+
+      // Under the old code this reverted "Appeal window expired" because
+      // block.timestamp - lastRewardTime was already ~10 days.
+      await expect(
+        agentStaking.connect(staker).appealSlashing(
+          stakeId,
+          "Appeal reason"
+        )
+      ).to.emit(agentStaking, "SlashAppealFiled");
     });
 
     it("should allow owner to approve appeal", async function () {
@@ -292,17 +315,45 @@ describe("AgentStaking Security Tests", function () {
         false
       );
 
-      const reporterBalanceBefore = await paymentToken.balanceOf(attacker.address);
+      // #1460: only authorized oracles may report; the reward is paid to the
+      // reporting oracle out of the slashed proceeds.
+      const reporterBalanceBefore = await paymentToken.balanceOf(oracle.address);
+
+      await expect(
+        agentStaking.connect(oracle).reportMaliciousAgent(
+          agentWallet.address,
+          "Evidence of malicious behavior"
+        )
+      ).to.emit(agentStaking, "MaliciousAgentReported");
+
+      const reporterBalanceAfter = await paymentToken.balanceOf(oracle.address);
+      expect(reporterBalanceAfter).to.be.gt(reporterBalanceBefore);
+    });
+
+    it("should not allow a non-oracle to report a malicious agent", async function () {
+      await agentStaking.connect(oracle).updateAgentPerformance(
+        agentWallet.address,
+        30,
+        false
+      );
 
       await expect(
         agentStaking.connect(attacker).reportMaliciousAgent(
           agentWallet.address,
           "Evidence of malicious behavior"
         )
-      ).to.emit(agentStaking, "MaliciousAgentReported");
+      ).to.be.revertedWith("Not authorized oracle");
+    });
 
-      const reporterBalanceAfter = await paymentToken.balanceOf(attacker.address);
-      expect(reporterBalanceAfter).to.be.gt(reporterBalanceBefore);
+    it("should not allow an oracle to report an agent with no submissions", async function () {
+      // #1460: a freshly added agent has averageAccuracy 0 by initialization;
+      // without performance data there is no evidence of malice to slash on.
+      await expect(
+        agentStaking.connect(oracle).reportMaliciousAgent(
+          agentWallet.address,
+          "Fresh agent, no data"
+        )
+      ).to.be.revertedWith("No performance submissions");
     });
 
     it("should allow owner to set custom slashing conditions", async function () {

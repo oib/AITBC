@@ -17,12 +17,12 @@ import { network } from "hardhat";
 const { ethers } = await network.getOrCreate();
 
 describe("AgentStaking slashing (SC-06)", function () {
-  let token, staking, owner, agent, staker, reporter;
+  let token, staking, owner, agent, staker, reporter, oracle, attacker;
   const STAKE = ethers.parseEther("1000");
   const LOCK = 30 * 24 * 60 * 60; // the contract requires >= 1 day
 
   beforeEach(async function () {
-    [owner, agent, staker, reporter] = await ethers.getSigners();
+    [owner, agent, staker, reporter, oracle, attacker] = await ethers.getSigners();
 
     const Token = await ethers.getContractFactory("AIToken");
     token = await Token.deploy(ethers.parseEther("10000000"));
@@ -42,6 +42,8 @@ describe("AgentStaking slashing (SC-06)", function () {
     await staking.setMaxStakesPerUser(500);
 
     await staking.addSupportedAgent(agent.address, 0); // BRONZE
+    // #1460: reportMaliciousAgent is oracle-gated.
+    await staking.addOracle(oracle.address);
   });
 
   async function makeStakes(count, amount = STAKE) {
@@ -191,29 +193,78 @@ describe("AgentStaking slashing (SC-06)", function () {
   });
 
   describe("reporter reward", function () {
+    // #1460: reports require an authorized oracle AND at least one performance
+    // submission -- a fresh agent's averageAccuracy is 0 by initialization,
+    // not by evidence, so it must not be slashable through the report path.
+    async function reportableAgent(accuracy = 30) {
+      await staking.connect(oracle).updateAgentPerformance(agent.address, accuracy, false);
+    }
+
     it("pays a share of what this report slashed", async function () {
       await makeStakes(3);
-      const before = await token.balanceOf(reporter.address);
+      await reportableAgent();
+      const before = await token.balanceOf(oracle.address);
 
-      await staking.connect(reporter).reportMaliciousAgent(agent.address, "bad output");
+      await staking.connect(oracle).reportMaliciousAgent(agent.address, "bad output");
 
       const slashed = (STAKE * DEFAULT_SLASH_PCT) / 100n * 3n;
       const expectedReward = (slashed * (await staking.slashReporterReward())) / 10000n;
 
-      expect((await token.balanceOf(reporter.address)) - before).to.equal(expectedReward);
+      expect((await token.balanceOf(oracle.address)) - before).to.equal(expectedReward);
+    });
+
+    it("pays the reward only out of the proceeds this report slashed", async function () {
+      // #1460: the owner's share is totalSlashed - reward and the reporter's
+      // is reward -- together exactly the slashed total, so the reward can
+      // never draw on pooled principal of untouched stakes.
+      await makeStakes(3);
+      await reportableAgent();
+
+      const ownerBefore = await token.balanceOf(owner.address);
+      const oracleBefore = await token.balanceOf(oracle.address);
+      await staking.connect(oracle).reportMaliciousAgent(agent.address, "bad output");
+
+      const slashed = (STAKE * DEFAULT_SLASH_PCT) / 100n * 3n;
+      const expectedReward = (slashed * (await staking.slashReporterReward())) / 10000n;
+
+      expect((await token.balanceOf(oracle.address)) - oracleBefore).to.equal(expectedReward);
+      expect((await token.balanceOf(owner.address)) - ownerBefore).to.equal(slashed - expectedReward);
+    });
+
+    it("rejects reports from non-oracles", async function () {
+      await makeStakes(1);
+      await reportableAgent();
+
+      await expect(
+        staking.connect(attacker).reportMaliciousAgent(agent.address, "bad output"),
+      ).to.be.revertedWith("Not authorized oracle");
+      await expect(
+        staking.connect(reporter).reportMaliciousAgent(agent.address, "bad output"),
+      ).to.be.revertedWith("Not authorized oracle");
+    });
+
+    it("rejects a report on an agent with no performance submissions", async function () {
+      // Fresh agent: averageAccuracy is 0 (< defaultMinAccuracy 50) purely by
+      // initialization. Before #1460 anyone could slash all its stakes here.
+      await makeStakes(1);
+
+      await expect(
+        staking.connect(oracle).reportMaliciousAgent(agent.address, "fresh agent"),
+      ).to.be.revertedWith("No performance submissions");
     });
 
     it("pays nothing for a report that slashes nothing", async function () {
       // Everything already slashed by an earlier incident; this report causes no new loss.
       await makeStakes(3);
+      await reportableAgent();
       await staking.checkAndSlashAgent(agent.address);
-      const before = await token.balanceOf(reporter.address);
+      const before = await token.balanceOf(oracle.address);
 
-      await staking.connect(reporter).reportMaliciousAgent(agent.address, "same again");
+      await staking.connect(oracle).reportMaliciousAgent(agent.address, "same again");
 
       // The old code re-derived a total from the agent's whole SLASHED history and paid on
       // it, so a second reporter was rewarded for someone else's report.
-      expect(await token.balanceOf(reporter.address)).to.equal(before);
+      expect(await token.balanceOf(oracle.address)).to.equal(before);
     });
   });
 

@@ -50,11 +50,41 @@ contract CrossChainBridgeFuzzTest is Test {
         targetToken.transfer(address(bridge), 400_000 * 10**18);
     }
 
+    /// #1463: validators sign the EIP-712 digest -- domain separator binds
+    /// chainid + address(this). Computed locally (not via
+    /// bridge.confirmationDigest) because these helpers run inside
+    /// vm.prank(...) argument lists, where an external call would consume
+    /// the prank. The pre-#1463 personal-sign format is pinned as rejected
+    /// in CrossChainBridgeOwnerSafe.t.sol.
     function _sign(uint256 pk, uint256 requestId, bytes32 lockTxHash) internal view returns (bytes memory) {
-        bytes32 messageHash = keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid));
-        bytes32 ethSigned = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, ethSigned);
+        bytes32 digest = _eip712Digest(requestId, lockTxHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
         return abi.encodePacked(r, s, v);
+    }
+
+    /// Local copy of the contract's EIP-712 digest: OZ EIP712("CrossChainBridge","1")
+    /// domain + BridgeConfirmation(uint256 requestId,bytes32 lockTxHash).
+    function _eip712Digest(uint256 requestId, bytes32 lockTxHash) internal view returns (bytes32) {
+        bytes32 domainTypehash = keccak256(
+            "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        );
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                domainTypehash,
+                keccak256("CrossChainBridge"),
+                keccak256("1"),
+                block.chainid,
+                address(bridge)
+            )
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("BridgeConfirmation(uint256 requestId,bytes32 lockTxHash)"),
+                requestId,
+                lockTxHash
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 
     function _initiate(uint256 amount) internal returns (uint256 requestId) {
