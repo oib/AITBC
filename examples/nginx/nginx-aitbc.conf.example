@@ -66,6 +66,10 @@ map "$aitbc_static_asset:$arg_v:$status" $aitbc_asset_immutable {
     "~^1:[0-9a-f]{16}:(200|206|304)$" "immutable";
 }
 
+# Match the deployed hosts: do not leak the nginx version in Server headers
+# or error pages.
+server_tokens off;
+
 limit_req_zone $binary_remote_addr zone=aitbc_csp_reports:1m rate=1r/s;
 
 server {
