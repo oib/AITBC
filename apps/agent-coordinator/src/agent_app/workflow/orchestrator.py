@@ -281,7 +281,7 @@ class WorkflowOrchestrator:
         if not self.redis_client:
             return []
         try:
-            keys = await self.redis_client.keys("workflow:*")
+            keys = [key async for key in self.redis_client.scan_iter("workflow:*")]
             workflows = []
             for key in keys:
                 data = await self.redis_client.get(key)
@@ -298,7 +298,7 @@ class WorkflowOrchestrator:
             return []
         try:
             pattern = f"execution:{workflow_id}:*" if workflow_id else "execution:*"
-            keys = await self.redis_client.keys(pattern)
+            keys = [key async for key in self.redis_client.scan_iter(pattern)]
             executions = []
             for key in keys:
                 data = await self.redis_client.get(key)
@@ -409,13 +409,25 @@ class WorkflowOrchestrator:
             return
         key = f"execution:{execution.workflow_id}:{execution.execution_id}"
         await self.redis_client.set(key, json.dumps(execution.to_dict()), ex=86400)
+        # Reverse index so _load_workflow_execution is a direct GET instead of
+        # an O(all-executions) scan per lookup (#1530). Same TTL as the row.
+        await self.redis_client.set(f"execution_ref:{execution.execution_id}", execution.workflow_id, ex=86400)
 
     async def _load_workflow_execution(self, execution_id: str) -> WorkflowExecution | None:
         """Load workflow execution from Redis"""
         if not self.redis_client:
             return None
-        keys = await self.redis_client.keys("execution:*")
-        for key in keys:
+        # Direct lookup via the execution→workflow index written by
+        # _save_workflow_execution (#1530). Rows saved before the index
+        # existed fall back to a SCAN (still cheaper than the old KEYS).
+        ref = await self.redis_client.get(f"execution_ref:{execution_id}")
+        if ref:
+            workflow_id = ref.decode() if isinstance(ref, bytes) else str(ref)
+            data = await self.redis_client.get(f"execution:{workflow_id}:{execution_id}")
+            if data:
+                return WorkflowExecution.from_dict(json.loads(data))
+            return None
+        async for key in self.redis_client.scan_iter("execution:*"):
             key_str = key.decode() if isinstance(key, bytes) else key
             if key_str.endswith(f":{execution_id}"):
                 data = await self.redis_client.get(key)
@@ -428,7 +440,7 @@ class WorkflowOrchestrator:
         if not self.redis_client:
             return
         try:
-            keys = await self.redis_client.keys("execution:*")
+            keys = [key async for key in self.redis_client.scan_iter("execution:*")]
             for key in keys:
                 data = await self.redis_client.get(key)
                 if data:
