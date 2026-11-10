@@ -766,6 +766,11 @@ class TestDiscoverOffersCrossChainDedup:
             wire = _legacy_wire(chain_id)
             offer = SyncedOffer.from_dict(wire)
             offer.chain_id = chain_id  # node payload carries no chain_id; envelope backfills it
+            # from_dict leaves last_synced empty → is_stale()==True would fire
+            # an on-demand sync_chain whose empty mock response then deletes
+            # the seeded offers via #1567 reconciliation. Pin the fresh-cache
+            # scenario this test means to exercise.
+            offer.last_synced = datetime.now(UTC).isoformat()
             offers_in[chain_id] = offer
             cache.set_offer(offer, ttl=300)
 
