@@ -521,6 +521,7 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         require(_beneficiary != address(0), "Invalid beneficiary");
         require(authorizedPayees[_beneficiary], "Recipient not authorized");
         require(_amount >= minPaymentAmount, "Amount below minimum");
+        require(_amount <= maxPaymentAmount, "Amount above maximum");
 
         // #1466: make escrowType meaningful at creation. A TimeBased escrow
         // with releaseTime == 0 and a PerformanceBased/Conditional escrow
