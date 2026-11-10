@@ -23,18 +23,23 @@ set -euo pipefail
 
 DO_RELOAD=true
 DRY_RUN=false
+# Flags may appear anywhere: `deploy-rules.sh DIR --dry-run` must still dry
+# run — stopping flag parsing at the first positional used to treat
+# "--dry-run" as the prometheus.yml path and perform a REAL deploy.
+POSITIONAL=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --no-reload) DO_RELOAD=false ;;
         --dry-run) DRY_RUN=true ;;
-        *) break ;;
+        --*) echo "deploy-rules: unknown option $1" >&2; exit 2 ;;
+        *) POSITIONAL+=("$1") ;;
     esac
     shift
 done
 
-DEPLOYED_DIR="${1:-/etc/prometheus}"
+DEPLOYED_DIR="${POSITIONAL[0]:-/etc/prometheus}"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROM_YML="${2:-$DEPLOYED_DIR/prometheus.yml}"
+PROM_YML="${POSITIONAL[1]:-$DEPLOYED_DIR/prometheus.yml}"
 
 rule_files=""
 if [ -r "$PROM_YML" ]; then

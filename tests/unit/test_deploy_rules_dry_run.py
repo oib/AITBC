@@ -65,3 +65,23 @@ def test_dry_run_announces_the_reload_it_skips(tmp_path):
     # systemctl was never reached: the deployed files are still absent.
     assert not (deployed / "aitbc_rules.yml").exists()
     assert not (deployed / "aitbc_hub_rules.yml").exists()
+
+
+def test_flag_after_positional_still_dry_runs(tmp_path):
+    """`deploy-rules.sh DIR --dry-run` must dry-run, not treat --dry-run as
+    the prometheus.yml path and perform a real deploy."""
+    _repo, deployed, script = make_env(tmp_path)
+
+    res = run(script, deployed, "--dry-run", "--no-reload")
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "would deploy" in res.stdout
+    assert not (deployed / "aitbc_rules.yml").exists()
+    assert not (deployed / "aitbc_hub_rules.yml").exists()
+
+
+def test_unknown_flag_is_rejected(tmp_path):
+    _repo, _deployed, script = make_env(tmp_path)
+
+    res = run(script, "--bogus", "/tmp")
+    assert res.returncode == 2
+    assert "unknown option" in res.stderr

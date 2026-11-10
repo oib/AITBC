@@ -322,11 +322,17 @@ check_oom_events() {
             [ "$d" -gt 0 ] && deltas="$deltas $scope:+$d"
         done
         # Persist the new baseline every run -- also after an alert, so one
-        # incident alerts once instead of permanently.
+        # incident alerts once instead of permanently. Temp-then-rename like
+        # the pressure state above: a torn write would reset the baseline and
+        # could re-fire (or mask) a kill delta on the next run.
         if [ -n "$scope_report" ]; then
             mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null || true
-            echo "$scope_report" > "$STATE_FILE" 2>/dev/null \
-                || log_message "WARNING" "could not write OOM state file $STATE_FILE"
+            local stmp
+            if stmp=$(mktemp "$(dirname "$STATE_FILE")/.oom-state.XXXXXX" 2>/dev/null); then
+                echo "$scope_report" > "$stmp" 2>/dev/null \
+                    && mv -f "$stmp" "$STATE_FILE" 2>/dev/null \
+                    || rm -f "$stmp"
+            fi
         fi
     fi
 

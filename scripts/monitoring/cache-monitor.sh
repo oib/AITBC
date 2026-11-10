@@ -5,7 +5,7 @@
 # Configuration
 set -euo pipefail
 
-LOG_FILE="/var/log/aitbc/cache-monitor.log"
+LOG_FILE="${AITBC_CACHEMON_LOG:-/var/log/aitbc/cache-monitor.log}"
 ALERT_THRESHOLD=90  # Memory usage alert threshold
 
 # Hit-rate check tuning. On nodes where Redis serves as a pub/sub broker or
@@ -14,6 +14,9 @@ ALERT_THRESHOLD=90  # Memory usage alert threshold
 # noise. Set CACHE_MONITOR_SKIP_HIT_RATE=true in
 # /etc/aitbc/aitbc-cache-monitor.env on such nodes.
 HIT_RATE_MIN="${CACHE_MONITOR_HIT_RATE_MIN:-50}"
+# A non-numeric threshold would make every `[ -lt ]` comparison error out
+# (and under set -e could abort mid-run); fall back to the default.
+[[ "$HIT_RATE_MIN" =~ ^[0-9]+$ ]] || HIT_RATE_MIN=50
 SKIP_HIT_RATE="${CACHE_MONITOR_SKIP_HIT_RATE:-false}"
 
 # Colors for output
@@ -58,6 +61,10 @@ check_redis_memory() {
     local memory_peak=$(redis-cli info memory | grep used_memory_peak_human | cut -d: -f2 | tr -d '\r')
     local used_bytes=$(redis-cli info memory | awk -F: '/^used_memory:/ {gsub(/\r/,"",$2); print $2; exit}')
     local max_memory=$(redis-cli config get maxmemory | tail -1)
+    # config get can return empty/non-numeric when the server is only
+    # half-alive; "0" below means "no limit" and any other non-number would
+    # abort the run on the division.
+    [[ "$max_memory" =~ ^[0-9]+$ ]] || max_memory=0
 
     echo "Current Memory: $memory_used"
     echo "Peak Memory: $memory_peak"

@@ -37,6 +37,11 @@ while [ "${1:-}" = "--live" ]; do
     shift
 done
 
+# A stray --flag must not be silently taken as the deployed dir.
+case "${1:-}" in
+    --*) echo "check-rules-deployed: unknown option $1" >&2; exit 2 ;;
+esac
+
 DEPLOYED_DIR="${1:-/etc/prometheus}"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROM_YML="${2:-$DEPLOYED_DIR/prometheus.yml}"
