@@ -21,9 +21,6 @@ class SubscriptionProtocol(Protocol):
     def close(self) -> None: ...
 
 
-logger = get_logger(__name__)
-
-
 class BlockEventSubscriber:
     """Subscribes to block events from the gossip broker."""
 
