@@ -1,0 +1,28 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0x33dc514281d3276c677d2df76827a9fd04de3e7a8241671a0d0f0f6c971321a5",
+  "height": 50000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "empty-block-late-height-two-accounts",
+ "description": "Empty block at a late height with two funded accounts: every root must equal the pre-state roots, version resolves at the newest armed ruleset, no tx rows.",
+ "gate": "block mechanics",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 5000,
+    "chain_id": "gv-synth",
+    "nonce": 3
+   }
+  ]
+ },
+ "txs": []
+}
