@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from poolhub.repositories.match_repository import MatchRepository
@@ -69,16 +70,38 @@ async def match_endpoint(
     requirements = _normalize_requirements(payload.requirements)
     top_k = payload.top_k
 
-    try:
-        request = await match_repo.create_request(
+    async def _candidates_for() -> list[dict[str, Any]]:
+        active_miners = await miner_repo.list_active_miners()
+        return _select_candidates(requirements, payload.hints, active_miners, top_k)
+
+    async def _respond_without_writes() -> MatchResponse:
+        """Idempotent replay (#1553): a job_id already has a match request —
+        return fresh candidates WITHOUT writing new MatchRequest/MatchResult
+        rows, so billing sums are not inflated by retries."""
+        candidates = await _candidates_for()
+        return MatchResponse(
             job_id=payload.job_id,
-            requirements=requirements,
-            hints=payload.hints,
-            top_k=top_k,
+            candidates=[_candidate_from_payload(candidate) for candidate in candidates],
         )
 
-        active_miners = await miner_repo.list_active_miners()
-        candidates = _select_candidates(requirements, payload.hints, active_miners, top_k)
+    try:
+        # Fast-path dedup; the unique constraint on match_requests.job_id is
+        # the authoritative guard for the concurrent-first-write race.
+        if await match_repo.get_request_by_job_id(payload.job_id) is not None:
+            return await _respond_without_writes()
+
+        try:
+            request = await match_repo.create_request(
+                job_id=payload.job_id,
+                requirements=requirements,
+                hints=payload.hints,
+                top_k=top_k,
+            )
+        except IntegrityError:
+            await session.rollback()
+            return await _respond_without_writes()
+
+        candidates = await _candidates_for()
 
         await match_repo.add_results(
             request_id=uuid.UUID(str(request.id)),
