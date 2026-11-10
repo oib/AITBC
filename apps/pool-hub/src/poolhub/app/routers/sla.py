@@ -113,10 +113,11 @@ async def get_miner_sla_metrics(
     miner_id: str,
     sla_collector: Annotated[SLACollector, Depends(get_sla_collector)],
     hours: Annotated[int, Query(ge=1, le=168)] = 24,
+    limit: Annotated[int, Query(ge=1, le=500)] = 500,
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics for a specific miner"""
     try:
-        metrics = await sla_collector.get_sla_metrics(miner_id=miner_id, hours=hours)
+        metrics = await sla_collector.get_sla_metrics(miner_id=miner_id, hours=hours, limit=limit)
         return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics for miner %s: %s", miner_id, e)
@@ -129,10 +130,11 @@ async def get_miner_sla_metrics(
 async def get_all_sla_metrics(
     sla_collector: Annotated[SLACollector, Depends(get_sla_collector)],
     hours: Annotated[int, Query(ge=1, le=168)] = 24,
+    limit: Annotated[int, Query(ge=1, le=500)] = 500,
 ) -> list[SLAMetricResponse]:
     """Get SLA metrics across all miners"""
     try:
-        metrics = await sla_collector.get_sla_metrics(miner_id=None, hours=hours)
+        metrics = await sla_collector.get_sla_metrics(miner_id=None, hours=hours, limit=limit)
         return metrics  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA metrics: %s", e)
@@ -146,11 +148,12 @@ async def get_sla_violations(
     db: Annotated[AsyncSession, Depends(get_db)],
     miner_id: str | None = None,
     resolved: bool = False,
+    limit: Annotated[int, Query(ge=1, le=500)] = 500,
 ) -> list[SLAViolationResponse]:
     """Get SLA violations"""
     try:
         sla_collector = SLACollector(db)
-        violations = await sla_collector.get_sla_violations(miner_id=miner_id, resolved=resolved)
+        violations = await sla_collector.get_sla_violations(miner_id=miner_id, resolved=resolved, limit=limit)
         return violations  # type: ignore[return-value]
     except Exception as e:
         logger.error("Error getting SLA violations: %s", e)
@@ -178,12 +181,18 @@ async def collect_sla_metrics(
 async def get_capacity_snapshots(
     db: Annotated[AsyncSession, Depends(get_db)],
     hours: Annotated[int, Query(ge=1, le=168)] = 24,
+    limit: Annotated[int, Query(ge=1, le=500)] = 500,
 ) -> list[CapacitySnapshotResponse]:
     """Get capacity planning snapshots"""
     try:
         hours_value = hours
         cutoff = datetime.now(UTC) - timedelta(hours=hours_value)
-        stmt = select(CapacitySnapshot).where(CapacitySnapshot.timestamp >= cutoff).order_by(desc(CapacitySnapshot.timestamp))
+        stmt = (
+            select(CapacitySnapshot)
+            .where(CapacitySnapshot.timestamp >= cutoff)
+            .order_by(desc(CapacitySnapshot.timestamp))
+            .limit(limit)
+        )
         result = await db.execute(stmt)
         snapshots = result.scalars().all()
         return snapshots  # type: ignore[return-value]
