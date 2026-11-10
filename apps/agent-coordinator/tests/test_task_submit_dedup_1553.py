@@ -77,3 +77,34 @@ class TestTaskSubmitEscrowDedup:
         contract_id = tasks_router._lock_escrow_on_chain(entry, req.payment, "task-dedup-3")
         assert contract_id == "contract-1"
         assert entry.status == EscrowStatus.LOCKED
+
+    def test_different_requester_same_task_id_is_not_a_replay(self, escrow_env):
+        """#1553 merge-interaction: task_id is caller-chosen, so the dedup must
+        be scoped to identical payment terms — a second buyer reusing the id
+        must not inherit (or hijack) the first buyer's escrow."""
+        req_a = _submission("task-dedup-4")
+        escrow_id_a, _, _ = tasks_router._create_task_escrow(req_a, "task-dedup-4", "ait-mainnet")
+
+        req_b = TaskSubmission(
+            task_data={"task_id": "task-dedup-4", "task_type": "test"},
+            payment=TaskPayment(amount=100, requester="other-buyer", agent="provider"),
+        )
+        with pytest.raises(ValueError, match="different payment terms"):
+            tasks_router._create_task_escrow(req_b, "task-dedup-4", "ait-mainnet")
+
+        # No second escrow was minted for the colliding id.
+        entries = [e for e in escrow_env._escrows.values() if e.task_id == "task-dedup-4"]
+        assert len(entries) == 1
+        assert entries[0].escrow_id == escrow_id_a
+        assert entries[0].requester == "buyer"
+
+    def test_different_amount_same_task_id_is_not_a_replay(self, escrow_env):
+        req_a = _submission("task-dedup-5")
+        tasks_router._create_task_escrow(req_a, "task-dedup-5", "ait-mainnet")
+
+        req_b = TaskSubmission(
+            task_data={"task_id": "task-dedup-5", "task_type": "test"},
+            payment=TaskPayment(amount=999, requester="buyer", agent="provider"),
+        )
+        with pytest.raises(ValueError, match="different payment terms"):
+            tasks_router._create_task_escrow(req_b, "task-dedup-5", "ait-mainnet")

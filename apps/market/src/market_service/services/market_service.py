@@ -76,6 +76,58 @@ def _validated_job_ttl(value: Any) -> int:
     return ttl
 
 
+def _finite_decimal(value: Any, field: str) -> Decimal:
+    """Parse a caller-supplied decimal and require it finite (#1676-class).
+
+    The booking/offer bodies arrive as plain dicts, so literal ``NaN`` /
+    ``Infinity`` JSON floats reach here as Python floats — and
+    ``Decimal(str(float("nan")))`` happily yields ``Decimal("NaN")``, which
+    would otherwise be persisted on the bid/offer row and posted to the
+    on-chain escrow payload. Reject non-finite values before they land.
+    """
+    try:
+        parsed = Decimal(str(value))
+    except Exception as e:
+        raise ValueError(f"{field} must be a valid number") from e
+    if not parsed.is_finite():
+        raise ValueError(f"{field} must be finite")
+    return parsed
+
+
+def _money_decimal(value: Any, field: str) -> Decimal:
+    """Finite + bounded money field: ``0 <= value <= MAX_PAYMENT_AMOUNT``.
+
+    Same ceiling the job-payment validator and the exchange offer/book price
+    bound use — a finite-but-absurd magnitude (1e30) has no sane interpretation
+    and overflows Numeric(20,8) on stricter backends.
+    """
+    parsed = _finite_decimal(value, field)
+    if parsed < 0:
+        raise ValueError(f"{field} must be non-negative")
+    if parsed > MAX_PAYMENT_AMOUNT:
+        raise ValueError(f"{field} must not exceed {MAX_PAYMENT_AMOUNT}")
+    return parsed
+
+
+def _validate_booking_numbers(booking_data: dict[str, Any]) -> None:
+    """Reject non-finite money/duration fields on an offer booking.
+
+    Runs before the offer CAS claim so a bad payload cannot leave the offer
+    flipped to ``booked`` with no bid behind it.
+    """
+    for field in ("price", "amount"):
+        if booking_data.get(field) is not None:
+            _money_decimal(booking_data[field], field)
+    duration = booking_data.get("duration_hours")
+    if duration is not None:
+        try:
+            hours = float(duration)
+        except (TypeError, ValueError) as e:
+            raise ValueError("duration_hours must be a number") from e
+        if not math.isfinite(hours):
+            raise ValueError("duration_hours must be finite")
+
+
 def max_page_size() -> int:
     """Server-side ceiling for list endpoints (MARKET_MAX_PAGE_SIZE, default 500).
 
@@ -665,6 +717,9 @@ class MarketService:
                 self.session.add(offer)
                 await self.session.commit()
                 raise ValueError(f"Offer {offer_id} has expired")
+            # Non-finite money fields (literal NaN/Infinity JSON) must die
+            # here — before the CAS claim flips the offer to 'booked'.
+            _validate_booking_numbers(booking_data)
             # Booking is the one transition this service performed without asking the FSM:
             # it assigned "booked" directly, which is how a status the FSM cannot parse came
             # to be in the database in the first place. Validated before the bid is created,
@@ -734,6 +789,12 @@ class MarketService:
             if "expires_at" in offer_data:
                 # #1554: normalize to naive UTC before the model sees it.
                 offer_data["expires_at"] = coerce_offer_expires_at(offer_data["expires_at"])
+            # Money columns are Numeric — a literal NaN/Infinity in the dict
+            # body would persist Decimal('NaN') and poison every later
+            # aggregate/booking that reads it.
+            for price_field in ("price", "price_per_hour"):
+                if offer_data.get(price_field) is not None:
+                    offer_data[price_field] = _money_decimal(offer_data[price_field], price_field)
             existing: MarketOffer | None = await _get_by_caller_id(self.session, MarketOffer, offer_data)
             if existing is not None:
                 return existing
@@ -1512,14 +1573,7 @@ class MarketService:
             # tx_value >= ait_to_units(bid.price) when that value is positive,
             # so a negative/NaN price skips the on-chain minimum entirely and
             # a "completed" bid settles for dust.
-            try:
-                price = Decimal(str(booking_data.get("price", offer.price or 0)))
-            except Exception as e:
-                raise ValueError("bid price must be a valid number") from e
-            if not price.is_finite() or price < 0:
-                raise ValueError("bid price must be a finite non-negative number")
-            if price > MAX_PAYMENT_AMOUNT:
-                raise ValueError(f"bid price must not exceed {MAX_PAYMENT_AMOUNT}")
+            price = _money_decimal(booking_data.get("price", offer.price or 0), "price")
             capacity = float(booking_data.get("duration_hours", 1.0))
             bid = Bid(
                 offer_id=offer_id,
