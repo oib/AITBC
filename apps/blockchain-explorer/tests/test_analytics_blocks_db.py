@@ -7,13 +7,12 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
-import aiosqlite
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from chain_db_fixture import create_chain_db, insert_blocks, patch_chain_db
-from aitbc_explorer_main import app
+from main import app
 from routers import analytics
 import routers.analytics as analytics_router
 import routers.blocks as blocks_router
@@ -148,10 +147,7 @@ def test_block_by_height_reuses_embedded_transactions(monkeypatch):
     def _boom(*_a, **_k):
         raise AssertionError("api_block must not open a second DB connection")
 
-    # routers/blocks.py reaches chain.db through chain_client.chain_db_connect
-    # (aiosqlite.connect) since 8d2b23611 — patch the shared module attribute so
-    # any DB path, present or future, trips the guard.
-    monkeypatch.setattr(aiosqlite, "connect", _boom)
+    monkeypatch.setattr(blocks_router, "chain_db_connect", _boom)
 
     out = asyncio.run(blocks_router.api_block(1))
     assert out["transactions"] == [{"tx_hash": "0xt"}]

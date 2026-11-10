@@ -6,7 +6,7 @@ from urllib.parse import quote
 import pytest
 from fastapi.testclient import TestClient
 
-from aitbc_explorer_main import app
+from main import app
 from routers.common import like_pattern, sanitize_csv_value
 
 

@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import routers.messages as messages
-from aitbc_explorer_main import app
+from main import app
 
 
 class _FakeResp:

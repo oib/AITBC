@@ -7,7 +7,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from aitbc_explorer_main import app, health
+from main import app, health
 from routers.csp import _integer, _safe_url
 
 
