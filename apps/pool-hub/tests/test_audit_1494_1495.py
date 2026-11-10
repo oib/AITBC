@@ -84,3 +84,25 @@ class TestBasePriceValidation:
     @pytest.mark.parametrize("good", ["0", "0.01", "999999999999.99999999", "1e2"])
     def test_valid_prices_accepted(self, good: str):
         assert self._request(good).base_price == good
+
+
+class TestHardwareGbValidation:
+    """#1398 residual — NaN/Inf/negative gpu_vram_gb/ram_gb must not register.
+
+    NaN is truthy in Python, so `float(nan or 0)` slipped past every positive
+    minimum in /v1/match; Inf and negatives were storable too.
+    """
+
+    def _request(self, **kw) -> MinerRegisterRequest:
+        return MinerRegisterRequest(miner_id="m", api_key="k", **kw)
+
+    @pytest.mark.parametrize("field", ["gpu_vram_gb", "ram_gb"])
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), -1.0])
+    def test_invalid_hardware_rejected(self, field: str, bad: float):
+        with pytest.raises(ValidationError):
+            self._request(**{field: bad})
+
+    @pytest.mark.parametrize("field", ["gpu_vram_gb", "ram_gb"])
+    @pytest.mark.parametrize("good", [0.0, 24.0, 0.5])
+    def test_valid_hardware_accepted(self, field: str, good: float):
+        assert getattr(self._request(**{field: good}), field) == good

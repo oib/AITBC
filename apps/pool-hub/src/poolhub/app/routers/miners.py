@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
@@ -47,6 +48,15 @@ class MinerRegisterRequest(BaseModel):
             raise ValueError("base_price must be a decimal number") from exc
         if not price.is_finite() or price < 0 or price > Decimal("999999999999.99999999"):
             raise ValueError("base_price must be a finite Decimal in [0, 999999999999.99999999]")
+        return v
+
+    @field_validator("gpu_vram_gb", "ram_gb")
+    @classmethod
+    def _valid_hardware_gb(cls, v: float) -> float:
+        # #1398 residual: NaN is truthy so `float(nan or 0)` slips past every
+        # positive minimum in /v1/match; negatives and Inf are storable too.
+        if not math.isfinite(v) or v < 0:
+            raise ValueError("hardware sizes must be finite and non-negative")
         return v
 
 
