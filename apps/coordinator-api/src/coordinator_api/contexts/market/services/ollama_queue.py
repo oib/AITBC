@@ -23,9 +23,26 @@ RESULT_KEY_PREFIX = "aitbc:ollama:result:"
 RESULT_TTL_SECONDS = 3600
 
 
+# Shared client: one connection pool per process. ``get_queue()`` runs per
+# API request — building a fresh ``Redis.from_url`` each time leaked a
+# connection per call because nothing ever closed it (#1532).
+_redis_client: Redis | None = None
+
+
 def _redis() -> Redis:
-    """Return an async Redis client using the coordinator API Redis config."""
-    return Redis.from_url(settings.redis.url, decode_responses=True)
+    """Return the shared async Redis client using the coordinator API Redis config."""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = Redis.from_url(settings.redis.url, decode_responses=True)
+    return _redis_client
+
+
+async def aclose_redis() -> None:
+    """Close the shared client (service shutdown / tests)."""
+    global _redis_client
+    if _redis_client is not None:
+        await _redis_client.aclose()
+        _redis_client = None
 
 
 def _new_task_id() -> str:
