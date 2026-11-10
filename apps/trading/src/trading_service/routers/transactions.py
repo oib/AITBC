@@ -137,6 +137,9 @@ async def get_transactions(
     serializers = {"request": _serialize_request, "match": _serialize_match, "agreement": _serialize_agreement}
 
     try:
+        # #1562: legacy P2P rows expire lazily on read paths; /v1/transactions
+        # reads requests/matches/agreements directly, so run the sweep here too.
+        await TradingService(session).expire_stale_legacy()
         wanted = [action] if action else list(fetchers)
         # island_id is a post-fetch filter (not a column), so the SQL cap is
         # only exact when it is absent: each table contributes at most
