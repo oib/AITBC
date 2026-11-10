@@ -1,7 +1,6 @@
 """Analytics routes — activity timeline, network stats, top addresses, provider reputation, overview."""
 
 import hashlib
-import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -131,7 +130,8 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
         async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
-            # Every read below is chain-scoped (#1620).
+            # Every aggregate below is chain-scoped (#1620) and computed in
+            # SQL (#1621) — no unbounded row fetches.
             acct_scope, acct_scope_params = await chain_scope(conn, "account", cid)
             acct_where, acct_params = scoped_where("", acct_scope, [], acct_scope_params)
             acct_clause = f"WHERE {acct_where}" if acct_where else ""
@@ -175,41 +175,47 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             anchored_offers = (row[0] if row else 0) or 0
 
             # Unique sender addresses
-            all_where, all_params = scoped_where("", tx_scope, [], tx_scope_params)
-            all_tx_clause = f"WHERE {all_where}" if all_where else ""
-            await cursor.execute(f'SELECT COUNT(DISTINCT sender) FROM "transaction" {all_tx_clause}', all_params)
+            where, params = scoped_where("", tx_scope, [], tx_scope_params)
+            all_tx_clause = f"WHERE {where}" if where else ""
+            all_tx_params = list(params)
+            await cursor.execute(f'SELECT COUNT(DISTINCT sender) FROM "transaction" {all_tx_clause}', all_tx_params)
             row = await cursor.fetchone()
             unique_nodes = (row[0] if row else 0) or 0
 
-            # Unique providers across all offer anchor types
-            where, params = scoped_where("type IN ('GPU_MARKET', 'GPU_REGISTER')", tx_scope, [], tx_scope_params)
+            # Unique providers across all offer anchor types. Previously this
+            # fetched every GPU_MARKET/GPU_REGISTER payload and extracted the
+            # provider key in Python — unbounded (#1621). The same COALESCE
+            # key order now runs in SQL: json_valid keeps malformed payloads
+            # out (the Python path skipped them via try/except), and the
+            # double NULLIF reproduces the `or`-chain's falsy skip for ''/0.
+            where, params = scoped_where(
+                "type IN ('GPU_MARKET', 'GPU_REGISTER') AND json_valid(payload)",
+                tx_scope,
+                [],
+                tx_scope_params,
+            )
             await cursor.execute(
                 f"""
-                SELECT payload FROM "transaction"
-                WHERE {where}
+                SELECT COUNT(DISTINCT pid) FROM (
+                    SELECT COALESCE(
+                        NULLIF(NULLIF(json_extract(payload, '$.provider_node_id'), ''), 0),
+                        NULLIF(NULLIF(json_extract(payload, '$.provider_address'), ''), 0),
+                        NULLIF(NULLIF(json_extract(payload, '$.provider'), ''), 0),
+                        NULLIF(NULLIF(json_extract(payload, '$.miner_id'), ''), 0),
+                        NULLIF(NULLIF(json_extract(payload, '$.node_id'), ''), 0)
+                    ) AS pid
+                    FROM "transaction"
+                    WHERE {where}
+                )
+                WHERE pid IS NOT NULL
             """,
                 params,
             )
-            providers = set()
-            rows = await cursor.fetchall()
-            for row in rows:
-                try:
-                    payload = json.loads(row[0]) if row[0] else {}
-                    pid = (
-                        payload.get("provider_node_id")
-                        or payload.get("provider_address")
-                        or payload.get("provider")
-                        or payload.get("miner_id")
-                        or payload.get("node_id")
-                    )
-                    if pid:
-                        providers.add(pid)
-                except Exception:
-                    pass
-            unique_providers = len(providers)
+            row = await cursor.fetchone()
+            unique_providers = (row[0] if row else 0) or 0
 
             # Total transactions
-            await cursor.execute(f'SELECT COUNT(*) FROM "transaction" {all_tx_clause}', all_params)
+            await cursor.execute(f'SELECT COUNT(*) FROM "transaction" {all_tx_clause}', all_tx_params)
             row = await cursor.fetchone()
             total_transactions = (row[0] if row else 0) or 0
 
@@ -304,37 +310,32 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = None)
         async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
-            # Find all transactions related to this provider — chain-scoped (#1620).
+            # All reputation inputs are aggregates — COUNT/SUM/MIN run in SQL
+            # instead of fetching every transaction for the address
+            # unbounded (#1621), and the read is chain-scoped (#1620). The
+            # OR-group keeps sender/recipient matching unambiguous.
             scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
             where, params = scoped_where("(sender = ? OR recipient = ?)", scope_sql, [provider_id, provider_id], scope_params)
             await cursor.execute(
                 f"""
-                SELECT type, value, created_at, payload
+                SELECT COUNT(*),
+                       COALESCE(SUM(CASE WHEN type = 'GPU_MARKET' THEN 1 ELSE 0 END), 0),
+                       COALESCE(SUM(CAST(value AS REAL)), 0),
+                       MIN(created_at)
                 FROM "transaction"
                 WHERE {where}
-                ORDER BY created_at ASC
             """,
                 params,
             )
 
-            txs = await cursor.fetchall()
+            row = await cursor.fetchone()
 
-        gpu_offers = 0
-        total_volume = 0.0
-        first_tx_date = None
-        confirmed_count = 0
-
-        for tx in txs:
-            tx_type, tx_value, created_at, payload = tx
-            if first_tx_date is None:
-                first_tx_date = created_at
-            if tx_type == "GPU_MARKET":
-                gpu_offers += 1
-            try:
-                total_volume += float(tx_value or 0)
-            except Exception:
-                pass
-            confirmed_count += 1
+        # fetchone() is Row | None; the aggregate always returns a row while
+        # the table exists (same V23-46 caveat as network-stats).
+        confirmed_count = int(row[0] or 0) if row else 0
+        gpu_offers = int(row[1] or 0) if row else 0
+        total_volume = float(row[2] or 0.0) if row else 0.0
+        first_tx_date = row[3] if row else None
 
         days_active = 0
         if first_tx_date:
