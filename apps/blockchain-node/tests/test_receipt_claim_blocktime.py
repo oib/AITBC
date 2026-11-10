@@ -9,6 +9,7 @@ sealed block time on every branch and both runs must agree exactly.
 
 from datetime import UTC, datetime
 from pathlib import Path
+import sys
 
 import pytest
 from sqlmodel import Session, select
@@ -23,6 +24,12 @@ from aitbc_chain.state.state_transition import (
     build_bridge_lock_context,
     build_escrow_context,
 )
+
+# Sibling-test import: under the repo-root pytest config (make test-required)
+# the app's own pyproject `pythonpath = ["src", "tests"]` does not apply, so
+# this directory must be put on sys.path explicitly — same convention as
+# test_golden_vectors.py / test_golden_isolation.py.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from test_apply_parity import (
     CHAIN,
