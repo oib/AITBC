@@ -275,6 +275,50 @@ class TestDeltaSync:
             stakes = s.exec(select(Stake).where(Stake.chain_id == "test")).all()
             assert len(stakes) == 2
 
+    def test_aux_state_ingest_caps_refuse_oversized_payload(self, session_factory):
+        """#1628: aux tables sit outside the account state root, so ingest-side
+        caps are the only pre-commit bound on a hostile peer payload. A table
+        over the per-table row cap or a payload over the byte cap must raise
+        BEFORE any row is applied — the caller's session then rolls back."""
+        import pytest
+
+        from aitbc_chain.aux_state import upsert_aux_rows
+        from aitbc_chain.base_models import Stake
+        from sqlmodel import select
+
+        row = {
+            "id": 1,
+            "address": "0x02b8f2c61db19b04ab68cfb43d0605e63de74c5b",
+            "amount": 1,
+            "locked_until": "2030-01-01T00:00:00+00:00",
+            "status": "active",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+        # Per-table row cap: two rows against a cap of one.
+        with session_factory() as s:
+            with pytest.raises(ValueError, match="exceeding cap"):
+                upsert_aux_rows(s, "test", {"stakes": [row, {**row, "id": 2}]}, max_rows_per_table=1)
+            s.rollback()
+        with session_factory() as s:
+            assert s.exec(select(Stake).where(Stake.chain_id == "test")).all() == []
+
+        # Payload byte cap: a single row already over a tiny cap.
+        with session_factory() as s:
+            with pytest.raises(ValueError, match="exceeds cap"):
+                upsert_aux_rows(s, "test", {"stakes": [row]}, max_payload_bytes=10)
+            s.rollback()
+        with session_factory() as s:
+            assert s.exec(select(Stake).where(Stake.chain_id == "test")).all() == []
+
+        # Under the caps the same payload still applies.
+        with session_factory() as s:
+            counts = upsert_aux_rows(s, "test", {"stakes": [row]}, max_rows_per_table=10, max_payload_bytes=1_000_000)
+            assert counts["stakes"] == 1
+            s.commit()
+        with session_factory() as s:
+            assert len(s.exec(select(Stake).where(Stake.chain_id == "test")).all()) == 1
+
     def test_aux_state_missing_key_skipped(self, session_factory):
         from aitbc_chain.aux_state import upsert_aux_rows
         from aitbc_chain.base_models import Stake
