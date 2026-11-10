@@ -73,6 +73,23 @@ def _decode_payload(data: Any) -> Any:
     return data
 
 
+async def _close_gossip_subscription(pubsub: Any, sub_redis: Any, topic: str) -> None:
+    """Close a gossip pub/sub subscription on every exit path (#1534).
+
+    CancelledError is a BaseException: `except Exception` would not catch a
+    second cancellation delivered inside these awaits, so suppress it
+    explicitly — the original cancellation still propagates once this
+    returns.
+    """
+    with suppress(asyncio.CancelledError, Exception):
+        if pubsub is not None:
+            await pubsub.unsubscribe(topic)
+            await pubsub.aclose()
+    with suppress(asyncio.CancelledError, Exception):
+        if sub_redis is not None:
+            await sub_redis.aclose()
+
+
 class GossipSubscription:
     """A handle to a gossip topic subscription.
 
@@ -220,17 +237,7 @@ class GossipClient:
                 except Exception as e:
                     logger.warning("GossipClient Redis subscription error for %s: %s", topic, e)
                 finally:
-                    # CancelledError is a BaseException: `except Exception`
-                    # would not catch a second cancellation delivered inside
-                    # these awaits, so suppress it explicitly — the original
-                    # cancellation still propagates once finally returns.
-                    with suppress(asyncio.CancelledError, Exception):
-                        if pubsub is not None:
-                            await pubsub.unsubscribe(topic)
-                            await pubsub.aclose()
-                    with suppress(asyncio.CancelledError, Exception):
-                        if sub_redis is not None:
-                            await sub_redis.aclose()
+                    await _close_gossip_subscription(pubsub, sub_redis, topic)
 
             task = create_task_with_logging(_listen(), name=f"gossip-sub-{topic}")
             self._tasks.add(task)
