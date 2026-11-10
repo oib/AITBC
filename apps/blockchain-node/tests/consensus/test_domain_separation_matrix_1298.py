@@ -9,18 +9,16 @@ c23383 +T21/T22). Rows that depend on not-yet-landed slices are
 - T11  proposer emission gate (proposal-signature journal refusing a second
        different-hash proposal at sign time)
 - T12  pin-expiry / abandon-height behaviour (AD ruling + emission gate)
-- T13  bounded dual-accept window ``[H, S)`` via
-       ``consensus_legacy_attestation_until_height``
 - T14  declared-round mismatch refused post-H with round_lock OFF
 - T15  effective attestation-lock lapse window 130 s shared constant
        (attester + proposer coupling, incl. future-skewed header case)
-- T18w legacy attestation counting inside the dual-accept window (T18's
-       reject legs ARE implemented below)
 - T19  same-key rotation return at r+4 — pending AD disposition (v2.2 O5)
 - T20  L4 mixed-version mesh leg (CARD6, sandbox-only, needs impl SHA)
 
 Landed slices covered here: S0 domain helpers, S1 sign/verify gating,
-S2 evidence ``signature_domain`` labels + attestation-lock journal.
+S2 evidence ``signature_domain`` labels + attestation-lock journal,
+S3 acceptance-key + bounded dual-accept window ``[H, S)`` via
+``consensus_legacy_attestation_until_height`` (T13, T18w un-skipped).
 """
 
 from __future__ import annotations
@@ -41,7 +39,7 @@ from aitbc.crypto.consensus_signing import (
     verify_consensus_message,
     verify_consensus_message_domain,
 )
-from aitbc_chain.config import settings
+from aitbc_chain.config import legacy_attestation_dual_accept_open, settings
 from aitbc_chain.consensus import remote_attestation as ra_module
 from aitbc_chain.consensus.multi_validator_poa import _verify_block_signature_gated
 from aitbc_chain.consensus.remote_attestation import (
@@ -570,17 +568,35 @@ class TestChannelAmbiguity:
         block = _block(H, HA, our_addr, signature=legacy_sig)
         assert not _verify_block_signature_gated(block, our_addr)
 
-    @pytest.mark.skip(
-        reason="T18 accept leg depends on the dual-accept window "
-        "[H, S) via consensus_legacy_attestation_until_height — slice in "
-        "flight, uncommitted; legacy attestation must count inside the "
-        "window and be rejected at >= S"
-    )
-    def test_T18_legacy_attestation_counts_only_inside_window(self):
+    def test_T18_legacy_attestation_counts_only_inside_window(self, monkeypatch):
         """Inside [H,S) a legacy attestation signature counts toward
         threshold on the attestation channel (status-quo semantics); at
         >= S it is rejected. Metric consensus_legacy_attestation_accepted_total
         increments per acceptance."""
+        S = H + 50  # window [ACTIVATION, S) — H=100 sits inside it
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        monkeypatch.setattr(settings, "consensus_legacy_attestation_until_height", S)
+        our_addr, our_key, _, _ = _keys()
+        legacy_metric = "consensus_legacy_attestation_accepted_total"
+        before = metrics_registry._counters.get(legacy_metric, 0.0)
+
+        # in-window: domain preimage verifies without touching the metric
+        in_msg = _header_msg(HA, V2)
+        domain_sig = sign_consensus_message_domain(in_msg, our_key, DOMAIN_BLOCK_ATTESTATION)
+        assert _verify_attestation(in_msg, domain_sig, our_addr, H)
+        assert metrics_registry._counters.get(legacy_metric, 0.0) == before
+
+        # in-window: legacy shared preimage still counts — and is metered
+        legacy_sig = sign_consensus_message(in_msg, our_key)
+        assert _verify_attestation(in_msg, legacy_sig, our_addr, H)
+        assert metrics_registry._counters.get(legacy_metric, 0.0) == before + 1
+
+        # at >= S the same legacy signature is rejected outright
+        past_msg = _header_msg(HB, V2, height=S)
+        past_legacy = sign_consensus_message(past_msg, our_key)
+        assert not _verify_attestation(past_msg, past_legacy, our_addr, S)
+        past_domain = sign_consensus_message_domain(past_msg, our_key, DOMAIN_BLOCK_ATTESTATION)
+        assert _verify_attestation(past_msg, past_domain, our_addr, S)
 
 
 # ---------------------------------------------------------------------------
@@ -661,16 +677,72 @@ class TestPendingSlices:
         same proposer key emits nothing further at that height (per AD
         ruling); rotation moves to the next proposer."""
 
-    @pytest.mark.skip(
-        reason="T13 bounded dual-accept window [H,S) — depends on "
-        "consensus_legacy_attestation_until_height slice (in flight, "
-        "uncommitted): legacy attestation accepted inside the window, "
-        "rejected at >= S, consensus_legacy_attestation_accepted_total "
-        "metric, proposal path never dual-accepts"
-    )
-    def test_T13_dual_accept_window_bounds(self):
+    def test_T13_dual_accept_window_bounds(self, monkeypatch):
         """Legacy attestation signatures verify for message heights in
-        [H, S) only; at >= S they are rejected; metric counts acceptances."""
+        [H, S) only; at >= S they are rejected; metric counts acceptances.
+        The proposal path never dual-accepts (CARD5)."""
+        S = H + 50  # window [ACTIVATION, S); H=100 sits inside it
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        monkeypatch.setattr(settings, "consensus_legacy_attestation_until_height", S)
+        our_addr, our_key, _, _ = _keys()
+        legacy_metric = "consensus_legacy_attestation_accepted_total"
+        before = metrics_registry._counters.get(legacy_metric, 0.0)
+
+        # config-level window truth table
+        assert not legacy_attestation_dual_accept_open(LOW)
+        assert legacy_attestation_dual_accept_open(H)
+        assert legacy_attestation_dual_accept_open(S - 1)
+        assert not legacy_attestation_dual_accept_open(S)
+        assert not legacy_attestation_dual_accept_open(H + 10_000)
+
+        # below H: legacy preimage only — the domain preimage is NOT accepted
+        low_msg = _header_msg(HB, V2, height=LOW)
+        assert _verify_attestation(low_msg, sign_consensus_message(low_msg, our_key), our_addr, LOW)
+        assert not _verify_attestation(
+            low_msg,
+            sign_consensus_message_domain(low_msg, our_key, DOMAIN_BLOCK_ATTESTATION),
+            our_addr,
+            LOW,
+        )
+
+        # inside [H, S): BOTH preimages verify on the attestation channel;
+        # only the legacy acceptance increments the migration metric
+        in_msg = _header_msg(HA, V2)
+        assert _verify_attestation(
+            in_msg,
+            sign_consensus_message_domain(in_msg, our_key, DOMAIN_BLOCK_ATTESTATION),
+            our_addr,
+            H,
+        )
+        assert _verify_attestation(in_msg, sign_consensus_message(in_msg, our_key), our_addr, H)
+        assert metrics_registry._counters.get(legacy_metric, 0.0) == before + 1
+
+        # at >= S: domain preimage only — legacy is rejected
+        past_msg = _header_msg(HB, V2, height=S)
+        assert not _verify_attestation(past_msg, sign_consensus_message(past_msg, our_key), our_addr, S)
+        assert _verify_attestation(
+            past_msg,
+            sign_consensus_message_domain(past_msg, our_key, DOMAIN_BLOCK_ATTESTATION),
+            our_addr,
+            S,
+        )
+
+        # the proposal path NEVER dual-accepts: a legacy (shared-preimage)
+        # signature at an in-window height is still rejected by the gated
+        # proposal verify — sign over the block's own proposer field
+        prop_msg = _header_msg(HA, our_addr)
+        block = _block(H, HA, our_addr, signature=sign_consensus_message(prop_msg, our_key))
+        assert not _verify_block_signature_gated(block, our_addr)
+
+        # S unset = empty window: hard cutover, byte-identical to pre-window
+        monkeypatch.setattr(settings, "consensus_legacy_attestation_until_height", None)
+        assert not _verify_attestation(in_msg, sign_consensus_message(in_msg, our_key), our_addr, H)
+        assert _verify_attestation(
+            in_msg,
+            sign_consensus_message_domain(in_msg, our_key, DOMAIN_BLOCK_ATTESTATION),
+            our_addr,
+            H,
+        )
 
     @pytest.mark.skip(
         reason="T14 declared-round mismatch refused post-H with round_lock "
@@ -682,12 +754,14 @@ class TestPendingSlices:
         round is refused even with attestation_round_lock_enabled OFF."""
 
     @pytest.mark.skip(
-        reason="T15 intra-round lapse — depends on the effective lock-lapse "
-        "window widening to round+max_age+future_skew (130 s defaults) "
-        "shared by attester attestation_lock and proposer "
-        "_honor_attestation_lock; current window is still "
-        "consensus_proposer_round_seconds. Includes the future-skewed-header "
-        "case and the restart-inside-window leg."
+        reason="T15 intra-round lapse — PARTIALLY landed: _lock_lapse_seconds "
+        "(round+max_age+future_skew = 130s at defaults) exists and the durable "
+        "journal prunes at 2x it, but the BINDING lock windows are still "
+        "consensus_proposer_round_seconds — attestation_lock callers "
+        "(remote_attestation _handle_request) and proposer "
+        "_honor_attestation_lock (poa.py) pass the 60s round window, so the "
+        "shared effective-lapse coupling is not wired yet. Includes the "
+        "future-skewed-header case and the restart-inside-window leg."
     )
     def test_T15_intra_round_lapse_same_derived_round(self):
         """Two hashes sharing one derived round: the second is refused even
