@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import math
 import os
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
+from pydantic import field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
 
@@ -17,6 +19,30 @@ from .storage import get_session
 
 logger = get_logger(__name__)
 app = FastAPI(title="AITBC AI Service", description="AI job operations service", version="1.0.0")
+
+# The multimodal/optimization routes below are stubs: they return canned
+# values and perform no real work. Every response is labelled so a caller
+# cannot mistake the figures for real results (#1477).
+_SIMULATION_NOTICE = "This endpoint is a stub: it returns canned values and performs no real work. Do not rely on the figures."
+
+_TERMINAL_STATES = {JobState.COMPLETED, JobState.FAILED, JobState.CANCELED, JobState.EXPIRED}
+
+
+async def _expire_if_due(session: AsyncSession, job: Job) -> bool:
+    """Lazily transition a non-terminal job past ``expires_at`` to EXPIRED.
+
+    Nothing else in this service reaches JobState.EXPIRED, so expiry is
+    enforced on read (#1475). Returns True when the job was expired.
+    """
+    if job.state in _TERMINAL_STATES or job.expires_at is None:
+        return False
+    expires_at = job.expires_at if job.expires_at.tzinfo else job.expires_at.replace(tzinfo=UTC)
+    if datetime.now(UTC) < expires_at:
+        return False
+    job.state = JobState.EXPIRED
+    job.completed_at = datetime.now(UTC)
+    await session.commit()
+    return True
 
 
 @app.get("/health")
@@ -39,9 +65,17 @@ async def get_session_dep():
 class JobCreate(SQLModel):
     task_type: str
     task_data: dict = Field(default_factory=dict)
-    payment_amount: float = 0.0
+    payment_amount: float = Field(default=0.0, ge=0)
     payment_currency: str = "aitbc_token"
-    priority: int = 0
+    priority: int = Field(default=0, ge=-1000, le=1000)
+    expires_at: datetime | None = None
+
+    @field_validator("payment_amount")
+    @classmethod
+    def _payment_amount_finite(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("payment_amount must be finite")
+        return value
 
 
 class JobView(SQLModel):
@@ -77,6 +111,7 @@ async def submit_job(
             task_data=req.task_data,
             payment_amount=req.payment_amount,
             priority=req.priority,
+            expires_at=req.expires_at,
             state=JobState.PENDING,
             created_at=datetime.now(UTC),
         )
@@ -110,6 +145,7 @@ async def get_job(session: Annotated[AsyncSession, Depends(get_session_dep)], jo
         job = result.scalar_one_or_none()
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
+        await _expire_if_due(session, job)
         return JobView(
             id=job.id,
             client_id=job.client_id,
@@ -141,7 +177,8 @@ async def get_job_result(
         job = result.scalar_one_or_none()
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        if job.state not in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELED, JobState.EXPIRED}:
+        await _expire_if_due(session, job)
+        if job.state not in _TERMINAL_STATES:
             raise HTTPException(status_code=425, detail="Job not ready")
         return JobResult(id=job.id, result=job.result, error=job.error, completed_at=job.completed_at, receipt=job.receipt)
     except HTTPException:
@@ -163,7 +200,8 @@ async def cancel_job(
         job = result.scalar_one_or_none()
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        if job.state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELED, JobState.EXPIRED}:
+        await _expire_if_due(session, job)
+        if job.state in _TERMINAL_STATES:
             raise HTTPException(status_code=400, detail="Job already completed")
         job.state = JobState.CANCELED
         job.completed_at = datetime.now(UTC)
@@ -239,6 +277,8 @@ async def process_multimodal(request: dict[str, Any]) -> dict[str, Any]:
         "modality": request.get("modality", "text"),
         "status": "processing",
         "result": "multimodal processing initiated",
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -251,6 +291,8 @@ async def benchmark_multimodal(request: dict[str, Any]) -> dict[str, Any]:
         "performance_score": 95.5,
         "latency_ms": 150,
         "throughput": "high",
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -263,6 +305,8 @@ async def list_multimodal_agents() -> dict[str, Any]:
             {"id": "agent_2", "name": "Audio-Video Agent", "capabilities": ["audio", "video"]},
         ],
         "total": 2,
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -290,6 +334,8 @@ async def multimodal_health() -> dict[str, Any]:
             "graph_processing_time": "0.08s",
             "average_accuracy": "94%",
         },
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -307,6 +353,8 @@ async def multimodal_deep_health() -> dict[str, Any]:
             "video": {"status": "pass", "processing_time": "0.35s", "accuracy": "85%"},
         },
         "overall_health": "pass",
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -318,6 +366,8 @@ async def tune_optimization(request: dict[str, Any]) -> dict[str, Any]:
         "model": request.get("model", "default"),
         "parameters": {"learning_rate": 0.001, "batch_size": 32},
         "status": "tuned",
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -329,6 +379,8 @@ async def predict_optimization(request: dict[str, Any]) -> dict[str, Any]:
         "model": request.get("model", "default"),
         "expected_performance": "high",
         "estimated_accuracy": 95.5,
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -341,6 +393,8 @@ async def list_optimization_agents() -> dict[str, Any]:
             {"id": "opt_2", "name": "Genetic Algorithm", "type": "evolutionary"},
         ],
         "total": 2,
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
@@ -362,6 +416,8 @@ async def optimization_health() -> dict[str, Any]:
             "memory_reduction": "60% average",
             "accuracy_retention": "95% average",
         },
+        "simulated": True,
+        "notice": _SIMULATION_NOTICE,
     }
 
 
