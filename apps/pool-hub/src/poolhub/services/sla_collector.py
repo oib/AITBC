@@ -5,6 +5,8 @@ Collects and tracks SLA metrics for miners including uptime, response time, job 
 
 import asyncio
 import contextlib
+import math
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -43,6 +45,42 @@ def _uptime_from_heartbeat_age(age_seconds: float) -> float:
         return 0.0
     span = _HEARTBEAT_DEAD_SECONDS - _HEARTBEAT_GRACE_SECONDS
     return max(0.0, min(100.0, (_HEARTBEAT_DEAD_SECONDS - age_seconds) / span * 100.0))
+
+
+# #1402 (POOLHUB-SLA-1), operator ruling Option B — server-side sanity bounds
+# on the self-reported response-time leg. MatchResult.eta_ms is copied from
+# the miner's own heartbeat latency (match.py), so each sample is clamped to
+# [0, ceiling] before averaging and out-of-range samples are counted and
+# flagged in the metric metadata. The ceiling mirrors the heartbeat schema's
+# MAX_HEARTBEAT_LATENCY_MS (10 minutes): pool-hub has no dispatch-timeout
+# setting, and anything a miner could legitimately report cannot exceed it.
+_RESPONSE_TIME_SAMPLE_MAX_MS = 600_000.0
+
+
+def _bounded_response_times(values: Iterable[int | float]) -> tuple[list[float], int]:
+    """Clamp self-reported response-time samples to [0, ceiling].
+
+    Returns ``(bounded_values, outlier_count)``. Negative and over-ceiling
+    samples are clamped into [0, ceiling]; non-finite samples clamp to the
+    ceiling (garbage must not read as a perfect score). All outliers are
+    counted so the metric metadata can flag how much of the average was
+    clamped rather than measured.
+    """
+    bounded: list[float] = []
+    outliers = 0
+    for raw in values:
+        value = float(raw)
+        if not math.isfinite(value):
+            # Garbage self-report: clamp to the ceiling, never to 0 — an
+            # unmeasurable latency must not read as a perfect response time.
+            outliers += 1
+            bounded.append(_RESPONSE_TIME_SAMPLE_MAX_MS)
+            continue
+        if value < 0.0 or value > _RESPONSE_TIME_SAMPLE_MAX_MS:
+            outliers += 1
+            value = min(max(value, 0.0), _RESPONSE_TIME_SAMPLE_MAX_MS)
+        bounded.append(value)
+    return bounded, outliers
 
 
 class SLACollector:
@@ -119,13 +157,19 @@ class SLACollector:
         response_times = [r.eta_ms for r in results if r.eta_ms is not None]
         if not response_times:
             return None
-        avg_response_time: float = sum(response_times) / len(response_times)
-        await self.record_sla_metric(
-            miner_id,
-            "response_time_ms",
-            avg_response_time,
-            {"method": "match_results", "sample_size": str(len(response_times))},
-        )
+        bounded_times, outliers = _bounded_response_times(response_times)
+        avg_response_time: float = sum(bounded_times) / len(bounded_times)
+        metadata = {
+            "method": "match_results",
+            # #1402: eta_ms is the miner's self-reported heartbeat latency —
+            # the measured entity supplies the measurement, so consumers must
+            # be able to discount this leg (operator ruling: Option B bounds).
+            "source": "miner_self_reported",
+            "sample_size": str(len(bounded_times)),
+        }
+        if outliers:
+            metadata["outliers_clamped"] = str(outliers)
+        await self.record_sla_metric(miner_id, "response_time_ms", avg_response_time, metadata)
         return avg_response_time
 
     async def collect_completion_rate(self, miner_id: str) -> float | None:
@@ -305,10 +349,13 @@ class SLACollector:
         if ms:
             ms.uptime_pct = uptime
 
-        # Response time from match results
+        # Response time from match results — same self-reported bounds as
+        # collect_response_time (#1402 Option B): clamp each eta_ms sample to
+        # [0, ceiling] and count outliers for the metric metadata.
         mrs = match_by_miner.get(miner_id, [])
-        response_times = [r.eta_ms for r in mrs if r.eta_ms is not None]
-        response_time: float | None = sum(response_times) / len(response_times) if response_times else None
+        raw_times = [r.eta_ms for r in mrs if r.eta_ms is not None]
+        bounded_times, response_outliers = _bounded_response_times(raw_times)
+        response_time: float | None = sum(bounded_times) / len(bounded_times) if bounded_times else None
 
         # Completion rate from feedback
         fbs = feedback_by_miner.get(miner_id, [])
@@ -320,12 +367,23 @@ class SLACollector:
         # Persist SLAMetric rows — the batched path used to compute
         # values into `results` without ever writing sla_metrics, so
         # /v1/sla/* stayed empty even with the scheduler enabled.
+        response_metadata: dict[str, str] = {}
+        if response_outliers:
+            response_metadata["outliers_clamped"] = str(response_outliers)
         for metric_type, value in (
             ("uptime_pct", uptime),
             ("response_time_ms", response_time),
             ("completion_rate_pct", completion_rate),
         ):
-            self._persist_batched_metric(miner_id, metric_type, value, now, open_violations, violation_counts)
+            self._persist_batched_metric(
+                miner_id,
+                metric_type,
+                value,
+                now,
+                open_violations,
+                violation_counts,
+                extra_metadata=response_metadata if metric_type == "response_time_ms" else None,
+            )
 
         return {
             "miner_id": miner_id,
@@ -342,12 +400,21 @@ class SLACollector:
         now: datetime,
         open_violations: dict[tuple[str, str], SLAViolation],
         violation_counts: dict[str, int],
+        extra_metadata: dict[str, str] | None = None,
     ) -> None:
         """Add one SLAMetric row and open/resolve its violation in place."""
         if value is None:
             return
         threshold = self.sla_thresholds.get(metric_type, 100.0)
         is_violation = self._check_violation(metric_type, value, threshold)
+        # #1402: response_time_ms derives from the miner's self-reported
+        # heartbeat latency — label the provenance so dashboards and penalty
+        # logic can discount the self-measured leg (Option B ruling).
+        meta_data = {"method": "collect_all"}
+        if metric_type == "response_time_ms":
+            meta_data["source"] = "miner_self_reported"
+        if extra_metadata:
+            meta_data.update(extra_metadata)
         self.db.add(
             SLAMetric(
                 miner_id=miner_id,
@@ -356,7 +423,7 @@ class SLACollector:
                 threshold=threshold,
                 is_violation=is_violation,
                 timestamp=now,
-                meta_data={"method": "collect_all"},
+                meta_data=meta_data,
             )
         )
         key = (miner_id, metric_type)
@@ -368,7 +435,7 @@ class SLACollector:
                 metric_value=value,
                 threshold=threshold,
                 created_at=now,
-                meta_data={"method": "collect_all"},
+                meta_data=meta_data,
             )
             self.db.add(violation)
             open_violations[key] = violation
