@@ -11,6 +11,7 @@ forged hash and no RPC call at all).
 
 import sys
 from collections.abc import AsyncIterator
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -133,3 +134,105 @@ class TestCallerTxHashIsVerified:
         with pytest.raises(ValueError, match="(?i)canceled"):
             await svc.release_market_job_payment("job-release-7")
         svc._rpc_client.release_escrow.assert_not_called()
+
+
+_PROVIDER = "0x" + "aa" * 20
+_BUYER = "0x" + "bb" * 20
+_ATTACKER = "0x" + "cc" * 20
+
+
+async def _job_with_parties(session: AsyncSession, jid: str) -> str:
+    pay = MarketJobPayment(job_id=jid, amount=10, status="escrowed")
+    job = MarketJob(
+        id=jid,
+        state="COMPLETED",
+        escrow_contract_id="esc-1",
+        payment_id=pay.id,
+        payment_status="escrowed",
+        buyer_address=_BUYER,
+        provider_address=_PROVIDER,
+    )
+    session.add_all([pay, job])
+    # Commit, not flush: a refused settle call rolls the session back, which
+    # would otherwise wipe the uncommitted fixture rows (#1584 tests).
+    await session.commit()
+    return jid
+
+
+def _settle_tx(job_id: str, tx_type: str = "ESCROW_RELEASE", **overrides):
+    tx = {
+        "status": "confirmed",
+        "type": tx_type,
+        "sender": "0x" + "dd" * 20,
+        "recipient": _PROVIDER,
+        "value": 5 * 36_000_000,  # 5 AIT in compute-units
+        "payload": {
+            "job_id": job_id,
+            "action": "escrow_release" if tx_type == "ESCROW_RELEASE" else "escrow_refund",
+            "buyer_escrow_addr": _BUYER,
+            "provider_escrow_addr": _PROVIDER,
+        },
+    }
+    tx.update(overrides)
+    return tx
+
+
+class TestSettleTxPartyAndAmountBinding:
+    """#1584: the verified hash must pay THIS job's escrow payee, and the
+    stored settlement amount comes from the tx, not the caller."""
+
+    @pytest.mark.asyncio
+    async def test_release_stores_onchain_amount_not_caller_claim(self, session):
+        job_id = await _job_with_parties(session, "job-release-8")
+        svc = MarketService(session)
+        svc._rpc_client.get_transaction = AsyncMock(return_value=_settle_tx(job_id))
+        await svc.release_market_job_payment(job_id, release_data={"tx_hash": "0xok", "released_amount": "999"})
+        from sqlalchemy import select
+
+        pay = (await session.execute(select(MarketJobPayment).where(MarketJobPayment.job_id == job_id))).scalar_one()
+        assert pay.released_amount == Decimal("5")
+
+    @pytest.mark.asyncio
+    async def test_release_refuses_tx_paying_wrong_recipient(self, session):
+        job_id = await _job_with_parties(session, "job-release-9")
+        svc = MarketService(session)
+        svc._rpc_client.get_transaction = AsyncMock(return_value=_settle_tx(job_id, recipient=_ATTACKER))
+        with pytest.raises(ValueError, match="(?i)payee"):
+            await svc.release_market_job_payment(job_id, release_data={"tx_hash": "0xok"})
+
+    @pytest.mark.asyncio
+    async def test_release_refuses_payload_payee_mismatch(self, session):
+        job_id = await _job_with_parties(session, "job-release-10")
+        tx = _settle_tx(job_id)
+        tx["payload"]["provider_escrow_addr"] = _ATTACKER
+        svc = MarketService(session)
+        svc._rpc_client.get_transaction = AsyncMock(return_value=tx)
+        with pytest.raises(ValueError, match="(?i)provider_escrow_addr"):
+            await svc.release_market_job_payment(job_id, release_data={"tx_hash": "0xok"})
+
+    @pytest.mark.asyncio
+    async def test_refund_binds_buyer_recipient_and_amount(self, session):
+        pay = MarketJobPayment(job_id="job-refund-1", amount=10, status="escrowed")
+        job = MarketJob(
+            id="job-refund-1",
+            state="CANCELED",
+            payment_id=pay.id,
+            payment_status="escrowed",
+            buyer_address=_BUYER,
+            provider_address=_PROVIDER,
+        )
+        session.add_all([pay, job])
+        await session.commit()
+        svc = MarketService(session)
+        # A refund pays the BUYER — a tx paying the provider must be refused.
+        svc._rpc_client.get_transaction = AsyncMock(return_value=_settle_tx("job-refund-1", "ESCROW_REFUND"))
+        with pytest.raises(ValueError, match="(?i)payee"):
+            await svc.refund_market_job_payment("job-refund-1", refund_data={"tx_hash": "0xok"})
+        # Paying the buyer stores the on-chain amount.
+        tx = _settle_tx("job-refund-1", "ESCROW_REFUND", recipient=_BUYER)
+        svc._rpc_client.get_transaction = AsyncMock(return_value=tx)
+        await svc.refund_market_job_payment("job-refund-1", refund_data={"tx_hash": "0xok", "refunded_amount": "1"})
+        from sqlalchemy import select
+
+        pay = (await session.execute(select(MarketJobPayment).where(MarketJobPayment.job_id == "job-refund-1"))).scalar_one()
+        assert pay.refunded_amount == Decimal("5")
