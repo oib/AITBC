@@ -69,11 +69,16 @@ class ChainDiscoveryService:
         logger.info("Registered chain %s at %s", chain_id, endpoint)
         return entry
 
-    async def list_chains(self, status: str | None = None) -> list[IslandRegistryEntry]:
-        """List all registered chains, optionally filtered by status."""
+    async def list_chains(self, status: str | None = None, limit: int = 100) -> list[IslandRegistryEntry]:
+        """List registered chains, optionally filtered by status.
+
+        ``limit`` is clamped to [1, 500] — the registry read must stay
+        bounded even for non-HTTP callers (#1543).
+        """
         stmt = select(IslandRegistryEntry)
         if status:
             stmt = stmt.where(IslandRegistryEntry.status == status)
+        stmt = stmt.limit(min(max(int(limit), 1), 500))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

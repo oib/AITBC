@@ -7,7 +7,7 @@ import secrets
 import time
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import get_logger
@@ -268,7 +268,7 @@ def search_offers(
     service_type: str | None = None,
     min_price: Decimal | None = None,
     max_price: Decimal | None = None,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=500),
 ):
     """Search offers via the optional search index (B7).
 

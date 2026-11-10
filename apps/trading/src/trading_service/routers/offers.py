@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 
 from aitbc.trading.offer_types import OfferDiscoveryRequest
 
@@ -57,7 +57,7 @@ def get_cached_offers(
     chain_id: str | None = None,
     service_type: str | None = None,
     status: str | None = None,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=500),
 ):
     """Get cached offers with optional filters."""
     offers = svc.get_cached_offers(

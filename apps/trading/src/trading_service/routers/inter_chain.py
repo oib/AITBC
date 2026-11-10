@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from ..dependencies import get_chain_discovery, get_inter_chain_service, get_matching_engine
@@ -18,9 +18,10 @@ router = APIRouter(tags=["inter-chain"])
 async def list_chains(
     svc: Annotated[ChainDiscoveryService, Depends(get_chain_discovery)],
     status: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
 ):
     """List registered chains for inter-chain trading."""
-    return await svc.list_chains(status=status)
+    return await svc.list_chains(status=status, limit=limit)
 
 
 @router.post("/v1/trading/chains/register")
@@ -80,8 +81,8 @@ async def list_inter_chain_trades(
     status: str | None = None,
     source_chain: str | None = None,
     dest_chain: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ):
     """List inter-chain trades with optional filters."""
     return await svc.list_trades(
@@ -98,7 +99,7 @@ async def get_inter_chain_trade_history(
     svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
     source_chain: str | None = None,
     dest_chain: str | None = None,
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=500),
 ):
     """Get inter-chain trade history."""
     return await svc.get_trade_history(

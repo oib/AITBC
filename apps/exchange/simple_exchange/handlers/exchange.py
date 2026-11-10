@@ -51,6 +51,14 @@ logger = get_logger(__name__)
 
 EXCHANGE_ORDER_PAIR = "AIT/ETH"
 
+# Server-side ceilings for public reads (#1543): the caller's ?limit= is
+# clamped into [1, _MAX_PAGE_ROWS] — ``LIMIT -1`` is SQLite "unlimited".
+_MAX_PAGE_ROWS = 500
+# The node registry / participants board is a lookup table, not a feed —
+# bound it generously so a corrupt or flooded registry cannot turn every
+# orderbook/nodes request into a full-table scan.
+_MAX_REGISTRY_ROWS = 5000
+
 # The order envelope's field set is pinned by design section 1.
 _ORDER_ENVELOPE_FIELDS = frozenset(
     {"side", "pair", "amount_ticks", "price_ticks", "expiry_height", "account_nonce", "chain_id"}
@@ -353,13 +361,22 @@ class ExchangeMixin:
 
     def _registry_labels(self, cursor) -> dict[str, str]:
         """address -> label for registered/seeded nodes (display on the board)."""
-        rows = cursor.execute("SELECT address, label FROM node_registry WHERE status IN ('seeded', 'registered')").fetchall()
+        rows = cursor.execute(
+            "SELECT address, label FROM node_registry WHERE status IN ('seeded', 'registered') LIMIT ?",
+            (_MAX_REGISTRY_ROWS,),
+        ).fetchall()
         return dict(rows)
 
     def get_recent_trades(self, parsed):
         """Get recent trades"""
         query = urllib.parse.parse_qs(parsed.query)
-        limit = int(query.get("limit", [20])[0])
+        try:
+            limit = int(query.get("limit", [20])[0])
+        except (TypeError, ValueError):
+            limit = 20
+        # Clamp: limit=-1 is SQLite "unlimited" and any huge value was an
+        # unbounded read on a public endpoint (#1543).
+        limit = max(1, min(limit, _MAX_PAGE_ROWS))
 
         conn = sqlite3.connect(get_db_path())
         try:
@@ -1417,7 +1434,8 @@ class ExchangeMixin:
     def _node_rows(self, conn) -> list[dict]:
         cursor = conn.cursor()
         rows = cursor.execute(
-            "SELECT address, label, status, registered_at, eth_address FROM node_registry ORDER BY label"
+            "SELECT address, label, status, registered_at, eth_address FROM node_registry ORDER BY label LIMIT ?",
+            (_MAX_REGISTRY_ROWS,),
         ).fetchall()
         open_counts = dict(
             cursor.execute(

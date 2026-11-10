@@ -36,6 +36,12 @@ from ..domain.inter_chain import IslandRegistryEntry
 
 logger = logging.getLogger(__name__)
 
+# Offer statuses that must never be served to clients (#1567): the chain
+# keeps deactivated/withdrawn registrations visible via /rpc/gpus, and the
+# cache stores them verbatim — but discovery and the cache listing filter
+# them out unless the caller asks for that status explicitly.
+_NON_DISCOVERABLE_OFFER_STATUSES = frozenset({"deactivated", "inactive", "delisted", "expired", "cancelled"})
+
 
 class OfferSyncService:
     """Service for synchronizing offers across AITBC chains."""
@@ -55,6 +61,11 @@ class OfferSyncService:
         )
         self._sync_tasks: dict[str, asyncio.Task[None]] = {}
         self._sync_status: dict[str, OfferSyncStatusEntry] = {}
+        # Single-flight locks, one per chain (#1567): ``is_syncing`` flags
+        # were written but never read as a guard, so N concurrent discovers
+        # each ran a full sync. ``lock.locked()`` + ``async with`` is atomic
+        # in asyncio — no await between check and acquire.
+        self._sync_locks: dict[str, asyncio.Lock] = {}
 
     @property
     def cache(self) -> OfferCache:
@@ -62,6 +73,20 @@ class OfferSyncService:
         return self._cache
 
     async def sync_chain(self, chain_id: str) -> dict[str, Any]:
+        """Sync offers from a single chain — single-flight per chain (#1567).
+
+        A caller arriving while a sync for the same chain is running gets
+        ``skipped: sync_in_progress`` instead of queueing a duplicate
+        500-offer sync behind the lock.
+        """
+        lock = self._sync_locks.setdefault(chain_id, asyncio.Lock())
+        if lock.locked():
+            logger.info("Offer sync for chain %s already in progress — skipping", chain_id)
+            return {"chain_id": chain_id, "skipped": "sync_in_progress", "synced": 0}
+        async with lock:
+            return await self._sync_chain_once(chain_id)
+
+    async def _sync_chain_once(self, chain_id: str) -> dict[str, Any]:
         """Sync offers from a single chain.
 
         Queries the chain's blockchain node for GPU offers, updates the
@@ -240,6 +265,9 @@ class OfferSyncService:
         limit: int = 100,
     ) -> list[SyncedOffer]:
         """Get cached offers with optional filters."""
+        # Clamp like the router does — a negative limit would slice from the
+        # end instead of bounding the read (#1543).
+        limit = min(max(int(limit), 1), 500)
         if chain_id:
             offers = self._cache.list_offers_by_chain(chain_id)
         else:
@@ -247,6 +275,10 @@ class OfferSyncService:
             for cid in self._cache._get_known_chains():  # noqa: SLF001
                 offers.extend(self._cache.list_offers_by_chain(cid))
 
+        # Dead offers are hidden unless the caller filters for them
+        # explicitly (#1567) — the cache stores whatever the chain reports.
+        if not status:
+            offers = [o for o in offers if o.status.lower() not in _NON_DISCOVERABLE_OFFER_STATUSES]
         if service_type:
             offers = [o for o in offers if o.service_type == service_type]
         if status:
@@ -269,7 +301,9 @@ class OfferSyncService:
 
     def _apply_filters(self, offers: list[SyncedOffer], request: OfferDiscoveryRequest) -> list[SyncedOffer]:
         """Apply discovery request filters to a list of offers."""
-        filtered = offers
+        # Deactivated/withdrawn offers are cached verbatim from the chain but
+        # are never discoverable (#1567).
+        filtered = [o for o in offers if o.status.lower() not in _NON_DISCOVERABLE_OFFER_STATUSES]
 
         if request.service_type:
             filtered = [o for o in filtered if o.service_type == request.service_type]

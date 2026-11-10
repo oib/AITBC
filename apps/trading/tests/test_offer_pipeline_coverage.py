@@ -513,6 +513,49 @@ class TestOfferSyncDiscovery:
         results = await svc.sync_all_chains()
         assert [r["chain_id"] for r in results] == ["chain-a"]
 
+    async def test_discover_offers_excludes_dead_statuses(self):
+        """#1567: deactivated/inactive offers are cached but never discoverable."""
+        svc = _sync_service()
+        svc.cache.set_offer(_offer("live", chain_id="chain-a", status="available"), ttl=300)
+        svc.cache.set_offer(_offer("dead", chain_id="chain-a", status="deactivated"), ttl=300)
+        svc.cache.set_offer(_offer("gone", chain_id="chain-a", status="expired"), ttl=300)
+
+        result = await svc.discover_offers(OfferDiscoveryRequest(source_chain="chain-a"))
+        assert [o.offer_id for o in result.offers] == ["live"]
+
+        # The cache listing hides them too unless asked for explicitly.
+        cached = svc.get_cached_offers(chain_id="chain-a")
+        assert {o.offer_id for o in cached} == {"live"}
+        explicit = svc.get_cached_offers(chain_id="chain-a", status="deactivated")
+        assert [o.offer_id for o in explicit] == ["dead"]
+
+    async def test_sync_chain_is_single_flight(self):
+        """#1567: a second sync_chain while one runs is skipped, not queued."""
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        gate = asyncio.Event()
+
+        async def _slow_query(**kwargs):
+            await gate.wait()
+            return []
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(side_effect=_slow_query)
+        svc = OfferSyncService(session=AsyncMock(), cache=OfferCache(), blockchain_client=blockchain)
+
+        first = asyncio.create_task(svc.sync_chain("chain-a"))
+        await asyncio.sleep(0)  # let the first sync reach the RPC await
+        second = await svc.sync_chain("chain-a")
+        assert second["skipped"] == "sync_in_progress"
+        assert second["synced"] == 0
+
+        gate.set()
+        first_result = await first
+        assert "error" not in first_result
+        # After completion a fresh sync runs normally.
+        third = await svc.sync_chain("chain-a")
+        assert "skipped" not in third
+
 
 # ---------------------------------------------------------------------------
 # OfferCache staleness — naive/aware datetime mixing
