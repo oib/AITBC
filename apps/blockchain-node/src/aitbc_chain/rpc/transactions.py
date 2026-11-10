@@ -704,7 +704,9 @@ def query_transactions(
     """Query transactions with optional filters"""
     resolved_chain_id = get_chain_id(chain_id)
 
-    _logger.info(f"Query transactions for chain {resolved_chain_id}")
+    # Per-request chatter (~1.6k lines/hour under routine polling): DEBUG so the
+    # default journal stays readable; the access log still records the request.
+    _logger.debug(f"Query transactions for chain {resolved_chain_id}")
 
     with session_scope() as session:
         # Newest first. `limit` is applied after the payload filters below, so with the
@@ -839,7 +841,7 @@ def query_transactions(
         if limit:
             results = results[:limit]
 
-        _logger.info(f"Returning {len(results)} transactions for chain {resolved_chain_id}")
+        _logger.debug(f"Returning {len(results)} transactions for chain {resolved_chain_id}")
 
         return results
 
