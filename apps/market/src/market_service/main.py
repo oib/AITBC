@@ -21,6 +21,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", _DEFAULT_RPC_URL)
@@ -46,7 +47,13 @@ from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 
 from .config import settings  # noqa: E402
 from .domain.offer_status import try_to_offer_status  # noqa: E402
-from .services.market_service import MarketService, _secret_matches, max_page_size, public_job_view  # noqa: E402
+from .services.market_service import (  # noqa: E402
+    MarketService,
+    _secret_matches,
+    coerce_offer_expires_at,
+    max_page_size,
+    public_job_view,
+)
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
 
@@ -1551,14 +1558,37 @@ async def submit_transaction(
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for market service"})
     try:
         if action == "offer":
+            # #1554: normalize expires_at to naive UTC before the model sees it.
+            if transaction_data.get("expires_at") is not None:
+                transaction_data["expires_at"] = coerce_offer_expires_at(transaction_data["expires_at"])
+            # #1553: a caller-supplied offer id is the natural idempotency
+            # key — a retry replays success instead of dying on the PK.
+            offer_id = transaction_data.get("id")
+            if offer_id:
+                existing = await session.get(MarketOffer, str(offer_id))
+                if existing is not None:
+                    return {"status": "success", "deduplicated": True, "offer_id": str(offer_id)}
             offer = MarketOffer(**transaction_data)
             session.add(offer)
         else:
             return JSONResponse(
                 status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"}
             )
-        await session.commit()
+        try:
+            await session.commit()
+        except IntegrityError:
+            # Lost the first-write race on a caller-supplied id — the winner's
+            # row is the replay target (#1553).
+            await session.rollback()
+            offer_id = transaction_data.get("id")
+            if offer_id and await session.get(MarketOffer, str(offer_id)) is not None:
+                return {"status": "success", "deduplicated": True, "offer_id": str(offer_id)}
+            raise
         return {"status": "success"}
+    except ValueError as exc:
+        # Caller-supplied field failed validation (e.g. malformed expires_at).
+        await session.rollback()
+        return JSONResponse(status_code=400, content={"error": str(exc)})
     except Exception:
         await session.rollback()
         logger.exception("Transaction submission error")

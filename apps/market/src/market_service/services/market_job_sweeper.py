@@ -18,10 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.market import BlockchainRPCClient
+from aitbc.market import BlockchainRPCClient, OfferStatus
 
 from ..config import settings
 from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer
+from ..domain.offer_status import spellings_of
 from ..storage import get_session_context
 
 logger = get_logger(__name__)
@@ -119,7 +120,7 @@ class MarketJobSweeper:
 
     async def sweep_once(self) -> dict[str, int]:
         """Run one sweep and return counts."""
-        counts = {"released": 0, "refunded": 0, "failed": 0}
+        counts = {"released": 0, "refunded": 0, "failed": 0, "offers_expired": 0}
 
         async with self._session_factory() as session:
             now = datetime.now(UTC)
@@ -127,6 +128,7 @@ class MarketJobSweeper:
 
             await self._expire_stale_jobs(session, now_naive)
             await self._expire_stale_reservations(session, now_naive)
+            counts["offers_expired"] = await self._expire_stale_offers(session, now_naive)
 
             # 1. Release: jobs that completed or expired and are past the grace period.
             # expires_at/updated_at are naive-UTC columns (domain
@@ -271,6 +273,30 @@ class MarketJobSweeper:
             session.add(offer)
             logger.info("Offer %s reservation expired; released to available", offer.id)
 
+    async def _expire_stale_offers(self, session: AsyncSession, now_naive: datetime) -> int:
+        """Expire AVAILABLE-state offers past ``expires_at`` (#1554).
+
+        The shared MarketOffer model gained an ``expires_at`` column; NULL
+        means the listing never expires (backward compatible). Only the
+        available listing lapses — booked/reserved holds keep their own
+        ``_reserved_until`` deadline and in_use rows run paid work.
+        AVAILABLE -> EXPIRED is a legal FSM edge.
+        """
+        stmt = (
+            select(MarketOffer)
+            .where(col(MarketOffer.expires_at).is_not(None))
+            .where(col(MarketOffer.expires_at) < now_naive)
+            .where(col(MarketOffer.status).in_(spellings_of(OfferStatus.AVAILABLE)))
+            .limit(self.batch_size)
+        )
+        expired = 0
+        for offer in (await session.execute(stmt)).scalars().all():
+            offer.status = OfferStatus.EXPIRED.value
+            session.add(offer)
+            expired += 1
+            logger.info("Offer %s expired (expires_at=%s)", offer.id, offer.expires_at)
+        return expired
+
     async def _release_payment(
         self,
         session: AsyncSession,
@@ -279,8 +305,9 @@ class MarketJobSweeper:
     ) -> bool:
         """Release escrow to the provider. Returns True on success."""
         # The chain escrow is keyed by job_id — the market job id IS the
-        # escrow's job_id. escrow_contract_id stores the opaque contract id,
-        # which is not a valid /rpc/escrow/{id} path key (#1564).
+        # escrow's job_id. escrow_contract_id persists that same job.id at
+        # creation (#1634) but is informational only; the RPC path key is
+        # always job.id, never the column (#1564).
         escrow_key = job.id
         try:
             result = await self._rpc_client.release_escrow(escrow_key)

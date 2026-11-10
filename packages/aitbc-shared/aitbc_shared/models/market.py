@@ -37,6 +37,10 @@ class MarketOffer(SQLModel, table=True):
     region: str | None = Field(default=None, index=True)
     # v0.6.6: Chain awareness — which chain this offer is on
     chain_id: str | None = Field(default=None, index=True)
+    # #1554: optional listing expiry — NULL means the offer does not expire
+    # (backward compatible). The market sweeper flips past-due AVAILABLE
+    # offers to 'expired'; booked/reserved/in_use rows are untouched.
+    expires_at: datetime | None = Field(default=None, index=True)
     # E1: resource binding for fixed-duration GPU energy-floor quotes.
     resource_id: str | None = Field(default=None)
     model_id: str | None = Field(default=None)

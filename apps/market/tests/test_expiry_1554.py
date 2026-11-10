@@ -79,3 +79,73 @@ class TestReservationExpiry:
         assert bid.status == "expired"
         assert offer.status == "available"
         assert "_reserved_until" not in (offer.attributes or {})
+
+
+class TestOfferExpiresAt:
+    """#1554 residual: MarketOffer.expires_at — lazy hide on read, refuse on
+    book, and sweeper flip for AVAILABLE listings only."""
+
+    @pytest.mark.asyncio
+    async def test_expired_offer_hidden_from_list_and_refuses_booking(self, session):
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProviderAddr",
+                "price": "5",
+                "capacity": 1,
+                "status": "available",
+                "expires_at": (datetime.now(UTC) - timedelta(seconds=1)).replace(tzinfo=None),
+            }
+        )
+        offers = await svc.list_offers()
+        assert all(o["id"] != offer.id for o in offers)
+        with pytest.raises(ValueError, match="expired"):
+            await svc.book_offer(offer.id, {"wallet": "0xBuyer"})
+        await session.refresh(offer)
+        assert offer.status == "expired"
+
+    @pytest.mark.asyncio
+    async def test_future_expires_at_offer_stays_bookable(self, session):
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProviderAddr",
+                "price": "5",
+                "capacity": 1,
+                "status": "available",
+                "expires_at": (datetime.now(UTC) + timedelta(hours=1)).replace(tzinfo=None),
+            }
+        )
+        offers = await svc.list_offers()
+        assert any(o["id"] == offer.id for o in offers)
+
+    @pytest.mark.asyncio
+    async def test_sweeper_expires_only_available_past_due(self, session):
+        svc = MarketService(session)
+        past = (datetime.now(UTC) - timedelta(seconds=1)).replace(tzinfo=None)
+        stale = await svc.create_offer(
+            {
+                "provider": "0xP1",
+                "price": "5",
+                "capacity": 1,
+                "status": "available",
+                "expires_at": past,
+            }
+        )
+        booked = await svc.create_offer(
+            {
+                "provider": "0xP2",
+                "price": "5",
+                "capacity": 1,
+                "status": "in_use",
+                "expires_at": past,
+            }
+        )
+        sweeper = MarketJobSweeper()
+        count = await sweeper._expire_stale_offers(session, datetime.now(UTC).replace(tzinfo=None))
+        await session.commit()
+        assert count == 1
+        await session.refresh(stale)
+        await session.refresh(booked)
+        assert stale.status == "expired"
+        assert booked.status == "in_use"
