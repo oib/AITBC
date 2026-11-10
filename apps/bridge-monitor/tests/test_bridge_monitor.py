@@ -1477,3 +1477,119 @@ class TestAdminMutationLock:
         )
         admin.main()
         assert "in progress" not in capsys.readouterr().err
+
+
+class TestSweepAdminLock:
+    """The running sweep's payout check-then-act holds the same admin
+    flock as mutating admin commands (issue #1632).
+
+    ``manual-payout`` serializes on ``<ledger>.admin.lock``; before this
+    fix the sweep's own in-flight probe → SUBMITTED row sequence ran
+    unlocked, so a manual payout could interleave and sign a second
+    envelope on the same nonce. Contention now defers the sweep's payout
+    pass to the next cycle — it never stalls the loop and never signs.
+    """
+
+    @staticmethod
+    def _hold_admin_lock():
+        import fcntl
+
+        import bridge_monitor.storage as storage
+
+        fd = os.open(f"{storage.DB_PATH}.admin.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        return fd
+
+    def test_first_sight_deposit_defers_while_admin_lock_held(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        fd = self._hold_admin_lock()
+        try:
+            with (
+                patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+                patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+                patch.object(monitor, "_build_signed_transfer") as mock_build,
+                patch.object(monitor, "_post_signed_tx", return_value="0xpayout"),
+            ):
+                monitor.process_deposit("0xdep-lock", "0xfrom", Decimal("0.1"), "0xdata")
+        finally:
+            os.close(fd)
+
+        mock_build.assert_not_called()  # no envelope signed under a held lock
+        d = get_deposit("0xdep-lock")
+        assert d["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert "admin mutation" in d["error_message"]
+        assert not d["signed_tx"]
+        assert Decimal(str(d["ait_amount"])) == 100  # priced amount kept for retry
+
+    def test_first_sight_deposit_pays_once_lock_released(self, monitor):
+        from bridge_monitor.storage import get_deposit
+
+        fd = self._hold_admin_lock()
+        os.close(fd)  # released before the sweep pass
+
+        with (
+            patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
+            patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
+            patch.object(
+                monitor,
+                "_build_signed_transfer",
+                return_value={"type": "TRANSFER", "nonce": 3, "to": "0x" + "d" * 40},
+            ) as mock_build,
+            patch.object(monitor, "_post_signed_tx", return_value="0xpayout"),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            monitor.process_deposit("0xdep-free", "0xfrom", Decimal("0.1"), "0xdata")
+
+        assert mock_build.call_count == 1
+        assert get_deposit("0xdep-free")["status"] == BridgeDepositStatus.SUBMITTED.value
+
+    def test_retry_queue_defers_while_admin_lock_held(self, monitor):
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        create_deposit("0xret-lock", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xret-lock",
+            ait_amount="100",
+            status=BridgeDepositStatus.PENDING_RETRY,
+            next_retry_at="2000-01-01T00:00:00+00:00",
+        )
+        fd = self._hold_admin_lock()
+        try:
+            with (
+                patch.object(monitor, "_build_signed_transfer") as mock_build,
+                patch.object(monitor, "_post_signed_tx", return_value="0xpayout"),
+            ):
+                monitor.process_retry_queue()
+        finally:
+            os.close(fd)
+
+        mock_build.assert_not_called()
+        d = get_deposit("0xret-lock")
+        assert d["status"] == BridgeDepositStatus.PENDING_RETRY.value
+        assert "admin mutation" in d["error_message"]
+        assert not d["signed_tx"]
+
+    def test_retry_queue_pays_once_lock_released(self, monitor):
+        from bridge_monitor.storage import create_deposit, get_deposit, update_deposit
+
+        create_deposit("0xret-free", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xret-free",
+            ait_amount="100",
+            status=BridgeDepositStatus.PENDING_RETRY,
+            next_retry_at="2000-01-01T00:00:00+00:00",
+        )
+        with (
+            patch.object(
+                monitor,
+                "_build_signed_transfer",
+                return_value={"type": "TRANSFER", "nonce": 4, "to": "0x" + "d" * 40},
+            ) as mock_build,
+            patch.object(monitor, "_post_signed_tx", return_value="0xpayout2"),
+            patch.object(monitor, "_head_height", return_value=100),
+        ):
+            monitor.process_retry_queue()
+
+        assert mock_build.call_count == 1
+        assert get_deposit("0xret-free")["status"] == BridgeDepositStatus.SUBMITTED.value

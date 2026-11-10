@@ -24,6 +24,33 @@ DATA_DIR = os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc"))
 DB_PATH = (os.getenv("BRIDGE_DEPOSITS_DB") or "").strip() or os.path.join(DATA_DIR, "data", "bridge_deposits.db")
 
 
+def try_admin_lock() -> int | None:
+    """Exclusive non-blocking flock on ``<ledger>.admin.lock``.
+
+    The payout slot's one-envelope-in-flight rule is check-then-act: the
+    in-flight probe and the SUBMITTED row write must not interleave with
+    another writer's. Admin mutations (``admin.py``) hold this lock for
+    their whole command; the monitor sweep takes it around its own
+    payout decision+submit so a ``manual-payout`` cannot race a sweep
+    payout onto the same nonce. The lock file derives from ``DB_PATH``
+    at call time, so ``BRIDGE_DEPOSITS_DB``/``DATA_DIR`` overrides (and
+    test monkeypatching) relocate it with the ledger.
+
+    Returns the lock fd (close to release) or None when another holder
+    has it — the sweep treats that as "skip this payout pass, retry next
+    cycle"; one-shot admin commands refuse outright.
+    """
+    import fcntl
+
+    fd = os.open(f"{DB_PATH}.admin.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        return None
+    return fd
+
+
 class BridgeDepositStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
