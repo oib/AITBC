@@ -24,7 +24,9 @@ class IPFSUploadRequest(BaseModel):
     memory_type: str = "experience"
     tags: list[str] = Field(default_factory=list)
     compress: bool = True
-    pin: bool = False
+    # #1713: island daemon runs --enable-gc; unpinned memory CIDs are
+    # collectable while still referenced — pin by default.
+    pin: bool = True
 
 
 class IPFSRetrieveRequest(BaseModel):
