@@ -10,9 +10,8 @@ characterisations of today's fail-open behaviour, called out as such):
   on disk is still the previous good one;
 * truncated JSON and non-dict payloads degrade to empty and are counted;
 * a file with some bad records keeps the good ones;
-* CHARACTERISATION: after an unreadable file the journal starts EMPTY (the
-  node forgets its votes -> it could vote for a rival; fail-open) and the next
-  successful write replaces the unreadable file;
+* an UNREADABLE file fails CLOSED (operator ruling, 10 Nov): no vote is
+  recorded, the file is never overwritten, recovery = move aside + restart;
 * the valve boundary is inclusive and a non-positive window never opens;
 * concurrent writers all land and survive a reload;
 * the height hard-cap evicts the oldest heights;
@@ -130,19 +129,46 @@ def test_bad_records_are_skipped_and_good_ones_kept(tmp_path):
     assert [v.block_hash for v in reloaded.votes_at(2, "0xv")] == ["0xbbbb"]
 
 
-def test_characterisation_unreadable_journal_forgets_votes_then_next_write_replaces_it(tmp_path):
-    """FAIL-OPEN today: a corrupt file empties the journal, so a rival at a height the node
-    already voted on is no longer a conflict. The next successful write also overwrites the
-    unreadable file. Pinned so a deliberate change (e.g. refuse to start / keep a .corrupt copy)
-    shows up as a test diff."""
+def test_unreadable_journal_fails_closed_and_keeps_the_file(tmp_path):
+    """Operator ruling (10 Nov): an unreadable journal must not release votes. No vote is
+    recorded (so no attestation/proposal is signed), the unreadable file is never overwritten,
+    and recovery is an operator action (move the file aside, restart)."""
     path = tmp_path / "vj.json"
     VoteJournal(CHAIN, path).record(1, "0xv", "0xaaaa", KIND_ATTEST, now=T0)
     path.write_text("{corrupt")
     j = VoteJournal(CHAIN, path)
-    assert j.conflicting(1, "0xv", "0xrival") == []  # the earlier vote is forgotten
-    assert j.record(1, "0xv", "0xrival", KIND_ATTEST, now=T0) is True  # a double vote is now possible
-    assert [r["hash"] if "hash" in r else r.get("block_hash") for r in _rows(path)] == ["0xrival"]
-    assert not list(tmp_path.glob("*.corrupt*"))  # no preserved copy of the bad file
+    with pytest.raises(VoteJournalError):
+        j.record(1, "0xv", "0xrival", KIND_ATTEST, now=T0)
+    with pytest.raises(VoteJournalError):
+        j.record(2, "0xv", "0xother", KIND_ATTEST, now=T0)  # not just the conflicting height
+    assert path.read_text() == "{corrupt"  # evidence preserved, never replaced
+    assert _counter("vote_journal_fail_closed_total") == 2
+    assert j.votes_at(1, "0xv") == []
+    # operator moves the file aside and restarts: a fresh journal works again
+    path.rename(tmp_path / "vj.json.corrupt")
+    assert VoteJournal(CHAIN, path).record(1, "0xv", "0xrival", KIND_ATTEST, now=T0) is True
+
+
+def test_absent_file_is_a_fresh_start_not_a_failure(tmp_path):
+    j = VoteJournal(CHAIN, tmp_path / "nope" / "vj.json")
+    assert j.record(1, "0xv", "0xaaaa", KIND_ATTEST, now=T0) is True
+    assert _counter("vote_journal_fail_closed_total") == 0
+
+
+def test_wrong_chain_file_is_not_a_failure(tmp_path):
+    path = tmp_path / "vj.json"
+    VoteJournal("other-chain", path).record(1, "0xv", "0xaaaa", KIND_ATTEST, now=T0)
+    assert VoteJournal(CHAIN, path).record(1, "0xv", "0xbbbb", KIND_ATTEST, now=T0) is True
+
+
+def test_skipped_rows_are_counted(tmp_path):
+    path = tmp_path / "vj.json"
+    VoteJournal(CHAIN, path).record(1, "0xv", "0xaaaa", KIND_ATTEST, now=T0)
+    data = json.loads(path.read_text())
+    data["votes"] += [42, {"height": "x"}]
+    path.write_text(json.dumps(data))
+    VoteJournal(CHAIN, path).votes_at(1, "0xv")
+    assert _counter("vote_journal_rows_skipped_total") == 2
 
 
 def test_valve_boundary_is_inclusive_and_nonpositive_window_never_opens():
@@ -219,3 +245,29 @@ def test_file_is_written_with_fsync_before_rename(tmp_path, monkeypatch):
     monkeypatch.setattr(type(tmp_path), "replace", lambda self, t: (order.append("rename"), real_replace(self, t))[1])
     VoteJournal(CHAIN, tmp_path / "vj.json").record(1, "0xv", "0xaaaa", KIND_ATTEST, now=T0)
     assert order == ["fsync", "rename"]
+
+
+@pytest.mark.asyncio
+async def test_attester_gate_refuses_to_sign_when_the_journal_is_unreadable(tmp_path, monkeypatch):
+    from aitbc_chain.config import settings
+    from aitbc_chain.consensus import remote_attestation as ra_module
+    from aitbc_chain.consensus.remote_attestation import RemoteAttestationService
+    from aitbc_chain.consensus.vote_journal import reset_vote_journals
+
+    from eth_keys import keys
+
+    key = "0x" + "11" * 32
+    addr = keys.PrivateKey(bytes.fromhex(key[2:])).public_key.to_checksum_address()
+    reset_vote_journals()
+    monkeypatch.setattr(vote_journal, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(ra_module, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(settings, "vote_journal_enabled", True)
+    jpath = tmp_path / "data" / CHAIN / "vote_journal.json"
+    jpath.parent.mkdir(parents=True)
+    jpath.write_text("{corrupt")
+    svc = RemoteAttestationService(CHAIN, {addr: key})
+    try:
+        assert await svc._journal_refuses(100, "0x" + "aa" * 32, addr, addr, None) is True
+        assert jpath.read_text() == "{corrupt"
+    finally:
+        reset_vote_journals()
