@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..deps import get_db, get_miner_id
@@ -84,7 +85,9 @@ async def create_or_update_service_config(
         await db.refresh(existing)
         config = existing
     else:
-        # Create new
+        # Create new. A concurrent POST for the same miner+service_type can
+        # win the insert race; uq_service_config_miner_type then rejects this
+        # commit — fall back to the update path on the surviving row (#1397).
         config = ServiceConfig(
             miner_id=miner_id,
             service_type=service_type,
@@ -95,8 +98,26 @@ async def create_or_update_service_config(
             max_concurrent=config_data.max_concurrent,
         )
         db.add(config)
-        await db.commit()
-        await db.refresh(config)
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            result = await db.execute(stmt)
+            existing = result.scalar_one_or_none()
+            if existing is None:
+                # Not the uniqueness race (e.g. miner FK violation) — surface
+                # the original integrity error rather than a lookup failure.
+                raise
+            existing.enabled = config_data.enabled
+            existing.config = config_data.config
+            existing.pricing = config_data.pricing
+            existing.capabilities = config_data.capabilities
+            existing.max_concurrent = config_data.max_concurrent
+            await db.commit()
+            await db.refresh(existing)
+            config = existing
+        else:
+            await db.refresh(config)
 
     return ServiceConfigResponse.model_validate(config)
 
