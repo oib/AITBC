@@ -130,7 +130,11 @@ class MarketJobSweeper:
             await self._expire_stale_reservations(session, now_naive)
             counts["offers_expired"] = await self._expire_stale_offers(session, now_naive)
 
-            # 1. Release: jobs that completed or expired and are past the grace period.
+            # 1. Release: jobs that completed and are past the grace period.
+            # EXPIRED is deliberately absent: expiry only ever lands on
+            # QUEUED/RUNNING (unfinished) jobs, whose escrow belongs to the
+            # buyer — the refund pass below handles them. Releasing here
+            # would pay the provider for work never done (#v10 item 13).
             # expires_at/updated_at are naive-UTC columns (domain
             # default_factory strips tzinfo); bind naive cutoffs so the
             # comparisons do not depend on dialect-specific tz coercion of
@@ -142,7 +146,7 @@ class MarketJobSweeper:
                 .join(MarketJobPayment, col(MarketJob.payment_id) == MarketJobPayment.id)
                 .where(col(MarketJobPayment.status) == "escrowed")
                 .where(col(MarketJobPayment.escrowed_at).is_not(None))
-                .where(col(MarketJob.state).in_({"COMPLETED", "EXPIRED"}))
+                .where(col(MarketJob.state).in_({"COMPLETED"}))
                 .where((col(MarketJob.expires_at).is_(None)) | (col(MarketJob.expires_at) < release_cutoff))
                 .limit(self.batch_size)
             )
@@ -168,7 +172,14 @@ class MarketJobSweeper:
                 .join(MarketJobPayment, col(MarketJob.payment_id) == MarketJobPayment.id)
                 .where(col(MarketJobPayment.status).in_({"escrowed", "refund_pending"}))
                 .where(col(MarketJobPayment.escrowed_at).is_not(None))
-                .where((col(MarketJob.state).in_({"FAILED", "CANCELED"})) | (col(MarketJobPayment.status) == "refund_pending"))
+                # EXPIRED joins FAILED/CANCELED: an expired job is unfinished
+                # by definition, so its escrowed payment refunds the buyer
+                # even when the expire path missed the refund_pending flip
+                # (e.g. the access-token lazy expiry).
+                .where(
+                    (col(MarketJob.state).in_({"FAILED", "CANCELED", "EXPIRED"}))
+                    | (col(MarketJobPayment.status) == "refund_pending")
+                )
                 .where(col(MarketJob.updated_at) < min_age)
                 .limit(self.batch_size)
             )
