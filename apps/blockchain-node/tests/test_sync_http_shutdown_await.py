@@ -53,6 +53,9 @@ async def test_shutdown_awaits_sync_http_stop(monkeypatch):
         _task_registry=_FakeTaskRegistry(),
         _settlement_coordinators=[],
         _proposers={},
+        # #1705: _shutdown disposes chain DBs per supported chain; empty list
+        # keeps the fake on the pre-#1705 path (no real shutdown_db calls).
+        _supported_chains=lambda: [],
     )
     await BlockchainNode._shutdown(node)
     await task
