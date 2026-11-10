@@ -94,8 +94,10 @@ def _verify_attestation(message: dict[str, Any], signature: str, validator: str,
 
 
 def _attestation_message(header: dict[str, Any], chain_id: str, round_: int | None = None) -> dict[str, Any]:
-    """The exact dict an attestation signature covers (round included only
-    under round-lock) — shared by the domain and legacy verify paths."""
+    """The exact dict an attestation signature covers — shared by the domain
+    and legacy verify paths. ``round`` is included whenever the caller passes
+    it: under round-lock at any height, and unconditionally at/above the
+    domain-separation height (#1298 T7a)."""
     message = {
         "chain_id": header.get("chain_id", chain_id),
         "height": header.get("height", 0),
@@ -822,9 +824,16 @@ class RemoteAttestationService:
         # independent round derivation run before any lock evaluation, inside
         # the same await-free section as the signature — the head snapshot
         # cannot move between check and sign.
+        # #1298 T7a/T14: at/above the armed domain-separation height the round
+        # is inside the signed attestation payload UNCONDITIONALLY — the
+        # declared-vs-derived check and the underivable refusal run whether or
+        # not ``attestation_round_lock_enabled`` is set (design v2 §1 N1:
+        # round authenticates, it does not activate locking). Below H only the
+        # round-lock flag arms this path — byte-identical legacy behaviour.
         round_lock = self._round_lock_enabled()
+        round_authenticated = round_lock or _attestation_domain_active(height_int)
         request_round: int | None = None
-        if round_lock:
+        if round_authenticated:
             request_round = self._derive_request_round(header)
             try:
                 declared_round = int(str(header.get("round")))
@@ -832,21 +841,22 @@ class RemoteAttestationService:
                 declared_round = -1
             if request_round is None or declared_round != request_round:
                 logger.info(
-                    "Round-lock refusal: round mismatch/underivable at height %s — declared=%s derived=%s",
+                    "Round authentication refusal: round mismatch/underivable at height %s — declared=%s derived=%s",
                     height_int,
                     header.get("round"),
                     request_round,
                 )
                 return
-            tip_refusal = self._tip_authorizes(header, height_int, header_hash)
-            if tip_refusal is not None:
-                logger.info(
-                    "Round-lock refusal: %s for %s at height %s",
-                    tip_refusal,
-                    header_hash[:18],
-                    height_int,
-                )
-                return
+            if round_lock:
+                tip_refusal = self._tip_authorizes(header, height_int, header_hash)
+                if tip_refusal is not None:
+                    logger.info(
+                        "Round-lock refusal: %s for %s at height %s",
+                        tip_refusal,
+                        header_hash[:18],
+                        height_int,
+                    )
+                    return
 
         # #1298: the durable lock journal also reseeds the in-memory
         # attestation lock and ``_signed_once`` across restarts — load it
@@ -1042,9 +1052,13 @@ class RemoteAttestationService:
                 "state_root": header.get("state_root", ""),
                 "bridge_state_root": header.get("bridge_state_root", ""),
             }
-            if round_lock and request_round is not None:
-                # Amendment A: the round is inside the signed payload, not
-                # transport metadata — changing it invalidates the signature.
+            if request_round is not None:
+                # Amendment A + #1298 T7a: the round is inside the signed
+                # payload — under round_lock at any height, and
+                # unconditionally at/above the domain-separation height —
+                # not transport metadata; changing it invalidates the
+                # signature. ``request_round`` is only ever set on those two
+                # paths, so this condition covers both.
                 message["round"] = request_round
             try:
                 signature = _sign_attestation(message, private_key, height_int)
@@ -1088,7 +1102,9 @@ class RemoteAttestationService:
                 # #1281: carry the unlock justification on the vote itself so
                 # collectors and evidence verifiers see the same artifact.
                 response["unlock_justification"] = stored_just
-            if round_lock and request_round is not None:
+            if request_round is not None:
+                # #1298 T7a: post-H round-auth responses carry the round even
+                # with round_lock OFF — collectors use it as the verify hint.
                 response["round"] = request_round
             try:
                 await gossip_broker.publish(self._response_topic, response)
@@ -1567,6 +1583,12 @@ class RemoteAttestationService:
         enrichment, not a consensus gate.
         """
         self._ensure_signed_attestations_loaded()
+        # #1298 T7a: ``round_in_payload``/``request_round`` describe the
+        # message that was ACTUALLY signed — post-activation the round is in
+        # the payload whether or not round_lock was armed, so both fields are
+        # derived from ``message`` rather than the flag. On-chain
+        # verification rebuilds the preimage from exactly these fields.
+        round_in_payload = "round" in message
         record = {
             "chain_id": message.get("chain_id", self._chain_id),
             "height": message.get("height", height),
@@ -1575,8 +1597,8 @@ class RemoteAttestationService:
             "proposer": message.get("proposer", ""),
             "state_root": message.get("state_root", ""),
             "bridge_state_root": message.get("bridge_state_root", ""),
-            "round_in_payload": bool(round_lock and request_round is not None),
-            "request_round": request_round if round_lock else None,
+            "round_in_payload": round_in_payload,
+            "request_round": message.get("round") if round_in_payload else None,
             "signature": signature,
             "signer": canonical_address(signer),
         }
@@ -2322,20 +2344,30 @@ class RemoteAttestationService:
             "bridge_state_root": block.bridge_state_root or "",
             "aux_state_root": getattr(block, "aux_state_root", None) or "",
         }
-        # #1242: under the round lock the request declares its round and the
-        # attestation signature covers it. The value is derived exactly the
-        # way attesters derive it (sealed parent ts + block ts + window), so
-        # an honest attester's independent derivation always matches.
+        # #1242/#1298 T7a: the request declares its round under round_lock at
+        # any height AND unconditionally at/above the domain-separation
+        # height — attesters refuse a missing/mismatched declared round
+        # post-H, and the attestation signature covers the derived round.
+        # The value is derived exactly the way attesters derive it (sealed
+        # parent ts + block ts + window), so an honest attester's independent
+        # derivation always matches.
         collect_round: int | None = None
-        if self._round_lock_enabled():
+        round_lock = self._round_lock_enabled()
+        if round_lock or _attestation_domain_active(block.height):
             collect_round = self._collect_round_for_block(block)
             if collect_round is None:
                 logger.warning(
-                    "Round-lock enabled but round underivable for height %s — remote attestations will be refused",
+                    "Round authentication armed but round underivable for height %s — remote attestations will be refused",
                     block.height,
                 )
             else:
                 header["round"] = collect_round
+            # Attesters derive the round from the SIGNED block timestamp in
+            # the request header — carry it whenever round authentication is
+            # armed, not only when a transaction list rides along (the
+            # transactions branch below sets the same field).
+            if "timestamp" not in header:
+                header["timestamp"] = block.timestamp.isoformat() if block.timestamp else ""
         request: dict[str, Any] = {"header": header, "timestamp": time.time()}
         if unlock_justification is not None:
             # #1281: the proposer's own unlock justification rides the
@@ -2431,7 +2463,22 @@ class RemoteAttestationService:
                         response.get("height"),
                     )
                     continue
-                if collect_round is not None and response.get("round") != collect_round:
+                response_round = response.get("round")
+                round_mismatch = False
+                if collect_round is not None:
+                    if round_lock:
+                        round_mismatch = response_round != collect_round
+                    else:
+                        # #1298 T7a: post-H round authentication without
+                        # round_lock — a response that declares NO round is a
+                        # pre-slice signer; let signature verification decide
+                        # (the dual-accept window still applies). A declared
+                        # but wrong round is junk and is dropped here.
+                        try:
+                            round_mismatch = response_round is not None and int(response_round) != collect_round
+                        except (TypeError, ValueError):
+                            round_mismatch = True
+                if round_mismatch:
                     # A response minted for a different round can never count
                     # toward this round's quorum — even if the hash matches.
                     logger.info(
@@ -2439,7 +2486,7 @@ class RemoteAttestationService:
                         block.height,
                         validator,
                         arrived_ms,
-                        response.get("round"),
+                        response_round,
                     )
                     continue
                 signature = response.get("signature", "")
@@ -2459,6 +2506,17 @@ class RemoteAttestationService:
                         # against this round's header even on a hash match.
                         att_msg = _attestation_message(header, self._chain_id, collect_round)
                         sig_ok = _verify_attestation(att_msg, signature, validator, block.height)
+                        if not sig_ok and not round_lock and _attestation_domain_active(block.height):
+                            # #1298 T7a/T13: post-H round authentication without
+                            # round_lock — a response without round binding
+                            # (pre-slice signer, or a legacy attestation inside
+                            # the [H,S) dual-accept window) still gets its
+                            # unbound-message chance; the domain/legacy rules
+                            # inside _verify_attestation decide. Round-lock
+                            # stays strict: no unbound fallback there.
+                            sig_ok = _verify_attestation(
+                                _attestation_message(header, self._chain_id), signature, validator, block.height
+                            )
                     elif _attestation_domain_active(block.height):
                         # #1298: post-activation attestations live under the
                         # attestation domain — the proposal/raw-hash fallbacks

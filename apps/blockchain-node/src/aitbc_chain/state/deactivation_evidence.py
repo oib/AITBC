@@ -149,7 +149,9 @@ def _verify_attestation_equivocation(payload: dict[str, Any], event: SlashingEve
             "bridge_state_root": att.get("bridge_state_root", ""),
         }
         # round_in_payload mirrors the capture-side flag exactly: the round
-        # was inside the signed message only under the round lock.
+        # was inside the signed message under the round lock at any height,
+        # and unconditionally at/above the domain-separation height (#1298
+        # T7a — the flag now describes the signed message, not the flag state).
         if att.get("round_in_payload"):
             message["round"] = att.get("request_round")
         if not _verify_stored_signature(att, message, validator, event.block_height):

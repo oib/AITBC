@@ -4,12 +4,9 @@ One pin per matrix row from the #1298 implementation plan (c23018 T1–T20,
 c23383 +T21/T22). Rows that depend on not-yet-landed slices are
 ``pytest.mark.skip`` with the dependency named — they must NOT fake-pass:
 
-- T7a  unconditional round authentication post-H (round inside the signed
-       payload with ``attestation_round_lock_enabled`` OFF)
 - T11  proposer emission gate (proposal-signature journal refusing a second
        different-hash proposal at sign time)
 - T12  pin-expiry / abandon-height behaviour (AD ruling + emission gate)
-- T14  declared-round mismatch refused post-H with round_lock OFF
 - T19  same-key rotation return at r+4 — pending AD disposition (v2.2 O5)
 - T20  L4 mixed-version mesh leg (CARD6, sandbox-only, needs impl SHA)
 
@@ -18,7 +15,10 @@ S2 evidence ``signature_domain`` labels + attestation-lock journal,
 S3 acceptance-key + bounded dual-accept window ``[H, S)`` via
 ``consensus_legacy_attestation_until_height`` (T13, T18w un-skipped),
 T15 shared attestation-lock lapse constant (attester + proposer coupling,
-height-gated on ``consensus_domain_separation_height``).
+height-gated on ``consensus_domain_separation_height``), and unconditional
+round authentication post-H (T7a/T14: round inside the signed payload and
+the declared-vs-derived refusal run whether or not
+``attestation_round_lock_enabled`` is set).
 """
 
 from __future__ import annotations
@@ -341,19 +341,193 @@ class TestActivationBoundary:
 
 
 # ---------------------------------------------------------------------------
-# T7 — round handling (T7a skipped: unconditional round auth not landed)
+# T7 — round handling
 # ---------------------------------------------------------------------------
 
 
+def _round_auth_service(
+    monkeypatch, tmp_path, chain_id: str = CHAIN
+) -> tuple[RemoteAttestationService, _StubBroker, str, str, str, str]:
+    """Post-H round-auth posture: domain separation armed, round_lock OFF,
+    parent timestamp resolvable, freshness bound off (fixed 2026 timestamps)."""
+    monkeypatch.setattr(settings, "consensus_domain_separation_height", 1)
+    monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+    # skew stays at the 10s default: it feeds _lock_lapse_seconds(), so a
+    # large value would stretch the post-H lock lapse the tests age against.
+    monkeypatch.setattr(settings, "attestation_header_future_skew_seconds", 10.0)
+    svc, broker, our_addr, our_key, proposer_addr, proposer_key = _service(monkeypatch, tmp_path, chain_id)
+    svc._parent_timestamp = lambda p: PARENT_TS if p == "0xparent" else None  # type: ignore[method-assign]
+    return svc, broker, our_addr, our_key, proposer_addr, proposer_key
+
+
 class TestRoundHandling:
-    @pytest.mark.skip(
-        reason="T7a depends on round being unconditionally inside the signed "
-        "payload post-H (attestation_round_lock_enabled OFF); that slice is "
-        "not landed — round only enters the preimage under round_lock today"
-    )
+    @pytest.mark.asyncio
     async def test_T7a_cross_round_same_key_attestations_both_accepted(self, monkeypatch, tmp_path):
-        """Two honest attestations by one key at one height in DIFFERENT
-        authenticated rounds must both verify (distinct uniqueness keys)."""
+        """T7a: two honest attestations by one key at one height in DIFFERENT
+        authenticated rounds both verify — each signature binds its own
+        (hash, round) preimage, so the uniqueness keys are distinct. Runs
+        with ``attestation_round_lock_enabled`` OFF: round authentication is
+        unconditional post-H."""
+        svc, broker, our_addr, our_key, proposer_addr, _ = _round_auth_service(monkeypatch, tmp_path)
+
+        # round 0 attestation for hash A
+        await svc._handle_request(_rl_request(H, "0xaaaa", proposer_addr, 0))
+        assert len(broker.published) == 1
+        resp0 = broker.published[0][1]
+        assert resp0["round"] == 0
+
+        # lapse the attestation lock past its effective window, then a
+        # round-1 attestation for a different hash — the honest
+        # rotation/lapse case
+        domain = DOMAIN_BLOCK_ATTESTATION
+        svc._attested[H][domain] = (
+            "0xaaaa",
+            proposer_addr,
+            time.monotonic() - (attestation_lock_window_seconds(H) + 1.0),
+        )
+        await svc._handle_request(_rl_request(H, "0xbbbb", proposer_addr, 1))
+        assert len(broker.published) == 2
+        resp1 = broker.published[1][1]
+        assert resp1["round"] == 1
+
+        # both signatures verify under their OWN (hash, round) preimage via
+        # the real verify entry — distinct authenticated rounds, distinct
+        # uniqueness keys
+        msg0 = _attestation_message(_rl_request(H, "0xaaaa", proposer_addr, 0)["header"], CHAIN, 0)
+        msg1 = _attestation_message(_rl_request(H, "0xbbbb", proposer_addr, 1)["header"], CHAIN, 1)
+        assert _verify_attestation(msg0, resp0["signature"], our_addr, H)
+        assert _verify_attestation(msg1, resp1["signature"], our_addr, H)
+        # cross-binding fails: round-0 sig does not verify the round-1
+        # preimage of either hash, and not even its own hash under round 1
+        assert not verify_consensus_message_domain(msg1, resp0["signature"], our_addr, DOMAIN_BLOCK_ATTESTATION)
+        assert not verify_consensus_message_domain(
+            _attestation_message(_rl_request(H, "0xaaaa", proposer_addr, 0)["header"], CHAIN, 1),
+            resp0["signature"],
+            our_addr,
+            DOMAIN_BLOCK_ATTESTATION,
+        )
+        # the durable journal records carry the authenticated rounds
+        rounds = {r.get("derived_round") for r in _attestation_records(svc)}
+        assert rounds == {0, 1}
+
+        # import-side (sync_validator): sealed attestation entries verify per
+        # their authenticated round — round-bound entries count, a
+        # round-bound signature offered against the wrong round's block
+        # does not, and an unbound 7-field domain attestation still verifies
+        # through the msg7 fallback (mixed round-bound/unbound handling).
+        from aitbc_chain.sync_validator import ProposerSignatureValidator
+
+        sv = ProposerSignatureValidator(parent_timestamp_resolver=lambda p: PARENT_TS)
+        block_a = {
+            "chain_id": CHAIN,
+            "height": H,
+            "hash": "0xaaaa",
+            "parent_hash": "0xparent",
+            "proposer": proposer_addr,
+            "state_root": "0xroot",
+            "bridge_state_root": "",
+            "timestamp": _block_ts(0).isoformat(),
+        }
+        block_b = {**block_a, "hash": "0xbbbb", "timestamp": _block_ts(1).isoformat()}
+        assert sv._attestation_sig_ok(block_a, {"validator": our_addr, "signature": resp0["signature"], "round": 0}, our_addr)
+        assert sv._attestation_sig_ok(block_b, {"validator": our_addr, "signature": resp1["signature"], "round": 1}, our_addr)
+        assert not sv._attestation_sig_ok(
+            block_b, {"validator": our_addr, "signature": resp0["signature"], "round": 0}, our_addr
+        )
+        unbound_sig = sign_consensus_message_domain(_attestation_message(block_a, CHAIN), our_key, DOMAIN_BLOCK_ATTESTATION)
+        assert sv._attestation_sig_ok(block_a, {"validator": our_addr, "signature": unbound_sig}, our_addr)
+
+    @pytest.mark.asyncio
+    async def test_T7a_local_attestations_bind_round_post_H(self, monkeypatch):
+        """T7a proposer leg: ``PoAProposer._collect_attestations`` signs the
+        LOCAL attestation over the round-bound preimage at/above H even with
+        round_lock OFF, seals the ``round`` hint importers need, and stays
+        byte-identical legacy below H."""
+        from aitbc_chain.base_models import Block
+        from aitbc_chain.sync_validator import ProposerSignatureValidator
+
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", 1)
+        config = ProposerConfig(
+            chain_id=CHAIN,
+            proposer_id=V2,
+            interval_seconds=5,
+            max_block_size_bytes=1_000_000,
+            max_txs_per_block=100,
+        )
+        proposer = PoAProposer(config=config, session_factory=lambda: None)  # type: ignore[arg-type,return-value]
+        proposer._validator_keys = {ADDR: ADDR_KEY}
+        proposer._remote_attestation = None
+
+        def _block(height: int, block_hash: str, ts: datetime) -> Block:
+            return Block(
+                chain_id=CHAIN,
+                height=height,
+                hash=block_hash,
+                parent_hash="0xparent",
+                proposer=V2,
+                timestamp=ts,
+                tx_count=0,
+                state_root="0xroot",
+                bridge_state_root="",
+            )
+
+        # post-H: round 2 bound into the signed payload + sealed hint
+        block = _block(H, "0xdddd", PARENT_TS + timedelta(seconds=121))
+        attestations = await proposer._collect_attestations(block, round_number=2)
+        assert len(attestations) == 1
+        att = attestations[0]
+        assert att["validator"] == ADDR
+        assert att["round"] == "2"
+        msg8 = {
+            "chain_id": CHAIN,
+            "height": H,
+            "hash": "0xdddd",
+            "parent_hash": "0xparent",
+            "proposer": V2,
+            "state_root": "0xroot",
+            "bridge_state_root": "",
+            "round": 2,
+        }
+        assert verify_consensus_message_domain(msg8, att["signature"], ADDR, DOMAIN_BLOCK_ATTESTATION)
+        # not the unbound preimage, not the legacy shared preimage
+        msg7 = {k: v for k, v in msg8.items() if k != "round"}
+        assert not verify_consensus_message_domain(msg7, att["signature"], ADDR, DOMAIN_BLOCK_ATTESTATION)
+        assert not verify_consensus_message(msg7, att["signature"], ADDR)
+        # import-side accepts the sealed entry (round hint present)
+        sv = ProposerSignatureValidator()
+        block_data = {
+            "chain_id": CHAIN,
+            "height": H,
+            "hash": "0xdddd",
+            "parent_hash": "0xparent",
+            "proposer": V2,
+            "state_root": "0xroot",
+            "bridge_state_root": "",
+            "timestamp": block.timestamp.isoformat(),
+        }
+        assert sv._attestation_sig_ok(block_data, att, ADDR)
+        # ...and rejects it against a different declared round
+        wrong = {**att, "round": "3"}
+        assert not sv._attestation_sig_ok(block_data, wrong, ADDR)
+
+        # below H: legacy 7-field shared preimage, no round anywhere
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        low_block = _block(LOW, "0xeeee", PARENT_TS + timedelta(seconds=121))
+        low_atts = await proposer._collect_attestations(low_block, round_number=2)
+        assert len(low_atts) == 1
+        low_att = low_atts[0]
+        assert "round" not in low_att
+        low_msg = {
+            "chain_id": CHAIN,
+            "height": LOW,
+            "hash": "0xeeee",
+            "parent_hash": "0xparent",
+            "proposer": V2,
+            "state_root": "0xroot",
+            "bridge_state_root": "",
+        }
+        assert verify_consensus_message(low_msg, low_att["signature"], ADDR)
+        assert not verify_consensus_message_domain(low_msg, low_att["signature"], ADDR, DOMAIN_BLOCK_ATTESTATION)
 
     @pytest.mark.asyncio
     async def test_T7b_same_round_rival_hash_refused_under_domain(self, monkeypatch, tmp_path):
@@ -373,6 +547,47 @@ class TestRoundHandling:
         # same round, rival hash -> refused (no second signature released)
         await svc._handle_request(_rl_request(H, "0xbbbb", proposer_addr, 0))
         assert len(broker.published) == 1
+
+    @pytest.mark.asyncio
+    async def test_T14_declared_round_mismatch_refused_round_lock_off(self, monkeypatch, tmp_path):
+        """T14: post-H a request whose declared round mismatches the derived
+        round is refused even with ``attestation_round_lock_enabled`` OFF —
+        the declared-vs-derived check is unconditional at/above the armed
+        height. Underivable round and a missing declared round refuse the
+        same way; below H the same mismatched request signs legacy."""
+        svc, broker, our_addr, our_key, proposer_addr, _ = _round_auth_service(monkeypatch, tmp_path)
+
+        # derived round is 0 (_block_ts(0)); declaring 1 must refuse
+        bad = _rl_request(H, "0xaaaa", proposer_addr, 0)
+        bad["header"]["round"] = 1
+        await svc._handle_request(bad)
+        assert not broker.published
+
+        # no declared round at all -> declared=-1 != derived -> refuse
+        undeclared = _rl_request(H, "0xaaaa", proposer_addr, 0)
+        del undeclared["header"]["round"]
+        await svc._handle_request(undeclared)
+        assert not broker.published
+
+        # underivable round (parent row absent) -> refuse, never round-0
+        svc._parent_timestamp = lambda p: None  # type: ignore[method-assign]
+        await svc._handle_request(_rl_request(H, "0xaaaa", proposer_addr, 0))
+        assert not broker.published
+        # nothing signed, so the durable lock journal was never written
+        assert not svc._round_locks_path.exists()
+
+        # below the armed height the identical mismatched request is legacy:
+        # round is transport metadata only, the 7-field signature is released
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        low_req = _rl_request(LOW, "0xaaaa", proposer_addr, 0)
+        low_req["header"]["round"] = 7  # bogus declared round — ignored below H
+        await svc._handle_request(low_req)
+        assert len(broker.published) == 1
+        resp = broker.published[0][1]
+        assert "round" not in resp  # legacy responses carry no round
+        low_msg = _attestation_message(low_req["header"], CHAIN)
+        assert verify_consensus_message(low_msg, resp["signature"], our_addr)
+        assert not verify_consensus_message_domain(low_msg, resp["signature"], our_addr, DOMAIN_BLOCK_ATTESTATION)
 
 
 # ---------------------------------------------------------------------------
@@ -483,21 +698,36 @@ class TestLockUniqueness:
         the domain tag. #1268/#1281 gates are not weakened (journal off in
         this posture; the lock itself is the gate under test)."""
         monkeypatch.setattr(settings, "consensus_domain_separation_height", 1)
+        # Post-H requests must declare the derived round and carry the signed
+        # block timestamp it derives from (T7a/T14 round authentication).
+        # max_age=0 disables the freshness bound for the fixed 2026
+        # timestamps; skew=70 keeps the effective lapse at 130s (60+0+70) so
+        # the 70s/131s agings below land inside/outside it as intended.
+        monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+        monkeypatch.setattr(settings, "attestation_header_future_skew_seconds", 70.0)
         svc, broker, our_addr, our_key, proposer_addr, _ = _service(monkeypatch, tmp_path)
+        svc._parent_timestamp = lambda p: PARENT_TS if p == "0xparent" else None  # type: ignore[method-assign]
 
-        await svc._handle_request(_request(H, "0xaaaa", proposer_addr))
+        await svc._handle_request(_rl_request(H, "0xaaaa", proposer_addr, 0))
         assert len(broker.published) == 1
         resp = broker.published[0][1]
-        msg = _attestation_message(_request(H, "0xaaaa", proposer_addr)["header"], CHAIN)
+        assert resp["round"] == 0  # round-auth responses carry the round post-H
+        req_header = _rl_request(H, "0xaaaa", proposer_addr, 0)["header"]
+        # the attestation signature covers the round-bound 8-field message
+        msg = _attestation_message(req_header, CHAIN, 0)
         assert verify_consensus_message_domain(msg, resp["signature"], our_addr, DOMAIN_BLOCK_ATTESTATION)
         assert not verify_consensus_message(msg, resp["signature"], our_addr)
+        # ... and does NOT verify against the unbound 7-field preimage
+        assert not verify_consensus_message_domain(
+            _attestation_message(req_header, CHAIN), resp["signature"], our_addr, DOMAIN_BLOCK_ATTESTATION
+        )
 
         # idempotent: same (height, hash) re-publishes, no new journal record
-        await svc._handle_request(_request(H, "0xaaaa", proposer_addr))
+        await svc._handle_request(_rl_request(H, "0xaaaa", proposer_addr, 0))
         assert len(broker.published) == 2
 
         # rival hash at the same height -> refused outright
-        await svc._handle_request(_request(H, "0xbbbb", proposer_addr))
+        await svc._handle_request(_rl_request(H, "0xbbbb", proposer_addr, 0))
         assert len(broker.published) == 2
 
         records = _attestation_records(svc)
@@ -722,21 +952,28 @@ class TestLapseWindow:
         gated on the activation height, so pre-activation replay is
         unchanged)."""
         monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        # Post-H requests must declare the derived round (T7a/T14); the fixed
+        # historical timestamps need the freshness bound off. skew=70 keeps
+        # the effective lapse at 130s (60+0+70) so the 70s/131s agings land
+        # inside/outside it as the test intends.
+        monkeypatch.setattr(settings, "attestation_header_max_age_seconds", 0.0)
+        monkeypatch.setattr(settings, "attestation_header_future_skew_seconds", 70.0)
         svc, broker, our_addr, our_key, proposer_addr, _ = _service(monkeypatch, tmp_path)
+        svc._parent_timestamp = lambda p: PARENT_TS if p == "0xparent" else None  # type: ignore[method-assign]
 
-        await svc._handle_request(_request(H, "0xaaaa", proposer_addr))
+        await svc._handle_request(_rl_request(H, "0xaaaa", proposer_addr, 0))
         assert len(broker.published) == 1
 
         # age the lock to 70s: past the old 60s round window, inside the lapse
         domain = DOMAIN_BLOCK_ATTESTATION
         svc._attested[H][domain] = ("0xaaaa", proposer_addr, time.monotonic() - 70.0)
 
-        await svc._handle_request(_request(H, "0xdddd", proposer_addr))
+        await svc._handle_request(_rl_request(H, "0xdddd", proposer_addr, 0))
         assert len(broker.published) == 1  # still refused — lapse binds
 
         # past the lapse the rival is accepted
         svc._attested[H][domain] = ("0xaaaa", proposer_addr, time.monotonic() - 131.0)
-        await svc._handle_request(_request(H, "0xdddd", proposer_addr))
+        await svc._handle_request(_rl_request(H, "0xdddd", proposer_addr, 0))
         assert len(broker.published) == 2
 
         # below the armed height the legacy 60s window applies unchanged
@@ -901,15 +1138,6 @@ class TestPendingSlices:
             our_addr,
             H,
         )
-
-    @pytest.mark.skip(
-        reason="T14 declared-round mismatch refused post-H with round_lock "
-        "OFF — depends on unconditional round authentication inside the "
-        "signed payload (not landed)"
-    )
-    def test_T14_declared_round_mismatch_refused_round_lock_off(self):
-        """Post-H a request whose declared round mismatches the derived
-        round is refused even with attestation_round_lock_enabled OFF."""
 
     @pytest.mark.skip(
         reason="T19 same-key rotation return (proposer round r+4 at the same "
