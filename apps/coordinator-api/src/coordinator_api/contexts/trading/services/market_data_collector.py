@@ -86,16 +86,26 @@ class MarketDataCollector:
         self.max_raw_data_points = 10000
         self.websocket_port = config.get("websocket_port", 8765)
         self.websocket_server: WebSocketServer | None = None
+        # AUDIT-RETRY (#1576): initialize() spawns ~10 background loops plus a
+        # WebSocket server; concurrent callers (e.g. racing requests through
+        # get_market_collector) must not multiply them.
+        self._init_lock = asyncio.Lock()
+        self._initialized = False
 
     async def initialize(self) -> None:
-        """Initialize the market data collector"""
-        logger.info("Initializing Market Data Collector")
-        for source in DataSource:
-            create_task_with_logging(self._collect_data_source(source), name=f"collect_data_{source.value}")
-        create_task_with_logging(self._aggregate_market_data(), name="aggregate_market_data")
-        create_task_with_logging(self._cleanup_old_data(), name="cleanup_old_data")
-        await self._start_websocket_server()
-        logger.info("Market Data Collector initialized")
+        """Initialize the market data collector (idempotent)."""
+        async with self._init_lock:
+            if self._initialized:
+                logger.debug("Market Data Collector already initialized, skipping")
+                return
+            self._initialized = True
+            logger.info("Initializing Market Data Collector")
+            for source in DataSource:
+                create_task_with_logging(self._collect_data_source(source), name=f"collect_data_{source.value}")
+            create_task_with_logging(self._aggregate_market_data(), name="aggregate_market_data")
+            create_task_with_logging(self._cleanup_old_data(), name="cleanup_old_data")
+            await self._start_websocket_server()
+            logger.info("Market Data Collector initialized")
 
     def register_callback(self, source: DataSource, callback: Callable) -> None:
         """Register callback for data updates"""

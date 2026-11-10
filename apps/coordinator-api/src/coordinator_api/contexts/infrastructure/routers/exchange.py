@@ -190,6 +190,12 @@ async def monitor_payment(payment_id: str) -> None:
             await _state.set_doc(_NAMESPACE, payment_id, payment, ttl=PAYMENT_RECORD_TTL_SECONDS)
             break
 
+        # AUDIT-RETRY (#1576): a payment that reached any terminal status
+        # (confirmed, expired, failed, ...) has nothing left to monitor —
+        # previously the loop kept polling it every 30s forever.
+        if payment["status"] != "pending":
+            break
+
         # In production, check blockchain for payment
         # For demo, we'll wait for manual confirmation
 

@@ -495,6 +495,10 @@ class TaskDistributor:
             TaskPriority.NORMAL: asyncio.Queue(),
             TaskPriority.LOW: asyncio.Queue(),
         }
+        # AUDIT-RETRY (#1576): submit_task signals this event so the
+        # distribution loop sleeps while all queues are empty instead of
+        # polling five queues at ~100 Hz.
+        self._work_event = asyncio.Event()
         self.distribution_stats = {
             "tasks_distributed": 0,
             "tasks_completed": 0,
@@ -518,6 +522,7 @@ class TaskDistributor:
             "submitted_at": datetime.now(UTC),
         }
         await self.priority_queues[priority].put(task_info)
+        self._work_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
         logger.info("Task submitted with priority %s", priority.value)
 
     async def start_distribution(self) -> None:
@@ -542,8 +547,12 @@ class TaskDistributor:
                         continue
                 if task_info:
                     await self._distribute_task(task_info)
-                else:
-                    await asyncio.sleep(0.01)
+                    continue
+                # All queues empty: sleep until submit_task signals. The
+                # clear-then-recheck closes the lost-wakeup window.
+                self._work_event.clear()
+                if all(queue.empty() for queue in self.priority_queues.values()):
+                    await self._work_event.wait()
             except Exception as e:
                 logger.error("Error in distribution loop: %s", e)
                 await asyncio.sleep(1)

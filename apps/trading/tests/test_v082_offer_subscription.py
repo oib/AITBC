@@ -664,3 +664,55 @@ class TestWebSocketLeaseLifecycle:
             assert _wait_for(lambda: victim not in subs._ws_connections_by_node)
             assert revoke.await_count == 2
             assert revoke.await_args.args[0] == victim
+
+
+class TestReconnectLoopJitter:
+    """AUDIT-RETRY (#1576): the gossip reconnect loop must jitter its fixed
+    interval so a fleet does not re-subscribe in lockstep."""
+
+    @pytest.mark.asyncio
+    async def test_reconnect_interval_is_jittered(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import random
+        from unittest.mock import AsyncMock
+
+        from trading_service.config import settings
+        from trading_service.services.offer_subscription_service import OfferSubscriptionService
+
+        interval = 0.05
+        monkeypatch.setattr(settings, "subscription_reconnect_interval_seconds", interval, raising=False)
+
+        svc = OfferSubscriptionService()
+        svc._running = True
+        svc._attempt_reconnect = AsyncMock()  # type: ignore[method-assign]
+        svc._poll_chain = AsyncMock()  # type: ignore[method-assign]
+
+        real_sleep = asyncio.sleep
+        delays: list[float] = []
+
+        async def recording_sleep(delay: float) -> None:
+            if len(delays) < 30:
+                delays.append(delay)
+            await real_sleep(0)
+
+        monkeypatch.setattr(asyncio, "sleep", recording_sleep)
+        # Keep jitter deterministic-ish but exercise both bounds via real RNG.
+        random.seed(0)
+
+        task = asyncio.create_task(svc._reconnect_loop("ait-hub"))
+        try:
+            for _ in range(200):
+                if len(delays) >= 5:
+                    break
+                await real_sleep(0.01)
+        finally:
+            svc._running = False
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        assert len(delays) >= 3
+        lo, hi = interval * 0.8, interval * 1.2
+        assert all(lo <= d <= hi for d in delays), delays
+        assert svc._attempt_reconnect.await_count >= 1

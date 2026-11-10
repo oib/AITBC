@@ -22,6 +22,10 @@ import coordinator_api.contexts.infrastructure.routers.exchange as exch_mod
 from aitbc.auth import create_access_token
 from aitbc.auth.security_matrix import AuthLevel, check_role_match, get_auth_level
 
+# Captured at import time, before the autouse _no_monitor fixture patches
+# the module attribute — the termination tests below exercise the real loop.
+_REAL_MONITOR_PAYMENT = exch_mod.monitor_payment
+
 BASE = "/v1/exchange"
 RATE = Decimal("1000")  # 1 ETH = 1000 AITBC
 
@@ -136,3 +140,34 @@ class TestPaymentStorageBounds:
         status = client.get(f"{BASE}/payment-status/{payment_id}", headers=_headers())
         assert status.status_code == 200
         assert status.json()["status"] == "pending"
+class TestMonitorPaymentTermination:
+    """AUDIT-RETRY (#1576): monitor_payment must terminate once the payment
+    reaches a terminal status instead of polling it every 30s forever."""
+
+    async def test_confirmed_payment_stops_monitor(self) -> None:
+        import asyncio
+        import time
+
+        payment_id = "pay-monitor-confirmed"
+        await exch_mod._state.hset(
+            exch_mod._NAMESPACE,
+            payment_id,
+            {"status": "confirmed", "expires_at": int(time.time()) + 3600},
+        )
+        # Returns immediately — previously this looped forever on "confirmed".
+        await asyncio.wait_for(_REAL_MONITOR_PAYMENT(payment_id), timeout=2)
+
+    async def test_expired_pending_payment_marked_and_stops(self) -> None:
+        import asyncio
+        import time
+
+        payment_id = "pay-monitor-expired"
+        await exch_mod._state.hset(
+            exch_mod._NAMESPACE,
+            payment_id,
+            {"status": "pending", "expires_at": int(time.time()) - 10},
+        )
+        await asyncio.wait_for(_REAL_MONITOR_PAYMENT(payment_id), timeout=2)
+        payment = await exch_mod._state.hget(exch_mod._NAMESPACE, payment_id)
+        assert payment is not None
+        assert payment["status"] == "expired"

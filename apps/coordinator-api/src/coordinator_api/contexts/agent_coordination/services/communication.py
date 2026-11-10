@@ -160,6 +160,9 @@ class AgentCommunicationService:
         self.contact_lists: dict[str, dict[str, bool]] = {}
         self.blocked_lists: dict[str, dict[str, bool]] = {}
         self.message_queue: list[Message] = []
+        # AUDIT-RETRY (#1576): producers signal this event so the delivery
+        # loop sleeps instead of polling an empty queue every second.
+        self._queue_event = asyncio.Event()
         self.delivery_attempts: dict[str, int] = {}
         self._lock = asyncio.Lock()
         # Service-held AES-256 key: messages are in-memory only, so a
@@ -324,6 +327,7 @@ class AgentCommunicationService:
                 self.agent_messages[sender].append(message_id)
                 self.agent_messages[recipient].append(message_id)
                 self.message_queue.append(message)
+                self._queue_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
             await self._update_message_stats(sender, recipient, "sent")
             await self._get_or_create_channel(sender, recipient, ChannelType.DIRECT)
             logger.info("Message sent from %s to %s: %s", sender, recipient, message_id)
@@ -670,17 +674,29 @@ class AgentCommunicationService:
                     self.communication_stats[recipient].last_activity = datetime.now(UTC)
 
     async def _process_message_queue(self) -> None:
-        """Process message queue for delivery"""
+        """Process message queue for delivery.
+
+        AUDIT-RETRY (#1576): the loop sleeps on ``_queue_event`` while the
+        queue is empty instead of polling every second. Producers set the
+        event after appending; the clear-then-recheck sequence below avoids
+        a lost wakeup when an append lands between the pop attempt and the
+        wait.
+        """
         while True:
             try:
                 message = None
                 async with self._lock:
                     if self.message_queue:
                         message = self.message_queue.pop(0)
-                if message:
-                    await asyncio.sleep(0.1)
-                    await self.deliver_message(message.id)
-                await asyncio.sleep(1)
+                if message is None:
+                    self._queue_event.clear()
+                    async with self._lock:
+                        queue_empty = not self.message_queue
+                    if queue_empty:
+                        await self._queue_event.wait()
+                    continue
+                await asyncio.sleep(0.1)
+                await self.deliver_message(message.id)
             except Exception as e:
                 logger.error("Error processing message queue: %s", e)
                 await asyncio.sleep(5)
@@ -958,6 +974,7 @@ class AgentCommunicationService:
                     ids.append(message_id)
             if message.status == MessageStatus.PENDING:
                 self.message_queue.append(message)
+                self._queue_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
         for channel_id, channel in self.channels.items():
             for agent_id in channel.participants:
                 ids = self.agent_channels.setdefault(agent_id, [])

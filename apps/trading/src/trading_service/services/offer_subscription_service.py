@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -308,7 +309,10 @@ class OfferSubscriptionService:
         """
         try:
             while self._running:
-                await asyncio.sleep(settings.subscription_reconnect_interval_seconds)
+                # AUDIT-RETRY (#1576): jitter the fixed reconnect interval so
+                # a fleet of traders does not re-subscribe in lockstep.
+                interval = settings.subscription_reconnect_interval_seconds
+                await asyncio.sleep(interval * random.uniform(0.8, 1.2))
                 if not self._running:
                     break  # type: ignore[unreachable]
 
