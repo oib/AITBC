@@ -87,7 +87,14 @@ async def apply_parameter_change(
 
     # Validate type of new_value
     expected_type = GOVERNANCE_PARAMETERS[change.parameter_name]
-    if not isinstance(change.new_value, expected_type):
+    value_ok = isinstance(change.new_value, expected_type)
+    if expected_type is int:
+        # bool is a subclass of int — a JSON `true` must not satisfy an int
+        # parameter, and a negative value is meaningless for the numeric
+        # governance parameters (currently only max_concurrent).
+        if isinstance(change.new_value, bool) or (isinstance(change.new_value, int) and change.new_value < 0):
+            value_ok = False
+    if not value_ok:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Parameter '{change.parameter_name}' expects type {expected_type.__name__}, "

@@ -10,13 +10,21 @@ to all rows for the service_type and validates old_value per row.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
-from poolhub.app.routers.parameters import ParameterChangeRequest, apply_parameter_change
+from poolhub.app.deps import get_db_session
+from poolhub.app.routers import parameters as parameters_module
+from poolhub.app.routers.parameters import (
+    ParameterChangeRequest,
+    _governance_auth,
+    apply_parameter_change,
+)
 
 
 class _Scalars:
@@ -38,9 +46,11 @@ class _Result:
 class _Session:
     def __init__(self, rows: list[Any]) -> None:
         self._rows = rows
+        self.statements: list[Any] = []
         self.commit = AsyncMock()
 
     async def execute(self, stmt: Any) -> _Result:
+        self.statements.append(stmt)
         return _Result(self._rows)
 
 
@@ -129,3 +139,189 @@ async def test_apply_old_value_match_updates_all() -> None:
 
     assert resp.applied is True
     assert a.enabled is False and b.enabled is False
+
+
+# --- Governance auth gate -------------------------------------------------
+#
+# The five pins above call apply_parameter_change() directly, which bypasses
+# the FastAPI dependency layer entirely — a mutant that dropped the
+# _governance_auth Depends (or flipped auth_enabled) would survive them all.
+# These pins exercise the authenticator itself and the mounted route.
+
+
+def _conn(headers: dict[str, str]) -> Any:
+    """Minimal HTTPConnection stand-in for APIKeyAuthenticator.__call__."""
+    return SimpleNamespace(headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_governance_auth_rejects_missing_key() -> None:
+    with pytest.raises(HTTPException) as exc:
+        await _governance_auth(_conn({}))
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_governance_auth_rejects_wrong_key() -> None:
+    with pytest.raises(HTTPException) as exc:
+        await _governance_auth(_conn({"X-PoolHub-Key": "not-the-secret"}))
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_governance_auth_accepts_configured_key() -> None:
+    resp = await _governance_auth(_conn({"X-PoolHub-Key": _governance_auth.expected_key or ""}))
+    assert resp["role"] == "governance"
+    assert resp["auth_type"] == "api_key"
+
+
+def _parameters_client(session: _Session) -> TestClient:
+    """Mount just the parameters router so the auth dependency is exercised."""
+    app = FastAPI()
+    app.include_router(parameters_module.router, prefix="/v1")
+
+    async def _db() -> Any:
+        yield session
+
+    app.dependency_overrides[get_db_session] = _db
+    return TestClient(app)
+
+
+def test_route_rejects_parameter_mutation_without_key() -> None:
+    session = _Session([_config()])
+    client = _parameters_client(session)
+    resp = client.post(
+        "/v1/parameters/apply",
+        json={
+            "proposal_id": "prop-1",
+            "target_service": "whisper",
+            "parameter_name": "max_concurrent",
+            "new_value": 4,
+        },
+    )
+    assert resp.status_code == 401
+    assert session.commit.await_count == 0
+
+
+def test_route_rejects_parameter_mutation_with_wrong_key() -> None:
+    session = _Session([_config()])
+    client = _parameters_client(session)
+    resp = client.post(
+        "/v1/parameters/apply",
+        headers={"X-PoolHub-Key": "attacker-key"},
+        json={
+            "proposal_id": "prop-1",
+            "target_service": "whisper",
+            "parameter_name": "max_concurrent",
+            "new_value": 4,
+        },
+    )
+    assert resp.status_code == 401
+    assert session.commit.await_count == 0
+
+
+def test_route_applies_parameter_mutation_with_governance_key() -> None:
+    cfg = _config(max_concurrent=1)
+    session = _Session([cfg])
+    client = _parameters_client(session)
+    resp = client.post(
+        "/v1/parameters/apply",
+        headers={"X-PoolHub-Key": _governance_auth.expected_key or ""},
+        json={
+            "proposal_id": "prop-1",
+            "target_service": "whisper",
+            "parameter_name": "max_concurrent",
+            "new_value": 4,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["applied"] is True
+    assert cfg.max_concurrent == 4
+
+
+# --- Parameter-name and value-type validation ------------------------------
+
+
+@pytest.mark.asyncio
+async def test_apply_rejects_non_governance_parameter() -> None:
+    cfg = _config()
+    session = _Session([cfg])
+    with pytest.raises(HTTPException) as exc:
+        await apply_parameter_change(
+            _change(parameter_name="secret_key", new_value="x"),
+            session,
+            MagicMock(),  # type: ignore[arg-type]
+        )
+    assert exc.value.status_code == 400
+    assert session.commit.await_count == 0
+    assert session.statements == []  # rejected before any DB read
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("param", "value"),
+    [
+        ("max_concurrent", "4"),  # str, not int
+        ("max_concurrent", 4.5),  # float, not int
+        ("max_concurrent", True),  # bool is an int subclass — still wrong type
+        ("max_concurrent", -1),  # negative concurrency is meaningless
+        ("enabled", "yes"),
+        ("enabled", 1),  # int is not bool
+        ("pricing", "cheap"),
+        ("pricing", [("a", 1)]),
+        ("config", "{}"),
+        ("capabilities", {"a": 1}),
+        ("capabilities", "llm"),
+    ],
+)
+async def test_apply_rejects_wrong_value_type(param: str, value: Any) -> None:
+    session = _Session([_config()])
+    with pytest.raises(HTTPException) as exc:
+        await apply_parameter_change(
+            _change(parameter_name=param, new_value=value),
+            session,
+            MagicMock(),  # type: ignore[arg-type]
+        )
+    assert exc.value.status_code == 400
+    assert session.commit.await_count == 0
+    assert session.statements == []  # rejected before any DB read
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("param", "value"),
+    [
+        ("max_concurrent", 0),
+        ("max_concurrent", 8),
+        ("enabled", True),
+        ("pricing", {"per_hour": "0.5"}),
+        ("config", {"nested": {"a": 1}}),
+        ("capabilities", ["chat", "vision"]),
+    ],
+)
+async def test_apply_accepts_valid_value_types(param: str, value: Any) -> None:
+    cfg = _config()
+    session = _Session([cfg])
+    resp = await apply_parameter_change(
+        _change(parameter_name=param, new_value=value),
+        session,
+        MagicMock(),  # type: ignore[arg-type]
+    )
+    assert resp.applied is True
+    assert getattr(cfg, param) == value
+
+
+@pytest.mark.asyncio
+async def test_apply_statement_filters_by_target_service_type() -> None:
+    """The SELECT must scope to service_type — a mutant dropping the WHERE
+    clause would update every ServiceConfig row regardless of service."""
+    session = _Session([_config()])
+    await apply_parameter_change(
+        _change(target_service="llm_inference"),
+        session,
+        MagicMock(),  # type: ignore[arg-type]
+    )
+    assert len(session.statements) == 1
+    compiled = str(session.statements[0].compile())
+    assert "service_type" in compiled
+    assert "llm_inference" in str(session.statements[0].compile().params.values())
