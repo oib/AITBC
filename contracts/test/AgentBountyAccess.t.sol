@@ -135,6 +135,106 @@ contract AgentBountyAccessTest is Test {
     }
 }
 
+/**
+ * Pins issue #1469:
+ *  - disputeSubmission was permissionless: any address could freeze a
+ *    verified submission for the price of the dispute fee.
+ *  - resolveDispute refunded the dispute fee to msg.sender (the owner
+ *    resolving), not to the disputer who paid it.
+ *  - Residuals fixed alongside: a COMPLETED (already-paid) bounty could be
+ *    dragged back to DISPUTED, and the reject-dispute branch of
+ *    resolveDispute could never succeed because _completeBounty requires
+ *    an ACTIVE/SUBMITTED bounty.
+ */
+contract AgentBountyDispute1469Test is AgentBountyAccessTest {
+    // A bounty whose minAccuracy (95) exceeds the submitted accuracy (90):
+    // verification marks the submission VERIFIED but the bounty stays
+    // ACTIVE — the only state in which a dispute is meaningful.
+    function _verifiedOpenSubmission() internal returns (uint256 bountyId, uint256 submissionId) {
+        vm.prank(creator);
+        bountyId = bounty.createBounty(
+            "t", "d", REWARD, AgentBounty.BountyTier.BRONZE,
+            keccak256("criteria"), 95, block.timestamp + 1 days, 5, false
+        );
+        submissionId = _submit(bountyId, submitter);
+        bounty.authorizeVerifier(verifier);
+        vm.prank(verifier);
+        bounty.verifySubmission(bountyId, submissionId, true, verifier);
+    }
+
+    function test_RandomCannotDisputeVerifiedSubmission() public {
+        (uint256 bountyId, uint256 submissionId) = _verifiedOpenSubmission();
+
+        vm.prank(rando);
+        vm.expectRevert("Only bounty participants can dispute");
+        bounty.disputeSubmission(bountyId, submissionId, "grief");
+    }
+
+    function test_OwnerCannotDisputeEither() public {
+        (uint256 bountyId, uint256 submissionId) = _verifiedOpenSubmission();
+
+        // The owner resolves disputes but is not a bounty participant.
+        vm.expectRevert("Only bounty participants can dispute");
+        bounty.disputeSubmission(bountyId, submissionId, "owner grief");
+    }
+
+    function test_CreatorDispute_feeReturnsToDisputer() public {
+        (uint256 bountyId, uint256 submissionId) = _verifiedOpenSubmission();
+        uint256 fee = (REWARD * bounty.disputeFeePercentage()) / 10000;
+        uint256 creatorBefore = token.balanceOf(creator);
+        uint256 ownerBefore = token.balanceOf(owner);
+
+        vm.prank(creator);
+        bounty.disputeSubmission(bountyId, submissionId, "wrong verdict");
+
+        (,,,,, AgentBounty.BountyStatus status,,,,,,,) = bounty.getBounty(bountyId);
+        assertEq(uint256(status), uint256(AgentBounty.BountyStatus.DISPUTED));
+        assertEq(bounty.submissionDisputer(submissionId), creator);
+        assertEq(token.balanceOf(creator), creatorBefore - fee);
+
+        // Owner upholds the dispute: submission rejected, bounty reopens,
+        // and the fee goes back to the disputer — not to the owner.
+        bounty.resolveDispute(bountyId, submissionId, true);
+        assertEq(token.balanceOf(creator), creatorBefore);
+        assertEq(token.balanceOf(owner), ownerBefore);
+
+        (,,,,,, AgentBounty.SubmissionStatus subStatus,) = bounty.getSubmission(submissionId);
+        assertEq(uint256(subStatus), uint256(AgentBounty.SubmissionStatus.REJECTED));
+        (,,,,, AgentBounty.BountyStatus statusAfter,,,,,,,) = bounty.getBounty(bountyId);
+        assertEq(uint256(statusAfter), uint256(AgentBounty.BountyStatus.ACTIVE));
+    }
+
+    function test_SubmitterCanDispute_asParticipant() public {
+        // Fund the submitter BEFORE the submission exists: minting needs a
+        // +1 day warp, which would push the dispute outside the 24h window.
+        vm.warp(block.timestamp + 1 days + 1); // AIToken.mint cooldown
+        uint256 fee = (REWARD * bounty.disputeFeePercentage()) / 10000;
+        token.mint(submitter, fee * 2);
+        vm.prank(submitter);
+        token.approve(address(bounty), fee * 2);
+
+        (uint256 bountyId, uint256 submissionId) = _verifiedOpenSubmission();
+
+        vm.prank(submitter);
+        bounty.disputeSubmission(bountyId, submissionId, "contest verification");
+        assertEq(bounty.submissionDisputer(submissionId), submitter);
+    }
+
+    function test_CompletedBountyCannotBeDisputed() public {
+        // minAccuracy 80 < submitted accuracy 90: verification completes
+        // the bounty and pays the winner immediately.
+        uint256 bountyId = _createBounty();
+        uint256 submissionId = _submit(bountyId, submitter);
+        bounty.authorizeVerifier(verifier);
+        vm.prank(verifier);
+        bounty.verifySubmission(bountyId, submissionId, true, verifier);
+
+        vm.prank(creator);
+        vm.expectRevert("Bounty not disputable");
+        bounty.disputeSubmission(bountyId, submissionId, "too late");
+    }
+}
+
 contract AgentBountyZkAutoVerifyPinTest is AgentBountyAccessTest {
     // #1099 residual: a non-empty zkProof used to auto-verify through the
     // always-true stub and pay the reward inside submitBountySolution.
