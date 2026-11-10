@@ -76,20 +76,39 @@ _MAX_DONE = 2000
 # --- State file -------------------------------------------------------------
 
 
+def _quarantine_state_file(reason: BaseException) -> None:
+    """Move an unreadable state file aside instead of silently resetting (#1486).
+
+    ``done``/``quotes`` are the executor's dedup and pricing memory — resetting
+    them silently re-runs paid work. The corrupt file is renamed so the next
+    sweep starts clean while the evidence is preserved for inspection.
+    """
+    logger.warning(
+        "Agent executor state file %s unreadable (%s); quarantining it and starting with empty state",
+        STATE_PATH,
+        reason,
+    )
+    try:
+        quarantine = STATE_PATH.with_name(f"{STATE_PATH.name}.corrupt-{int(time.time())}")
+        STATE_PATH.replace(quarantine)
+        logger.warning("Quarantined corrupt executor state to %s", quarantine)
+    except OSError as e:
+        logger.warning("Could not quarantine corrupt state file %s: %s", STATE_PATH, e)
+
+
 def _load_state() -> dict[str, Any]:
     try:
         data = json.loads(STATE_PATH.read_text())
-        if isinstance(data, dict):
-            data.setdefault("done", [])
-            data.setdefault("quotes", {})
-            return data
     except FileNotFoundError:
-        pass  # first run — no state yet, nothing to warn about
+        return {"done": [], "quotes": {}}  # first run — no state yet, nothing to warn about
     except Exception as e:
-        # A corrupt state file silently resets `done` (dedup) and `quotes` —
-        # every seen message looks new again and paid work can re-run. Say so
-        # loudly instead of passing (#1486).
-        logger.warning("Agent executor state file %s unreadable (%s); starting with empty state", STATE_PATH, e)
+        _quarantine_state_file(e)
+        return {"done": [], "quotes": {}}
+    if isinstance(data, dict):
+        data.setdefault("done", [])
+        data.setdefault("quotes", {})
+        return data
+    _quarantine_state_file(ValueError("state file does not contain a JSON object"))
     return {"done": [], "quotes": {}}
 
 
@@ -97,7 +116,11 @@ def _save_state(state: dict[str, Any]) -> None:
     state["done"] = state.get("done", [])[-_MAX_DONE:]
     try:
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        STATE_PATH.write_text(json.dumps(state, indent=2))
+        # Write-then-rename: a crash mid-write must not leave a truncated JSON
+        # file that the next sweep would have to quarantine (#1486).
+        tmp = STATE_PATH.with_name(f"{STATE_PATH.name}.tmp")
+        tmp.write_text(json.dumps(state, indent=2))
+        tmp.replace(STATE_PATH)
     except Exception as e:
         logger.warning("Could not persist executor state: %s", e)
 
@@ -662,16 +685,36 @@ def _exec_ffmpeg(req: dict[str, Any], payload: bytes) -> bytes:
     return _bounded_content(resp, _task_max_payload_bytes())
 
 
+# Generation bounds (#1614): the payload itself is already capped at
+# _task_max_payload_bytes(), but a ~500 MiB prompt or an unbounded
+# num_predict would still pin the GPU for the whole 600 s timeout —
+# production_miner bounds the same call (num_predict + short prompt), so the
+# executor mirrors it.
+_OLLAMA_MAX_PROMPT_CHARS = int(os.environ.get("AGENT_EXECUTOR_OLLAMA_MAX_PROMPT_CHARS", "32000"))
+_OLLAMA_MAX_NUM_PREDICT = int(os.environ.get("AGENT_EXECUTOR_OLLAMA_MAX_NUM_PREDICT", "512"))
+
+
 def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
     try:
         spec = json.loads(payload.decode())
     except (ValueError, UnicodeDecodeError):
         spec = {"prompt": payload.decode(errors="replace")}
+    if not isinstance(spec, dict):
+        spec = {"prompt": str(spec)}
     model = req.get("model") or spec.get("model") or "llama3.2:3b"
     prompt = spec.get("prompt", "")
+    if not isinstance(prompt, str):
+        prompt = str(prompt)
+    if len(prompt) > _OLLAMA_MAX_PROMPT_CHARS:
+        raise ValueError(f"ollama prompt is {len(prompt)} chars, over the {_OLLAMA_MAX_PROMPT_CHARS} cap")
+    try:
+        requested = int(spec.get("num_predict") or _OLLAMA_MAX_NUM_PREDICT)
+    except (TypeError, ValueError):
+        requested = _OLLAMA_MAX_NUM_PREDICT
+    num_predict = max(1, min(requested, _OLLAMA_MAX_NUM_PREDICT))
     resp = requests.post(
         f"{OLLAMA_URL}/api/generate",
-        json={"model": model, "prompt": prompt, "stream": False},
+        json={"model": model, "prompt": prompt, "stream": False, "options": {"num_predict": num_predict}},
         timeout=600,
         stream=True,
     )
@@ -679,12 +722,35 @@ def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
     return _bounded_content(resp, _task_max_payload_bytes())
 
 
+def _ipfs_unpin(cid: str) -> None:
+    """Best-effort pin/rm — used to reclaim a pin that breached a quota."""
+    try:
+        requests.post(f"{ISLAND_IPFS_API}/api/v0/pin/rm", params={"arg": cid}, timeout=60)
+    except requests.RequestException:
+        pass
+
+
 def _exec_ipfs(req: dict[str, Any], payload: bytes) -> bytes:
-    """IPFS "hosting" task: pin the request's payload CID on the island daemon."""
-    cid = req.get("payload_ref", "")
+    """IPFS "hosting" task: pin the request's payload CID on the island daemon.
+
+    The CID is buyer-chosen and usually not local yet, so ``object/stat``
+    cannot size it before the fetch — ``pin/add`` pulls the whole DAG. Mirror
+    the market sweeper's measure-then-reclaim (#1489): pin, stat the now-local
+    root, and unpin immediately when the object exceeds the payload cap rather
+    than leaving unbounded disk committed (#1614). The per-buyer cumulative
+    quota is enforced by the caller, which knows the quoting buyer.
+    """
+    cid = str(req.get("payload_ref") or "")
+    if not cid:
+        raise ValueError("ipfs task requires payload_ref (CID)")
     resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/pin/add", params={"arg": cid}, timeout=120)
     resp.raise_for_status()
-    return json.dumps({"pinned": cid}).encode()
+    size = _ipfs_object_size(cid)
+    cap = _task_max_payload_bytes()
+    if size is not None and size > cap:
+        _ipfs_unpin(cid)
+        raise ValueError(f"IPFS object {cid} is {size} bytes, over the {cap} cap — pin reclaimed")
+    return json.dumps({"pinned": cid, "size": size}).encode()
 
 
 SERVICE_HANDLERS = {
@@ -843,6 +909,45 @@ def _handle_task_request(
     return "rejected"
 
 
+# Per-buyer cumulative pin quota (#1614): executor ipfs pins are never
+# released, so without a cap one buyer could park unbounded objects on this
+# node's disk. Tracked in state["ipfs_usage"] as lifetime bytes per buyer.
+_IPFS_BUYER_QUOTA_ENV = "AGENT_EXECUTOR_IPFS_BUYER_QUOTA_BYTES"
+_IPFS_DEFAULT_BUYER_QUOTA_BYTES = 10 * 1024 * 1024 * 1024  # 10 GiB per buyer
+
+
+def _ipfs_buyer_quota_bytes() -> int:
+    try:
+        return max(1, int(os.environ.get(_IPFS_BUYER_QUOTA_ENV, _IPFS_DEFAULT_BUYER_QUOTA_BYTES)))
+    except ValueError:
+        return _IPFS_DEFAULT_BUYER_QUOTA_BYTES
+
+
+def _account_ipfs_pin(state: dict[str, Any], buyer: str, req: dict[str, Any], result_bytes: bytes) -> None:
+    """Charge a successful ipfs pin against the buyer's cumulative quota.
+
+    ``_exec_ipfs`` reports the measured object size in its result JSON. Over
+    quota → reclaim the pin and raise; the caller's except path fails the task
+    so disk is never left committed beyond the cap (#1614). An unknown size
+    (stat failed) is charged as 0 — the per-object cap inside _exec_ipfs still
+    applied when the size was knowable.
+    """
+    try:
+        info = json.loads(result_bytes)
+        size = int(info.get("size") or 0)
+    except (ValueError, TypeError, AttributeError):
+        size = 0
+    cid = str(req.get("payload_ref") or "")
+    usage = state.setdefault("ipfs_usage", {})
+    used = int(usage.get(buyer, 0) or 0)
+    quota = _ipfs_buyer_quota_bytes()
+    if size and used + size > quota:
+        _ipfs_unpin(cid)
+        raise ValueError(f"buyer {buyer} ipfs pin quota exceeded: {used}+{size} > {quota} bytes")
+    if size:
+        usage[buyer] = used + size
+
+
 def _handle_task_accept(
     message: dict[str, Any],
     acc: dict[str, Any],
@@ -856,6 +961,19 @@ def _handle_task_accept(
     quote = state["quotes"].get(task_id)
     if not quote:
         logger.warning("TaskAccept for unknown/unquoted task %s — ignored", task_id)
+        return None
+
+    # The accept must come from the buyer we quoted — anyone else posting a
+    # task_accept for a known task_id would otherwise trigger the paid work and
+    # receive the result at *their* agent id (result theft, #1614).
+    quoted_buyer = str(quote.get("buyer") or "")
+    if quoted_buyer and str(buyer).strip() != quoted_buyer:
+        logger.warning(
+            "TaskAccept for %s from %s does not match quoting buyer %s — ignoring",
+            task_id,
+            buyer,
+            quoted_buyer,
+        )
         return None
 
     req = quote["request"]
@@ -884,6 +1002,10 @@ def _handle_task_accept(
         result_bytes = handler(req, payload) if handler else b"{}"
         result_hash = hashlib.sha256(result_bytes).hexdigest()
         result_ref = _ipfs_add(result_bytes, filename=f"{task_id}.json")
+        if service_type == "ipfs":
+            # Charge the pin against the buyer's cumulative quota; over quota
+            # reclaims the pin and fails the task (#1614).
+            _account_ipfs_pin(state, str(buyer), req, result_bytes)
     except Exception as e:
         logger.error("Task %s execution failed: %s", task_id, e)
         _send_message(
