@@ -1691,6 +1691,9 @@ async def list_edge_nodes(session: Annotated[AsyncSession, Depends(get_session)]
     stmt = select(EdgeNodeAdvertisement).where(EdgeNodeAdvertisement.status == "active")  # type: ignore[arg-type]
     if region:
         stmt = stmt.where(EdgeNodeAdvertisement.region == region)  # type: ignore[arg-type]
+    # Same ceiling as every other public list path — this route was the one
+    # unbounded read left (#1507).
+    stmt = stmt.limit(max_page_size())
     result = await session.execute(stmt)
     nodes = result.scalars().all()
     return {
