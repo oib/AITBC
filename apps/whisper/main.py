@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import os
 import re
+import shutil
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -63,6 +64,21 @@ _UPLOAD_CHUNK = 1024 * 1024
 # the other form fields on top, so the header check needs slack the per-file
 # limit does not.
 _MAX_BODY_BYTES = _MAX_UPLOAD_BYTES + _UPLOAD_CHUNK
+# Disk floor checked before spooling (#1612): the upload must fit on the
+# temp filesystem with headroom for decode scratch. Default 512MB covers the
+# 100MB upload cap; tune with WHISPER_MIN_FREE_MB together with
+# WHISPER_MAX_UPLOAD_MB.
+_MIN_FREE_BYTES = int(os.getenv("WHISPER_MIN_FREE_MB", "512")) * 1024 * 1024
+
+
+def _ensure_temp_disk_space() -> None:
+    """Refuse the job when the temp filesystem cannot hold the upload."""
+    free = shutil.disk_usage(tempfile.gettempdir()).free
+    if free < _MIN_FREE_BYTES:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Insufficient disk space for transcription ({free // (1024 * 1024)}MB free)",
+        )
 
 
 @asynccontextmanager
@@ -254,6 +270,8 @@ async def transcribe(
     if language is not None and not _LANGUAGE_RE.fullmatch(language):
         raise HTTPException(status_code=400, detail="language must be a language tag like 'en'")
 
+    # Refuse before spooling when the temp filesystem cannot hold the upload.
+    _ensure_temp_disk_space()
     # Refuse before spooling: a queued request would otherwise hold a temp
     # file (and eventually memory) for work it cannot start yet (#1422).
     global _inflight

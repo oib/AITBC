@@ -642,7 +642,38 @@ def _download_media(url: str, dest: str) -> None:
         raise Exception(f"Failed to download media from {url}: {e}") from e
 
 
-def _run_whisper(audio_path: str, model: str = "base", *, deterministic: bool = False, seed: int | None = None) -> str:
+def _shop_access_headers(payload: dict[str, Any], job_id) -> dict[str, str]:
+    """Shop-gate credential headers (#803) forwarded from the job payload (#1612).
+
+    Paid shop endpoints (whisper ``/transcribe``, ffmpeg ``/process``) require
+    ``X-Access-Key`` + ``X-Access-Secret`` bound to the market job via
+    ``X-Job-Id``. The buyer places the credential triple in the job payload —
+    ``access_key``/``access_secret`` plus the market job id under
+    ``access_job_id``/``market_job_id``/``job_id`` — and this miner forwards
+    it verbatim. Without it the gated service answers 401 and paid work
+    fails. Absent credentials simply omit the headers (the gate's intended
+    refusal for unpaid calls).
+    """
+    key = payload.get("access_key")
+    secret = payload.get("access_secret")
+    if not key or not secret:
+        return {}
+    bound_job = payload.get("access_job_id") or payload.get("market_job_id") or payload.get("job_id") or job_id
+    return {
+        "X-Access-Key": str(key),
+        "X-Access-Secret": str(secret),
+        "X-Job-Id": str(bound_job),
+    }
+
+
+def _run_whisper(
+    audio_path: str,
+    model: str = "base",
+    *,
+    deterministic: bool = False,
+    seed: int | None = None,
+    access_headers: dict[str, str] | None = None,
+) -> str:
     """Transcribe an audio file with the local Whisper service and return the text."""
     try:
         whisper_url = os.environ.get("WHISPER_SERVICE_URL", "http://127.0.0.1:8110").rstrip("/") + "/transcribe"
@@ -653,7 +684,7 @@ def _run_whisper(audio_path: str, model: str = "base", *, deterministic: bool = 
                 data["deterministic"] = "true"
             if seed is not None:
                 data["seed"] = str(seed)
-            resp = requests.post(whisper_url, files=files, data=data, timeout=180)
+            resp = requests.post(whisper_url, files=files, data=data, headers=access_headers, timeout=180)
             resp.raise_for_status()
             result = resp.json()
         return str(result.get("text", "")).strip()
@@ -820,6 +851,7 @@ def _execute_transcribe(job):
             model,
             deterministic=constraints.get("deterministic_decoding", False),
             seed=constraints.get("decode_seed"),
+            access_headers=_shop_access_headers(payload, job_id),
         )
     execution_time = time.time() - start_time
     tee_quote = build_tee_quote(job, output=text)
