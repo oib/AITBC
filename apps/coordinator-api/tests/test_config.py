@@ -281,3 +281,53 @@ class TestReceiptSigningStatusLog:
         with caplog.at_level(logging.INFO, logger="coordinator_api.main"):
             main._log_receipt_signing_status()
         assert not any(r.levelno >= logging.ERROR for r in caplog.records)
+
+
+class TestAssertProductionConfig:
+    """_assert_production_config must treat every production spelling as production.
+
+    ``is_production()`` accepts ENVIRONMENT/APP_ENV/NODE_ENV values of both
+    "production" and "prod". The assert used to compare only
+    ``settings.environment == "production"``, so ``ENVIRONMENT=prod`` combined
+    with ``TEST_MODE=true`` skipped the auth/test-mode gate and disabled
+    AuthMiddleware with nothing objecting.
+    """
+
+    def _settings(self, *, env, test_mode=True, auth_enabled=True):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            environment=env,
+            test_mode=test_mode,
+            auth_enabled=auth_enabled,
+            fhe_enabled=False,
+            fhe_allow_mock=True,
+        )
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for var in ("ENVIRONMENT", "APP_ENV", "NODE_ENV"):
+            monkeypatch.delenv(var, raising=False)
+
+    def test_env_prod_spelling_still_asserts(self, monkeypatch):
+        from coordinator_api import main
+
+        monkeypatch.setenv("ENVIRONMENT", "prod")
+        monkeypatch.setattr(main, "settings", self._settings(env="prod", test_mode=True))
+        with pytest.raises(AssertionError, match="test_mode"):
+            main._assert_production_config()
+
+    def test_settings_only_production_still_asserts(self, monkeypatch):
+        """A .env-file-only ``environment=production`` (no env var) still trips."""
+        from coordinator_api import main
+
+        monkeypatch.setattr(main, "settings", self._settings(env="production", test_mode=True))
+        with pytest.raises(AssertionError, match="test_mode"):
+            main._assert_production_config()
+
+    def test_prod_spelling_honors_auth_enabled_and_test_mode(self, monkeypatch):
+        from coordinator_api import main
+
+        monkeypatch.setenv("NODE_ENV", "prod")
+        monkeypatch.setattr(main, "settings", self._settings(env="prod", test_mode=False, auth_enabled=True))
+        main._assert_production_config()  # must not raise
