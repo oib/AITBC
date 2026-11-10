@@ -40,6 +40,7 @@ from aitbc.middleware import (  # noqa: E402
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
     RequestValidationMiddleware,
+    register_request_validation_error_handler,
 )
 from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 
@@ -83,6 +84,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+# #1676: literal NaN/Infinity JSON must answer a serializable 422, not 500.
+register_request_validation_error_handler(app)
 setup_cors(app, allow_origins=["http://localhost:3000", "http://localhost:8080"])
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(PerformanceLoggingMiddleware)
