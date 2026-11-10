@@ -11,6 +11,7 @@ state is rolled back before commit if it does not reproduce that root.
 from __future__ import annotations
 
 import base64
+import json
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
@@ -75,6 +76,25 @@ class _FakeResponse:
         return self._payload
 
 
+class _FakeStream:
+    """Async-context-manager stand-in for ``httpx.Response`` streaming."""
+
+    def __init__(self, payload: dict[str, Any]):
+        self._payload = payload
+
+    async def __aenter__(self) -> _FakeStream:
+        return self
+
+    async def __aexit__(self, *args: Any) -> bool:
+        return False
+
+    def raise_for_status(self) -> None:
+        return None
+
+    async def aiter_bytes(self):
+        yield json.dumps(self._payload).encode()
+
+
 class _FakeClient:
     """Records calls; payloads keyed by URL path fragment."""
 
@@ -87,6 +107,13 @@ class _FakeClient:
         for fragment, payload in self.payloads.items():
             if fragment in url:
                 return _FakeResponse(payload)
+        raise AssertionError(f"unexpected request to {url}")
+
+    def stream(self, method: str, url: str, params: Any = None) -> _FakeStream:
+        self.calls.append((url, params))
+        for fragment, payload in self.payloads.items():
+            if fragment in url:
+                return _FakeStream(payload)
         raise AssertionError(f"unexpected request to {url}")
 
 
@@ -309,6 +336,35 @@ async def test_snapshot_source_root_disagrees_refused_before_write(session_facto
     result = await sync.sync_state_from("http://peer")
     assert result["refused"] is True
     assert result["reason"] == "source_root_disagrees"
+    assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
+
+
+@pytest.mark.asyncio
+async def test_snapshot_oversized_response_body_refused(session_factory, monkeypatch):
+    """#1627: the snapshot body is read with a decompressed-size cap — an
+    oversized peer payload errors out before any account is touched."""
+    root = _seed_state(session_factory)
+    monkeypatch.setattr(settings, "sync_state_response_max_bytes", 16)
+    sync, _ = _sync(session_factory, {"state/snapshot": _snapshot_payload(root)})
+    result = await sync.sync_state_from("http://peer")
+    assert result["synced"] == 0
+    assert "error" in result
+    assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
+
+
+@pytest.mark.asyncio
+async def test_delta_oversized_response_falls_back_to_capped_snapshot(session_factory, monkeypatch):
+    """#1627: an oversized delta body takes the same fallback as any delta
+    endpoint failure — and the snapshot it falls back to is equally capped."""
+    root = _seed_state(session_factory)
+    monkeypatch.setattr(settings, "sync_state_response_max_bytes", 16)
+    sync, _ = _sync(
+        session_factory,
+        {"state/delta": _delta_payload(StateDiff(from_height=HEAD - 1, to_height=HEAD, to_state_root=root, changes=[]))},
+    )
+    result = await sync.delta_sync_from("http://peer", HEAD - 1, HEAD)
+    assert result["synced"] == 0
+    assert "error" in result
     assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
 
 
