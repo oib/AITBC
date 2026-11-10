@@ -356,12 +356,13 @@ class _MeshSubscription:
 
     async def close(self) -> None:
         self._closed = True
-        for task in self._tasks.values():
-            if task is not asyncio.current_task():
-                task.cancel()
-        for task in self._tasks.values():
-            if task is asyncio.current_task():
-                continue
+        # Snapshot once: tasks completing between the cancel loop and the
+        # await loop mutate self._tasks ("dictionary changed size during
+        # iteration" — #1739, exposed by real SIGTERM shutdown #1705).
+        tasks = [t for t in self._tasks.values() if t is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
             with suppress(asyncio.CancelledError, asyncio.TimeoutError, Exception):
                 await asyncio.wait_for(task, timeout=2.0)
         self._tasks.clear()
