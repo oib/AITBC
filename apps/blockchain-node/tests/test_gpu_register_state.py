@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 
 import pytest
 from sqlalchemy.pool import StaticPool
@@ -351,3 +352,90 @@ def test_gpu_register_foreign_update_below_v7_replays_legacy(session, st):
         session, chain_id, _register_tx(attacker_key, chain_id, "gpu-1", price="999"), "tx_evil", block_version=6
     )
     assert ok, msg  # legacy lenient behavior preserved for replay
+
+
+def _funded_session(session, chain_id: str, private_key: str) -> str:
+    sender = derive_ethereum_address(private_key)
+    session.add(Account(chain_id=chain_id, address=sender, balance=1_000_000, nonce=0))
+    session.commit()
+    return sender
+
+
+@pytest.mark.parametrize("bad_price", ["-1.5", "NaN", "Infinity", "1000000000000", "1e30"])
+def test_gpu_register_v25_rejects_out_of_range_price(session, st, bad_price):
+    """#1566/v25: price_per_hour must be finite, >= 0 and <= Numeric(20,8) max."""
+    chain_id = "ait-test"
+    private_key = "0x" + "33" * 32
+    _funded_session(session, chain_id, private_key)
+
+    tx = _register_tx(private_key, chain_id, "gpu-bad", price=bad_price)
+    ok, msg = st.apply_transaction(session, chain_id, tx, f"tx_{bad_price}", block_version=25)
+    assert not ok
+    assert "price_per_hour" in msg
+
+    gpu = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == "gpu-bad")
+    ).first()
+    assert gpu is None
+
+
+@pytest.mark.parametrize("good_price", ["0", "0.00000001", "999999999999.99999999"])
+def test_gpu_register_v25_accepts_boundary_prices(session, st, good_price):
+    chain_id = "ait-test"
+    private_key = "0x" + "44" * 32
+    _funded_session(session, chain_id, private_key)
+
+    gpu_id = f"gpu-ok-{good_price.replace('.', '_').replace('-', 'm')}"
+    tx = _register_tx(private_key, chain_id, gpu_id, price=good_price)
+    ok, msg = st.apply_transaction(session, chain_id, tx, f"tx_ok_{gpu_id}", block_version=25)
+    assert ok, msg
+
+    gpu = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == gpu_id)
+    ).first()
+    assert gpu is not None
+    from decimal import Decimal
+
+    # SQLite NUMERIC affinity may quantize the 8th decimal — the column bound,
+    # not bit-exact storage, is what v25 enforces.
+    assert abs(gpu.price_per_hour - Decimal(good_price)) < Decimal("0.00000002")
+
+
+def test_gpu_register_pre_v25_replays_out_of_range_price(session, st):
+    """Replay safety: below v25 the parse-only rule still applies — a sealed
+    block carrying an out-of-range price must produce identical state."""
+    chain_id = "ait-test"
+    private_key = "0x" + "55" * 32
+    _funded_session(session, chain_id, private_key)
+
+    tx = _register_tx(private_key, chain_id, "gpu-legacy", price="-5")
+    ok, msg = st.apply_transaction(session, chain_id, tx, "tx_legacy", block_version=24)
+    assert ok, msg
+
+    gpu = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == "gpu-legacy")
+    ).first()
+    assert gpu is not None
+    assert gpu.price_per_hour == Decimal("-5")
+
+
+def test_gpu_register_v25_update_path_also_bounded(session, st):
+    """The bound covers re-registration (update), not just first insert."""
+    chain_id = "ait-test"
+    private_key = "0x" + "66" * 32
+    _funded_session(session, chain_id, private_key)
+
+    ok, msg = st.apply_transaction(
+        session, chain_id, _register_tx(private_key, chain_id, "gpu-upd"), "tx_reg", block_version=25
+    )
+    assert ok, msg
+
+    bad = _register_tx(private_key, chain_id, "gpu-upd", nonce=1, price="-2")
+    ok, msg = st.apply_transaction(session, chain_id, bad, "tx_upd", block_version=25)
+    assert not ok
+    assert "price_per_hour" in msg
+
+    gpu = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == "gpu-upd")
+    ).first()
+    assert str(gpu.price_per_hour) == "0.10000000"  # unchanged

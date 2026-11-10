@@ -60,8 +60,12 @@ class MatchingService:
         try:
             logger.info("Finding best match for bid requirements: %s", bid_requirements.keys())
             stmt = select(MarketOffer).where(MarketOffer.status == OfferStatus.AVAILABLE.value)
+            # #1566: a NULL price_per_hour can never be priced — exclude it
+            # unconditionally. Gating this on max_price let priceless offers
+            # sort first under ORDER BY price ASC (SQLite sorts NULLs ahead of
+            # every value) and win "best match" whenever no max_price was given.
+            stmt = stmt.where(MarketOffer.price_per_hour.isnot(None))  # type: ignore
             if max_price is not None:
-                stmt = stmt.where(MarketOffer.price_per_hour.isnot(None))  # type: ignore
                 stmt = stmt.where(MarketOffer.price_per_hour <= max_price)  # type: ignore
             if preferred_region:
                 stmt = stmt.where(MarketOffer.region == preferred_region)
@@ -136,8 +140,10 @@ class MatchingService:
         try:
             # Price-time priority: order by price asc, then created_at asc (oldest first)
             stmt = select(MarketOffer).where(MarketOffer.status == OfferStatus.AVAILABLE.value)
+            # #1566: NULL price_per_hour offers are unpriceable — exclude them
+            # unconditionally (see find_best_match); NULLs sort first in SQLite.
+            stmt = stmt.where(MarketOffer.price_per_hour.isnot(None))  # type: ignore
             if max_price is not None:
-                stmt = stmt.where(MarketOffer.price_per_hour.isnot(None))  # type: ignore
                 stmt = stmt.where(MarketOffer.price_per_hour <= max_price)  # type: ignore
             if preferred_region:
                 stmt = stmt.where(MarketOffer.region == preferred_region)

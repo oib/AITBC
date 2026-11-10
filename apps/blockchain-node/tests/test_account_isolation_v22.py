@@ -504,7 +504,7 @@ def test_v22_dispatch_failure_leaves_no_sender_row(fixture_db, monkeypatch):
 
     engine, factory = fixture_db
 
-    def _fail_register(self, session, chain_id, gpu_data):
+    def _fail_register(self, session, chain_id, gpu_data, block_version=1):
         return (False, "injected dispatch failure")
 
     monkeypatch.setattr(st_mod.StateTransition, "handle_gpu_registration", _fail_register)
@@ -535,7 +535,7 @@ def test_v22_dispatch_exception_leaves_no_committed_state(fixture_db, monkeypatc
 
     engine, factory = fixture_db
 
-    def _raise_register(self, session, chain_id, gpu_data):
+    def _raise_register(self, session, chain_id, gpu_data, block_version=1):
         raise RuntimeError("injected dispatch exception")
 
     monkeypatch.setattr(st_mod.StateTransition, "handle_gpu_registration", _raise_register)
