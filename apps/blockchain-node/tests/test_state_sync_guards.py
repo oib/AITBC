@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 from aitbc.sync.state_diff import AccountChange, StateDiff
-from aitbc_chain.base_models import Account, Block
+from aitbc_chain.base_models import Account, Block, ChainParameter
 from aitbc_chain.config import is_block_producer, settings
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.metrics import metrics_registry
@@ -365,6 +365,45 @@ async def test_delta_oversized_response_falls_back_to_capped_snapshot(session_fa
     result = await sync.delta_sync_from("http://peer", HEAD - 1, HEAD)
     assert result["synced"] == 0
     assert "error" in result
+    assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
+
+
+@pytest.mark.asyncio
+async def test_snapshot_oversized_chain_parameters_rolls_back(session_factory, monkeypatch):
+    """#1628: chain_parameters sit outside the state root — an oversized peer
+    list must raise before any row applies, rolling back the whole sync."""
+    root = _seed_state(session_factory)
+    monkeypatch.setattr(settings, "sync_params_max_rows", 1)
+    payload = _snapshot_payload(root)
+    payload["chain_parameters"] = [
+        {"parameter": "p1", "value": "1"},
+        {"parameter": "p2", "value": "2"},
+    ]
+    sync, _ = _sync(session_factory, {"state/snapshot": payload})
+    with pytest.raises(ValueError, match="chain_parameters"):
+        await sync.sync_state_from("http://peer")
+    assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
+    with session_factory() as session:
+        assert session.exec(select(ChainParameter).where(ChainParameter.chain_id == CHAIN)).all() == []
+
+
+@pytest.mark.asyncio
+async def test_delta_oversized_chain_parameters_rolls_back(session_factory, monkeypatch):
+    """#1628: same ingest bound on the delta path."""
+    root = _seed_state(session_factory)
+    monkeypatch.setattr(settings, "sync_params_max_rows", 0)
+    diff = StateDiff(
+        from_height=HEAD - 1,
+        to_height=HEAD,
+        to_state_root=root,
+        changes=[AccountChange(ADDR_A, 1000, 1000, 3, 3)],
+        chain_id=CHAIN,
+    )
+    payload = _delta_payload(diff)
+    payload["chain_parameter_history"] = [{"parameter": "p1", "value": "1", "applied_height": 1}]
+    sync, _ = _sync(session_factory, {"state/delta": payload})
+    with pytest.raises(ValueError, match="chain_parameters"):
+        await sync.delta_sync_from("http://peer", HEAD - 1, HEAD)
     assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
 
 
