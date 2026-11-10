@@ -54,7 +54,12 @@ class JournalFormatter(logging.Formatter):
         # message with no "exception" key anywhere. That defeated the split this
         # module's docstring describes: compact in the journal, full capture in
         # the file.
-        msg = f"[{record.levelname}] [{record.name}] {record.getMessage()}"
+        # The message itself is redacted too: a ``logger.error("...: %s", e)``
+        # carries no exc_info, so the exception-summary branch below never
+        # runs — but ``str(e)`` can still embed a keyed URL (httpx
+        # HTTPStatusError, provider errors). ETH-15 policy applies to every
+        # byte that reaches the journal, not only traceback heads.
+        msg = f"[{record.levelname}] [{record.name}] {redact_text(record.getMessage())}"
         if record.exc_info and record.exc_info[1] is not None:
             exc = record.exc_info[1]
             first = redact_text((str(exc).splitlines() or [""])[0])[:200]
@@ -98,7 +103,10 @@ class StructuredFormatter(logging.Formatter):
         log_entry = {
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            # Same ETH-15 rule as the journal: no URL path/query/userinfo in
+            # persisted logs, whether it arrived via the message or a
+            # traceback (provider errors re-embed the keyed request URL).
+            "message": redact_text(record.getMessage()),
             "module": record.module,
             "function": record.funcName,
             "line": record.lineno,
@@ -119,7 +127,7 @@ class StructuredFormatter(logging.Formatter):
 
         # Add exception info if present
         if record.exc_info:
-            log_entry["exception"] = self.formatException(record.exc_info)
+            log_entry["exception"] = redact_text(self.formatException(record.exc_info))
 
         return json.dumps(log_entry)
 
