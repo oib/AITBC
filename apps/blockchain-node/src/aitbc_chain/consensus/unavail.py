@@ -256,8 +256,8 @@ class UnavailabilityCertificate:
                 responses=responses,
                 index_verdict=verdict if isinstance(verdict, dict) else {},
             )
-        except (TypeError, ValueError):
-            return None
+        except (TypeError, ValueError, OverflowError):
+            return None  # OverflowError: json.loads accepts Infinity for height/epoch
 
 
 def cert_message(cert: UnavailabilityCertificate) -> dict[str, Any]:
@@ -281,7 +281,7 @@ def verify_unavailability_cert(
     signature + validator-set membership, distinct signers, threshold.
     """
     cert_obj = UnavailabilityCertificate.from_dict(cert) if isinstance(cert, dict) else cert
-    if cert_obj is None:
+    if not isinstance(cert_obj, UnavailabilityCertificate):
         return False, "malformed"
     if cert_obj.chain_id != chain_id:
         return False, "chain_mismatch"
