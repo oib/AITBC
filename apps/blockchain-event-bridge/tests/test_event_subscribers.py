@@ -67,3 +67,53 @@ async def test_transaction_subscriber_initialization():
 
     assert subscriber.settings == settings
     assert subscriber._running is False
+
+
+@pytest.mark.asyncio
+async def test_bridge_stop_calls_subscriber_stops():
+    """BRIDGE-EVT-SUBSCRIBER-1 (#1431): stop() must run each subscriber's stop()."""
+    from unittest.mock import AsyncMock
+
+    from blockchain_event_bridge.bridge import BlockchainEventBridge
+    from blockchain_event_bridge.config import Settings
+
+    bridge = BlockchainEventBridge(Settings())
+    bridge._running = True
+    bridge.block_subscriber = Mock()
+    bridge.block_subscriber.stop = AsyncMock()
+    bridge.transaction_subscriber = Mock()
+    bridge.transaction_subscriber.stop = AsyncMock()
+    # ContractEventSubscriber.stop is synchronous — returns None.
+    bridge.contract_subscriber = Mock()
+    bridge.contract_subscriber.stop = Mock(return_value=None)
+
+    await bridge.stop()
+
+    bridge.block_subscriber.stop.assert_awaited_once()
+    bridge.transaction_subscriber.stop.assert_awaited_once()
+    bridge.contract_subscriber.stop.assert_called_once()
+    assert bridge.is_running is False
+
+
+@pytest.mark.asyncio
+async def test_bridge_stop_contains_subscriber_stop_errors():
+    """One failing subscriber stop must not skip the others."""
+    from unittest.mock import AsyncMock
+
+    from blockchain_event_bridge.bridge import BlockchainEventBridge
+    from blockchain_event_bridge.config import Settings
+
+    bridge = BlockchainEventBridge(Settings())
+    bridge._running = True
+    bridge.block_subscriber = Mock()
+    bridge.block_subscriber.stop = AsyncMock(side_effect=RuntimeError("broker gone"))
+    bridge.transaction_subscriber = Mock()
+    bridge.transaction_subscriber.stop = AsyncMock()
+    bridge.contract_subscriber = Mock()
+    bridge.contract_subscriber.stop = Mock(return_value=None)
+
+    await bridge.stop()
+
+    bridge.transaction_subscriber.stop.assert_awaited_once()
+    bridge.contract_subscriber.stop.assert_called_once()
+    assert bridge.is_running is False
