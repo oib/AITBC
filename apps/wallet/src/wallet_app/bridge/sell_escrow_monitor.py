@@ -40,6 +40,7 @@ from typing import Any, cast
 import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from aitbc.crypto.signature_recovery import canonical_address
@@ -1314,7 +1315,7 @@ def start_sell_monitoring() -> asyncio.Task[None] | None:
         return None
 
     try:
-        task = asyncio.create_task(sell_monitor_loop())
+        task = create_task_with_logging(sell_monitor_loop(), name="sell_escrow_monitor")
         return task
     except RuntimeError:
         logger.debug("No event loop running; starting sell monitor in a thread", exc_info=True)
