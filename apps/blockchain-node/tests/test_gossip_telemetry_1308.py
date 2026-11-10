@@ -626,6 +626,12 @@ def test_ws_queue_depth_value_and_gauge_under_backlog(caplog, _ws_test_settings,
     """#1308 respin-3: a stalled echo path must show a NON-ZERO queue depth in
     the rx_publish event and the gauge. Kills mutants that hardcode
     queue_depth=0 / gauge 0.0 (E review c23580-83, M3/M4)."""
+    # Determinism: with gossip_priority_enabled the broker only enqueues to
+    # PriorityMessageQueue and a 1ms drain task delivers asynchronously — all
+    # five rx_publish samples can read queue_depth=0 despite real backlog
+    # (observed 1/3 flake on node2). Disabling priority makes publish→put
+    # synchronous so the stalled echo deterministically observes the backlog.
+    monkeypatch.setattr(settings, "gossip_priority_enabled", False)
     topic = "transactions"
     tc = bounded_topic_label(topic)
     real_send = websocket_module._gossip_ws_send_json
