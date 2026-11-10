@@ -27,7 +27,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from decimal import InvalidOperation
 
-from sqlalchemy import func, or_
+from sqlalchemy import ColumnElement, func, or_
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -180,6 +180,16 @@ def ws_budget_allows(db_path: str, amount: int) -> tuple[bool, str]:
     return True, "within the automatic budget"
 
 
+def _unexpired() -> ColumnElement[bool]:
+    """Rows whose ``expires_at`` has not passed (NULL tolerated for legacy rows).
+
+    An approved request past its TTL can no longer be executed (#1579), so it
+    must not keep blocking re-registration or consuming rolling budget.
+    """
+    now = datetime.now(UTC).replace(tzinfo=None)
+    return or_(CoinRequest.expires_at.is_(None), CoinRequest.expires_at > now)
+
+
 def _auto_granted_since(session: Session, since: datetime) -> int:
     """Total amount auto-approved since `since` (created_at is stored naive-UTC)."""
     total = (
@@ -188,6 +198,7 @@ def _auto_granted_since(session: Session, since: datetime) -> int:
             CoinRequest.status == CoinRequestStatus.APPROVED,
             CoinRequest.approval_mode == "automatic",
             CoinRequest.created_at >= since,
+            _unexpired(),
         )
         .scalar()
     )
@@ -225,11 +236,16 @@ def has_prior_grant(session: Session, sender: str, wallet_address: str) -> bool:
 
     The sender check stays as well. It costs one clause and catches an agent asking twice for
     two different wallets, which the destination check alone would allow.
+
+    Rows past their ``expires_at`` do not count: an approved grant that expired
+    unexecuted can never be spent, so treating it as a prior grant would block
+    the pair forever (#1579).
     """
     return (
         session.query(CoinRequest)
         .filter(
             CoinRequest.status == CoinRequestStatus.APPROVED,
+            _unexpired(),
             or_(
                 CoinRequest.sender == sender,
                 func.lower(CoinRequest.wallet_address).in_(address_spellings(wallet_address)),

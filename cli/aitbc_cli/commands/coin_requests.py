@@ -224,6 +224,13 @@ def approve(ctx, request_id, reason):
             abort(ctx, f"Request {request_id} is not pending (status: {req.status.value if req.status else 'N/A'}).")
             return
 
+        # expires_at bounds how long a request stays actionable (#1579): an
+        # expired pending request can no longer be approved — the sweeper will
+        # mark it EXPIRED on its next pass.
+        if req.expires_at is not None and req.expires_at < datetime.now(UTC).replace(tzinfo=None):
+            abort(ctx, f"Request {request_id} expired at {req.expires_at} — it can no longer be approved.")
+            return
+
         req.status = CoinRequestStatus.APPROVED
         req.approved_by = "cli"
         req.approved_at = datetime.now(UTC)
@@ -298,6 +305,12 @@ def execute(ctx, request_id):
 
         if req.status != CoinRequestStatus.APPROVED:
             abort(ctx, f"Request {request_id} is not approved (status: {req.status.value if req.status else 'N/A'}).")
+            return
+
+        # An approved grant past its expires_at is no longer spendable (#1579)
+        # — same rule the hub's /execute endpoint enforces.
+        if req.expires_at is not None and req.expires_at < datetime.now(UTC).replace(tzinfo=None):
+            abort(ctx, f"Request {request_id} expired at {req.expires_at} — it can no longer be executed.")
             return
 
         if req.transaction_hash:

@@ -6468,7 +6468,7 @@
             }
           },
           "409": {
-            "description": "Coin request {req.request_id} is already being executed / Coin request {req.request_id} is not approved (status: {status_name})",
+            "description": "Coin request {req.request_id} is already being executed / Coin request {req.request_id} expired at {expires_at.isoformat()} before it was executed / Coin request {req.request_id} is not approved (status: {status_name})",
             "content": {
               "application/json": {
                 "schema": {

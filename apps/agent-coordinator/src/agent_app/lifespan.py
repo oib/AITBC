@@ -2,7 +2,7 @@ import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import FastAPI
@@ -35,27 +35,45 @@ def _sanitize_url(url: str) -> str:
     return url
 
 
-async def expire_old_requests() -> None:
-    """Background task to expire coin requests older than 30 days.
+def sweep_expired_coin_requests(session) -> int:
+    """Expire every unexecuted request whose ``expires_at`` has passed.
 
-    Moved from hermes_service.main.expire_old_requests in v0.5.9 §3.
+    ``expires_at`` is REQUEST_TTL (24h) and bounds how long a request stays
+    executable — pending rows wait for an operator, approved rows for
+    ``/execute``. Rows that already carry a ``transaction_hash`` (paid or
+    mid-claim) are left alone: expiry must never rewrite the record of a
+    payment that happened or is reconciling (#1579). Returns the count.
+    """
+    now = datetime.now(UTC).replace(tzinfo=None)
+    expired_requests = (
+        session.query(CoinRequest)
+        .filter(
+            CoinRequest.status.in_([CoinRequestStatus.PENDING, CoinRequestStatus.APPROVED]),
+            CoinRequest.expires_at < now,
+            CoinRequest.transaction_hash.is_(None),
+        )
+        .all()
+    )
+    for req in expired_requests:
+        req.status = CoinRequestStatus.EXPIRED
+        existing_log = req.audit_log or ""
+        req.audit_log = f"{existing_log} | Auto-expired at {now.isoformat()}"
+        logger.info("Expired request %s from %s", req.id, req.sender)
+    return len(expired_requests)
+
+
+async def expire_old_requests() -> None:
+    """Background task to expire coin requests past their ``expires_at``.
+
+    Moved from hermes_service.main.expire_old_requests in v0.5.9 §3; the
+    cutoff is the per-request TTL, not a flat 30 days (#1579).
     """
     while True:
         try:
             with get_db_session() as session:
-                cutoff = datetime.now(UTC) - timedelta(days=30)
-                expired_requests = (
-                    session.query(CoinRequest)
-                    .filter(CoinRequest.status == CoinRequestStatus.PENDING, CoinRequest.expires_at < cutoff)
-                    .all()
-                )
-                for req in expired_requests:
-                    req.status = CoinRequestStatus.EXPIRED
-                    existing_log = req.audit_log or ""
-                    req.audit_log = f"{existing_log} | Auto-expired at {datetime.now(UTC).isoformat()}"
-                    logger.info("Expired request %s from %s", req.id, req.sender)
-                if expired_requests:
-                    logger.info("Expired %s old coin requests", len(expired_requests))
+                expired = sweep_expired_coin_requests(session)
+                if expired:
+                    logger.info("Expired %s coin requests past their TTL", expired)
         except Exception as e:
             logger.error("Error expiring old requests: %s", e)
         await asyncio.sleep(3600)
