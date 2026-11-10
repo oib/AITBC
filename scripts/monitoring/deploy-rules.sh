@@ -7,7 +7,9 @@
 # to scripts/monitoring/*.yml. Run it on the host that serves Prometheus
 # after pulling a new checkout.
 #
-# Usage: deploy-rules.sh [--no-reload] [deployed-dir] [prometheus.yml]
+# Usage: deploy-rules.sh [--dry-run] [--no-reload] [deployed-dir] [prometheus.yml]
+#   --dry-run prints the planned copies and reload decision, then exits
+#   without writing anything or touching prometheus.
 #   deployed-dir defaults to /etc/prometheus; the rule-file list is derived
 #   from prometheus.yml inside it (same logic as check-rules-deployed.sh),
 #   falling back to the repo's two known rule files when it is unreadable.
@@ -20,10 +22,15 @@
 set -euo pipefail
 
 DO_RELOAD=true
-if [ "${1:-}" = "--no-reload" ]; then
-    DO_RELOAD=false
+DRY_RUN=false
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --no-reload) DO_RELOAD=false ;;
+        --dry-run) DRY_RUN=true ;;
+        *) break ;;
+    esac
     shift
-fi
+done
 
 DEPLOYED_DIR="${1:-/etc/prometheus}"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -59,6 +66,10 @@ for name in $rule_files; do
         echo "$base (unchanged)"
         continue
     fi
+    if [ "$DRY_RUN" = true ]; then
+        echo "$base (would deploy)"
+        continue
+    fi
     cp "$repo_file" "$deployed"
     if command -v promtool >/dev/null 2>&1; then
         promtool check rules "$deployed" >/dev/null
@@ -66,7 +77,13 @@ for name in $rule_files; do
     echo "$base (deployed)"
 done
 
-if [ "$DO_RELOAD" = true ]; then
+if [ "$DRY_RUN" = true ]; then
+    if [ "$DO_RELOAD" = true ]; then
+        echo "dry-run: would reload prometheus"
+    else
+        echo "dry-run: reload skipped (--no-reload)"
+    fi
+elif [ "$DO_RELOAD" = true ]; then
     systemctl reload prometheus
     echo "prometheus reloaded"
 else
