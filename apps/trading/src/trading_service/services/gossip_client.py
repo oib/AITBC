@@ -23,6 +23,7 @@ import base64
 import json
 import logging
 from collections import defaultdict
+from contextlib import suppress
 from typing import Any
 
 from aitbc.async_tasks import create_task_with_logging
@@ -186,6 +187,12 @@ class GossipClient:
             stop_event = asyncio.Event()
 
             async def _listen() -> None:
+                # #1534: pubsub/sub_redis must be closed on EVERY exit path —
+                # the old code only cleaned up after the listen() loop ended
+                # normally, so task.cancel() (GossipSubscription.close) leaked
+                # the dedicated connection and its server-side SUBSCRIBE.
+                sub_redis: Any = None
+                pubsub: Any = None
                 try:
                     import redis.asyncio as aioredis
 
@@ -208,15 +215,22 @@ class GossipClient:
                                 await queue.put(decoded)
                         except Exception:
                             logger.debug("Error decoding gossip message for %s", topic, exc_info=True)
-                    try:
-                        await pubsub.unsubscribe(topic)
-                        await sub_redis.aclose()
-                    except Exception:
-                        pass
                 except asyncio.CancelledError:
                     pass
                 except Exception as e:
                     logger.warning("GossipClient Redis subscription error for %s: %s", topic, e)
+                finally:
+                    # CancelledError is a BaseException: `except Exception`
+                    # would not catch a second cancellation delivered inside
+                    # these awaits, so suppress it explicitly — the original
+                    # cancellation still propagates once finally returns.
+                    with suppress(asyncio.CancelledError, Exception):
+                        if pubsub is not None:
+                            await pubsub.unsubscribe(topic)
+                            await pubsub.aclose()
+                    with suppress(asyncio.CancelledError, Exception):
+                        if sub_redis is not None:
+                            await sub_redis.aclose()
 
             task = create_task_with_logging(_listen(), name=f"gossip-sub-{topic}")
             self._tasks.add(task)
