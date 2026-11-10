@@ -776,6 +776,15 @@ async def execute_cross_chain(
             content={"error": f"Proposal must be in 'succeeded' status to execute cross-chain (current: {proposal.status})"},
         )
 
+    # #1645: the docstring promises the hub-chain timelock is honoured, but
+    # this route used to skip _enforce_execution_timelock entirely and relay
+    # EXECUTE txs the moment a proposal reached 'succeeded'. Enforce the same
+    # fail-closed check execute_proposal applies (V23-18).
+    try:
+        await svc._enforce_execution_timelock(proposal)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})  # type: ignore[return-value]
+
     # Determine target chains from proposal metadata or default to hub chain
     parameters = proposal.proposal_value if isinstance(proposal.proposal_value, dict) else {}
     target_chains = parameters.get("target_chains", [settings.default_chain_id])
