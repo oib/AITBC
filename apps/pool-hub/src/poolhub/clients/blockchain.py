@@ -232,7 +232,22 @@ class PoolHubBlockchainClient:
                     amount=contrib.reward_amount,
                     job_id=f"epoch-{epoch.epoch_number}",
                 )
-                tx_hash = result.get("tx_hash", "")
+                if not isinstance(result, dict) or result.get("success") is False:
+                    raise ValueError(f"blockchain rejected reward transaction: {result!r}")
+                # The node answers POST /rpc/transaction with
+                # {"success": true, "transaction_hash": ...} — "tx_hash" is the
+                # legacy/test alias. Reading only "tx_hash" recorded every
+                # payout as paid with an empty hash (#1570 residual).
+                tx_hash = str(result.get("tx_hash") or result.get("transaction_hash") or "")
+                if not tx_hash:
+                    # A success response without any transaction hash is
+                    # ambiguous — the tx may or may not have reached the
+                    # mempool. Never mark it paid: an empty-hash "paid" row
+                    # wedges the (miner, chain, epoch) UNIQUE slot forever
+                    # while the miner was never provably paid. Route it
+                    # through the failure path so reconciliation resolves the
+                    # claim against the chain, exactly like a network error.
+                    raise ValueError(f"reward transaction response carried no tx hash: {result!r}")
                 claim.status = "paid"
                 claim.tx_hash = tx_hash
                 claim.paid_at = datetime.now(UTC)
