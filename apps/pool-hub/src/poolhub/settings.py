@@ -148,6 +148,15 @@ class Settings(ServiceSettings):
         description="Start BillingIntegrationScheduler at app startup (POOLHUB_ENABLE_BILLING_SYNC=true)",
     )
 
+    # Rate limiting (#1544): per-client-IP limit on mutating endpoints, applied
+    # by RateLimitMiddleware in app/main.py. Read methods are not counted.
+    # rate_limit_anonymous_requests is the tighter budget for the two write
+    # endpoints that need no credential — POST /v1/match and first-time
+    # POST /v1/miners/register — which write Postgres+Redis for anyone.
+    rate_limit_requests: int = Field(default=120)
+    rate_limit_window_seconds: int = Field(default=60)
+    rate_limit_anonymous_requests: int = Field(default=30)
+
     def asgi_kwargs(self) -> dict[str, Any]:
         return {
             "title": self.app_name,
