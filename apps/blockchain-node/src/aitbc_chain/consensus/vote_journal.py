@@ -124,6 +124,10 @@ class VoteJournal:
         # height -> voter -> votes cast, oldest first
         self._votes: dict[int, dict[str, list[VoteRecord]]] = {}
         self._loaded = False
+        # Operator ruling (10 Nov): an UNREADABLE journal fails closed. The file is left
+        # untouched and no vote is recorded (so no attestation/proposal is released) until
+        # an operator moves the file aside and restarts.
+        self._load_failed = False
 
     # ── persistence ────────────────────────────────────────────────
 
@@ -141,14 +145,26 @@ class VoteJournal:
                 try:
                     rec = VoteRecord.from_json(raw)
                 except (KeyError, TypeError, ValueError, AttributeError):  # AttributeError: non-dict row
+                    metrics_registry.increment("vote_journal_rows_skipped_total")
                     continue
                 self._votes.setdefault(rec.height, {}).setdefault(rec.voter, []).append(rec)
         except Exception as exc:  # noqa: BLE001 - a bad file must degrade to an empty journal, loudly
             metrics_registry.increment("vote_journal_load_failed_total")
             self._votes = {}
-            logger.error("Vote journal for %s unreadable (%s) — starting empty", self._chain_id, exc)
+            self._load_failed = True
+            logger.error(
+                "Vote journal for %s unreadable (%s) — FAILING CLOSED: no votes will be recorded or released "
+                "until %s is moved aside and the node restarted",
+                self._chain_id,
+                exc,
+                self._path,
+            )
 
     def _persist(self) -> None:
+        if self._load_failed:
+            # Never overwrite an unreadable file (it is the only evidence of earlier votes).
+            metrics_registry.increment("vote_journal_fail_closed_total")
+            raise OSError(f"vote journal {self._path} was unreadable at load; refusing to write")
         self._path.parent.mkdir(parents=True, exist_ok=True)
         rows = [rec.to_json() for height in sorted(self._votes) for recs in self._votes[height].values() for rec in recs]
         payload = json.dumps({"version": 1, "chain_id": self._chain_id, "votes": rows})
