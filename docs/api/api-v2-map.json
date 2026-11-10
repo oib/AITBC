@@ -7532,6 +7532,13 @@
           ]
         },
         {
+          "public": "/api/v2/trading/v1/trading/inter-chain/{trade_id}/cancel",
+          "upstream": "/v1/trading/inter-chain/{trade_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/trading/v1/trading/inter-chain/{trade_id}/match",
           "upstream": "/v1/trading/inter-chain/{trade_id}/match",
           "methods": [
