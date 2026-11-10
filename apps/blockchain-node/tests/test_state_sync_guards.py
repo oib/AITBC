@@ -278,6 +278,30 @@ async def test_delta_matching_head_applies(session_factory):
 
 
 @pytest.mark.asyncio
+async def test_snapshot_empty_head_refused_without_network(session_factory):
+    """#1629: zero local blocks means no head root to verify against — the
+    snapshot path must refuse before fetching rather than commit unverified
+    state."""
+    sync, client = _sync(session_factory, {"state/snapshot": _snapshot_payload("0x" + "00" * 32)})
+    result = await sync.sync_state_from("http://peer")
+    assert result["refused"] is True
+    assert result["reason"] == "empty_head"
+    assert client.calls == []
+    assert metrics_registry._counters.get("state_sync_refused_empty_head_total") == 1.0
+
+
+@pytest.mark.asyncio
+async def test_delta_empty_head_refused_without_network(session_factory):
+    """#1629: the delta path has the same unverified-commit hole on an empty
+    head (its computed-root check keys on local_root too)."""
+    sync, client = _sync(session_factory, {})
+    result = await sync.delta_sync_from("http://peer", 0, HEAD)
+    assert result["refused"] is True
+    assert result["reason"] == "empty_head"
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
 async def test_snapshot_source_root_disagrees_refused_before_write(session_factory):
     _seed_state(session_factory)
     foreign = _snapshot_payload("0x" + "ff" * 32, accounts=[{"address": ADDR_A, "balance": 42, "nonce": 0}])
