@@ -244,6 +244,58 @@ class TestOfferEvent:
         )
         assert restored.offer is None
 
+    def test_from_dict_node_listing_wire_shape(self) -> None:
+        """The blockchain-node publishes offer=new_listing dicts keyed
+        listing_id/seller_address/item_type — from_dict must map them onto
+        SyncedOffer fields instead of collapsing to empty strings (#1635)."""
+        restored = OfferEvent.from_dict(
+            {
+                "event_type": "created",
+                "offer_id": "listing_007",
+                "chain_id": "ait-hub",
+                "timestamp": "2026-06-29T12:00:00+00:00",
+                "source": "blockchain-node",
+                "offer": {
+                    "listing_id": "listing_007",
+                    "seller_address": "0xSeller",
+                    "item_type": "GPU",
+                    "price": 0.5,
+                    "description": "RTX 4090",
+                    "gpu_name": "RTX 4090",
+                    "gpu_model": "RTX 4090",
+                    "status": "active",
+                    "created_at": "2026-06-29T11:59:00+00:00",
+                },
+            }
+        )
+        assert restored.offer is not None
+        assert restored.offer.offer_id == "listing_007"
+        assert restored.offer.provider == "0xSeller"
+        assert restored.offer.service_type == "GPU"
+        assert restored.offer.price == Decimal("0.5")
+        # chain_id lives on the event envelope, not the offer payload —
+        # OfferEvent.from_dict backfills it so the cache chain index works.
+        assert restored.offer.chain_id == "ait-hub"
+        # Legacy "active" normalizes to the OfferFSM word "available".
+        assert restored.offer.status == "available"
+        # Non-schema listing fields fold into attributes for filters.
+        assert restored.offer.attributes["gpu_model"] == "RTX 4090"
+        assert restored.offer.attributes["description"] == "RTX 4090"
+
+    def test_from_dict_canonical_offer_keeps_own_chain_id(self) -> None:
+        """A canonical offer payload carrying its own chain_id is not
+        overwritten by the event envelope."""
+        restored = OfferEvent.from_dict(
+            {
+                "event_type": "created",
+                "offer_id": "o1",
+                "chain_id": "ait-hub",
+                "offer": {"offer_id": "o1", "chain_id": "ait-island1", "price": "1.5"},
+            }
+        )
+        assert restored.offer is not None
+        assert restored.offer.chain_id == "ait-island1"
+
 
 # ---------------------------------------------------------------------------
 # OfferSubscription

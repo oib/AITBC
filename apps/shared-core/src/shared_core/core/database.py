@@ -34,8 +34,15 @@ def get_engine(config: DatabaseConfig):
 
 
 def get_sessionmaker(engine):
-    """Create session factory."""
-    return sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    """Create session factory.
+
+    ``expire_on_commit=False`` is the fleet convention (#1585): the default
+    ``True`` expires every attribute on commit, so any post-commit read of a
+    committed object raises ``DetachedInstanceError``/``MissingGreenlet``.
+    Callers that need fresh post-commit values must ``session.refresh()``
+    explicitly.
+    """
+    return sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
 # Async support (for async services)

@@ -61,7 +61,7 @@ def get_session(database_url: str | None = None) -> Iterator[Session]:
     ``session_scope()`` outside FastAPI.
     """
     engine = get_engine(database_url)
-    with Session(engine) as session:
+    with Session(engine, expire_on_commit=False) as session:
         yield session
 
 
@@ -74,7 +74,7 @@ def session_scope(database_url: str | None = None) -> Iterator[Session]:
     silent mistake.
     """
     engine = get_engine(database_url)
-    with Session(engine) as session:
+    with Session(engine, expire_on_commit=False) as session:
         yield session
 
 

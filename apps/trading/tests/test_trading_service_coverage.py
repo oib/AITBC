@@ -111,8 +111,9 @@ class TestAnalytics:
         svc = _svc(db_session)
         stats = await svc.get_analytics()
         assert stats["total_requests"] == 0
-        assert stats["total_trade_volume"] == 0.0
-        assert stats["average_trade_value"] == 0.0
+        # Monetary aggregates serialize as str(Decimal) — exact, not float (#1635)
+        assert stats["total_trade_volume"] == "0"
+        assert stats["average_trade_value"] == "0"
 
     async def test_analytics_completed_volume_and_average(self, db_session):
         """Volume sums only COMPLETED agreements; average divides by count."""
@@ -179,9 +180,10 @@ class TestAnalytics:
         assert stats["total_requests"] == 1
         assert stats["total_agreements"] == 3
         assert stats["completed_trades"] == 2
-        # 100.5 + 200.5 = 301.0 — the AGREED agreement's 999 is excluded
-        assert stats["total_trade_volume"] == pytest.approx(301.0)
-        assert stats["average_trade_value"] == pytest.approx(150.5)
+        # 100.5 + 200.5 = 301.0 — the AGREED agreement's 999 is excluded.
+        # Serialized as str(Decimal) — exact, not float (#1635).
+        assert Decimal(stats["total_trade_volume"]) == Decimal("301.0")
+        assert Decimal(stats["average_trade_value"]) == Decimal("150.5")
 
 
 class TestCreateMatchAgreementSettlement:

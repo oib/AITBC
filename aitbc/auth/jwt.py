@@ -108,9 +108,29 @@ def _validate_secret(value: str) -> None:
         raise ValueError("JWT secret must be at least 32 characters long")
 
 
+# Algorithms this module may sign/verify with. JWT_ALGORITHM is
+# operator-controlled env config, but an unvalidated value is a fleet-wide
+# auth bypass: 'none' (or any alg PyJWT accepts) would be pinned into both
+# encode and decode, so unsigned or cross-alg tokens would verify
+# (#1585). Whitelist only the algs this code can actually use — symmetric
+# HMAC with the shared string secret, plus the asymmetric PEM-key algs
+# PyJWT supports — and fail closed on anything else at settings load.
+_ALLOWED_JWT_ALGORITHMS = frozenset({"HS256", "HS384", "HS512", "RS256", "ES256"})
+
+
+def _validate_algorithm(value: str) -> str:
+    """Validate and normalize a configured JWT algorithm (fail closed)."""
+    alg = (value or "").strip().upper()
+    if alg not in _ALLOWED_JWT_ALGORITHMS:
+        raise ConfigurationError(
+            f"JWT_ALGORITHM={value!r} is not supported; allowed algorithms: {sorted(_ALLOWED_JWT_ALGORITHMS)}"
+        )
+    return alg
+
+
 def _get_algorithm() -> str:
     """Get JWT algorithm from env or default."""
-    return os.getenv("JWT_ALGORITHM", "HS256")
+    return _validate_algorithm(os.getenv("JWT_ALGORITHM", "HS256"))
 
 
 def _is_no_expiration() -> bool:
@@ -259,7 +279,7 @@ class JWTAuth:
         if secret:
             _validate_secret(self.secret)
         self.extra_secrets = _extra_verify_secrets()
-        self.algorithm = algorithm or _get_algorithm()
+        self.algorithm = _validate_algorithm(algorithm or _get_algorithm())
         self.expiration_hours = max(0, _get_expiry_hours() if expiration_hours is None else expiration_hours)
 
     def create_token(self, payload: dict[str, Any]) -> str:

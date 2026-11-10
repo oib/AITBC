@@ -125,7 +125,6 @@ class ComputeConsumer(Agent):
             requirements=requirements or {},
             max_price_per_hour=max_price,
         )
-        self.pending_jobs.append(job)
         logger.info("Job submitted: %s by %s", job_type, self.identity.id)
 
         headers = {}
@@ -138,7 +137,12 @@ class ComputeConsumer(Agent):
             "consumer_id": job.consumer_id,
             "payload": {"type": job.job_type, **(job.input_data or {})},
             "constraints": job.requirements or {},
-            "payment_amount": job.max_price_per_hour,
+            # str(Decimal): httpx json= cannot serialize Decimal — the TypeError
+            # was swallowed below and every nonzero-price submit returned a
+            # synthetic job_ id while the job never left pending_jobs (#1635).
+            # The coordinator's JobCreate.payment_amount is Decimal|None and
+            # parses the string exactly.
+            "payment_amount": str(job.max_price_per_hour),
             "payment_currency": "AIT",
             "ttl_seconds": 900,
         }
@@ -147,7 +151,10 @@ class ComputeConsumer(Agent):
         if provider_address:
             payload["provider_address"] = provider_address
 
-        # Submit to coordinator for matching
+        # Submit to coordinator for matching. The job is only tracked in
+        # pending_jobs after the coordinator accepts it — appending before
+        # the HTTP call left phantom pending jobs (and fake job_ ids) on
+        # every transport/serialization failure.
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -158,15 +165,18 @@ class ComputeConsumer(Agent):
                 )
                 if response.status_code == 201:
                     result = response.json()
-                    job_id = result.get("job_id", f"job_{self.identity.id}_{len(self.pending_jobs)}")
+                    job_id = result.get("job_id")
+                    if not job_id:
+                        logger.error("Coordinator accepted job but returned no job_id: %s", result)
+                        return ""
                     job.job_id = job_id
+                    self.pending_jobs.append(job)
                     return job_id
-                else:
-                    logger.error("Failed to submit job to coordinator: %s %s", response.status_code, response.text)
-                    return f"job_{self.identity.id}_{len(self.pending_jobs)}"
+                logger.error("Failed to submit job to coordinator: %s %s", response.status_code, response.text)
+                return ""
         except Exception as e:
             logger.error("Error submitting job to coordinator: %s", e)
-            return f"job_{self.identity.id}_{len(self.pending_jobs)}"
+            return ""
 
     async def get_job_status(self, job_id: str) -> dict[str, Any]:
         """Query coordinator for job status"""

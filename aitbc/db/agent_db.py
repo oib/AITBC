@@ -47,7 +47,7 @@ def get_session_local() -> sessionmaker[Session]:
     """Get session local factory."""
     global _SessionLocal
     if _SessionLocal is None:
-        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine(), expire_on_commit=False)
     return _SessionLocal
 
 

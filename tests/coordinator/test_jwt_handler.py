@@ -55,6 +55,30 @@ class TestJWTHandler:
         with pytest.raises(ValueError, match="default"):
             JWTHandler("change-me-in-production")
 
+    def test_jwt_algorithm_none_fails_closed(self, monkeypatch):
+        """JWT_ALGORITHM='none' must be refused at settings load (#1585).
+
+        An unvalidated 'none' would be pinned into both encode and decode —
+        unsigned tokens would verify fleet-wide.
+        """
+        monkeypatch.setenv("JWT_ALGORITHM", "none")
+        with pytest.raises(ConfigurationError, match="JWT_ALGORITHM"):
+            JWTHandler()
+
+    def test_jwt_algorithm_unknown_fails_closed(self, monkeypatch):
+        monkeypatch.setenv("JWT_ALGORITHM", "HS512-bogus")
+        with pytest.raises(ConfigurationError, match="JWT_ALGORITHM"):
+            JWTAuth()
+
+    def test_jwt_algorithm_whitelist_accepts_hmac(self, monkeypatch):
+        monkeypatch.setenv("JWT_ALGORITHM", "hs256")
+        handler = JWTHandler()
+        assert handler.algorithm == "HS256"
+
+    def test_jwt_algorithm_explicit_param_validated(self):
+        with pytest.raises(ConfigurationError, match="JWT_ALGORITHM"):
+            JWTAuth(algorithm="none")
+
     def test_generate_token_success(self):
         """Test successful token generation"""
         handler = JWTHandler("test_secret_key_for_testing_that_is_at_least_32_characters")

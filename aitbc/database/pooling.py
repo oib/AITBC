@@ -70,7 +70,7 @@ def create_pooled_engine(
     return engine
 
 
-def create_pooled_sessionmaker(engine, autoflush: bool = False, autocommit: bool = False):
+def create_pooled_sessionmaker(engine, autoflush: bool = False, autocommit: bool = False, expire_on_commit: bool = False):
     """
     Create session factory with connection pooling.
 
@@ -78,11 +78,15 @@ def create_pooled_sessionmaker(engine, autoflush: bool = False, autocommit: bool
         engine: SQLAlchemy engine
         autoflush: Enable autoflush
         autocommit: Enable autocommit
+        expire_on_commit: Expire objects on commit — keep False (fleet
+            convention, #1585) so post-commit attribute reads do not raise
+            DetachedInstanceError; callers needing fresh values refresh
+            explicitly.
 
     Returns:
         Session factory
     """
-    return sessionmaker(bind=engine, autoflush=autoflush, autocommit=autocommit)
+    return sessionmaker(bind=engine, autoflush=autoflush, autocommit=autocommit, expire_on_commit=expire_on_commit)
 
 
 def create_async_pooled_engine(
