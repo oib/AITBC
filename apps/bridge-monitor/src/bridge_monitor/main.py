@@ -29,6 +29,7 @@ from .storage import (
     release_sources,
     set_cursor,
     sum_committed_ait,
+    try_admin_lock,
     update_deposit,
     valid_ait_recipient,
 )
@@ -453,27 +454,47 @@ class BridgeMonitor:
                 why,
             )
             return
-        if self._payout_in_flight():
-            # Serialize: one unsealed payout envelope at a time. The payout
-            # account's nonce comes from the committed chain state, so two
-            # in-flight envelopes would sign the same nonce and collide in
-            # the mempool — a stale-nonce envelope then burns the whole
-            # rebroadcast budget before an operator has to re-sign it.
+        # Serialize against admin mutations too: ``admin.py manual-payout``
+        # runs the same _payout_in_flight → SUBMITTED check-then-act under
+        # the admin flock, so the sweep must hold it across its own
+        # decision+submit or the two can sign envelopes on the same nonce.
+        # Non-blocking — a held lock defers this deposit to the next cycle
+        # rather than stalling the block scan behind an admin command.
+        lock_fd = try_admin_lock()
+        if lock_fd is None:
+            logger.info("Deposit %s payout deferred — admin mutation holds the ledger lock", tx_hash)
             self._defer_for_slot(
                 tx_hash,
+                reason="admin mutation in progress — payout slot locked",
                 ait_amount=str(ait_amount),
                 eth_usd_price=str(eth_usd) if eth_usd else "",
                 ait_usd_price=str(ait_usd) if ait_usd else "",
             )
             return
-        if not self._submit_payout(
-            tx_hash,
-            ait_recipient,
-            ait_amount,
-            eth_usd_price=str(eth_usd) if eth_usd else None,
-            ait_usd_price=str(ait_usd) if ait_usd else None,
-        ):
-            self._mark_for_retry(tx_hash, "Failed to build signed payout")
+        try:
+            if self._payout_in_flight():
+                # Serialize: one unsealed payout envelope at a time. The payout
+                # account's nonce comes from the committed chain state, so two
+                # in-flight envelopes would sign the same nonce and collide in
+                # the mempool — a stale-nonce envelope then burns the whole
+                # rebroadcast budget before an operator has to re-sign it.
+                self._defer_for_slot(
+                    tx_hash,
+                    ait_amount=str(ait_amount),
+                    eth_usd_price=str(eth_usd) if eth_usd else "",
+                    ait_usd_price=str(ait_usd) if ait_usd else "",
+                )
+                return
+            if not self._submit_payout(
+                tx_hash,
+                ait_recipient,
+                ait_amount,
+                eth_usd_price=str(eth_usd) if eth_usd else None,
+                ait_usd_price=str(ait_usd) if ait_usd else None,
+            ):
+                self._mark_for_retry(tx_hash, "Failed to build signed payout")
+        finally:
+            os.close(lock_fd)
 
     def _payout_in_flight(self) -> bool:
         """True while any deposit holds a SUBMITTED (unsealed) payout.
@@ -484,7 +505,12 @@ class BridgeMonitor:
         """
         return bool(get_submitted_deposits())
 
-    def _defer_for_slot(self, tx_hash: str, **fields: str) -> None:
+    def _defer_for_slot(
+        self,
+        tx_hash: str,
+        reason: str = "queued behind unsealed payout (nonce serialization)",
+        **fields: str,
+    ) -> None:
         """Queue a deposit behind the in-flight payout without spending its
         retry budget — waiting for the slot is serialization, not failure.
         Extra fields (e.g. the just-computed ait_amount) are kept so the
@@ -493,11 +519,11 @@ class BridgeMonitor:
 
         delay = max(30.0, float(self.poll_interval))
         next_retry = (datetime.now(UTC) + timedelta(seconds=delay)).isoformat()
-        logger.info("Deposit %s deferred — a payout is already in flight; retry once it seals", tx_hash)
+        logger.info("Deposit %s deferred — %s; retry once it clears", tx_hash, reason)
         update_deposit(
             tx_hash,
             status=BridgeDepositStatus.PENDING_RETRY,
-            error_message="queued behind unsealed payout (nonce serialization)",
+            error_message=reason,
             next_retry_at=next_retry,
             **fields,
         )
@@ -691,49 +717,62 @@ class BridgeMonitor:
                     clear_fields=["next_retry_at"],
                 )
                 continue
-            if self._payout_in_flight():
-                self._defer_for_slot(tx_hash)
+            # Same admin-lock serialization as first-sight payouts: the
+            # in-flight probe → signed SUBMITTED row sequence below is
+            # check-then-act and must not interleave with a manual-payout
+            # running under the admin flock. Non-blocking — defer and let
+            # the next cycle retry rather than stall the queue.
+            lock_fd = try_admin_lock()
+            if lock_fd is None:
+                logger.info("Retry deposit %s deferred — admin mutation holds the ledger lock", tx_hash)
+                self._defer_for_slot(tx_hash, reason="admin mutation in progress — payout slot locked")
                 continue
-            logger.info("Retrying deposit %s: %s AIT to %s", tx_hash, ait_amount, ait_recipient)
             try:
-                transaction = self._build_signed_transfer(ait_recipient, ait_amount)
-                payout_hash = self._envelope_tx_hash(transaction) if transaction else None
-            except Exception:
-                # One bad row must not kill the queue — re-queue it and
-                # continue with the rest. Nothing was broadcast, so a fresh
-                # attempt next pass is safe.
-                logger.exception("Retry %s: payout build failed unexpectedly", tx_hash)
-                transaction, payout_hash = None, None
-            if not transaction or not payout_hash:
-                self._mark_for_retry(tx_hash, "Retry: failed to build signed payout")
-                continue
-            update_deposit(
-                tx_hash,
-                signed_tx=json.dumps(transaction),
-                envelope_hash=payout_hash,
-                submitted_height=self._head_height(),
-                rebroadcast_count=0,
-                ait_tx_hash=payout_hash,
-                status=BridgeDepositStatus.SUBMITTED,
-                retry_count=d.get("retry_count", 0),
-            )
-            posted = self._post_signed_tx(transaction)
-            # Same fix-up as _submit_payout: the seal probe keys on
-            # ait_tx_hash, so it must hold the hash the chain reported.
-            self._adopt_posted_hash(tx_hash, posted, payout_hash)
-            if posted:
-                logger.info("Retry payout for deposit %s broadcast as %s", tx_hash, posted)
-            else:
-                # Stay SUBMITTED — the sweep rebroadcasts the same envelope.
-                update_deposit(tx_hash, error_message="Retry submit failed — awaiting rebroadcast")
-                if self._post_rejection_is_nonce_conflict():
-                    logger.critical(
-                        "ALERT: retry payout %s for deposit %s rejected — nonce slot occupied (%s). "
-                        "The sweep's auto-abandon proof owns recovery",
-                        payout_hash,
-                        tx_hash,
-                        (self._last_post_rejection or "")[:160],
-                    )
+                if self._payout_in_flight():
+                    self._defer_for_slot(tx_hash)
+                    continue
+                logger.info("Retrying deposit %s: %s AIT to %s", tx_hash, ait_amount, ait_recipient)
+                try:
+                    transaction = self._build_signed_transfer(ait_recipient, ait_amount)
+                    payout_hash = self._envelope_tx_hash(transaction) if transaction else None
+                except Exception:
+                    # One bad row must not kill the queue — re-queue it and
+                    # continue with the rest. Nothing was broadcast, so a fresh
+                    # attempt next pass is safe.
+                    logger.exception("Retry %s: payout build failed unexpectedly", tx_hash)
+                    transaction, payout_hash = None, None
+                if not transaction or not payout_hash:
+                    self._mark_for_retry(tx_hash, "Retry: failed to build signed payout")
+                    continue
+                update_deposit(
+                    tx_hash,
+                    signed_tx=json.dumps(transaction),
+                    envelope_hash=payout_hash,
+                    submitted_height=self._head_height(),
+                    rebroadcast_count=0,
+                    ait_tx_hash=payout_hash,
+                    status=BridgeDepositStatus.SUBMITTED,
+                    retry_count=d.get("retry_count", 0),
+                )
+                posted = self._post_signed_tx(transaction)
+                # Same fix-up as _submit_payout: the seal probe keys on
+                # ait_tx_hash, so it must hold the hash the chain reported.
+                self._adopt_posted_hash(tx_hash, posted, payout_hash)
+                if posted:
+                    logger.info("Retry payout for deposit %s broadcast as %s", tx_hash, posted)
+                else:
+                    # Stay SUBMITTED — the sweep rebroadcasts the same envelope.
+                    update_deposit(tx_hash, error_message="Retry submit failed — awaiting rebroadcast")
+                    if self._post_rejection_is_nonce_conflict():
+                        logger.critical(
+                            "ALERT: retry payout %s for deposit %s rejected — nonce slot occupied (%s). "
+                            "The sweep's auto-abandon proof owns recovery",
+                            payout_hash,
+                            tx_hash,
+                            (self._last_post_rejection or "")[:160],
+                        )
+            finally:
+                os.close(lock_fd)
 
     def process_submitted_deposits(self) -> None:
         """Confirm or rebroadcast payouts whose deposits are SUBMITTED.
