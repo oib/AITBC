@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import OrderedDict
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -47,6 +48,12 @@ _NON_DISCOVERABLE_OFFER_STATUSES = frozenset({"deactivated", "inactive", "delist
 # (#1567): offers past the cut would look "absent" and be wrongly deleted.
 _SYNC_PAGE_LIMIT = 500
 
+# #1680: /v1/trading/offers/sync accepts an arbitrary chain_id, so both
+# per-chain tracking dicts grew without bound. Cap them LRU-style; entries
+# beyond the cap are evicted oldest-first (locks only while unlocked,
+# status entries only while not syncing).
+_MAX_TRACKED_CHAINS = 256
+
 
 class OfferSyncService:
     """Service for synchronizing offers across AITBC chains."""
@@ -65,12 +72,39 @@ class OfferSyncService:
             api_key=settings.blockchain_rpc_api_key,
         )
         self._sync_tasks: dict[str, asyncio.Task[None]] = {}
-        self._sync_status: dict[str, OfferSyncStatusEntry] = {}
+        self._sync_status: OrderedDict[str, OfferSyncStatusEntry] = OrderedDict()
         # Single-flight locks, one per chain (#1567): ``is_syncing`` flags
         # were written but never read as a guard, so N concurrent discovers
         # each ran a full sync. ``lock.locked()`` + ``async with`` is atomic
         # in asyncio — no await between check and acquire.
-        self._sync_locks: dict[str, asyncio.Lock] = {}
+        self._sync_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
+
+    def _sync_lock_for(self, chain_id: str) -> asyncio.Lock:
+        """Single-flight lock per chain, LRU-bounded (#1680).
+
+        A lock is only evicted while unlocked — evicting a held lock would
+        let a second sync for the same chain start. If every tracked lock is
+        held the dict may exceed the cap by the number of in-flight syncs,
+        which is itself bounded by request concurrency.
+        """
+        locks = self._sync_locks
+        lock = locks.get(chain_id)
+        if lock is not None:
+            locks.move_to_end(chain_id)
+            return lock
+        while len(locks) >= _MAX_TRACKED_CHAINS:
+            evicted = False
+            for cid in list(locks.keys()):
+                if len(locks) < _MAX_TRACKED_CHAINS:
+                    break
+                if not locks[cid].locked():
+                    del locks[cid]
+                    evicted = True
+            if not evicted:
+                break
+        lock = asyncio.Lock()
+        locks[chain_id] = lock
+        return lock
 
     @property
     def cache(self) -> OfferCache:
@@ -84,7 +118,7 @@ class OfferSyncService:
         ``skipped: sync_in_progress`` instead of queueing a duplicate
         500-offer sync behind the lock.
         """
-        lock = self._sync_locks.setdefault(chain_id, asyncio.Lock())
+        lock = self._sync_lock_for(chain_id)
         if lock.locked():
             logger.info("Offer sync for chain %s already in progress — skipping", chain_id)
             return {"chain_id": chain_id, "skipped": "sync_in_progress", "synced": 0}
@@ -232,6 +266,21 @@ class OfferSyncService:
                 logger.info("Triggering on-demand sync for chain %s (%d stale offers)", request.source_chain, len(stale))
                 await self.sync_chain(request.source_chain)
                 sync_triggered = True
+        else:
+            # #1680: unscoped discovery used to return stale offers silently —
+            # the sync trigger only fired when source_chain was set. Sync
+            # every known chain that has stale offers; single-flight locks
+            # make the gathers safe and parallel so one slow chain RPC does
+            # not serialize the rest.
+            stale_chains = [
+                cid
+                for cid in self._cache._get_known_chains()
+                if self._cache.get_stale_offers(cid)  # noqa: SLF001
+            ]
+            if stale_chains:
+                logger.info("Triggering on-demand sync for %d stale chain(s)", len(stale_chains))
+                await asyncio.gather(*(self.sync_chain(cid) for cid in stale_chains))
+                sync_triggered = True
 
         # Get offers from cache
         all_offers: list[SyncedOffer] = []
@@ -311,17 +360,35 @@ class OfferSyncService:
         return offers[:limit]
 
     def _init_status_entry(self, chain_id: str) -> OfferSyncStatusEntry:
-        """Initialize or get the sync status entry for a chain."""
-        if chain_id not in self._sync_status:
-            self._sync_status[chain_id] = OfferSyncStatusEntry(
-                chain_id=chain_id,
-                last_sync="",
-                offer_count=0,
-                stale_count=0,
-                is_syncing=False,
-                error_count=0,
-            )
-        return self._sync_status[chain_id]
+        """Initialize or get the sync status entry for a chain.
+
+        LRU-bounded (#1680): entries are evicted oldest-first, skipping any
+        chain currently syncing so an in-flight sync never loses its entry.
+        """
+        entry = self._sync_status.get(chain_id)
+        if entry is not None:
+            self._sync_status.move_to_end(chain_id)
+            return entry
+        while len(self._sync_status) >= _MAX_TRACKED_CHAINS:
+            evicted = False
+            for cid in list(self._sync_status.keys()):
+                if len(self._sync_status) < _MAX_TRACKED_CHAINS:
+                    break
+                if not self._sync_status[cid].is_syncing:
+                    del self._sync_status[cid]
+                    evicted = True
+            if not evicted:
+                break
+        entry = OfferSyncStatusEntry(
+            chain_id=chain_id,
+            last_sync="",
+            offer_count=0,
+            stale_count=0,
+            is_syncing=False,
+            error_count=0,
+        )
+        self._sync_status[chain_id] = entry
+        return entry
 
     def _apply_filters(self, offers: list[SyncedOffer], request: OfferDiscoveryRequest) -> list[SyncedOffer]:
         """Apply discovery request filters to a list of offers."""
