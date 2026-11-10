@@ -307,6 +307,7 @@ def test_coin_requests_execute_no_credentials_exits_nonzero(runner, monkeypatch)
         recipient="r",
         approved_by="cli",
         audit_log="",
+        expires_at=None,
     )
 
     class _TxSvc:
@@ -340,6 +341,7 @@ def test_coin_requests_execute_uses_faucet_key(runner, monkeypatch):
         recipient="r",
         approved_by="cli",
         audit_log="",
+        expires_at=None,
     )
 
     class _EnvTxSvc(TransactionService):
