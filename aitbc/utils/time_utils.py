@@ -117,16 +117,29 @@ def subtract_duration(dt: datetime, duration: str | timedelta) -> datetime:
     return dt - duration
 
 
+def _as_utc(dt: datetime) -> datetime:
+    """Return ``dt`` as an aware UTC datetime.
+
+    Naive datetimes are interpreted as UTC, matching the module convention
+    used by ``format_iso8601``/``parse_iso8601``/``to_timezone``. This keeps
+    comparison helpers from raising ``TypeError`` on naive inputs (e.g. a
+    ``DateTime`` column loaded from SQLite).
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
 def get_time_until(dt: datetime) -> timedelta:
     """Get time until a future datetime"""
     now = get_utc_now()
-    return dt - now
+    return _as_utc(dt) - now
 
 
 def get_time_since(dt: datetime) -> timedelta:
     """Get time since a past datetime"""
     now = get_utc_now()
-    return now - dt
+    return now - _as_utc(dt)
 
 
 def calculate_deadline(duration: str | timedelta, from_dt: datetime | None = None) -> datetime:
@@ -138,12 +151,12 @@ def calculate_deadline(duration: str | timedelta, from_dt: datetime | None = Non
 
 def is_deadline_passed(deadline: datetime) -> bool:
     """Check if deadline has passed"""
-    return get_utc_now() >= deadline
+    return get_utc_now() >= _as_utc(deadline)
 
 
 def get_deadline_remaining(deadline: datetime) -> float:
     """Get remaining seconds until deadline"""
-    delta = deadline - get_utc_now()
+    delta = _as_utc(deadline) - get_utc_now()
     return max(0, delta.total_seconds())
 
 
@@ -250,17 +263,19 @@ def get_end_of_day(dt: datetime | None = None) -> datetime:
 
 
 def get_start_of_week(dt: datetime | None = None) -> datetime:
-    """Get start of week (Monday) for given datetime"""
+    """Get start of week (Monday 00:00:00) for given datetime"""
     if dt is None:
         dt = get_utc_now()
-    return dt - timedelta(days=dt.weekday())
+    monday = dt - timedelta(days=dt.weekday())
+    return get_start_of_day(monday)
 
 
 def get_end_of_week(dt: datetime | None = None) -> datetime:
-    """Get end of week (Sunday) for given datetime"""
+    """Get end of week (Sunday 23:59:59.999999) for given datetime"""
     if dt is None:
         dt = get_utc_now()
-    return dt + timedelta(days=(6 - dt.weekday()))
+    sunday = dt + timedelta(days=(6 - dt.weekday()))
+    return get_end_of_day(sunday)
 
 
 def get_start_of_month(dt: datetime | None = None) -> datetime:
@@ -281,8 +296,9 @@ def get_end_of_month(dt: datetime | None = None) -> datetime:
 def sleep_until(dt: datetime) -> None:
     """Sleep until a specific datetime"""
     now = get_utc_now()
-    if dt > now:
-        sleep_seconds = (dt - now).total_seconds()
+    target = _as_utc(dt)
+    if target > now:
+        sleep_seconds = (target - now).total_seconds()
         time.sleep(sleep_seconds)
 
 

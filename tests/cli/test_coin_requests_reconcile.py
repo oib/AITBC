@@ -213,3 +213,18 @@ def test_reopening_an_unexecuted_request_is_a_no_op(db, chain) -> None:
 
     with pytest.raises(CLIError, match="already executable"):
         _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
+
+
+def test_created_at_default_is_naive_utc() -> None:
+    """SHARED-MODELS-UTCNOW-1 (#1443): the default must stay naive-UTC (the
+    expiry queries rely on naive string ordering) but must not use the
+    deprecated datetime.utcnow."""
+    default = CoinRequest.created_at.default
+    fn = getattr(default, "arg", default)
+    # SQLAlchemy wraps zero-arg callables in a ctx-accepting shim; unwrap to
+    # the original callable before invoking it directly.
+    fn = getattr(fn, "__wrapped__", fn)
+    assert callable(fn)
+    value = fn()
+    assert value.tzinfo is None
+    assert abs((datetime.now(UTC).replace(tzinfo=None) - value).total_seconds()) < 5

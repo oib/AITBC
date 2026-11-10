@@ -784,6 +784,36 @@ class TestPoolingFunctions:
 
         assert engine == mock_engine
 
+    @patch("aitbc.database.pooling.create_async_engine")
+    def test_create_async_pooled_engine_sqlite_url_conversion(self, mock_create_async_engine, tmp_path):
+        """Plain sqlite URL is rewritten to the aiosqlite dialect."""
+        mock_create_async_engine.return_value = Mock()
+
+        create_async_pooled_engine(f"sqlite:///{tmp_path}/test.db")
+
+        assert mock_create_async_engine.call_args.args[0].startswith("sqlite+aiosqlite:///")
+
+    @patch("aitbc.database.pooling.create_async_engine")
+    def test_create_async_pooled_engine_already_async_sqlite_not_double_prefixed(self, mock_create_async_engine, tmp_path):
+        """SHARED-DB-ASYNCURL-1 (#1447): an already-async URL must pass through
+        unchanged — "sqlite:///" is a substring of "sqlite+aiosqlite:///" and a
+        naive replace produced "sqlite+aiosqlite+aiosqlite:///"."""
+        mock_create_async_engine.return_value = Mock()
+
+        url = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+        create_async_pooled_engine(url)
+
+        assert mock_create_async_engine.call_args.args[0] == url
+
+    @patch("aitbc.database.pooling.create_async_engine")
+    def test_create_async_pooled_engine_already_async_postgres_not_rewritten(self, mock_create_async_engine):
+        mock_create_async_engine.return_value = Mock()
+
+        url = "postgresql+asyncpg://localhost/test"
+        create_async_pooled_engine(url)
+
+        assert mock_create_async_engine.call_args.args[0] == url
+
     @patch("aitbc.database.pooling.async_sessionmaker")
     def test_create_async_pooled_sessionmaker(self, mock_async_sessionmaker):
         """Test create_async_pooled_sessionmaker."""

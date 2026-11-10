@@ -310,3 +310,84 @@ def test_verify_receipt_expected_job_id(sample_payload: dict[str, object]) -> No
     bad = verify_receipt(receipt, trusted_coordinator_key_ids={_key_id(coord_key)}, expected_job_id="job-999")
     assert bad.verified is False
     assert any(r.startswith("job_id_mismatch") for r in bad.policy_reasons)
+
+
+def _live_client(handler, **kwargs) -> CoordinatorReceiptClient:
+    """Client whose _request path runs against a real httpx.Client."""
+    client = CoordinatorReceiptClient("http://coord.test", api_key="k", backoff_seconds=0, **kwargs)
+    client._http = httpx.Client(
+        base_url="http://coord.test",
+        transport=httpx.MockTransport(handler),
+        headers={"X-Api-Key": "k"},
+    )
+    return client
+
+
+def test_request_success_returns_httpx_response() -> None:
+    seen_headers: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_headers.update(request.headers)
+        return httpx.Response(200, json={"ok": True})
+
+    client = _live_client(handler)
+    resp = client._request("GET", "/v1/jobs/j1/receipt")
+    assert resp is not None
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+    assert seen_headers.get("x-api-key") == "k"
+
+
+def test_request_404_allow_returns_none() -> None:
+    client = _live_client(lambda request: httpx.Response(404))
+    assert client._request("GET", "/v1/jobs/j1/receipt", allow_404=True) is None
+
+
+def test_request_404_without_allow_raises() -> None:
+    client = _live_client(lambda request: httpx.Response(404))
+    with pytest.raises(httpx.HTTPStatusError):
+        client._request("GET", "/v1/jobs/j1/receipts")
+
+
+def test_request_retries_5xx_then_succeeds() -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(500 if len(calls) < 2 else 200, json={"ok": True})
+
+    client = _live_client(handler, max_retries=2)
+    resp = client._request("GET", "/x")
+    assert resp is not None and resp.status_code == 200
+    assert len(calls) == 2
+
+
+def test_request_transport_error_retried_then_raised() -> None:
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        raise httpx.ConnectError("boom", request=request)
+
+    client = _live_client(handler, max_retries=1)
+    with pytest.raises(httpx.HTTPError):
+        client._request("GET", "/x")
+    assert len(calls) == 2  # initial + one retry
+
+
+def test_fetch_latest_end_to_end(sample_payload: dict[str, object]) -> None:
+    """SHARED-RECEIPTS-CLIENT-1 (#1432): _client/_request must work against a
+    real httpx transport — previously client.request() AttributeError'd."""
+    receipt = _attested(_sign_receipt(sample_payload, SigningKey.generate()), SigningKey.generate())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/jobs/job-123/receipt"
+        return httpx.Response(200, json=receipt)
+
+    client = _live_client(handler)
+    try:
+        latest = client.fetch_latest("job-123")
+    finally:
+        client.close()
+    assert latest is not None
+    assert latest["receipt_id"] == "rcpt-1"

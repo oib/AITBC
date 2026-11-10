@@ -4,7 +4,7 @@ Moved from hermes_service.storage.schema in v0.5.9 §1
 to provide a shared model for both the Agent Coordinator and CLI.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -39,7 +39,11 @@ class CoinRequest(Base):
     approved_by = Column(String, nullable=True)
     approved_at = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    # Naive-UTC on purpose: agent-coordinator strips tzinfo at write time and
+    # the expiry queries rely on naive string ordering — do not switch to an
+    # aware default. datetime.utcnow() is deprecated; this lambda stores the
+    # identical value without the DeprecationWarning.
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False, index=True)
     signed_transaction = Column(Text, nullable=True)
     transaction_hash = Column(String, nullable=True, index=True)

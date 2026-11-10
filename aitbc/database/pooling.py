@@ -111,9 +111,16 @@ def create_async_pooled_engine(
     Returns:
         Async SQLAlchemy engine with connection pooling
     """
-    # Convert to async URL
-    if "sqlite" in database_url:
+    # Convert to async URL — but only when the URL is not already
+    # dialect-qualified: "sqlite:///" is a substring of
+    # "sqlite+aiosqlite:///" (the "sqlite" tail of "aiosqlite"), so a naive
+    # replace would produce "sqlite+aiosqlite+aiosqlite:///".
+    if "sqlite+aiosqlite" in database_url:
+        async_url = database_url
+    elif "sqlite" in database_url:
         async_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+    elif "postgresql+asyncpg" in database_url:
+        async_url = database_url
     elif "postgresql" in database_url:
         async_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
     else:

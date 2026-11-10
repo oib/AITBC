@@ -7,15 +7,20 @@ import pytest
 
 from aitbc.utils.time_utils import (
     Timer,
+    format_time_ago,
     format_time_in,
+    get_deadline_remaining,
     get_end_of_day,
     get_end_of_month,
     get_end_of_week,
     get_start_of_day,
     get_start_of_month,
     get_start_of_week,
+    get_time_since,
+    get_time_until,
     get_timezone_offset,
     is_business_hours,
+    is_deadline_passed,
     retry_until_deadline,
     sleep_until,
     to_timezone,
@@ -124,6 +129,18 @@ class TestDayAndWeekHelpers:
         end = get_end_of_week(dt)
         assert end.weekday() == 6  # Sunday
 
+    def test_get_start_of_week_normalizes_to_day_boundary(self):
+        # SHARED-TIME-NAIVE-1 (#1438): week helpers must match the day/month
+        # siblings' contract — Monday 00:00:00, not Monday at time-of-day.
+        dt = datetime(2024, 6, 12, 15, 30, 45, 123456, tzinfo=UTC)  # Wednesday
+        start = get_start_of_week(dt)
+        assert start == datetime(2024, 6, 10, 0, 0, 0, 0, tzinfo=UTC)
+
+    def test_get_end_of_week_normalizes_to_day_boundary(self):
+        dt = datetime(2024, 6, 12, 15, 30, 45, tzinfo=UTC)  # Wednesday
+        end = get_end_of_week(dt)
+        assert end == datetime(2024, 6, 16, 23, 59, 59, 999999, tzinfo=UTC)
+
     def test_get_start_of_month(self):
         dt = datetime(2024, 6, 15, tzinfo=UTC)
         start = get_start_of_month(dt)
@@ -162,6 +179,54 @@ class TestTimezoneHelpers:
     def test_is_business_hours_outside_hours(self):
         dt = datetime(2024, 6, 15, 20, 0, 0, tzinfo=UTC)
         assert is_business_hours(dt, start_hour=9, end_hour=17, timezone="UTC") is False
+
+
+class TestNaiveDatetimeTolerance:
+    """SHARED-TIME-NAIVE-1 (#1438): comparison helpers treat naive datetimes
+    as UTC (the module convention) instead of raising TypeError."""
+
+    def test_get_time_until_naive(self):
+        future = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1)
+        delta = get_time_until(future)
+        assert timedelta(minutes=59) < delta <= timedelta(hours=1)
+
+    def test_get_time_since_naive(self):
+        past = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+        delta = get_time_since(past)
+        assert timedelta(hours=1) <= delta < timedelta(hours=1, minutes=1)
+
+    def test_is_deadline_passed_naive(self):
+        assert is_deadline_passed(datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=1)) is True
+        assert is_deadline_passed(datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1)) is False
+
+    def test_get_deadline_remaining_naive(self):
+        deadline = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=30)
+        remaining = get_deadline_remaining(deadline)
+        assert 0 < remaining <= 30
+
+    def test_format_time_ago_naive(self):
+        past = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
+        assert format_time_ago(past) == "2 hours ago"
+
+    def test_format_time_in_naive(self):
+        future = datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=2)
+        assert format_time_in(future).startswith("in ")
+        assert "hour" in format_time_in(future)
+
+    def test_sleep_until_naive_past_returns_immediately(self):
+        # A naive past datetime must not raise; it simply does not sleep.
+        sleep_until(datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=1))
+
+    def test_retry_until_deadline_naive(self):
+        calls = []
+
+        def always_false():
+            calls.append(1)
+            return False
+
+        deadline = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=1)
+        assert retry_until_deadline(always_false, deadline, interval=0) is False
+        assert calls == []
 
 
 class TestExponentialBackoff:

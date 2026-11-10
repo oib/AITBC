@@ -482,3 +482,113 @@ class TestRedirectCredentialStrip:
 
         client = self._client()
         assert isinstance(client.session, _CredentialSafeSession)
+
+
+class TestEmptyBodyResponses:
+    """SHARED-NETWORK-CLIENT-JSON-1 (#1437): a 2xx with an empty body must
+    decode to ``{}`` inside the retry boundary — not crash with a raw
+    JSONDecodeError or be misclassified as a failed write."""
+
+    def test_sync_post_empty_body_returns_empty_dict(self):
+        client = AITBCHTTPClient(base_url="https://api.example.com")
+        mock_resp = MagicMock()
+        mock_resp.content = b""
+        mock_resp.json.side_effect = ValueError("no json")
+        with patch.object(client.session, "post", return_value=mock_resp):
+            result = client.post("/test", json={})
+        assert result == {}
+
+    def test_sync_put_empty_body_returns_empty_dict(self):
+        client = AITBCHTTPClient(base_url="https://api.example.com")
+        mock_resp = MagicMock()
+        mock_resp.content = b""
+        mock_resp.json.side_effect = ValueError("no json")
+        with patch.object(client.session, "put", return_value=mock_resp):
+            result = client.put("/test", json={})
+        assert result == {}
+
+    def test_sync_get_json_empty_body_returns_empty_dict(self):
+        client = AITBCHTTPClient(base_url="https://api.example.com")
+        mock_resp = MagicMock()
+        mock_resp.content = b""
+        mock_resp.json.side_effect = ValueError("no json")
+        with patch.object(client.session, "get", return_value=mock_resp):
+            result = client.get_json("/test")
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_async_get_empty_body_returns_empty_dict(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="https://api.example.com", enable_circuit_breaker=False)
+        mock_resp = MagicMock()
+        mock_resp.content = b""
+        mock_resp.json.side_effect = ValueError("no json")
+        with patch("httpx.AsyncClient.get", return_value=mock_resp):
+            result = await client.get("/test")
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_async_post_empty_body_returns_empty_dict(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="https://api.example.com", enable_circuit_breaker=False)
+        mock_resp = MagicMock()
+        mock_resp.content = b""
+        mock_resp.json.side_effect = ValueError("no json")
+        with patch("httpx.AsyncClient.post", return_value=mock_resp):
+            result = await client.post("/test", json={})
+        assert result == {}
+
+
+class TestAsyncJsonInsideRetryBoundary:
+    """SHARED-NETWORK-CLIENT-JSON-1 (#1437): JSON parsing runs inside
+    ``execute_async`` so a malformed 2xx body gets retry/ambiguity semantics
+    instead of leaking a raw ``json.JSONDecodeError``."""
+
+    @pytest.mark.asyncio
+    async def test_async_get_invalid_json_is_network_error_not_jsondecode(self):
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="https://api.example.com", enable_circuit_breaker=False, max_retries=0)
+        mock_resp = MagicMock()
+        mock_resp.content = b"not json"
+        mock_resp.json.side_effect = ValueError("Expecting value")
+        with patch("httpx.AsyncClient.get", return_value=mock_resp):
+            with pytest.raises(NetworkError):
+                await client.get("/test")
+
+    @pytest.mark.asyncio
+    async def test_async_post_invalid_json_is_ambiguous(self):
+        from aitbc.exceptions import AmbiguousRequestError
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        client = AsyncAITBCHTTPClient(base_url="https://api.example.com", enable_circuit_breaker=False, max_retries=0)
+        mock_resp = MagicMock()
+        mock_resp.content = b"not json"
+        mock_resp.json.side_effect = ValueError("Expecting value")
+        with patch("httpx.AsyncClient.post", return_value=mock_resp):
+            with pytest.raises(AmbiguousRequestError):
+                await client.post("/test", json={})
+
+    @pytest.mark.asyncio
+    async def test_async_get_invalid_json_then_valid_retries(self, monkeypatch):
+        import asyncio as _asyncio
+
+        from aitbc.network import AsyncAITBCHTTPClient
+
+        async def _no_sleep(_secs):
+            return None
+
+        monkeypatch.setattr(_asyncio, "sleep", _no_sleep)
+
+        client = AsyncAITBCHTTPClient(base_url="https://api.example.com", enable_circuit_breaker=False, max_retries=1)
+        bad = MagicMock()
+        bad.content = b"not json"
+        bad.json.side_effect = ValueError("Expecting value")
+        good = MagicMock()
+        good.content = b'{"ok": true}'
+        good.json.return_value = {"ok": True}
+        with patch("httpx.AsyncClient.get", side_effect=[bad, good]):
+            result = await client.get("/test")
+        assert result == {"ok": True}

@@ -186,12 +186,19 @@ def set_nested_value(data: dict[str, Any], *keys: str, value: Any) -> None:
         data: Dictionary to modify
         *keys: Keys to traverse (e.g., "a", "b", "c" for data["a"]["b"]["c"])
         value: Value to set
+
+    Note:
+        An intermediate key holding a non-dict value (str, list, int, ...)
+        is clobbered with ``{}`` — a setter cannot descend into a scalar, and
+        overwriting is less surprising than raising ``TypeError``.
     """
     current = data
     for key in keys[:-1]:
-        if key not in current:
-            current[key] = {}
-        current = current[key]
+        nxt = current.get(key)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            current[key] = nxt
+        current = nxt
     current[keys[-1]] = value
 
 
