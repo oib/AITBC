@@ -259,7 +259,7 @@ DEBUG=false
 LOG_LEVEL=INFO
 
 # API Key Security
-API_KEY_HASH_SECRET=***REDACTED***
+API_KEY_HASH_SECRET=<64-hex-from-openssl-rand-hex-32>
 SECRET_KEY=production-secret-key-change-me-in-production
 BLOCKCHAIN_API_KEY=production-api-key-change-me
 COORDINATOR_API_KEY=admin_prod_key_use_real_value
@@ -307,7 +307,7 @@ DEBUG=false
 LOG_LEVEL=INFO
 
 # API Key Security
-API_KEY_HASH_SECRET=***REDACTED***
+API_KEY_HASH_SECRET=<64-hex-from-openssl-rand-hex-32>
 SECRET_KEY=production-secret-key-change-me-in-production
 BLOCKCHAIN_API_KEY=production-api-key-change-me
 COORDINATOR_API_KEY=admin_prod_key_use_real_value
