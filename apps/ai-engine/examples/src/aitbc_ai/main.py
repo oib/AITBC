@@ -6,7 +6,7 @@ import os
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
 
@@ -194,7 +194,7 @@ async def cancel_job(
 async def list_jobs(
     session: Annotated[AsyncSession, Depends(get_session_dep)],
     client_id: str = "default_client",
-    limit: int = 10,
+    limit: int = Query(10, ge=1, le=200),
     state: str | None = None,
 ):
     """List jobs with filtering."""
