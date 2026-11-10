@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import hmac
 import math
 import os
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import Field, SQLModel, select
@@ -24,6 +26,45 @@ app = FastAPI(title="AITBC AI Service", description="AI job operations service",
 # values and perform no real work. Every response is labelled so a caller
 # cannot mistake the figures for real results (#1477).
 _SIMULATION_NOTICE = "This endpoint is a stub: it returns canned values and performs no real work. Do not rely on the figures."
+
+# Tenant isolation (#1478): client_id is never taken from the request when
+# auth is on — it is derived from the bearer credential. AITBC_AI_CLIENT_KEYS
+# is a comma-separated list of "api_key:client_id" pairs; each key maps to
+# exactly one tenant. AITBC_AI_REQUIRE_AUTH=false restores the legacy
+# unauthenticated dev mode where the client_id query param is honoured.
+security = HTTPBearer(auto_error=False)
+REQUIRE_AUTH = os.getenv("AITBC_AI_REQUIRE_AUTH", "true").lower() == "true"
+
+_CLIENT_KEYS: dict[str, str] = {}
+for _pair in os.getenv("AITBC_AI_CLIENT_KEYS", "").split(","):
+    _key, _sep, _cid = _pair.strip().partition(":")
+    if _sep and _key.strip() and _cid.strip():
+        _CLIENT_KEYS[_key.strip()] = _cid.strip()
+del _pair, _key, _sep, _cid
+
+
+async def get_client_id(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+    client_id: str = "default_client",
+) -> str:
+    """Resolve the tenant for a request.
+
+    With auth enabled the tenant comes only from the credential mapping —
+    a caller-supplied client_id is ignored, which closes the cross-tenant
+    IDOR. With auth disabled (explicit dev opt-out) the query param is
+    honoured as before.
+    """
+    if not REQUIRE_AUTH:
+        return client_id
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authentication credentials")
+    if not _CLIENT_KEYS:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AI service client keys not configured")
+    for key, cid in _CLIENT_KEYS.items():
+        if hmac.compare_digest(credentials.credentials, key):
+            return cid
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid authentication credentials")
+
 
 _TERMINAL_STATES = {JobState.COMPLETED, JobState.FAILED, JobState.CANCELED, JobState.EXPIRED}
 
@@ -101,7 +142,9 @@ class JobResult(SQLModel):
 
 @app.post("/jobs", response_model=JobView, status_code=status.HTTP_201_CREATED)
 async def submit_job(
-    session: Annotated[AsyncSession, Depends(get_session_dep)], req: JobCreate, client_id: str = "default_client"
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    req: JobCreate,
+    client_id: Annotated[str, Depends(get_client_id)],
 ):
     """Submit a job for execution."""
     try:
@@ -138,7 +181,11 @@ async def submit_job(
 
 
 @app.get("/jobs/{job_id}", response_model=JobView)
-async def get_job(session: Annotated[AsyncSession, Depends(get_session_dep)], job_id: str, client_id: str = "default_client"):
+async def get_job(
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    job_id: str,
+    client_id: Annotated[str, Depends(get_client_id)],
+):
     """Get job status."""
     try:
         result = await session.execute(select(Job).where(Job.id == job_id, Job.client_id == client_id))
@@ -169,7 +216,9 @@ async def get_job(session: Annotated[AsyncSession, Depends(get_session_dep)], jo
 
 @app.get("/jobs/{job_id}/result", response_model=JobResult)
 async def get_job_result(
-    session: Annotated[AsyncSession, Depends(get_session_dep)], job_id: str, client_id: str = "default_client"
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    job_id: str,
+    client_id: Annotated[str, Depends(get_client_id)],
 ):
     """Get job result."""
     try:
@@ -192,7 +241,9 @@ async def get_job_result(
 
 @app.post("/jobs/{job_id}/cancel", response_model=JobView)
 async def cancel_job(
-    session: Annotated[AsyncSession, Depends(get_session_dep)], job_id: str, client_id: str = "default_client"
+    session: Annotated[AsyncSession, Depends(get_session_dep)],
+    job_id: str,
+    client_id: Annotated[str, Depends(get_client_id)],
 ):
     """Cancel a job."""
     try:
@@ -231,7 +282,7 @@ async def cancel_job(
 @app.get("/jobs")
 async def list_jobs(
     session: Annotated[AsyncSession, Depends(get_session_dep)],
-    client_id: str = "default_client",
+    client_id: Annotated[str, Depends(get_client_id)],
     limit: int = Query(10, ge=1, le=200),
     state: str | None = None,
 ):

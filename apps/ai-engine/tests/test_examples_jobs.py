@@ -7,6 +7,10 @@ numerics / unbounded limit) and #1477 (fabricated stub success).
 AI_SERVICE_DATABASE_URL must be set before aitbc_ai.storage is imported;
 it is read into a module constant at import time. A per-run temp file keeps
 :memory: connection-pool pitfalls out of the suite.
+
+AITBC_AI_CLIENT_KEYS likewise must be set before aitbc_ai.main is imported —
+the credential->tenant map is read into module constants at import time
+(#1478).
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ import pytest
 
 _DB_DIR = Path(tempfile.mkdtemp(prefix="aitbc_ai_test_"))
 os.environ.setdefault("AI_SERVICE_DATABASE_URL", f"sqlite+aiosqlite:///{_DB_DIR / 'ai_test.db'}")
+os.environ["AITBC_AI_CLIENT_KEYS"] = "test-key-a:tenant-a,test-key-b:tenant-b"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "src"))
 
 from sqlmodel import SQLModel  # noqa: E402
@@ -38,7 +43,7 @@ async def client():
         await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(transport=transport, base_url="http://test", headers={"Authorization": "Bearer test-key-a"}) as c:
         yield c
 
 
@@ -122,3 +127,36 @@ async def test_naive_expires_at_treated_as_utc(client) -> None:
     job = await _submit(client, expires_at=naive_past)
     got = await client.get(f"/jobs/{job['id']}")
     assert got.json()["state"] == "expired"
+
+
+@pytest.mark.asyncio
+async def test_jobs_endpoints_require_auth(client) -> None:
+    """#1478: /jobs routes are bearer-gated; health and stubs stay public."""
+    assert (await client.get("/jobs", headers={"Authorization": ""})).status_code in (401, 403)
+    no_auth = await client.get("/jobs", headers={"Authorization": "Bearer wrong-key"})
+    assert no_auth.status_code == 403
+    assert (await client.get("/health")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_client_id_is_server_derived(client) -> None:
+    """#1478: the tenant comes from the credential, not the query param —
+    tenant-a's job is invisible to tenant-b even when client_id is spoofed."""
+    job = await _submit(client)
+    assert job["client_id"] == "tenant-a"
+
+    # Spoofing the query param does not escape the credential's tenant.
+    spoof = await client.get(f"/jobs/{job['id']}?client_id=tenant-b")
+    assert spoof.status_code == 200
+    assert spoof.json()["client_id"] == "tenant-a"
+
+    # A different credential sees a different tenant: the job is not found.
+    from httpx import ASGITransport, AsyncClient
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport, base_url="http://test", headers={"Authorization": "Bearer test-key-b"}
+    ) as other:
+        assert (await other.get(f"/jobs/{job['id']}")).status_code == 404
+        listing = await other.get("/jobs")
+        assert listing.json()["jobs"] == []
