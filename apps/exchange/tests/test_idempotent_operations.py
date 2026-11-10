@@ -101,7 +101,7 @@ class TestMarketOfferIdempotency:
         )
         conn.execute(
             "CREATE TABLE marketplace_orders (id TEXT PRIMARY KEY, order_type TEXT, item TEXT, price TEXT,"
-            " wallet TEXT, status TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+            " wallet TEXT, status TEXT, offer_id TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
         )
         conn.execute(
             "INSERT INTO marketplace_offers (id, item, item_type, price, wallet, status) VALUES ('of-1', 'gpu', 'hw', '5', '0xw', 'active')"
