@@ -144,6 +144,67 @@ async def test_software_services_list_is_bounded(capped):
         assert len(services) <= CAP, f"unbounded select returned {len(services)} services, cap is {CAP}"
 
 
+async def test_edge_advertise_is_bounded(capped):
+    """GET /v1/market/edge-advertise must not return more than the page ceiling (#1507)."""
+    from fastapi.testclient import TestClient
+
+    from market_service.domain.market import EdgeNodeAdvertisement
+    from market_service.main import app
+
+    u = _uid()
+    async with get_session_context() as session:
+        for i in range(SEEDED):
+            session.add(EdgeNodeAdvertisement(node_id=f"edge_pin_{u}_{i}", endpoint="http://edge.test", status="active"))
+        await session.commit()
+    with TestClient(app) as client:
+        body = client.get("/v1/market/edge-advertise").json()
+        assert len(body["nodes"]) <= CAP, f"no-LIMIT select returned {len(body['nodes'])} nodes, cap is {CAP}"
+
+
+async def test_service_ratings_limit_is_server_capped(capped):
+    """?limit= on the ratings endpoints must clamp to the page ceiling (#1543)."""
+    from market_service.domain.market import ServiceRating
+
+    u = _uid()
+    async with get_session_context() as session:
+        for i in range(SEEDED):
+            session.add(ServiceRating(service_id=f"svc_pin_{u}", rating=4.0, reviewer_id=f"rev_{i}"))
+        await session.commit()
+        svc = MarketService(session)
+        ratings = await svc.get_service_ratings(f"svc_pin_{u}", limit=10**8)
+        assert len(ratings) <= CAP, f"caller limit honoured unchecked: {len(ratings)} ratings, cap {CAP}"
+        # A negative limit must not become SQLite "unlimited" either.
+        ratings = await svc.get_service_ratings(f"svc_pin_{u}", limit=-1)
+        assert len(ratings) <= CAP, f"negative limit unbounded: {len(ratings)} ratings, cap {CAP}"
+        unsynced = await svc.get_unsynced_ratings(limit=10**8)
+        assert len(unsynced) <= CAP, f"unsynced caller limit unchecked: {len(unsynced)}, cap {CAP}"
+
+
+async def test_query_graph_is_bounded(capped):
+    """GET /v1/knowledge-graph/{id} must cap nodes and edges at the ceiling (#1543)."""
+    from market_service.domain.market import GraphEdge, GraphNode
+
+    u = _uid()
+    gid = f"graph_pin_{u}"
+    async with get_session_context() as session:
+        for i in range(SEEDED):
+            session.add(GraphNode(graph_id=gid, node_type="entity", label=f"n{i}", properties={}))
+            session.add(
+                GraphEdge(
+                    graph_id=gid,
+                    source_node_id=f"s{i}",
+                    target_node_id=f"t{i}",
+                    edge_type="relates_to",
+                    properties={},
+                )
+            )
+        await session.commit()
+        svc = MarketService(session)
+        result = await svc.query_graph(gid)
+        assert len(result["nodes"]) <= CAP, f"unbounded node select: {len(result['nodes'])}, cap {CAP}"
+        assert len(result["edges"]) <= CAP, f"unbounded edge select: {len(result['edges'])}, cap {CAP}"
+
+
 async def test_health_check_does_not_materialise_pin_body(capped):
     """pin/ls must be counted as a bounded stream, never read via .text whole."""
     async with get_session_context() as session:
