@@ -176,6 +176,28 @@ async def test_simple_broadcast_channel_and_subscriber_caps(monkeypatch: pytest.
 
 
 @pytest.mark.asyncio
+async def test_simple_broadcast_total_subscriber_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1537: ``_MAX_TOTAL_SUBSCRIBERS`` bounds subscribers summed across ALL
+    channels — the per-channel and registry caps alone let N invented
+    channels each hold a full subscriber list. Mutation check: deleting or
+    weakening (``>=`` -> ``>``) the total check survived the suite until
+    this pin."""
+    from aitbc_chain.gossip.relay import BroadcastCapacityError, SimpleBroadcast
+
+    bc = SimpleBroadcast()
+    monkeypatch.setattr(SimpleBroadcast, "_MAX_TOTAL_SUBSCRIBERS", 3)
+    monkeypatch.setattr(SimpleBroadcast, "_MAX_SUBSCRIBERS_PER_CHANNEL", 10)
+    monkeypatch.setattr(SimpleBroadcast, "_MAX_CHANNELS", 10)
+    await bc.subscribe("transactions")
+    await bc.subscribe("status")
+    await bc.subscribe("mempool")
+    # Registry and per-channel caps are nowhere near their limits — only the
+    # fleet-wide total refuses the fourth subscriber.
+    with pytest.raises(BroadcastCapacityError):
+        await bc.subscribe("blocks")
+
+
+@pytest.mark.asyncio
 async def test_simple_broadcast_reaps_empty_channel() -> None:
     """#1538: a channel key is dropped when its last subscriber leaves —
     previously every invented subtopic stayed in _subscribers forever."""
