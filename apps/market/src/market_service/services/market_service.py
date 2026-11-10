@@ -1507,7 +1507,19 @@ class MarketService:
                 if self._canonical_address(str(pending.buyer)) == canonical_buyer:
                     logger.info("Replaying existing pending bid %s for offer %s buyer %s", pending.id, offer_id, buyer)
                     return pending
-            price = Decimal(str(booking_data.get("price", offer.price or 0)))
+            # Same bounds as the job payment path (#1634): an unbounded or
+            # negative price is worse here — complete_bid only enforces
+            # tx_value >= ait_to_units(bid.price) when that value is positive,
+            # so a negative/NaN price skips the on-chain minimum entirely and
+            # a "completed" bid settles for dust.
+            try:
+                price = Decimal(str(booking_data.get("price", offer.price or 0)))
+            except Exception as e:
+                raise ValueError("bid price must be a valid number") from e
+            if not price.is_finite() or price < 0:
+                raise ValueError("bid price must be a finite non-negative number")
+            if price > MAX_PAYMENT_AMOUNT:
+                raise ValueError(f"bid price must not exceed {MAX_PAYMENT_AMOUNT}")
             capacity = float(booking_data.get("duration_hours", 1.0))
             bid = Bid(
                 offer_id=offer_id,
