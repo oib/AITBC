@@ -20,13 +20,6 @@ from ..gossip import (
     gossip_broker,
 )
 from ..gossip._internal import _message_id, _peer_name, bounded_topic_label
-from ..gossip.telemetry import (
-    gossip_event,
-    gossip_ws_echo_forward_failed_total,
-    gossip_ws_echo_forward_total,
-    gossip_ws_rx_publish_total,
-    gossip_ws_subscriber_queue_depth,
-)
 from ..gossip.gossip_auth import (
     channel_scope,
     create_challenge,
@@ -36,12 +29,18 @@ from ..gossip.gossip_auth import (
     is_validator,
     verify_challenge,
 )
+from ..gossip.telemetry import (
+    gossip_event,
+    gossip_ws_echo_forward_failed_total,
+    gossip_ws_echo_forward_total,
+    gossip_ws_rx_publish_total,
+    gossip_ws_subscriber_queue_depth,
+)
 from ..lease_tracker import lease_tracker
 from ..logger import get_logger
-from . import peer_keys
-from .escrow_routes import rpc_peer_key_accepted
 from ..metrics import (
     gossip_auth_accepted_total,
+    gossip_auth_membership_unconfigured_total,
     gossip_auth_rejected_total,
     gossip_authenticated_connections,
     gossip_messages_published_total,
@@ -52,6 +51,8 @@ from ..metrics import (
     gossip_ws_rejected_total,
     metrics_registry,
 )
+from . import peer_keys
+from .escrow_routes import rpc_peer_key_accepted
 
 router = APIRouter(prefix="", tags=["ws"])
 logger = get_logger(__name__)
@@ -375,6 +376,27 @@ def _note_rejection(chain_id: str | None, topic: str, reason: str) -> None:
     gossip_ws_rejected_total.labels(chain=_chain_label(chain_id), topic_class=gossip_topic_class(topic), reason=reason).inc()
 
 
+def _membership_refused(chain_id: str, topic: str) -> bool:
+    """#1259 (D2 option P) per-chain validator-membership guard.
+
+    The validator set is process-global, so a connectable chain other than the
+    default ``chain_id`` would be authenticated against the DEFAULT chain's
+    set. Counted whenever gossip auth is on; refused only with
+    ``gossip_auth_require_chain_membership`` and no shared-validators opt-in.
+    Single-chain hosts and the default chain never hit this.
+    """
+    if not settings.gossip_auth_enabled:
+        return False
+    if chain_id == settings.chain_id or chain_id in settings.gossip_shared_validator_chain_ids():
+        return False
+    gossip_auth_membership_unconfigured_total.labels(chain=_chain_label(chain_id)).inc()
+    if not settings.gossip_auth_require_chain_membership:
+        return False
+    logger.warning("Gossip websocket rejected: no validator membership configured for chain %s", chain_id)
+    _note_rejection(chain_id, topic, "chain_membership_unconfigured")
+    return True
+
+
 def _auth_rejected(reason: str, chain_id: str, topic: str) -> None:
     """Existing per-reason auth counter plus the per-chain ``auth`` series."""
     gossip_auth_rejected_total.labels(reason=reason).inc()
@@ -451,6 +473,9 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     if _topic_targets_other_chain(topic, chain_id):
         logger.warning("Gossip websocket rejected cross-chain topic %s on chain %s", topic, chain_id)
         _note_rejection(chain_id, topic, "cross_chain_topic")
+        await _gossip_ws_close(websocket, code=1008)
+        return
+    if _membership_refused(chain_id, topic):
         await _gossip_ws_close(websocket, code=1008)
         return
     broker = _broker_for_chain(chain_id)

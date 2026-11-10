@@ -226,6 +226,7 @@ def test_reject_reason_label_set_is_closed() -> None:
         "rate",
         "rate_total",
         "auth",
+        "chain_membership_unconfigured",
     }
 
 
