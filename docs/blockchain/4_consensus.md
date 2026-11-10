@@ -174,6 +174,39 @@ CONSENSUS_ROUND_TIMEOUT_SECONDS=10
 - **Multi-validator (this deployment)**: `multi_validator_consensus_enabled=true` with a `VALIDATOR_SET` configured identically on every node. `MultiValidatorPoA` selects proposers round-robin per height and round, and requires `multi_validator_min_attestations` validator attestations on each block. The engine is regression-tested and covered by a 1000-round soak test.
 - **PBFT**: `pbft_consensus_enabled=true` runs full pre-prepare / prepare / commit phases before commit. Implemented and tested; **disabled on the live fleet** (`PBFT_CONSENSUS_ENABLED=false`).
 
+## Consensus Flag Matrix and Dormant Paths
+
+Field names in `apps/blockchain-node/src/aitbc_chain/config.py`; the env name is the field name upper-cased (no prefix). Defaults are what a fresh deploy runs. Everything marked **off/unset** is dormant code: it ships on `main` but does nothing until an operator arms it, and arming a consensus-affecting flag is a fleet-wide, one-validator-at-a-time operation (see [Validator Operations](./5_validator.md)).
+
+| Area | Field | Default | Notes |
+|---|---|---|---|
+| Vote journal | `vote_journal_enabled` | off | Durable per-height vote journal; master for the rows below. |
+| Unavailability certificate (UC, #1281) | `vote_journal_justification_enabled` | off | Effective only together with `vote_journal_enabled`. |
+| Proposer abandon (#1301) | `vote_journal_abandon_enabled` | off | Effective only together with `vote_journal_enabled`; abandon statements are signed under their own domain. |
+| Sealed-rival pull | `vote_journal_sealed_rival_pull` | off | Pull a sealed rival block on contention. |
+| Same-hash retry (#1298) | `proposer_same_hash_retry_enabled` | off | Independent of the journal. |
+| Round lock (#1242) | `attestation_round_lock_enabled` | off | Re-keys the attestation lock to (height, round). |
+| Height lock | `attestation_lock_enabled` | **on** | Legacy height-only lock; already active. |
+| Chain-state slashing | `consensus_chain_slashing_enabled` | off | Local equivocation detection stays advisory while off. |
+| Mempool reservation (#1300) | `mempool_reservation_enabled` | off | `peek_reserve` drain instead of delete-on-read; database mempool backend only. |
+| State transition v24 (#1314) | `state_transition_v24_height` | unset | Height-gated; fleet-wide pin when armed. |
+| Empty-state-root refusal (#1325) | `sync_require_state_root_height` | unset | From height H a block with an empty `state_root` is refused on import. `sync_state_root_validation_enabled` is already **on**. |
+| Domain separation (#1298) | `consensus_domain_separation_height`, `consensus_legacy_attestation_until_height` | unset | H is a hard cutover to the `aitbc-consensus-v1:*` domains; attestations alone may dual-accept in [H, S). |
+| Seal republish | `seal_republish_enabled` | off | Republish an unconfirmed seal. |
+
+Defaults that are not off and not unset, i.e. already live: `attestation_lock_enabled`, `sync_state_root_validation_enabled`, `consensus_enforce_proposer_schedule`, `consensus_require_signed_attest_request`, `proposal_freshness_check_enabled`, `sync_fork_undo_enabled`, `multi_validator_min_attestations` = 2.
+
+### Dormant-path guarantees (and their limits)
+
+- With a flag off, the wiring is pinned by tests rather than assumed: `tests/test_mempool_reservation_off_1300.py` (OFF reservation leaves the marker table empty and moves no counters) and `tests/consensus/test_abandon_off_wiring_1301.py` (OFF abandon starts no listener, subscribes to no `consensus.abandon.*` topic, publishes nothing). Each has an armed control on the same harness.
+- `handle_abandon` has no internal flag gate: OFF safety is that the listener is never started. Do not call it from new code paths without checking `abandon_enabled()`.
+- Disarming `mempool_reservation_enabled` does not clear markers written while armed. They stay live until released or their TTL (`mempool_reservation_ttl_seconds`, default 120 s) lapses, and until then shield the pool-side deleters; the OFF `drain()` ignores them.
+- Arming UC (`vote_journal_enabled` + `vote_journal_justification_enabled`) together on a healthy sandbox mesh stalled the first post-arm height on both test meshes (#1301). UC stays off in production until #1306 / #1311 land and the criteria in #1301 are ratified.
+
+### Evidence pointers
+
+Sandbox evidence for these paths is indexed on Gitea issue #1301 (evidence-pack index, comment 27500), with the flag-matrix source review in comment 25600, the driver11 replication on a second mesh in comment 27374, and the OFF-wiring tests under #1300 / #1301. The authoritative list of sandboxes and their rules is the AITBC workspace guide (`AGENTS/sandbox.md` in the operator checkout, not in this repository).
+
 ## Implementation
 
 The consensus is implemented in:
