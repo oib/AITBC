@@ -664,3 +664,64 @@ class TestPortFix:
 
         assert ":8202/" in posted["url"], posted
         assert "8006" not in posted["url"]
+
+
+# ---------------------------------------------------------------------------
+# #1512: discover_agents limit clamp
+# ---------------------------------------------------------------------------
+
+
+class TestDiscoverAgentsLimitClamp:
+    """``discover_agents`` takes its query dict verbatim from the untrusted
+    ``POST /agents/discover`` body. Before #1512 an absent ``limit`` returned
+    the whole registry, a non-int crashed into the broad ``except`` and
+    silently emptied the result, and nothing capped the size. The clamp is
+    now: absent/unparseable -> 100, then bounded to [1, 500].
+    """
+
+    def _registry_with(self, count: int) -> AgentRegistry:
+        registry = AgentRegistry(redis_url="redis://localhost:6379/15")
+        for i in range(count):
+            info = create_agent_info(
+                agent_id=f"agent-{i:04d}",
+                agent_type="worker",
+                capabilities=["data_processing"],
+                services=["process_data"],
+                endpoints={"http": f"http://localhost:{9000 + i}"},
+            )
+            registry.agents[info.agent_id] = info
+        return registry
+
+    @pytest.mark.asyncio
+    async def test_absent_limit_defaults_to_100(self):
+        registry = self._registry_with(150)
+        assert len(await registry.discover_agents({})) == 100
+
+    @pytest.mark.asyncio
+    async def test_null_limit_defaults_to_100(self):
+        registry = self._registry_with(150)
+        assert len(await registry.discover_agents({"limit": None})) == 100
+
+    @pytest.mark.asyncio
+    async def test_non_int_limit_defaults_instead_of_emptying(self):
+        """The pre-#1512 crash path: ``results[:"abc"]`` raised TypeError into
+        the broad except and returned []. Now it falls back to the default."""
+        registry = self._registry_with(150)
+        assert len(await registry.discover_agents({"limit": "abc"})) == 100
+
+    @pytest.mark.asyncio
+    async def test_huge_limit_clamps_to_500(self):
+        registry = self._registry_with(600)
+        assert len(await registry.discover_agents({"limit": 10**9})) == 500
+
+    @pytest.mark.asyncio
+    async def test_zero_and_negative_clamp_to_one(self):
+        registry = self._registry_with(5)
+        assert len(await registry.discover_agents({"limit": 0})) == 1
+        assert len(await registry.discover_agents({"limit": -3})) == 1
+
+    @pytest.mark.asyncio
+    async def test_in_range_limit_returned_verbatim(self):
+        registry = self._registry_with(5)
+        assert len(await registry.discover_agents({"limit": 3})) == 3
+        assert len(await registry.discover_agents({"limit": "2"})) == 2
