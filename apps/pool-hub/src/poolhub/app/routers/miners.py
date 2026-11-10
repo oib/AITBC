@@ -76,13 +76,19 @@ class MinerRegisterRequest(BaseModel):
         return v
 
 
+MAX_HEARTBEAT_COUNT = 10_000_000  # jobs / MB: far above any real value, finite
+MAX_HEARTBEAT_LATENCY_MS = 600_000.0  # 10 minutes
+
+
 class MinerHeartbeatRequest(BaseModel):
     status: str = "active"
-    current_jobs: int = 0
-    gpu_utilization: int = 0
-    memory_used: int = 0
-    memory_total: int = 0
-    network_latency_ms: float = 0.0
+    # #1399: miner-reported numerics feed match scoring and SLA metrics, so a
+    # negative or absurd value must be rejected at the edge (422).
+    current_jobs: int = Field(default=0, ge=0, le=MAX_HEARTBEAT_COUNT)
+    gpu_utilization: int = Field(default=0, ge=0, le=100)
+    memory_used: int = Field(default=0, ge=0, le=MAX_HEARTBEAT_COUNT)
+    memory_total: int = Field(default=0, ge=0, le=MAX_HEARTBEAT_COUNT)
+    network_latency_ms: float = Field(default=0.0, ge=0.0, le=MAX_HEARTBEAT_LATENCY_MS, allow_inf_nan=False)
 
 
 @router.post("/register")
@@ -148,7 +154,7 @@ async def miner_heartbeat(
         queue_len=data.current_jobs,
         busy=data.status != "active" or data.current_jobs > 0,
         avg_latency_ms=int(data.network_latency_ms),
-        mem_free_gb=(data.memory_total - data.memory_used) / 1024 if data.memory_total else None,
+        mem_free_gb=max(data.memory_total - data.memory_used, 0) / 1024 if data.memory_total else None,
     )
     return {"success": True, "miner_id": miner.miner_id}
 

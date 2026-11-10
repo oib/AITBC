@@ -88,6 +88,14 @@ class MinerRepository:
         temp_c: int | None = None,
         mem_free_gb: float | None = None,
     ) -> None:
+        # #1399: defense in depth behind the schema bounds — a negative load,
+        # latency or free-memory value must never reach MinerStatus.
+        if queue_len is not None:
+            queue_len = max(queue_len, 0)
+        if avg_latency_ms is not None:
+            avg_latency_ms = max(avg_latency_ms, 0)
+        if mem_free_gb is not None:
+            mem_free_gb = max(mem_free_gb, 0.0)
         stmt = (
             update(MinerStatus)
             .where(MinerStatus.miner_id == miner_id)
@@ -216,7 +224,7 @@ class MinerRepository:
     def _compute_score(self, miner: Miner, status: MinerStatus | None) -> float:
         load_factor = 1.0
         if status and miner.max_parallel:
-            utilization = min(status.queue_len / max(miner.max_parallel, 1), 1.0)
+            utilization = min(max(status.queue_len / max(miner.max_parallel, 1), 0.0), 1.0)
             load_factor = 1.0 - utilization
         price_factor = 1.0 if miner.base_price <= 0 else min(1.0, 1.0 / float(miner.base_price))
         trust_factor = max(miner.trust_score, 0.0)
