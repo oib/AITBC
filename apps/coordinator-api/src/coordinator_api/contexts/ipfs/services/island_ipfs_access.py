@@ -47,13 +47,24 @@ def _chain_db_path(chain_id: str) -> Path:
     return path
 
 
+def _connect_chain_db(db_path: Path) -> sqlite3.Connection:
+    """Open chain.db read-only with a sane lock-wait budget.
+
+    chain.db is owned by aitbc_chain.database (busy_timeout=60000, WAL); these
+    read paths used sqlite's 5 s default in read-write mode.
+    """
+    conn = sqlite3.connect(str(db_path), timeout=30)
+    conn.execute("PRAGMA query_only=ON")
+    return conn
+
+
 def get_current_block_height(chain_id: str) -> int:
     """Return the current chain head height from the chain DB."""
     db_path = _chain_db_path(chain_id)
     if not db_path.exists():
         return 0
     try:
-        with closing(sqlite3.connect(str(db_path))) as conn:
+        with closing(_connect_chain_db(db_path)) as conn:
             row = conn.execute(
                 "SELECT MAX(height) FROM block WHERE chain_id = ?",
                 (chain_id,),
@@ -75,7 +86,7 @@ def get_ipfs_subscription(
         return None
     ait_addr = _to_ait_address(member_address)
     try:
-        with closing(sqlite3.connect(str(db_path))) as conn:
+        with closing(_connect_chain_db(db_path)) as conn:
             row = conn.execute(
                 """
                 SELECT expires_at_block, quota_bytes, used_bytes

@@ -3,14 +3,13 @@
 import json
 from typing import Any
 
-import aiosqlite
 import httpx
 from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
 
-from chain_client import chain_db_path, default_chain_id, get_transaction, rpc_url_for
+from chain_client import chain_db_connect, chain_db_path, default_chain_id, get_transaction, rpc_url_for
 from .common import like_pattern
 from validation import check_page_offset, clamp_page_limit, validate_tx_hash
 
@@ -31,7 +30,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
         db_path = chain_db_path()
 
         if db_path is not None:
-            async with aiosqlite.connect(str(db_path)) as conn:
+            async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
                 # Canonical storage is 0x-prefixed lowercase hex
@@ -103,7 +102,7 @@ async def api_search_transactions(
         db_path = chain_db_path()
 
         if db_path is not None:
-            async with aiosqlite.connect(str(db_path)) as conn:
+            async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
                 # Search for transactions where sender, recipient, or payload contains the address
