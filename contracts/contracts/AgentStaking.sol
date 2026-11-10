@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "./PerformanceVerifier.sol";
 import "./AIToken.sol";
@@ -15,7 +16,7 @@ import "./AIToken.sol";
  * @dev Reputation-based yield farming for AI agents with dynamic APY calculation
  * @notice Allows users to stake AITBC tokens on agent wallets and earn rewards based on agent performance
  */
-contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
+contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
 
     // State variables
     IERC20 public paymentToken;
@@ -308,7 +309,9 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    constructor(address _paymentToken, address _performanceVerifier) {
+    constructor(address _paymentToken, address _performanceVerifier)
+        EIP712("AgentStaking", "1")
+    {
         paymentToken = IERC20(_paymentToken);
         performanceVerifier = PerformanceVerifier(_performanceVerifier);
 
@@ -1314,8 +1317,24 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         emit OracleRemoved(_oracle);
     }
 
+    // EIP-712 domain for oracle performance signatures (#1472). The previous
+    // scheme hashed the raw fields under an "Ethereum Signed Message" prefix
+    // with no chainid and no verifyingContract, so a captured signature
+    // replayed on any other AgentStaking deployment on the same chain (and on
+    // other chains) whenever the local nonce matched.
+    bytes32 private constant PERFORMANCE_UPDATE_TYPEHASH = keccak256(
+        "PerformanceUpdate(address agentWallet,uint256 accuracy,bool successful,uint256 timestamp,uint256 nonce)"
+    );
+
     /**
-     * @dev Update agent performance with oracle signature verification
+     * @dev Update agent performance with oracle signature verification.
+     *
+     * The oracle signs an EIP-712 PerformanceUpdate struct, which binds the
+     * payload to this chain (chainid) and this deployment (verifyingContract)
+     * via the domain separator. Replay within the contract is prevented by the
+     * per-oracle nonce sequence (oracleNonces), and the same
+     * performanceUpdateDelay throttle as updateAgentPerformance applies so an
+     * authorized oracle cannot submit unlimited updates per block.
      * @param _agentWallet Agent wallet address
      * @param _accuracy Accuracy score
      * @param _successful Whether submission was successful
@@ -1330,18 +1349,34 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable {
         uint256 _timestamp,
         uint256 _nonce,
         bytes memory _signature
-    ) external onlyAuthorizedOracle {
+    ) external
+        supportedAgent(_agentWallet)
+        onlyAuthorizedOracle
+    {
         require(block.timestamp <= _timestamp + 1 hours, "Signature expired");
+        require(_timestamp <= block.timestamp, "Signature timestamp in future");
         require(oracleNonces[msg.sender] == _nonce, "Invalid nonce");
+        require(
+            block.timestamp >= lastPerformanceUpdateTime[_agentWallet] + performanceUpdateDelay,
+            "Update too frequent"
+        );
 
-        // Verify signature using ECDSA library
-        bytes32 messageHash = keccak256(abi.encodePacked(_agentWallet, _accuracy, _successful, _timestamp, _nonce));
-        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-        address signer = ECDSA.recover(ethSignedMessageHash, _signature);
+        // EIP-712 digest: domain separator carries chainid + address(this).
+        bytes32 structHash = keccak256(abi.encode(
+            PERFORMANCE_UPDATE_TYPEHASH,
+            _agentWallet,
+            _accuracy,
+            _successful,
+            _timestamp,
+            _nonce
+        ));
+        address signer = ECDSA.recover(_hashTypedDataV4(structHash), _signature);
         require(signer == msg.sender, "Invalid signature");
 
-        // Update nonce
+        // Update nonce and rate-limit timestamp only after the signature is
+        // verified, so a failed call does not consume the oracle's nonce.
         oracleNonces[msg.sender]++;
+        lastPerformanceUpdateTime[_agentWallet] = block.timestamp;
 
         // Update reputation
         updateOracleReputation(msg.sender, true);
