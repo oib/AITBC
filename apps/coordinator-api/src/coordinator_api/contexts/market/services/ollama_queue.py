@@ -21,6 +21,13 @@ from coordinator_api.config import settings
 QUEUE_KEY = "aitbc:ollama:queue"
 RESULT_KEY_PREFIX = "aitbc:ollama:result:"
 RESULT_TTL_SECONDS = 3600
+# Bound on the pending-task list (#1532). Producers LPUSH at the head and the
+# worker BRPOPs from the tail, so the tail holds the oldest tasks. When the
+# worker is down (or slower than producers) the list would otherwise grow
+# without limit. Drop-oldest via LTRIM — the same policy as the pool-hub
+# match-requests bound (cb16ac741): newest work is kept, stale queued
+# inference is sacrificed first. 10k matches that precedent.
+QUEUE_MAX_LENGTH = 10_000
 
 
 # Shared client: one connection pool per process. ``get_queue()`` runs per
@@ -82,6 +89,9 @@ class OllamaQueue:
             "queued_at": datetime.now(UTC).isoformat(),
         }
         await self.redis.lpush(QUEUE_KEY, json.dumps(task))
+        # lpush prepends at the head; indices 0..QUEUE_MAX_LENGTH-1 are the
+        # newest entries, everything older falls off the tail.
+        await self.redis.ltrim(QUEUE_KEY, 0, QUEUE_MAX_LENGTH - 1)
         return task_id
 
     async def dequeue(self, timeout: float = 5.0) -> dict[str, Any] | None:

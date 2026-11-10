@@ -7,6 +7,8 @@ leaked a client (and its connection pool) because nothing closed it.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from coordinator_api.contexts.market.services import ollama_queue
@@ -60,3 +62,56 @@ async def test_aclose_redis_resets_client(made_clients: list[_FakeRedis]) -> Non
         assert len(made_clients) == 2
     finally:
         await aclose_redis()
+
+
+class _ListRedis:
+    """Minimal async Redis list stand-in with real LPUSH/LTRIM/BRPOP semantics."""
+
+    def __init__(self) -> None:
+        self.lists: dict[str, list[str]] = {}
+
+    async def lpush(self, key: str, value: str) -> int:
+        bucket = self.lists.setdefault(key, [])
+        bucket.insert(0, value)
+        return len(bucket)
+
+    async def ltrim(self, key: str, start: int, stop: int) -> bool:
+        bucket = self.lists.get(key)
+        if bucket is None:
+            return True
+        n = len(bucket)
+        lo = max(start + n, 0) if start < 0 else min(start, n)
+        hi = min(stop + n, n - 1) if stop < 0 else min(stop, n - 1)
+        self.lists[key] = bucket[lo : hi + 1] if hi >= lo else []
+        return True
+
+    async def brpop(self, key: str, timeout: float = 0):
+        bucket = self.lists.get(key) or []
+        if not bucket:
+            return None
+        # BRPOP consumes from the tail = oldest entry.
+        return (key, bucket.pop())
+
+
+async def test_enqueue_trims_queue_to_max_length() -> None:
+    """#1532: lpush is followed by LTRIM so a dead worker cannot grow the
+    queue forever; the newest QUEUE_MAX_LENGTH tasks survive, oldest drop."""
+    from coordinator_api.contexts.market.services.ollama_queue import QUEUE_KEY, QUEUE_MAX_LENGTH
+
+    redis = _ListRedis()
+    # Fill beyond the cap, then enqueue one more.
+    for i in range(QUEUE_MAX_LENGTH + 5):
+        await redis.lpush(QUEUE_KEY, json.dumps({"task_id": f"old-{i}", "prompt": "p"}))
+    await redis.ltrim(QUEUE_KEY, 0, QUEUE_MAX_LENGTH - 1)
+
+    q = OllamaQueue(redis)  # type: ignore[arg-type]
+    task_id = await q.enqueue(gpu_id="g1", model="m", prompt="p")
+
+    bucket = redis.lists[QUEUE_KEY]
+    assert len(bucket) == QUEUE_MAX_LENGTH
+    # Newest (just-enqueued) task is at the head; oldest entries dropped.
+    assert json.loads(bucket[0])["task_id"] == task_id
+    # BRPOP still yields the oldest surviving task first (FIFO preserved).
+    oldest = await q.dequeue(timeout=0)
+    assert oldest is not None
+    assert oldest["task_id"] != task_id
