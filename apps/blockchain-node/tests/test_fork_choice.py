@@ -542,3 +542,106 @@ class TestPullPathForkChoice:
         assert _heights(session_factory)[-1] == (5, ours5["hash"])
         assert metrics_registry._counters.get("sync_fork_choice_deferred_total") == 1.0
         assert metrics_registry._counters.get("sync_reorgs_total") is None
+
+
+class TestTieBreakMutationPins1322:
+    """Batch v3 item 18: pin ``(round, hash)`` so mutants of the comparison die.
+
+    Each test targets one mutation of ``_fork_choice_key`` / the ``>=`` in
+    ``_resolve_fork``: swapped comparison, dropped hash tie-break, reversed
+    tuple order, case-sensitive hashing. (``>=`` -> ``>`` is an equivalent
+    mutant: equal keys mean the same hash, answered by the duplicate check.)
+    """
+
+    @staticmethod
+    def _pair(parent_hash: str, ts: datetime, *, ours_lower: bool) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Two same-parent, same-timestamp blocks; ``ours`` has the lower hash iff ``ours_lower``."""
+        a = _mk_block(4, parent_hash, ts, hash_salt="x")
+        b = _mk_block(4, parent_hash, ts, hash_salt="y")
+        low, high = sorted((a, b), key=lambda blk: blk["hash"])
+        return (low, high) if ours_lower else (high, low)
+
+    def _run(self, session_factory, ours: dict[str, Any], rival: dict[str, Any]):
+        _store(session_factory, ours)
+        return _sync(session_factory).import_block(rival, transactions=[])
+
+    def test_same_round_rival_with_lower_hash_displaces_us(self, session_factory):
+        blocks = _seed(session_factory, 4)
+        ours, rival = self._pair(blocks[-1]["hash"], T0 + timedelta(seconds=95), ours_lower=False)
+        result = self._run(session_factory, ours, rival)
+        assert result.accepted is True and result.reorged is True
+        assert _heights(session_factory)[-1] == (4, rival["hash"])
+
+    def test_same_round_rival_with_higher_hash_is_rejected(self, session_factory):
+        blocks = _seed(session_factory, 4)
+        ours, rival = self._pair(blocks[-1]["hash"], T0 + timedelta(seconds=95), ours_lower=True)
+        result = self._run(session_factory, ours, rival)
+        assert result.accepted is False and result.diverged is True
+        assert _heights(session_factory)[-1] == (4, ours["hash"])
+        assert metrics_registry._counters.get("sync_fork_choice_local_wins_total") == 1.0
+
+    def test_identical_hash_is_a_duplicate_not_a_fork(self, session_factory):
+        """Rival re-presenting our own hash never reaches fork choice (the duplicate
+        pre-check answers first), so ``>=`` vs ``>`` on an equal key is an equivalent
+        mutant on this path -- pinned here, not killable."""
+        blocks = _seed(session_factory, 4)
+        ts = T0 + timedelta(seconds=95)
+        ours = _mk_block(4, blocks[-1]["hash"], ts)
+        result = self._run(session_factory, ours, dict(ours))
+        assert result.accepted is False
+        assert _heights(session_factory)[-1] == (4, ours["hash"])
+
+    def test_round_dominates_hash(self, session_factory):
+        """A lower round wins even with the HIGHER hash; reversed tuple order would fail."""
+        blocks = _seed(session_factory, 4)
+        parent = blocks[-1]["hash"]
+        early, late = T0 + timedelta(seconds=95), T0 + timedelta(seconds=160)
+        for salt in range(200):  # find an early block whose hash is higher than the late block's
+            e = _mk_block(4, parent, early, hash_salt=salt)
+            lt = _mk_block(4, parent, late, hash_salt="late")
+            if e["hash"] > lt["hash"]:
+                break
+        else:  # pragma: no cover
+            pytest.fail("no salt produced the needed hash order")
+        result = self._run(session_factory, lt, e)
+        assert result.accepted is True and result.reorged is True
+        assert _heights(session_factory)[-1] == (4, e["hash"])
+
+    def test_winner_is_the_same_from_both_sides(self, session_factory, tmp_path):
+        """Determinism: node X holding A and node Y holding B converge on min(A, B)."""
+        blocks = _seed(session_factory, 4)
+        a, b = self._pair(blocks[-1]["hash"], T0 + timedelta(seconds=95), ours_lower=True)
+        winner = a["hash"]  # lower hash
+        # node X holds the winner, receives the loser: stays
+        r1 = self._run(session_factory, a, b)
+        assert r1.accepted is False and _heights(session_factory)[-1] == (4, winner)
+        # node Y holds the loser, receives the winner: reorgs to it
+        engine = create_engine(f"sqlite:///{tmp_path / 'y.db'}")
+        chain_metadata.create_all(engine)
+
+        @contextmanager
+        def factory_y():
+            with Session(engine) as s:
+                yield s
+
+        _seed(factory_y, 4)
+        _store(factory_y, b)
+        r2 = _sync(factory_y).import_block(a, transactions=[])
+        assert r2.accepted is True and r2.reorged is True
+        assert _heights(factory_y)[-1] == (4, winner)
+        engine.dispose()
+
+    def test_key_is_case_insensitive_on_hash(self):
+        sync = ChainSync(lambda: None, chain_id=CHAIN, validate_signatures=False)
+        ts = T0 + timedelta(seconds=95)
+        lower = sync._fork_choice_key(ts, T0, "0xabcdef")
+        upper = sync._fork_choice_key(ts, T0, "0xABCDEF")
+        assert lower == upper
+
+    def test_key_shape_round_then_hash(self):
+        sync = ChainSync(lambda: None, chain_id=CHAIN, validate_signatures=False)
+        k0 = sync._fork_choice_key(T0 + timedelta(seconds=5), T0, "0xff")
+        k1 = sync._fork_choice_key(T0 + timedelta(seconds=70), T0, "0x01")
+        assert k0[0] == 0 and k1[0] == 1
+        assert k0 < k1  # the round decides before the hash
+        assert sync._fork_choice_key(T0 + timedelta(seconds=5), T0, "0x01") < k0  # equal round: hash decides
