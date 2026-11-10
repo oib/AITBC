@@ -387,6 +387,12 @@ class ChainSettings(BaseSettings):
     # unbounded start/end used to serialize the entire chain plus every
     # transaction envelope in one response. Wider windows paginate.
     blocks_range_max_span: int = 10_000
+    # /rpc/transactions/market/match and /rpc/market/listings scan confirmed
+    # GPU_MARKET rows to derive listings; bound the candidate window to the
+    # newest N rows so cost cannot grow with total market history (#1511).
+    # A cancel/replaces older than the window can no longer hide an in-window
+    # listing — accepted trade-off, the window is generous.
+    market_scan_max_rows: int = 10_000
     sync_validate_signatures: bool = True  # validate proposer signatures on import
     # ISO-8601 timestamp; if in the future, signature validation is temporarily disabled.
     sync_validate_signatures_skip_until: str = ""

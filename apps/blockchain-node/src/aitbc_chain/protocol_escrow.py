@@ -32,6 +32,7 @@ pre-registered credit magic senders safe.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 from eth_utils import keccak
@@ -148,6 +149,71 @@ def protocol_transfers_active(session: Any, chain_id: str) -> bool:
     return get_block_version_for_height(next_height) >= 17
 
 
+# Payload keys are inlined into the SQL text below (a bound path cannot use
+# the expression index, see _JOB_ID_INDEX_EXPRESSIONS in rpc/transactions.py),
+# so only plain identifiers may reach the f-string. Callers pass fixed
+# strings like "stake_id"/"agent_stake_id"/"bounty_id".
+_PAYLOAD_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _payload_text_expr(session: Any, payload_key: str) -> Any | None:
+    """SQL expression for ``str(payload.get(payload_key, ""))`` semantics.
+
+    Returns a ``literal_column`` comparing-ready text expression, or None on
+    dialects/keys where the SQL form is unsafe — callers then keep the
+    Python-side filter over the unfiltered candidate set (the old behaviour).
+
+    ``->>``/``json_extract`` yield SQL NULL for a missing key, while the Python
+    match treats missing as ``""`` — ``coalesce(..., '')`` keeps the two
+    equivalent for the id values callers actually pass. A JSON ``null``
+    payload value reads as SQL NULL too (``""`` here vs ``"None"`` in Python);
+    no caller passes ``"None"``/``""`` as ``payload_value``, so the divergence
+    is unreachable.
+    """
+    if not _PAYLOAD_KEY_RE.fullmatch(payload_key):
+        return None
+    from sqlalchemy import literal_column
+
+    dialect = session.get_bind().dialect.name
+    if dialect == "sqlite":
+        # CAST keeps numeric payload values comparable as text, matching the
+        # Python-side str() comparison.
+        return literal_column(f"""coalesce(CAST(json_extract(payload, '$."{payload_key}"') AS TEXT), '')""")
+    if dialect == "postgresql":
+        return literal_column(f"""coalesce((payload ->> '{payload_key}'), '')""")
+    return None
+
+
+def _confirmed_lock_candidates(
+    session: Any,
+    chain_id: str,
+    tx_type: str,
+    payload_key: str,
+    payload_value: Any,
+) -> list[Any]:
+    """Sealed transactions of ``tx_type`` tagged with the payload key/value.
+
+    The payload predicate is pushed into SQL when the dialect supports the
+    text extraction (#1519) so a lookup does not hydrate every sealed lock of
+    the type; the Python ``str()`` comparison still runs on the (now small)
+    candidate set, keeping semantics identical on every dialect.
+    """
+    from sqlmodel import select
+
+    from .models import Transaction
+
+    stmt = select(Transaction).where(
+        Transaction.chain_id == chain_id,
+        Transaction.type == tx_type,
+        Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+    )
+    expr = _payload_text_expr(session, payload_key)
+    if expr is not None:
+        stmt = stmt.where(expr == str(payload_value))
+    candidates = session.exec(stmt).all()
+    return [tx for tx in candidates if str((tx.payload or {}).get(payload_key, "")) == str(payload_value)]
+
+
 def protocol_transfer_confirmed(
     session: Any,
     chain_id: str,
@@ -169,22 +235,7 @@ def protocol_transfer_confirmed(
     Matching is by payload key rather than a stored hash so that no column has
     to be added to tables the migration chain cannot rebuild.
     """
-    from sqlmodel import select
-
-    from .models import Transaction
-
-    candidates = session.exec(
-        select(Transaction).where(
-            Transaction.chain_id == chain_id,
-            Transaction.type == tx_type,
-            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
-        )
-    ).all()
-    for tx in candidates:
-        payload = tx.payload or {}
-        if str(payload.get(payload_key, "")) == str(payload_value):
-            return True
-    return False
+    return bool(_confirmed_lock_candidates(session, chain_id, tx_type, payload_key, payload_value))
 
 
 def confirmed_lock_txs(
@@ -200,18 +251,7 @@ def confirmed_lock_txs(
     release's ``lock_tx_hashes`` — the v4 consensus check resolves the release
     against these replicated records rather than node-local domain rows.
     """
-    from sqlmodel import select
-
-    from .models import Transaction
-
-    candidates = session.exec(
-        select(Transaction).where(
-            Transaction.chain_id == chain_id,
-            Transaction.type == tx_type,
-            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
-        )
-    ).all()
-    return [tx for tx in candidates if str((tx.payload or {}).get(payload_key, "")) == str(payload_value)]
+    return _confirmed_lock_candidates(session, chain_id, tx_type, payload_key, payload_value)
 
 
 def confirmed_lock_total(

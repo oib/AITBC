@@ -414,6 +414,12 @@ def _table_digest(session: Session, table_name: str, chain_id: str) -> str | Non
     stmt = table.select()
     if "chain_id" in table.c:
         stmt = stmt.where(table.c.chain_id == chain_id)
+    # Bound the read in SQL, not after it: fetching cap+1 rows is enough to
+    # know the table overflows — materializing the whole table first made the
+    # "cap" pay an unbounded read on every flush that touches it (#1513).
+    # Ordering is irrelevant for the overflow check; under the cap every row
+    # is still fetched for the digest.
+    stmt = stmt.limit(_DIGEST_ROW_LIMIT + 1)
     rows = session.connection().execute(stmt).mappings().all()
     if len(rows) > _DIGEST_ROW_LIMIT:
         return None

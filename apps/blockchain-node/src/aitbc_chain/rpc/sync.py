@@ -4,13 +4,14 @@ Sync-related RPC endpoints.
 
 import asyncio
 import json
+import os
 import socket
 from datetime import UTC, datetime
 from ipaddress import ip_address
 from typing import Any, cast
 from urllib.parse import urlparse
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 from sqlalchemy import asc, func, text
 from sqlmodel import Session, delete, select
 
@@ -95,7 +96,7 @@ def _dedupe_import_blocks(blocks: list[dict[str, Any]], chain_id: str) -> list[d
 
 
 @rate_limit(rate=200, per=60)
-def export_chain(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def export_chain(request: Request, chain_id: str | None = None) -> Response:
     """Export full chain state as JSON for manual synchronization"""
     chain_id = get_chain_id(chain_id)
     try:
@@ -187,7 +188,22 @@ def export_chain(request: Request, chain_id: str | None = None) -> dict[str, Any
                     )
                 ],
             }
-            return {"success": True, "export_data": export_data, "export_size_bytes": len(json.dumps(export_data))}
+            # Serialize exactly once and hand FastAPI the finished body: the
+            # old code ran a second full ``json.dumps(export_data)`` just to
+            # measure ``export_size_bytes`` — a duplicate multi-GB
+            # serialization on top of the response's own (RPC-EXPORT-1). The
+            # reported size stays exact; it is now free.
+            export_json = json.dumps(export_data)
+            payload = (
+                '{"success": true, "export_data": '
+                + export_json
+                + ', "export_size_bytes": '
+                + str(len(export_json.encode("utf-8")))
+                + "}"
+            )
+            # Plain Response, not JSONResponse: the payload is already
+            # serialized JSON and JSONResponse would encode it a second time.
+            return Response(content=payload, media_type="application/json")
     except HTTPException:
         raise
     except Exception as e:
@@ -456,7 +472,19 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
         # residual risk: the route requires an admin signature plus X-API-Key.
         # Redirects stay off so a peer cannot bounce the request at an
         # internal target after the URL check above.
-        response = await asyncio.to_thread(requests.get, f"{peer_url}/rpc/export-chain", timeout=30, allow_redirects=False)
+        # export-chain is peer-key authenticated (#1506): send this node's own
+        # RPC key so the peer can accept it via its PEERS list / issued keys.
+        export_headers = {}
+        local_rpc_key = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
+        if local_rpc_key:
+            export_headers["X-API-Key"] = local_rpc_key
+        response = await asyncio.to_thread(
+            requests.get,
+            f"{peer_url}/rpc/export-chain",
+            timeout=30,
+            allow_redirects=False,
+            headers=export_headers or None,
+        )
         if response.status_code != 200:
             raise HTTPException(status_code=400, detail=f"Failed to fetch peer chain: {response.status_code}")
         peer_chain_data = response.json()

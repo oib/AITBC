@@ -4915,6 +4915,11 @@
         "summary": "Export full chain state",
         "description": "Export full chain state as JSON for manual synchronization",
         "operationId": "export_chain_route_rpc_export_chain_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -4939,8 +4944,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Export Chain Route Rpc Export Chain Get"
                 }
               }
@@ -4952,6 +4955,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16722,6 +16735,11 @@
         "summary": "Export full chain state",
         "description": "Export full chain state as JSON for manual synchronization",
         "operationId": "export_chain_route_v1_export_chain_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -16746,8 +16764,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
                   "title": "Response Export Chain Route V1 Export Chain Get"
                 }
               }
@@ -16759,6 +16775,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

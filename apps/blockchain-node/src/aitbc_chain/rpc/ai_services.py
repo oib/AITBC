@@ -6,11 +6,14 @@ by real submissions.
 """
 
 import logging
+import re
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import ColumnElement, literal_column, or_
 from sqlmodel import func as sql_func
 from sqlmodel import select
 
@@ -23,7 +26,6 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from .router import router
-from decimal import Decimal
 
 _logger = get_logger(__name__)
 
@@ -37,6 +39,40 @@ AI_SERVICE_RECIPIENT = "ai_service"
 # matched so pre-existing jobs stay visible.
 AI_JOB_TX_TYPE = "AI_JOB"
 AI_JOB_TX_TYPES = (AI_JOB_TX_TYPE, "ai_job")
+
+# Payload keys are inlined into the SQL text below (a bound JSON path cannot
+# use the expression index — see _JOB_ID_INDEX_EXPRESSIONS in
+# rpc/transactions.py), so only plain identifiers may reach the f-string.
+_PAYLOAD_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _payload_extract_sql(dialect: str, key: str) -> str | None:
+    """SQL text extracting ``payload[key]`` for ``dialect`` (None if unsafe)."""
+    if not _PAYLOAD_KEY_RE.fullmatch(key):
+        return None
+    if dialect == "sqlite":
+        return f"""json_extract(payload, '$."{key}"')"""
+    if dialect == "postgresql":
+        return f"""(payload ->> '{key}')"""
+    return None
+
+
+# Effective job identity in SQL, mirroring ``payload.get("job_id", tx.tx_hash)``
+# exactly: the payload value wins whenever the key exists — a JSON ``null``
+# yields SQL NULL (never equal to a string id), matching Python's ``None`` —
+# and a missing key falls back to the tx hash. The Python recheck on the
+# (now tiny) candidate set keeps semantics identical even for exotic value
+# types the dialect text renders differently.
+_JOB_IDENTITY_SQL = {
+    "sqlite": """CASE WHEN json_type(payload, '$."job_id"') IS NOT NULL THEN json_extract(payload, '$."job_id"') ELSE tx_hash END""",
+    "postgresql": """CASE WHEN payload->'job_id' IS NOT NULL THEN payload->>'job_id' ELSE tx_hash END""",
+}
+
+
+def _job_identity_column(session: Any) -> Any | None:
+    """``literal_column`` for the effective job id, or None on odd dialects."""
+    expression = _JOB_IDENTITY_SQL.get(session.get_bind().dialect.name)
+    return literal_column(expression) if expression is not None else None
 
 
 class AIJobRequest(BaseModel):
@@ -246,9 +282,15 @@ def ai_get_job(job_id: str) -> dict[str, Any]:
         metrics_registry.increment("rpc_ai_get_total")
 
         with session_scope("") as session:
-            # Search by job_id in payload — since job_id is stored in JSON payload,
-            # we filter in Python after fetching ai_job transactions
+            # Resolve the job id in SQL: job_id is the tx hash for mempool
+            # submissions, or an explicit payload job_id on legacy rows —
+            # _JOB_IDENTITY_SQL covers both without materializing the table
+            # (#1509, residual of the #1057 ai_list_jobs bound). The Python
+            # check below still verifies the effective id on the candidates.
             stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
+            identity = _job_identity_column(session)
+            if identity is not None:
+                stmt = stmt.where(identity == job_id)
             txs = session.exec(stmt).all()
             cancelled_ids = _cancelled_job_ids(session)
 
@@ -302,7 +344,12 @@ def ai_cancel_job(job_id: str, cancel: AIJobCancelRequest, request: Request) -> 
             tx = session.get(Transaction, job_id)
             txs: list[Transaction] = [tx] if tx and tx.type in AI_JOB_TX_TYPES else []
             if not txs:
+                # Same SQL identity resolution as ai_get_job (#1509) — the old
+                # fallback hydrated every AI job row before the Python scan.
                 stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
+                identity = _job_identity_column(session)
+                if identity is not None:
+                    stmt = stmt.where(identity == job_id)
                 txs = list(session.exec(stmt).all())
             cancelled_ids = _cancelled_job_ids(session)
 
@@ -351,29 +398,87 @@ def ai_stats() -> dict[str, Any]:
         metrics_registry.increment("rpc_ai_stats_total")
 
         with session_scope("") as session:
-            stmt = select(Transaction).where(Transaction.type.in_(AI_JOB_TX_TYPES))  # type: ignore[attr-defined]
-            txs = session.exec(stmt).all()
-            cancelled_ids = _cancelled_job_ids(session)
+            base = Transaction.type.in_(AI_JOB_TX_TYPES)  # type: ignore[attr-defined]
+            dialect = session.get_bind().dialect.name
+            identity = _job_identity_column(session)
+            job_type_sql = _payload_extract_sql(dialect, "job_type")
+            payment_sql = _payload_extract_sql(dialect, "payment")
 
-            total_jobs = len(txs)
-            status_counts: dict[str, int] = {}
-            type_counts: dict[str, int] = {}
-            total_revenue = Decimal("0")
+            if identity is None or job_type_sql is None or payment_sql is None:
+                # Unknown dialect: keep the Python aggregation (correct but
+                # unbounded — same as before this fix; only sqlite/postgres
+                # are deployed).
+                stmt = select(Transaction).where(base)
+                txs = session.exec(stmt).all()
+                cancelled_ids = _cancelled_job_ids(session)
 
-            for tx in txs:
-                payload = tx.payload or {}
-                # Count by effective status (cancelled overlays the stored value)
-                job_id = payload.get("job_id", tx.tx_hash)
-                status = ("cancelled" if job_id in cancelled_ids else tx.status) or "unknown"
-                status_counts[status] = status_counts.get(status, 0) + 1
+                total_jobs = len(txs)
+                status_counts: dict[str, int] = {}
+                type_counts: dict[str, int] = {}
+                total_revenue = Decimal("0")
 
-                # Count by type
-                job_type = payload.get("job_type", "unknown")
-                type_counts[job_type] = type_counts.get(job_type, 0) + 1
+                for tx in txs:
+                    payload = tx.payload or {}
+                    job_id = payload.get("job_id", tx.tx_hash)
+                    status = ("cancelled" if job_id in cancelled_ids else tx.status) or "unknown"
+                    status_counts[status] = status_counts.get(status, 0) + 1
+                    job_type = payload.get("job_type", "unknown")
+                    type_counts[job_type] = type_counts.get(job_type, 0) + 1
+                    if status == "completed":
+                        total_revenue += Decimal(str(payload.get("payment", "0")))
+            else:
+                # Aggregate in SQL (#1509): counts by stored status/type, the
+                # cancelled overlay joined on the effective job id, and the
+                # revenue sum — no row hydration at all.
+                total_jobs = int(session.exec(select(sql_func.count()).select_from(Transaction).where(base)).one())
+                status_counts = {}
+                for status, count in session.exec(
+                    select(Transaction.status, sql_func.count()).where(base).group_by(Transaction.status)
+                ).all():
+                    status_counts[status or "unknown"] = int(count)
 
-                # Sum revenue for completed jobs
-                if status == "completed":
-                    total_revenue += Decimal(str(payload.get("payment", "0")))
+                type_counts = {}
+                job_type_col: ColumnElement[Any] = literal_column(f"coalesce({job_type_sql}, 'unknown')")
+                for job_type, count in session.exec(
+                    select(job_type_col, sql_func.count()).where(base).group_by(job_type_col)
+                ).all():
+                    type_counts[job_type] = int(count)
+
+                # Cancelled overlay: effective status is 'cancelled' for every
+                # AI job whose effective id has a cancellation row, whatever
+                # the sealed tx status says (AI-CANCEL-SEALED-TX-1).
+                cancelled_subq = select(AIJobCancellation.job_id)
+                cancelled_by_status: dict[str, int] = {}
+                for status, count in session.exec(
+                    select(Transaction.status, sql_func.count())
+                    .where(base, identity.in_(cancelled_subq))
+                    .group_by(Transaction.status)
+                ).all():
+                    cancelled_by_status[status or "unknown"] = int(count)
+                for status, count in cancelled_by_status.items():
+                    status_counts[status] = status_counts.get(status, 0) - count
+                    status_counts["cancelled"] = status_counts.get("cancelled", 0) + count
+                status_counts = {s: c for s, c in status_counts.items() if c > 0}
+
+                # Revenue only for effectively-completed jobs: stored
+                # 'completed' minus the cancelled overlay. payment is the
+                # float wire value (not-money boundary), summed as REAL.
+                payment_col: ColumnElement[Any] = literal_column(payment_sql)
+                if dialect == "postgresql":
+                    payment_col = literal_column(f"({payment_sql})::float8")
+                total_revenue_float = session.exec(
+                    select(sql_func.coalesce(sql_func.sum(payment_col), 0))
+                    .select_from(Transaction)
+                    .where(
+                        base,
+                        Transaction.status == "completed",
+                        # NOT IN yields NULL (excluded) when the identity expr
+                        # is NULL — a JSON-null job_id. Python treats that id
+                        # as "not cancelled", so keep those rows countable.
+                        or_(identity.is_(None), ~identity.in_(cancelled_subq)),
+                    )
+                ).one()
+                total_revenue = Decimal(str(total_revenue_float or 0))
 
         return {
             "total_jobs": total_jobs,
