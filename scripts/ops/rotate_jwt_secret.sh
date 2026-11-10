@@ -17,8 +17,48 @@ LOG_DIR="${AITBC_LOG_DIR:-/var/log/aitbc}"
 # root-private tree — never a fixed /tmp path, and a concurrent run's backups
 # can never be eaten by this run's rollback or cleanup.
 BACKUP_ROOT="${AITBC_BACKUP_DIR:-/var/lib/aitbc/secret-rotation}"
+SECRET_KEY="JWT_SECRET"
 ROLLBACK_FILE=""
 LOG_FILE="${LOG_DIR}/secret_rotation_$(date +%Y%m%d_%H%M%S).log"
+
+# --dry-run prints the rotation plan and exits before any write, restart,
+# or log-file creation — a preview must not mutate anything (#1499).
+DRY_RUN=false
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        *) break ;;
+    esac
+done
+if [ "$DRY_RUN" = true ]; then
+    if [ $# -gt 0 ]; then
+        echo "error: unexpected arguments with --dry-run: $*" >&2
+        exit 2
+    fi
+    echo "dry-run: ${SECRET_KEY} rotation plan (no writes, no restarts, no log file)"
+    echo "  env dir:      $ENV_DIR"
+    echo "  backup root:  $BACKUP_ROOT (per-run 0700 dir + rollback.sh)"
+    echo "  log file:     $LOG_FILE (not created in dry-run)"
+    found=0
+    for service in "${SERVICES[@]}"; do
+        env_file="$ENV_DIR/${service}.env"
+        if [ -f "$env_file" ]; then
+            found=1
+            state="present"
+            grep -q "^${SECRET_KEY}=" "$env_file" && state="${state} (${SECRET_KEY} already set)"
+            echo "  $service: would rewrite $env_file — $state"
+        else
+            echo "  $service: $env_file absent — skipped"
+        fi
+    done
+    [ "$found" -eq 1 ] || echo "  warning: no service env files under $ENV_DIR — rotation would be a no-op"
+    echo "  writes:   ${SECRET_KEY}_NEW alongside old → rolling restarts →"
+    echo "           ${SECRET_KEY}=new, old retired into ${SECRET_KEY}_PREVIOUS"
+    echo "  restarts: ${SERVICES[*]} (two rolling passes, health-checked)"
+    echo "  rollback: per-run rollback.sh restores only this run's backups"
+    exit 0
+fi
+
 mkdir -p "$LOG_DIR"
 
 # Colors for output
