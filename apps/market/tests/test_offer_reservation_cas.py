@@ -130,7 +130,7 @@ class TestBidPriceBounds:
             await self._book_with_price(session, "-100")
 
     async def test_nan_price_is_rejected(self, session):
-        with pytest.raises(ValueError, match="non-negative"):
+        with pytest.raises(ValueError, match="finite"):
             await self._book_with_price(session, "nan")
 
     async def test_over_cap_price_is_rejected(self, session):
