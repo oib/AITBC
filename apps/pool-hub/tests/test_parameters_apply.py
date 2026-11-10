@@ -372,3 +372,50 @@ async def test_apply_capabilities_accepts_string_list() -> None:
     )
     assert resp.applied is True
     assert cfg.capabilities == ["gpu", "cuda"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_value",
+    [
+        # Nested structures count toward the cap — a dict inside dict is
+        # fully serialized, so depth is not a bypass.
+        {"outer": {"inner": "x" * (70 * 1024)}},
+        # Unicode is escaped by json.dumps (ensure_ascii) — it inflates,
+        # never shrinks, the measured size.
+        {"k": "é" * 40_000},
+        {"items": ["y" * (70 * 1024)]},
+    ],
+)
+async def test_apply_governance_json_over_64kib_is_400(bad_value: Any) -> None:
+    """#v11 item 7 boundary fuzz: the serialized-size cap binds nested,
+    unicode and list payloads alike."""
+    cfg = _config(pricing={})
+    session = _Session([cfg])
+    with pytest.raises(HTTPException) as exc:
+        await apply_parameter_change(
+            _change(parameter_name="pricing", new_value=bad_value),
+            session,
+            MagicMock(),  # type: ignore[arg-type]
+        )
+    assert exc.value.status_code == 400
+    assert "exceeds" in str(exc.value.detail)
+    assert session.commit.await_count == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_value", [float("nan"), float("inf"), {"p": float("-inf")}])
+async def test_apply_governance_json_rejects_non_finite_floats(bad_value: Any) -> None:
+    """NaN/Infinity dump to bare literals that are invalid strict JSON —
+    PostgreSQL jsonb rejects them at commit (500 after validation). The
+    validator must refuse them as a clean 400 instead."""
+    cfg = _config(config={})
+    session = _Session([cfg])
+    with pytest.raises(HTTPException) as exc:
+        await apply_parameter_change(
+            _change(parameter_name="config", new_value=bad_value),
+            session,
+            MagicMock(),  # type: ignore[arg-type]
+        )
+    assert exc.value.status_code == 400
+    assert session.commit.await_count == 0
