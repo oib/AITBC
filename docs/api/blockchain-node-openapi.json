@@ -9751,7 +9751,7 @@
           "bridge-ledger"
         ],
         "summary": "Relayer worklist for a target chain",
-        "description": "Rows whose ``target_chain`` matches and status is ``pending``.\n\nThis replaces the relayer's local ``status='pending'`` scan.",
+        "description": "Rows whose ``target_chain`` matches and status is ``pending``.\n\nThis replaces the relayer's local ``status='pending'`` scan. Bounded by\n``limit`` (default 500, hard cap 1000) with a stable oldest-first order \u2014\n``lock_time`` then ``transfer_id`` \u2014 so a backlog larger than the window\nstill drains FIFO across polls. ``truncated`` reports that more pending\nrows remain beyond the returned page.",
         "operationId": "ledger_pending_route_rpc_bridge_ledger_pending_get",
         "security": [
           {
@@ -9766,6 +9766,16 @@
             "schema": {
               "type": "string",
               "title": "Target Chain"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "title": "Limit"
             }
           }
         ],
@@ -21528,7 +21538,7 @@
           "bridge-ledger"
         ],
         "summary": "Relayer worklist for a target chain",
-        "description": "Rows whose ``target_chain`` matches and status is ``pending``.\n\nThis replaces the relayer's local ``status='pending'`` scan.",
+        "description": "Rows whose ``target_chain`` matches and status is ``pending``.\n\nThis replaces the relayer's local ``status='pending'`` scan. Bounded by\n``limit`` (default 500, hard cap 1000) with a stable oldest-first order \u2014\n``lock_time`` then ``transfer_id`` \u2014 so a backlog larger than the window\nstill drains FIFO across polls. ``truncated`` reports that more pending\nrows remain beyond the returned page.",
         "operationId": "ledger_pending_route_v1_bridge_ledger_pending_get",
         "security": [
           {
@@ -21543,6 +21553,16 @@
             "schema": {
               "type": "string",
               "title": "Target Chain"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "title": "Limit"
             }
           }
         ],
