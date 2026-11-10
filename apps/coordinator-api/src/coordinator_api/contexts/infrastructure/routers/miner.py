@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy import update
@@ -659,8 +659,8 @@ async def list_miner_jobs(
     miner_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
-    limit: int = 20,
-    offset: int = 0,
+    limit: int = Query(default=20, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     job_type: str | None = None,
     min_reward: Decimal | None = None,
     job_status: str | None = None,

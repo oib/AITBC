@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, desc, func
 from sqlalchemy.exc import IntegrityError
@@ -335,7 +335,7 @@ async def get_reputation_leaderboard(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     category: str = "trust_score",
-    limit: int = 100,
+    limit: int = Query(default=100, ge=1, le=500),
     region: str = "",
 ) -> list[LeaderboardEntry]:
     """Get reputation leaderboard"""
@@ -419,7 +419,7 @@ def get_agent_feedback(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
-    limit: int | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> list[FeedbackResponse]:
     """Get community feedback for an agent"""
     try:
@@ -464,7 +464,7 @@ def get_reputation_events(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
-    limit: int | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
     """Get reputation change events for an agent"""
     try:
@@ -641,7 +641,7 @@ def get_cross_chain_leaderboard(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
-    limit: int | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
     min_score: float = 0.0,
 ) -> dict[str, Any]:
     """Get cross-chain reputation leaderboard"""

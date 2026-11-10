@@ -333,14 +333,14 @@ class DeveloperPlatformService:
         """Get all regional developer hubs"""
         return list(self.session.execute(select(RegionalHub)).scalars().all())
 
-    def get_hub_developers(self, hub_id: str) -> list[DeveloperProfile]:
+    def get_hub_developers(self, hub_id: str, limit: int = 100) -> list[DeveloperProfile]:
         """Get developers in a regional hub"""
         hub = self.session.get(RegionalHub, hub_id)
         if not hub:
             raise HTTPException(status_code=404, detail="Regional hub not found")
         return (
             self.session.execute(  # type: ignore[return-value]
-                select(DeveloperProfile).where(DeveloperProfile.is_active)
+                select(DeveloperProfile).where(DeveloperProfile.is_active).limit(limit)
             )
             .scalars()
             .all()

@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 
 from aitbc.rate_limiting import rate_limit
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -83,12 +83,12 @@ async def get_hub_developers(
     hub_id: str,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
-    limit: int | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
     """Get developers in a regional hub."""
 
     try:
-        developers = await run_in_threadpool(dev_service.get_hub_developers, hub_id)
+        developers = await run_in_threadpool(dev_service.get_hub_developers, hub_id, limit)
 
         return [
             {

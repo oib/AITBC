@@ -110,8 +110,8 @@ async def search_agent_identities(
     status: IdentityStatus | None = None,
     verification_level: VerificationType | None = None,
     min_reputation: float | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     chains: Annotated[list[int] | None, Query()] = None,
 ) -> dict[str, Any]:
     """Search agent identities with advanced filters"""
@@ -448,8 +448,8 @@ async def get_wallet_transaction_history(
     agent_id: str,
     chain_id: int,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> list[dict[str, Any]]:
     """Get transaction history for agent wallet"""
     try:

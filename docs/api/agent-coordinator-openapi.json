@@ -1278,6 +1278,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
               "description": "Maximum messages",
               "default": 100,
               "title": "Limit"
@@ -1384,6 +1386,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
               "description": "Maximum number of messages",
               "default": 100,
               "title": "Limit"
@@ -1396,6 +1400,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "minimum": 0,
               "description": "Offset for pagination",
               "default": 0,
               "title": "Offset"

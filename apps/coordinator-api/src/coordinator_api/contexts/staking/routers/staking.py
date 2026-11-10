@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlmodel import select
@@ -562,8 +562,8 @@ async def get_supported_agents(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
-    page: int = 1,
-    limit: int = 50,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=500),
     tier: PerformanceTier | None = None,
 ) -> dict[str, Any]:
     """Get list of supported agents for staking"""
@@ -604,7 +604,7 @@ async def get_staking_leaderboard(
     staking_service: Annotated[StakingService, Depends(get_staking_service)],
     period: str = "weekly",
     metric: str = "total_staked",
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=500),
 ) -> dict[str, Any]:
     """Get staking leaderboard"""
     try:
@@ -669,8 +669,8 @@ async def get_my_staking_positions(
     current_user: Annotated[dict, Depends(get_current_user_required)],
     status: StakeStatus | None = None,
     agent_wallet: str | None = None,
-    page: int = 1,
-    limit: int = 20,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=500),
 ) -> list[StakeResponse]:
     """Get current user's staking positions"""
     try:
