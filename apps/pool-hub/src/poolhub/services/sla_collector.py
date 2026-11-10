@@ -385,17 +385,29 @@ class SLACollector:
         age = (datetime.now(UTC) - _as_utc(status.last_heartbeat_at)).total_seconds()
         return _uptime_from_heartbeat_age(age)
 
-    async def get_sla_metrics(self, miner_id: str | None = None, hours: int = 24) -> list[SLAMetric]:
-        """Get SLA metrics for a miner or all miners"""
+    async def get_sla_metrics(self, miner_id: str | None = None, hours: int = 24, limit: int | None = None) -> list[SLAMetric]:
+        """Get SLA metrics for a miner or all miners.
+
+        ``limit`` caps the rows returned (most recent first); ``None`` leaves
+        the query unbounded for internal callers.
+        """
         cutoff = datetime.now(UTC) - timedelta(hours=hours)
         stmt = select(SLAMetric).where(SLAMetric.timestamp >= cutoff)
         if miner_id:
             stmt = stmt.where(SLAMetric.miner_id == miner_id)
         stmt = stmt.order_by(desc(SLAMetric.timestamp))
+        if limit is not None:
+            stmt = stmt.limit(limit)
         return list((await self.db.execute(stmt)).scalars().all())
 
-    async def get_sla_violations(self, miner_id: str | None = None, resolved: bool = False) -> list[SLAViolation]:
-        """Get SLA violations for a miner or all miners"""
+    async def get_sla_violations(
+        self, miner_id: str | None = None, resolved: bool = False, limit: int | None = None
+    ) -> list[SLAViolation]:
+        """Get SLA violations for a miner or all miners.
+
+        ``resolved=True`` otherwise returns the entire violation history —
+        ``limit`` bounds the read (most recent first); ``None`` is unbounded.
+        """
         stmt = select(SLAViolation)
         if miner_id:
             stmt = stmt.where(SLAViolation.miner_id == miner_id)
@@ -407,6 +419,8 @@ class SLACollector:
         else:
             stmt = stmt.where(SLAViolation.resolved_at.is_(None))
         stmt = stmt.order_by(desc(SLAViolation.created_at))
+        if limit is not None:
+            stmt = stmt.limit(limit)
         return list((await self.db.execute(stmt)).scalars().all())
 
     def _check_violation(self, metric_type: str, value: float, threshold: float) -> bool:

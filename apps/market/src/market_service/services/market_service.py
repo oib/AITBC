@@ -714,6 +714,10 @@ class MarketService:
                         continue
 
                 logger.info("Retrieved %s offers from blockchain RPC (chain_id=%s)", len(blockchain_offers), chain_id)
+                # The RPC page is unbounded — cap it before the merge so a
+                # large on-chain offer set cannot be materialised and
+                # re-merged in full (#1543 residual).
+                blockchain_offers = blockchain_offers[: max_page_size()]
             except Exception as e:
                 logger.warning("Failed to get offers from blockchain RPC: %s", e)
 
