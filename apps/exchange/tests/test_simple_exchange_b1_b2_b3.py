@@ -502,3 +502,51 @@ class TestB2MarketDecimal:
         # Should be stored as string "0.1", not float 0.1
         assert isinstance(row[0], str)
         assert Decimal(row[0]) == Decimal("0.1")
+
+
+class TestEnvDecimalHardening:
+    """#1608: env-sourced decimals feeding fee/price math must be finite,
+    non-negative, and bounded — NaN/negative/huge values fall back or clamp."""
+
+    def test_nan_falls_back_to_default(self, monkeypatch):
+        from apps.exchange.simple_exchange.handlers.exchange import _env_decimal
+
+        monkeypatch.setenv("EXCHANGE_FEE_PCT", "nan")
+        assert _env_decimal("EXCHANGE_FEE_PCT", "0.5") == Decimal("0.5")
+
+    def test_infinity_falls_back_to_default(self, monkeypatch):
+        from apps.exchange.simple_exchange.handlers.exchange import _env_decimal
+
+        monkeypatch.setenv("EXCHANGE_FEE_PCT", "Infinity")
+        assert _env_decimal("EXCHANGE_FEE_PCT", "0.5") == Decimal("0.5")
+
+    def test_negative_falls_back_to_default(self, monkeypatch):
+        from apps.exchange.simple_exchange.handlers.exchange import _env_decimal
+
+        monkeypatch.setenv("EXCHANGE_FEE_PCT", "-0.5")
+        assert _env_decimal("EXCHANGE_FEE_PCT", "0.5") == Decimal("0.5")
+
+    def test_huge_value_is_clamped(self, monkeypatch):
+        from apps.exchange.simple_exchange.handlers.exchange import _ENV_DECIMAL_MAX, _env_decimal
+
+        monkeypatch.setenv("EXCHANGE_FEE_PCT", "1e300")
+        assert _env_decimal("EXCHANGE_FEE_PCT", "0") == _ENV_DECIMAL_MAX
+
+    def test_valid_value_passes_through(self, monkeypatch):
+        from apps.exchange.simple_exchange.handlers.exchange import _env_decimal
+
+        monkeypatch.setenv("EXCHANGE_FEE_PCT", "0.005")
+        assert _env_decimal("EXCHANGE_FEE_PCT", "0") == Decimal("0.005")
+
+    def test_to_decimal_rejects_non_finite(self):
+        """#1608: NaN/Infinity must not reach money math via to_decimal."""
+        from aitbc.utils.decimal import to_decimal
+
+        for bad in ("nan", "NaN", "inf", "-inf", float("nan"), Decimal("NaN")):
+            try:
+                to_decimal(bad)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"to_decimal accepted non-finite {bad!r}")
+        assert to_decimal("1.5") == Decimal("1.5")

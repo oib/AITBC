@@ -749,3 +749,63 @@ class TestSettleClaim:
         assert resp.status_code == 502
         await db_session.refresh(trade)
         assert trade.settlement_phase == "escrow_created"
+
+
+class TestInputHardening:
+    """#1608: non-finite money inputs get client errors, not 500s."""
+
+    async def test_create_trade_rejects_nan_price(self):
+        from fastapi import HTTPException
+
+        from trading_service.routers.inter_chain import create_inter_chain_trade
+
+        class _Svc:
+            async def create_trade(self, **kwargs):  # pragma: no cover - must not be reached
+                raise AssertionError("create_trade must not run for NaN price")
+
+        with pytest.raises(HTTPException) as exc:
+            await create_inter_chain_trade(
+                svc=_Svc(),
+                source_chain="a",
+                dest_chain="b",
+                sender="0xs",
+                recipient="0xr",
+                amount=1,
+                price=Decimal("NaN"),
+            )
+        assert exc.value.status_code == 400
+
+    def test_search_offers_rejects_nan_price_bound(self):
+        from trading_service.routers.subscriptions import search_offers
+
+        resp = search_offers(min_price=Decimal("NaN"))
+        assert resp.status_code == 400
+
+    def test_exchange_rates_mirror_configured_fee(self, monkeypatch):
+        """#1608: fee_percent reports EXCHANGE_FEE_PCT, not a hardcoded 0.5."""
+        from trading_service.routers import exchange_compat
+
+        monkeypatch.setenv("EXCHANGE_FEE_PCT", "0.005")
+        assert exchange_compat.get_exchange_rates()["fee_percent"] == Decimal("0.005")
+        monkeypatch.setenv("EXCHANGE_FEE_PCT", "nan")
+        assert exchange_compat.get_exchange_rates()["fee_percent"] == Decimal("0")
+        monkeypatch.delenv("EXCHANGE_FEE_PCT", raising=False)
+        assert exchange_compat.get_exchange_rates()["fee_percent"] == Decimal("0")
+
+    async def test_create_exchange_payment_rejects_nan(self):
+        """#1608: NaN amounts must 400 before arithmetic, not 500 on compare."""
+        from fastapi import HTTPException
+
+        from trading_service.routers.exchange_compat import ExchangePaymentRequest, create_exchange_payment
+
+        # Pydantic rejects NaN at the edge (422); model_construct bypasses
+        # validation to pin the route-level guard for programmatic callers.
+        req = ExchangePaymentRequest.model_construct(user_id="u", aitbc_amount=Decimal("NaN"), eth_amount=Decimal("0.001"))
+        with pytest.raises(HTTPException) as exc:
+            await create_exchange_payment(
+                payment_request=req,
+                background_tasks=MagicMock(),
+                request=MagicMock(),
+                session=MagicMock(),
+            )
+        assert exc.value.status_code == 400

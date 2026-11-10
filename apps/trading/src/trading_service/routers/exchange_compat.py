@@ -1,6 +1,7 @@
 """Migrated exchange payment endpoints (compatibility layer)."""
 
 import asyncio
+import os
 import time
 from decimal import Decimal
 from typing import Annotated, Any
@@ -66,6 +67,10 @@ async def create_exchange_payment(
     Supports idempotency via the ``Idempotency-Key`` header: if the same key
     is replayed, the original payment is returned instead of creating a duplicate.
     """
+    # #1608: Decimal("NaN")/"Infinity" parse fine but explode on comparison —
+    # reject non-finite amounts before any arithmetic.
+    if not payment_request.aitbc_amount.is_finite() or not payment_request.eth_amount.is_finite():
+        raise HTTPException(status_code=400, detail="Amounts must be finite")
     if payment_request.aitbc_amount <= 0 or payment_request.eth_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
     expected_eth = payment_request.aitbc_amount / ETHEREUM_CONFIG["exchange_rate"]
@@ -140,11 +145,23 @@ def confirm_exchange_payment(
 
 @router.get("/v1/exchange/rates", dependencies=[Depends(require_trading_api_key)])
 def get_exchange_rates() -> dict[str, Any]:
-    """Get current exchange rates (migrated from Coordinator API)."""
+    """Get current exchange rates (migrated from Coordinator API).
+
+    #1608: ``fee_percent`` mirrors the exchange service's actual
+    ``EXCHANGE_FEE_PCT`` (the fraction ``_apply_exchange_fee`` multiplies
+    the gross AIT leg by) instead of the stale hardcoded 0.5. Unset or
+    unparsable config reports 0.0 — the exchange's own default is no fee.
+    """
+    try:
+        fee_pct = Decimal(os.getenv("EXCHANGE_FEE_PCT", "0"))
+        if not fee_pct.is_finite() or fee_pct < 0:
+            fee_pct = Decimal("0")
+    except Exception:
+        fee_pct = Decimal("0")
     return {
         "eth_to_aitbc": ETHEREUM_CONFIG["exchange_rate"],
         "aitbc_to_eth": 1.0 / ETHEREUM_CONFIG["exchange_rate"],
-        "fee_percent": 0.5,
+        "fee_percent": fee_pct,
     }
 
 

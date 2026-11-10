@@ -274,6 +274,11 @@ def search_offers(
 
     Falls back to in-memory search when the external index is unavailable.
     """
+    # #1608: NaN/Infinity price bounds parse as Decimal but raise
+    # InvalidOperation inside the search comparisons — reject up front.
+    for bound in (min_price, max_price):
+        if bound is not None and not bound.is_finite():
+            return JSONResponse(status_code=400, content={"error": "Price bounds must be finite"})
     svc = get_search_service()
     results = svc.search(
         query=q,
