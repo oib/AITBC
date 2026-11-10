@@ -73,6 +73,46 @@ def test_process_accepts_unitless_and_kbit_bitrates(monkeypatch) -> None:
         assert resp.status_code == 200
 
 
+# --- FFMPEG-OUT-1 (#1648): output_format muxer allowlist + -fs output cap ---
+
+
+@pytest.mark.parametrize("output_format", ["m3u8", "hls", "dash", "segment", "mp4/../../x", "png"])
+def test_process_rejects_segmenting_or_unknown_output_format(output_format: str) -> None:
+    """output_format lands in the temp suffix and picks the ffmpeg muxer —
+    segmenting formats (m3u8/hls/dash) write sidecars the cleanup never
+    deletes, and unknown extensions are refused outright."""
+    with pytest.raises(Exception) as ei:
+        _process(output_format=output_format)
+    assert _http_status(ei.value) == 400
+
+
+def test_process_accepts_empty_output_format_as_default(monkeypatch) -> None:
+    _fake_ffmpeg_run(monkeypatch)
+    resp = _process(output_format="")
+    assert resp.status_code == 200
+
+
+def test_process_passes_fs_output_cap(monkeypatch) -> None:
+    """-fs bounds the transcode output; without it duration×bitrate is unbounded."""
+    captured: list[list[str]] = []
+
+    async def fake_run(cmd, timeout):
+        captured.append(list(cmd))
+        if "-i" not in cmd:
+            return subprocess.CompletedProcess(cmd, 0, "cuda\n", "")
+        Path(cmd[-1]).write_bytes(b"out")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(ffmpeg_main, "_run_cmd", fake_run)
+    monkeypatch.setattr(ffmpeg_main, "_ipfs_add_file", lambda path, name: "bafycid")
+
+    resp = _process(output_format="mkv")
+    assert resp.status_code == 200
+    cmd = captured[-1]
+    assert cmd[cmd.index("-fs") + 1] == str(ffmpeg_main._MAX_OUTPUT_BYTES)
+    assert cmd[-1].endswith(".mkv")
+
+
 # --- FFMPEG-CONC-1: admission bound ---
 
 
