@@ -42,6 +42,11 @@ logger = get_logger(__name__)
 # is the sane ceiling.
 MAX_JOB_TTL_SECONDS = 31_536_000
 
+# Same 1e15 ceiling the exchange/trading money validators use — an
+# unbounded payment.amount (1e18/1e30 accepted pre-fix) has no sane
+# interpretation and only risks downstream overflow (#1673-class).
+MAX_PAYMENT_AMOUNT = Decimal("1000000000000000")
+
 
 def _validated_job_ttl(value: Any) -> int:
     """Normalize ``ttl_seconds`` to a bounded int, or raise ValueError (#1673).
@@ -2343,6 +2348,8 @@ class MarketService:
                 raise ValueError("payment amount must be a valid number") from e
             if not payment_amount.is_finite() or payment_amount < 0:
                 raise ValueError("payment amount must be a finite non-negative number")
+            if payment_amount > MAX_PAYMENT_AMOUNT:
+                raise ValueError(f"payment amount must not exceed {MAX_PAYMENT_AMOUNT}")
             payment = MarketJobPayment(
                 id=payment_data.get("id") or uuid4().hex,
                 job_id=job.id,
