@@ -199,7 +199,8 @@ Defaults that are not off and not unset, i.e. already live: `attestation_lock_en
 ### Dormant-path guarantees (and their limits)
 
 - With a flag off, the wiring is pinned by tests rather than assumed: `tests/test_mempool_reservation_off_1300.py` (OFF reservation leaves the marker table empty and moves no counters) and `tests/consensus/test_abandon_off_wiring_1301.py` (OFF abandon starts no listener, subscribes to no `consensus.abandon.*` topic, publishes nothing). Each has an armed control on the same harness.
-- `handle_abandon` has no internal flag gate: OFF safety is that the listener is never started. Do not call it from new code paths without checking `abandon_enabled()`.
+- `handle_abandon` returns immediately while `abandon_enabled()` is false (handler-level gate, #1301), in addition to the listener never being started.
+- With abandon armed, after an abandon releases a vote the validator refuses a different hash in the abandoned round (it would sign a slashable same-round pair, #1736). The record is memory-only, so a restart forgets it until the next abandon statement; persist it before arming.
 - Disarming `mempool_reservation_enabled` does not clear markers written while armed. They stay live until released or their TTL (`mempool_reservation_ttl_seconds`, default 120 s) lapses, and until then shield the pool-side deleters; the OFF `drain()` ignores them.
 - Arming UC (`vote_journal_enabled` + `vote_journal_justification_enabled`) together on a healthy sandbox mesh stalled the first post-arm height on both test meshes (#1301). UC stays off in production until #1306 / #1311 land and the criteria in #1301 are ratified.
 
@@ -207,11 +208,12 @@ Defaults that are not off and not unset, i.e. already live: `attestation_lock_en
 
 Only relationships backed by code or a `config.py` comment are listed.
 
-- **Hard dependencies (enforced in code):** `vote_journal_abandon_enabled` and `vote_journal_justification_enabled` each take effect only with `vote_journal_enabled` also on; the sandbox-tested #1306 nonblocking-persist flag (`unavail_nonblocking_persist_enabled`, once landed) additionally needs the UC barrier.
+- **Hard dependencies (enforced in code):** `vote_journal_abandon_enabled` and `vote_journal_justification_enabled` each take effect only with `vote_journal_enabled` also on; the sandbox-tested #1306 nonblocking-persist flag (`unavail_nonblocking_persist_enabled`) additionally needs the UC barrier.
 - **Fleet-uniform height pins:** `state_transition_v24_height`, `consensus_domain_separation_height` and `sync_require_state_root_height` are consensus rules. Arm them at one height on every validator, never mid-history; a mixed set applies different rules and forks (comments in `config.py`). `consensus_legacy_attestation_until_height` only widens the attestation channel inside [H, S); proposals never dual-accept.
 - **Backend-scoped:** `mempool_reservation_enabled` is a no-op on the in-memory mempool backend (falls back to `drain()`).
 - **Round lock:** `attestation_round_lock_enabled` binds the round into the signed attestation payload and persists (height, round, hash) records, so it changes what attesters sign. Treat it like a pinned rule across the validator set; whether a mixed set interoperates has not been tested.
 - **Observed bad combination (sandbox only):** arming `vote_journal_enabled` + `vote_journal_justification_enabled` on all validators at once stalled the first post-arm height on both test meshes (#1301). It has not been tried with a serial, gated arm.
+- **Load-time guard (#1722):** with the journal and justification armed, `unavail_evidence_seconds + unavail_collect_seconds + 5 s` must stay below `attestation_header_max_age_seconds` and `unavail_cert_max_age_seconds`. Production refuses to start otherwise; other environments log a warning. The defaults (90 + 15 + 5) violate the 60 s header bound, so arm UC only with shortened timings. Flags set while `vote_journal_enabled` is off, and a zero same-hash-retry horizon, are warned about. The guard is temporary and goes when `unavail_prewarm_enabled` (#1701) lands.
 - **Not covered:** the #1311 equivocation-replication flags are not on `main`; their interactions are not documented here until they land.
 
 ### Evidence pointers
