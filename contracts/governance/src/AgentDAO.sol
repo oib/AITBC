@@ -232,9 +232,21 @@ contract AgentDAO is
         proposal.calldatas = calldatas;
         proposal.descriptionHash = keccak256(bytes(description));
 
-        // Check if multi-sig approval is needed for critical proposals
-        if (proposalType == ProposalType.EMERGENCY_ACTION || proposalType == ProposalType.PROTOCOL_UPGRADE) {
-            require(multiSigApprovals[proposalId][msg.sender] = true, "Multi-sig required");
+        // Check if multi-sig approval is needed for critical proposals.
+        // #1464: only a genuine multiSigSigner may occupy an approval seat.
+        // The old `require(multiSigApprovals[...] = true)` was an assignment
+        // inside require — it always evaluated true and recorded ANY proposer
+        // as an approver without the multiSigSigners check that
+        // approveMultiSig enforces, giving every critical proposal a free
+        // seat. A signer-proposer still counts as one legitimate approval.
+        if (
+            (proposalType == ProposalType.EMERGENCY_ACTION ||
+                proposalType == ProposalType.PROTOCOL_UPGRADE) &&
+            multiSigSigners[msg.sender]
+        ) {
+            multiSigApprovals[proposalId][msg.sender] = true;
+            multiSigApprovalCount[proposalId] += 1;
+            emit MultiSigApproval(proposalId, msg.sender);
         }
 
         emit ProposalCreated(proposalId, msg.sender, proposalType, description, snapshotId);

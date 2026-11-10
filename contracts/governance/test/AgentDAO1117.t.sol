@@ -163,6 +163,43 @@ contract AgentDAO1117Test is Test {
         assertEq(dao.getMultiSigApprovals(pid), 3);
     }
 
+    // Pin (#1464): propose() must not self-approve the proposer into the
+    // multi-sig count. The old assignment-in-require recorded ANY proposer
+    // as an approver without the multiSigSigners check — a non-signer got a
+    // free seat, and a signer-proposer was recorded without the count (so a
+    // later approveMultiSig reverted "Already approved" while never having
+    // been counted). Now only a genuine signer occupies a seat, counted once.
+    function test_MultiSigSeatOnlyForSignerProposer() public {
+        // Non-signer proposer: no approval recorded, count stays 0.
+        uint256 pid = _propose(AgentDAO.ProposalType.EMERGENCY_ACTION);
+        assertEq(dao.getMultiSigApprovals(pid), 0);
+        assertFalse(dao.multiSigApprovals(pid, voter));
+
+        // Signer proposer: legitimately occupies one counted seat. The
+        // description must differ — an identical proposal hash would
+        // collide with pid above.
+        dao.addMultiSigSigner(voter);
+        address[] memory targets = new address[](1);
+        targets[0] = address(this);
+        uint256[] memory values = new uint256[](1);
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = "";
+        vm.startPrank(voter);
+        token.approve(address(dao), 1000e18);
+        uint256 pid2 = dao.propose(
+            targets, values, calldatas, "test signer", AgentDAO.ProposalType.EMERGENCY_ACTION
+        );
+        vm.stopPrank();
+        assertEq(dao.getMultiSigApprovals(pid2), 1);
+        assertTrue(dao.multiSigApprovals(pid2, voter));
+
+        // ...and cannot double-approve through approveMultiSig.
+        vm.prank(voter);
+        vm.expectRevert("Already approved");
+        dao.approveMultiSig(pid2);
+        assertEq(dao.getMultiSigApprovals(pid2), 1);
+    }
+
     function _succeeded(AgentDAO.ProposalType t) internal returns (uint256 pid) {
         pid = _propose(t);
         vm.roll(block.number + 86401); // past votingDelay
