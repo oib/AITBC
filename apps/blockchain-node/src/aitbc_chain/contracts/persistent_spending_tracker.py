@@ -93,7 +93,11 @@ class PersistentSpendingTracker:
     def __init__(self, database_url: str = "sqlite:///spending_tracker.db"):
         self.engine = create_engine(database_url)
         Base.metadata.create_all(self.engine)
-        self.SessionLocal = sessionmaker(bind=self.engine)
+        # expire_on_commit=False: check_spending_limits commits a freshly
+        # created SpendingLimit and then reads limits.* after the session
+        # closes — with the default True those reads raise
+        # DetachedInstanceError on the first check per address.
+        self.SessionLocal = sessionmaker(bind=self.engine, expire_on_commit=False)
 
     def get_session(self) -> Session:
         """Get database session"""
