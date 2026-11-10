@@ -181,3 +181,38 @@ def test_proxy_route_stamps_identity_when_the_client_sent_none(served):
     client.get("/v1/coordinator/jobs")
     assert capture.headers["x-real-ip"] == "203.0.113.9"
     assert capture.headers["x-forwarded-for"] == "203.0.113.9"
+
+
+# --- #1681: client-asserted Forwarded/X-Forwarded-* metadata never crosses ---
+
+
+def test_proxy_route_strips_client_forwarding_metadata(served):
+    """Forwarded, X-Forwarded-Host/Proto/Port and rewrite headers are dropped
+    at the edge — upstreams honoring them must not see caller-chosen values."""
+    client, capture = served
+    response = client.get(
+        "/v1/coordinator/jobs",
+        headers={
+            "Forwarded": "for=1.2.3.4;host=evil.example;proto=https",
+            "X-Forwarded-Host": "evil.example",
+            "X-Forwarded-Proto": "https",
+            "X-Forwarded-Port": "443",
+            "X-Original-URL": "http://evil.example/admin",
+            "X-Rewrite-URL": "http://evil.example/admin",
+        },
+    )
+    assert response.status_code == 200
+    lowered = {k.lower(): v for k, v in capture.headers.items()}
+    for name in (
+        "forwarded",
+        "x-forwarded",
+        "x-forwarded-host",
+        "x-forwarded-proto",
+        "x-forwarded-port",
+        "x-original-url",
+        "x-rewrite-url",
+    ):
+        assert name not in lowered, name
+    # the stamped identity headers still go out
+    assert lowered["x-real-ip"] == "203.0.113.9"
+    assert lowered["x-forwarded-for"] == "203.0.113.9"

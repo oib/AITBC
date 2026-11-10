@@ -1168,6 +1168,29 @@ def _is_aitbc_subcommand_destructive(
     return any(path[: len(dp)] == list(dp) for dp in _DESTRUCTIVE_PATH_TOKENS)
 
 
+def _option_key_suggests_mutation(key: str) -> bool:
+    """Best-effort scan of an option name for mutating verbs (MCP-GATE-1).
+
+    Option *names* are flag spellings, so a read-looking path can still carry
+    a mutating flag (``--set``, ``--force``, ``--send`` ...). Matching is
+    exact against the destructive verb set — hyphenated names like
+    ``min-reputation`` never equal a bare verb. This is a heuristic, not a
+    proof: a mutation behind an innocuous flag name still needs the path
+    allowlist to catch it, which is why the no-confirm path below is
+    allowlist-based in the first place.
+    """
+    normalized = key.strip().lower().lstrip("-")
+    return normalized in DESTRUCTIVE_AITBC_SUBCOMMANDS
+
+
+def _options_suggest_mutation(*option_maps: dict[str, Any] | None) -> bool:
+    for option_map in option_maps:
+        for key in option_map or {}:
+            if _option_key_suggests_mutation(str(key)):
+                return True
+    return False
+
+
 def _run_aitbc_cli(
     host: str,
     group: str,
@@ -1860,10 +1883,21 @@ def run_aitbc_cli(
         return _json({"error": f"invalid subcommand or options: {e}"})
     destructive = _is_aitbc_subcommand_destructive(subcommand, group, args)
 
+    # MCP-GATE-1 (#1672): the no-confirm path is now the read-only ALLOWLIST,
+    # not the destructive denylist — an unlisted mutating verb can no longer
+    # slip through just because nobody catalogued it.  Anything without a
+    # typed read tool, plus any invocation whose option names look mutating,
+    # needs dry_run=false + confirm=true.  Residual gap (documented on the
+    # issue): a mutation hidden behind an innocuous flag name on an
+    # allowlisted read path is still possible — the CLI itself is the last
+    # line there.
+    read_only = _is_aitbc_subcommand_read_only(subcommand, group, args)
+    option_mutation = _options_suggest_mutation(options, group_options)
+
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
 
-    if destructive and not confirm:
+    if (destructive or option_mutation or not read_only) and not confirm:
         return _json(
             {
                 "error": "Confirmation required",
@@ -3198,7 +3232,15 @@ def submit_ai_job(
     ] = False,
     timeout: Annotated[
         int | None,
-        Field(description="Seconds to wait when --wait is used.", ge=1),
+        Field(
+            description=(
+                "Seconds to wait when --wait is used (max 600). The remote CLI run gets "
+                "timeout+30s of subprocess budget so the wait is not cut off early "
+                "(V13-RES2-MCP-WAIT-1, #1715)."
+            ),
+            ge=1,
+            le=600,
+        ),
     ] = None,
     dry_run: Annotated[
         bool,
@@ -3269,7 +3311,11 @@ def submit_ai_job(
     guard = _require_confirm(dry_run, confirm, command, host=target)
     if guard is not None:
         return _json(guard)
-    return _json(_run_aitbc_cli(target, "ai", "submit", None, options, "json"))
+    # The remote subprocess budget must cover the --wait window plus submit
+    # overhead, or a large --timeout silently truncates to timed_out at the
+    # _run_aitbc_cli default of 120s (#1715).
+    subprocess_timeout = timeout + 30 if (wait and timeout is not None) else 120
+    return _json(_run_aitbc_cli(target, "ai", "submit", None, options, "json", timeout=subprocess_timeout))
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))

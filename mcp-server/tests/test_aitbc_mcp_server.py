@@ -1573,3 +1573,109 @@ class TestGenericCliEnvCwd:
         assert result["returncode"] == 0
         assert not captured[0].startswith("cd ")
         assert "=" not in captured[0].split(" ", 1)[0]
+
+
+class TestRunAitbcCliAllowlistGate:
+    """MCP-GATE-1 (#1672): the no-confirm path is the read-only allowlist,
+    not the destructive denylist — unlisted paths now need confirm."""
+
+    @staticmethod
+    def _fake_run_remote(host: str, command: str, timeout: int = 60) -> dict[str, object]:
+        return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+    def test_unlisted_non_destructive_path_requires_confirm(self):
+        """`system cron` is neither read-allowlisted nor denylist-destructive —
+        the old denylist let it run bare; the allowlist gate must not."""
+        result = json.loads(
+            mcp_server.run_aitbc_cli(group="system", subcommand="cron", host="node2", dry_run=False, confirm=False)
+        )
+        assert result.get("error") == "Confirmation required"
+
+    def test_unlisted_path_runs_with_confirm(self):
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(
+                mcp_server.run_aitbc_cli(group="system", subcommand="cron", host="node2", dry_run=False, confirm=True)
+            )
+        assert "error" not in result
+        assert "system cron" in str(result["command"])
+
+    def test_read_allowlisted_path_still_runs_without_confirm(self):
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(mcp_server.run_aitbc_cli(group="dispute", subcommand="active", host="node2", dry_run=False))
+        assert "error" not in result
+
+    def test_mutating_option_name_gates_read_path(self):
+        """Option-only mutation: a read-allowlisted path carrying a flag named
+        like a destructive verb must still require confirm."""
+        result = json.loads(
+            mcp_server.run_aitbc_cli(
+                group="wallet",
+                subcommand=["list"],
+                options={"set": None},
+                host="node2",
+                dry_run=False,
+                confirm=False,
+            )
+        )
+        assert result.get("error") == "Confirmation required"
+
+    def test_innocuous_option_name_does_not_gate(self):
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(
+                mcp_server.run_aitbc_cli(
+                    group="wallet",
+                    subcommand=["list"],
+                    options={"wallet-name": "genesis"},
+                    host="node2",
+                    dry_run=False,
+                )
+            )
+        assert "error" not in result
+
+
+class TestSubmitAiJobWaitTimeout:
+    """V13-RES2-MCP-WAIT-1 (#1715): --timeout is bounded and the remote
+    subprocess budget covers the wait window."""
+
+    def test_timeout_field_is_bounded(self):
+        import typing
+
+        hints = typing.get_type_hints(mcp_server.submit_ai_job, include_extras=True)
+        ann = hints["timeout"]
+        metas = list(getattr(ann, "__metadata__", ()))
+        # pydantic wraps Field(le=..) into FieldInfo.metadata=[Ge, Le, ...]
+        for meta in list(metas):
+            metas.extend(getattr(meta, "metadata", []) or [])
+        le_values = [getattr(m, "le", None) for m in metas]
+        assert 600 in le_values
+
+    def test_wait_timeout_extends_subprocess_budget(self):
+        captured: dict[str, object] = {}
+
+        def fake_run_remote(host: str, command: str, timeout: int = 60):
+            captured["timeout"] = timeout
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        with mock.patch.object(mcp_server, "_run_remote", fake_run_remote):
+            json.loads(
+                mcp_server.submit_ai_job(
+                    prompt="hi",
+                    wait=True,
+                    timeout=300,
+                    dry_run=False,
+                    confirm=True,
+                    host="node2",
+                )
+            )
+        assert captured["timeout"] == 330
+
+    def test_no_wait_keeps_default_subprocess_budget(self):
+        captured: dict[str, object] = {}
+
+        def fake_run_remote(host: str, command: str, timeout: int = 60):
+            captured["timeout"] = timeout
+            return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+        with mock.patch.object(mcp_server, "_run_remote", fake_run_remote):
+            json.loads(mcp_server.submit_ai_job(prompt="hi", dry_run=False, confirm=True, host="node2"))
+        assert captured["timeout"] == 120

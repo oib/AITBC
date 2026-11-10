@@ -17,6 +17,7 @@ aitbc wallet send [OPTIONS]
 | `--to-address` | text | — | yes | Destination address. |
 | `--amount` | decimal | — | yes | Amount of AIT. |
 | `--fee` | decimal | `0.01` | no | Transaction fee in AIT |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--wait` | flag | `false` | no | Wait for the transaction to seal into a block; without it the hash is only a submission receipt |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
