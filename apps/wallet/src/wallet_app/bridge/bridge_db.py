@@ -536,16 +536,27 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     conn = _connect_db()
     cursor = conn.cursor()
 
-    # timestamp_field is one of exactly two hardcoded literals below, never
-    # derived from caller input -- `status` itself is bound as a ? parameter.
-    timestamp_field = "verified_at" if status == "verified" else "completed_at"
-
-    # timestamp_field is one of exactly two hardcoded literals above, never caller input
-    query = f"UPDATE eth_deposits SET status = ?, {timestamp_field} = ? WHERE id = ?"  # nosec
-    cursor.execute(
-        query,
-        (status, utc_now_iso(), deposit_id),
-    )
+    # Only the status's own timestamp column is stamped: stamping
+    # completed_at on a 'pending' reset fabricated a completion time that
+    # _normalize_deposit then reported as processed_at (#1452). 'pending'
+    # additionally clears a stale completed_at — a re-pended row was never
+    # completed. timestamp_field values are hardcoded literals, never
+    # caller input; `status` itself is bound as a ? parameter.
+    now = utc_now_iso()
+    params: tuple[str, ...]
+    if status == "verified":
+        query = "UPDATE eth_deposits SET status = ?, verified_at = ? WHERE id = ?"  # nosec
+        params = (status, now, deposit_id)
+    elif status == "completed":
+        query = "UPDATE eth_deposits SET status = ?, completed_at = ? WHERE id = ?"  # nosec
+        params = (status, now, deposit_id)
+    elif status == "pending":
+        query = "UPDATE eth_deposits SET status = ?, completed_at = NULL WHERE id = ?"  # nosec
+        params = (status, deposit_id)
+    else:
+        query = "UPDATE eth_deposits SET status = ? WHERE id = ?"  # nosec
+        params = (status, deposit_id)
+    cursor.execute(query, params)
 
     conn.commit()
     rows_affected = cursor.rowcount

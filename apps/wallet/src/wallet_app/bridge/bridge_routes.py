@@ -988,8 +988,18 @@ def bridge_sell_status(identifier: str) -> dict[str, Any]:
 
 
 @bridge_router.get("/sell/list")
-def bridge_sell_list(limit: int = 50, offset: int = 0) -> dict[str, Any]:
-    """List sell quotes and locks."""
+def bridge_sell_list(
+    limit: int = 50,
+    offset: int = 0,
+    _admin: Annotated[None, Depends(require_admin_api_key)] = None,
+) -> dict[str, Any]:
+    """List sell quotes and locks.
+
+    Admin-keyed like /settlements: the enumerable index carries every
+    shop's AIT and ETH payout addresses — participant data, not a public
+    board (#1458). The nginx edge injects X-API-Key for this route so
+    remote operator callers stay keyless.
+    """
     limit = max(0, min(limit, 500))
     quotes = get_all_sell_quotes(limit=limit, offset=offset)
     locks = get_all_sell_locks(limit=limit, offset=offset)

@@ -1869,7 +1869,7 @@
           "bridge"
         ],
         "summary": "Bridge Sell List",
-        "description": "List sell quotes and locks.",
+        "description": "List sell quotes and locks.\n\nAdmin-keyed like /settlements: the enumerable index carries every\nshop's AIT and ETH payout addresses \u2014 participant data, not a public\nboard (#1458). The nginx edge injects X-API-Key for this route so\nremote operator callers stay keyless.",
         "operationId": "bridge_sell_list_v1_bridge_sell_list_get",
         "parameters": [
           {
