@@ -1813,6 +1813,20 @@ class RemoteAttestationService:
                 pass
         return slashing_manager
 
+    def _prior_signed_hashes(self, height: int, block_hash: str, signer: str) -> set[str]:
+        """Hashes this signer already signed at ``height`` (excluding ``block_hash``)."""
+        # #1298: ``_signed_once`` is domain-keyed — prior hashes union across
+        # ALL domains; the per-domain pairing lookup then binds each hash to
+        # the record minted under the same domain.
+        prior_hashes = {h for domains in self._signed_once.get(height, {}).values() for h in domains}
+        prior_hashes |= {entry.block_hash for (h, _r, _d), entry in self._round_locks.items() if h == height}
+        if vote_journal_enabled():
+            # #1268: the journal survives restarts and the valve, so a rival
+            # signed after either is still certified against the prior vote.
+            prior_hashes |= {r.block_hash for r in get_vote_journal(self._chain_id).votes_at(height, signer)}
+        prior_hashes.discard(block_hash)
+        return prior_hashes
+
     def _record_attestation_equivocation_evidence(
         self,
         height: int,
@@ -1840,16 +1854,7 @@ class RemoteAttestationService:
         ``None`` (below the activation height) pairs exactly as before.
         """
         canon = canonical_address(signer)
-        # #1298: ``_signed_once`` is domain-keyed — prior hashes union across
-        # ALL domains; the per-domain pairing lookup below then binds each
-        # hash to the record minted under the same domain.
-        prior_hashes = {h for domains in self._signed_once.get(height, {}).values() for h in domains}
-        prior_hashes |= {entry.block_hash for (h, _r, _d), entry in self._round_locks.items() if h == height}
-        if vote_journal_enabled():
-            # #1268: the journal survives restarts and the valve, so a rival
-            # signed after either is still certified against the prior vote.
-            prior_hashes |= {r.block_hash for r in get_vote_journal(self._chain_id).votes_at(height, signer)}
-        prior_hashes.discard(block_hash)
+        prior_hashes = self._prior_signed_hashes(height, block_hash, signer)
         if not prior_hashes:
             return
         current_key = self._signed_attestation_key(height, block_hash, signer, signature_domain)

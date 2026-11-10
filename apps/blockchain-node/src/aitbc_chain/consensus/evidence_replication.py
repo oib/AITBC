@@ -210,18 +210,8 @@ def _drop(reason: str) -> Outcome:
     return Outcome(reason)
 
 
-def ingest(
-    chain_id: str,
-    payload: Any,
-    validator_set: set[str],
-    *,
-    store: EvidenceStore | None = None,
-    now: float | None = None,
-) -> Outcome:
-    """Run one received record through the pipeline; the caller records a
-    ``slashable`` outcome through the chain's slashing recorder."""
-    store = store if store is not None else get_store(chain_id)
-    now = time.monotonic() if now is None else now
+def _parse_record(chain_id: str, payload: Any) -> Outcome | tuple[int, int | None, str, str, str, list[dict[str, Any]]]:
+    """Stages 1-3 (size, schema, chain id): the parsed fields, or the drop Outcome."""
     # 1. size
     try:
         size = len(json.dumps(payload, sort_keys=True, default=str))
@@ -253,6 +243,32 @@ def ingest(
             return _drop("schema")
     except (TypeError, ValueError):
         return _drop("schema")
+    return height, round_, validator, hash_a, hash_b, attestations
+
+
+def _is_slashable(payload: dict[str, Any], attestations: list[dict[str, Any]], round_: int | None) -> bool:
+    """Stage 8 pair predicate: round-bound same-round pairs only."""
+    if classify_attestation_pair(payload) is not PairClass.ROUND_BOUND_SAME_ROUND or round_ is None:
+        return False
+    return {a.get("request_round") for a in attestations} == {round_}
+
+
+def ingest(
+    chain_id: str,
+    payload: Any,
+    validator_set: set[str],
+    *,
+    store: EvidenceStore | None = None,
+    now: float | None = None,
+) -> Outcome:
+    """Run one received record through the pipeline; the caller records a
+    ``slashable`` outcome through the chain's slashing recorder."""
+    store = store if store is not None else get_store(chain_id)
+    now = time.monotonic() if now is None else now
+    parsed = _parse_record(chain_id, payload)
+    if isinstance(parsed, Outcome):
+        return parsed
+    height, round_, validator, hash_a, hash_b, attestations = parsed
     # 4. reporter rate cap (keyed by the reported validator; broker gives no peer id)
     if not store.window.allow(validator, _cfg("equivocation_replication_rate_per_minute", 20), now):
         return _drop("rate")
@@ -273,11 +289,7 @@ def ingest(
     if not _verify(payload, validator, height):
         return _drop("verify")
     # 8. pair predicate
-    klass = classify_attestation_pair(payload)
-    slashable = klass is PairClass.ROUND_BOUND_SAME_ROUND and round_ is not None
-    if slashable:
-        rounds = {a.get("request_round") for a in attestations}
-        slashable = rounds == {round_}
+    slashable = _is_slashable(payload, attestations, round_)
     # 9. per-slot distinct-hash cap, then atomic insert-or-ignore
     if store.slot_would_exceed(key[:4], (hash_a, hash_b)):
         return _drop("slot_cap")
