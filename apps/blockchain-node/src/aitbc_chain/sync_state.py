@@ -28,6 +28,8 @@ def _upsert_chain_parameters(
     chain_id: str,
     parameters: list[dict[str, Any]],
     parameter_history: list[dict[str, Any]] | None = None,
+    *,
+    max_rows: int | None = None,
 ) -> int:
     """Upsert ``chain_parameter`` rows shipped by the peer's sync response.
 
@@ -40,7 +42,19 @@ def _upsert_chain_parameters(
     ``applied_height`` rides along on each row so height-scoped lookups keep
     working on the follower; ``parameter_history`` ships the full version
     list so a superseded value stays resolvable for replayed blocks.
+
+    ``max_rows`` bounds each peer-controlled list BEFORE any row is applied
+    (#1628) — the same ingest-side cap ``upsert_aux_rows`` applies to aux
+    tables. A violation raises ``ValueError`` so the caller's session rolls
+    back the whole sync transaction.
     """
+    parameters = list(parameters or [])
+    parameter_history = list(parameter_history or [])
+    if max_rows is not None and (len(parameters) > max_rows or len(parameter_history) > max_rows):
+        raise ValueError(
+            f"chain_parameters payload exceeds cap {max_rows} rows/list "
+            f"({len(parameters)} parameters, {len(parameter_history)} history); refusing sync"
+        )
     applied = 0
     for p in parameters:
         name = p.get("parameter")
@@ -69,7 +83,7 @@ def _upsert_chain_parameters(
                 )
             )
         applied += 1
-    for h in parameter_history or []:
+    for h in parameter_history:
         name = h.get("parameter")
         height = h.get("applied_height")
         if not name or height is None:
@@ -254,7 +268,13 @@ class StateSyncMixin(SyncBase):
                     existing.balance = balance
                     existing.nonce = nonce
                     updated += 1
-            _upsert_chain_parameters(session, self._chain_id, remote_parameters, remote_parameter_history)
+            _upsert_chain_parameters(
+                session,
+                self._chain_id,
+                remote_parameters,
+                remote_parameter_history,
+                max_rows=settings.sync_params_max_rows,
+            )
             # Aux tables are outside the state root (#1628): bound the
             # peer-controlled payload before applying — an overflow raises
             # and rolls back this whole transaction.
@@ -454,7 +474,13 @@ class StateSyncMixin(SyncBase):
                     if db_acc:
                         session.delete(db_acc)
                 # Existing accounts were mutated in place (SQLModel tracks changes)
-            _upsert_chain_parameters(session, self._chain_id, remote_parameters, remote_parameter_history)
+            _upsert_chain_parameters(
+                session,
+                self._chain_id,
+                remote_parameters,
+                remote_parameter_history,
+                max_rows=settings.sync_params_max_rows,
+            )
             aux_counts = upsert_aux_rows(
                 session,
                 self._chain_id,

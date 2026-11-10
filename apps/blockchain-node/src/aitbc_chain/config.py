@@ -859,6 +859,12 @@ class ChainSettings(BaseSettings):
     # sync_state_diff_max_bytes — far above any legitimate aux payload.
     sync_aux_lookback_seconds: int = 900
     sync_aux_max_rows: int = 5000
+    # Row cap for the peer-supplied chain_parameters / chain_parameter_history
+    # lists on both sync paths (#1628): like aux_state they sit outside the
+    # account state root, so ingest-side bounds are the only pre-commit
+    # limit. Legitimate lists are governance keys plus one history row per
+    # change — 10k per list is far above any real chain.
+    sync_params_max_rows: int = 10_000
     sync_aux_max_payload_bytes: int = 67_108_864
     # Decompressed-size cap for a peer-supplied state diff (#1627): the delta
     # endpoint's payload is decoded before the state-root check runs, so the
