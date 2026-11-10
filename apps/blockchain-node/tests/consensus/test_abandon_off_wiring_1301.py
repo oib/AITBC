@@ -13,9 +13,8 @@ around them with the flag OFF in the combinations that matter in operation:
 * armed control — the same harness does subscribe/publish when both flags are
   ON, so the OFF assertions cannot pass vacuously.
 
-Characterization: ``handle_abandon`` itself has no internal flag gate; OFF
-safety rests on the listener never being started (asserted below), not on the
-handler refusing statements.
+``handle_abandon`` is gated too (defense in depth): OFF it releases nothing, so
+safety does not rest on the listener never being started alone.
 """
 
 from __future__ import annotations
@@ -161,11 +160,10 @@ async def test_armed_control_failed_quorum_exit_publishes(monkeypatch):
     assert [t for t, _ in broker.published] == [abandon.abandon_topic(CHAIN)]
 
 
-def test_handle_abandon_has_no_internal_flag_gate(monkeypatch):
-    """Characterization: OFF safety is the un-started listener, not the
-    handler. A directly-delivered valid statement is applied even with the
-    flag OFF (only reachable if something calls handle_abandon bypassing
-    start())."""
+def test_handle_abandon_ignores_statements_when_off(monkeypatch):
+    """Defense in depth (#1301): with the flag OFF a directly delivered valid
+    statement releases nothing — the vote stays in the journal and no abandon
+    metric moves — even though the listener is the only production caller."""
     from aitbc_chain.consensus.vote_journal import KIND_ATTEST, get_vote_journal
 
     monkeypatch.setattr(settings, "vote_journal_enabled", True)
@@ -173,4 +171,20 @@ def test_handle_abandon_has_no_internal_flag_gate(monkeypatch):
     get_vote_journal(CHAIN).record(H, OUR, HASH, KIND_ATTEST, None, PROP)
     svc = RemoteAttestationService(CHAIN, {OUR: OUR_KEY})
     stmt = abandon.build_abandon(CHAIN, H, HASH, None, PROP, PROP_KEY)
+    assert svc.handle_abandon(stmt) == 0
+    assert [r.block_hash for r in get_vote_journal(CHAIN).votes_at(H, OUR)] == [HASH]
+    assert metrics_registry._counters.get("vote_journal_abandon_released_total", 0.0) == 0.0
+    assert metrics_registry._counters.get("vote_journal_abandon_rejected_total", 0.0) == 0.0
+
+
+def test_handle_abandon_applies_statements_when_armed(monkeypatch):
+    """Armed control: the same statement is applied once both flags are ON."""
+    from aitbc_chain.consensus.vote_journal import KIND_ATTEST, get_vote_journal
+
+    monkeypatch.setattr(settings, "vote_journal_enabled", True)
+    monkeypatch.setattr(settings, "vote_journal_abandon_enabled", True)
+    get_vote_journal(CHAIN).record(H, OUR, HASH, KIND_ATTEST, None, PROP)
+    svc = RemoteAttestationService(CHAIN, {OUR: OUR_KEY})
+    stmt = abandon.build_abandon(CHAIN, H, HASH, None, PROP, PROP_KEY)
     assert svc.handle_abandon(stmt) == 1
+    assert get_vote_journal(CHAIN).votes_at(H, OUR) == []

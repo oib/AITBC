@@ -581,7 +581,14 @@ class RemoteAttestationService:
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
 
     def handle_abandon(self, payload: Any) -> int:
-        """Apply one abandon statement; returns how many local votes it released."""
+        """Apply one abandon statement; returns how many local votes it released.
+
+        Flag-gated at the handler as well as at the listener (#1301): with the
+        feature OFF a directly delivered statement releases nothing and moves
+        no metric, so OFF safety no longer rests on the listener alone.
+        """
+        if not abandon.abandon_enabled():
+            return 0
         stmt = abandon.verify_abandon(self._chain_id, payload)
         if stmt is None:
             metrics_registry.increment("vote_journal_abandon_rejected_total")
