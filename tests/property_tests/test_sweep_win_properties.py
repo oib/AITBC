@@ -137,8 +137,9 @@ class TestDecodePayload:
     def test_arbitrary_utf8_bytes_never_raise(self, text):
         # _decode_payload decodes bytes as UTF-8 before anything else, so the
         # contract under test is "valid-UTF-8 bytes never crash the decoder".
-        result = _decode_payload(text.encode("utf-8"))
-        assert result is not None
+        # The result may legitimately be None — the text "null" is valid JSON
+        # and json.loads("null") is None — so only the no-raise contract holds.
+        _decode_payload(text.encode("utf-8"))
 
     @given(text=st.text(min_size=1, max_size=60).filter(lambda s: not s.startswith("GZ:")))
     @settings(max_examples=100, deadline=None)
