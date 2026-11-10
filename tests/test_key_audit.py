@@ -118,7 +118,7 @@ def test_a_report_never_contains_a_private_key(key_audit, tree, tmp_path, monkey
     monkeypatch.setattr(
         key_audit,
         "build_report",
-        lambda find_addresses=None: real_build_report(tree["etc"], (tree["keystore"], tree["wallets"]), find_addresses),
+        lambda *a, **k: real_build_report(tree["etc"], (tree["keystore"], tree["wallets"]), k.get("find_addresses")),
     )
     monkeypatch.setattr("sys.argv", ["key-audit.py", "--report", str(out), "--find-address", ADDR])
     key_audit.main()
@@ -127,12 +127,38 @@ def test_a_report_never_contains_a_private_key(key_audit, tree, tmp_path, monkey
     assert "2 file(s) hold its key (1 of them backups)" in printed
 
 
+def test_main_scans_the_dirs_given_on_the_command_line(key_audit, tree, tmp_path, monkeypatch, capsys) -> None:
+    """#1496: --etc-dir/--wallet-dir let a CLI run audit a scratch tree — no
+    monkeypatching of module constants, no reads of the live paths."""
+    (tree["etc"] / "node.env").write_text(f"ESCROW_RELEASE_PRIVATE_KEY={PK}\nESCROW_RELEASE_ADDRESS={ADDR}\n")
+    (tree["wallets"] / "default.json").write_text(json.dumps({"private_key": OTHER_PK, "address": OTHER_ADDR}))
+    out = tmp_path / "report.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "key-audit.py",
+            "--report",
+            str(out),
+            "--etc-dir",
+            str(tree["etc"]),
+            "--wallet-dir",
+            str(tree["wallets"]),
+        ],
+    )
+    key_audit.main()
+    report = json.loads(out.read_text())
+    sources = {Path(f["source"]).name for f in report["findings"]}
+    assert sources == {"node.env", "default.json"}
+    assert report["ok"] is True
+    assert "wrote" in capsys.readouterr().out
+
+
 def test_find_address_accepts_the_ait_prefixed_form(key_audit, monkeypatch, tmp_path) -> None:
     seen: list[list[str]] = []
     monkeypatch.setattr(
         key_audit,
         "build_report",
-        lambda find_addresses=None: seen.append(find_addresses) or {"findings": [], "mismatches": [], "found_by_value": []},
+        lambda *a, **k: seen.append(k.get("find_addresses")) or {"findings": [], "mismatches": [], "found_by_value": []},
     )
     monkeypatch.setattr(
         "sys.argv", ["key-audit.py", "--report", str(tmp_path / "r.json"), "--find-address", "ait1" + ADDR[2:]]

@@ -277,6 +277,20 @@ def main() -> None:
         help="also list every file (backups included) holding a private key that derives to ADDRESS, whatever its "
         "variable name; repeatable. The key is never printed.",
     )
+    parser.add_argument(
+        "--etc-dir",
+        type=Path,
+        default=ETC_DIR,
+        help=f"directory of live *.env files to audit (default {ETC_DIR})",
+    )
+    parser.add_argument(
+        "--wallet-dir",
+        action="append",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="wallet/keystore directory to audit (repeatable; default: the " + ", ".join(str(d) for d in WALLET_DIRS) + ")",
+    )
     args = parser.parse_args()
 
     addresses: list[str] = []
@@ -286,7 +300,8 @@ def main() -> None:
             parser.error(f"not an address: {raw}")
         addresses.append(normalized)
 
-    report = build_report(find_addresses=addresses)
+    wallet_dirs = tuple(args.wallet_dir) if args.wallet_dir else WALLET_DIRS
+    report = build_report(args.etc_dir, wallet_dirs, find_addresses=addresses)
     os.makedirs(os.path.dirname(args.report) or ".", exist_ok=True)
     with open(args.report, "w") as f:
         json.dump(report, f, indent=2)
