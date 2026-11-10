@@ -8604,7 +8604,7 @@
           "disputes"
         ],
         "summary": "Health check",
-        "description": "Check disputes service health",
+        "description": "Check disputes service health.\n\nThe service is process-local (``init_dispute_service`` wires it at\nstartup); when it was never initialized every route below 503s, so\nhealth must say so instead of reporting a hardcoded zero.",
         "operationId": "disputes_health_v1_disputes_health_get",
         "responses": {
           "200": {
