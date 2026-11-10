@@ -55,6 +55,13 @@ GOVERNANCE_PARAMETERS: dict[str, type] = {
     "capabilities": list,
 }
 
+# The service's own write path (ServiceConfigCreate/Update schemas) bounds
+# max_concurrent to 1..10 — the governance apply must enforce the same
+# invariant or a proposal could set 0 (drain capacity) or an out-of-range
+# int that overflows the Integer column on PostgreSQL (#1421 second pass).
+_MAX_CONCURRENT_MIN = 1
+_MAX_CONCURRENT_MAX = 10
+
 
 def _validate_parameter_value(parameter_name: str, new_value: Any) -> None:
     """Type-check a governance parameter value (#1500).
@@ -65,7 +72,15 @@ def _validate_parameter_value(parameter_name: str, new_value: Any) -> None:
     """
     expected_type = GOVERNANCE_PARAMETERS[parameter_name]
     value_ok = isinstance(new_value, expected_type)
-    if expected_type is int and (isinstance(new_value, bool) or (isinstance(new_value, int) and new_value < 0)):
+    if expected_type is int and (
+        isinstance(new_value, bool)
+        or not isinstance(new_value, int)
+        or not (_MAX_CONCURRENT_MIN <= new_value <= _MAX_CONCURRENT_MAX)
+    ):
+        value_ok = False
+    if expected_type is list and (not all(isinstance(item, str) for item in new_value)):
+        # capabilities is list[str] on the service schema — a JSON list of
+        # ints would pass isinstance(list) but violate the column contract.
         value_ok = False
     if not value_ok:
         raise HTTPException(
