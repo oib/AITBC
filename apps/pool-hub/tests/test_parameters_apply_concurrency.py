@@ -32,21 +32,26 @@ from poolhub.models import Base, Miner, ServiceConfig
 
 
 class _BarrierSession:
-    """AsyncSession proxy that parks ``execute`` until every peer arrives.
+    """AsyncSession proxy that parks the first ``execute`` until every peer arrives.
 
-    The endpoint issues exactly one ``execute`` (the ServiceConfig SELECT)
-    before mutating and committing, so gating there forces both sessions to
-    read the same pre-change snapshot — the exact interleaving a real
-    concurrent request pair can hit.
+    The endpoint's first ``execute`` is the ServiceConfig SELECT; gating
+    there forces both sessions to read the same pre-change snapshot — the
+    exact interleaving a real concurrent request pair can hit. Only the
+    first call is gated: the guarded UPDATE that follows must be allowed to
+    run (and serialize on the database write lock) rather or both sessions
+    would park holding/awaiting locks and deadlock.
     """
 
     def __init__(self, inner: AsyncSession, barrier: asyncio.Barrier) -> None:
         self._inner = inner
         self._barrier = barrier
+        self._calls = 0
 
     async def execute(self, stmt: Any, *args: Any, **kwargs: Any) -> Any:
         result = await self._inner.execute(stmt, *args, **kwargs)
-        await self._barrier.wait()
+        self._calls += 1
+        if self._calls == 1:
+            await self._barrier.wait()
         return result
 
     def __getattr__(self, name: str) -> Any:
@@ -57,6 +62,13 @@ class _BarrierSession:
 async def session_factory(tmp_path: Path):
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'poolhub_conc.db'}")
     async with engine.begin() as conn:
+        # WAL gives readers MVCC-style snapshots that do not block the single
+        # writer — the closest SQLite gets to the PostgreSQL semantics the
+        # endpoint relies on (row locks + atomic guarded UPDATE, #1600).
+        # In rollback-journal mode both sessions hold SHARED locks from their
+        # SELECTs, so the loser's guarded UPDATE deadlocks into SQLITE_BUSY
+        # instead of cleanly matching 0 rows.
+        await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
         await conn.run_sync(Base.metadata.create_all)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with factory() as s:
@@ -110,10 +122,6 @@ async def _race(factory, change_a: ParameterChangeRequest, change_b: ParameterCh
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="check-then-act old_value guard lets conflicting changes both commit — fix tracked in #1600",
-)
 @pytest.mark.asyncio
 async def test_concurrent_conflicting_applies_at_most_one_succeeds(session_factory) -> None:
     """Two proposals racing on old_value=1 must not both apply.
