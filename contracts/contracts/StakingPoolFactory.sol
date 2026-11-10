@@ -444,9 +444,14 @@ contract StakingPoolFactory is IStakingPoolFactory, Ownable, ReentrancyGuard, Pa
             revert InvalidAmount(amount);
         }
 
-        // Calculate rewards
+        // Calculate rewards for the elapsed window since the last
+        // checkpoint, then advance the checkpoint. Without the write,
+        // every unstake re-paid the full accrual window since lock start
+        // on the (reduced) position.amount, letting small unstakes
+        // collect overlapping reward periods (#1467).
         uint256 rewards = _calculateRewards(position);
         position.accumulatedRewards += rewards;
+        position.lastRewardTime = block.timestamp;
 
         // Update position
         position.amount -= amount;
