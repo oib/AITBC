@@ -11,6 +11,7 @@ import itertools
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from aitbc.constants import DATA_DIR
 from aitbc.rate_limiting import rate_limit
 from aitbc.security import SecurityAuditor, SecurityValidator
 
@@ -112,10 +113,16 @@ class MarketDeleteRequest(BaseModel):
 
 
 def _chain_db_path() -> Path:
-    """The chain.db the listing reader opens: the configured chain's, else the legacy single-chain file."""
-    path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
+    """The chain.db the listing reader opens: the configured chain's, else the legacy single-chain file.
+
+    Resolved through ``aitbc.constants.DATA_DIR`` so ``AITBC_DATA_DIR``
+    overrides apply — the previous ``/var/lib/aitbc`` literal silently
+    returned empty listings on any non-default data dir (#1555). Same
+    expression as ``config.py``'s ``get_db_path``.
+    """
+    path = DATA_DIR / "data" / resolve_chain_id() / "chain.db"
     if not path.exists():
-        path = Path("/var/lib/aitbc/data/chain.db")
+        path = DATA_DIR / "data" / "chain.db"
     return path
 
 
@@ -133,7 +140,10 @@ def market_listings(request: Request) -> dict[str, Any]:
 
         listings = []
         if chain_db_path.exists():
-            conn = sqlite3.connect(str(chain_db_path))
+            # Explicit timeout matching the chain.db engine budget (60s) —
+            # the bare connect used sqlite3's 5s default under write-lock
+            # contention (#1555).
+            conn = sqlite3.connect(str(chain_db_path), timeout=60.0)
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT id, sender, payload, timestamp FROM \"transaction\" WHERE type = 'GPU_MARKET' AND status = 'confirmed' ORDER BY timestamp DESC"
