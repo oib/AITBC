@@ -1843,7 +1843,7 @@
             }
           },
           "409": {
-            "description": "Expected old value {change.old_value} does not match actual {old_value}",
+            "description": "Expected old value {change.old_value} does not match actual {mismatched[0]} / Parameter '{change.parameter_name}' changed concurrently for service '{change.target_service}': expected old value {change.old_value} no longer holds",
             "content": {
               "application/json": {
                 "schema": {

@@ -38,6 +38,9 @@ class _Scalars:
 class _Result:
     def __init__(self, rows: list[Any]) -> None:
         self._rows = rows
+        # UPDATE ... WHERE guard (#1600) inspects rowcount; the mock reports
+        # every fixture row as matched, which is what a non-raced apply sees.
+        self.rowcount = len(rows)
 
     def scalars(self) -> _Scalars:
         return _Scalars(self._rows)
