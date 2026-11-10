@@ -3,6 +3,9 @@
 import hmac
 import json
 import os
+import threading
+import time
+from collections import deque
 from http.server import BaseHTTPRequestHandler
 from urllib.request import urlopen
 
@@ -28,6 +31,80 @@ def _idempotency_key(handler) -> str:
     if headers is None:
         return ""
     return (headers.get("Idempotency-Key") or "").strip()
+
+
+# In-memory sliding-window buckets for the section-9 abuse limits, shared by
+# every handler mixin (#1678). The handlers run on a ThreadPoolExecutor
+# (main.py), so a lock guards the map; buckets are per-process state —
+# restarting the service resets the windows, which the design accepts
+# (limits exist to blunt spam, not to audit it).
+_RATE_LOCK = threading.Lock()
+_RATE_BUCKETS: dict[str, deque] = {}
+_RATE_WINDOW_S = 60.0
+_RATE_MAX_KEYS = 10_000
+
+
+def _rate_limit_hit(key: str, per_minute: int) -> bool:
+    """Record one event for ``key``; True when the window is already full."""
+    if per_minute <= 0:
+        return False
+    now = time.monotonic()
+    with _RATE_LOCK:
+        if len(_RATE_BUCKETS) >= _RATE_MAX_KEYS:
+            for k, bucket in list(_RATE_BUCKETS.items()):
+                if not bucket or now - bucket[-1] > _RATE_WINDOW_S:
+                    del _RATE_BUCKETS[k]
+        dq = _RATE_BUCKETS.get(key)
+        if dq is None:
+            dq = deque()
+            _RATE_BUCKETS[key] = dq
+        while dq and now - dq[0] > _RATE_WINDOW_S:
+            dq.popleft()
+        if len(dq) >= per_minute:
+            return True
+        dq.append(now)
+        return False
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def client_ip_for_rate_limit(handler) -> str:
+    """Client IP for per-IP rate buckets.
+
+    Delegates to the handler's ``_client_ip`` (trusted-proxy aware — see
+    ExchangeMixin) when the assembled handler provides it; falls back to the
+    raw request peer so single-mixin test doubles still get a stable bucket.
+    """
+    method = getattr(handler, "_client_ip", None)
+    if callable(method):
+        try:
+            ip = method()
+        except Exception:
+            ip = None
+        if isinstance(ip, str) and ip:
+            return ip
+    request = getattr(handler, "request", None)
+    client = getattr(request, "client", None)
+    peer = getattr(client, "host", None)
+    return peer if isinstance(peer, str) and peer else "unknown"
+
+
+def mutating_rate_limit_reached(handler, scope: str, per_minute: int) -> bool:
+    """True — after sending 429 — when ``scope``'s per-IP window is full.
+
+    ``scope`` namespaces the bucket (``market``, ``bridge``, ``wallet-connect``,
+    ...). Used by the market/bridge/wallet mutating handlers that had no rate
+    limiting at all (#1678).
+    """
+    if _rate_limit_hit(f"{scope}:{client_ip_for_rate_limit(handler)}", per_minute):
+        handler.send_json_response({"error": "Rate limit reached"}, status=429)  # type: ignore[attr-defined]
+        return True
+    return False
 
 
 _operation_ledgers: dict[str, OperationLedger] = {}

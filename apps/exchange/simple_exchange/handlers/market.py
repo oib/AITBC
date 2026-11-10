@@ -15,7 +15,7 @@ from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import connect_db, get_db_path
-from .base import _idempotency_key, get_operation_ledger
+from .base import _env_int, _idempotency_key, get_operation_ledger, mutating_rate_limit_reached
 
 logger = get_logger(__name__)
 
@@ -178,6 +178,9 @@ class MarketMixin:
             self.send_error(404, "Offer not found")  # type: ignore[attr-defined]
 
     def handle_market_create_offer(self):
+        # #1678: marketplace mutations had no rate limiting — bound per IP.
+        if mutating_rate_limit_reached(self, "market", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
@@ -255,6 +258,9 @@ class MarketMixin:
             self.send_json_response({"success": False, "error": "Offer creation failed"}, status=400)  # type: ignore[attr-defined]
 
     def handle_market_book_offer(self, path):
+        # #1678: marketplace mutations had no rate limiting — bound per IP.
+        if mutating_rate_limit_reached(self, "market", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
@@ -382,6 +388,9 @@ class MarketMixin:
         self.send_json_response({"orders": orders})  # type: ignore[attr-defined]
 
     def handle_market_delete_order(self, parsed):
+        # #1678: marketplace mutations had no rate limiting — bound per IP.
+        if mutating_rate_limit_reached(self, "market", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         order_id = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
@@ -407,6 +416,9 @@ class MarketMixin:
         self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})  # type: ignore[attr-defined]
 
     def handle_market_delete_offer(self, parsed):
+        # #1678: marketplace mutations had no rate limiting — bound per IP.
+        if mutating_rate_limit_reached(self, "market", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         offer_id = urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1])
