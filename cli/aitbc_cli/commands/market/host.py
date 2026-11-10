@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -11,6 +12,9 @@ from pathlib import Path
 from typing import Any
 
 import click
+
+from aitbc.crypto.crypto import sign_transaction_data
+from aitbc.market.job_request_signature import jobs_request_message
 
 from ...config import get_config
 from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, success, warning
@@ -589,8 +593,28 @@ def cancel(
 ):
     """Cancel an active market job and request a refund."""
     output_format = _resolve_output_format(ctx, output_format)
+    # #1634: sign the cancel as a job party when the market wallet key is
+    # resolvable — the market verifies the proof and rejects foreign
+    # signers. Without a key the API-key-only cancel still works.
+    payload: dict[str, Any] = {"reason": reason}
     try:
-        result = _market_client().post(f"/v1/market/jobs/{job_id}/cancel", json={"reason": reason})
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=False)
+        chain_id = get_chain_id()
+        if private_key and wallet_address and chain_id:
+            issued_at = int(time.time())
+            message = jobs_request_message(wallet_address, chain_id, issued_at, f"/v1/market/jobs/{job_id}/cancel")
+            payload.update(
+                {
+                    "signer_address": wallet_address,
+                    "chain_id": chain_id,
+                    "issued_at": issued_at,
+                    "signature": sign_transaction_data(message, private_key),
+                }
+            )
+    except Exception as e:  # noqa: BLE001 - unsigned cancel remains valid
+        warning(f"Could not sign market cancel request: {e}")
+    try:
+        result = _market_client().post(f"/v1/market/jobs/{job_id}/cancel", json=payload)
         if result and not result.get("error"):
             success(f"Canceled market job {job_id}")
         else:
