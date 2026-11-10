@@ -504,6 +504,7 @@ class JobService:
                         update(Job)
                         .where(Job.id == job.id, Job.state == "QUEUED")  # type: ignore[arg-type]
                         .values(state="RUNNING", assigned_miner_id=miner.id)
+                        .execution_options(synchronize_session=False)
                     )
                     if getattr(claim, "rowcount", 0) != 1:
                         logger.info(
@@ -511,6 +512,9 @@ class JobService:
                             job.id,
                             miner.id,
                         )
+                        # The in-session copy is stale (still QUEUED); detach it
+                        # so no later flush can write the losing transition.
+                        self.session.expunge(job)
                         continue
                     self.session.commit()
                     self.session.refresh(job)

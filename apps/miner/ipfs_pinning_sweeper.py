@@ -129,10 +129,22 @@ def _signed_request_params(provider_address: str, route: str) -> dict[str, Any] 
 
 def _load_state(path: Path) -> dict[str, dict[str, Any]]:
     try:
-        data: dict[str, dict[str, Any]] = json.loads(path.read_text())
-        return data
-    except (OSError, json.JSONDecodeError):
+        data = json.loads(path.read_text())
+        if isinstance(data, dict):
+            return data
+    except FileNotFoundError:
         return {}
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning("IPFS pinning state %s unreadable (%s); quarantining and starting fresh", path, e)
+    else:
+        logger.warning("IPFS pinning state %s is not a JSON object; quarantining and starting fresh", path)
+    # A corrupt state file orphans every tracked pin (they are never unpinned).
+    # Quarantine it aside rather than passing silently (#1486 class).
+    try:
+        path.replace(path.with_name(f"{path.name}.corrupt-{int(time.time())}"))
+    except OSError as e:
+        logger.warning("Could not quarantine corrupt pinning state %s: %s", path, e)
+    return {}
 
 
 def _save_state(path: Path, state: dict[str, dict[str, Any]]) -> None:
@@ -185,24 +197,30 @@ def _object_size(cid: str) -> int | None:
         return None
 
 
-def _fetch_jobs(market_url: str, provider_address: str) -> list[dict[str, Any]] | None:
-    """Return this provider's ipfs market jobs, or None on fetch failure.
+# Job listing pagination (#1489): the market caps ``limit`` at
+# MARKET_MAX_PAGE_SIZE (default 500). The sweeper pages with ``offset`` until
+# an empty page; a market that ignores ``offset`` returns the same first page
+# forever and trips the page cap — the sweep is then marked *truncated* and
+# stale-pin reclamation is skipped rather than unpinning live rentals.
+_JOB_PAGE_SIZE = 500
+_JOB_MAX_PAGES = 40  # 20k jobs — beyond this the sweep is marked truncated
 
-    The request is provider-signed: the public feed is redacted, and full
-    rows (``payload.cid`` et al.) go only to the recovered signer. A 401/403,
-    missing signing material, or any other failure returns None — "unknown",
-    so callers never unpin based on a failed fetch.
-    """
-    signed = _signed_request_params(provider_address, "/v1/market/jobs")
-    if signed is None:
-        return None
+
+def _fetch_jobs_page(
+    market_url: str,
+    provider_address: str,
+    offset: int,
+    signed: dict[str, Any],
+) -> list[dict[str, Any]] | None:
+    """One page of this provider's ipfs market jobs, or None on fetch failure."""
     try:
         response = requests.get(
             f"{market_url}/v1/market/jobs",
             params={
                 "service_type": "ipfs",
                 "provider_address": provider_address,
-                "limit": "500",
+                "limit": str(_JOB_PAGE_SIZE),
+                "offset": str(offset),
                 **signed,
             },
             timeout=20,
@@ -217,6 +235,64 @@ def _fetch_jobs(market_url: str, provider_address: str) -> list[dict[str, Any]] 
     if isinstance(data, list):
         return data
     return []
+
+
+def _fetch_jobs(market_url: str, provider_address: str) -> tuple[list[dict[str, Any]], bool] | None:
+    """All of this provider's ipfs market jobs, paginated.
+
+    Returns ``(jobs, complete)`` — ``complete`` is False when the page cap was
+    hit before the listing was exhausted — or ``None`` on fetch failure
+    ("unknown": callers must never unpin based on a failed fetch). The request
+    is provider-signed: the public feed is redacted, and full rows
+    (``payload.cid`` et al.) go only to the recovered signer. A 401/403,
+    missing signing material, or any other failure returns None.
+    """
+    signed = _signed_request_params(provider_address, "/v1/market/jobs")
+    if signed is None:
+        return None
+    jobs: list[dict[str, Any]] = []
+    offset = 0
+    for _ in range(_JOB_MAX_PAGES):
+        page = _fetch_jobs_page(market_url, provider_address, offset, signed)
+        if page is None:
+            return None
+        jobs.extend(page)
+        if not page:
+            return jobs, True
+        offset += len(page)
+    logger.warning(
+        "Market ipfs job listing did not end within %d pages; sweep will be marked truncated",
+        _JOB_MAX_PAGES,
+    )
+    return jobs, False
+
+
+def _fetch_job(market_url: str, job_id: str, provider_address: str) -> tuple[dict[str, Any] | None, bool]:
+    """Direct lookup used to verify a pin's job before unpinning (#1489).
+
+    Returns ``(job, True)`` when the market answered — ``job`` None on 404
+    means the job is gone — or ``(None, False)`` when the answer is unknown
+    (unsigned request, HTTP error, network). Unknown must keep the pin: an
+    active job that fell outside the inspected listing page set is still a
+    paid rental.
+    """
+    route = f"/v1/market/jobs/{job_id}"
+    signed = _signed_request_params(provider_address, route)
+    if signed is None:
+        return None, False
+    try:
+        response = requests.get(f"{market_url}{route}", params=signed, timeout=20)
+    except requests.RequestException:
+        return None, False
+    if response.status_code == 404:
+        return None, True
+    if response.status_code != 200:
+        return None, False
+    try:
+        data = response.json()
+    except ValueError:
+        return None, False
+    return (data if isinstance(data, dict) else None), True
 
 
 def _pin_confirmed(job: dict[str, Any]) -> bool:
@@ -368,9 +444,17 @@ def _pin_active_jobs(
 def _unpin_stale_jobs(
     state: dict[str, dict[str, Any]],
     active_jobs: list[dict[str, Any]],
+    market_url: str,
+    provider_address: str,
     result: dict[str, int],
 ) -> None:
-    """Reclaim disk for jobs that left the active set (terminal or gone)."""
+    """Reclaim disk for jobs confirmed terminal or gone — never on absence alone.
+
+    Each unpin candidate is re-checked with a direct signed job lookup before
+    the pin is removed (#1489): a job that was active but fell outside the
+    inspected listing page set keeps its pin, and an unverifiable lookup
+    defers the unpin to a later sweep.
+    """
     active_ids = {_job_id(j) for j in active_jobs}
     # CIDs still referenced by an active job must not be unpinned even if a
     # sibling job that shared the CID reached a terminal state.
@@ -380,18 +464,29 @@ def _unpin_stale_jobs(
         if job_id in active_ids:
             continue
         cid = entry.get("cid")
-        if cid and cid not in active_cids:
-            if _unpin_cid(cid):
-                result["unpinned"] += 1
-            else:
-                result["errors"] += 1
-                continue  # keep the state entry so we retry the unpin
+        if not cid or cid in active_cids:
+            del state[job_id]
+            continue
+        job, known = _fetch_job(market_url, job_id, provider_address)
+        if not known:
+            result["deferred"] += 1
+            continue
+        if job is not None and str(job.get("state", "")).upper() in ACTIVE_STATES:
+            # Still a live rental — the listing missed it (pagination drift or
+            # a state transition mid-sweep). Keep the pin.
+            result["deferred"] += 1
+            continue
+        if _unpin_cid(cid):
+            result["unpinned"] += 1
+        else:
+            result["errors"] += 1
+            continue  # keep the state entry so we retry the unpin
         del state[job_id]
 
 
 def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[str, int]:
     """Run one provider-side pin sweep. Returns counters for logging/tests."""
-    result = {"pinned": 0, "confirmed": 0, "unpinned": 0, "skipped_quota": 0, "errors": 0}
+    result = {"pinned": 0, "confirmed": 0, "unpinned": 0, "skipped_quota": 0, "errors": 0, "truncated": 0, "deferred": 0}
     if os.environ.get("IPFS_HOSTING_ENABLED", "1").lower() in ("0", "false", "no"):
         return result
     if not provider_address:
@@ -404,14 +499,21 @@ def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[st
     state_path = state_path or _state_path()
     state = _load_state(state_path)
 
-    jobs = _fetch_jobs(market_url, provider_address)
-    if jobs is None:
+    fetched = _fetch_jobs(market_url, provider_address)
+    if fetched is None:
         result["errors"] += 1
         return result
+    jobs, listing_complete = fetched
 
     active_jobs = [j for j in jobs if str(j.get("state", "")).upper() in ACTIVE_STATES]
     _pin_active_jobs(active_jobs, market_url, state, result, provider_address)
-    _unpin_stale_jobs(state, active_jobs, result)
+    if listing_complete:
+        _unpin_stale_jobs(state, active_jobs, market_url, provider_address, result)
+    else:
+        # The inspected set may be missing active jobs — unpinning now could
+        # reclaim paid hosting. Defer reclamation to a complete sweep (#1489).
+        result["truncated"] = 1
+        logger.warning("IPFS job listing truncated; skipped stale-pin reclamation this sweep")
 
     _save_state(state_path, state)
     if any(result.values()):

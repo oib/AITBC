@@ -984,6 +984,7 @@ async def list_market_jobs(
     state: str | None = None,
     offer_id: str | None = None,
     limit: int = 100,
+    offset: int = 0,
     signer_address: str | None = None,
     chain_id: str | None = None,
     issued_at: int | None = None,
@@ -1028,6 +1029,7 @@ async def list_market_jobs(
                 state=state,
                 offer_id=offer_id,
                 limit=limit,
+                offset=offset,
                 owner_address=signer,
             )
         jobs = await svc.list_market_jobs(
@@ -1037,6 +1039,7 @@ async def list_market_jobs(
             state=state,
             offer_id=offer_id,
             limit=limit,
+            offset=offset,
         )
         if _is_market_admin(request):
             return jobs

@@ -184,3 +184,60 @@ def test_configured_miner_keys_merges_settings_and_env(monkeypatch):
     monkeypatch.setenv("MINER_API_KEYS", "b,c")
 
     assert _configured_miner_keys() == ["a", "b", "c"]
+
+
+def _miner_key_app():
+    """Minimal app exposing require_miner_api_key so tests can inspect `sub`."""
+    from fastapi import Depends, FastAPI
+
+    from aitbc.auth.dependencies import require_miner_api_key
+
+    from typing import Annotated
+
+    app = FastAPI()
+
+    @app.get("/whoami")
+    def whoami(user: Annotated[dict, Depends(require_miner_api_key)]) -> dict:
+        return user
+
+    return app
+
+
+def test_bound_miner_key_rejects_foreign_miner_id(monkeypatch):
+    """#1597: MINER_API_KEY_BINDINGS pins a key to one miner id — a shared key
+    can no longer impersonate an arbitrary X-Miner-ID."""
+    key = "bound-miner-key-32-chars-long"
+    _configure_miner_key(monkeypatch, key)
+    monkeypatch.setenv("MINER_API_KEY_BINDINGS", f'{{"{key}": "miner-a"}}')
+
+    client = TestClient(_miner_key_app())
+    ok = client.get("/whoami", headers={"X-Api-Key": key, "X-Miner-ID": "miner-a"})
+    assert ok.status_code == 200 and ok.json()["sub"] == "miner-a"
+
+    bad = client.get("/whoami", headers={"X-Api-Key": key, "X-Miner-ID": "miner-b"})
+    assert bad.status_code == 403
+
+    # No X-Miner-ID at all: the bound id is used, never caller-asserted.
+    none_ = client.get("/whoami", headers={"X-Api-Key": key})
+    assert none_.status_code == 200 and none_.json()["sub"] == "miner-a"
+
+
+def test_unbound_miner_key_keeps_legacy_miner_id(monkeypatch):
+    """Backward compatibility: keys without a binding still honour X-Miner-ID."""
+    _configure_miner_key(monkeypatch)
+    monkeypatch.setenv("MINER_API_KEY_BINDINGS", '{"some-other-key": "miner-x"}')
+
+    client = TestClient(_miner_key_app())
+    resp = client.get("/whoami", headers={"X-Api-Key": MINER_KEY, "X-Miner-ID": "miner-9"})
+    assert resp.status_code == 200 and resp.json()["sub"] == "miner-9"
+
+
+def test_miner_key_bindings_pair_syntax(monkeypatch):
+    """The comma-separated key=miner_id form parses as well as JSON."""
+    key = "pair-miner-key-32-chars-long"
+    _configure_miner_key(monkeypatch, key)
+    monkeypatch.setenv("MINER_API_KEY_BINDINGS", f"{key}=miner-pair, other=ignored")
+
+    client = TestClient(_miner_key_app())
+    resp = client.get("/whoami", headers={"X-Api-Key": key})
+    assert resp.status_code == 200 and resp.json()["sub"] == "miner-pair"

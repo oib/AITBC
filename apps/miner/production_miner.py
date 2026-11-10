@@ -1206,7 +1206,15 @@ async def main():
                         elif job_id:
                             # Run the blocking, potentially slow model execution in a
                             # worker thread so heartbeats and the next poll continue.
-                            task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
+                            # The claim is atomic (check-and-add with no await in
+                            # between, on the single event-loop thread — #1485); if
+                            # task creation itself fails, release the slot so the
+                            # job is not locked out until restart.
+                            try:
+                                task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
+                            except Exception:
+                                ACTIVE_JOB_IDS.discard(job_id)
+                                raise
                             task.add_done_callback(partial(_on_job_done, job_id))
                 else:
                     logger.debug("At max capacity (%s/%s jobs); skipping poll", len(ACTIVE_JOB_IDS), max_concurrent_jobs)
