@@ -71,7 +71,11 @@ class WebsocketGossipBackend(GossipBackend):
         if self._base_url.startswith("wss://"):
             self._ssl_context = ssl.create_default_context()
         self._websockets: dict[str, Any] = {}
-        self._queues: dict[str, asyncio.Queue[Any]] = {}
+        # #1704: one queue PER SUBSCRIBER per topic — the reader fans out.
+        # Sharing a single queue made concurrent subscribers competing
+        # consumers: each inbound message was delivered to exactly one of
+        # them, silently splitting the stream.
+        self._queues: dict[str, list[asyncio.Queue[Any]]] = {}
         self._readers: dict[str, asyncio.Task[None]] = {}
         self._ref_counts: dict[str, int] = {}
         self._lock = asyncio.Lock()
@@ -406,9 +410,11 @@ class WebsocketGossipBackend(GossipBackend):
                     continue
                 if await self._is_echo(topic, message):
                     continue
-                queue = self._queues.get(topic)
-                if queue:
-                    await queue.put(message)
+                queues = self._queues.get(topic)
+                if isinstance(queues, list):
+                    # Snapshot: unsubscribe mutates the list under _lock.
+                    for queue in list(queues):
+                        await queue.put(message)
         except websockets.exceptions.ConnectionClosed as exc:
             # #1308: peer-attributed close record — the churn bursts were
             # unattributable because only the topic was logged.
@@ -744,21 +750,23 @@ class WebsocketGossipBackend(GossipBackend):
         await self._ensure_connection(topic)
         async with self._lock:
             self._ref_counts[topic] = self._ref_counts.get(topic, 0) + 1
-            if topic not in self._queues:
-                self._queues[topic] = asyncio.Queue(maxsize=max_queue_size)
-            queue = self._queues[topic]
+            queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=max_queue_size)
+            self._queues.setdefault(topic, []).append(queue)
 
         def _unsubscribe() -> None:
             create_task_with_logging(
-                self._do_unsubscribe(topic),
+                self._do_unsubscribe(topic, queue),
                 name=f"ws-gossip-unsub:{topic}",
             )
 
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 
-    async def _do_unsubscribe(self, topic: str) -> None:
+    async def _do_unsubscribe(self, topic: str, queue: asyncio.Queue[Any]) -> None:
         async with self._lock:
             self._ref_counts[topic] = max(0, self._ref_counts.get(topic, 0) - 1)
+            queues = self._queues.get(topic)
+            if isinstance(queues, list) and queue in queues:
+                queues.remove(queue)
             if self._ref_counts.get(topic, 0) > 0:
                 return
         await self._cleanup(topic)
