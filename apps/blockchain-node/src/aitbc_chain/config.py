@@ -594,6 +594,12 @@ class ChainSettings(BaseSettings):
     gossip_subscribe_wait_ready_enabled: bool = False
     gossip_subscribe_ready_timeout_seconds: float = 2.0
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
+    # Body-size cap for POST /gossip on the standalone relay unit
+    # (aitbc-blockchain-p2p, aitbc_chain.gossip.relay) — #1591. The ws gossip
+    # path caps each message at gossip_max_message_size; the HTTP publish
+    # path had no bound at all. 4 MiB covers a max-size block/message plus
+    # auth fields with headroom.
+    gossip_relay_max_body_bytes: int = int(os.getenv("GOSSIP_RELAY_MAX_BODY_BYTES", "4194304"))
     gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))
     # Aggregate per-source-IP ceilings ACROSS every chain this host serves
     # (#1257, #1159 design v2 D3). The per-chain limits above multiply with the
