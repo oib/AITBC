@@ -148,6 +148,30 @@ def test_second_rotation_appends_previous(sandbox, script: Path, key: str) -> No
     [(JWT_SCRIPT, "JWT_SECRET"), (APIKEY_SCRIPT, "API_KEY_HASH_SECRET")],
     ids=lambda p: p.name if isinstance(p, Path) else p,
 )
+def test_env_file_without_trailing_newline(sandbox, script: Path, key: str) -> None:
+    """An env file whose last line has no ``\\n`` must still get the new
+    secret on its own line — a bare append used to fuse ``KEY=...`` onto the
+    previous line and silently lose the variable."""
+    _tmp, env_dir, _backup, _bin, env = sandbox
+    old_secret = "old-secret-that-is-long-enough-0123456789"
+    new_secret = "new-secret-0123456789abcdef0123456789abcdef"
+    env_file = env_dir / f"{SERVICES[0]}.env"
+    env_file.write_text(f"# {SERVICES[0]}\n{key}={old_secret}\nOTHER=value")  # no trailing \n
+
+    result = _run(script, env, stdin=f"{new_secret}\n")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    text = env_file.read_text()
+    assert f"{key}={new_secret}" in text.splitlines()
+    assert f"{key}_NEW" not in text
+    assert "OTHER=value" in text.splitlines()
+
+
+@pytest.mark.parametrize(
+    "script,key",
+    [(JWT_SCRIPT, "JWT_SECRET"), (APIKEY_SCRIPT, "API_KEY_HASH_SECRET")],
+    ids=lambda p: p.name if isinstance(p, Path) else p,
+)
 def test_failed_run_leaves_scoped_rollback(sandbox, script: Path, key: str) -> None:
     """ROTATE-ROLLBACK-BACKUP-GLOB-1 (#854): a failed run leaves a per-run
     rollback script (0700, no fixed /tmp path) that restores only this run's

@@ -98,6 +98,10 @@ path = os.environ["FILE"]
 
 with open(path) as handle:
     lines = handle.readlines()
+# A file whose last line lacks a trailing newline would
+# otherwise fuse the appended KEY=... onto it and silently lose the var.
+if lines and not lines[-1].endswith("\n"):
+    lines[-1] += "\n"
 
 pattern = re.compile(rf"^{re.escape(key)}=")
 replaced = False
@@ -127,6 +131,10 @@ pattern = re.compile(rf"^{re.escape(key)}=")
 
 with open(path) as handle:
     lines = handle.readlines()
+# A file whose last line lacks a trailing newline would
+# otherwise fuse the appended KEY=... onto it and silently lose the var.
+if lines and not lines[-1].endswith("\n"):
+    lines[-1] += "\n"
 with open(path, "w") as handle:
     handle.writelines(line for line in lines if not pattern.match(line))
 PY
@@ -202,14 +210,11 @@ log "Phase 1: Adding new secret with dual-secret overlap..."
 for service in "${SERVICES[@]}"; do
     env_file="$ENV_DIR/${service}.env"
     if [ -f "$env_file" ]; then
-        # Add new secret as JWT_SECRET_NEW
-        if ! grep -q "JWT_SECRET_NEW=" "$env_file"; then
-            echo "JWT_SECRET_NEW=$NEW_SECRET" >> "$env_file"
-            log "Added JWT_SECRET_NEW to ${service}.env"
-        else
-            log "JWT_SECRET_NEW already exists in ${service}.env, updating..."
-            set_env_var "JWT_SECRET_NEW" "$NEW_SECRET" "$env_file"
-        fi
+        # Add new secret as JWT_SECRET_NEW (set_env_var appends safely even when
+        # the file lacks a trailing newline — a bare `echo >>` would fuse
+        # the assignment onto the last line and lose the variable).
+        set_env_var "JWT_SECRET_NEW" "$NEW_SECRET" "$env_file"
+        log "Set JWT_SECRET_NEW in ${service}.env"
     fi
 done
 
