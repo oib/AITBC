@@ -203,6 +203,17 @@ Defaults that are not off and not unset, i.e. already live: `attestation_lock_en
 - Disarming `mempool_reservation_enabled` does not clear markers written while armed. They stay live until released or their TTL (`mempool_reservation_ttl_seconds`, default 120 s) lapses, and until then shield the pool-side deleters; the OFF `drain()` ignores them.
 - Arming UC (`vote_journal_enabled` + `vote_journal_justification_enabled`) together on a healthy sandbox mesh stalled the first post-arm height on both test meshes (#1301). UC stays off in production until #1306 / #1311 land and the criteria in #1301 are ratified.
 
+### Flag interactions
+
+Only relationships backed by code or a `config.py` comment are listed.
+
+- **Hard dependencies (enforced in code):** `vote_journal_abandon_enabled` and `vote_journal_justification_enabled` each take effect only with `vote_journal_enabled` also on; the sandbox-tested #1306 nonblocking-persist flag (`unavail_nonblocking_persist_enabled`, once landed) additionally needs the UC barrier.
+- **Fleet-uniform height pins:** `state_transition_v24_height`, `consensus_domain_separation_height` and `sync_require_state_root_height` are consensus rules. Arm them at one height on every validator, never mid-history; a mixed set applies different rules and forks (comments in `config.py`). `consensus_legacy_attestation_until_height` only widens the attestation channel inside [H, S); proposals never dual-accept.
+- **Backend-scoped:** `mempool_reservation_enabled` is a no-op on the in-memory mempool backend (falls back to `drain()`).
+- **Round lock:** `attestation_round_lock_enabled` binds the round into the signed attestation payload and persists (height, round, hash) records, so it changes what attesters sign. Treat it like a pinned rule across the validator set; whether a mixed set interoperates has not been tested.
+- **Observed bad combination (sandbox only):** arming `vote_journal_enabled` + `vote_journal_justification_enabled` on all validators at once stalled the first post-arm height on both test meshes (#1301). It has not been tried with a serial, gated arm.
+- **Not covered:** the #1311 equivocation-replication flags are not on `main`; their interactions are not documented here until they land.
+
 ### Evidence pointers
 
 Sandbox evidence for these paths is indexed on Gitea issue #1301 (evidence-pack index, comment 27500), with the flag-matrix source review in comment 25600, the driver11 replication on a second mesh in comment 27374, and the OFF-wiring tests under #1300 / #1301. The authoritative list of sandboxes and their rules is the AITBC workspace guide (`AGENTS/sandbox.md` in the operator checkout, not in this repository).
