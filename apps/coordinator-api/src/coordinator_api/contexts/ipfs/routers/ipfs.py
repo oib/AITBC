@@ -1,6 +1,7 @@
 """IPFS storage router for Coordinator API"""
 
 import logging
+import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -37,7 +38,9 @@ class IPFSBatchUploadRequest(BaseModel):
     """Request model for batch IPFS upload"""
 
     agent_id: str
-    memories: list[dict[str, Any]]
+    # IPFS-DEPTH-1 (#1582): the memories list was unbounded — cap it at the
+    # service's batch ceiling so one request cannot pin arbitrary counts.
+    memories: list[dict[str, Any]] = Field(max_length=50)
     batch_size: int = Field(default=10, ge=1, le=50)
 
 
@@ -77,6 +80,13 @@ def get_ipfs_service() -> IPFSService:
             "blockchain_enabled": False,
             "compression_threshold": 1024,
             "pin_threshold": 100,
+            # IPFS-DEPTH-1 (#1582) bounds — env-overridable, sane defaults.
+            "ipfs_max_memory_bytes": int(os.environ.get("AITBC_IPFS_MAX_MEMORY_BYTES", str(4 * 1024 * 1024))),
+            "ipfs_registry_max": int(os.environ.get("AITBC_IPFS_REGISTRY_MAX", "10000")),
+            "ipfs_max_batch_memories": int(os.environ.get("AITBC_IPFS_MAX_BATCH_MEMORIES", "50")),
+            # Public-gateway fetch leaks CIDs to ipfs.io — opt-in only.
+            "ipfs_public_gateway_fallback": os.environ.get("AITBC_IPFS_PUBLIC_GATEWAY_FALLBACK", "").lower()
+            in ("1", "true", "yes"),
         }
         _ipfs_service_instance = IPFSService(config)
     return _ipfs_service_instance
@@ -108,6 +118,8 @@ async def upload_memory(request: IPFSUploadRequest, *, http_request: Request) ->
             "pinned": result.pinned,
             "filecoin_deal": result.filecoin_deal,
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -179,6 +191,8 @@ async def batch_upload_memories(request: IPFSBatchUploadRequest, *, http_request
                 for r in results
             ],
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -257,6 +271,8 @@ async def delete_memory(request: IPFSDeleteRequest, *, http_request: Request) ->
             "message": f"Memory {request.cid} deleted successfully",
             "cid": request.cid,
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
