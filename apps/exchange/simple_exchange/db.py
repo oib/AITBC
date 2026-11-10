@@ -233,7 +233,8 @@ _MARKET_OFFERS_SCHEMA = """
         wallet TEXT,
         status TEXT DEFAULT 'active',
         description TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT
     )
 """
 
@@ -246,7 +247,8 @@ _MARKET_ORDERS_SCHEMA = """
         wallet TEXT,
         status TEXT DEFAULT 'open',
         offer_id TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT
     )
 """
 
@@ -606,6 +608,11 @@ def init_db():
     # (#1563): the offer DELETE cascade and any future reconciliation need a
     # durable key — the order_id was previously only returned to the caller.
     _add_columns(cursor, "marketplace_orders", ["offer_id TEXT"])
+    # #1563: offers/orders never reached a terminal state and had no expiry —
+    # rows stayed 'active'/'open' forever. expires_at (UTC 'YYYY-MM-DD HH:MM:SS',
+    # same shape as CURRENT_TIMESTAMP) drives lazy expiry on the read paths.
+    _add_columns(cursor, "marketplace_offers", ["expires_at TEXT"])
+    _add_columns(cursor, "marketplace_orders", ["expires_at TEXT"])
 
     # ETH-8 phase 3 (dark): the node's signed payout address (set via the
     # exchange_set_payout verb) and when it was claimed. History lives in

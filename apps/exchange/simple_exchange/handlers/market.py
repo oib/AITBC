@@ -4,9 +4,10 @@ B2 backport: Prices use Decimal (stored as TEXT) for exact arithmetic.
 B3 backport: Database connections are closed via try/finally.
 """
 
+import os
 import secrets
 import urllib.parse
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
@@ -24,6 +25,48 @@ class MarketMixin:
     def _new_market_id(self, prefix):
         return f"{prefix}_{int(datetime.now(UTC).timestamp() * 1000)}{secrets.randbelow(900) + 100}"
 
+    _MARKETPLACE_DEFAULT_TTL_SECONDS = 7 * 24 * 3600
+
+    def _marketplace_ttl_seconds(self) -> int:
+        """#1563: marketplace rows get a finite lifetime (MARKETPLACE_TTL_SECONDS,
+        default 7d). Lazy expiry flips stale rows to 'expired' on access — there
+        is no background sweeper in this service."""
+        try:
+            return max(60, int(os.environ.get("MARKETPLACE_TTL_SECONDS", str(self._MARKETPLACE_DEFAULT_TTL_SECONDS))))
+        except (TypeError, ValueError):
+            return self._MARKETPLACE_DEFAULT_TTL_SECONDS
+
+    def _marketplace_expires_at(self) -> str:
+        # Same 'YYYY-MM-DD HH:MM:SS' UTC shape SQLite's CURRENT_TIMESTAMP uses,
+        # so lexicographic comparison against datetime('now') stays correct.
+        return (datetime.now(UTC) + timedelta(seconds=self._marketplace_ttl_seconds())).strftime("%Y-%m-%d %H:%M:%S")
+
+    @staticmethod
+    def _expire_stale_market_rows(cursor) -> None:
+        """#1563 lazy expiry: offers past expires_at become 'expired'; open orders
+        past expires_at — or SELL orders whose offer already expired — follow.
+        Call before reading or mutating marketplace rows; the caller commits."""
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute(
+            """
+            UPDATE marketplace_offers SET status = 'expired'
+            WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at < ?
+            """,
+            (now,),
+        )
+        cursor.execute(
+            """
+            UPDATE marketplace_orders SET status = 'expired'
+            WHERE status = 'open' AND (
+                (expires_at IS NOT NULL AND expires_at < ?)
+                OR (order_type = 'SELL' AND offer_id IN (
+                    SELECT id FROM marketplace_offers WHERE status = 'expired'
+                ))
+            )
+            """,
+            (now,),
+        )
+
     def _market_offer_row(self, row):
         return {
             "id": row[0],
@@ -38,6 +81,7 @@ class MarketMixin:
             "description": row[6],
             "created_at": row[7],
             "deployed_at": row[7],
+            "expires_at": row[8],
         }
 
     def _market_order_row(self, row):
@@ -49,6 +93,7 @@ class MarketMixin:
             "wallet": row[4],
             "status": row[5],
             "created_at": row[6],
+            "expires_at": row[7],
         }
 
     def handle_market_offers(self, parsed):
@@ -61,10 +106,12 @@ class MarketMixin:
         conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
+            self._expire_stale_market_rows(cursor)
+            conn.commit()
             if status_filter:
                 cursor.execute(
                     """
-                    SELECT id, item, item_type, price, wallet, status, description, created_at
+                    SELECT id, item, item_type, price, wallet, status, description, created_at, expires_at
                     FROM marketplace_offers
                     WHERE status = ?
                     ORDER BY created_at DESC
@@ -75,7 +122,7 @@ class MarketMixin:
             else:
                 cursor.execute(
                     """
-                    SELECT id, item, item_type, price, wallet, status, description, created_at
+                    SELECT id, item, item_type, price, wallet, status, description, created_at, expires_at
                     FROM marketplace_offers
                     ORDER BY created_at DESC
                     LIMIT ?
@@ -92,9 +139,11 @@ class MarketMixin:
         conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
+            self._expire_stale_market_rows(cursor)
+            conn.commit()
             cursor.execute(
                 """
-                SELECT id, item, item_type, price, wallet, status, description, created_at
+                SELECT id, item, item_type, price, wallet, status, description, created_at, expires_at
                 FROM marketplace_offers
                 WHERE id = ?
             """,
@@ -127,6 +176,7 @@ class MarketMixin:
                 # atomically — a crash before commit leaves no pending record.
                 conn.execute("BEGIN IMMEDIATE")
                 cursor = conn.cursor()
+                self._expire_stale_market_rows(cursor)
                 if idempotency_key:
                     begin = get_operation_ledger().begin(idempotency_key, "market_create_offer", request_hash(data), conn=conn)
                     if begin.status is not BeginStatus.EXECUTE:
@@ -138,21 +188,21 @@ class MarketMixin:
                 order_id = self._new_market_id("order")
                 cursor.execute(
                     """
-                    INSERT INTO marketplace_offers (id, item, item_type, price, wallet, status, description)
-                    VALUES (?, ?, ?, ?, ?, 'active', ?)
+                    INSERT INTO marketplace_offers (id, item, item_type, price, wallet, status, description, expires_at)
+                    VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
                 """,
-                    (offer_id, item, item_type, price, wallet, description),
+                    (offer_id, item, item_type, price, wallet, description, self._marketplace_expires_at()),
                 )
                 cursor.execute(
                     """
-                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status, offer_id)
-                    VALUES (?, 'SELL', ?, ?, ?, 'open', ?)
+                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status, offer_id, expires_at)
+                    VALUES (?, 'SELL', ?, ?, ?, 'open', ?, ?)
                 """,
-                    (order_id, item, price, wallet, offer_id),
+                    (order_id, item, price, wallet, offer_id, self._marketplace_expires_at()),
                 )
                 cursor.execute(
                     """
-                    SELECT id, item, item_type, price, wallet, status, description, created_at
+                    SELECT id, item, item_type, price, wallet, status, description, created_at, expires_at
                     FROM marketplace_offers
                     WHERE id = ?
                 """,
@@ -202,6 +252,7 @@ class MarketMixin:
                         self._send_operation_result(begin)  # type: ignore[attr-defined]
                         return
                     operation_attempt = begin.attempt
+                self._expire_stale_market_rows(cursor)
                 # Only an active offer may be booked (#1563): the old query
                 # had no status filter and fell back to item=offer_id, so a
                 # cancelled or nonexistent offer still produced a BUY order.
@@ -226,14 +277,14 @@ class MarketMixin:
                 order_id = self._new_market_id("order")
                 cursor.execute(
                     """
-                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status, offer_id)
-                    VALUES (?, 'BUY', ?, ?, ?, 'open', ?)
+                    INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status, offer_id, expires_at)
+                    VALUES (?, 'BUY', ?, ?, ?, 'open', ?, ?)
                 """,
-                    (order_id, item, price, wallet, matched_offer_id),
+                    (order_id, item, price, wallet, matched_offer_id, self._marketplace_expires_at()),
                 )
                 cursor.execute(
                     """
-                    SELECT id, order_type, item, price, wallet, status, created_at
+                    SELECT id, order_type, item, price, wallet, status, created_at, expires_at
                     FROM marketplace_orders
                     WHERE id = ?
                 """,
@@ -269,10 +320,12 @@ class MarketMixin:
         conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
+            self._expire_stale_market_rows(cursor)
+            conn.commit()
             if wallet:
                 cursor.execute(
                     """
-                    SELECT id, order_type, item, price, wallet, status, created_at
+                    SELECT id, order_type, item, price, wallet, status, created_at, expires_at
                     FROM marketplace_orders
                     WHERE wallet = ?
                     ORDER BY created_at DESC
@@ -283,7 +336,7 @@ class MarketMixin:
             else:
                 cursor.execute(
                     """
-                    SELECT id, order_type, item, price, wallet, status, created_at
+                    SELECT id, order_type, item, price, wallet, status, created_at, expires_at
                     FROM marketplace_orders
                     ORDER BY created_at DESC
                     LIMIT ?
