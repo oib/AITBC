@@ -26,6 +26,14 @@ REGISTER_BODY = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _webhook_allowlist(monkeypatch):
+    """#1577: webhook URLs are validated against public addresses at
+    registration. Allowlist the fixture host so tests need no DNS; the
+    rejection tests below use literal private IPs which never resolve."""
+    monkeypatch.setenv("PARTNER_WEBHOOK_ALLOWED_TARGETS", "example.com")
+
+
 @pytest.fixture
 def client(db_session):
     """TestClient over a minimal app mounting only the partners router."""
@@ -111,6 +119,28 @@ def test_webhook_requires_valid_api_key(client) -> None:
         json={"url": "https://example.com/hook", "events": ["block.created"]},
     )
     assert resp.status_code == 401
+
+
+def test_webhook_rejects_non_public_url(client) -> None:
+    """#1577: the dormant webhook store must not arm an SSRF sink — literal
+    private/loopback/link-local targets and unresolvable hosts are refused
+    at registration even though nothing dispatches rows today. (One
+    registration: /partners/register is rate-limited to 10/min and the
+    suite already sits near the cap.)"""
+    data = _register(client)
+    for url in (
+        "https://127.0.0.1/hook",
+        "https://169.254.169.254/latest/meta-data",
+        "http://[::1]/hook",
+        "https://10.0.0.5/internal",
+        "https://nonexistent.invalid/hook",
+    ):
+        resp = client.post(
+            "/v1/partners/webhooks",
+            params={"api_key": data["api_key"]},
+            json={"url": url, "events": ["block.created"]},
+        )
+        assert resp.status_code == 400, (url, resp.text)
 
 
 def test_webhook_rejects_unknown_event(client) -> None:

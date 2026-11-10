@@ -1441,10 +1441,21 @@
           {
             "name": "X-Signature",
             "in": "header",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
+              "default": "",
               "title": "X-Signature"
+            }
+          },
+          {
+            "name": "X-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Timestamp"
             }
           }
         ],
@@ -1472,7 +1483,7 @@
             }
           },
           "401": {
-            "description": "Invalid webhook signature",
+            "description": "Invalid webhook signature / Stale webhook signature",
             "content": {
               "application/json": {
                 "schema": {
