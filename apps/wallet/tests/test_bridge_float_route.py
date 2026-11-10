@@ -9,7 +9,7 @@ committed-since ledger helpers. Admin-keyed like /settlements — the real
 import os
 import sqlite3
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -63,7 +63,7 @@ def _backdate(db_path: str, table: str, key_col: str, key: str, hours: float) ->
     conn = sqlite3.connect(db_path)
     conn.execute(
         f"UPDATE {table} SET released_at = ? WHERE {key_col} = ?",  # noqa: S608 - test-only fixture with literal table/column names
-        ((datetime.now() - timedelta(hours=hours)).isoformat(), key),
+        ((datetime.now(UTC) - timedelta(hours=hours)).isoformat(), key),
     )
     conn.commit()
     conn.close()
@@ -185,10 +185,10 @@ class TestFloatRead:
 
 
 class TestWindowLabels:
-    """The window boundaries are host-local, and the response says so:
+    """The window boundaries are UTC (#1575), and the response says so:
     ``since`` carries the host's UTC offset and ``timezone`` names the
-    zone. Ledger stamps are naive local times, so a non-UTC TZ is where
-    the labelling actually matters."""
+    zone for display. Ledger stamps are aware UTC, so a non-UTC TZ is
+    where the labelling actually matters."""
 
     @pytest.fixture
     def non_utc_tz(self, monkeypatch):
@@ -218,13 +218,15 @@ class TestWindowLabels:
             # the real zone name ("CEST" here, "UTC" on a UTC host).
             assert isinstance(window["timezone"], str) and window["timezone"]
 
-    def test_today_since_is_host_local_midnight_not_utc(self, client, db, non_utc_tz):
+    def test_today_since_is_utc_midnight(self, client, db, non_utc_tz):
         _seed_released(db)
         resp = client.get("/v1/bridge/float", headers={"X-Api-Key": _TEST_KEY})
         today = datetime.fromisoformat(resp.json()["windows"]["today"]["since"])
-        assert (today.hour, today.minute, today.second) == (0, 0, 0)
-        # Proof the boundary is host-local: under America/New_York the
-        # offset is -04:00/-05:00, never UTC — a UTC-midnight
-        # implementation would read 04:00/05:00 local here instead.
+        assert today.tzinfo is not None
+        # The boundary is UTC midnight; ``since`` is rendered in the host's
+        # zone, so under America/New_York it reads 19:00/20:00 the day
+        # before — proof it is NOT host-local midnight.
+        utc_since = today.astimezone(UTC)
+        assert (utc_since.hour, utc_since.minute, utc_since.second) == (0, 0, 0)
         assert today.utcoffset() != timedelta(0)
         assert resp.json()["windows"]["today"]["timezone"] in ("EDT", "EST")

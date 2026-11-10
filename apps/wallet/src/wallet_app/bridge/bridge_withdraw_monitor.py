@@ -13,7 +13,7 @@ import asyncio
 import json
 import math
 import os
-from datetime import datetime
+from wallet_app.utc_time import parse_stored, utc_now
 from decimal import Decimal
 from typing import Any, cast
 
@@ -779,7 +779,7 @@ def _release_intent_age_seconds(row: dict[str, Any]) -> float:
     if not raw:
         return float("inf")
     try:
-        return (datetime.now() - datetime.fromisoformat(str(raw))).total_seconds()
+        return (utc_now() - parse_stored(raw)).total_seconds()
     except (TypeError, ValueError):
         return float("inf")
 

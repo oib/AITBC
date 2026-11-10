@@ -386,3 +386,37 @@ class TestExportImport:
         queued = any(m.id == pending_id for m in svc2.message_queue)
         delivered = svc2.messages[pending_id].status != MessageStatus.PENDING
         assert queued or delivered
+
+
+class TestIsoToDtTimezone:
+    """#1575: imported/legacy payloads may carry naive ISO strings; every
+    consumer compares these fields against aware ``datetime.now(UTC)``, so
+    ``_iso_to_dt`` must return aware datetimes or the compare raises
+    TypeError."""
+
+    def test_naive_iso_returns_aware_utc(self) -> None:
+        from datetime import UTC
+
+        dt = AgentCommunicationService._iso_to_dt("2026-01-02T03:04:05")
+        assert dt is not None
+        assert dt.tzinfo is not None
+        assert dt.utcoffset() == UTC.utcoffset(None) or dt.tzinfo == UTC
+
+    def test_aware_iso_preserved(self) -> None:
+
+        dt = AgentCommunicationService._iso_to_dt("2026-01-02T03:04:05+00:00")
+        assert dt is not None
+        assert dt.tzinfo is not None
+
+    def test_none_returns_none(self) -> None:
+        assert AgentCommunicationService._iso_to_dt(None) is None
+
+    def test_naive_expiry_compares_against_aware_now(self) -> None:
+        """The exact cleanup-loop compare must not raise TypeError on a
+        naive expires_at."""
+        from datetime import UTC, datetime, timedelta
+
+        naive_expiry = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
+        expires_at = AgentCommunicationService._iso_to_dt(naive_expiry.isoformat())
+        assert expires_at is not None
+        assert datetime.now(UTC) > expires_at

@@ -7,7 +7,7 @@ chain context, routing, and isolation for wallet operations.
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -37,8 +37,8 @@ class ChainConfig:
     coordinator_url: str
     coordinator_api_key: str
     status: ChainStatus = ChainStatus.ACTIVE
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = field(default_factory=dict)
     default_gas_limit: int = 10000000
     default_gas_price: int = 20000000000
@@ -129,7 +129,7 @@ class ChainManager:
             data = {
                 "chains": [chain.to_dict() for chain in self.chains.values()],
                 "default_chain_id": self.default_chain_id,
-                "updated_at": datetime.now().isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
             }
             with open(self.config_path, "w") as f:
                 json.dump(data, f, indent=2)
@@ -209,7 +209,7 @@ class ChainManager:
                 logger.error("Chain %s not found", chain_id)
                 return False
             self.chains[chain_id].status = status
-            self.chains[chain_id].updated_at = datetime.now()
+            self.chains[chain_id].updated_at = datetime.now(UTC)
             self._save_chains()
             logger.info("Updated chain %s status to %s", chain_id, status.value)
             return True
@@ -229,7 +229,7 @@ class ChainManager:
             return None
         chain = self.chains[chain_id]
         chain.metadata["last_wallet_access"] = wallet_id
-        chain.metadata["last_access_time"] = datetime.now().isoformat()
+        chain.metadata["last_access_time"] = datetime.now(UTC).isoformat()
         return chain
 
     def get_chain_stats(self) -> dict[str, Any]:

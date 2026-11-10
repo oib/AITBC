@@ -109,7 +109,10 @@ class ZkRefundSweeper:
         The authoritative dedupe gate is ``refund_transaction_hash``: once that field
         is set, the refund is considered final and is never retried.
         """
-        cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
+        # Job.completed_at is a naive-UTC column (SQLModel datetime maps to
+        # DateTime without tz); bind a naive cutoff like the reapers do so
+        # the comparison does not depend on dialect tz coercion (#1575).
+        cutoff = (datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)).replace(tzinfo=None)
         stmt = (
             select(Job, JobPayment)
             .join(JobPayment, col(Job.payment_id) == JobPayment.id)

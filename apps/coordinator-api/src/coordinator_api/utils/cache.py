@@ -10,7 +10,7 @@ Caching strategy for expensive queries
 import asyncio
 import gc
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from typing import Any
 
@@ -35,7 +35,7 @@ class CacheManager:
             self._stats["misses"] += 1
             return None
         cache_entry = self._cache[key]
-        if datetime.now() > cache_entry["expires_at"]:
+        if datetime.now(UTC) > cache_entry["expires_at"]:
             del self._cache[key]
             self._stats["evictions"] += 1
             self._stats["misses"] += 1
@@ -48,8 +48,8 @@ class CacheManager:
         """Set value in cache with TTL and enforce size/memory limits"""
         if len(self._cache) >= self.max_size:
             self._evict_oldest()
-        expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
-        self._cache[key] = {"value": value, "expires_at": expires_at, "created_at": datetime.now(), "ttl": ttl_seconds}
+        expires_at = datetime.now(UTC) + timedelta(seconds=ttl_seconds)
+        self._cache[key] = {"value": value, "expires_at": expires_at, "created_at": datetime.now(UTC), "ttl": ttl_seconds}
         self._stats["sets"] += 1
         logger.debug("Cache set for key: %s, TTL: %ss", key, ttl_seconds)
         if self._stats["sets"] % 100 == 0:
@@ -69,7 +69,7 @@ class CacheManager:
 
     def cleanup_expired(self) -> int:
         """Remove expired entries and return count removed"""
-        now = datetime.now()
+        now = datetime.now(UTC)
         expired_keys = [key for key, entry in self._cache.items() if now > entry["expires_at"]]
         for key in expired_keys:
             del self._cache[key]

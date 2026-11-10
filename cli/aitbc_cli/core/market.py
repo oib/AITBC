@@ -5,7 +5,7 @@ Global chain market system
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import Any
@@ -179,7 +179,7 @@ class GlobalChainMarket:
                 if isinstance(self.thresholds["max_listing_duration_days"], int | float | Decimal)
                 else 30
             )
-            expires_at = datetime.now() + timedelta(days=max_duration)
+            expires_at = datetime.now(UTC) + timedelta(days=max_duration)
 
             listing = ChainListing(
                 listing_id=listing_id,
@@ -191,7 +191,7 @@ class GlobalChainMarket:
                 price=price,
                 currency=currency,
                 status=MarketStatus.ACTIVE,
-                created_at=datetime.now(),
+                created_at=datetime.now(UTC),
                 expires_at=expires_at,
                 metadata=metadata,
                 chain_specifications=chain_specifications,
@@ -226,7 +226,7 @@ class GlobalChainMarket:
                 return None
 
             # Check if listing is expired
-            if datetime.now() > listing.expires_at:
+            if datetime.now(UTC) > listing.expires_at:
                 listing.status = MarketStatus.EXPIRED
                 return None
 
@@ -244,7 +244,7 @@ class GlobalChainMarket:
                 price=listing.price,
                 currency=listing.currency,
                 status=TransactionStatus.PENDING,
-                created_at=datetime.now(),
+                created_at=datetime.now(UTC),
                 completed_at=None,
                 escrow_address=escrow_address,
                 smart_contract_address=smart_contract_address,
@@ -278,7 +278,7 @@ class GlobalChainMarket:
 
             # Update transaction
             transaction.status = TransactionStatus.COMPLETED
-            transaction.completed_at = datetime.now()
+            transaction.completed_at = datetime.now(UTC)
             transaction.transaction_hash = transaction_hash
 
             # Release escrow
@@ -316,7 +316,7 @@ class GlobalChainMarket:
                     agent_count=0,
                     governance_tokens=Decimal("0"),
                     staking_rewards=Decimal("0"),
-                    last_updated=datetime.now(),
+                    last_updated=datetime.now(UTC),
                 )
 
             # Update with latest data
@@ -433,7 +433,7 @@ class GlobalChainMarket:
                 "currency": transaction.currency,
                 "buyer_id": transaction.buyer_id,
                 "seller_id": transaction.seller_id,
-                "created_at": datetime.now(),
+                "created_at": datetime.now(UTC),
                 "status": "active",
                 "release_conditions": {"transaction_confirmed": False, "dispute_resolved": False},
             }
@@ -449,7 +449,7 @@ class GlobalChainMarket:
             escrow_contract = self.escrow_contracts.get(transaction.escrow_address)
             if escrow_contract:
                 escrow_contract["status"] = "released"
-                escrow_contract["released_at"] = datetime.now()
+                escrow_contract["released_at"] = datetime.now(UTC)
                 escrow_contract["release_conditions"]["transaction_confirmed"] = True
 
                 # Calculate fees
@@ -481,7 +481,7 @@ class GlobalChainMarket:
                     agent_count=0,
                     governance_tokens=Decimal("0"),
                     staking_rewards=Decimal("0"),
-                    last_updated=datetime.now(),
+                    last_updated=datetime.now(UTC),
                 )
 
             economy = self.chain_economies[chain_id]
@@ -495,7 +495,7 @@ class GlobalChainMarket:
                 economy.price_history.append(
                     {
                         "price": transaction_price,
-                        "timestamp": datetime.now().isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                         "volume": transaction_price,
                     }
                 )
@@ -507,7 +507,7 @@ class GlobalChainMarket:
             economy.total_value_locked = economy.daily_volume * Decimal("10")  # Mock TVL
             economy.market_cap = economy.daily_volume * Decimal("100")  # Mock market cap
 
-            economy.last_updated = datetime.now()
+            economy.last_updated = datetime.now(UTC)
 
         except Exception as e:
             logger.error("Error updating chain economy: %s", e)
@@ -567,7 +567,7 @@ class GlobalChainMarket:
                 top_sellers=top_sellers,
                 price_trends=price_trends,
                 market_sentiment=market_sentiment,
-                last_updated=datetime.now(),
+                last_updated=datetime.now(UTC),
             )
 
         except Exception as e:
@@ -585,7 +585,7 @@ class GlobalChainMarket:
     async def _calculate_24h_volume(self) -> Decimal:
         """Calculate 24-hour trading volume"""
         try:
-            cutoff_time = datetime.now() - timedelta(hours=24)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=24)
             recent_transactions = [
                 t
                 for t in self.transactions.values()
@@ -662,7 +662,7 @@ class GlobalChainMarket:
             active_sellers = set()
 
             for transaction in self.transactions.values():
-                if transaction.created_at >= datetime.now() - timedelta(days=7):
+                if transaction.created_at >= datetime.now(UTC) - timedelta(days=7):
                     active_buyers.add(transaction.buyer_id)
                     active_sellers.add(transaction.seller_id)
 

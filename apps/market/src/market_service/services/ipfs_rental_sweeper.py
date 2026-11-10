@@ -110,7 +110,10 @@ class IpfsRentalSweeper:
         refunded_count = 0
 
         now = datetime.now(UTC)
-        cutoff = now - timedelta(seconds=self.refund_grace_seconds)
+        # expires_at is a naive-UTC column (domain default_factory strips
+        # tzinfo); bind a naive cutoff so the comparison does not depend on
+        # dialect-specific tz coercion of an aware datetime (#1575).
+        cutoff = (now - timedelta(seconds=self.refund_grace_seconds)).replace(tzinfo=None)
 
         async with self._session_factory() as session:
             stmt = (

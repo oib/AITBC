@@ -1781,7 +1781,7 @@ class MarketService:
             if token.status != "active":
                 return None
             # Compare naive UTC datetimes; SQLite returns naive values.
-            if token.expires_at and token.expires_at < datetime.now(UTC).replace(tzinfo=None).replace(tzinfo=None):
+            if token.expires_at and token.expires_at < datetime.now(UTC).replace(tzinfo=None):
                 token.status = "expired"
                 await self.session.commit()
                 return None

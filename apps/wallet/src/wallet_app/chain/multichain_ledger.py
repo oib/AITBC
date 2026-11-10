@@ -10,7 +10,9 @@ import re
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from wallet_app.utc_time import parse_stored, utc_now, utc_now_iso
 from pathlib import Path
 from typing import Any
 
@@ -152,7 +154,7 @@ class MultiChainLedgerAdapter:
                 if cursor.fetchone():
                     logger.warning("Wallet %s already exists in chain %s", wallet_id, chain_id)
                     return False
-                now = datetime.now().isoformat()
+                now = utc_now_iso()
                 metadata_json = json.dumps(metadata or {})
                 cursor.execute(
                     # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
@@ -195,8 +197,8 @@ class MultiChainLedgerAdapter:
                     public_key=row[1],
                     address=row[2],
                     metadata=metadata,
-                    created_at=datetime.fromisoformat(row[4]),
-                    updated_at=datetime.fromisoformat(row[5]),
+                    created_at=parse_stored(row[4]),
+                    updated_at=parse_stored(row[5]),
                 )
         except Exception as e:
             logger.error("Failed to get wallet %s from chain %s: %s", wallet_id, chain_id, e)
@@ -227,8 +229,8 @@ class MultiChainLedgerAdapter:
                             public_key=row[1],
                             address=row[2],
                             metadata=metadata,
-                            created_at=datetime.fromisoformat(row[4]),
-                            updated_at=datetime.fromisoformat(row[5]),
+                            created_at=parse_stored(row[4]),
+                            updated_at=parse_stored(row[5]),
                         )
                     )
                 return wallets
@@ -250,7 +252,7 @@ class MultiChainLedgerAdapter:
                 cursor.execute(
                     # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
                     f"\n                    INSERT INTO ledger_events_{chain_id} \n                    (wallet_id, event_type, timestamp, data, success)\n                    VALUES (?, ?, ?, ?, ?)\n                ",  # nosec
-                    (wallet_id, event_type, datetime.now().isoformat(), json.dumps(data), success),
+                    (wallet_id, event_type, utc_now_iso(), json.dumps(data), success),
                 )
                 conn.commit()
                 return True
@@ -291,7 +293,7 @@ class MultiChainLedgerAdapter:
                             chain_id=chain_id,
                             wallet_id=row[0],
                             event_type=row[1],
-                            timestamp=datetime.fromisoformat(row[2]),
+                            timestamp=parse_stored(row[2]),
                             data=data,
                             success=row[4],
                         )
@@ -320,9 +322,11 @@ class MultiChainLedgerAdapter:
                     f"\n                    SELECT event_type, COUNT(*) FROM ledger_events_{chain_id} \n                    GROUP BY event_type\n                "  # nosec
                 )
                 event_counts = dict(cursor.fetchall())
+                recent_cutoff = (utc_now() - timedelta(hours=1)).isoformat()
                 cursor.execute(
-                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params
-                    f"\n                    SELECT COUNT(*) FROM ledger_events_{chain_id} \n                    WHERE timestamp > datetime('now', '-1 hour')\n                "  # nosec
+                    # chain_id validated against ChainManager's known-chain allowlist (validate_chain_id) before use; only the table name is interpolated, all values use ? params; recent_cutoff is bound
+                    f"\n                    SELECT COUNT(*) FROM ledger_events_{chain_id} \n                    WHERE timestamp > ?\n                ",  # nosec
+                    (recent_cutoff,),
                 )
                 recent_activity = cursor.fetchone()[0]
                 return {
