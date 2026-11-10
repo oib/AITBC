@@ -1,0 +1,126 @@
+[
+  {
+    "contract": "ZKReceiptVerifier",
+    "address": "0xD70f413F90581831b05C9129b5dA4143B4A7296b",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T20:58:13.327Z",
+    "txHash": "0xaed42c3e998343f123136636fbc2988a64ae68caeaba8eea32c40a15e5b568c7",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {},
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  },
+  {
+    "contract": "Groth16Verifier",
+    "address": "0xFCe95e3681eD4e55A66dd9F404E346F9EE9a3C55",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T20:58:24.989Z",
+    "txHash": "0x24e64b40e90a83ebd59fd1cd82452458967f644fd9548bb61451e6fd85a45cd3",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {},
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  },
+  {
+    "contract": "AIPowerRental",
+    "address": "0x7bD9485aE10c7d5AB63071D72cd666E02044986B",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T20:59:48.646Z",
+    "txHash": "0x07897a077ff60db4d9a0c3ecb47e94583b5175275f507413b3efeb087c38f698",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {
+      "_paymentToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+      "_zkVerifier": "0xD70f413F90581831b05C9129b5dA4143B4A7296b",
+      "_groth16Verifier": "0xFCe95e3681eD4e55A66dd9F404E346F9EE9a3C55"
+    },
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  },
+  {
+    "contract": "PerformanceVerifier",
+    "address": "0xCa3bEa2d167c97a5F937AD4C3380705e225E8f2e",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T21:00:00.926Z",
+    "txHash": "0x7817750fbdff1710e34b6eac85dfe2291fb8a627b828d843d10629a65b402de3",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {
+      "_zkVerifier": "0xD70f413F90581831b05C9129b5dA4143B4A7296b",
+      "_groth16Verifier": "0xFCe95e3681eD4e55A66dd9F404E346F9EE9a3C55",
+      "_aiPowerRental": "0x7bD9485aE10c7d5AB63071D72cd666E02044986B"
+    },
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  },
+  {
+    "contract": "PaymentProcessor",
+    "address": "0x535d8daf97efa4aCE5E4c4bd999891f3e7F86d5b",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T21:00:25.222Z",
+    "txHash": "0x759a3597252d1bdb0b2c85ebdb9f346f4f77f6a5aaff7ddbfd172ea24ff3c546",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {
+      "_paymentToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+      "_aiPowerRental": "0x7bD9485aE10c7d5AB63071D72cd666E02044986B"
+    },
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  },
+  {
+    "contract": "EscrowService",
+    "address": "0xB04b5f73c83EeF9D517B25bC8F84Ac3e43a43F73",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T21:00:37.596Z",
+    "txHash": "0x2d13d18420b82736d940025db63850e057dd64676562a3447963987307ef1e9c",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {
+      "_paymentToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+      "_aiPowerRental": "0x7bD9485aE10c7d5AB63071D72cd666E02044986B",
+      "_paymentProcessor": "0x535d8daf97efa4aCE5E4c4bd999891f3e7F86d5b"
+    },
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  },
+  {
+    "contract": "AgentStaking",
+    "address": "0xDC08f12fa4409EeFC7af68bf5E35fd9788763db8",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T21:00:48.804Z",
+    "txHash": "0x839cf0cf705dcdd042f49ba41da4beb7e60aba3f274e24e7a6ea61d8f63f3448",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {
+      "_paymentToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+      "_performanceVerifier": "0xCa3bEa2d167c97a5F937AD4C3380705e225E8f2e"
+    },
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  },
+  {
+    "contract": "StakingPoolFactory",
+    "address": "0xC01E65fD0d3C55a39a6b61631AF393a7e94bBd9b",
+    "deployer": "0x72D78F5bb11fa4e9Fa3358890bEFa530F42a27F9",
+    "owner": "0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7",
+    "network": "sepolia",
+    "chainId": "11155111",
+    "timestamp": "2026-11-10T21:01:01.763Z",
+    "txHash": "0x680f91b89870ed088cad8f92215c389eff8412a94baf114ead0599bffd47360b",
+    "gitCommit": "4812229c82bde9e973f6e0ce5d1b3fd4a56b9c05",
+    "constructorArgs": {
+      "_stakingToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A"
+    },
+    "note": "DEFAULTED rehearsal mapping per operator ruling 1B on #1557 — roles are Safe signer trio + DynamicPricing owner; NOT authoritative for mainnet #412"
+  }
+]
