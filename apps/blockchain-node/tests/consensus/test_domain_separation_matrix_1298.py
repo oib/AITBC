@@ -10,15 +10,15 @@ c23383 +T21/T22). Rows that depend on not-yet-landed slices are
        different-hash proposal at sign time)
 - T12  pin-expiry / abandon-height behaviour (AD ruling + emission gate)
 - T14  declared-round mismatch refused post-H with round_lock OFF
-- T15  effective attestation-lock lapse window 130 s shared constant
-       (attester + proposer coupling, incl. future-skewed header case)
 - T19  same-key rotation return at r+4 — pending AD disposition (v2.2 O5)
 - T20  L4 mixed-version mesh leg (CARD6, sandbox-only, needs impl SHA)
 
 Landed slices covered here: S0 domain helpers, S1 sign/verify gating,
 S2 evidence ``signature_domain`` labels + attestation-lock journal,
 S3 acceptance-key + bounded dual-accept window ``[H, S)`` via
-``consensus_legacy_attestation_until_height`` (T13, T18w un-skipped).
+``consensus_legacy_attestation_until_height`` (T13, T18w un-skipped),
+T15 shared attestation-lock lapse constant (attester + proposer coupling,
+height-gated on ``consensus_domain_separation_height``).
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ import json
 import time
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from aitbc.crypto.consensus_signing import (
@@ -39,13 +40,17 @@ from aitbc.crypto.consensus_signing import (
     verify_consensus_message,
     verify_consensus_message_domain,
 )
-from aitbc_chain.config import legacy_attestation_dual_accept_open, settings
+from aitbc_chain.config import ProposerConfig, legacy_attestation_dual_accept_open, settings
+from aitbc_chain.consensus import poa as poa_module
 from aitbc_chain.consensus import remote_attestation as ra_module
 from aitbc_chain.consensus.multi_validator_poa import _verify_block_signature_gated
+from aitbc_chain.consensus.poa import PoAProposer
 from aitbc_chain.consensus.remote_attestation import (
     RemoteAttestationService,
     _attestation_message,
+    _lock_lapse_seconds,
     _verify_attestation,
+    attestation_lock_window_seconds,
 )
 from aitbc_chain.consensus.slashing import event_signature_evidence
 from aitbc_chain.metrics import metrics_registry
@@ -656,6 +661,159 @@ class TestJournalReseedAndFailClosed:
 
 
 # ---------------------------------------------------------------------------
+# T15 — shared attestation-lock lapse constant (design v2.2/v2.6)
+# ---------------------------------------------------------------------------
+
+
+class TestLapseWindow:
+    def _proposer_with_attestation(self, svc: RemoteAttestationService) -> PoAProposer:
+        sm = Mock()
+        sm.pull_from_peer.return_value = True
+        sm.pull_in_flight.return_value = False
+        config = ProposerConfig(
+            chain_id=CHAIN,
+            proposer_id="test-proposer",
+            interval_seconds=1.0,
+            max_txs_per_block=10,
+            max_block_size_bytes=1_000_000,
+        )
+        proposer = PoAProposer(config=config, session_factory=lambda: Mock(), sync_manager=sm)
+        proposer._remote_attestation = svc  # type: ignore[attr-defined]
+        return proposer
+
+    def test_T15_shared_constant_attester_and_proposer_move_together(self, monkeypatch):
+        """T15 core: ONE derived constant feeds both sides. At/above the
+        armed activation height the binding window is the lapse
+        (round+max_age+future_skew = 130s at defaults); below it the legacy
+        60s round window stays. The proposer imports the identical function
+        object, and moving the skew moves the shared value — attester and
+        proposer cannot drift."""
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+
+        # same function object on both sides — drift is impossible by construction
+        assert poa_module.attestation_lock_window_seconds is attestation_lock_window_seconds
+        assert attestation_lock_window_seconds is ra_module.attestation_lock_window_seconds
+
+        # post-activation: the effective lapse, derived not literal
+        assert attestation_lock_window_seconds(H) == pytest.approx(_lock_lapse_seconds())
+        assert attestation_lock_window_seconds(H) == pytest.approx(130.0)
+        # the crossing guarantee: lapse - max_age - future_skew == round window
+        assert attestation_lock_window_seconds(H) - float(settings.attestation_header_max_age_seconds) - float(
+            settings.attestation_header_future_skew_seconds
+        ) == pytest.approx(float(ROUND_SECONDS))
+        # pre-activation / unarmed: legacy round window, byte-identical
+        assert attestation_lock_window_seconds(LOW) == pytest.approx(float(ROUND_SECONDS))
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", None)
+        assert attestation_lock_window_seconds(H) == pytest.approx(float(ROUND_SECONDS))
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+
+        # derived from settings: a future-skew change (the T15
+        # future-skewed-header case) moves the shared window on both sides
+        monkeypatch.setattr(settings, "attestation_header_future_skew_seconds", 25.0)
+        assert attestation_lock_window_seconds(H) == pytest.approx(145.0)
+        assert attestation_lock_window_seconds(LOW) == pytest.approx(float(ROUND_SECONDS))
+
+    @pytest.mark.asyncio
+    async def test_T15_attester_lock_binds_past_old_window_inside_lapse(self, monkeypatch, tmp_path):
+        """T15 attester leg: at >= H a rival hash at the same height is
+        still refused 70s after signing — past the OLD 60s window but inside
+        the effective 130s lapse — and is accepted only after the lapse.
+        Below H the legacy 60s window still releases at 70s (the resize is
+        gated on the activation height, so pre-activation replay is
+        unchanged)."""
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        svc, broker, our_addr, our_key, proposer_addr, _ = _service(monkeypatch, tmp_path)
+
+        await svc._handle_request(_request(H, "0xaaaa", proposer_addr))
+        assert len(broker.published) == 1
+
+        # age the lock to 70s: past the old 60s round window, inside the lapse
+        domain = DOMAIN_BLOCK_ATTESTATION
+        svc._attested[H][domain] = ("0xaaaa", proposer_addr, time.monotonic() - 70.0)
+
+        await svc._handle_request(_request(H, "0xdddd", proposer_addr))
+        assert len(broker.published) == 1  # still refused — lapse binds
+
+        # past the lapse the rival is accepted
+        svc._attested[H][domain] = ("0xaaaa", proposer_addr, time.monotonic() - 131.0)
+        await svc._handle_request(_request(H, "0xdddd", proposer_addr))
+        assert len(broker.published) == 2
+
+        # below the armed height the legacy 60s window applies unchanged
+        await svc._handle_request(_request(LOW, "0xcccc", proposer_addr))
+        assert len(broker.published) == 3
+        svc._attested[LOW][None] = ("0xcccc", proposer_addr, time.monotonic() - 70.0)
+        await svc._handle_request(_request(LOW, "0xeeee", proposer_addr))
+        assert len(broker.published) == 4  # 70s > 60s legacy window -> accepted
+
+    @pytest.mark.asyncio
+    async def test_T15_proposer_honor_uses_same_lapse_window(self, monkeypatch, tmp_path):
+        """T15 proposer leg: ``_honor_attestation_lock`` consults
+        ``attestation_lock`` with the SAME ``attestation_lock_window_seconds``
+        — a lock aged 70s at a post-activation height still suppresses the
+        proposal (the old 60s window would have released it), while the
+        same-aged lock below H does not."""
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        monkeypatch.setattr(settings, "gossip_mesh_peer_urls", "")
+        svc, _broker, _our_addr, _our_key, proposer_addr, _ = _service(monkeypatch, tmp_path)
+        proposer = self._proposer_with_attestation(svc)
+
+        svc._attested[H] = {DOMAIN_BLOCK_ATTESTATION: ("0xaaaa", proposer_addr, time.monotonic() - 70.0)}
+        assert await proposer._honor_attestation_lock(H) is True
+
+        svc._attested[LOW] = {None: ("0xcccc", proposer_addr, time.monotonic() - 70.0)}
+        assert await proposer._honor_attestation_lock(LOW) is False
+
+    def test_T15_restart_inside_lapse_window_still_locked(self, monkeypatch, tmp_path):
+        """T15 restart leg: a durable attestation-lock journal record 70s old
+        (past the old 60s window, inside the 130s lapse) reseeds a LIVE lock
+        at a post-activation height — and stays dead under the legacy window
+        and at pre-activation heights."""
+        monkeypatch.setattr(settings, "consensus_domain_separation_height", ACTIVATION)
+        _our_addr, _our_key, proposer_addr, _ = _keys()
+        path = tmp_path / "locks.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "chain_id": CHAIN,
+                    "records": [
+                        {
+                            "kind": "attestation",
+                            "h": H,
+                            "hash": "0xaaaa",
+                            "proposer": proposer_addr,
+                            "signed_wall": time.time() - 70.0,
+                            "derived_round": 1,
+                            "signature_domain": DOMAIN_BLOCK_ATTESTATION,
+                        },
+                        {
+                            "kind": "attestation",
+                            "h": LOW,
+                            "hash": "0xcccc",
+                            "proposer": proposer_addr,
+                            "signed_wall": time.time() - 70.0,
+                        },
+                    ],
+                }
+            )
+        )
+        svc, *_ = _service(monkeypatch, tmp_path)  # _round_locks_path already == path
+
+        # post-activation height: 70s-old record still binds under the lapse
+        lock = svc.attestation_lock(H, attestation_lock_window_seconds(H))
+        assert lock is not None and lock[0] == "0xaaaa"
+        # pre-activation height: same-aged record is dead under the 60s window
+        assert svc.attestation_lock(LOW, attestation_lock_window_seconds(LOW)) is None
+
+        # a fresh service proves the record only binds under the lapse:
+        # the legacy 60s window drops it even at the post-activation height
+        # (_service points _round_locks_path at tmp_path/"locks.json" == path)
+        svc2, *_ = _service(monkeypatch, tmp_path)
+        assert svc2.attestation_lock(H, float(ROUND_SECONDS)) is None
+
+
+# ---------------------------------------------------------------------------
 # Skipped rows — dependencies on not-yet-landed slices (see module docstring)
 # ---------------------------------------------------------------------------
 
@@ -752,21 +910,6 @@ class TestPendingSlices:
     def test_T14_declared_round_mismatch_refused_round_lock_off(self):
         """Post-H a request whose declared round mismatches the derived
         round is refused even with attestation_round_lock_enabled OFF."""
-
-    @pytest.mark.skip(
-        reason="T15 intra-round lapse — PARTIALLY landed: _lock_lapse_seconds "
-        "(round+max_age+future_skew = 130s at defaults) exists and the durable "
-        "journal prunes at 2x it, but the BINDING lock windows are still "
-        "consensus_proposer_round_seconds — attestation_lock callers "
-        "(remote_attestation _handle_request) and proposer "
-        "_honor_attestation_lock (poa.py) pass the 60s round window, so the "
-        "shared effective-lapse coupling is not wired yet. Includes the "
-        "future-skewed-header case and the restart-inside-window leg."
-    )
-    def test_T15_intra_round_lapse_same_derived_round(self):
-        """Two hashes sharing one derived round: the second is refused even
-        after the OLD 60 s window but inside the effective 130 s lapse;
-        forged variant produces equivocation evidence."""
 
     @pytest.mark.skip(
         reason="T19 same-key rotation return (proposer round r+4 at the same "
