@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -30,11 +31,27 @@ class ChainDiscoveryService:
             timeout=settings.http_timeout,
         )
 
+    @staticmethod
+    def _validated_endpoint(endpoint: str) -> str:
+        """Reject non-http(s) endpoints before they are stored and fetched (#1539).
+
+        The endpoint is later passed to ``BlockchainClient(rpc_url=...)`` by
+        health checks and offer sync, so an arbitrary scheme or host-less
+        string would be fetched verbatim. Private addresses are allowed —
+        fleet islands legitimately live on private ranges — but the scheme
+        must be http(s) with a real host.
+        """
+        parsed = urlparse(endpoint.strip())
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            raise ValueError(f"chain endpoint must be an http(s) URL with a host, got {endpoint!r}")
+        return endpoint.strip()
+
     async def register_chain(self, chain_id: str, endpoint: str) -> IslandRegistryEntry:
         """Register a new chain in the island registry.
 
         If the chain already exists, updates its endpoint and reactivates it.
         """
+        endpoint = self._validated_endpoint(endpoint)
         stmt = select(IslandRegistryEntry).where(IslandRegistryEntry.chain_id == chain_id)
         result = await self.session.execute(stmt)
         entry = result.scalars().first()
