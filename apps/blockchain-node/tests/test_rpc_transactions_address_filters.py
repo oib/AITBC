@@ -146,9 +146,10 @@ def test_limit_is_applied_in_sql(patched_db, engine):
     assert any("LIMIT" in s.upper() for s in selects), selects
 
 
-def test_payload_filter_path_still_searches_past_the_limit(patched_db):
-    """Payload filters still run in Python, so a SQL limit there would be
-    wrong: an older matching row must still be found beyond the window."""
+def test_payload_filter_still_finds_match_within_sql_limit(patched_db):
+    """#1599: payload filters bind in SQL alongside the LIMIT, so a matching
+    row is found whether it sits inside or outside the unfiltered window —
+    the WHERE clause, not the scan order, decides what the limit counts."""
     old = _tx("test-chain", "0xold", SENDER, OTHER)
     old.payload = {"island_id": "isl-1"}
     patched_db.add(old)
@@ -158,3 +159,38 @@ def test_payload_filter_path_still_searches_past_the_limit(patched_db):
 
     result = query_transactions(None, chain_id="test-chain", island_id="isl-1", limit=1)
     assert [t["tx_hash"] for t in result] == ["0xold"]
+
+
+def test_payload_filter_limit_is_applied_in_sql(patched_db, engine):
+    """#1599 (TX-QUERY-PAYLOAD-FILTER-UNBOUNDED): island_id/pair/status/
+    order_id now bind as SQL JSON predicates, so the LIMIT composes with the
+    filters — a filtered call must not materialise the whole chain table."""
+    old = _tx("test-chain", "0xold", SENDER, OTHER)
+    old.payload = {"island_id": "isl-1"}
+    patched_db.add(old)
+    for i in range(5):
+        patched_db.add(_tx("test-chain", f"0xnew{i}", SENDER, OTHER))
+    patched_db.commit()
+
+    statements, capture = _select_statements(engine)
+    try:
+        result = query_transactions(None, chain_id="test-chain", island_id="isl-1", limit=10)
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+
+    assert [t["tx_hash"] for t in result] == ["0xold"]
+    selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
+    assert any("LIMIT" in s.upper() for s in selects), selects
+    assert any("json_extract" in s for s in selects), selects
+
+
+def test_order_id_matches_offer_and_bid_fields(patched_db):
+    """order_id keeps its three-field semantics through the SQL predicate."""
+    for tid, field in (("0xo", "order_id"), ("0xf", "offer_id"), ("0xb", "bid_id"), ("0xn", "other")):
+        tx = _tx("test-chain", tid, SENDER, OTHER)
+        tx.payload = {field: "ord-1"}
+        patched_db.add(tx)
+    patched_db.commit()
+
+    result = query_transactions(None, chain_id="test-chain", order_id="ord-1")
+    assert {t["tx_hash"] for t in result} == {"0xo", "0xf", "0xb"}

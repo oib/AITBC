@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import col, select
-from sqlalchemy import func, literal_column
+from sqlalchemy import func, literal_column, or_
 
 from aitbc.env_compat import market_getenv
 from aitbc.rate_limiting import rate_limit
@@ -72,6 +72,28 @@ _JOB_ID_INDEX_EXPRESSIONS = {
     "sqlite": """json_extract(payload, '$."job_id"')""",
     "postgresql": """(payload ->> 'job_id')""",
 }
+
+# Same dialect split for the remaining payload filters (island_id / pair /
+# status / order_id). These fields carry no expression index — migration
+# b7f3c1a90d24 covers job_id only — so the literal path is inlined purely to
+# keep the predicate dialect-correct; the searched value stays bound. The
+# Python-side checks below remain as the exact-match guard.
+_PAYLOAD_FILTER_EXPRESSIONS = {
+    "sqlite": """json_extract(payload, '$."{field}"')""",
+    "postgresql": """(payload ->> '{field}')""",
+}
+
+# order_id matches any of these payload fields (offer/bid rows key on their
+# own id) — mirrors the Python check below exactly.
+_ORDER_ID_PAYLOAD_FIELDS = ("order_id", "offer_id", "bid_id")
+
+
+def _payload_field_clause(session: Any, field: str, value: str) -> Any:
+    """SQL predicate ``payload ->> field == value`` for the session's dialect."""
+    template = _PAYLOAD_FILTER_EXPRESSIONS.get(session.get_bind().dialect.name)
+    if template is not None:
+        return literal_column(template.format(field=field)) == value
+    return Transaction.payload[field].as_string() == value
 
 
 def _refuse_retired_gpu(tx_type: str, payload: Any) -> None:
@@ -758,12 +780,27 @@ def query_transactions(
             else:
                 query = query.where(Transaction.payload["job_id"].as_string() == job_id)
 
-        # Bind the limit in SQL when no payload-field filter is active. The
-        # payload filters below still run in Python, so limiting the query
-        # there could drop matching rows beyond the window; without them the
-        # SQL result is the final one and must not materialise the whole
-        # table to slice it in Python (RPC-TX-QUERY-UNBOUNDED-1).
-        if limit is not None and not (island_id or pair or status or order_id):
+        # TX-QUERY-PAYLOAD-FILTER-UNBOUNDED (#1599): the payload filters used
+        # to run only in the Python loop below, which forced the LIMIT to be
+        # skipped — a filtered call materialised every transaction on the
+        # chain. They now also bind in SQL (JSON-path predicate per dialect),
+        # so the limit composes with the filters exactly like the column
+        # filters above. The Python checks stay: they are the exact-match
+        # guard for payload values whose JSON type is not a plain string.
+        if island_id:
+            query = query.where(_payload_field_clause(session, "island_id", island_id))
+        if pair:
+            query = query.where(_payload_field_clause(session, "pair", pair))
+        if status:
+            query = query.where(_payload_field_clause(session, "status", status))
+        if order_id:
+            query = query.where(or_(*(_payload_field_clause(session, f, order_id) for f in _ORDER_ID_PAYLOAD_FIELDS)))
+
+        # Bind the limit in SQL unconditionally — every filter above is now a
+        # SQL predicate, so the bounded newest-first window IS the final
+        # result set's superset and must not materialise the whole table to
+        # slice it in Python (RPC-TX-QUERY-UNBOUNDED-1).
+        if limit is not None:
             # An omitted/0/huge limit loaded the whole chain table (#1057);
             # `if limit` let 0 skip the clamp entirely.
             query = query.limit(max(1, min(limit or 100, 500)))
