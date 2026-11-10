@@ -225,6 +225,10 @@ class TestPlaceOrderBoundary:
         handler._read_json_body = MagicMock(return_value=body)
         handler.send_error = MagicMock()
         handler.send_json_response = MagicMock()
+        # #1554 added expiry_height to the unsigned insert; the spec'd mock
+        # would answer it with a MagicMock that sqlite cannot bind. None is
+        # the documented flag-off residual (chain head unreachable).
+        handler._unsigned_order_expiry_height = MagicMock(return_value=None)
         handler.handle_place_order = ExchangeMixin.handle_place_order.__get__(handler, ExchangeMixin)
         handler._place_order_unsigned = ExchangeMixin._place_order_unsigned.__get__(handler, ExchangeMixin)
         handler._parse_order_payload = ExchangeMixin._parse_order_payload.__get__(handler, ExchangeMixin)
