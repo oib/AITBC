@@ -289,6 +289,10 @@ class RemoteAttestationService:
         # (#1298, kind="attestation" records) written by the non-round-lock
         # path — see ``_attested_lock_records`` below.
         self._round_locks: dict[tuple[int, int, str | None], _RoundLockEntry] = {}
+        # #1736: (height, round) -> hashes this validator voted for that the proposer abandoned in that
+        # round. A different hash in the same round is refused (it would sign a slashable same-round
+        # pair); memory-only, like the abandon release itself being re-derivable from the statement.
+        self._abandoned_rounds: dict[tuple[int, int], set[str]] = {}
         self._requests_seen: dict[int, dict[int, float]] = {}
         self._round_locks_loaded = False
         self._round_locks_path = DATA_DIR / "data" / chain_id / "attestation_round_locks.json"
@@ -594,6 +598,8 @@ class RemoteAttestationService:
         # of the journal (d9: voters released the journal yet kept refusing).
         # Release only entries for this exact hash from this exact proposer.
         locks = self._release_abandoned_locks(height, block_hash, proposer)
+        if (released or locks) and stmt.get("round") is not None:
+            self._note_abandoned_round(height, int(stmt["round"]), block_hash)
         if released or locks:
             metrics_registry.increment("vote_journal_abandon_released_total", released)
             logger.warning(
@@ -604,6 +610,23 @@ class RemoteAttestationService:
                 block_hash[:18],
             )
         return released + locks
+
+    def _note_abandoned_round(self, height: int, round_: int, block_hash: str) -> None:
+        self._abandoned_rounds.setdefault((height, round_), set()).add(block_hash)
+        for key in [k for k in self._abandoned_rounds if k[0] < height - 64]:
+            del self._abandoned_rounds[key]
+
+    def _abandoned_round_rival(self, height: int, round_: int, block_hash: str) -> str | None:
+        """The abandoned hash this request would pair against in the same round, or None (#1736).
+
+        After an abandon-release the validator may sign a rival only in a LATER round: a same-round
+        rival forms a ROUND_BOUND_SAME_ROUND pair, which is slashable and carries no justification.
+        Re-signing the abandoned hash itself is not equivocation and stays allowed.
+        """
+        hashes = self._abandoned_rounds.get((height, round_))
+        if hashes and block_hash not in hashes:
+            return next(iter(sorted(hashes)))
+        return None
 
     def _release_abandoned_locks(self, height: int, block_hash: str, proposer: str) -> int:
         """Drop the legacy ``_attested`` entry and round locks for exactly
@@ -970,6 +993,17 @@ class RemoteAttestationService:
                     request_round,
                     verdict.block_hash[:18],
                     verdict.proposer[:18],
+                )
+                return
+            abandoned = self._abandoned_round_rival(height_int, request_round, header_hash)
+            if abandoned is not None:
+                metrics_registry.increment("vote_journal_abandon_same_round_refused_total")
+                logger.info(
+                    "Abandon same-round refusal: %s at height %s round %s (abandoned %s)",
+                    header_hash[:18],
+                    height_int,
+                    request_round,
+                    abandoned[:18],
                 )
                 return
 

@@ -3,8 +3,8 @@
 A validator signs A, the proposer's signed abandon statement releases the vote, then it signs a
 rival B at the same height. What a peer sees is the pair (A, B) of round-bound attestations.
 Pinned here: a later-round rival is context-only (ROUND_BOUND_CROSS_ROUND), a same-round rival is
-ROUND_BOUND_SAME_ROUND (slashable) — the latter is current behaviour, tracked as a finding, and
-must be revisited if the attester starts refusing same-round rivals after a release.
+refused outright (#1736, option A): a same-round pair would be slashable (ROUND_BOUND_SAME_ROUND)
+and an abandon carries no unlock proof, so the attester never signs it.
 """
 
 from __future__ import annotations
@@ -63,8 +63,30 @@ async def test_later_round_rival_after_release_is_context_only(monkeypatch, tmp_
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("justification", [False, True])
-async def test_same_round_rival_after_release_is_slashable_today(monkeypatch, tmp_path, justification):
-    """Characterisation (finding): the released validator also signs a same-round rival."""
+async def test_same_round_rival_after_release_is_refused(monkeypatch, tmp_path, justification):
+    """#1736: signing a same-round rival would be a slashable pair, so the attester refuses it."""
     pubs = await _release_then_rival(monkeypatch, tmp_path, 0, justification)
-    assert [m["round"] for m in pubs] == [0, 0]
-    assert _pair(pubs) is PairClass.ROUND_BOUND_SAME_ROUND
+    assert [m["round"] for m in pubs] == [0]
+    assert _pair(pubs) is None
+
+
+@pytest.mark.asyncio
+async def test_same_round_resign_of_abandoned_hash_is_allowed(monkeypatch, tmp_path):
+    """Re-signing the abandoned hash itself is not equivocation."""
+    monkeypatch.setattr(settings, "vote_journal_justification_enabled", False)
+    our, our_key, prop, prop_key = rl._keys()
+    svc, broker = rl._service(monkeypatch, our, our_key, prop, tmp_path)
+    await svc._handle_request(rl._header(100, A, prop, 0))
+    svc.handle_abandon(abandon.build_abandon(CHAIN, 100, A, 0, prop, prop_key))
+    await svc._handle_request(rl._header(100, A, prop, 0))
+    assert [m["hash"] for _, m in broker.published] == [A, A]
+
+
+@pytest.mark.asyncio
+async def test_abandon_without_release_does_not_block_same_round(monkeypatch, tmp_path):
+    """No vote was cast for the abandoned hash, so nothing is recorded or refused."""
+    our, our_key, prop, prop_key = rl._keys()
+    svc, broker = rl._service(monkeypatch, our, our_key, prop, tmp_path)
+    assert svc.handle_abandon(abandon.build_abandon(CHAIN, 100, A, 0, prop, prop_key)) == 0
+    await svc._handle_request(rl._header(100, B, prop, 0))
+    assert [m["hash"] for _, m in broker.published] == [B]
