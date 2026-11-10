@@ -182,3 +182,37 @@ async def test_sweep_settles_each_escrow_exactly_once() -> None:
             job, payment = await _job_and_payment(job_id)
             assert payment.status in {"released", "refunded"}
             assert job.state == payment.status.upper()
+
+
+@pytest.mark.asyncio
+async def test_direct_release_rejects_unfinished_and_expired_states() -> None:
+    """#v11 item 10: the release endpoint must not pay the provider for work
+    that was never delivered. QUEUED and EXPIRED escrowed jobs are refused
+    before any RPC; RUNNING (post pin-confirm) and COMPLETED still release.
+    """
+    async with get_session_context() as session:
+        service = MarketService(session)
+        past = datetime.now(UTC) - timedelta(days=2)
+
+        queued = await _make_job(service, tag="relq", expires_at=past)
+        expired = await _make_job(service, tag="rele", expires_at=past)
+        running = await _make_job(service, tag="relr", expires_at=past)
+        completed = await _make_job(service, tag="relc", expires_at=past)
+        await _set_lifecycle(queued, state="QUEUED")
+        # EXPIRED with payment still escrowed is the release-vs-refund race
+        # case: the state guard must fire before the payment-status one.
+        await _set_lifecycle(expired, state="EXPIRED")
+        await _set_lifecycle(running, state="RUNNING")
+        await _set_lifecycle(completed, state="COMPLETED")
+
+        service._rpc_client = StubRPC()  # type: ignore[assignment]
+
+        for job_id in (queued, expired):
+            with pytest.raises(ValueError, match="only RUNNING/COMPLETED"):
+                await service.release_market_job_payment(job_id)
+        assert service._rpc_client.released == []
+
+        for job_id in (running, completed):
+            result = await service.release_market_job_payment(job_id)
+            assert result["state"] == "RELEASED"
+        assert set(service._rpc_client.released) == {running, completed}
