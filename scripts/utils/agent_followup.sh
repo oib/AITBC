@@ -44,13 +44,16 @@ agent_followup_has_issues() {
 }
 
 agent_followup_get_node_role() {
-    if [ -f /etc/aitbc/blockchain.env ]; then
+    # AITBC_ETC_DIR mirrors setup.sh's override so a scratch run reports the
+    # scratch role, not the host's installed one.
+    local etc_dir="${AITBC_ETC_DIR:-/etc/aitbc}"
+    if [ -f "$etc_dir/blockchain.env" ]; then
         # shellcheck disable=SC1091
-        source /etc/aitbc/blockchain.env 2>/dev/null || true
+        source "$etc_dir/blockchain.env" 2>/dev/null || true
     fi
-    if [ -f /etc/aitbc/node.env ]; then
+    if [ -f "$etc_dir/node.env" ]; then
         # shellcheck disable=SC1091
-        source /etc/aitbc/node.env 2>/dev/null || true
+        source "$etc_dir/node.env" 2>/dev/null || true
     fi
     if [ "${BLOCKCHAIN_MODE:-}" = "hub" ]; then
         echo "hub"
