@@ -91,9 +91,11 @@ def generate_wallet(name: str, password: str, keystore_dir: Path) -> dict:
     keystore["address"] = address
 
     keystore_file = keystore_dir / f"{name}.json"
-    with open(keystore_file, "w") as f:
+    # 0o600 at creation — write-then-chmod leaves a umask-permission window.
+    fd = os.open(keystore_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # tighten pre-existing loose files
+    with os.fdopen(fd, "w") as f:
         json.dump(keystore, f, indent=2)
-    os.chmod(keystore_file, 0o600)
 
     return {"name": name, "address": address, "keystore_file": str(keystore_file), "public_key_hex": public_key_hex}
 

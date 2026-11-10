@@ -268,7 +268,11 @@ class MessageEncryptor:
         if agent_id in self.key_pairs:
             old_key = self.key_pairs[agent_id]
             backup_path = os.path.join(self.keys_dir, f"{agent_id}_old_{old_key.key_id}.json")
-            with open(backup_path, "w") as f:
+            # The backup holds the old private key — same 0o600-at-creation
+            # rule as _save_key_pair (write-then-chmod leaves a umask window).
+            fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.fchmod(fd, 0o600)  # tighten pre-existing loose files
+            with os.fdopen(fd, "w") as f:
                 json.dump(old_key.to_dict(), f, indent=2)
             new_key = self.generate_key_pair(agent_id)
             logger.info("Rotated key pair for agent %s", agent_id)
@@ -278,9 +282,10 @@ class MessageEncryptor:
     def _save_key_pair(self, key_pair: AgentKeyPair) -> None:
         """Save key pair to disk"""
         key_path = os.path.join(self.keys_dir, f"{key_pair.agent_id}.json")
-        with open(key_path, "w") as f:
+        fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)  # tighten pre-existing loose files
+        with os.fdopen(fd, "w") as f:
             json.dump(key_pair.to_dict(), f, indent=2)
-        os.chmod(key_path, 384)
 
     def _load_keys(self) -> None:
         """Load key pairs from disk"""

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from eth_account import Account
@@ -40,7 +41,12 @@ def main() -> None:
     payload = json.dumps(keypair, indent=2)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(payload + "\n", encoding="utf-8")
+        # The payload carries the raw private key — create 0o600 so it is
+        # never world-readable under a permissive umask.
+        fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)  # tighten pre-existing loose files
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(payload + "\n")
         print(f"[keygen] wrote keypair to {args.output}")
     else:
         print(payload)
