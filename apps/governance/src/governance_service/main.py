@@ -203,9 +203,10 @@ async def get_profiles(
     role: str | None = None,
     user_id: str | None = None,
     limit: int = Query(500, ge=1, le=1000),
+    offset: int = Query(0, ge=0, le=100000),
 ):
     """Get governance profiles"""
-    return await svc.list_profiles(role=role, user_id=user_id, limit=limit)
+    return await svc.list_profiles(role=role, user_id=user_id, limit=limit, offset=offset)
 
 
 @app.get("/v1/governance/profiles/{profile_id}")
@@ -264,9 +265,10 @@ async def get_votes(
     proposal_id: str | None = None,
     voter_id: str | None = None,
     limit: int = Query(500, ge=1, le=1000),
+    offset: int = Query(0, ge=0, le=100000),
 ):
     """Get votes"""
-    return await svc.list_votes(proposal_id=proposal_id, voter_id=voter_id, limit=limit)
+    return await svc.list_votes(proposal_id=proposal_id, voter_id=voter_id, limit=limit, offset=offset)
 
 
 @app.post("/v1/governance/votes")
