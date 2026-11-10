@@ -42,6 +42,11 @@ logger = logging.getLogger(__name__)
 # them out unless the caller asks for that status explicitly.
 _NON_DISCOVERABLE_OFFER_STATUSES = frozenset({"deactivated", "inactive", "delisted", "expired", "cancelled"})
 
+# Page size passed to ``BlockchainRPCClient.query_offers`` — a response this
+# large may be truncated, so deletion reconciliation must not run on it
+# (#1567): offers past the cut would look "absent" and be wrongly deleted.
+_SYNC_PAGE_LIMIT = 500
+
 
 class OfferSyncService:
     """Service for synchronizing offers across AITBC chains."""
@@ -112,11 +117,10 @@ class OfferSyncService:
                 if not offer_id:
                     continue
 
-                # Source-chain-wins: only update if this is the source chain
-                existing = self._cache.get_offer(offer_id)
-                if existing and existing.chain_id != chain_id:
-                    # Offer exists from a different chain — skip (source wins)
-                    continue
+                # #1567: keys are chain-namespaced — this chain's entry can
+                # never collide with another chain's, so the old chainless
+                # "source-chain-wins" skip is gone (it would have let chain
+                # A's entry suppress chain B's legit offer_id forever).
 
                 synced = SyncedOffer(  # not-money: ratio, threshold or configuration default — not an amount of money
                     offer_id=offer_id,
@@ -138,6 +142,21 @@ class OfferSyncService:
                 )
                 self._cache.set_offer(synced, ttl=settings.offer_cache_ttl_seconds)
                 synced_count += 1
+
+            # Deletion reconciliation (#1567): an offer the chain no longer
+            # reports is gone — drop it instead of letting it linger until
+            # TTL. Only safe when the response is known complete: at the page
+            # limit the tail may be unseen, so skip reconciliation entirely.
+            deleted_count = 0
+            if len(offers) < _SYNC_PAGE_LIMIT:
+                # Same id extraction as the upsert loop above — an offer the
+                # chain still reports must never look absent.
+                seen_ids = {str(o.get("gpu_id", o.get("id", ""))) for o in offers}
+                seen_ids.discard("")
+                for cached in self._cache.list_offers_by_chain(chain_id):
+                    if cached.offer_id not in seen_ids:
+                        self._cache.delete_offer(cached.offer_id, chain_id)
+                        deleted_count += 1
 
             # Update sync metadata
             self._cache.set_sync_metadata(
@@ -163,6 +182,7 @@ class OfferSyncService:
             return {
                 "chain_id": chain_id,
                 "synced": synced_count,
+                "deleted": deleted_count,
                 "last_sync": now_iso,
                 "elapsed_seconds": elapsed,
             }
