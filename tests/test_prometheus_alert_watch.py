@@ -24,6 +24,7 @@ import pytest
 from click.testing import CliRunner
 
 from aitbc_cli.commands import prometheus as prom
+from aitbc_cli.utils.error_handling import CLIError
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -48,10 +49,11 @@ def _close_alert_log_handlers():
 
 @pytest.fixture
 def watch(monkeypatch, tmp_path):
-    """Run the watcher over scripted polls. A poll is a list of alerts, or None when Prometheus does not answer."""
+    """Run the watcher over scripted polls. A poll is a list of alerts, None when Prometheus does not answer, or an
+    exception ``_prometheus_get`` raises (its real failure mode is abort() -> CLIError)."""
 
     def run(
-        polls: list[list[dict[str, Any]] | None],
+        polls: list[list[dict[str, Any]] | None | Exception],
         *extra: str,
         alert_log: Path | None = None,
         on_sleep: Any = None,
@@ -60,6 +62,8 @@ def watch(monkeypatch, tmp_path):
 
         def fake_get(url, path, params=None, timeout=10):
             item = queue.pop(0)
+            if isinstance(item, Exception):
+                raise item
             return {} if item is None else {"status": "success", "data": {"alerts": item}}
 
         def fake_sleep(_seconds):
@@ -147,6 +151,14 @@ def test_an_unanswered_poll_is_not_a_resolution(watch) -> None:
     result, logged, _ = watch([[_alert()], None, [_alert()]])
     assert result.exit_code == 0
     assert _kinds(logged) == ["prometheus_watch_started", "prometheus_alert_firing"]
+
+
+def test_an_abort_from_prometheus_get_is_an_unanswered_poll_not_a_crash(watch) -> None:
+    """``_prometheus_get`` abort()s (CLIError, exit 2) on a refused connection; in watch mode that must be an
+    unanswered poll — aborting crashed the service into a restart loop while Prometheus was down (Refs #1609)."""
+    result, logged, _ = watch([[_alert()], CLIError("Could not reach Prometheus"), []])
+    assert result.exit_code == 0
+    assert _kinds(logged) == ["prometheus_watch_started", "prometheus_alert_firing", "prometheus_alert_resolved"]
 
 
 def test_an_alert_that_clears_during_an_outage_resolves_once_prometheus_answers(watch) -> None:

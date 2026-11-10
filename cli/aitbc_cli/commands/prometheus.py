@@ -27,7 +27,7 @@ from aitbc.aitbc_logging import configure_logging
 
 from ..utils import output, success
 from ..utils.http_client import get_logger
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 
 logger = get_logger(__name__)
 
@@ -833,7 +833,18 @@ def alerts(
             # the watcher (21 restarts on hub during the 22 Oct OOM night).
             _sd_notify_watchdog()
             now_mono = time.monotonic()
-            raw = _fetch()
+            try:
+                raw = _fetch()
+            except CLIError as e:
+                # _prometheus_get abort()s (exit 2) on a refused connection or
+                # an HTTP error status. In watch mode that must be an
+                # unanswered poll, not a process exit: the whole point of the
+                # unreachable path below is to outlive a Prometheus outage,
+                # and aborting here crash-looped the service every RestartSec
+                # while Prometheus was down (Refs #1609). The one-shot
+                # `alerts` command still aborts — it is outside this loop.
+                logger.debug("prometheus poll failed, treating as unanswered: %s", e.message)
+                raw = None
             # The Prometheus query is the iteration's first long step; ping
             # again once it returns so a slow query plus a slow notify pass
             # cannot chain into one silent window.
