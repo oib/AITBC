@@ -752,41 +752,24 @@ async def calculate_dynamic_pricing(
 
 
 @app.get("/v1/market/plugins")
-def get_plugins(plugin_type: str | None = None, status: str = "approved") -> Any:
-    """Get market plugins"""
-    logger.info("GET /v1/market/plugins called with type=%s, status=%s", plugin_type, status)
-    return {
-        "plugins": [
-            {
-                "id": "ollama-integration",
-                "name": "Ollama Integration",
-                "version": "1.0.0",
-                "description": "Integrate Ollama for local LLM inference",
-                "author": "AITBC Team",
-                "status": "active",
-                "downloads": 1250,
-            },
-            {
-                "id": "ipfs-storage",
-                "name": "IPFS Storage",
-                "version": "1.2.0",
-                "description": "Decentralized storage using IPFS",
-                "author": "AITBC Team",
-                "status": "active",
-                "downloads": 890,
-            },
-            {
-                "id": "gpu-optimizer",
-                "name": "GPU Optimizer",
-                "version": "0.9.0",
-                "description": "Optimize GPU utilization for ML workloads",
-                "author": "Community",
-                "status": "beta",
-                "downloads": 450,
-            },
-        ],
-        "total": 3,
-    }
+async def get_plugins(
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    plugin_type: str | None = None,
+    status: str = "approved",
+) -> Any:
+    """Get market plugins.
+
+    Reads the ``plugin`` table written by ``POST /v1/market/plugins`` —
+    the previous hardcoded demo list meant registered plugins were never
+    listed and the endpoint served fabricated download counts (#1505).
+    """
+    try:
+        logger.info("GET /v1/market/plugins called with type=%s, status=%s", plugin_type, status)
+        plugins = await svc.list_plugins(plugin_type=plugin_type, status=status)
+        return {"plugins": plugins, "total": len(plugins)}
+    except Exception as e:
+        logger.error("Error in GET /v1/market/plugins: %s: %s", type(e).__name__, str(e))
+        raise
 
 
 @app.post("/v1/market/plugins", dependencies=[Depends(require_market_api_key)])

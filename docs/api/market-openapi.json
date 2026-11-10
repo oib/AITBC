@@ -930,7 +930,7 @@
     "/v1/market/plugins": {
       "get": {
         "summary": "Get Plugins",
-        "description": "Get market plugins",
+        "description": "Get market plugins.\n\nReads the ``plugin`` table written by ``POST /v1/market/plugins`` \u2014\nthe previous hardcoded demo list meant registered plugins were never\nlisted and the endpoint served fabricated download counts (#1505).",
         "operationId": "get_plugins_v1_market_plugins_get",
         "parameters": [
           {
