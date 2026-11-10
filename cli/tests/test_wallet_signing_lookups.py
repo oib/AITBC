@@ -394,9 +394,11 @@ def test_send_payload_carries_to_and_amount_for_node_canonical_form(runner, tmp_
     result, posted = _send_with_fee(runner, tmp_path, monkeypatch, ["--amount", "1.5", "--fee", "0.01"])
     assert result.exit_code == 0, result.output
     tx = posted[-1]
-    assert tx["payload"]["to"] == "0x1234567890abcdef1234567890abcdef12345678"
-    assert tx["payload"]["amount"] == tx["amount"]
+    # to_eip55 checksum-normalizes the recipient — payload.to must equal the
+    # exact "to" the node sees, whatever the casing.
     assert tx["payload"]["to"] == tx["to"]
+    assert tx["payload"]["to"].lower() == "0x1234567890abcdef1234567890abcdef12345678"
+    assert tx["payload"]["amount"] == tx["amount"]
 
 
 # ---------------------------------------------------------------------------
