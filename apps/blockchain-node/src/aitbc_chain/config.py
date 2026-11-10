@@ -866,6 +866,14 @@ class ChainSettings(BaseSettings):
     # 64 MiB is ~650k account changes at the ~100-byte/change estimate — far
     # above any legitimate delta (threshold already falls back at 50% of state).
     sync_state_diff_max_bytes: int = 67_108_864
+    # Decompressed-size cap for the whole JSON body of a peer-supplied
+    # /rpc/state/snapshot or /rpc/state/delta response (#1627 remainder):
+    # httpx buffers and transparently decodes the body, so the cap has to
+    # live at streamed-read time. 256 MiB covers the largest legitimate
+    # payload — a full snapshot (all accounts + aux_state up to
+    # sync_aux_max_payload_bytes) or a delta (base64 diff up to ~90 MiB +
+    # params + aux) — while still bounding a hostile peer's memory cost.
+    sync_state_response_max_bytes: int = 268_435_456
 
     # V-4 seal-path missing-data guard, dry-run mode (design
     # docs/design/bridge-state-root-grandfathering.md). Classifies every
