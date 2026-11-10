@@ -9,7 +9,15 @@ from fastapi import APIRouter, HTTPException
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
 
-from chain_client import chain_db_connect, chain_db_path, default_chain_id, get_transaction, rpc_url_for
+from chain_client import (
+    chain_db_connect,
+    chain_db_path,
+    chain_scope,
+    default_chain_id,
+    get_transaction,
+    rpc_url_for,
+    scoped_where,
+)
 from .common import like_pattern
 from validation import check_page_offset, clamp_page_limit, validate_tx_hash
 
@@ -26,6 +34,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
     # Strip 0x prefix for comparison
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
+        cid = chain_id or default_chain_id()
         # First try blockchain database for direct lookup
         db_path = chain_db_path()
 
@@ -36,26 +45,32 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
                 # Canonical storage is 0x-prefixed lowercase hex
                 # (mempool.compute_tx_hash), so exact-match candidates hit the
                 # tx_hash index. The legacy case-insensitive scan stays as a
-                # fallback for any non-canonical row (PI-EX-001).
+                # fallback for any non-canonical row (PI-EX-001). Both reads
+                # are chain-scoped: the fallback chain.db is multi-chain (#1620).
+                scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
                 bare_hash = clean_hash.lower()
+                where, params = scoped_where("tx_hash IN (?, ?)", scope_sql, [f"0x{bare_hash}", bare_hash], scope_params)
                 await cursor.execute(
-                    """
+                    f"""
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
-                    WHERE tx_hash IN (?, ?)
+                    WHERE {where}
                 """,
-                    (f"0x{bare_hash}", bare_hash),
+                    params,
                 )
 
                 result = await cursor.fetchone()
                 if result is None:
+                    legacy_where, legacy_params = scoped_where(
+                        "lower(replace(tx_hash, '0x', '')) = ?", scope_sql, [bare_hash], scope_params
+                    )
                     await cursor.execute(
-                        """
+                        f"""
                         SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                         FROM "transaction"
-                        WHERE lower(replace(tx_hash, '0x', '')) = ?
+                        WHERE {legacy_where}
                     """,
-                        (bare_hash,),
+                        legacy_params,
                     )
                     result = await cursor.fetchone()
 
@@ -73,10 +88,9 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
                 }
 
         # Fallback to RPC method
-        chain_id = chain_id or default_chain_id()
-        rpc_url = rpc_url_for(chain_id)
+        rpc_url = rpc_url_for(cid)
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/tx/{hash}", params={"chain_id": chain_id})
+            response = await client.get(f"{rpc_url}/rpc/tx/{hash}", params={"chain_id": cid})
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
 
@@ -99,6 +113,7 @@ async def api_search_transactions(
     limit = clamp_page_limit(limit)
     offset = check_page_offset(offset)
     try:
+        cid = chain_id or default_chain_id()
         db_path = chain_db_path()
 
         if db_path is not None:
@@ -107,18 +122,25 @@ async def api_search_transactions(
 
                 # Search for transactions where sender, recipient, or payload contains the address
                 # Using LIKE for partial matching (payload contains node IDs like provider_node_id)
+                scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
                 search_term = like_pattern(address)
+                where, params = scoped_where(
+                    "(sender LIKE ? ESCAPE '|' OR recipient LIKE ? ESCAPE '|' OR payload LIKE ? ESCAPE '|')",
+                    scope_sql,
+                    [search_term, search_term, search_term],
+                    scope_params,
+                )
+                # scope params precede the LIMIT/OFFSET placeholders
+                params = [*params, limit, offset]
                 await cursor.execute(
-                    """
+                    f"""
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
-                    WHERE sender LIKE ? ESCAPE '|'
-                       OR recipient LIKE ? ESCAPE '|'
-                       OR payload LIKE ? ESCAPE '|'
+                    WHERE {where}
                     ORDER BY created_at DESC
                     LIMIT ? OFFSET ?
                 """,
-                    (search_term, search_term, search_term, limit, offset),
+                    params,
                 )
 
                 transactions = []

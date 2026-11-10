@@ -11,7 +11,16 @@ from fastapi import APIRouter, HTTPException
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import units_to_ait
 
-from chain_client import USE_DATA_LAYER, chain_db_connect, chain_db_path, default_chain_id, get_data_layer, rpc_url_for
+from chain_client import (
+    USE_DATA_LAYER,
+    chain_db_connect,
+    chain_db_path,
+    chain_scope,
+    default_chain_id,
+    get_data_layer,
+    rpc_url_for,
+    scoped_where,
+)
 from validation import clamp_analytics_days, clamp_page_limit
 
 logger = get_logger(__name__)
@@ -33,6 +42,7 @@ async def api_activity_timeline(
     """Get daily transaction counts for activity timeline chart"""
     days = clamp_analytics_days(days)
     try:
+        cid = chain_id or default_chain_id()
         db_path = chain_db_path()
         if db_path is None:
             return {"labels": [], "datasets": []}
@@ -40,16 +50,19 @@ async def api_activity_timeline(
         async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
-            # Get daily transaction counts for the last N days
+            # Get daily transaction counts for the last N days — scoped to
+            # the requested chain (#1620).
+            scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
+            where, params = scoped_where("created_at >= datetime('now', ?)", scope_sql, [f"-{int(days)} days"], scope_params)
             await cursor.execute(
-                """
+                f"""
                 SELECT DATE(created_at) as day, type, COUNT(*) as count
                 FROM "transaction"
-                WHERE created_at >= datetime('now', ?)
+                WHERE {where}
                 GROUP BY DATE(created_at), type
                 ORDER BY day
                 """,
-                (f"-{int(days)} days",),
+                params,
             )
 
             # Organize by day and type
@@ -111,23 +124,35 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
     read must never look like an empty chain.
     """
     try:
+        cid = chain_id or default_chain_id()
         db_path = chain_db_path()
         if db_path is None:
             raise HTTPException(status_code=503, detail="chain database unavailable")
         async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
+            # Every read below is chain-scoped (#1620).
+            acct_scope, acct_scope_params = await chain_scope(conn, "account", cid)
+            acct_where, acct_params = scoped_where("", acct_scope, [], acct_scope_params)
+            acct_clause = f"WHERE {acct_where}" if acct_where else ""
+
             # Circulating supply: sum of account balances (base units -> AIT)
-            await cursor.execute("SELECT COALESCE(SUM(balance), 0) FROM account")
+            await cursor.execute(f"SELECT COALESCE(SUM(balance), 0) FROM account {acct_clause}", acct_params)
             row = await cursor.fetchone()
             total_ait = float(units_to_ait((row[0] if row else 0) or 0))
 
+            tx_scope, tx_scope_params = await chain_scope(conn, "transaction", cid)
+
             # Cumulative transfer volume, labeled as such (base units -> AIT)
-            await cursor.execute("""
+            where, params = scoped_where("type IN ('TRANSFER', 'GPU_MARKET')", tx_scope, [], tx_scope_params)
+            await cursor.execute(
+                f"""
                 SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
                 FROM "transaction"
-                WHERE type IN ('TRANSFER', 'GPU_MARKET')
-            """)
+                WHERE {where}
+            """,
+                params,
+            )
             row = await cursor.fetchone()
             # V23-46: fetchone() is Row | None. An aggregate always returns a row, but
             # only while the table exists -- otherwise this is a TypeError on None.
@@ -135,28 +160,36 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
 
             # Anchored offers: distinct offer keys across all anchor tx types.
             # Software offers carry payload.offer_id; GPU registrations payload.gpu_id.
-            await cursor.execute("""
+            where, params = scoped_where("type IN ('GPU_MARKET', 'GPU_REGISTER')", tx_scope, [], tx_scope_params)
+            await cursor.execute(
+                f"""
                 SELECT COUNT(DISTINCT COALESCE(
                     json_extract(payload, '$.offer_id'),
                     json_extract(payload, '$.gpu_id')))
                 FROM "transaction"
-                WHERE type IN ('GPU_MARKET', 'GPU_REGISTER')
-            """)
+                WHERE {where}
+            """,
+                params,
+            )
             row = await cursor.fetchone()
             anchored_offers = (row[0] if row else 0) or 0
 
             # Unique sender addresses
-            await cursor.execute("""
-                SELECT COUNT(DISTINCT sender) FROM "transaction"
-            """)
+            all_where, all_params = scoped_where("", tx_scope, [], tx_scope_params)
+            all_tx_clause = f"WHERE {all_where}" if all_where else ""
+            await cursor.execute(f'SELECT COUNT(DISTINCT sender) FROM "transaction" {all_tx_clause}', all_params)
             row = await cursor.fetchone()
             unique_nodes = (row[0] if row else 0) or 0
 
             # Unique providers across all offer anchor types
-            await cursor.execute("""
+            where, params = scoped_where("type IN ('GPU_MARKET', 'GPU_REGISTER')", tx_scope, [], tx_scope_params)
+            await cursor.execute(
+                f"""
                 SELECT payload FROM "transaction"
-                WHERE type IN ('GPU_MARKET', 'GPU_REGISTER')
-            """)
+                WHERE {where}
+            """,
+                params,
+            )
             providers = set()
             rows = await cursor.fetchall()
             for row in rows:
@@ -176,7 +209,7 @@ async def api_network_stats(chain_id: str | None = None) -> dict[str, Any]:
             unique_providers = len(providers)
 
             # Total transactions
-            await cursor.execute('SELECT COUNT(*) FROM "transaction"')
+            await cursor.execute(f'SELECT COUNT(*) FROM "transaction" {all_tx_clause}', all_params)
             row = await cursor.fetchone()
             total_transactions = (row[0] if row else 0) or 0
 
@@ -208,6 +241,7 @@ async def api_top_addresses(
     """Get top addresses by transaction count and AIT volume"""
     limit = clamp_page_limit(limit)
     try:
+        cid = chain_id or default_chain_id()
         db_path = chain_db_path()
         if db_path is None:
             return {"addresses": []}
@@ -215,19 +249,27 @@ async def api_top_addresses(
         async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
+            scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
+            where, params = scoped_where(
+                "sender NOT IN ('bridge_release', 'bridge_refund') AND sender != '0x0000000000000000000000000000000000000000'",
+                scope_sql,
+                [],
+                scope_params,
+            )
+            params = [*params, limit]
             await cursor.execute(
-                """
+                f"""
                 SELECT
                     CASE WHEN sender IN ('bridge_release', 'bridge_refund') OR sender = '0x0000000000000000000000000000000000000000' THEN recipient ELSE sender END as addr,
                     COUNT(*) as tx_count,
                     COALESCE(SUM(CAST(value AS REAL)), 0) as volume
                 FROM "transaction"
-                WHERE sender NOT IN ('bridge_release', 'bridge_refund') AND sender != '0x0000000000000000000000000000000000000000'
+                WHERE {where}
                 GROUP BY addr
                 ORDER BY tx_count DESC
                 LIMIT ?
             """,
-                (limit,),
+                params,
             )
 
             addresses = []
@@ -254,6 +296,7 @@ async def api_top_addresses(
 async def api_provider_reputation(provider_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Compute provider reputation score from blockchain history"""
     try:
+        cid = chain_id or default_chain_id()
         db_path = chain_db_path()
         if db_path is None:
             return {"provider_id": provider_id, "score": 0, "level": "New", "transactions": 0, "days_active": 0}
@@ -261,15 +304,17 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = None)
         async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
-            # Find all transactions related to this provider
+            # Find all transactions related to this provider — chain-scoped (#1620).
+            scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
+            where, params = scoped_where("(sender = ? OR recipient = ?)", scope_sql, [provider_id, provider_id], scope_params)
             await cursor.execute(
-                """
+                f"""
                 SELECT type, value, created_at, payload
                 FROM "transaction"
-                WHERE sender = ? OR recipient = ?
+                WHERE {where}
                 ORDER BY created_at ASC
             """,
-                (provider_id, provider_id),
+                params,
             )
 
             txs = await cursor.fetchall()
