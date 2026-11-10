@@ -175,3 +175,33 @@ class TestRateLimiterKeyRetention:
         assert limiter.is_allowed("k") is False
         assert limiter.get_remaining("k") == 0
         assert limiter.get_remaining("other") == 2
+
+
+class TestParseRateLimit:
+    """parse_rate_limit backs the coordinator-api rate_limit_* settings (#1601)."""
+
+    def test_minute_string(self):
+        from aitbc.rate_limiting import parse_rate_limit
+
+        assert parse_rate_limit("100/minute") == (100, 60)
+
+    def test_other_units(self):
+        from aitbc.rate_limiting import parse_rate_limit
+
+        assert parse_rate_limit("5/second") == (5, 1)
+        assert parse_rate_limit("10/hour") == (10, 3600)
+        assert parse_rate_limit("1/day") == (1, 86400)
+
+    def test_whitespace_and_case(self):
+        from aitbc.rate_limiting import parse_rate_limit
+
+        assert parse_rate_limit("  30 / Minute ") == (30, 60)
+
+    def test_rejects_malformed(self):
+        import pytest
+
+        from aitbc.rate_limiting import parse_rate_limit
+
+        for bad in ("", "100", "abc/minute", "100/fortnight", "0/minute", "-5/minute", "/minute"):
+            with pytest.raises(ValueError):
+                parse_rate_limit(bad)

@@ -3,12 +3,13 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from ....config import settings
 from ..services.ipfs_service import IPFSService
 from ..services.island_ipfs_access import get_member_swarm_key
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter()
 
@@ -82,7 +83,8 @@ def get_ipfs_service() -> IPFSService:
 
 
 @router.post("/upload")
-async def upload_memory(request: IPFSUploadRequest) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def upload_memory(request: IPFSUploadRequest, *, http_request: Request) -> dict[str, Any]:
     """Upload agent memory data to IPFS"""
     try:
         service = get_ipfs_service()
@@ -113,7 +115,8 @@ async def upload_memory(request: IPFSUploadRequest) -> dict[str, Any]:
 
 
 @router.post("/retrieve")
-async def retrieve_memory(request: IPFSRetrieveRequest) -> dict[str, Any]:
+@rate_limit(rate=60, per=60)
+async def retrieve_memory(request: IPFSRetrieveRequest, *, http_request: Request) -> dict[str, Any]:
     """Retrieve memory data from IPFS by CID"""
     try:
         service = get_ipfs_service()
@@ -147,7 +150,8 @@ async def retrieve_memory(request: IPFSRetrieveRequest) -> dict[str, Any]:
 
 
 @router.post("/batch-upload")
-async def batch_upload_memories(request: IPFSBatchUploadRequest) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def batch_upload_memories(request: IPFSBatchUploadRequest, *, http_request: Request) -> dict[str, Any]:
     """Upload multiple memories in batches to IPFS"""
     try:
         service = get_ipfs_service()
@@ -182,7 +186,8 @@ async def batch_upload_memories(request: IPFSBatchUploadRequest) -> dict[str, An
 
 
 @router.post("/create-deal")
-async def create_filecoin_deal(request: IPFSCreateDealRequest) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def create_filecoin_deal(request: IPFSCreateDealRequest, *, http_request: Request) -> dict[str, Any]:
     """Create Filecoin storage deal for CID persistence"""
     try:
         service = get_ipfs_service()
@@ -235,7 +240,8 @@ async def list_agent_memories(
 
 
 @router.delete("/delete")
-async def delete_memory(request: IPFSDeleteRequest) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def delete_memory(request: IPFSDeleteRequest, *, http_request: Request) -> dict[str, Any]:
     """Delete/unpin memory from IPFS"""
     try:
         service = get_ipfs_service()
@@ -299,7 +305,8 @@ async def health_check() -> dict[str, Any]:
 
 
 @router.post("/island/swarm-key")
-def get_island_swarm_key(request: IslandSwarmKeyRequest) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+def get_island_swarm_key(request: IslandSwarmKeyRequest, *, http_request: Request) -> dict[str, Any]:
     """Return the private IPFS swarm key for an island to a paid, verified member."""
     try:
         result = get_member_swarm_key(

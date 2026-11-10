@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.rate_limiting import rate_limit
 from ....auth import require_auth
 from ....storage import get_session
 from ..domain.provider_bond import (
@@ -81,6 +82,7 @@ def _bond_response(bond: ProviderBond) -> BondResponse:
 
 
 @router.post("/providers/{provider_id}/bonds", summary="Create or update a provider bond")
+@rate_limit(rate=20, per=60)
 def create_bond(
     request: Request,
     provider_id: str,
@@ -155,6 +157,7 @@ def get_bond_by_id(
 
 
 @router.post("/providers/{provider_id}/bonds/lock", summary="Lock a provider bond")
+@rate_limit(rate=20, per=60)
 def lock_bond(
     request: Request,
     provider_id: str,
@@ -167,6 +170,7 @@ def lock_bond(
 
 
 @router.post("/providers/{provider_id}/bonds/release", summary="Release a locked provider bond")
+@rate_limit(rate=20, per=60)
 def release_bond(
     request: Request,
     provider_id: str,
@@ -179,6 +183,7 @@ def release_bond(
 
 
 @router.post("/providers/{provider_id}/bonds/slash", summary="Slash a provider bond")
+@rate_limit(rate=20, per=60)
 def slash_bond(
     request: Request,
     provider_id: str,

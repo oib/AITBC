@@ -480,6 +480,15 @@ async def _shutdown(task_manager) -> None:
 
         logger.info("Waiting for in-flight requests to complete...")
         await asyncio.sleep(1)
+        # Stop background work BEFORE closing the databases: sweepers and
+        # create_task_with_logging spawns write through these connections,
+        # and a task cancelled after close_async_db can still land a write
+        # on a closed engine (#1602).
+        logger.info("Stopping background tasks...")
+        await task_manager.stop_all()
+        from aitbc.async_tasks import get_global_registry
+
+        await get_global_registry().cancel_all(timeout=5.0)
         logger.info("Closing database connections...")
         try:
             logger.info("Database connections closed successfully")
@@ -490,8 +499,6 @@ async def _shutdown(task_manager) -> None:
             logger.info("Async database connections closed successfully")
         except Exception as e:
             logger.warning("Error closing async database connections: %s", e)
-        logger.info("Stopping background tasks...")
-        await task_manager.stop_all()
         logger.info("Cleaning up rate limiting state...")
         logger.info("Cleaning up audit resources...")
         logger.info("Graceful shutdown completed")

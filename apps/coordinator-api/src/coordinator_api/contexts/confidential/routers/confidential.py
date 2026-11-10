@@ -377,6 +377,8 @@ async def get_confidential_status(
 def create_confidential_payment(
     request: ConfidentialPaymentCreate,
     _user: AdminOrClientDep,
+    *,
+    http_request: Request,
 ) -> ConfidentialPaymentView:
     """Receive a confidential payment envelope from the CLI.
 

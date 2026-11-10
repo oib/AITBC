@@ -3,10 +3,11 @@
 from typing import Annotated, Any
 
 from aitbc_shared import MarketOffer
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.rate_limiting import rate_limit
 
 from ....auth import AdminDep
 from ....contexts.infrastructure.domain import Miner
@@ -19,9 +20,12 @@ router = APIRouter(tags=["market-offers"])
 
 
 @router.post("/market/sync-offers", summary="Create offers from registered miners")
+@rate_limit(rate=30, per=60)
 def sync_offers(
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Create market offers from all registered miners"""
     miners = session.execute(select(Miner).where(Miner.status == "ONLINE")).scalars().all()

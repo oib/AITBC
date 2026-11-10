@@ -190,6 +190,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
     logger.info("Shutting down AITBC Agent Coordinator...")
     await _task_registry.cancel_all(timeout=5.0)
+    # create_task_with_logging spawns (heartbeat monitor, cleanup loops,
+    # per-alert notifications, workflow runners) register with the shared
+    # global registry — cancel them too so they cannot outlive shutdown
+    # or keep writing to closed stores (#1602).
+    from aitbc.async_tasks import get_global_registry
+
+    await get_global_registry().cancel_all(timeout=5.0)
     if state.agent_registry:
         await state.agent_registry.stop()
     if state.message_storage:
