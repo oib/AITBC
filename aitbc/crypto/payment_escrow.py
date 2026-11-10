@@ -82,7 +82,20 @@ class EscrowStore(Protocol):
         ...
 
     def load_all(self) -> list[EscrowEntry]:
-        """Return every persisted entry, used to rehydrate on startup."""
+        """Return persisted entries, used to rehydrate on startup.
+
+        Implementations may restrict this to non-terminal entries; point
+        lookups for terminal rows go through the optional ``load`` /
+        ``load_by_task`` hooks below.
+        """
+        ...
+
+    def load(self, escrow_id: str) -> EscrowEntry | None:
+        """Optional point lookup by escrow id (terminal rows included)."""
+        ...
+
+    def load_by_task(self, task_id: str) -> EscrowEntry | None:
+        """Optional point lookup by task id (terminal rows included)."""
         ...
 
 
@@ -273,14 +286,42 @@ class PaymentEscrow:
         return expired
 
     def get_escrow(self, escrow_id: str) -> EscrowEntry | None:
-        """Get an escrow entry by ID."""
-        return self._escrows.get(escrow_id)
+        """Get an escrow entry by ID.
+
+        ``load_all`` only rehydrates active (PENDING/LOCKED) rows, so a
+        terminal escrow misses the in-memory dict after a restart — fall back
+        to the store's point lookup and cache the hit (#1515).
+        """
+        entry = self._escrows.get(escrow_id)
+        if entry is None and self._store is not None:
+            load = getattr(self._store, "load", None)
+            if load is not None:
+                try:
+                    entry = load(escrow_id)
+                except Exception as e:
+                    logger.error("Failed to load escrow %s from store: %s", escrow_id, e)
+                    entry = None
+                if entry is not None:
+                    self._escrows[entry.escrow_id] = entry
+        return entry
 
     def get_escrow_for_task(self, task_id: str) -> EscrowEntry | None:
         """Get the escrow entry for a task."""
         for entry in self._escrows.values():
             if entry.task_id == task_id:
                 return entry
+        if self._store is not None:
+            load_by_task = getattr(self._store, "load_by_task", None)
+            if load_by_task is not None:
+                persisted: EscrowEntry | None
+                try:
+                    persisted = load_by_task(task_id)
+                except Exception as e:
+                    logger.error("Failed to load escrow for task %s from store: %s", task_id, e)
+                    persisted = None
+                if persisted is not None:
+                    self._escrows[persisted.escrow_id] = persisted
+                    return persisted
         return None
 
     def get_all_escrows(self) -> list[EscrowEntry]:
