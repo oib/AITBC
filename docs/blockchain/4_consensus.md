@@ -187,7 +187,7 @@ Field names in `apps/blockchain-node/src/aitbc_chain/config.py`; the env name is
 | Same-hash retry (#1298) | `proposer_same_hash_retry_enabled` | off | Independent of the journal. |
 | Round lock (#1242) | `attestation_round_lock_enabled` | off | Re-keys the attestation lock to (height, round). |
 | Height lock | `attestation_lock_enabled` | **on** | Legacy height-only lock; already active. |
-| Chain-state slashing | `consensus_chain_slashing_enabled` | off | Local equivocation detection stays advisory while off. |
+| Chain-state slashing (#1198) | `consensus_chain_slashing_enabled` | off | Off keeps the legacy node-local persistence of slash-driven deactivation. Armed, deactivation is read from canonical chain state (`VALIDATOR_DEACTIVATE` markers) and local Byzantine detection becomes advisory-only. Fleet-wide arming order is in the `config.py` comment. |
 | Mempool reservation (#1300) | `mempool_reservation_enabled` | off | `peek_reserve` drain instead of delete-on-read; database mempool backend only. |
 | State transition v24 (#1314) | `state_transition_v24_height` | unset | Height-gated; fleet-wide pin when armed. |
 | Empty-state-root refusal (#1325) | `sync_require_state_root_height` | unset | From height H a block with an empty `state_root` is refused on import. `sync_state_root_validation_enabled` is already **on**. |
