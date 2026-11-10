@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from market_service.domain.market import MarketJob, MarketJobPayment
+from market_service.domain.market import MarketJob, MarketJobPayment, SoftwareService
 from market_service.services.market_service import MarketService
 from market_service.storage import get_session_context
 
@@ -15,6 +15,13 @@ from market_service.storage import get_session_context
 async def service() -> MarketService:
     async with get_session_context() as session:
         yield MarketService(session)
+
+
+async def _register_offer(service: MarketService, offer_id: str) -> None:
+    """#1564: create_market_job rejects unknown offer_ids — tests register the
+    offer they reference, the way a provider's listing would."""
+    service.session.add(SoftwareService(service_type="ipfs", offer_id=offer_id))
+    await service.session.commit()
 
 
 async def _mark_escrowed(service: MarketService, job_id: str, escrow_contract_id: str) -> None:
@@ -38,6 +45,7 @@ async def _mark_escrowed(service: MarketService, job_id: str, escrow_contract_id
 
 @pytest.mark.asyncio
 async def test_create_market_job(service: MarketService) -> None:
+    await _register_offer(service, "offer-1")
     result = await service.create_market_job(
         {
             "service_type": "ipfs",
@@ -158,6 +166,18 @@ async def test_confirm_pin_persists_provider_confirmed(service: MarketService) -
     accepted (200) but the flag silently vanished.
     """
 
+    class StubRPC:
+        async def verify_escrow(self, job_id: str):
+            return {
+                "job_id": job_id,
+                "state": "funded",
+                "amount": "0.1",
+                "buyer": "0x" + "11" * 20,
+                "provider": "0x" + "22" * 20,
+            }
+
+    service._rpc_client = StubRPC()  # type: ignore[assignment]
+
     created = await service.create_market_job(
         {
             "service_type": "ipfs",
@@ -173,3 +193,154 @@ async def test_confirm_pin_persists_provider_confirmed(service: MarketService) -
     fetched = await service.get_market_job(created["job_id"])
     assert fetched["state"] == "RUNNING"
     assert fetched["payload"]["provider_confirmed"] is True
+
+
+class _EscrowStub:
+    """verify_escrow stub for pin-confirm tests."""
+
+    def __init__(self, escrow: dict | None):
+        self._escrow = escrow
+        self.calls = 0
+
+    async def verify_escrow(self, job_id: str):
+        self.calls += 1
+        return self._escrow
+
+
+def _job_fields(**overrides):
+    fields = {
+        "service_type": "ipfs",
+        "buyer_address": "0x" + "11" * 20,
+        "provider_address": "0x" + "22" * 20,
+        "payload": {"cid": "QmTest"},
+        "payment": {"amount": "1.0", "status": "pending"},
+    }
+    fields.update(overrides)
+    return fields
+
+
+@pytest.mark.asyncio
+async def test_pin_confirm_requires_onchain_escrow(service: MarketService) -> None:
+    """#1564: pending->escrowed without chain proof must fail and persist nothing."""
+    stub = _EscrowStub(None)
+    service._rpc_client = stub  # type: ignore[assignment]
+
+    created = await service.create_market_job(_job_fields())
+
+    with pytest.raises(ValueError, match="No on-chain escrow"):
+        await service.confirm_market_job_pin(created["job_id"], size=100)
+
+    assert stub.calls == 1
+    fetched = await service.get_market_job(created["job_id"])
+    assert fetched["state"] == "QUEUED"
+    assert fetched["payment"]["status"] == "pending"
+    assert fetched["payload"].get("pinned") is not True
+
+
+@pytest.mark.asyncio
+async def test_pin_confirm_rejects_mismatched_escrow(service: MarketService) -> None:
+    """#1564: an escrow for a different amount or party is not proof."""
+    stub = _EscrowStub(
+        {
+            "job_id": "other",
+            "state": "funded",
+            "amount": "2.0",
+            "buyer": "0x" + "11" * 20,
+            "provider": "0x" + "22" * 20,
+        }
+    )
+    service._rpc_client = stub  # type: ignore[assignment]
+
+    created = await service.create_market_job(_job_fields())
+
+    with pytest.raises(ValueError, match="does not match"):
+        await service.confirm_market_job_pin(created["job_id"])
+
+    fetched = await service.get_market_job(created["job_id"])
+    assert fetched["payment"]["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_pin_confirm_rejects_unlocked_escrow_state(service: MarketService) -> None:
+    """#1564: a 'created' (unfunded) or settled escrow state is not a lock."""
+    stub = _EscrowStub(
+        {
+            "job_id": "x",
+            "state": "released",
+            "amount": "1.0",
+            "buyer": "0x" + "11" * 20,
+            "provider": "0x" + "22" * 20,
+        }
+    )
+    service._rpc_client = stub  # type: ignore[assignment]
+
+    created = await service.create_market_job(_job_fields())
+
+    with pytest.raises(ValueError, match="not locked"):
+        await service.confirm_market_job_pin(created["job_id"])
+
+
+@pytest.mark.asyncio
+async def test_pin_confirm_marks_escrowed_with_valid_proof(service: MarketService) -> None:
+    """#1564: a locked on-chain escrow with matching amount+parties flips pending->escrowed."""
+    stub = _EscrowStub(
+        {
+            "job_id": "x",
+            "state": "funded",
+            "amount": "1.0",
+            "buyer": "0x" + "11" * 20,
+            "provider": "0x" + "22" * 20,
+        }
+    )
+    service._rpc_client = stub  # type: ignore[assignment]
+
+    created = await service.create_market_job(_job_fields())
+    result = await service.confirm_market_job_pin(created["job_id"], size=42)
+
+    assert result["state"] == "RUNNING"
+    assert result["payment_status"] == "escrowed"
+    fetched = await service.get_market_job(created["job_id"])
+    assert fetched["payment"]["status"] == "escrowed"
+    assert fetched["payment"]["escrowed_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_pin_confirm_skips_proof_when_already_escrowed(service: MarketService) -> None:
+    """#1564: the proof gate only guards the pending->escrowed transition."""
+    stub = _EscrowStub(None)
+    service._rpc_client = stub  # type: ignore[assignment]
+
+    created = await service.create_market_job(_job_fields())
+    await _mark_escrowed(service, created["job_id"], "escrow-1")
+
+    result = await service.confirm_market_job_pin(created["job_id"])
+    assert result["state"] == "RUNNING"
+    assert stub.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_create_market_job_rejects_unknown_offer(service: MarketService) -> None:
+    """#1564: an offer_id that resolves nowhere is a 400-class error."""
+
+    class _EmptyRPC:
+        async def get_offer(self, gpu_id, chain_id=None):
+            return None
+
+        async def query_transactions(self, **kwargs):
+            return []
+
+    service._rpc_client = _EmptyRPC()  # type: ignore[assignment]
+
+    with pytest.raises(ValueError, match="Unknown offer_id"):
+        await service.create_market_job(_job_fields(offer_id="no-such-offer"))
+
+
+@pytest.mark.asyncio
+async def test_create_market_job_rejects_bad_payment_amount(service: MarketService) -> None:
+    """#1564/#1608: NaN and negative payment amounts never reach the column."""
+    await _register_offer(service, "offer-amt")
+
+    with pytest.raises(ValueError, match="payment amount"):
+        await service.create_market_job(_job_fields(offer_id="offer-amt", payment={"amount": "NaN"}))
+    with pytest.raises(ValueError, match="payment amount"):
+        await service.create_market_job(_job_fields(offer_id="offer-amt", payment={"amount": "-1"}))
