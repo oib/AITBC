@@ -1420,3 +1420,60 @@ class TestPollWatchdog:
         w3.eth.get_block.assert_not_called()  # deadline checked before the fetch
         assert get_cursor("last_processed_block") == 96  # nothing skipped
         assert any("poll scan exceeded" in r.getMessage() for r in caplog.records)
+
+
+class TestAdminMutationLock:
+    """Mutating admin commands serialize on an flock next to the ledger DB.
+
+    Two concurrent ``manual-payout`` runs would both pass the
+    ``_payout_in_flight()`` check before either writes its SUBMITTED row,
+    then sign envelopes on the same nonce — the mempool collision the
+    one-envelope rule exists to prevent. Read commands stay lock-free.
+    """
+
+    def test_mutating_command_refused_while_lock_held(self, monitor, monkeypatch, capsys):
+        import fcntl
+        import sys as _sys
+
+        import bridge_monitor.admin as admin
+        import bridge_monitor.storage as storage
+        from bridge_monitor.storage import create_deposit
+
+        create_deposit("0xlock", "0xfrom", "1.0", "")
+        fd = os.open(f"{storage.DB_PATH}.admin.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            monkeypatch.setattr(
+                _sys,
+                "argv",
+                ["bridge_monitor.admin", "write-off", "0xlock", "--reason", "x", "--unpaid-with-recipient"],
+            )
+            assert admin.main() == 1
+        finally:
+            os.close(fd)
+        assert "in progress" in capsys.readouterr().err
+
+    def test_lock_released_after_command(self, monitor, monkeypatch, capsys):
+        import sys as _sys
+
+        import bridge_monitor.admin as admin
+        from bridge_monitor.storage import create_deposit, get_deposit
+
+        create_deposit("0xlock2", "0xfrom", "1.0", "")
+        monkeypatch.setattr(
+            _sys,
+            "argv",
+            ["bridge_monitor.admin", "write-off", "0xlock2", "--reason", "done", "--unpaid-with-recipient"],
+        )
+        assert admin.main() == 0
+        assert get_deposit("0xlock2")["status"] == BridgeDepositStatus.WRITTEN_OFF.value
+        # A second mutation is not blocked by the first run's stale lock —
+        # write-off is idempotent on an already-terminal row, so assert on
+        # the absence of the lock-refusal message instead of the rc.
+        monkeypatch.setattr(
+            _sys,
+            "argv",
+            ["bridge_monitor.admin", "write-off", "0xlock2", "--reason", "again", "--unpaid-with-recipient"],
+        )
+        admin.main()
+        assert "in progress" not in capsys.readouterr().err
