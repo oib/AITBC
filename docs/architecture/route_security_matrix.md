@@ -143,7 +143,7 @@ Route                          | Method | Auth Level | Implementation
 1. Remove dev mode auth bypass
 2. Standardize secret management
 3. Add auth failure monitoring
-4. Implement rate limiting on auth endpoints
+4. ~~Implement rate limiting on auth endpoints~~ — done: mutating methods rate-limited fleet-wide via shared `RateLimitMiddleware` (120/60s per client IP; pool-hub anonymous writes 30/60s)
 
 ### Medium Priority (Consistency)
 
