@@ -143,7 +143,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -157,7 +157,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -168,7 +168,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -181,7 +181,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -193,7 +193,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -212,7 +212,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Same routes reachable via the /exchange/ -> wallet_service/ prefix strip.
@@ -225,7 +225,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /v1/wallets {
@@ -240,7 +240,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -254,7 +254,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
@@ -314,7 +314,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Api-Key $http_x_api_key;
         proxy_read_timeout 3600s;
@@ -339,7 +339,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Api-Key $http_x_api_key;
         proxy_read_timeout 3600s;
@@ -356,7 +356,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # DEPRECATED short aliases — /agent/messages/, /agent/auth/, etc.
@@ -371,7 +371,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Api-Key $http_x_api_key;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
@@ -387,7 +387,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -409,7 +409,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
     }
@@ -434,7 +434,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_connect_timeout 10s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
@@ -457,7 +457,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -474,7 +474,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -489,7 +489,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_connect_timeout 10s;
         proxy_send_timeout 30s;
         proxy_read_timeout 30s;
@@ -506,7 +506,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Prefix /c;
         client_max_body_size 100M;
         add_header Access-Control-Allow-Origin * always;
@@ -525,7 +525,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -546,7 +546,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         # The application logs only sanitized report fields, without a raw
         # request URL or Referer copied into the nginx access log.
         access_log off;
@@ -565,7 +565,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -579,7 +579,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -593,7 +593,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -613,7 +613,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -629,7 +629,7 @@ server {
     #     proxy_set_header Host $host;
     #     proxy_set_header X-Real-IP $remote_addr;
     #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    #     proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
     #     add_header Access-Control-Allow-Origin * always;
     #     add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
     #     add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -646,7 +646,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         # NDJSON token streaming + long generations: no buffering, long reads.
         proxy_buffering off;
         proxy_cache off;
@@ -665,7 +665,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -678,7 +678,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -691,7 +691,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -709,7 +709,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -724,7 +724,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -736,7 +736,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -748,7 +748,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -785,7 +785,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Public-by-policy admin-keyed reads: edge injects X-API-Key (#1204).
@@ -795,7 +795,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -807,7 +807,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -819,7 +819,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -847,7 +847,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # #1204: same public-by-policy admin-keyed bridge reads via the
@@ -859,7 +859,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -873,7 +873,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -903,7 +903,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location = /exchange-api/trades {
@@ -922,7 +922,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # OPS-4 (ETH-19): signed-order surface — exact matches only, never a
@@ -942,7 +942,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
     }
@@ -954,7 +954,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
     }
@@ -966,7 +966,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
     }
@@ -978,7 +978,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
     }
@@ -990,7 +990,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
     }
@@ -1002,7 +1002,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
     }
@@ -1012,7 +1012,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -1028,7 +1028,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -1041,7 +1041,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Api-Key $http_x_api_key;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
@@ -1057,7 +1057,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Api-Key $http_x_api_key;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
@@ -1077,7 +1077,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Api-Key $http_x_api_key;
         client_max_body_size 5M;
     }
