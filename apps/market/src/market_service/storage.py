@@ -137,7 +137,7 @@ async def _migrate_access_secrets() -> None:
     from .services.market_service import hash_access_secret, is_hashed_secret
 
     changed = 0
-    async with AsyncSession(engine) as session:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         for token in (await session.execute(select(IpfsRentalToken))).scalars():
             if token.access_secret and not is_hashed_secret(token.access_secret):
                 token.access_secret = hash_access_secret(token.access_secret)
@@ -177,5 +177,5 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 @asynccontextmanager
 async def get_session_context() -> AsyncIterator[AsyncSession]:
     """Get database session as context manager"""
-    async with AsyncSession(engine) as session:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session

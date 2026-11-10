@@ -134,6 +134,9 @@ class MatchRepository:
             "score": result.score,
             "explain": result.explain,
             "eta_ms": result.eta_ms,
-            "price": result.price,
+            # str(Decimal): price is Numeric(20,8); a bare Decimal makes the
+            # json.dumps below raise TypeError AFTER the match rows committed
+            # — /v1/match answered 500 on success (#1394/#1635).
+            "price": str(result.price) if result.price is not None else None,
             "created_at": result.created_at.isoformat() if result.created_at else None,
         }

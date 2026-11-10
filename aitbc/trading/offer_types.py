@@ -82,6 +82,11 @@ class OfferSyncConfig:
         return self.per_chain_staleness.get(chain_id, self.staleness_threshold_seconds)
 
 
+# Legacy wire spellings → canonical OfferFSM status words, applied by
+# SyncedOffer.from_dict (#1635).
+_STATUS_ALIASES = {"active": "available"}
+
+
 @dataclass
 class SyncedOffer:
     """A cached offer with sync metadata.
@@ -121,18 +126,56 @@ class SyncedOffer:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SyncedOffer:
-        """Deserialize from a dict (cache storage or RPC response)."""
+        """Deserialize from a dict (cache storage or RPC response).
+
+        Tolerates the blockchain-node market-listing wire shape in
+        addition to the canonical :meth:`to_dict` shape: the node publishes
+        ``offer`` payloads keyed ``listing_id``/``seller_address``/
+        ``item_type`` (``aitbc_chain.rpc.market``), while this method
+        historically read only ``offer_id``/``provider``/``service_type`` —
+        every node event collapsed to an empty ``offer_id`` and all offers
+        shared the ``offer:`` cache key (#1635). Unrecognized top-level keys
+        fold into ``attributes`` so subscription filters on
+        ``region``/``gpu_model`` keep working for both shapes.
+        """
+        known_keys = {
+            "offer_id",
+            "listing_id",
+            "gpu_id",
+            "id",
+            "chain_id",
+            "provider",
+            "seller_address",
+            "owner",
+            "service_type",
+            "item_type",
+            "price",
+            "quantity",
+            "capacity",
+            "status",
+            "attributes",
+            "last_synced",
+            "sync_status",
+            "sync_confidence",
+        }
+        attributes = dict(data.get("attributes") or {})
+        for key, value in data.items():
+            if key not in known_keys and key not in attributes:
+                attributes[key] = value
+        status_raw = str(data.get("status", "available"))
         return cls(  # not-money: ratio, threshold or configuration default — not an amount of money
-            offer_id=data.get("offer_id", ""),
-            chain_id=data.get("chain_id", ""),
-            provider=data.get("provider", ""),
-            service_type=data.get("service_type", ""),
+            offer_id=str(data.get("offer_id") or data.get("listing_id") or data.get("gpu_id") or data.get("id") or ""),
+            chain_id=str(data.get("chain_id") or ""),
+            provider=str(data.get("provider") or data.get("seller_address") or data.get("owner") or ""),
+            service_type=str(data.get("service_type") or data.get("item_type") or ""),
             price=Decimal(str(data.get("price", 0.0))),
-            quantity=int(data.get("quantity", 0)),
-            status=data.get("status", "available"),
-            attributes=data.get("attributes", {}),
-            last_synced=data.get("last_synced", ""),
-            sync_status=data.get("sync_status", "fresh"),
+            quantity=int(data.get("quantity", data.get("capacity", 0))),
+            # The node listing wire says "active"; the OfferFSM word is
+            # "available" — normalize so downstream status checks agree.
+            status=_STATUS_ALIASES.get(status_raw, status_raw),
+            attributes=attributes,
+            last_synced=str(data.get("last_synced", "")),
+            sync_status=str(data.get("sync_status", "fresh")),
             sync_confidence=data.get("sync_confidence", 1.0),
         )
 

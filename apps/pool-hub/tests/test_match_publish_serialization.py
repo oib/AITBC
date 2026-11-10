@@ -146,10 +146,6 @@ class TestAddResults:
         assert results[0].miner_id == "m-1"
         assert results[0].score == 0.9
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="Decimal price is not JSON-serializable — /v1/match 500s after commit; fix tracked in #1394",
-    )
     async def test_published_payloads_are_json_serializable(self, session_factory, redis):
         """Every payload pushed to Redis must round-trip through json.
 

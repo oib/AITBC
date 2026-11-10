@@ -92,10 +92,16 @@ class OfferEvent:
         """
         offer_data = data.get("offer")
         offer = SyncedOffer.from_dict(offer_data) if isinstance(offer_data, dict) else None
+        chain_id = str(data.get("chain_id", ""))
+        if offer is not None and not offer.chain_id:
+            # The node's offer payload carries no chain_id — it lives on the
+            # event envelope. Without the backfill the cache indexes the
+            # offer under "" and per-chain listings never see it (#1635).
+            offer.chain_id = chain_id
         return cls(
             event_type=data.get("event_type", ""),
             offer_id=data.get("offer_id", ""),
-            chain_id=data.get("chain_id", ""),
+            chain_id=chain_id,
             offer=offer,
             timestamp=data.get("timestamp", ""),
             source=data.get("source"),

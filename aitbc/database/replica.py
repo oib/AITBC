@@ -129,7 +129,7 @@ class ReadReplicaManager:
         engine = self.get_read_engine() if read_only else self.get_write_engine()
         engine_id = id(engine)
         if engine_id not in self._sessionmakers:
-            self._sessionmakers[engine_id] = sessionmaker(bind=engine)
+            self._sessionmakers[engine_id] = sessionmaker(bind=engine, expire_on_commit=False)
         return self._sessionmakers[engine_id]()
 
     def get_metrics(self) -> dict[str, Any]:

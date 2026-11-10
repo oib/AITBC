@@ -232,7 +232,10 @@ class TestComputeConsumer:
         assert sent["consumer_id"] == consumer.identity.id
         assert sent["payload"] == {"type": "inference", "prompt": "hello"}
         assert sent["constraints"] == {"gpu": True}
-        assert sent["payment_amount"] == Decimal("5.0")
+        # payment_amount is sent as str(Decimal): httpx json= cannot
+        # serialize Decimal, and the coordinator's JobCreate parses the
+        # string back to Decimal exactly (#1635).
+        assert sent["payment_amount"] == "5.0"
         assert sent["payment_currency"] == "AIT"
         assert sent["buyer_address"] == "0xBuyer1"
         assert sent["provider_address"] == "0xProvider1"

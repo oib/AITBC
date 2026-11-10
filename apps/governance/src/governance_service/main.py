@@ -558,10 +558,14 @@ async def close_proposal_endpoint(
         return {
             "proposal_id": proposal_id,
             "status": proposal.status,
-            "yes_votes": float(proposal.yes_votes),
-            "no_votes": float(proposal.no_votes),
-            "abstain_votes": float(proposal.votes_abstain),
-            "quorum_required": float(proposal.quorum_required),
+            # str(Decimal), not float(): vote totals are token-power
+            # quantities — float() loses precision on a public response
+            # (#1635). The signed-payload voting_power float is a separate,
+            # consensus-adjacent item and is intentionally untouched.
+            "yes_votes": str(proposal.yes_votes),
+            "no_votes": str(proposal.no_votes),
+            "abstain_votes": str(proposal.votes_abstain),
+            "quorum_required": str(proposal.quorum_required),
             "passing_threshold": proposal.passing_threshold,
         }
     except ValueError as e:

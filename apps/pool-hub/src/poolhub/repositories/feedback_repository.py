@@ -52,7 +52,10 @@ class FeedbackRepository:
             "outcome": outcome,
             "latency_ms": latency_ms,
             "fail_code": fail_code,
-            "tokens_spent": tokens_spent,
+            # str(Decimal): tokens_spent is Numeric — a bare Decimal makes
+            # json.dumps raise TypeError inside the swallowed try below, so
+            # the publish was silently skipped (#1394).
+            "tokens_spent": str(tokens_spent) if tokens_spent is not None else None,
             "created_at": feedback.created_at.isoformat() if feedback.created_at else None,
         }
         try:

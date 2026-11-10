@@ -224,6 +224,8 @@ class TradingService:
             "total_agreements": total_agreements,
             "total_trades": total_matches,
             "completed_trades": completed_count,
-            "total_trade_volume": float(completed_volume),
-            "average_trade_value": float(average_trade_value),
+            # str(Decimal), not float(): these are monetary aggregates on a
+            # public reporting endpoint — float() loses precision (#1635).
+            "total_trade_volume": str(completed_volume),
+            "average_trade_value": str(average_trade_value),
         }
