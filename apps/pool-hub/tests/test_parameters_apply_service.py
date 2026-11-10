@@ -88,10 +88,6 @@ class TestHappyPath:
 
 
 class TestLookupScope:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="ServiceConfig is per-miner but the query filters service_type only — MultipleResultsFound 500 with 2+ miners; fix tracked in #1396",
-    )
     async def test_two_miners_same_service_type_does_not_500(self, db_session):
         async with db_session() as s:
             s.add(_miner("m-1"))
@@ -133,10 +129,6 @@ class TestValidation:
                 await apply_parameter_change(_change(new_value="three"), db=s, _={})
         assert exc.value.status_code == 400
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="isinstance(True, int) passes the type check — bool applied to max_concurrent; fix tracked in #1396",
-    )
     async def test_bool_is_not_accepted_for_int_parameter(self, db_session):
         async with db_session() as s:
             s.add(_miner("m-1"))
@@ -147,10 +139,6 @@ class TestValidation:
                 await apply_parameter_change(_change(new_value=True), db=s, _={})
         assert exc.value.status_code == 400
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="negative max_concurrent accepted — no range validation on the governance path; fix tracked in #1396",
-    )
     async def test_negative_max_concurrent_is_rejected(self, db_session):
         async with db_session() as s:
             s.add(_miner("m-1"))
@@ -163,10 +151,6 @@ class TestValidation:
 
 
 class TestOldValueCheck:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="attributes are mutated before the old_value comparison — the ORM object is dirty even when 409 is raised; fix tracked in #1396",
-    )
     async def test_rejected_change_leaves_config_unmodified(self, db_session):
         async with db_session() as s:
             s.add(_miner("m-1"))
