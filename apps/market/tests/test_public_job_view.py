@@ -11,7 +11,6 @@ wallet-signed request from the job's buyer or provider.
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 import time
 from pathlib import Path
@@ -19,11 +18,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-
-# TestClient requests share one client host; the suite's request volume
-# trips the 120/min middleware bucket otherwise (same pattern as
-# apps/agent-coordinator tests).
-os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -123,6 +117,21 @@ def _seed_ipfs_job(private_key: str = _TEST_PRIVATE_KEY, **overrides: Any) -> di
             return await MarketService(session).get_market_job(record["job_id"])
 
     return asyncio.run(_settle_and_fetch())
+
+
+@pytest.fixture(autouse=True)
+def _rate_limiting_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable the shared rate-limit middleware for this module — and only for it.
+
+    TestClient requests share one client host; the suite's request volume
+    trips the 120/min middleware bucket otherwise (same pattern as
+    apps/agent-coordinator tests). This used to be
+    ``os.environ.setdefault`` at module import time, which leaked the flag
+    into every suite collected afterwards in the same pytest process and
+    silently disabled rate limiting for the trading/pool-hub 429 pins
+    (#1657). ``monkeypatch`` restores the previous value after each test.
+    """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
 
 
 @pytest.fixture

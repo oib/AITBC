@@ -32,7 +32,6 @@ import pytest
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("JWT_SECRET", "test-secret-for-agent-coordinator-tests" * 2)
-os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"
 
 pytest.importorskip("eth_account", reason="wallet-login tests need eth-account")
 pytest.importorskip("fastapi", reason="agent-coordinator app dependencies not installed")

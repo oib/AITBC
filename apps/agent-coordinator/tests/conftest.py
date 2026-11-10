@@ -125,6 +125,21 @@ def store_request(session, spec: dict, status: CoinRequestStatus, sender: str = 
     )
 
 
+@pytest.fixture(autouse=True)
+def _rate_limiting_off(monkeypatch):
+    """Disable the shared rate-limit middleware for this suite — and only for it.
+
+    Several suites POST in tight loops that would trip the 120/min bucket.
+    This used to be ``os.environ["AITBC_ENABLE_RATE_LIMITING"] = "false"`` at
+    module import time, which leaked the flag into every suite collected
+    afterwards in the same pytest process and silently disabled rate limiting
+    for the trading/pool-hub 429 pins (#1657). ``monkeypatch`` restores the
+    previous value after each test. Suites that need limiting ON (e.g.
+    test_coin_request_rate_limit) set it back with their own monkeypatch.
+    """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
+
+
 @pytest.fixture
 def coin_request_env(monkeypatch, tmp_path):
     """A hub with a real (empty) database, a fake signer and a known API key."""
