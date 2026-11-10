@@ -109,7 +109,7 @@ def _open_ro(db_path: str) -> sqlite3.Connection:
     stale snapshot.
     """
     uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro"
-    conn = sqlite3.connect(uri, uri=True, timeout=5.0)
+    conn = sqlite3.connect(uri, uri=True, timeout=30.0)
     conn.execute("PRAGMA query_only=ON")
     return conn
 

@@ -183,7 +183,7 @@ def initialize_genesis_database(genesis_block: dict, allocations: list[dict], db
     import sqlite3
 
     try:
-        conn = sqlite3.connect(str(db_path))
+        conn = sqlite3.connect(str(db_path), timeout=30.0)
         cursor = conn.cursor()
 
         # Check if genesis block already exists

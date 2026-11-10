@@ -287,7 +287,7 @@ def consensus_mismatches(per_height: dict[int, dict[str, str]]) -> list[str]:
 
 def _ro_conn(db: str) -> sqlite3.Connection:
     uri = "file:" + urllib.parse.quote(db) + "?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
+    conn = sqlite3.connect(uri, uri=True, timeout=30.0)
     conn.execute("PRAGMA query_only=ON")
     return conn
 

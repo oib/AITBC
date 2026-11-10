@@ -82,7 +82,7 @@ def initialize_database(chain_id: str, proposer: str, balance: int, db_path: Pat
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30.0)
     cursor = conn.cursor()
 
     # Create tables (simplified schema - matches SQLModel models)

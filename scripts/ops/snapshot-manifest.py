@@ -55,7 +55,7 @@ MANIFEST_FORMAT = "aitbc-snapshot-manifest/v1"
 def connect_ro(db_path: str) -> sqlite3.Connection:
     """The ONLY raw connection this program creates: mode=ro + query_only."""
     uri = "file:" + urllib.parse.quote(os.path.abspath(db_path)) + "?mode=ro"
-    conn = sqlite3.connect(uri, uri=True)
+    conn = sqlite3.connect(uri, uri=True, timeout=30.0)
     conn.execute("PRAGMA query_only=ON")
     return conn
 
@@ -104,7 +104,7 @@ def _recompute_state_root(db_path: str, chain_id: str) -> str | None:
     except ImportError:
         return None
     uri = "file:" + urllib.parse.quote(os.path.abspath(db_path))
-    engine = create_engine(f"sqlite:///{uri}?uri=true&mode=ro")
+    engine = create_engine(f"sqlite:///{uri}?uri=true&mode=ro", connect_args={"timeout": 30.0})
 
     @event.listens_for(engine, "connect")
     def _query_only(dbapi_conn, _):

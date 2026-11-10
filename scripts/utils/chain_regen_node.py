@@ -126,7 +126,7 @@ def _integrity_check(path: Path) -> str | None:
     if not path.exists() or path.stat().st_size == 0:
         return None
     try:
-        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=30.0)
         try:
             row = conn.execute("PRAGMA integrity_check").fetchone()
             return row[0] if row else None
@@ -150,7 +150,7 @@ def _db_snapshot(chain_id: str, db_path: Path) -> dict[str, Any]:
         data["db_error"] = "database missing or empty"
         return data
 
-    engine = create_engine(f"sqlite:///{db_path}", echo=False)
+    engine = create_engine(f"sqlite:///{db_path}", echo=False, connect_args={"timeout": 30.0})
     try:
         with Session(engine) as session:
             head = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()
