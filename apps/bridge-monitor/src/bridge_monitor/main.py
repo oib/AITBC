@@ -1039,6 +1039,55 @@ class BridgeMonitor:
             logger.warning("tx status fetch failed for %s: %s", tx_hash, e)
         return None
 
+    def _abandon_block_reason(self, tx_hash: str, d: dict, envelope: dict, env_nonce: int) -> str | None:
+        """Why a nonce-passed SUBMITTED payout must NOT be abandoned — or None.
+
+        Runs only after the account nonce has passed the envelope nonce, so
+        SOME transaction from the payout account sealed at ``env_nonce``.
+        Two witnesses, cheapest first:
+
+        1. Hash probes on every spelling the ledger holds — ``ait_tx_hash``
+           may be a stale client-derived value (#1721), so ``envelope_hash``
+           and the freshly derived hash get probed too. Any sealed hit
+           refuses outright.
+        2. The authoritative proof — ``_nonce_slot_verdict`` identifies
+           WHICH transaction consumed the nonce slot by content. "ours"
+           means the envelope landed under the hash the chain assigned
+           (adopted into ``ait_tx_hash`` so the seal probe resolves);
+           "other" means a different confirmed tx holds the slot and the
+           envelope is dead; anything less fails closed.
+        """
+        probe_hashes = {
+            canon_tx_hash(h) for h in (d.get("ait_tx_hash"), d.get("envelope_hash"), self._envelope_tx_hash(envelope)) if h
+        }
+        for h in probe_hashes:
+            if self._tx_on_chain(h):
+                return f"payout {h} IS sealed on chain — the deposit will complete normally; refusing"
+        verdict, slot_tx = self._nonce_slot_verdict(envelope)
+        if verdict == "ours":
+            # The envelope landed (or sealed-failed) under a hash the
+            # ledger may never have recorded. Re-signing here is the
+            # double-payment #1721 demonstrated twice on-chain.
+            landed_hash = str((slot_tx or {}).get("tx_hash") or "")
+            if landed_hash and canon_tx_hash(landed_hash) != canon_tx_hash(d.get("ait_tx_hash") or ""):
+                update_deposit(tx_hash, ait_tx_hash=landed_hash)
+                logger.warning(
+                    "Deposit %s: adopted on-chain payout hash %s (stored %s was stale)",
+                    tx_hash,
+                    landed_hash,
+                    d.get("ait_tx_hash"),
+                )
+            return (
+                f"payout envelope IS on chain as {landed_hash} at nonce {env_nonce} "
+                "— the deposit will complete normally; refusing to re-sign"
+            )
+        if verdict != "other":
+            return (
+                "cannot prove which transaction consumed the envelope's nonce slot "
+                "(account tx query unavailable or incomplete) — refusing to re-sign"
+            )
+        return None
+
     def abandon_payout(self, tx_hash: str) -> tuple[bool, str]:
         """Abandon a stuck SUBMITTED payout so it may be re-signed.
 
@@ -1082,47 +1131,14 @@ class BridgeMonitor:
                 f"payout account nonce {chain_nonce} has not passed envelope nonce {env_nonce} "
                 "— the envelope can still land; refusing to re-sign"
             )
-        # Probe every hash spelling the ledger holds — ait_tx_hash may be a
-        # stale client-derived value (#1721), so envelope_hash gets a probe
-        # too. Any sealed hit refuses outright.
-        probe_hashes = {canon_tx_hash(h) for h in (d.get("ait_tx_hash"), d.get("envelope_hash"), payout_hash) if h}
-        for h in probe_hashes:
-            sealed = self._tx_on_chain(h)
-            if sealed:
-                return False, f"payout {h} IS sealed on chain — the deposit will complete normally; refusing"
-        # The authoritative proof: identify WHICH transaction consumed the
-        # envelope's nonce slot. A stale ait_tx_hash makes "hash not found"
-        # meaningless — only the slot occupant's content can prove the
-        # envelope dead.
-        verdict, slot_tx = self._nonce_slot_verdict(envelope)
-        if verdict == "ours":
-            # The envelope landed (or sealed-failed) under the hash the
-            # chain assigned — possibly one the ledger never recorded.
-            # Adopt it so the seal probe resolves, then refuse: re-signing
-            # here is the double-payment #1721 demonstrated twice on-chain.
-            landed_hash = (slot_tx or {}).get("tx_hash")
-            if landed_hash and canon_tx_hash(landed_hash) != canon_tx_hash(d.get("ait_tx_hash") or ""):
-                update_deposit(tx_hash, ait_tx_hash=landed_hash)
-                logger.warning(
-                    "Deposit %s: adopted on-chain payout hash %s (stored %s was stale)",
-                    tx_hash,
-                    landed_hash,
-                    d.get("ait_tx_hash"),
-                )
-            return False, (
-                f"payout envelope IS on chain as {landed_hash} at nonce {env_nonce} "
-                "— the deposit will complete normally; refusing to re-sign"
-            )
-        if verdict != "other":
-            return False, (
-                "cannot prove which transaction consumed the envelope's nonce slot "
-                "(account tx query unavailable or incomplete) — refusing to re-sign"
-            )
-        # verdict == "other": a different confirmed transaction holds the
-        # nonce slot and no hash spelling is sealed — the envelope can never
-        # land. Free the row for a fresh payout — the retry path builds it
-        # ledger-first. The envelope fields are cleared (empty string =
-        # falsy) so no path hands the dead envelope back to the sweep.
+        reason = self._abandon_block_reason(tx_hash, d, envelope, env_nonce)
+        if reason is not None:
+            return False, reason
+        # The envelope can never land: a different confirmed transaction
+        # holds its nonce slot and no hash spelling is sealed. Free the row
+        # for a fresh payout — the retry path builds it ledger-first. The
+        # envelope fields are cleared (empty string = falsy) so no path
+        # hands the dead envelope back to the sweep.
         update_deposit(
             tx_hash,
             signed_tx="",
