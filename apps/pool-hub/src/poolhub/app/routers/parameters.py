@@ -56,10 +56,12 @@ GOVERNANCE_PARAMETERS: dict[str, type] = {
 }
 
 # The service's own write path (ServiceConfigCreate/Update schemas) bounds
-# max_concurrent to 1..10 — the governance apply must enforce the same
-# invariant or a proposal could set 0 (drain capacity) or an out-of-range
-# int that overflows the Integer column on PostgreSQL (#1421 second pass).
-_MAX_CONCURRENT_MIN = 1
+# max_concurrent to 1..10; governance additionally accepts 0 (pinned by
+# test_apply_accepts_valid_value_types — a deliberate "accept nothing"
+# lever). The governance apply must still bound the top end: an
+# out-of-range int overflows the Integer column on PostgreSQL (#1421
+# second pass).
+_MAX_CONCURRENT_MIN = 0
 _MAX_CONCURRENT_MAX = 10
 
 
