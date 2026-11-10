@@ -2692,7 +2692,7 @@
             }
           },
           "400": {
-            "description": "Price bounds must be finite",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {

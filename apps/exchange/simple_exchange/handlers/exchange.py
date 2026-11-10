@@ -51,6 +51,16 @@ logger = get_logger(__name__)
 
 EXCHANGE_ORDER_PAIR = "AIT/ETH"
 
+# #1608: signed-envelope integer fields land in SQLite INTEGER columns and in
+# ``account_nonce`` comparisons. Positivity alone let 2**63+ through to an
+# OverflowError/500; bound every envelope integer to signed int64.
+_SIGNED_INT64_MAX = (1 << 63) - 1
+
+
+def _is_int64(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= _SIGNED_INT64_MAX
+
+
 # Server-side ceilings for public reads (#1543): the caller's ?limit= is
 # clamped into [1, _MAX_PAGE_ROWS] — ``LIMIT -1`` is SQLite "unlimited".
 _MAX_PAGE_ROWS = 500
@@ -846,8 +856,7 @@ class ExchangeMixin:
         if envelope["pair"] != EXCHANGE_ORDER_PAIR:
             return "Invalid pair"
         for field in ("amount_ticks", "price_ticks", "expiry_height", "account_nonce"):
-            value = envelope[field]
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            if not _is_int64(envelope[field]):
                 return f"Invalid {field}"
         if envelope["amount_ticks"] <= 0 or envelope["price_ticks"] <= 0:
             return "Amount and price must be positive"
@@ -858,7 +867,7 @@ class ExchangeMixin:
         if envelope["action"] != _CANCEL_ACTION:
             return "Invalid cancel action"
         for field in ("order_id", "account_nonce", "expiry_height"):
-            if not isinstance(envelope[field], int) or isinstance(envelope[field], bool):
+            if not _is_int64(envelope[field]):
                 return f"Invalid {field}"
         return None
 
@@ -1295,7 +1304,7 @@ class ExchangeMixin:
         if not isinstance(envelope["label"], str) or not envelope["label"].strip():
             self.send_error(400, "Invalid label")  # type: ignore[attr-defined]
             return
-        if not isinstance(envelope["account_nonce"], int) or isinstance(envelope["account_nonce"], bool):
+        if not _is_int64(envelope["account_nonce"]):
             self.send_error(400, "Invalid account_nonce")  # type: ignore[attr-defined]
             return
         self._commit_register(envelope, address, env_hash)
@@ -1378,7 +1387,7 @@ class ExchangeMixin:
         if _payout_address_blocked(eth_address):
             self.send_error(400, "Invalid eth_address (reserved address)")  # type: ignore[attr-defined]
             return
-        if not isinstance(envelope["account_nonce"], int) or isinstance(envelope["account_nonce"], bool):
+        if not _is_int64(envelope["account_nonce"]):
             self.send_error(400, "Invalid account_nonce")  # type: ignore[attr-defined]
             return
         self._commit_payout(envelope, address, env_hash, eth_address)

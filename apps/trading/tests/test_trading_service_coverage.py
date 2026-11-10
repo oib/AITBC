@@ -356,3 +356,37 @@ class TestLegacyExpiry:
         request = await svc.get_request("req_legacy_null")
         assert request is not None
         assert request.status == TradeStatus.CANCELLED
+
+
+class TestLegacyCreateValidation:
+    async def test_invalid_request_payload_raises_value_error(self, db_session):
+        svc = _svc(db_session)
+        with pytest.raises(ValueError):
+            await svc.create_request(_request_data(trade_type="not_a_trade_type"))
+
+    async def test_negative_settlement_fee_raises_value_error(self, db_session):
+        from trading_service.domain.trading import SettlementType
+
+        svc = _svc(db_session)
+        with pytest.raises(ValueError):
+            await svc.create_settlement(
+                {
+                    "agreement_id": "agree_x",
+                    "buyer_agent_id": "b",
+                    "seller_agent_id": "s",
+                    "settlement_type": SettlementType.IMMEDIATE,
+                    "total_amount": "10",
+                    "platform_fee": "-1",
+                }
+            )
+
+    def test_legacy_create_endpoint_returns_422(self, client):
+        resp = client.post(
+            "/v1/trading/requests",
+            json={
+                "buyer_agent_id": "b",
+                "trade_type": "not_a_trade_type",
+                "title": "bad",
+            },
+        )
+        assert resp.status_code == 422

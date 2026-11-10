@@ -266,11 +266,17 @@ class TradeSettlement(TradingBase, table=True):
     milestone_payments: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
     completed_milestones: list[str] = Field(default=[], sa_column=Column(JSON))
 
-    platform_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0")))
-    processing_fee: Decimal = Field(
-        default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
+    platform_fee: Decimal = Field(
+        default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
     )
-    gas_fee: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0")))
+    processing_fee: Decimal = Field(
+        default=Decimal("0"),
+        ge=0,
+        sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0")),
+    )
+    gas_fee: Decimal = Field(
+        default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
+    )
     net_amount_seller: Decimal = Field(
         default=Decimal("0"), ge=0, sa_column=Column(Numeric(20, 8), nullable=False, default=Decimal("0"))
     )
