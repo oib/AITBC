@@ -203,67 +203,45 @@ async def get_capacity_snapshots(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+# #1395 (POOLHUB-FAB-1): these endpoints used to return hardcoded constants
+# labeled ``source: coordinator_api`` without calling anything, and the
+# alerts-configure endpoint acknowledged a "configured" state that was never
+# persisted. There is no forecasting engine and no alert-config store, so the
+# honest answer is 501 — the same contract edge/gpu use for defined-but-
+# unimplemented routes. Real capacity data is available at
+# GET /v1/sla/capacity/snapshots.
+_CAPACITY_NOT_IMPLEMENTED = (
+    "capacity forecasting is not implemented: pool-hub has no forecast engine and "
+    "coordinator-api exposes no capacity-forecast endpoint; see GET /v1/sla/capacity/snapshots "
+    "for recorded capacity snapshots"
+)
+_ALERTS_NOT_IMPLEMENTED = (
+    "capacity alert configuration is not implemented: pool-hub has no alert-config store, "
+    "so accepting a configuration here would acknowledge state that is never persisted"
+)
+
+
 @router.get("/capacity/forecast")
 def get_capacity_forecast(
-    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
     hours_ahead: Annotated[int, Query(ge=1, le=8760)] = 168,
 ) -> dict[str, Any]:
-    """Get capacity forecast from coordinator-api"""
-    try:
-        return {
-            "forecast_horizon_hours": hours_ahead,
-            "current_capacity": 1000,
-            "projected_capacity": 1500,
-            "recommended_scaling": "+50%",
-            "confidence": 0.85,
-            "source": "coordinator_api",
-        }
-    except Exception as e:
-        logger.error("Error getting capacity forecast: %s", e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    """Capacity forecast — not implemented (see _CAPACITY_NOT_IMPLEMENTED)."""
+    raise HTTPException(status_code=501, detail=_CAPACITY_NOT_IMPLEMENTED)
 
 
 @router.get("/capacity/recommendations")
-def get_scaling_recommendations(
-    billing_integration: Annotated[BillingIntegration, Depends(get_billing_integration)],
-) -> dict[str, Any]:
-    """Get auto-scaling recommendations from coordinator-api"""
-    try:
-        return {
-            "current_state": "healthy",
-            "recommendations": [
-                {
-                    "action": "add_miners",
-                    "quantity": 2,
-                    "reason": "Projected capacity shortage in 2 weeks",
-                    "priority": "medium",
-                }
-            ],
-            "source": "coordinator_api",
-        }
-    except Exception as e:
-        logger.error("Error getting scaling recommendations: %s", e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+def get_scaling_recommendations() -> dict[str, Any]:
+    """Auto-scaling recommendations — not implemented (see _CAPACITY_NOT_IMPLEMENTED)."""
+    raise HTTPException(status_code=501, detail=_CAPACITY_NOT_IMPLEMENTED)
 
 
 @router.post("/capacity/alerts/configure")
 def configure_capacity_alerts(
     alert_config: dict[str, Any],
-    db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[dict[str, Any], Depends(_governance_auth)],
 ) -> dict[str, Any]:
-    """Configure capacity alerts"""
-    try:
-        return {"status": "configured", "alert_config": alert_config, "timestamp": datetime.now(UTC).isoformat()}
-    except Exception as e:
-        logger.error("Error configuring capacity alerts: %s", e)
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    """Configure capacity alerts — not implemented (see _ALERTS_NOT_IMPLEMENTED)."""
+    raise HTTPException(status_code=501, detail=_ALERTS_NOT_IMPLEMENTED)
 
 
 @router.get("/billing/usage")
