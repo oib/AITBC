@@ -53,11 +53,35 @@ class TaskEscrowStore:
             row.expires_at = entry.expires_at
             row.extra_metadata = json.dumps(entry.metadata) if entry.metadata else None
 
+    # Statuses rehydrated at boot. Terminal rows (RELEASED/REFUNDED/EXPIRED)
+    # can never transition again — the sweeper and state machine only ever
+    # act on PENDING/LOCKED — so loading them made every restart pay for the
+    # entire escrow history and grow memory monotonically (#1515). Terminal
+    # rows remain reachable through the point lookups below.
+    _ACTIVE_STATUSES = (EscrowStatus.PENDING.name, EscrowStatus.LOCKED.name)
+
     def load_all(self) -> list[EscrowEntry]:
-        """Return every persisted escrow as an ``EscrowEntry``."""
+        """Return persisted *active* escrows as ``EscrowEntry``s.
+
+        Only PENDING/LOCKED rows are rehydrated into the in-memory cache;
+        terminal rows are fetched on demand via :meth:`load` /
+        :meth:`load_by_task`.
+        """
         with get_db_session() as session:
-            rows = session.query(TaskEscrow).all()
+            rows = session.query(TaskEscrow).filter(TaskEscrow.status.in_(self._ACTIVE_STATUSES)).all()
             return [self._to_entry(row) for row in rows]
+
+    def load(self, escrow_id: str) -> EscrowEntry | None:
+        """Point lookup by escrow id — covers terminal rows load_all skips."""
+        with get_db_session() as session:
+            row = session.get(TaskEscrow, escrow_id)
+            return self._to_entry(row) if row is not None else None
+
+    def load_by_task(self, task_id: str) -> EscrowEntry | None:
+        """Point lookup by task id — same coverage as :meth:`load`."""
+        with get_db_session() as session:
+            row = session.query(TaskEscrow).filter(TaskEscrow.task_id == task_id).order_by(TaskEscrow.created_at).first()
+            return self._to_entry(row) if row is not None else None
 
     @staticmethod
     def _to_entry(row: TaskEscrow) -> EscrowEntry:
