@@ -148,6 +148,7 @@ ai_engine = SimpleAITradingEngine()
 @app.post("/api/ai/analyze")
 async def analyze_market(
     request: AnalysisRequest,
+    _authenticated: Annotated[bool, Depends(verify_auth)],
     _enabled: Annotated[None, Depends(require_simulation_enabled)],
 ) -> dict[str, Any]:
     """Simulated market analysis. Values are randomly generated, not real."""
@@ -197,6 +198,7 @@ async def execute_ai_trade(
 @app.get("/api/ai/predict/{symbol}")
 async def predict_market(
     symbol: str,
+    _authenticated: Annotated[bool, Depends(verify_auth)],
     _enabled: Annotated[None, Depends(require_simulation_enabled)],
 ) -> dict[str, Any]:
     """Simulated market prediction. Values are randomly generated, not real."""
@@ -221,6 +223,7 @@ async def predict_market(
 
 @app.get("/api/ai/dashboard")
 async def get_ai_dashboard(
+    _authenticated: Annotated[bool, Depends(verify_auth)],
     _enabled: Annotated[None, Depends(require_simulation_enabled)],
 ) -> dict[str, Any]:
     """Simulated dashboard overview. Every figure is randomly generated."""
