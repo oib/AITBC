@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from aitbc.aitbc_logging import get_logger
 
 from .config import settings
+from .sqlite_pragmas import install_sqlite_pragmas
 
 logger = get_logger(__name__)
 _async_engine = None
@@ -47,6 +48,7 @@ def init_async_db() -> None:
             pool_pre_ping=getattr(settings.database, "pool_pre_ping", True),
             pool_recycle=getattr(settings.database, "pool_recycle", 3600),
         )
+        install_sqlite_pragmas(_async_engine)
         _async_session_factory = sessionmaker(_async_engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
         logger.info("Async database initialized successfully")
     except Exception as e:
@@ -86,13 +88,15 @@ def get_sync_engine() -> Any:
     if db_url.startswith("sqlite"):
         from sqlalchemy import StaticPool
 
-        return create_engine(
+        engine = create_engine(
             db_url,
             connect_args={"check_same_thread": False, "timeout": 30},
             poolclass=StaticPool,
             echo=settings.db_echo,
             pool_pre_ping=settings.db_pool_pre_ping,
         )
+        install_sqlite_pragmas(engine)
+        return engine
     else:
         return create_engine(
             db_url,

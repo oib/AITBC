@@ -519,7 +519,10 @@ def _agent_db_conn() -> sqlite3.Connection | None:
     """
     db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
     try:
-        conn = sqlite3.connect(db_path, isolation_level=None)
+        conn = sqlite3.connect(db_path, timeout=30, isolation_level=None)
+        # #1560: WAL + busy_timeout on the coin-request ledger.
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
         conn.execute(_AGENT_DB_SCHEMA)
         _ensure_agent_db_columns(conn)
         return conn

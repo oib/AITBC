@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy import event
 
 DEFAULT_DATABASE_URL = "sqlite:///aitbc.db"
 
@@ -23,7 +24,22 @@ def get_engine(database_url: str | None = None):
     """
     url = database_url or DEFAULT_DATABASE_URL
     if url not in _engines:
-        _engines[url] = create_engine(url, echo=False)
+        engine = create_engine(url, echo=False)
+        if engine.dialect.name == "sqlite":
+            # #1560: WAL + busy_timeout on every pooled sqlite connection —
+            # edge/market/trading DBs previously ran on the 5s default
+            # timeout with a rollback journal.
+            @event.listens_for(engine, "connect")
+            def _apply_sqlite_pragmas(dbapi_conn: object, _record: object) -> None:
+                cursor = dbapi_conn.cursor()  # type: ignore[attr-defined]
+                try:
+                    cursor.execute("PRAGMA journal_mode=WAL")
+                    cursor.execute("PRAGMA synchronous=NORMAL")
+                    cursor.execute("PRAGMA busy_timeout=30000")
+                finally:
+                    cursor.close()
+
+        _engines[url] = engine
     return _engines[url]
 
 
