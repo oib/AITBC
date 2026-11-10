@@ -217,3 +217,29 @@ def test_create_backend_mesh_requires_local_bus_and_unique_peers() -> None:
             broadcast_url="redis://127.0.0.1:6379/0",
             mesh_peer_urls=["wss://a/rpc/gossip/ws", "wss://a/rpc/gossip/ws"],
         )
+
+
+@pytest.mark.asyncio
+async def test_mesh_subscription_close_survives_task_self_removal() -> None:
+    """#1739: tasks that mutate _tasks while close() iterates must not raise.
+
+    A forward/retry task finishing during close() pops itself from
+    _tasks — the old code iterated self._tasks.values() twice and crashed
+    with "dictionary changed size during iteration" on every SIGTERM.
+    """
+    from aitbc_chain.gossip.backends.mesh import _MeshSubscription
+
+    mesh = MeshGossipBackend(local=InMemoryGossipBackend(), peers={})
+    sub = _MeshSubscription(mesh, "blocks.test", asyncio.Queue(), max_queue_size=10)
+
+    async def self_removing() -> None:
+        try:
+            await asyncio.sleep(60)
+        finally:
+            # Mimic a forward/retry task tearing itself down mid-close().
+            sub._tasks.pop("other", None)
+
+    sub._tasks["other"] = asyncio.create_task(self_removing())
+
+    await sub.close()  # must not raise — dict mutates between the two loops
+    assert sub._closed
