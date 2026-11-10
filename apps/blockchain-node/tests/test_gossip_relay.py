@@ -110,6 +110,21 @@ def test_restricted_subscribe_with_validator_signature(client: TestClient) -> No
         pass  # accepted, not closed
 
 
+@pytest.mark.asyncio
+async def test_simple_broadcast_bounds_subscriber_queue() -> None:
+    """#1537: a stalled subscriber must not grow memory or block publishers."""
+    from aitbc_chain.gossip.relay import SimpleBroadcast
+
+    bc = SimpleBroadcast()
+    sub = await bc.subscribe("transactions")
+    # Fill past the bound without consuming; publish must not block or raise.
+    for i in range(SimpleBroadcast._MAX_QUEUE_SIZE + 10):
+        await bc.publish("transactions", f"m{i}")
+    assert sub.queue.qsize() == SimpleBroadcast._MAX_QUEUE_SIZE
+    # The buffered head is preserved; only overflow messages are dropped.
+    assert await sub.queue.get() == "m0"
+
+
 # ---------------------------------------------------------------------------
 # #1128: scoped signatures + single-use challenges on the relay
 # ---------------------------------------------------------------------------

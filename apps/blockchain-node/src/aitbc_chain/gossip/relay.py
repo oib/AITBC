@@ -34,6 +34,13 @@ logger = get_logger(__name__)
 class SimpleBroadcast:
     """Simple in-memory broadcast replacement for starlette.broadcast"""
 
+    # Per-subscriber bound (#1537): an unbounded queue let one stalled
+    # WebSocket client grow memory without limit, and ``await queue.put``
+    # blocked the publisher (head-of-line) behind it. A full subscriber now
+    # has new messages dropped for it — same drop-on-full semantics as the
+    # trading service's in-memory gossip fallback.
+    _MAX_QUEUE_SIZE = 256
+
     def __init__(self) -> None:
         self._subscribers: dict[str, list[asyncio.Queue]] = {}
 
@@ -42,13 +49,16 @@ class SimpleBroadcast:
         if channel not in self._subscribers:
             return
         for queue in self._subscribers[channel]:
-            await queue.put(message)
+            try:
+                queue.put_nowait(message)
+            except asyncio.QueueFull:
+                logger.warning("Dropping gossip message for slow subscriber on channel %s", channel)
 
     async def subscribe(self, channel: str) -> Any:
         """Subscribe to a channel and return an async iterator"""
         if channel not in self._subscribers:
             self._subscribers[channel] = []
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue = asyncio.Queue(maxsize=self._MAX_QUEUE_SIZE)
         self._subscribers[channel].append(queue)
 
         class Subscriber:
