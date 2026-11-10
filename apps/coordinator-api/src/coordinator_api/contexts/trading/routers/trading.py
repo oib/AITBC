@@ -11,15 +11,15 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, distinct, func, or_
 from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import col, select
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ..domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
+from ..domain.trading import TradeAgreement, TradeMatch, TradeNegotiation, TradeRequest, TradeSettlement, TradeType
 from ....storage import get_session
 from ..services.trading_market.trading import P2PTradingProtocol
 from ....validators import validate_agent_id
@@ -579,6 +579,136 @@ def list_negotiations(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _agreement_period_stats(session: Session, start_dt: datetime, end_dt: datetime) -> dict[str, Any]:
+    """SQL aggregates over ``trade_agreements`` for the analytics period."""
+    agreement_period = (TradeAgreement.created_at >= start_dt) & (TradeAgreement.created_at <= end_dt)
+
+    status_counts: dict[str, int] = {}
+    for status, count in session.execute(
+        select(TradeAgreement.status, func.count()).where(agreement_period).group_by(TradeAgreement.status)
+    ).all():
+        status_counts[str(status)] = int(count)
+    total_trades = sum(status_counts.values())
+    completed_trades = status_counts.get("completed", 0)
+
+    total_volume = session.execute(
+        select(func.coalesce(func.sum(TradeAgreement.total_price), 0)).where(agreement_period)
+    ).scalar_one()
+    total_trade_volume = Decimal(str(total_volume or 0))
+
+    trade_type_distribution = {
+        str(trade_type): int(count)
+        for trade_type, count in (
+            session.execute(
+                select(TradeAgreement.trade_type, func.count()).where(agreement_period).group_by(TradeAgreement.trade_type)
+            ).all()
+        )
+    }
+
+    active_row = session.execute(
+        select(
+            func.count(distinct(col(TradeAgreement.buyer_agent_id))),
+            func.count(distinct(col(TradeAgreement.seller_agent_id))),
+        ).where(agreement_period)
+    ).one()
+
+    # Agents whose first agreement falls inside the period.
+    period_agents = set(
+        session.execute(
+            select(TradeAgreement.buyer_agent_id)
+            .where(agreement_period)
+            .union(select(TradeAgreement.seller_agent_id).where(agreement_period))
+        )
+        .scalars()
+        .all()
+    )
+    prior_agents = set(
+        session.execute(
+            select(TradeAgreement.buyer_agent_id)
+            .where(TradeAgreement.created_at < start_dt)
+            .union(select(TradeAgreement.seller_agent_id).where(TradeAgreement.created_at < start_dt))
+        )
+        .scalars()
+        .all()
+    )
+
+    return {
+        "status_counts": status_counts,
+        "total_trades": total_trades,
+        "completed_trades": completed_trades,
+        "failed_trades": status_counts.get("failed", 0),
+        "cancelled_trades": status_counts.get("cancelled", 0),
+        "total_trade_volume": total_trade_volume,
+        "average_trade_value": (total_trade_volume / total_trades) if total_trades else Decimal("0"),
+        "success_rate": (completed_trades / total_trades * 100.0) if total_trades else 0.0,
+        "trade_type_distribution": trade_type_distribution,
+        "active_buyers": int(active_row[0] or 0),
+        "active_sellers": int(active_row[1] or 0),
+        "new_agents": len(period_agents - prior_agents),
+    }
+
+
+def _mean_seconds(pairs: Any) -> float:
+    """Mean of ``(end - start).total_seconds()`` over (start, end) pairs."""
+    seconds = [(end - start).total_seconds() for start, end in pairs if start is not None and end is not None]
+    return sum(seconds) / len(seconds) if seconds else 0.0
+
+
+def _timing_averages(session: Session, start_dt: datetime, end_dt: datetime) -> dict[str, float]:
+    """Average matching/negotiation/settlement times for the period."""
+    # Matching time: request creation -> earliest match, one row per request.
+    match_pairs = session.execute(
+        select(TradeRequest.created_at, func.min(TradeMatch.created_at))
+        .join(TradeMatch, col(TradeMatch.request_id) == col(TradeRequest.request_id))
+        .where(TradeRequest.created_at >= start_dt, TradeRequest.created_at <= end_dt)
+        .group_by(TradeRequest.id)
+    ).all()
+    average_matching_time = _mean_seconds(match_pairs)
+
+    # Negotiation time: created -> completed (or last update while open).
+    negotiation_pairs = session.execute(
+        select(TradeNegotiation.created_at, TradeNegotiation.completed_at, TradeNegotiation.updated_at).where(
+            TradeNegotiation.created_at >= start_dt, TradeNegotiation.created_at <= end_dt
+        )
+    ).all()
+    average_negotiation_time = _mean_seconds(
+        [(created, completed or updated) for created, completed, updated in negotiation_pairs]
+    )
+
+    # Settlement time: initiated -> completed.
+    settlement_pairs = session.execute(
+        select(TradeSettlement.initiated_at, TradeSettlement.completed_at).where(
+            TradeSettlement.initiated_at >= start_dt, TradeSettlement.initiated_at <= end_dt
+        )
+    ).all()
+    average_settlement_time = _mean_seconds(settlement_pairs)
+
+    return {
+        "average_matching_time": average_matching_time,
+        "average_negotiation_time": average_negotiation_time,
+        "average_settlement_time": average_settlement_time,
+    }
+
+
+def _regional_histogram(session: Session, start_dt: datetime, end_dt: datetime) -> dict[str, int]:
+    """Region counts from buyer ``preferred_regions`` on period requests."""
+    regional_distribution: dict[str, int] = {}
+    for regions in (
+        session.execute(
+            select(TradeRequest.preferred_regions).where(
+                TradeRequest.created_at >= start_dt, TradeRequest.created_at <= end_dt
+            )
+        )
+        .scalars()
+        .all()
+    ):
+        if isinstance(regions, list):
+            for region in regions:
+                key = str(region)
+                regional_distribution[key] = regional_distribution.get(key, 0) + 1
+    return regional_distribution
+
+
 @router.get("/analytics")
 @rate_limit(rate=200, per=60)
 def get_trading_analytics(
@@ -600,31 +730,17 @@ def get_trading_analytics(
             start_dt = datetime.now(UTC) - timedelta(days=30)
         if not end_dt:
             end_dt = datetime.now(UTC)
+
+        # Real aggregation over the trading tables for the requested period —
+        # the previous literal dict was fabricated (#1508).
+        agreement_stats = _agreement_period_stats(session, start_dt, end_dt)
         analytics = {
             "period_type": period_type,
             "start_date": start_dt.isoformat(),
             "end_date": end_dt.isoformat(),
-            "total_trades": 150,
-            "completed_trades": 120,
-            "failed_trades": 15,
-            "cancelled_trades": 15,
-            "total_trade_volume": 7500.0,
-            "average_trade_value": 50.0,
-            "success_rate": 80.0,
-            "trade_type_distribution": {
-                "ai_power": 60,
-                "compute_resources": 30,
-                "data_services": 25,
-                "model_services": 20,
-                "inference_tasks": 15,
-            },
-            "active_buyers": 45,
-            "active_sellers": 38,
-            "new_agents": 12,
-            "average_matching_time": 15.5,
-            "average_negotiation_time": 45.2,
-            "average_settlement_time": 8.7,
-            "regional_distribution": {"us-east": 35, "us-west": 28, "eu-central": 22, "ap-southeast": 18, "ap-northeast": 15},
+            **{k: v for k, v in agreement_stats.items() if k != "status_counts"},
+            **_timing_averages(session, start_dt, end_dt),
+            "regional_distribution": _regional_histogram(session, start_dt, end_dt),
         }
         return analytics
     except Exception as e:

@@ -5,8 +5,8 @@ Provides REST API endpoints for production deployment and integration management
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import Session, col, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlmodel import Session, col, func, select
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
@@ -70,21 +70,23 @@ def list_deployment_configs(
     user: AdminDep,
     workflow_id: str | None = None,
     status: DeploymentStatus | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[AgentDeploymentConfig]:
     """List deployment configurations with filtering"""
     try:
-        query = select(AgentDeploymentConfig)
+        # Owner filter pushed into SQL (was: fetch all configs, then a
+        # session.get per row to check ownership — unbounded + N+1, #1510).
+        query = (
+            select(AgentDeploymentConfig)
+            .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
+            .where(AIAgentWorkflow.owner_id == user["sub"])
+        )
         if workflow_id:
             query = query.where(AgentDeploymentConfig.workflow_id == workflow_id)
         if status:
             query = query.where(AgentDeploymentConfig.status == status)
-        configs = session.execute(query).scalars().all()
-        user_configs = []
-        for config in configs:
-            workflow = session.get(AIAgentWorkflow, config.workflow_id)
-            if workflow and workflow.owner_id == user["sub"]:
-                user_configs.append(config)
-        return user_configs
+        configs = list(session.execute(query.limit(limit)).scalars().all())
+        return configs
     except Exception as e:
         logger.error("Failed to list deployment configs: %s", e)
         logger.exception("Unhandled exception")
@@ -248,25 +250,26 @@ def list_deployment_instances(
     deployment_id: str | None = None,
     environment: str | None = None,
     status: DeploymentStatus | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[AgentDeploymentInstance]:
     """List deployment instances with filtering"""
     try:
-        query = select(AgentDeploymentInstance)
+        # Owner filter pushed into SQL through config -> workflow (#1510);
+        # was an unbounded fetch plus two session.get lookups per row.
+        query = (
+            select(AgentDeploymentInstance)
+            .join(AgentDeploymentConfig, col(AgentDeploymentInstance.deployment_id) == col(AgentDeploymentConfig.id))
+            .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
+            .where(AIAgentWorkflow.owner_id == user["sub"])
+        )
         if deployment_id:
             query = query.where(AgentDeploymentInstance.deployment_id == deployment_id)
         if environment:
             query = query.where(AgentDeploymentInstance.environment == environment)
         if status:
             query = query.where(AgentDeploymentInstance.status == status)
-        instances = session.execute(query).scalars().all()
-        user_instances = []
-        for instance in instances:
-            config = session.get(AgentDeploymentConfig, instance.deployment_id)
-            if config:
-                workflow = session.get(AIAgentWorkflow, config.workflow_id)
-                if workflow and workflow.owner_id == user["sub"]:
-                    user_instances.append(instance)
-        return user_instances
+        instances = list(session.execute(query.limit(limit)).scalars().all())
+        return instances
     except Exception as e:
         logger.error("Failed to list deployment instances: %s", e)
         logger.exception("Unhandled exception")
@@ -415,25 +418,45 @@ async def get_production_dashboard(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> dict[str, Any]:
     """Get comprehensive production dashboard data"""
     try:
+
+        async def _owner_config_count(extra: Any = None) -> int:
+            stmt = (
+                select(func.count())
+                .select_from(AgentDeploymentConfig)
+                .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
+                .where(AIAgentWorkflow.owner_id == user["sub"])
+            )
+            if extra is not None:
+                stmt = stmt.where(extra)
+            return int((await run_in_threadpool(session.execute, stmt)).scalar_one())
+
+        # Headline totals come from SQL counts so they stay truthful while the
+        # per-config detail fan-out below is capped at `limit` (#1510).
+        total_deployments = await _owner_config_count()
+        active_deployments = await _owner_config_count(AgentDeploymentConfig.status == DeploymentStatus.DEPLOYED)
+        failed_deployments = await _owner_config_count(AgentDeploymentConfig.status == DeploymentStatus.FAILED)
         user_configs = (
             (
                 await run_in_threadpool(
                     session.execute,
                     select(AgentDeploymentConfig)
                     .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
-                    .where(AIAgentWorkflow.owner_id == user["sub"]),
+                    .where(AIAgentWorkflow.owner_id == user["sub"])
+                    .limit(limit),
                 )
             )
             .scalars()
             .all()
         )
         dashboard_data: dict[str, Any] = {
-            "total_deployments": len(user_configs),
-            "active_deployments": len([c for c in user_configs if c.status == DeploymentStatus.DEPLOYED]),
-            "failed_deployments": len([c for c in user_configs if c.status == DeploymentStatus.FAILED]),
+            "total_deployments": total_deployments,
+            "active_deployments": active_deployments,
+            "failed_deployments": failed_deployments,
+            "deployments_truncated": total_deployments > len(user_configs),
             "deployments": [],
         }
         for config in user_configs:
@@ -479,16 +502,32 @@ async def get_production_health(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> dict[str, Any]:
     """Get overall production health status"""
     try:
+        # Per-deployment health checks are the expensive part — cap the scan
+        # at `limit` (#1510). total_deployments stays the true SQL count;
+        # deployments_scanned says how many the health buckets cover.
+        total_deployments = int(
+            (
+                await run_in_threadpool(
+                    session.execute,
+                    select(func.count())
+                    .select_from(AgentDeploymentConfig)
+                    .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
+                    .where(AIAgentWorkflow.owner_id == user["sub"]),
+                )
+            ).scalar_one()
+        )
         user_configs = (
             (
                 await run_in_threadpool(
                     session.execute,
                     select(AgentDeploymentConfig)
                     .join(AIAgentWorkflow, col(AgentDeploymentConfig.workflow_id) == col(AIAgentWorkflow.id))
-                    .where(AIAgentWorkflow.owner_id == user["sub"]),
+                    .where(AIAgentWorkflow.owner_id == user["sub"])
+                    .limit(limit),
                 )
             )
             .scalars()
@@ -496,7 +535,8 @@ async def get_production_health(
         )
         health_status: dict[str, Any] = {
             "overall_health": "healthy",
-            "total_deployments": len(user_configs),
+            "total_deployments": total_deployments,
+            "deployments_scanned": len(user_configs),
             "healthy_deployments": 0,
             "unhealthy_deployments": 0,
             "unknown_deployments": 0,
