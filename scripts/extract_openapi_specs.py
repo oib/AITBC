@@ -34,12 +34,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "blockchain-explo
 
 # Defaults for services that require environment variables to import
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
-os.environ.setdefault("MARKET_DATABASE_URL", "sqlite+aiosqlite:///./test_market.db")
+# Per-process scratch dir for the throwaway SQLite files. The old "./test_*.db"
+# defaults resolved against the caller's cwd, so two extractions in the same
+# checkout — parallel pytest lanes running the drift guard, or two pre-commit
+# runs — opened the same files and one died on "database is locked". mkdtemp
+# gives every process its own pair; the dir is removed by the atexit hook
+# registered with the other temp dirs below.
+_openapi_db_dir = tempfile.mkdtemp(prefix="aitbc-openapi-db-")
+os.environ.setdefault("MARKET_DATABASE_URL", f"sqlite+aiosqlite:///{_openapi_db_dir}/test_market.db")
 # Async driver: governance/trading hand DATABASE_URL straight to
 # create_async_engine, where a plain sqlite:/// URL fails at import
 # ("pysqlite is not async"). Market prefers MARKET_DATABASE_URL and the
 # coordinator reads its own URL setting, so the async form is safe to share.
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test_api.db")
+os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{_openapi_db_dir}/test_api.db")
 os.environ.setdefault("WALLET_BIND_PORT", "8108")
 # A keystore directory, so not a fixed path: `/tmp/test_wallet` is guessable and shared, and
 # two people generating specs on one host would have written keys into each other's. The
@@ -52,11 +59,11 @@ api_keys_dir = tempfile.mkdtemp(prefix="aitbc-openapi-apikeys-")
 os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(api_keys_dir, "api_keys.json"))
 # Neither directory is read back after this process exits, and the mkdtemp
 # calls above run on import even when the env var was already set -- every
-# hook or test run used to leave a pair of empty 0700 dirs in /tmp. Only the
+# hook or test run used to leave empty 0700 dirs in /tmp. Only the
 # dirs created here are registered: a preset WALLET_DIR is not ours to delete.
 # atexit covers every exit path short of SIGKILL, including the subprocess
 # import this file gets under runpy in tests/unit/test_openapi_drift_guard.py.
-for _tmpdir in (_wallet_dir, api_keys_dir):
+for _tmpdir in (_wallet_dir, api_keys_dir, _openapi_db_dir):
     atexit.register(shutil.rmtree, _tmpdir, ignore_errors=True)
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
