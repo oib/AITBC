@@ -16,6 +16,12 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
+# /api/export/search re-serialises results the caller already fetched through
+# the bounded search endpoints (<= MAX_PAGE_LIMIT rows), so anything beyond
+# these caps is abuse, not a legitimate export (#1619).
+_MAX_EXPORT_DATA_CHARS = 4 * 1024 * 1024
+_MAX_EXPORT_ROWS = 10_000
+
 
 def _write_csv(output: io.StringIO, results: list, type: str) -> None:
     """Write search results as CSV rows into `output`."""
@@ -54,12 +60,18 @@ def export_search(format: str = "csv", type: str = "transactions", data: str = "
     try:
         if not data:
             raise HTTPException(status_code=400, detail="No data to export")
+        # Reject oversized payloads BEFORE json.loads materialises them —
+        # the param is client-controlled and unauthenticated (#1619).
+        if len(data) > _MAX_EXPORT_DATA_CHARS:
+            raise HTTPException(status_code=400, detail="data payload too large")
         try:
             results = json.loads(data)
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="data is not valid JSON") from None
         if not isinstance(results, list) or not all(isinstance(r, dict) for r in results):
             raise HTTPException(status_code=400, detail="data must be a JSON list of objects")
+        if len(results) > _MAX_EXPORT_ROWS:
+            raise HTTPException(status_code=400, detail="too many rows to export")
 
         if format == "csv":
             output = io.StringIO()
