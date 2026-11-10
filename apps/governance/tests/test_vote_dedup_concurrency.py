@@ -1,11 +1,11 @@
 """Concurrency pin for GovernanceService.create_vote (#1091 follow-on).
 
-The one-vote-per-voter-per-proposal rule is enforced by a check-then-act:
-``create_vote`` SELECTs prior votes for the proposal, raises on a matching
-``voter_id``, then INSERTs — and the ``votes`` table carries **no** unique
-constraint on ``(proposal_id, voter_id)`` to catch a racer. Two simultaneous
-votes from the same voter can both pass the duplicate scan and both commit,
-stacking weight exactly the way #1091 removed for sequential repeats.
+The one-vote-per-voter-per-proposal rule is enforced by a check-then-act
+scan plus the ``uq_votes_proposal_voter_ci`` unique index on
+``(proposal_id, lower(voter_id))`` (#1610) that catches a racer whose scan
+predates the winner's commit. Two simultaneous votes from the same voter
+must not both land and stack weight — the loser's ``IntegrityError`` is
+translated back into the same "already voted" ``ValueError``.
 
 The test drives ``create_vote`` on two independent sessions against the
 suite's real SQLite database, with an ``asyncio.Barrier`` inside each
@@ -69,10 +69,6 @@ async def _seed_active_proposal() -> str:
         return proposal.proposal_id
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="duplicate-vote scan is check-then-insert with no UNIQUE(proposal_id, voter_id) — fix tracked in #1610",
-)
 @pytest.mark.asyncio
 async def test_concurrent_duplicate_votes_at_most_one_lands() -> None:
     proposal_id = await _seed_active_proposal()

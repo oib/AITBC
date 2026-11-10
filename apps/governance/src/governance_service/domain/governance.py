@@ -9,7 +9,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, Float, Numeric, String
+from sqlalchemy import DateTime, Float, Numeric, String, column, func
 from sqlmodel import JSON, Column, Field, Index
 
 from .base import GovernanceBase
@@ -126,6 +126,18 @@ class Vote(GovernanceBase, table=True):
         Index("idx_votes_proposal", "proposal_id"),
         Index("idx_votes_voter", "voter_id"),
         Index("idx_votes_delegated", "delegated_from"),
+        # GOV-VOTE-RACE-1 (#1610): one vote per voter per proposal, enforced at
+        # the DB level so concurrent create_vote calls cannot both land.
+        # ``voter_id`` matching in the service is case-insensitive, so the
+        # backstop keys on lower(voter_id) — a plain UNIQUE(proposal_id,
+        # voter_id) would let "Voter"/"voter" racers through. Functional
+        # indexes are supported by both SQLite (>=3.9) and PostgreSQL.
+        Index(
+            "uq_votes_proposal_voter_ci",
+            "proposal_id",
+            func.lower(column("voter_id")),
+            unique=True,
+        ),
     )
 
     vote_id: str = Field(primary_key=True, default_factory=lambda: f"vote_{uuid.uuid4().hex[:8]}")
