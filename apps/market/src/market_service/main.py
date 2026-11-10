@@ -20,7 +20,7 @@ from aitbc.middleware import setup_cors
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,6 +48,7 @@ from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
 from .config import settings  # noqa: E402
 from .domain.offer_status import try_to_offer_status  # noqa: E402
 from .services.market_service import (  # noqa: E402
+    MAX_PAYMENT_AMOUNT,
     MarketService,
     _secret_matches,
     coerce_offer_expires_at,
@@ -519,6 +520,18 @@ class MatchRequest(BaseModel):
     max_price: Decimal | None = None
     preferred_region: str | None = None
     chain_id: str | None = None
+
+    @field_validator("max_price")
+    @classmethod
+    def _bounded_max_price(cls, v: Decimal | None) -> Decimal | None:
+        # Same money ceiling as offer/booking/payment fields — a NaN or
+        # unbounded max_price would otherwise reach the SQL price filter and
+        # the coordinator task payload unchecked.
+        if v is None:
+            return v
+        if not v.is_finite() or v < 0 or v > MAX_PAYMENT_AMOUNT:
+            raise ValueError(f"max_price must be a finite amount between 0 and {MAX_PAYMENT_AMOUNT}")
+        return v
 
 
 @app.post("/v1/market/match", dependencies=[Depends(require_market_api_key)])
