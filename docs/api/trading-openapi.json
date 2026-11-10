@@ -1334,7 +1334,7 @@
             }
           },
           "400": {
-            "description": "Amounts must be finite / Invalid amount / Amount mismatch",
+            "description": "Amounts must be finite / Invalid amount / Amount must not exceed {MAX_MONEY_AMOUNT} / Amount mismatch",
             "content": {
               "application/json": {
                 "schema": {
