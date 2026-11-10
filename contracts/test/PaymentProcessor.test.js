@@ -228,6 +228,108 @@ describe("PaymentProcessor", function () {
     });
   });
 
+  describe("escrow type enforcement (#1466)", function () {
+    const CONDITION_HASH = ethers.encodeBytes32String("perf-milestone");
+
+    it("Should reject a TimeBased escrow without a release time", async function () {
+      await expect(
+        paymentProcessor
+          .connect(payer)
+          .createEscrow(payee.address, paymentAmount, 0, ESCROW_TYPE.TimeBased, CONDITION_HASH)
+      ).to.be.revertedWith("Time-based escrow requires release time");
+    });
+
+    it("Should reject a PerformanceBased escrow without a condition hash", async function () {
+      await expect(
+        paymentProcessor
+          .connect(payer)
+          .createEscrow(payee.address, paymentAmount, 0, ESCROW_TYPE.PerformanceBased, ethers.ZeroHash)
+      ).to.be.revertedWith("Escrow release condition required");
+    });
+
+    it("Should reject a Conditional escrow without a condition hash", async function () {
+      await expect(
+        paymentProcessor
+          .connect(payer)
+          .createEscrow(payee.address, paymentAmount, 0, ESCROW_TYPE.Conditional, ethers.ZeroHash)
+      ).to.be.revertedWith("Escrow release condition required");
+    });
+
+    it("Should require verifier approval before releasing a Conditional escrow", async function () {
+      await paymentProcessor
+        .connect(payer)
+        .createEscrow(payee.address, paymentAmount, 0, ESCROW_TYPE.Conditional, CONDITION_HASH);
+
+      // Neither beneficiary nor depositor can release without approval.
+      await expect(
+        paymentProcessor.connect(payee).releaseEscrow(0)
+      ).to.be.revertedWith("Escrow release not approved by verifier");
+      await expect(
+        paymentProcessor.connect(payer).releaseEscrow(0)
+      ).to.be.revertedWith("Escrow release not approved by verifier");
+
+      // A non-verifier cannot approve.
+      await expect(
+        paymentProcessor.connect(payee).approveEscrowRelease(0)
+      ).to.be.revertedWith("Not a release verifier");
+
+      // An authorized verifier approves; then release succeeds.
+      await paymentProcessor.connect(deployer).authorizeReleaseVerifier(stranger.address);
+      const approveTx = await paymentProcessor.connect(stranger).approveEscrowRelease(0);
+      await expect(approveTx)
+        .to.emit(paymentProcessor, "EscrowReleaseApproved")
+        .withArgs(0, stranger.address);
+
+      const releaseTx = await paymentProcessor.connect(payee).releaseEscrow(0);
+      await expect(releaseTx).to.emit(paymentProcessor, "EscrowReleased");
+
+      const account = await paymentProcessor.escrowAccounts(0);
+      expect(account.isReleased).to.equal(true);
+    });
+
+    it("Should require verifier approval before releasing a PerformanceBased escrow", async function () {
+      await paymentProcessor
+        .connect(payer)
+        .createEscrow(payee.address, paymentAmount, 0, ESCROW_TYPE.PerformanceBased, CONDITION_HASH);
+
+      await paymentProcessor.connect(deployer).authorizeReleaseVerifier(stranger.address);
+      await paymentProcessor.connect(stranger).approveEscrowRelease(0);
+
+      const tx = await paymentProcessor.connect(payee).releaseEscrow(0);
+      await expect(tx).to.emit(paymentProcessor, "EscrowReleased");
+    });
+
+    it("Should reject verifier approval for a Standard escrow", async function () {
+      await paymentProcessor
+        .connect(payer)
+        .createEscrow(payee.address, paymentAmount, 0, ESCROW_TYPE.Standard, CONDITION_HASH);
+
+      await paymentProcessor.connect(deployer).authorizeReleaseVerifier(stranger.address);
+      await expect(
+        paymentProcessor.connect(stranger).approveEscrowRelease(0)
+      ).to.be.revertedWith("Escrow type does not need verifier approval");
+
+      // Standard escrows still release without any approval.
+      const tx = await paymentProcessor.connect(payee).releaseEscrow(0);
+      await expect(tx).to.emit(paymentProcessor, "EscrowReleased");
+    });
+
+    it("Should enforce the release time on a TimeBased escrow", async function () {
+      const releaseTime = (await time.latest()) + 3600;
+      await paymentProcessor
+        .connect(payer)
+        .createEscrow(payee.address, paymentAmount, releaseTime, ESCROW_TYPE.TimeBased, CONDITION_HASH);
+
+      await expect(
+        paymentProcessor.connect(payee).releaseEscrow(0)
+      ).to.be.revertedWith("Release time not reached");
+
+      await time.increase(3700);
+      const tx = await paymentProcessor.connect(payee).releaseEscrow(0);
+      await expect(tx).to.emit(paymentProcessor, "EscrowReleased");
+    });
+  });
+
   describe("createPayment", function () {
     it("Should create a manual payment", async function () {
       const tx = await paymentProcessor

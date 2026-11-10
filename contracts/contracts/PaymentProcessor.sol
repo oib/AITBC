@@ -110,6 +110,10 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     // released after an authorized verifier has approved the release.
     mapping(address => bool) public releaseVerifiers;
     mapping(uint256 => bool) public releaseApproved;
+    // #1466: same gate for PerformanceBased/Conditional escrows — the
+    // escrowType and releaseCondition hash were stored but never enforced,
+    // so a beneficiary could drain the escrow immediately.
+    mapping(uint256 => bool) public escrowReleaseApproved;
 
     // Events
     event PaymentCreated(
@@ -195,6 +199,11 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
 
     event ReleaseApproved(
         uint256 indexed paymentId,
+        address indexed verifier
+    );
+
+    event EscrowReleaseApproved(
+        uint256 indexed escrowId,
         address indexed verifier
     );
 
@@ -428,6 +437,36 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Approves release of a PerformanceBased or Conditional escrow.
+     *      Only an authorized verifier may call this (#1466) — the same
+     *      role that approves Performance/DisputeResolution payments.
+     * @param _escrowId ID of the escrow account
+     */
+    function approveEscrowRelease(uint256 _escrowId) external {
+        EscrowAccount storage escrow = escrowAccounts[_escrowId];
+
+        require(escrow.depositor != address(0), "Escrow does not exist");
+        require(releaseVerifiers[msg.sender], "Not a release verifier");
+        require(
+            escrow.escrowType == EscrowType.PerformanceBased ||
+            escrow.escrowType == EscrowType.Conditional,
+            "Escrow type does not need verifier approval"
+        );
+        require(
+            !escrow.isReleased && !escrow.isRefunded,
+            "Escrow already settled"
+        );
+        require(
+            !escrowReleaseApproved[_escrowId],
+            "Escrow release already approved"
+        );
+
+        escrowReleaseApproved[_escrowId] = true;
+
+        emit EscrowReleaseApproved(_escrowId, msg.sender);
+    }
+
+    /**
      * @dev Cancels a created-but-unconfirmed payment after the confirm
      *      timeout, refunding amount, platform fee and dispute fee to the
      *      payer (#1103).
@@ -483,6 +522,20 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         require(authorizedPayees[_beneficiary], "Recipient not authorized");
         require(_amount >= minPaymentAmount, "Amount below minimum");
 
+        // #1466: make escrowType meaningful at creation. A TimeBased escrow
+        // with releaseTime == 0 and a PerformanceBased/Conditional escrow
+        // with no committed condition hash are economically identical to an
+        // unconditional transfer — reject them up front instead of letting
+        // them sit unreleasable-or-unconditional.
+        if (_escrowType == EscrowType.TimeBased) {
+            require(_releaseTime != 0, "Time-based escrow requires release time");
+        } else if (
+            _escrowType == EscrowType.PerformanceBased ||
+            _escrowType == EscrowType.Conditional
+        ) {
+            require(_releaseCondition != bytes32(0), "Escrow release condition required");
+        }
+
         uint256 escrowId = paymentCounter++;
 
         escrowAccounts[escrowId] = EscrowAccount({
@@ -534,6 +587,21 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
             escrow.releaseTime == 0 || block.timestamp >= escrow.releaseTime,
             "Release time not reached"
         );
+
+        // #1466: the escrow type is no longer advisory. PerformanceBased and
+        // Conditional escrows encode an off-chain condition the contract
+        // cannot evaluate, so — mirroring the #1103 payment release gate —
+        // an authorized release verifier must have attested it before the
+        // beneficiary (or anyone else) can pull the funds.
+        if (
+            escrow.escrowType == EscrowType.PerformanceBased ||
+            escrow.escrowType == EscrowType.Conditional
+        ) {
+            require(
+                escrowReleaseApproved[_escrowId],
+                "Escrow release not approved by verifier"
+            );
+        }
 
         escrow.isReleased = true;
         userEscrowBalance[escrow.depositor] -= escrow.amount;
