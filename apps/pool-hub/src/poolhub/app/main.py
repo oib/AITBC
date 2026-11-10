@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit
 
 from ..database import close_engine, create_engine, get_session_factory
 from ..redis_cache import close_redis, create_redis
@@ -69,6 +70,37 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(**settings.asgi_kwargs(), lifespan=lifespan)
+
+# #1544: pool-hub had no rate limiting at all. Two anonymous write endpoints —
+# POST /v1/match and first-time POST /v1/miners/register — accept unauthenticated
+# Postgres+Redis writes, so they get a tighter per-IP budget via a second,
+# include_paths-scoped limiter stacked on the general mutating-endpoint one.
+# Read methods are never counted (miner heartbeats are POSTs but authenticated
+# and well under the general budget); health/metrics paths are exempt. Keyed by
+# client_ip_for_rate_limit so nginx-proxied callers get per-client buckets
+# instead of one shared loopback bucket.
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+_EXEMPT_PATHS = ["/health", "/v1/health", "/metrics", "/live", "/ready"]
+_ANONYMOUS_WRITE_PATHS = ["/v1/match", "/v1/miners/register"]
+app.add_middleware(
+    RateLimitMiddleware,
+    rate=settings.rate_limit_requests,
+    per=settings.rate_limit_window_seconds,
+    key_func=client_ip_for_rate_limit,
+    methods=_MUTATING_METHODS,
+    exclude_paths=_EXEMPT_PATHS,
+    error_message="Pool hub rate limit exceeded",
+)
+app.add_middleware(
+    RateLimitMiddleware,
+    rate=settings.rate_limit_anonymous_requests,
+    per=settings.rate_limit_window_seconds,
+    key_func=client_ip_for_rate_limit,
+    methods=_MUTATING_METHODS,
+    include_paths=_ANONYMOUS_WRITE_PATHS,
+    error_message="Pool hub anonymous endpoint rate limit exceeded",
+)
+
 app.include_router(match_router, prefix="/v1")
 app.include_router(health_router)
 app.include_router(metrics_router)
