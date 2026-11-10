@@ -390,3 +390,83 @@ class TestLegacyCreateValidation:
             },
         )
         assert resp.status_code == 422
+
+
+class TestMoneyCeiling:
+    """#1727: legacy agreement/settlement money fields share the 1e15 ceiling
+    (market MAX_PAYMENT_AMOUNT / exchange _MARKET_MAX_PRICE) — 1e30 must not
+    reach a 200."""
+
+    _CEILING = "1000000000000000"
+
+    def _agreement(self, **overrides):
+        from trading_service.domain.trading import SettlementType, TradeType
+
+        data = {
+            "negotiation_id": "neg_1",
+            "buyer_agent_id": "b",
+            "seller_agent_id": "s",
+            "trade_type": TradeType.AI_POWER,
+            "settlement_type": SettlementType.IMMEDIATE,
+            "title": "t",
+        }
+        data.update(overrides)
+        return data
+
+    def _settlement(self, **overrides):
+        from trading_service.domain.trading import SettlementType
+
+        data = {
+            "agreement_id": "agree_x",
+            "buyer_agent_id": "b",
+            "seller_agent_id": "s",
+            "settlement_type": SettlementType.IMMEDIATE,
+        }
+        data.update(overrides)
+        return data
+
+    async def test_agreement_total_price_at_ceiling_accepted(self, db_session):
+        svc = _svc(db_session)
+        agreement = await svc.create_agreement(self._agreement(total_price=self._CEILING))
+        assert agreement.total_price == Decimal(self._CEILING)
+
+    @pytest.mark.parametrize("bad", ["1000000000000000.00000001", "1e30"])
+    async def test_agreement_total_price_over_ceiling_rejected(self, db_session, bad):
+        svc = _svc(db_session)
+        with pytest.raises(ValueError, match="must not exceed"):
+            await svc.create_agreement(self._agreement(total_price=bad))
+
+    async def test_settlement_money_fields_at_ceiling_accepted(self, db_session):
+        svc = _svc(db_session)
+        settlement = await svc.create_settlement(
+            self._settlement(
+                total_amount=self._CEILING,
+                platform_fee=self._CEILING,
+                processing_fee=self._CEILING,
+                gas_fee=self._CEILING,
+                net_amount_seller=self._CEILING,
+            )
+        )
+        assert settlement.total_amount == Decimal(self._CEILING)
+
+    @pytest.mark.parametrize("field", ["total_amount", "platform_fee", "processing_fee", "gas_fee", "net_amount_seller"])
+    @pytest.mark.parametrize("bad", ["1000000000000000.00000001", "1e30"])
+    async def test_settlement_money_fields_over_ceiling_rejected(self, db_session, field, bad):
+        svc = _svc(db_session)
+        with pytest.raises(ValueError, match="must not exceed"):
+            await svc.create_settlement(self._settlement(**{field: bad}))
+
+    def test_legacy_agreement_endpoint_returns_422_over_ceiling(self, client):
+        resp = client.post(
+            "/v1/trading/agreements",
+            json={
+                "negotiation_id": "neg_1",
+                "buyer_agent_id": "b",
+                "seller_agent_id": "s",
+                "trade_type": "ai_power",
+                "settlement_type": "immediate",
+                "title": "t",
+                "total_price": "1e30",
+            },
+        )
+        assert resp.status_code == 422
