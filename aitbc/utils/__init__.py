@@ -28,6 +28,7 @@ from .paths import (
     resolve_path,
 )
 from .time_utils import (
+    ExponentialBackoff,
     Timer,
     add_duration,
     calculate_deadline,

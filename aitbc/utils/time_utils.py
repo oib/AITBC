@@ -3,6 +3,7 @@ Time utilities for AITBC
 Provides timestamp helpers, duration helpers, timezone handling, and deadline calculations
 """
 
+import random
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -325,3 +326,66 @@ class Timer:
         elif self.start_time is not None:
             return time.time() - self.start_time
         return None
+
+
+class ExponentialBackoff:
+    """Stateful exponential backoff with jitter for long-running retry loops.
+
+    Unlike ``aitbc.network.retry_policy.RetryPolicy`` (which bounds a single
+    request's attempts), this helper is for daemon reconnect/poll loops that
+    must keep running while a remote peer is down: the delay grows
+    exponentially up to ``max_delay`` and is jittered so a fleet of nodes
+    does not retry in lockstep. Call ``reset()`` after a success.
+
+    Usage::
+
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=60.0)
+        while running:
+            try:
+                await connect()
+                backoff.reset()
+            except Exception:
+                await asyncio.sleep(backoff.next_delay())
+    """
+
+    def __init__(
+        self,
+        base_delay: float = 1.0,
+        max_delay: float = 60.0,
+        factor: float = 2.0,
+        jitter: float = 0.5,
+    ) -> None:
+        """Initialize the backoff.
+
+        Args:
+            base_delay: Delay before the first retry (seconds).
+            max_delay: Upper bound on any single delay (seconds) — this is
+                the "cap total retry time" knob for loops that never give up.
+            factor: Multiplier applied per consecutive failure.
+            jitter: Fraction of the computed delay randomized uniformly in
+                ``[1 - jitter, 1 + jitter]``; 0 disables jitter.
+        """
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.factor = factor
+        self.jitter = jitter
+        self.attempts = 0
+
+    def next_delay(self) -> float:
+        """Return the delay for the next retry and advance the attempt count."""
+        delay = min(self.base_delay * (self.factor**self.attempts), self.max_delay)
+        self.attempts += 1
+        if self.jitter > 0:
+            delay *= random.uniform(1.0 - self.jitter, 1.0 + self.jitter)
+        return max(0.0, delay)
+
+    def reset(self) -> None:
+        """Reset the attempt count after a success."""
+        self.attempts = 0
+
+    def current_delay(self) -> float:
+        """Delay that ``next_delay()`` would return, without advancing."""
+        delay = min(self.base_delay * (self.factor**self.attempts), self.max_delay)
+        if self.jitter > 0:
+            delay *= random.uniform(1.0 - self.jitter, 1.0 + self.jitter)
+        return max(0.0, delay)

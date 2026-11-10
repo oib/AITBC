@@ -420,3 +420,54 @@ class TestIsoToDtTimezone:
         expires_at = AgentCommunicationService._iso_to_dt(naive_expiry.isoformat())
         assert expires_at is not None
         assert datetime.now(UTC) > expires_at
+class TestMessageQueueEvent:
+    """AUDIT-RETRY (#1576): the queue processor must sleep on an event while
+    the in-memory queue is empty instead of polling every second."""
+
+    async def test_processor_wakes_on_send_without_initialize(self, svc: AgentCommunicationService) -> None:
+        import asyncio
+
+        await _pair(svc)
+        delivered: list[str] = []
+
+        async def spy_deliver(message_id: str) -> bool:
+            delivered.append(message_id)
+            return True
+
+        svc.deliver_message = spy_deliver  # type: ignore[method-assign]
+        task = asyncio.create_task(svc._process_message_queue())
+        try:
+            # Processor starts with an empty queue: nothing delivered, and it
+            # must be parked on the event rather than spinning.
+            await asyncio.sleep(0.05)
+            assert delivered == []
+            assert not svc._queue_event.is_set()
+
+            mid = await svc.send_message(
+                sender="ag1",
+                recipient="ag2",
+                message_type=MessageType.TEXT,
+                content="wake me",
+            )
+            for _ in range(100):
+                if delivered:
+                    break
+                await asyncio.sleep(0.01)
+            # Delivered promptly via the event — no 1s poll tick needed.
+            assert delivered == [mid]
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+    async def test_processor_survives_empty_queue(self, svc: AgentCommunicationService) -> None:
+        import asyncio
+
+        task = asyncio.create_task(svc._process_message_queue())
+        try:
+            await asyncio.sleep(0.05)
+            assert not task.done()
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task

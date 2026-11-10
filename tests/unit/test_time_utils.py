@@ -162,3 +162,51 @@ class TestTimezoneHelpers:
     def test_is_business_hours_outside_hours(self):
         dt = datetime(2024, 6, 15, 20, 0, 0, tzinfo=UTC)
         assert is_business_hours(dt, start_hour=9, end_hour=17, timezone="UTC") is False
+
+
+class TestExponentialBackoff:
+    """AUDIT-RETRY (#1576): shared backoff helper used by daemon reconnect loops."""
+
+    def test_delay_grows_exponentially(self):
+        from aitbc.utils.time_utils import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=100.0, jitter=0.0)
+        delays = [backoff.next_delay() for _ in range(5)]
+        assert delays == [1.0, 2.0, 4.0, 8.0, 16.0]
+        assert backoff.attempts == 5
+
+    def test_delay_capped_at_max(self):
+        from aitbc.utils.time_utils import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=10.0, jitter=0.0)
+        delays = [backoff.next_delay() for _ in range(10)]
+        assert all(d <= 10.0 for d in delays)
+        assert delays[-1] == 10.0
+
+    def test_jitter_stays_within_bounds(self):
+        from aitbc.utils.time_utils import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=10.0, max_delay=100.0, jitter=0.5)
+        for attempt in range(50):
+            expected = min(10.0 * (2.0**attempt), 100.0)
+            delay = backoff.next_delay()
+            assert expected * 0.5 <= delay <= expected * 1.5
+
+    def test_reset_clears_attempts(self):
+        from aitbc.utils.time_utils import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=100.0, jitter=0.0)
+        backoff.next_delay()
+        backoff.next_delay()
+        backoff.reset()
+        assert backoff.attempts == 0
+        assert backoff.next_delay() == 1.0
+
+    def test_current_delay_does_not_advance(self):
+        from aitbc.utils.time_utils import ExponentialBackoff
+
+        backoff = ExponentialBackoff(base_delay=2.0, max_delay=100.0, jitter=0.0)
+        assert backoff.current_delay() == 2.0
+        assert backoff.attempts == 0
+        assert backoff.next_delay() == 2.0
+        assert backoff.current_delay() == 4.0
