@@ -426,12 +426,17 @@ def get_engine(chain_id: str = "", create_ok: bool = False, allow_foreign: bool 
                 dbapi_connection.execute(f"PRAGMA key = '{key_hex}'")
                 _set_sqlite_pragmas(dbapi_connection, connection_record)
         else:
-            # Use standard SQLite (NullPool: fresh connection per session)
+            # Use standard SQLite (NullPool: fresh connection per session).
+            # `timeout` must match the SQLCipher branch and the legacy
+            # `_engine` below (60s): without it sqlite3's 5s default applies
+            # while `_set_sqlite_pragmas` still installs busy_timeout=60000 —
+            # the common unencrypted path failed locked-wait far earlier than
+            # the configured budget (#1558).
             engine = create_engine(
                 f"sqlite:///{db_path}",
                 echo=False,
                 poolclass=NullPool,
-                connect_args={"check_same_thread": False},
+                connect_args={"check_same_thread": False, "timeout": 60.0},
             )
 
             @event.listens_for(engine, "connect")
