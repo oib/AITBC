@@ -43,6 +43,16 @@
               }
             }
           },
+          "400": {
+            "description": "requirements.capabilities_any must be a list of strings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "match_failed",
             "content": {
