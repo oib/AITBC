@@ -218,3 +218,30 @@ def test_inter_chain_create_accepts_valid_input(client):
     )
     assert response.status_code == 200, response.text[:300]
     assert response.json()["status"] == "pending"
+
+
+# ---------------------------------------------------------------------------
+# #1676: literal NaN/Infinity JSON must answer a serializable 422, not 500
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("literal", ["NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("field", ["amount", "quantity"])
+def test_non_json_float_literals_answer_422_not_500(client, literal, field):
+    """Python's json parser accepts NaN/Infinity; pydantic rejects them for
+    typed fields, and the 422 body used to echo ``input: nan`` back into
+    JSONResponse — which cannot serialize it, producing a 500."""
+    body = (
+        b'{"source_chain":"a","dest_chain":"b","sender":"s","recipient":"r",'
+        + f'"amount":100,"{field}":{literal}'.encode()
+        + b"}"
+    )
+    response = client.post(
+        "/v1/trading/inter-chain/create",
+        content=body,
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 422, f"{field}={literal}: {response.status_code} {response.text[:200]}"
+    # The body must be valid JSON — the whole point of the fix.
+    detail = response.json()["detail"]
+    assert detail and all("loc" in err for err in detail)
