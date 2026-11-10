@@ -126,6 +126,93 @@ async def test_simple_broadcast_bounds_subscriber_queue() -> None:
 
 
 # ---------------------------------------------------------------------------
+# #1591: POST /gossip body cap, rate limit, non-dict body
+# #1537/#1538: subscriber/channel registry caps, channel reaping, ws limits
+# ---------------------------------------------------------------------------
+
+
+def test_non_dict_json_body_rejected(client: TestClient) -> None:
+    """#1591: a valid-JSON array body used to 500 on data.get()."""
+    resp = client.post("/gossip", json=["not", "a", "dict"])
+    assert resp.status_code == 400
+
+
+def test_oversized_body_rejected(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1591: Content-Length over the cap is refused before the body is read."""
+    monkeypatch.setattr(settings, "gossip_relay_max_body_bytes", 32)
+    resp = client.post("/gossip", json={"channel": "transactions", "message": "x" * 100})
+    assert resp.status_code == 413
+
+
+def test_publish_rate_limited(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1591: unauthenticated public publishes are throttled per source IP."""
+    from aitbc.security import RateLimiter
+
+    from aitbc_chain.gossip import relay as relay_module
+
+    monkeypatch.setattr(relay_module, "_publish_rate", RateLimiter(rate=1, per=60))
+    assert client.post("/gossip", json={"channel": "transactions", "message": "a"}).status_code == 200
+    assert client.post("/gossip", json={"channel": "transactions", "message": "b"}).status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_simple_broadcast_channel_and_subscriber_caps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1537/#1538: invented dotted-subtopic names cannot grow the registry
+    without bound — per-channel, per-registry and total caps all refuse."""
+    from aitbc_chain.gossip.relay import BroadcastCapacityError, SimpleBroadcast
+
+    bc = SimpleBroadcast()
+    monkeypatch.setattr(SimpleBroadcast, "_MAX_SUBSCRIBERS_PER_CHANNEL", 2)
+    monkeypatch.setattr(SimpleBroadcast, "_MAX_CHANNELS", 3)
+    await bc.subscribe("transactions")
+    await bc.subscribe("transactions")
+    with pytest.raises(BroadcastCapacityError):
+        await bc.subscribe("transactions")
+    # Two more distinct channels fill the registry to the cap.
+    await bc.subscribe("status")
+    await bc.subscribe("mempool")
+    with pytest.raises(BroadcastCapacityError):
+        await bc.subscribe("transactions.extra")
+
+
+@pytest.mark.asyncio
+async def test_simple_broadcast_reaps_empty_channel() -> None:
+    """#1538: a channel key is dropped when its last subscriber leaves —
+    previously every invented subtopic stayed in _subscribers forever."""
+    from aitbc_chain.gossip.relay import SimpleBroadcast
+
+    bc = SimpleBroadcast()
+    async with await bc.subscribe("status.ephemeral"):
+        assert "status.ephemeral" in bc._subscribers
+    assert "status.ephemeral" not in bc._subscribers
+
+
+def test_websocket_unknown_channel_rejected(client: TestClient) -> None:
+    """#1538: /ws subscribes were open to ANY channel string; unknown topics
+    are now refused like POST /gossip refuses them."""
+    from starlette.websockets import WebSocketDisconnect
+
+    with pytest.raises(WebSocketDisconnect) as excinfo:
+        with client.websocket_connect("/ws?channel=not-a-topic"):
+            pass
+    assert excinfo.value.code == 1008
+
+
+def test_websocket_per_ip_cap(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1537: public subscribes need no credentials, so sockets per IP are
+    capped like the node's /rpc/gossip/ws path."""
+    from starlette.websockets import WebSocketDisconnect
+
+    from aitbc_chain.gossip import relay as relay_module
+
+    monkeypatch.setattr(relay_module, "_MAX_WS_CONNECTIONS_PER_IP", 1)
+    with client.websocket_connect("/ws?channel=transactions"):
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/ws?channel=transactions"):
+                pass
+
+
+# ---------------------------------------------------------------------------
 # #1128: scoped signatures + single-use challenges on the relay
 # ---------------------------------------------------------------------------
 
