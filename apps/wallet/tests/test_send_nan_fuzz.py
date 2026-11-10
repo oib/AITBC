@@ -58,6 +58,8 @@ def test_non_finite_json_literals_answer_422_not_500(client, field, literal):
         b"1e308",  # finite float, out of int range
         b'"abc"',
         b'"1e3"',  # scientific notation string — not an int literal
+        b"1e999",  # exponent overflow literal — parses to inf, must not send
+        b'"-0"',  # negative-zero string — not an int literal
         b"[]",
         b"{}",
         '"١٢٣"'.encode(),  # unicode digits — may coerce; must never 500 or send

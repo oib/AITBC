@@ -884,3 +884,40 @@ class TestDiscoverOffersCrossChainDedup:
             assert offer.attributes["endpoint"].startswith("http://10.0.0.")
             # to_dict/from_dict roundtrip keeps the same field set.
             assert SyncedOffer.from_dict(offer.to_dict()).attributes == offer.attributes
+
+
+class TestOfferCacheClearChain:
+    """Session-state churn pin (#1680/#1567 follow-up): clear_chain must
+    leave no residue — offers, chain index, sync metadata AND the
+    known-chains registry entry all go, while other chains are untouched."""
+
+    async def test_clear_chain_removes_offers_index_meta_and_registry(self):
+        cache = OfferCache()
+        cache.set_offer(_offer("o1", chain_id="chain-a"), ttl=300)
+        cache.set_offer(_offer("o2", chain_id="chain-a"), ttl=300)
+        cache.set_offer(_offer("o3", chain_id="chain-b"), ttl=300)
+        cache.set_sync_metadata("chain-a", {"last_sync": "2026-01-01T00:00:00+00:00"})
+
+        removed = cache.clear_chain("chain-a")
+
+        assert removed == 2
+        assert cache.list_offers_by_chain("chain-a") == []
+        assert cache.get_offer("o1") is None
+        assert cache.get_offer("o2") is None
+        # Sync metadata is gone — a fresh read returns the empty default.
+        assert cache.get_sync_metadata("chain-a")["offer_count"] == 0
+        # The known-chains registry no longer lists chain-a, so unscoped
+        # get_offer/list_offers_by_type scans stop visiting it.
+        assert "chain-a" not in cache._get_known_chains()
+        assert "chain-b" in cache._get_known_chains()
+        # Other chains are untouched.
+        assert cache.get_offer("o3", "chain-b") is not None
+        assert [o.offer_id for o in cache.list_offers_by_chain("chain-b")] == ["o3"]
+
+    async def test_clear_chain_is_idempotent(self):
+        """Clearing an unknown/empty chain reports 0 and does not raise."""
+        cache = OfferCache()
+        assert cache.clear_chain("never-seen") == 0
+        cache.set_offer(_offer("o1", chain_id="chain-a"), ttl=300)
+        assert cache.clear_chain("chain-a") == 1
+        assert cache.clear_chain("chain-a") == 0

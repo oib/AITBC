@@ -147,6 +147,20 @@ class TestExchangePaymentCreation:
             )
             assert resp.status_code == expect, f"{aitbc}: {resp.status_code} {resp.text[:200]}"
 
+    @pytest.mark.parametrize(
+        "aitbc",
+        ["1e999", "NaN", "-0", "١٢٣", "1_000", True, [], {}],
+    )
+    def test_create_payment_type_confused_amounts_never_500(self, client, aitbc):
+        """V16 round-5 money-edge: exponent-overflow ('1e999'), non-finite,
+        negative-zero, unicode-digit, underscore, bool and container amounts
+        must answer 400/422 — never 500 and never create a payment row."""
+        resp = client.post(
+            "/v1/exchange/create-payment",
+            json={"user_id": "u-fuzz", "aitbc_amount": aitbc, "eth_amount": "0.001"},
+        )
+        assert resp.status_code in (400, 422), f"{aitbc!r}: {resp.status_code} {resp.text[:200]}"
+
     def test_create_payment_requires_api_key(self):
         from fastapi.testclient import TestClient
         from trading_service.main import app
