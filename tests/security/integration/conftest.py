@@ -13,9 +13,15 @@ secure default (``true``).
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import Generator
 
-os.environ.setdefault("URL", "sqlite:////tmp/aitbc-security-int-test.db")
+# Per-process path: a fixed /tmp name made two pytest processes on one host
+# open the same file and die on "database is locked".
+os.environ.setdefault(
+    "URL",
+    f"sqlite:///{tempfile.mkdtemp(prefix='aitbc-security-int-test-')}/security_int.db",
+)
 os.environ.setdefault("JWT_SECRET", "test-secret-for-coordinator-tests" * 2)
 os.environ.setdefault("TEST_MODE", "true")
 os.environ.setdefault("EXPLORER_API_URL", "http://127.0.0.1:8100/health")

@@ -1,6 +1,7 @@
 """Shared fixtures and setup for agent coordinator integration tests."""
 
 import os
+import tempfile
 from collections.abc import Generator
 from typing import Any
 from unittest.mock import patch
@@ -22,7 +23,12 @@ os.environ.setdefault("TEST_MODE", "true")
 
 # Use a shared file-backed SQLite database for the coordinator app so that
 # repeated ``init_db`` calls can rely on ``checkfirst`` and skip existing tables.
-os.environ.setdefault("URL", "sqlite:////tmp/aitbc_test_coordinator.db")
+# The path is per-process: a fixed /tmp name made two pytest processes on one
+# host open the same file and die on "database is locked".
+os.environ.setdefault(
+    "URL",
+    f"sqlite:///{tempfile.mkdtemp(prefix='aitbc-test-coordinator-')}/coordinator.db",
+)
 
 
 async def _noop_async() -> None:
