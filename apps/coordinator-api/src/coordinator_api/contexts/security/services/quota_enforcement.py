@@ -34,6 +34,34 @@ class QuotaEnforcementService:
         if self.redis is None:
             self.logger.warning("Redis client not provided - quota caching disabled, falling back to database only")
 
+    # The injected client is synchronous (redis.Redis). Calling it directly
+    # inside these async methods blocked the event loop on network I/O
+    # (#1536) — every Redis op goes through run_in_threadpool like the DB
+    # calls do. NOTE: no instantiation site exists in apps/ today; this
+    # service is currently dead code, but it is fixed here so that wiring
+    # it up later cannot reintroduce the blocker.
+    def _require_redis(self) -> redis.Redis:
+        # Helpers are only invoked under ``if self.redis:``, but keep an
+        # explicit guard so a future call site cannot pass None through.
+        if self.redis is None:
+            raise RuntimeError("QuotaEnforcementService has no redis client")
+        return self.redis
+
+    async def _redis_get(self, key: str) -> Any:
+        return await run_in_threadpool(self._require_redis().get, key)
+
+    async def _redis_setex(self, key: str, ttl: int, value: str) -> Any:
+        return await run_in_threadpool(self._require_redis().setex, key, ttl, value)
+
+    async def _redis_incrbyfloat(self, key: str, increment: float) -> Any:
+        return await run_in_threadpool(self._require_redis().incrbyfloat, key, increment)
+
+    async def _redis_expire(self, key: str, ttl: int) -> Any:
+        return await run_in_threadpool(self._require_redis().expire, key, ttl)
+
+    async def _redis_delete(self, *keys: str) -> Any:
+        return await run_in_threadpool(self._require_redis().delete, *keys)
+
     async def check_quota(self, resource_type: str, quantity: Decimal, tenant_id: str | None = None) -> bool:
         """Check if tenant has sufficient quota for a resource"""
         tenant_id = tenant_id or get_current_tenant_id()
@@ -84,10 +112,10 @@ class QuotaEnforcementService:
         await self._update_quota_usage(tenant_id, resource_type, quantity)
         cache_key = f"quota_usage:{tenant_id}:{resource_type}"
         if self.redis:
-            current = self.redis.get(cache_key)
+            current = await self._redis_get(cache_key)
             if current:
-                self.redis.incrbyfloat(cache_key, float(quantity))
-                self.redis.expire(cache_key, self._cache_ttl)
+                await self._redis_incrbyfloat(cache_key, float(quantity))
+                await self._redis_expire(cache_key, self._cache_ttl)
         (await run_in_threadpool(self.db.commit))
         self.logger.info("Consumed quota: tenant=%s, resource=%s, quantity=%s", tenant_id, resource_type, quantity)
         return usage_record
@@ -112,10 +140,10 @@ class QuotaEnforcementService:
             await self._update_quota_usage(tenant_id, resource_type, -quantity)
             cache_key = f"quota_usage:{tenant_id}:{resource_type}"
             if self.redis:
-                current = self.redis.get(cache_key)
+                current = await self._redis_get(cache_key)
                 if current:
-                    self.redis.incrbyfloat(cache_key, float(-quantity))
-                    self.redis.expire(cache_key, self._cache_ttl)
+                    await self._redis_incrbyfloat(cache_key, float(-quantity))
+                    await self._redis_expire(cache_key, self._cache_ttl)
             (await run_in_threadpool(self.db.commit))
             self.logger.info("Released quota: tenant=%s, resource=%s, quantity=%s", tenant_id, resource_type, quantity)
 
@@ -168,11 +196,11 @@ class QuotaEnforcementService:
                     "quantity": quantity,
                     "created_at": datetime.now(UTC).isoformat(),
                 }
-                self.redis.setex(f"reservation:{reservation_id}", timeout, json.dumps(reservation_data))
+                await self._redis_setex(f"reservation:{reservation_id}", timeout, json.dumps(reservation_data))
             yield reservation_id
         finally:
             if self.redis:
-                self.redis.delete(f"reservation:{reservation_id}")
+                await self._redis_delete(f"reservation:{reservation_id}")
 
     async def reset_quota_period(self, tenant_id: str, resource_type: str) -> None:
         """Reset quota for a new period"""
@@ -199,7 +227,7 @@ class QuotaEnforcementService:
         (await run_in_threadpool(self.db.commit))
         cache_key = f"quota_usage:{tenant_id}:{resource_type}"
         if self.redis:
-            self.redis.delete(cache_key)
+            await self._redis_delete(cache_key)
         self.logger.info("Reset quota period: tenant=%s, resource=%s, period=%s", tenant_id, resource_type, quota.period_type)
 
     async def get_quota_alerts(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
@@ -250,7 +278,7 @@ class QuotaEnforcementService:
         """Get current quota for tenant and resource type"""
         cache_key = f"quota:{tenant_id}:{resource_type}"
         if self.redis:
-            cached = self.redis.get(cache_key)
+            cached = await self._redis_get(cache_key)
             if cached:
                 quota_data = json.loads(cached)
                 quota = TenantQuota(**quota_data)
@@ -276,14 +304,14 @@ class QuotaEnforcementService:
                 "period_start": quota.period_start.isoformat(),  # type: ignore[union-attr]
                 "period_end": quota.period_end.isoformat(),  # type: ignore[union-attr]
             }
-            self.redis.setex(cache_key, self._cache_ttl, json.dumps(quota_data))
+            await self._redis_setex(cache_key, self._cache_ttl, json.dumps(quota_data))
         return quota
 
     async def _get_current_usage(self, tenant_id: str, resource_type: str) -> Decimal:
         """Get current usage for tenant and resource type"""
         cache_key = f"quota_usage:{tenant_id}:{resource_type}"
         if self.redis:
-            cached = self.redis.get(cache_key)
+            cached = await self._redis_get(cache_key)
             if cached:
                 return Decimal(str(cached))
         stmt = select(func.sum(UsageRecord.quantity)).where(
@@ -296,7 +324,7 @@ class QuotaEnforcementService:
         result = (await run_in_threadpool(self.db.execute, stmt)).scalar()
         usage = result if result else Decimal("0")
         if self.redis:
-            self.redis.setex(cache_key, self._cache_ttl, str(usage))
+            await self._redis_setex(cache_key, self._cache_ttl, str(usage))
         return usage
 
     async def _update_quota_usage(self, tenant_id: str, resource_type: str, quantity: Decimal) -> None:
