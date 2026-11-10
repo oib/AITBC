@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.market import OfferFSM, OfferStatus
@@ -13,6 +13,8 @@ from aitbc.utils.chain_id import resolve_chain_id
 
 from ..config import settings
 from ..domain.market import MarketOffer
+from ..domain.offer_status import spellings_of, to_offer_status
+from .market_service import max_page_size
 
 logger = get_logger(__name__)
 
@@ -59,7 +61,12 @@ class MatchingService:
         """
         try:
             logger.info("Finding best match for bid requirements: %s", bid_requirements.keys())
-            stmt = select(MarketOffer).where(MarketOffer.status == OfferStatus.AVAILABLE.value)
+            # Match every stored spelling that means AVAILABLE ("available",
+            # "open", ...) — filtering on the canonical word alone hides
+            # legacy-spelled offers (#1442). Bounded like every other list
+            # read: the matcher only ever needs the head of the ordering
+            # (#1445).
+            stmt = select(MarketOffer).where(col(MarketOffer.status).in_(spellings_of(OfferStatus.AVAILABLE)))
             # #1566: a NULL price_per_hour can never be priced — exclude it
             # unconditionally. Gating this on max_price let priceless offers
             # sort first under ORDER BY price ASC (SQLite sorts NULLs ahead of
@@ -75,6 +82,7 @@ class MatchingService:
             if required_gpu_model:
                 stmt = stmt.where(MarketOffer.gpu_model == required_gpu_model)
             stmt = stmt.order_by(MarketOffer.price_per_hour.asc(), MarketOffer.capacity.desc())  # type: ignore[union-attr,attr-defined]
+            stmt = stmt.limit(max_page_size())
             result = await self.session.execute(stmt)
             offers = result.scalars().all()
             if not offers:
@@ -139,7 +147,9 @@ class MatchingService:
         """
         try:
             # Price-time priority: order by price asc, then created_at asc (oldest first)
-            stmt = select(MarketOffer).where(MarketOffer.status == OfferStatus.AVAILABLE.value)
+            # Same alias-aware status filter as find_best_match (#1442), same
+            # bound (#1445) — the matcher only consumes offers[0].
+            stmt = select(MarketOffer).where(col(MarketOffer.status).in_(spellings_of(OfferStatus.AVAILABLE)))
             # #1566: NULL price_per_hour offers are unpriceable — exclude them
             # unconditionally (see find_best_match); NULLs sort first in SQLite.
             stmt = stmt.where(MarketOffer.price_per_hour.isnot(None))  # type: ignore
@@ -153,6 +163,7 @@ class MatchingService:
                 MarketOffer.price_per_hour.asc(),  # type: ignore[union-attr]
                 MarketOffer.created_at.asc(),  # type: ignore[attr-defined]
             )
+            stmt = stmt.limit(max_page_size())
             result = await self.session.execute(stmt)
             offers = result.scalars().all()
             if not offers:
@@ -161,8 +172,10 @@ class MatchingService:
 
             best_offer = offers[0]
 
-            # Reserve the offer via OfferFSM
-            current = OfferFSM.from_string(best_offer.status)
+            # Reserve the offer via OfferFSM. The stored word may be an alias
+            # ("open"), which OfferFSM.from_string rejects — map it first
+            # (#1442).
+            current = to_offer_status(best_offer.status)
             fsm = OfferFSM(current)
             fsm.transition(OfferStatus.RESERVED)
             best_offer.status = OfferStatus.RESERVED.value
