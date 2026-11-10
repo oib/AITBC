@@ -98,3 +98,63 @@ class TestClientRefDedup:
         assert other.get("deduplicated") is not True
         jobs = list((await session.execute(select(MarketJob).where(MarketJob.client_ref == "shared-ref"))).scalars())
         assert len(jobs) == 2
+
+
+class TestCallerSuppliedIdDedup:
+    """#1634: a caller-supplied job id is a natural key when client_ref is absent."""
+
+    @pytest.mark.asyncio
+    async def test_same_id_same_buyer_replays(self, session):
+        svc = MarketService(session)
+        payload = {
+            "id": "job-fixed-1",
+            "buyer_address": "0xBuyerA",
+            "service_type": "ipfs",
+            "payment": {"amount": "1"},
+        }
+        first = await svc.create_market_job(dict(payload))
+        second = await svc.create_market_job(dict(payload))
+        assert second["job_id"] == first["job_id"] == "job-fixed-1"
+        assert second.get("deduplicated") is True
+        jobs = list((await session.execute(select(MarketJob).where(MarketJob.id == "job-fixed-1"))).scalars())
+        assert len(jobs) == 1
+
+    @pytest.mark.asyncio
+    async def test_same_id_different_buyer_conflicts(self, session):
+        svc = MarketService(session)
+        await svc.create_market_job(
+            {
+                "id": "job-fixed-2",
+                "buyer_address": "0xBuyerA",
+                "service_type": "ipfs",
+                "payment": {"amount": "1"},
+            }
+        )
+        with pytest.raises(ValueError, match="already exists"):
+            await svc.create_market_job(
+                {
+                    "id": "job-fixed-2",
+                    "buyer_address": "0xBuyerB",
+                    "service_type": "ipfs",
+                    "payment": {"amount": "1"},
+                }
+            )
+
+
+class TestEscrowContractIdPersistence:
+    """#1634: escrow_contract_id was write-never; creation now persists the
+    chain escrow binding (the market job id is the /rpc/escrow path key)."""
+
+    @pytest.mark.asyncio
+    async def test_created_job_persists_escrow_binding(self, session):
+        svc = MarketService(session)
+        result = await svc.create_market_job(
+            {
+                "buyer_address": "0xBuyerA",
+                "service_type": "ipfs",
+                "payment": {"amount": "1"},
+            }
+        )
+        job = await session.get(MarketJob, result["job_id"])
+        assert job is not None
+        assert job.escrow_contract_id == job.id

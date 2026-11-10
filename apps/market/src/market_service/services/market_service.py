@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -30,7 +31,7 @@ from aitbc.utils.units import ait_to_units, units_to_ait
 
 from ..config import settings
 from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, OfferAnchor, ServiceRating, SoftwareService
-from ..domain.offer_status import spellings_of, to_offer_status
+from ..domain.offer_status import spellings_of, to_offer_status, try_to_offer_status
 
 logger = get_logger(__name__)
 
@@ -233,6 +234,60 @@ PUBLIC_PAYMENT_FIELDS = (
     "refunded_at",
     "expires_at",
 )
+
+
+def coerce_offer_expires_at(value: Any) -> datetime | None:
+    """Normalize a caller-supplied ``expires_at`` to naive UTC (#1554).
+
+    The column is a plain ``DateTime``; the codebase convention is naive-UTC
+    (#1575), so an aware input is converted and a bare string is parsed here
+    so a malformed value fails as a 400 ValueError instead of a 500.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    if not isinstance(value, datetime):
+        raise ValueError("expires_at must be an ISO-8601 datetime")
+    if value.tzinfo is not None:
+        return value.astimezone(UTC).replace(tzinfo=None)
+    return value
+
+
+def offer_listing_expired(offer: MarketOffer, now: datetime | None = None) -> bool:
+    """True when an AVAILABLE-state offer is past its ``expires_at`` (#1554).
+
+    Only the available listing lapses — booked/reserved holds have their own
+    ``_reserved_until`` deadline and in_use rows run paid work.
+    """
+    exp = offer.expires_at
+    if exp is None:
+        return False
+    if try_to_offer_status(offer.status) is not OfferStatus.AVAILABLE:
+        return False
+    if exp.tzinfo is not None:
+        exp = exp.replace(tzinfo=None)
+    now = now or datetime.now(UTC).replace(tzinfo=None)
+    return exp < now
+
+
+async def _get_by_caller_id(session: AsyncSession, model: Any, data: dict[str, Any]) -> Any | None:
+    """Return the row a caller-supplied ``id`` already names (#1553).
+
+    These create paths splat the request body into the model, so ``id`` is a
+    natural idempotency key: a retry must replay the existing row, not die on
+    the primary key or stack a duplicate.
+    """
+    rid = data.get("id")
+    if rid is None:
+        return None
+    return await session.get(model, str(rid))
+
+
+async def _replay_after_integrity_conflict(session: AsyncSession, model: Any, data: dict[str, Any]) -> Any | None:
+    """Roll back a lost first-write race and return the winner's row (#1553)."""
+    await session.rollback()
+    return await _get_by_caller_id(session, model, data)
 
 
 def public_job_view(job: dict[str, Any]) -> dict[str, Any]:
@@ -507,7 +562,9 @@ class MarketService:
             offers_list = []
             for row in result:
                 offer = row[0] if row else None
-                if offer:
+                # #1554 lazy expiry: a past-due available listing is hidden
+                # even before the sweeper flips its status.
+                if offer and not offer_listing_expired(offer):
                     offers_list.append(
                         {
                             "id": offer.id,
@@ -595,6 +652,14 @@ class MarketService:
             current = to_offer_status(offer.status)
             if current is not OfferStatus.AVAILABLE:
                 raise ValueError(f"Offer {offer_id} is not available (status={offer.status})")
+            # #1554 lazy expiry: an available offer past expires_at is dead
+            # even before the sweeper's next pass — flip it and refuse the
+            # booking rather than sell an expired listing.
+            if offer_listing_expired(offer):
+                offer.status = OfferStatus.EXPIRED.value
+                self.session.add(offer)
+                await self.session.commit()
+                raise ValueError(f"Offer {offer_id} has expired")
             # Booking is the one transition this service performed without asking the FSM:
             # it assigned "booked" directly, which is how a status the FSM cannot parse came
             # to be in the database in the first place. Validated before the bid is created,
@@ -661,13 +726,26 @@ class MarketService:
             # is what makes "every stored status parses" true rather than aspirational.
             if "status" in offer_data:
                 to_offer_status(offer_data["status"])
+            if "expires_at" in offer_data:
+                # #1554: normalize to naive UTC before the model sees it.
+                offer_data["expires_at"] = coerce_offer_expires_at(offer_data["expires_at"])
+            existing: MarketOffer | None = await _get_by_caller_id(self.session, MarketOffer, offer_data)
+            if existing is not None:
+                return existing
             offer = MarketOffer(**offer_data)
             self.session.add(offer)
-            await self.session.commit()
+            try:
+                await self.session.commit()
+            except IntegrityError:
+                replay: MarketOffer | None = await _replay_after_integrity_conflict(self.session, MarketOffer, offer_data)
+                if replay is not None:
+                    return replay
+                raise
             await self.session.refresh(offer)
             logger.info("Created offer with id: %s", offer.id)
             return offer
         except Exception as e:
+            await self.session.rollback()
             logger.error("Error in create_offer: %s: %s", type(e).__name__, str(e))
             raise
 
@@ -734,13 +812,41 @@ class MarketService:
         from ..domain.market import Plugin
 
         try:
+            # #1553: a caller-supplied id is the natural idempotency key — a
+            # retry replays the existing row instead of dying on the PK.
+            plugin_id = plugin_data.get("id")
+            if plugin_id:
+                existing = await self.session.get(Plugin, str(plugin_id))
+                if existing is not None:
+                    return {
+                        "id": existing.id,
+                        "name": existing.name,
+                        "status": existing.status,
+                        "deduplicated": True,
+                    }
             plugin = Plugin(**plugin_data)
             self.session.add(plugin)
             await self.session.commit()
             await self.session.refresh(plugin)
             logger.info("Registered plugin with id: %s", plugin.id)
             return {"id": plugin.id, "name": plugin.name, "status": plugin.status}
+        except IntegrityError:
+            # Concurrent first-write with the same caller id: the winner's
+            # row is the replay target (#1553).
+            await self.session.rollback()
+            plugin_id = plugin_data.get("id")
+            if plugin_id:
+                existing = await self.session.get(Plugin, str(plugin_id))
+                if existing is not None:
+                    return {
+                        "id": existing.id,
+                        "name": existing.name,
+                        "status": existing.status,
+                        "deduplicated": True,
+                    }
+            raise
         except Exception as e:
+            await self.session.rollback()
             logger.error("Error in register_plugin: %s: %s", type(e).__name__, str(e))
             raise
 
@@ -1235,13 +1341,23 @@ class MarketService:
         from ..domain.market import KnowledgeGraph
 
         try:
+            existing = await _get_by_caller_id(self.session, KnowledgeGraph, graph_data)
+            if existing is not None:
+                return {"id": existing.id, "name": existing.name, "status": existing.status, "deduplicated": True}
             graph = KnowledgeGraph(**graph_data)
             self.session.add(graph)
-            await self.session.commit()
+            try:
+                await self.session.commit()
+            except IntegrityError:
+                replay = await _replay_after_integrity_conflict(self.session, KnowledgeGraph, graph_data)
+                if replay is not None:
+                    return {"id": replay.id, "name": replay.name, "status": replay.status, "deduplicated": True}
+                raise
             await self.session.refresh(graph)
             logger.info("Created graph with id: %s", graph.id)
             return {"id": graph.id, "name": graph.name, "status": graph.status}
         except Exception as e:
+            await self.session.rollback()
             logger.error("Error in create_graph: %s: %s", type(e).__name__, str(e))
             raise
 
@@ -1250,13 +1366,33 @@ class MarketService:
         from ..domain.market import GraphNode
 
         try:
+            existing = await _get_by_caller_id(self.session, GraphNode, node_data)
+            if existing is not None:
+                return {
+                    "id": existing.id,
+                    "graph_id": existing.graph_id,
+                    "label": existing.label,
+                    "deduplicated": True,
+                }
             node = GraphNode(**node_data)
             self.session.add(node)
-            await self.session.commit()
+            try:
+                await self.session.commit()
+            except IntegrityError:
+                replay = await _replay_after_integrity_conflict(self.session, GraphNode, node_data)
+                if replay is not None:
+                    return {
+                        "id": replay.id,
+                        "graph_id": replay.graph_id,
+                        "label": replay.label,
+                        "deduplicated": True,
+                    }
+                raise
             await self.session.refresh(node)
             logger.info("Added node with id: %s to graph: %s", node.id, node.graph_id)
             return {"id": node.id, "graph_id": node.graph_id, "label": node.label}
         except Exception as e:
+            await self.session.rollback()
             logger.error("Error in add_node: %s: %s", type(e).__name__, str(e))
             raise
 
@@ -1265,9 +1401,30 @@ class MarketService:
         from ..domain.market import GraphEdge
 
         try:
+            existing = await _get_by_caller_id(self.session, GraphEdge, edge_data)
+            if existing is not None:
+                return {
+                    "id": existing.id,
+                    "graph_id": existing.graph_id,
+                    "source_node_id": existing.source_node_id,
+                    "target_node_id": existing.target_node_id,
+                    "deduplicated": True,
+                }
             edge = GraphEdge(**edge_data)
             self.session.add(edge)
-            await self.session.commit()
+            try:
+                await self.session.commit()
+            except IntegrityError:
+                replay = await _replay_after_integrity_conflict(self.session, GraphEdge, edge_data)
+                if replay is not None:
+                    return {
+                        "id": replay.id,
+                        "graph_id": replay.graph_id,
+                        "source_node_id": replay.source_node_id,
+                        "target_node_id": replay.target_node_id,
+                        "deduplicated": True,
+                    }
+                raise
             await self.session.refresh(edge)
             logger.info("Added edge with id: %s to graph: %s", edge.id, edge.graph_id)
             return {
@@ -1277,6 +1434,7 @@ class MarketService:
                 "target_node_id": edge.target_node_id,
             }
         except Exception as e:
+            await self.session.rollback()
             logger.error("Error in add_edge: %s: %s", type(e).__name__, str(e))
             raise
 
@@ -2074,6 +2232,26 @@ class MarketService:
             if not job_id:
                 raise ValueError("job_id is required")
 
+            # #1553/#1634: a caller-supplied job id is a natural idempotency
+            # key for clients that do not use client_ref — a retry replays the
+            # existing row instead of dying on the PK. The replay is scoped to
+            # the same buyer/client so one tenant cannot probe another's job
+            # id; an id held by a different party is a conflict, not a replay.
+            if data.get("id"):
+                existing = await self.session.get(MarketJob, job_id)
+                if existing is not None:
+                    same_buyer = bool(data.get("buyer_address")) and existing.buyer_address == data.get("buyer_address")
+                    same_client = bool(data.get("client_id")) and existing.client_id == data.get("client_id")
+                    if not (same_buyer or same_client):
+                        raise ValueError(f"Job id already exists: {job_id}")
+                    logger.info("Replaying existing market job %s (caller-supplied id)", existing.id)
+                    payment = await self.session.get(MarketJobPayment, existing.payment_id) if existing.payment_id else None
+                    return {
+                        **self._job_to_dict(existing),
+                        "payment": self._payment_to_dict(payment) if payment else None,
+                        "deduplicated": True,
+                    }
+
             # #1553: client_ref is the caller's idempotency handle — a retry
             # of the same creation must replay the in-flight job, not stack a
             # duplicate MarketJob+MarketJobPayment pair. Scoped to the buyer
@@ -2137,6 +2315,11 @@ class MarketService:
             job_data = {k: v for k, v in data.items() if k in _JOB_WRITABLE}
             job = MarketJob(**job_data)
             job.id = job_id
+            # #1634: the column was write-never — persist the chain escrow
+            # binding at creation. The on-chain escrow for a market job is
+            # keyed by the market job id itself, so that is the linkage value
+            # (release/refund/sweeper all resolve /rpc/escrow/{job.id}).
+            job.escrow_contract_id = job.id
             if not job.requested_at:
                 job.requested_at = datetime.now(UTC).replace(tzinfo=None)
             # Derive expires_at from ttl_seconds when the caller did not set
@@ -2586,9 +2769,10 @@ class MarketService:
                 released_amount = self._settled_amount_ait(tx)
             else:
                 # The chain escrow is keyed by job_id — the market job id is
-                # the escrow's job_id (the buyer CLI escrows under it). The
-                # escrow_contract_id column stores the opaque contract id,
-                # which is NOT a valid /rpc/escrow/{id} path key (#1564).
+                # the escrow's job_id (the buyer CLI escrows under it).
+                # escrow_contract_id now persists that same job.id at
+                # creation (#1634) but remains informational only — the RPC
+                # path key is always job.id, never the column (#1564).
                 result = await self._rpc_client.release_escrow(job.id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow release failed for job {job_id}: {result}")
