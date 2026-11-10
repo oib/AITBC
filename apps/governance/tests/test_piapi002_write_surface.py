@@ -213,9 +213,47 @@ def test_aggregate_votes_counts_real_votes(client: TestClient) -> None:
     assert r.json()["total_abstain"] == 0
 
 
-def test_execute_cross_chain_accepts_succeeded_status(client: TestClient, test_database_path) -> None:
+def test_execute_cross_chain_accepts_succeeded_status(client: TestClient, test_database_path, monkeypatch) -> None:
     """#1502: the gate checked 'passed', a status the lifecycle never writes —
     only 'succeeded' — so every legitimately passed proposal got a 400."""
+    import sqlite3
+
+    from governance_service.clients.blockchain import BlockchainClient
+
+    pid = _create_proposal(client)
+    conn = sqlite3.connect(test_database_path)
+    try:
+        # #1645: execute-cross-chain now enforces the execution timelock like
+        # /execute does — seed the heights the check measures from and stub
+        # the chain head well past voting_ends_block + timelock_blocks.
+        conn.execute(
+            "UPDATE proposals SET status='succeeded', block_height=100, voting_ends_block=100 WHERE proposal_id=?",
+            (pid,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    async def _head(self, chain_id=None):
+        return 10**9
+
+    monkeypatch.setattr(BlockchainClient, "get_block_height", _head)
+
+    r = client.post(
+        f"/v1/governance/proposals/{pid}/execute-cross-chain",
+        json=_signed({}),
+    )
+    # Past the status gate and the timelock: per-chain submission may fail,
+    # but the route answers 200 with executed_on/failed lists, never the
+    # old 400.
+    assert r.status_code == 200, r.text
+    assert "failed" in r.json() or "executed_on" in r.json()
+
+
+def test_execute_cross_chain_refuses_unverifiable_timelock(client: TestClient, test_database_path) -> None:
+    """#1645: a succeeded proposal with no recorded heights cannot prove the
+    timelock elapsed — the route must refuse (fail-closed) rather than relay
+    EXECUTE txs immediately."""
     import sqlite3
 
     pid = _create_proposal(client)
@@ -230,10 +268,8 @@ def test_execute_cross_chain_accepts_succeeded_status(client: TestClient, test_d
         f"/v1/governance/proposals/{pid}/execute-cross-chain",
         json=_signed({}),
     )
-    # Past the status gate: per-chain submission may fail, but the route
-    # answers 200 with executed_on/failed lists, never the old 400.
-    assert r.status_code == 200, r.text
-    assert "failed" in r.json() or "executed_on" in r.json()
+    assert r.status_code == 400
+    assert "timelock" in r.json()["error"].lower()
 
 
 def test_execute_cross_chain_unknown_proposal_404(client: TestClient) -> None:
