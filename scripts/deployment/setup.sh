@@ -970,6 +970,17 @@ setup_node_identities() {
         fi
     }
 
+    # On a re-run -- or any run where blockchain.env already exists -- the
+    # profiles step returns early and never sets the BLOCKCHAIN_MODE shell
+    # variable, so every ${BLOCKCHAIN_MODE:-follower} below misreads a hub
+    # as a follower: it would rewrite GOSSIP_BACKEND to websocket and point
+    # GOSSIP_WEBSOCKET_URL/DEFAULT_PEER_RPC_URL at localhost, breaking the
+    # node's link to its real hub. Recover the mode from the env file.
+    if [ -z "${BLOCKCHAIN_MODE:-}" ] && [ -f /etc/aitbc/blockchain.env ]; then
+        BLOCKCHAIN_MODE=$(sed -n 's/^BLOCKCHAIN_MODE=//p' /etc/aitbc/blockchain.env | tail -n1 | tr -d '[:space:]')
+    fi
+    BLOCKCHAIN_MODE="${BLOCKCHAIN_MODE:-follower}"
+
     # Generate unique IDs. #872: in hub mode PROPOSER_ID must NOT be written
     # here -- init_proposer.py (step 10.5) derives it from the proposer wallet
     # it generates, and a random id in the file makes it refuse to run (an id
@@ -1039,15 +1050,16 @@ EOF
         set_env subscription_enabled true
         set_env subscription_transport websocket
     else
-        # Convert hub base URL (http/https) to a WebSocket gossip URL.
-        local HUB_WS_URL
+        # Follower: an explicit --open-island re-points gossip at that hub;
+        # otherwise preserve an existing GOSSIP_WEBSOCKET_URL — a bare
+        # re-run must not reset it to localhost and orphan the node.
         if [ -n "$OPEN_ISLAND_HUB" ]; then
             HUB_WS_URL="$(printf '%s' "$OPEN_ISLAND_HUB" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
-        else
-            HUB_WS_URL="ws://127.0.0.1:8202/rpc/gossip/ws"
+            set_env GOSSIP_WEBSOCKET_URL "$HUB_WS_URL"
+        elif ! grep -q "^GOSSIP_WEBSOCKET_URL=" /etc/aitbc/blockchain.env 2>/dev/null; then
+            set_env GOSSIP_WEBSOCKET_URL "ws://127.0.0.1:8202/rpc/gossip/ws"
         fi
         set_env GOSSIP_BACKEND websocket
-        set_env GOSSIP_WEBSOCKET_URL "$HUB_WS_URL"
         set_env subscription_enabled true
         set_env subscription_transport websocket
     fi
@@ -1062,8 +1074,19 @@ EOF
 
     # Keep DEFAULT_PEER_RPC_URL in node.env so the public blockchain.env can be
     # downloaded by followers without leaking the local fallback URL.
-    set_env_node "DEFAULT_PEER_RPC_URL" "$DEFAULT_PEER_RPC"
-    set_env_node "NODE_ID" "${NODE_ID:-aitbc}"
+    # Re-run safety: only (re)write these when the operator passed
+    # --open-island/--node-id or the key is absent — a bare re-run must not
+    # reset a joined node's hub URL or NODE_ID to localhost/aitbc defaults.
+    if [ -n "$OPEN_ISLAND_HUB" ] && [ "$BLOCKCHAIN_MODE" != "hub" ]; then
+        set_env_node "DEFAULT_PEER_RPC_URL" "$OPEN_ISLAND_HUB"
+    elif ! grep -q "^DEFAULT_PEER_RPC_URL=" /etc/aitbc/node.env 2>/dev/null; then
+        set_env_node "DEFAULT_PEER_RPC_URL" "$DEFAULT_PEER_RPC"
+    fi
+    if [ -n "$NODE_ID" ]; then
+        set_env_node "NODE_ID" "$NODE_ID"
+    elif ! grep -q "^NODE_ID=" /etc/aitbc/node.env 2>/dev/null; then
+        set_env_node "NODE_ID" "aitbc"
+    fi
     if [ -n "$OPEN_ISLAND_HUB" ] && [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
         set_env_node "ENABLE_BLOCK_PRODUCTION" "false"
         set_env_node "BLOCK_PRODUCTION_CHAINS" ""
