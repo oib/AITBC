@@ -1020,7 +1020,7 @@ class TestSettlementPhase:
         assert SettlementPhase.DISPUTED == "disputed"
 
     def test_count(self) -> None:
-        assert len(list(SettlementPhase)) == 8
+        assert len(list(SettlementPhase)) == 9
 
 
 class TestInterChainTradeDataSettlement:
