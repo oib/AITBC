@@ -256,7 +256,11 @@ def list_accounts(request: Request, chain_id: str | None = None, limit: int = 10
     offset = max(0, offset)
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
-        accounts = session.exec(select(Account).where(Account.chain_id == chain_id).offset(offset).limit(limit)).all()
+        # Stable order: without ORDER BY SQLite may return rows in any order,
+        # so offset pages could skip or repeat accounts between calls.
+        accounts = session.exec(
+            select(Account).where(Account.chain_id == chain_id).order_by(Account.address).offset(offset).limit(limit)
+        ).all()
         return {
             "chain_id": chain_id,
             "accounts": [{"address": acc.address, "balance": acc.balance, "nonce": acc.nonce} for acc in accounts],

@@ -385,7 +385,7 @@ def list_bridge_transfers(
     the public transaction explorer, so no gating is needed.
     """
     try:
-        from sqlmodel import func, select
+        from sqlmodel import col, func, select
 
         from ..base_models import CrossChainTransfer
         from ..database import session_scope
@@ -405,7 +405,14 @@ def list_bridge_transfers(
                 stmt = stmt.where(CrossChainTransfer.status == status)
                 count_stmt = count_stmt.where(CrossChainTransfer.status == status)
             total = session.exec(count_stmt).one()
-            rows = session.exec(stmt.order_by(CrossChainTransfer.lock_time.desc()).limit(limit).offset(offset)).all()  # type: ignore[union-attr]
+            # transfer_id tiebreaker: lock_time is nullable and ties are
+            # common, so a bare lock_time ordering made offset pages
+            # nondeterministic.
+            rows = session.exec(
+                stmt.order_by(col(CrossChainTransfer.lock_time).desc(), col(CrossChainTransfer.transfer_id).desc())
+                .limit(limit)
+                .offset(offset)
+            ).all()
         transfers = [
             {
                 "transfer_id": t.transfer_id,
