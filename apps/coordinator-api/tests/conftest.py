@@ -13,6 +13,12 @@ from sqlmodel import Session, SQLModel
 os.environ.setdefault("URL", "sqlite:////tmp/aitbc-coordinator-test.db")
 os.environ.setdefault("JWT_SECRET", "test-secret-for-coordinator-tests" * 2)
 os.environ.setdefault("TEST_MODE", "true")
+# #1601 added @rate_limit to ~75 mutating routes; per-endpoint buckets are
+# keyed on the TestClient peer, so suites that POST repeatedly would trip
+# 429s. Same convention as apps/blockchain-node/tests/conftest.py — the
+# decorator itself is covered by tests/test_rate_limiting.py and the
+# route-coverage pin is AST-based, neither needs live enforcement here.
+os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 
 os.environ.setdefault("EXPLORER_API_URL", "http://127.0.0.1:8100/health")
 os.environ.setdefault("MARKET_STATS_URL", "http://127.0.0.1:8102/health")
