@@ -64,6 +64,25 @@ def _repo_path(island_id: str) -> Path:
     return data_dir / "ipfs-island" / island_id
 
 
+def _resolve_repo_arg(repo_arg: str, island_id: str) -> Path:
+    """Resolve ``--repo``/``ISLAND_IPFS_REPO`` against the island identity.
+
+    IPFS-DAEMON-1 (#1670): an unvalidated ``--repo`` let the unit init a
+    Kubo repo and rewrite its config at any path the service user can
+    write. The flag remains for ``AITBC_DATA_DIR`` overrides, but the
+    resolved path must equal the island-derived repo path — anything else
+    is refused before ``ipfs init`` or the config rewrite runs.
+    """
+    expected = _repo_path(island_id).resolve()
+    given = Path(repo_arg).expanduser().resolve()
+    if given != expected:
+        raise ValueError(
+            f"--repo {repo_arg!r} does not match the island repo path {expected}; "
+            "the island daemon only runs against <AITBC_DATA_DIR>/ipfs-island/<island-id>"
+        )
+    return given
+
+
 def _init_repo(repo: Path) -> None:
     if (repo / "config").exists():
         return
@@ -92,26 +111,27 @@ def _set_island_config(
     if not config_file.exists():
         raise RuntimeError(f"Kubo config not found at {config_file}; repo may not be initialised")
 
-    with config_file.open("r+") as f:
-        config: dict[str, Any] = json.load(f)
-        config.setdefault("Addresses", {})
-        config["Addresses"]["API"] = f"/ip4/127.0.0.1/tcp/{api_port}"
-        config["Addresses"]["Gateway"] = f"/ip4/127.0.0.1/tcp/{gateway_port}"
-        config["Addresses"]["Swarm"] = [
-            f"/ip4/0.0.0.0/tcp/{swarm_port}",
-            f"/ip4/0.0.0.0/udp/{swarm_port}/quic-v1",
-            f"/ip4/0.0.0.0/udp/{swarm_port}/quic-v1/webtransport",
-        ]
-        # A node behind a NAT or a container proxy only ever sees its private
-        # address, so left empty it advertises something no outside peer can
-        # dial. Set ISLAND_IPFS_ANNOUNCE to the address peers actually reach.
-        config["Addresses"]["Announce"] = list(announce or [])
-        config["AutoConf"] = {"Enabled": False}
-        config["Gateway"] = config.get("Gateway", {})
-        config["Gateway"]["PublicGateways"] = {}
-        f.seek(0)
-        json.dump(config, f, indent=2)
-        f.truncate()
+    config: dict[str, Any] = json.loads(config_file.read_text())
+    config.setdefault("Addresses", {})
+    config["Addresses"]["API"] = f"/ip4/127.0.0.1/tcp/{api_port}"
+    config["Addresses"]["Gateway"] = f"/ip4/127.0.0.1/tcp/{gateway_port}"
+    config["Addresses"]["Swarm"] = [
+        f"/ip4/0.0.0.0/tcp/{swarm_port}",
+        f"/ip4/0.0.0.0/udp/{swarm_port}/quic-v1",
+        f"/ip4/0.0.0.0/udp/{swarm_port}/quic-v1/webtransport",
+    ]
+    # A node behind a NAT or a container proxy only ever sees its private
+    # address, so left empty it advertises something no outside peer can
+    # dial. Set ISLAND_IPFS_ANNOUNCE to the address peers actually reach.
+    config["Addresses"]["Announce"] = list(announce or [])
+    config["AutoConf"] = {"Enabled": False}
+    config["Gateway"] = config.get("Gateway", {})
+    config["Gateway"]["PublicGateways"] = {}
+    # IPFS-DAEMON-1 (#1670): write-then-rename — a crash mid-write used to
+    # leave a truncated config that the next start could not parse.
+    tmp_file = config_file.with_name(f"{config_file.name}.tmp")
+    tmp_file.write_text(json.dumps(config, indent=2))
+    os.replace(tmp_file, config_file)
 
 
 def _generate_swarm_key() -> str:
@@ -191,7 +211,11 @@ def main(argv: list[str] | None = None) -> int:
             logger.error("%s must be in 1-65535, got %s", name, port)
             return 2
 
-    repo = Path(args.repo) if args.repo else _repo_path(args.island_id)
+    try:
+        repo = _resolve_repo_arg(args.repo, args.island_id) if args.repo else _repo_path(args.island_id)
+    except ValueError as e:
+        logger.error("%s", e)
+        return 2
     _init_repo(repo)
     _write_swarm_key(repo, args.swarm_key or None, allow_generate=args.hub)
     _set_island_config(repo, args.api_port, args.gateway_port, args.swarm_port, _parse_multiaddrs(args.announce))
