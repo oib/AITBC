@@ -1,0 +1,68 @@
+{
+ "block": {
+  "block_metadata": null,
+  "hash": "0xb13f3dd2a9fd9cf19ff0be25bfe5ebf5606712c6fbd04adece00a3ff3fbc72e3",
+  "height": 33000,
+  "timestamp": "2026-01-01T00:00:00+00:00"
+ },
+ "case_id": "duplicate-tx-block",
+ "description": "Same sender nonce twice in one block with DIFFERENT hashes (first applies; the second at the already consumed nonce is rejected), then the next nonce applies. An exact same-hash duplicate is not recorded here: the golden engine raises IntegrityError on the second tx row (the importer collapses by hash first) -- see the item-19 ledger finding.",
+ "gate": "block mechanics",
+ "prestate": {
+  "account": [
+   {
+    "address": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+    "balance": 10000,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   },
+   {
+    "address": "0x1563915e194D8CfBA1943570603F7606A3115508",
+    "balance": 0,
+    "chain_id": "gv-synth",
+    "nonce": 0
+   }
+  ]
+ },
+ "txs": [
+  {
+   "amount": 100,
+   "chain_id": "gv-synth",
+   "fee": 1,
+   "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+   "nonce": 0,
+   "payload": {},
+   "signature": "0x022cb9bf01b9748c799a62c0a6d82d777ffc0f3c20879e678d79793b5ee96fc949329eb969b3ae4c8d25e531ceab86b00e3a34ee7c161d70da29b4fe40e6f48600",
+   "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+   "tx_hash": "0x5e9759e8706eb4421737afecbb90ead36a55f73b4e36e229c1a3fb5ee42eb7b8",
+   "type": "TRANSFER",
+   "value": 100
+  },
+  {
+   "amount": 200,
+   "chain_id": "gv-synth",
+   "fee": 1,
+   "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+   "nonce": 0,
+   "payload": {},
+   "signature": "0xd8ec76ae09dd0c82a040bcbf9804deb75bfdf98b58ec24a267e79cd5f8e242c55057a658d505c083741a2fbf14627eee0cf0e7530a684cf70bd6e644fe038b6c01",
+   "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+   "tx_hash": "0xa6fc22a64e98c30735a83de9deb31e5229b7bcca44ee5a031af65197d7359298",
+   "type": "TRANSFER",
+   "value": 200
+  },
+  {
+   "amount": 300,
+   "chain_id": "gv-synth",
+   "fee": 1,
+   "from": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+   "nonce": 1,
+   "payload": {},
+   "signature": "0xb27b4545aa18cec0ec2b983ff1b5283001254d212c83da9a805d7cf7c2051fd0484db709f842337efada202889aa951717acae62309fb3391e3c38c4b9fde40b00",
+   "to": "0x1563915e194D8CfBA1943570603F7606A3115508",
+   "tx_hash": "0x0d267287ebef2e2d1010e0e3f28baef2a9f52fe0cb4eb36ef7884a5b9e9178c4",
+   "type": "TRANSFER",
+   "value": 300
+  }
+ ]
+}
