@@ -6,9 +6,10 @@ SQLite database for tracking ETH deposits and AIT minting operations.
 import logging
 import os
 import sqlite3
-from datetime import datetime
 from decimal import Decimal
 from typing import Any
+
+from wallet_app.utc_time import utc_now_iso
 
 DB_PATH = (os.getenv("BRIDGE_DEPOSITS_DB") or "").strip() or os.path.join(
     os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc")),
@@ -444,7 +445,7 @@ def insert_deposit(
                 recipient,
                 amount_eth,
                 amount_ait,
-                datetime.now().isoformat(),
+                utc_now_iso(),
                 deposit_address,
             ),
         )
@@ -482,7 +483,7 @@ def insert_exchange_prepay_deposit(tx_hash: str, from_address: str, amount_eth: 
                 from_address,
                 f"EXCHANGE_DEPOSIT:{tag}",
                 amount_eth,
-                datetime.now().isoformat(),
+                utc_now_iso(),
             ),
         )
         conn.commit()
@@ -543,7 +544,7 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     query = f"UPDATE eth_deposits SET status = ?, {timestamp_field} = ? WHERE id = ?"  # nosec
     cursor.execute(
         query,
-        (status, datetime.now().isoformat(), deposit_id),
+        (status, utc_now_iso(), deposit_id),
     )
 
     conn.commit()
@@ -824,7 +825,7 @@ def insert_withdrawal(
                 amount_eth,
                 status,
                 error,
-                datetime.now().isoformat(),
+                utc_now_iso(),
                 ait_block_height,
                 ait_block_hash,
             ),
@@ -1120,7 +1121,7 @@ def update_withdrawal_status(
     """  # nosec
     cursor.execute(
         query,
-        (status, datetime.now().isoformat(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash),
+        (status, utc_now_iso(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash),
     )
     conn.commit()
     rows_affected = cursor.rowcount
@@ -1190,7 +1191,7 @@ def record_release_attempt(ait_tx_hash: str, resolved_by: str, operator_note: st
             (ait_tx_hash, resolved_by, resolved_at, operator_note)
         VALUES (?, ?, ?, ?)
         """,
-        (ait_tx_hash, resolved_by, datetime.now().isoformat(), operator_note),
+        (ait_tx_hash, resolved_by, utc_now_iso(), operator_note),
     )
     attempt_id = int(cursor.lastrowid or 0)
     conn.commit()
@@ -1381,7 +1382,7 @@ def insert_sell_quote(
             _money_str(eth_amount),
             feed_age_seconds,
             expires_at,
-            datetime.now().isoformat(),
+            utc_now_iso(),
         ),
     )
     conn.commit()
@@ -1497,9 +1498,9 @@ def insert_sell_lock(
             None if eth_amount is None else _money_str(eth_amount),
             status,
             locked_height,
-            datetime.now().isoformat(),
+            utc_now_iso(),
             error,
-            datetime.now().isoformat(),
+            utc_now_iso(),
         ),
     )
     inserted = cursor.rowcount > 0
@@ -1685,7 +1686,7 @@ def update_sell_lock_status(
         """  # nosec
         params: tuple = (
             status,
-            datetime.now().isoformat(),
+            utc_now_iso(),
             quote_id,
             shop_eth_address,
             None if eth_amount is None else _money_str(eth_amount),
@@ -1907,7 +1908,7 @@ def insert_exchange_settlement(
             amount_ait,
             eth_amount,
             fee_ait,
-            datetime.now().isoformat(),
+            utc_now_iso(),
         ),
     )
     conn.commit()
@@ -2137,7 +2138,7 @@ def update_exchange_settlement(
         """  # nosec
         params: tuple = (
             status,
-            datetime.now().isoformat(),
+            utc_now_iso(),
             eth_tx_hash,
             release_nonce,
             settle_ait_tx_hash,

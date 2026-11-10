@@ -7,6 +7,8 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
+
+from wallet_app.utc_time import parse_stored, utc_now
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any
@@ -899,7 +901,7 @@ def _check_sell_quote_rate_limit(ait_address: str) -> None:
     latest = get_latest_sell_quote_by_shop(ait_address)
     if latest and latest.get("created_at"):
         try:
-            waited = (datetime.now() - datetime.fromisoformat(str(latest["created_at"]))).total_seconds()
+            waited = (utc_now() - parse_stored(latest["created_at"])).total_seconds()
         except (TypeError, ValueError):
             waited = min_interval
         if waited < min_interval:
@@ -938,7 +940,7 @@ async def bridge_sell_quote(
             detail=f"Quote exceeds per-transaction cap ({_money_str(cfg.max_eth_per_tx)} ETH)",
         )
 
-    expires_at = (datetime.now() + timedelta(seconds=cfg.quote_expiry_seconds)).isoformat()
+    expires_at = (utc_now() + timedelta(seconds=cfg.quote_expiry_seconds)).isoformat()
 
     quote_id = insert_sell_quote(
         shop_ait_address=ait_address,
@@ -1038,9 +1040,12 @@ def _release_window(since: datetime) -> dict[str, Any]:
     """Per-lane ETH released (or possibly released) since ``since`` —
     the committed-status semantics of get_*_eth_committed_since.
 
-    Ledger rows are stamped with naive host-local ``datetime.now()``, so
-    the comparison runs on the naive isoformat. The reported ``since``
-    attaches the host's zone for display, and ``timezone`` names it."""
+    Ledger rows are stamped with aware UTC ``datetime.now(UTC)`` (#1575),
+    so the comparison runs on the UTC isoformat. Pre-#1575 naive
+    host-local rows still order by wall time but can skew a lexical
+    window boundary by the host's UTC offset — bounded and documented.
+    The reported ``since`` attaches the host's zone for display, and
+    ``timezone`` names it."""
     from .bridge_db import (
         get_exchange_eth_committed_since,
         get_sell_eth_committed_since,
@@ -1072,12 +1077,12 @@ async def bridge_float(
     helpers the monitors use.
 
     Admin-keyed like /settlements: reserve and committed totals reveal the
-    bridge's in-flight payment book. ``windows.today`` starts at host-local
+    bridge's in-flight payment book. ``windows.today`` starts at UTC
     midnight; each window reports ``since`` with the host's zone name in
-    ``timezone`` (Europe/Vienna on the hub). ``windows.last_24h`` is the
-    rolling 24h window the sell day-cap itself uses. On a DST change day
-    the two window boundaries can differ by an hour — both are display
-    aggregates over the same naive host-local ledger stamps either way."""
+    ``timezone``. ``windows.last_24h`` is the rolling 24h window the sell
+    day-cap itself uses. Ledger stamps are aware UTC (#1575); pre-#1575
+    naive host-local rows can skew a window boundary by the host's UTC
+    offset — bounded and documented."""
     from .bridge_withdraw_monitor import _eth_balance, _pending_eth_reserve
 
     address = os.getenv("ETH_WALLET_ADDRESS", "")
@@ -1093,7 +1098,7 @@ async def bridge_float(
     reserve = _pending_eth_reserve()
     available = balance - reserve if balance is not None else None
 
-    now = datetime.now()
+    now = utc_now()
     windows = {
         "today": _release_window(now.replace(hour=0, minute=0, second=0, microsecond=0)),
         "last_24h": _release_window(now - timedelta(hours=24)),

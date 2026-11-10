@@ -149,6 +149,10 @@ class KeyManager:
             auth_data = base64.b64decode(authorization).decode()
             auth_json = json.loads(auth_data)
             expires_at = datetime.fromisoformat(auth_json["expires_at"])
+            if expires_at.tzinfo is None:
+                # Tokens minted before the aware-UTC convention (or by older
+                # issuers) carry naive ISO strings; they are UTC (#1575).
+                expires_at = expires_at.replace(tzinfo=UTC)
             if datetime.now(UTC) > expires_at:
                 return False
             required_fields = ["issuer", "subject", "expires_at", "signature"]

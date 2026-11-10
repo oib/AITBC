@@ -31,6 +31,20 @@ def _validate_expires_at(expires_at: datetime | None) -> None:
         raise ValueError("expires_at must be in the future")
 
 
+def _as_aware_utc(dt: datetime) -> datetime:
+    """Return ``dt`` as an aware UTC datetime.
+
+    ``expires_at``/``revoked_at`` round-trip through the DB column as naive
+    datetimes on SQLite (and any ``timestamp without time zone`` column), so a
+    stored value can come back tz-less even though writers only ever store
+    aware UTC. Comparing a naive stored value against ``datetime.now(UTC)``
+    raises TypeError — normalize before comparing (#1575).
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
+
+
 class SpendSessionService:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -129,7 +143,7 @@ class SpendSessionService:
         if row.chain_id != chain_id:
             raise SpendSessionCapError("spend session chain mismatch")
         now = datetime.now(UTC)
-        if row.expires_at is not None and row.expires_at <= now:
+        if row.expires_at is not None and _as_aware_utc(row.expires_at) <= now:
             raise SpendSessionCapError("spend session expired")
         if operation not in row.allowed_ops:
             raise SpendSessionCapError("operation not allowed for session")

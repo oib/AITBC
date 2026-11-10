@@ -5,7 +5,7 @@ Multi-chain wallet operations with proper chain context,
 isolation, and management across different blockchain networks.
 """
 
-from datetime import datetime
+from wallet_app.utc_time import utc_now_iso
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -287,13 +287,13 @@ class ChainAwareWalletService:
                         source_chain_id,
                         wallet_id,
                         "migrated_from",
-                        {"target_chain": target_chain_id, "migration_timestamp": datetime.now().isoformat()},
+                        {"target_chain": target_chain_id, "migration_timestamp": utc_now_iso()},
                     )
                     self.multichain_ledger.record_event(
                         target_chain_id,
                         wallet_id,
                         "migrated_to",
-                        {"source_chain": source_chain_id, "migration_timestamp": datetime.now().isoformat()},
+                        {"source_chain": source_chain_id, "migration_timestamp": utc_now_iso()},
                     )
                     logger.info("Migrated wallet %s from %s to %s", wallet_id, source_chain_id, target_chain_id)
                     return True

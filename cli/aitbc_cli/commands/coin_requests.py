@@ -233,7 +233,7 @@ def approve(ctx, request_id, reason):
 
         req.status = CoinRequestStatus.APPROVED
         req.approved_by = "cli"
-        req.approved_at = datetime.now(UTC)
+        req.approved_at = datetime.now(UTC).replace(tzinfo=None)
         req.rejection_reason = None
         audit_entry = f" | CLI approved at {datetime.now(UTC).isoformat()}"
         if reason:
@@ -273,7 +273,7 @@ def reject(ctx, request_id, reason):
 
         req.status = CoinRequestStatus.REJECTED
         req.approved_by = "cli"
-        req.approved_at = datetime.now(UTC)
+        req.approved_at = datetime.now(UTC).replace(tzinfo=None)
         req.rejection_reason = reason
         audit_entry = f" | CLI rejected at {datetime.now(UTC).isoformat()} | Reason: {reason}"
         req.audit_log = (req.audit_log or "") + audit_entry

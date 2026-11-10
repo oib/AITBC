@@ -6,7 +6,7 @@ Fetches ETH price via the shared price oracle and calculates AIT exchange rate.
 import asyncio
 import os
 import time
-from datetime import datetime
+from wallet_app.utc_time import utc_now_iso
 from decimal import Decimal
 from typing import Any
 
@@ -264,5 +264,5 @@ async def get_exchange_rate() -> dict[str, Any]:
         "ait_eur": ait_eur,
         "eth_ait_rate_usd": eth_usd / ait_usd,
         "eth_ait_rate_eur": eth_eur / ait_eur if ait_eur > 0 else Decimal("0"),
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utc_now_iso(),
     }

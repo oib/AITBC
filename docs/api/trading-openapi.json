@@ -2742,7 +2742,7 @@
             }
           },
           "400": {
-            "description": "Trade amount must be positive",
+            "description": "Trade amount must be positive / timeout_seconds must be between 60 and 604800 seconds",
             "content": {
               "application/json": {
                 "schema": {

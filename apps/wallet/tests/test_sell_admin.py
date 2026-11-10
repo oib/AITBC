@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -118,7 +118,7 @@ def _insert_quote(ait_amount: Decimal = Decimal("10")) -> str:
         ait_usd=Decimal("0.28"),
         fee_ait=fee_ait,
         eth_amount=eth_amount,
-        expires_at=(datetime.now() + timedelta(seconds=900)).isoformat(),
+        expires_at=(datetime.now(UTC) + timedelta(seconds=900)).isoformat(),
     )
 
 
@@ -716,13 +716,13 @@ class TestCapAccounting:
         _seed_lock("written_off", tx=LOCK_HASH, ait=Decimal("10"), eth=Decimal("0.005"))
         update_sell_lock_status(LOCK_HASH, "released", eth_tx_hash="0x" + "dd" * 32, release_nonce=3)
         update_sell_lock_status(LOCK_HASH, "written_off")
-        since = (datetime.now() - timedelta(hours=1)).isoformat()
+        since = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
         assert get_sell_eth_committed_since(since) > 0
 
     def test_written_off_without_release_excluded(self, admin_env):
         """Written off before any release — nothing left the wallet."""
         _seed_lock("written_off", tx=LOCK_HASH, ait=Decimal("10"), eth=Decimal("0.005"))
-        since = (datetime.now() - timedelta(hours=1)).isoformat()
+        since = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
         assert get_sell_eth_committed_since(since) == 0
 
     def test_written_off_out_of_reserve(self, admin_env):

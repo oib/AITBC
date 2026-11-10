@@ -70,7 +70,7 @@ import getpass
 import json
 import os
 import sys
-from datetime import datetime
+from wallet_app.utc_time import utc_now_iso
 from decimal import Decimal
 from typing import Any
 
@@ -178,7 +178,7 @@ def _host_gates() -> int:
 def _audit_fields(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "resolved_by": args.operator or getpass.getuser(),
-        "resolved_at": datetime.now().isoformat(),
+        "resolved_at": utc_now_iso(),
         "operator_note": args.note.strip(),
     }
 

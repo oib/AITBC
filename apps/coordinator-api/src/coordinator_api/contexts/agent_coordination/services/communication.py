@@ -787,7 +787,15 @@ class AgentCommunicationService:
 
     @staticmethod
     def _iso_to_dt(value: Any) -> datetime | None:
-        return datetime.fromisoformat(value) if value is not None else None
+        if value is None:
+            return None
+        dt = datetime.fromisoformat(value)
+        # Imported/legacy payloads may carry naive ISO strings; every consumer
+        # compares these fields against aware ``datetime.now(UTC)``, so a naive
+        # value would raise TypeError on compare (#1575). Stored data is UTC.
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=UTC)
+        return dt
 
     @staticmethod
     def _iso_to_dt_required(value: Any) -> datetime:

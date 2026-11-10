@@ -87,3 +87,48 @@ def test_create_session_rejects_invalid_cap(db_session):
     svc = SpendSessionService(db_session)
     with pytest.raises(ValueError, match="cap_ait"):
         svc.create_session("agent-spend-3", "0x" + "33" * 20, 1000, Decimal("0"), ["wallet.execute"], None)
+
+
+@pytest.mark.unit
+def test_spend_session_expiry_survives_naive_db_roundtrip(db_session):
+    """#1575: expires_at must compare safely after a SQLite round-trip.
+
+    The column stores naive datetimes on SQLite even though writers pass
+    aware UTC; ``_load_session_for_update`` must normalize before comparing
+    against ``datetime.now(UTC)`` or every consume raises TypeError.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity
+    from coordinator_api.contexts.agent_identity.domain.spend_policy import SpendSessionCapError
+
+    db_session.add(AgentIdentity(agent_id="agent-spend-4", owner_address="0x" + "44" * 20))
+    db_session.commit()
+    svc = SpendSessionService(db_session)
+    row = svc.create_session(
+        "agent-spend-4",
+        "0x" + "44" * 20,
+        1000,
+        Decimal("10"),
+        ["wallet.execute"],
+        datetime.now(UTC) + timedelta(hours=1),
+    )
+    # Force a fresh read so expires_at comes back through the DB column
+    # (naive on SQLite) rather than the identity-mapped aware object.
+    db_session.expunge_all()
+    svc.validate_consume(row.id, "agent-spend-4", 1000, Decimal("1"), "wallet.execute")
+
+    # An already-past expiry must raise SpendSessionCapError, not TypeError.
+    from sqlalchemy import update as sa_update
+
+    from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentSpendSession
+
+    db_session.exec(
+        sa_update(AgentSpendSession)
+        .where(AgentSpendSession.id == row.id)  # type: ignore[arg-type]
+        .values(expires_at=datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1))
+    )
+    db_session.commit()
+    db_session.expunge_all()
+    with pytest.raises(SpendSessionCapError, match="expired"):
+        svc.validate_consume(row.id, "agent-spend-4", 1000, Decimal("1"), "wallet.execute")

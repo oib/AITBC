@@ -26,7 +26,9 @@ class AIApprovalStrategy(ApprovalStrategy):
 
     def get_request_history(self, sender: str, days: int = 1) -> list[Any]:
         """Get request history for sender from last N days."""
-        cutoff = datetime.now(UTC) - timedelta(days=days)
+        # CoinRequest columns are naive DateTime storing UTC — match the
+        # column type so the comparison is tz-consistent (#1575).
+        cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=days)
 
         with get_db_session() as session:
             requests = session.query(CoinRequest).filter(CoinRequest.sender == sender, CoinRequest.created_at >= cutoff).all()

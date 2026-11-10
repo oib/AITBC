@@ -10,7 +10,11 @@ from sqlalchemy import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL
-from aitbc.settlement.client import SettlementClient
+from aitbc.settlement.client import (
+    MAX_ESCROW_TIMEOUT_SECONDS,
+    MIN_ESCROW_TIMEOUT_SECONDS,
+    SettlementClient,
+)
 from aitbc.settlement.types import SettlementConfig
 from aitbc.trading.types import SettlementPhase
 from ..dependencies import get_inter_chain_service
@@ -123,6 +127,17 @@ async def lock_escrow(
         )
     if trade.amount <= 0:
         return JSONResponse(status_code=400, content={"error": "Trade amount must be positive"})
+    # #1575: timeout_seconds is caller-supplied and forwarded to the settlement
+    # RPC unchecked — bound it before it becomes block-height timelocks. Runs
+    # before the claim below so a rejected request leaves no marker behind.
+    if timeout_seconds is not None and not (MIN_ESCROW_TIMEOUT_SECONDS <= timeout_seconds <= MAX_ESCROW_TIMEOUT_SECONDS):
+        # Literal message on purpose: the openapi enricher AST-scans this
+        # return and would publish f-string placeholders verbatim. The
+        # numbers mirror MIN/MAX_ESCROW_TIMEOUT_SECONDS (60s / 7d).
+        return JSONResponse(
+            status_code=400,
+            content={"error": "timeout_seconds must be between 60 and 604800 seconds"},
+        )
 
     # Claim-then-call (#1562): the committed marker is the guard on every
     # backend, including sqlite where FOR UPDATE is a no-op — see

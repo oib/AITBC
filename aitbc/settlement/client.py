@@ -41,6 +41,27 @@ from .types import EscrowProof, SettlementConfig
 
 logger = logging.getLogger(__name__)
 
+# Bounds for caller-supplied escrow ``timeout_seconds`` (#1575). The value is
+# forwarded verbatim to the settlement RPC, which turns it into block-height
+# timelocks — an unbounded or non-positive value produces escrows that are
+# instantly refundable or effectively unrefundable. The ceiling matches the
+# node's ``escrow_timeout_extension_max`` (7 days); the floor keeps a typo'd
+# tiny timeout from creating an already-expired escrow.
+MIN_ESCROW_TIMEOUT_SECONDS = 60
+MAX_ESCROW_TIMEOUT_SECONDS = 7 * 24 * 60 * 60  # 604800, same as node extension cap
+
+
+def validate_escrow_timeout(timeout_seconds: int | None) -> None:
+    """Raise ``ValueError`` when ``timeout_seconds`` is outside the allowed range."""
+    if timeout_seconds is None:
+        return
+    if not isinstance(timeout_seconds, int) or isinstance(timeout_seconds, bool):
+        raise ValueError("timeout_seconds must be an integer")
+    if not MIN_ESCROW_TIMEOUT_SECONDS <= timeout_seconds <= MAX_ESCROW_TIMEOUT_SECONDS:
+        raise ValueError(
+            f"timeout_seconds must be between {MIN_ESCROW_TIMEOUT_SECONDS} and {MAX_ESCROW_TIMEOUT_SECONDS} seconds"
+        )
+
 
 class SettlementClient:
     """HTTP client for atomic cross-chain settlement RPC endpoints.
@@ -136,6 +157,7 @@ class SettlementClient:
         Returns the escrow record including ``escrow_id``, ``secret_hash``,
         ``source_timelock``, and ``dest_timelock``.
         """
+        validate_escrow_timeout(timeout_seconds)
         payload: dict[str, Any] = {
             "trade_id": trade_id,
             "source_chain": source_chain,
@@ -367,6 +389,7 @@ class SettlementClient:
         blockchain node's settlement RPC. This is the high-level entry
         point used by the CLI ``trade lock-escrow`` command.
         """
+        validate_escrow_timeout(timeout_seconds)
         payload: dict[str, Any] = {}
         if timeout_seconds is not None:
             payload["timeout_seconds"] = timeout_seconds

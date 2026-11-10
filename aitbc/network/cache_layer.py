@@ -84,7 +84,9 @@ class CacheLayer:
     def cleanup_expired(self) -> int:
         """Remove expired cache entries."""
         with self._lock:
-            now = datetime.now()
+            # Timestamps are stored aware (datetime.now(UTC) above); a naive
+            # now would raise TypeError on the subtraction (#1575).
+            now = datetime.now(UTC)
             expired_keys = [key for key, (_, timestamp) in self.cache.items() if (now - timestamp).total_seconds() >= self.ttl]
             for key in expired_keys:
                 del self.cache[key]

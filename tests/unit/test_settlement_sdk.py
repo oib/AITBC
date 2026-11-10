@@ -1060,3 +1060,65 @@ class TestInterChainTradeDataSettlement:
         assert trade.secret_hash == "0xhash"
         assert trade.source_timelock == 1000
         assert trade.dest_timelock == 900
+
+
+# ---------------------------------------------------------------------------
+# Escrow timeout_seconds bounds (#1575)
+# ---------------------------------------------------------------------------
+
+
+class TestEscrowTimeoutValidation:
+    """``timeout_seconds`` is caller-supplied and forwarded to the settlement
+    RPC unchecked — it must be bounded before it becomes block-height
+    timelocks."""
+
+    def test_validate_accepts_none_and_bounds(self) -> None:
+        from aitbc.settlement.client import (
+            MAX_ESCROW_TIMEOUT_SECONDS,
+            MIN_ESCROW_TIMEOUT_SECONDS,
+            validate_escrow_timeout,
+        )
+
+        validate_escrow_timeout(None)
+        validate_escrow_timeout(MIN_ESCROW_TIMEOUT_SECONDS)
+        validate_escrow_timeout(MAX_ESCROW_TIMEOUT_SECONDS)
+        validate_escrow_timeout(3600)
+
+    @pytest.mark.parametrize("bad", [0, 1, 30, 59, 604801, 10**9, -5])
+    def test_validate_rejects_out_of_range(self, bad: int) -> None:
+        from aitbc.settlement.client import validate_escrow_timeout
+
+        with pytest.raises(ValueError, match="timeout_seconds"):
+            validate_escrow_timeout(bad)
+
+    def test_validate_rejects_non_int(self) -> None:
+        from aitbc.settlement.client import validate_escrow_timeout
+
+        with pytest.raises(ValueError, match="timeout_seconds"):
+            validate_escrow_timeout(3600.5)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="timeout_seconds"):
+            validate_escrow_timeout(True)  # type: ignore[arg-type]
+
+    @pytest.mark.asyncio
+    async def test_create_escrow_rejects_bad_timeout_before_http(self) -> None:
+        client = SettlementClient(SettlementConfig(settlement_rpc_url="http://rpc.test:8202"))
+        with pytest.raises(ValueError, match="timeout_seconds"):
+            await client.create_escrow(
+                trade_id="t-1",
+                source_chain="a",
+                dest_chain="b",
+                sender="0xs",
+                recipient="0xr",
+                amount=100,
+                timeout_seconds=5,
+            )
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_lock_escrow_for_trade_rejects_bad_timeout_before_http(self) -> None:
+        client = SettlementClient(
+            SettlementConfig(settlement_rpc_url="http://rpc.test:8202", trading_rpc_url="http://trading.test:8104")
+        )
+        with pytest.raises(ValueError, match="timeout_seconds"):
+            await client.lock_escrow_for_trade("trade-1", timeout_seconds=10**9)
+        await client.close()

@@ -72,7 +72,10 @@ class SettlementReconciler:
         ``release_payment`` re-verifies on-chain state before doing anything,
         so widening the query is safe; being skipped silently is not.
         """
-        cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
+        # Job.completed_at is a naive-UTC column (SQLModel datetime maps to
+        # DateTime without tz); bind a naive cutoff like the reapers do so
+        # the comparison does not depend on dialect tz coercion (#1575).
+        cutoff = (datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)).replace(tzinfo=None)
         stmt = (
             select(Job)
             .join(JobPayment, Job.payment_id == JobPayment.id)  # type: ignore[arg-type]

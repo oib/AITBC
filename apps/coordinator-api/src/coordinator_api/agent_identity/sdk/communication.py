@@ -14,7 +14,7 @@ client today.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -439,7 +439,7 @@ class AgentCommunicationClient:
                     "topic": "sample_topic_id",
                     "agent_id": "sample_agent_id",
                     "content": "Sample message content",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             }
         except Exception as e:

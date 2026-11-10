@@ -173,3 +173,24 @@ def test_access_endpoint_requires_api_key() -> None:
     # 401/403 = rejected with a configured key; 501 = no key configured
     # (APIKeyAuthenticator fails closed either way).
     assert response.status_code in (401, 403, 501)
+
+
+@pytest.mark.asyncio
+async def test_expired_ipfs_token_rejected_without_typeerror(session: AsyncSession) -> None:
+    """#1575: expires_at is a naive-UTC column; the expiry compare must stay
+    naive-vs-naive (SQLite round-trip) — never TypeError against an aware
+    clock."""
+    from datetime import UTC, datetime, timedelta
+
+    ak = _unique("ake")
+    token = IpfsRentalToken(**_token_data(ak, "exp-secret"))
+    token.expires_at = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
+    session.add(token)
+    await session.commit()
+
+    svc = MarketService(session)
+    assert await svc.get_ipfs_rental_token(ak, "exp-secret") is None
+
+    row = await session.get(IpfsRentalToken, ak)
+    assert row is not None
+    assert row.status == "expired"

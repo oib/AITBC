@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -188,7 +188,7 @@ def _insert_quote(expired: bool = False, ait_amount: Decimal = Decimal("10")) ->
     fee_ait = (ait_amount * Decimal("0.005")).quantize(Decimal("0.000001"))
     net_ait = ait_amount - fee_ait
     eth_amount = (net_ait * Decimal("0.28") / Decimal("3000")).quantize(Decimal("0.00000001"))
-    expires = datetime.now() + (timedelta(seconds=-60) if expired else timedelta(seconds=900))
+    expires = datetime.now(UTC) + (timedelta(seconds=-60) if expired else timedelta(seconds=900))
     return insert_sell_quote(
         shop_ait_address=SHOP_AIT,
         shop_eth_address=SHOP_ETH,
@@ -239,7 +239,7 @@ def _backdate_lock_release(ait_tx_hash: str, seconds: int) -> None:
     past so the absence grace no longer covers it."""
     from wallet_app.bridge import bridge_db as db
 
-    old = (datetime.now() - timedelta(seconds=seconds)).isoformat()
+    old = (datetime.now(UTC) - timedelta(seconds=seconds)).isoformat()
     conn = db._connect_db()
     conn.execute("UPDATE bridge_sell_locks SET released_at = ? WHERE ait_tx_hash = ?", (old, ait_tx_hash))
     conn.commit()
@@ -1629,7 +1629,7 @@ class TestEthAmountStorage:
             update_sell_lock_status(h, "released", eth_amount=Decimal(amount))
             update_sell_lock_status(h, "settled")
 
-        committed = get_sell_eth_committed_since((datetime.now() - timedelta(hours=1)).isoformat())
+        committed = get_sell_eth_committed_since((datetime.now(UTC) - timedelta(hours=1)).isoformat())
         assert committed == Decimal("0.02")
         cap = Decimal("0.03")  # SELL_MAX_ETH_PER_DAY default
         assert not committed + Decimal("0.01") > cap  # 0.02 + 0.01 admitted

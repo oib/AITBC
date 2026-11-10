@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
@@ -340,7 +340,7 @@ def _backdate_release(ait_tx_hash: str, seconds: int) -> None:
     rewrite the column directly."""
     from wallet_app.bridge import bridge_db as db
 
-    old = (datetime.now() - timedelta(seconds=seconds)).isoformat()
+    old = (datetime.now(UTC) - timedelta(seconds=seconds)).isoformat()
     conn = db._connect_db()
     conn.execute("UPDATE eth_withdrawals SET released_at = ? WHERE ait_tx_hash = ?", (old, ait_tx_hash))
     conn.commit()

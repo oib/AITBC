@@ -5,7 +5,7 @@ Geographic Load Balancer for AITBC Market
 
 import asyncio
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 
 import aiohttp
 from aiohttp import web
@@ -32,10 +32,10 @@ class GeoLoadBalancer:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{region_config['url']}/health/live", timeout=5) as response:
                     region_config["healthy"] = response.status == 200
-                    region_config["last_check"] = datetime.now().isoformat()
+                    region_config["last_check"] = datetime.now(UTC).isoformat()
         except Exception as e:
             region_config["healthy"] = False
-            region_config["last_check"] = datetime.now().isoformat()
+            region_config["last_check"] = datetime.now(UTC).isoformat()
             region_config["error"] = str(e)
 
     async def get_healthy_region(self):
@@ -107,7 +107,7 @@ async def health_check_handler(request):
     await asyncio.gather(*tasks)
 
     return web.json_response(
-        {"status": "healthy", "load_balancer": "geographic", "regions": regions, "timestamp": datetime.now().isoformat()}
+        {"status": "healthy", "load_balancer": "geographic", "regions": regions, "timestamp": datetime.now(UTC).isoformat()}
     )
 
 
@@ -120,7 +120,7 @@ async def status_handler(request):
             "total_regions": len(regions),
             "healthy_regions": healthy_count,
             "health_ratio": healthy_count / len(regions),
-            "current_time": datetime.now().isoformat(),
+            "current_time": datetime.now(UTC).isoformat(),
             "regions": {
                 name: {"healthy": config["healthy"], "weight": config["weight"], "last_check": config.get("last_check")}
                 for name, config in regions.items()

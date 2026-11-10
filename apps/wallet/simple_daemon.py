@@ -8,7 +8,7 @@ Real implementation connecting to the AITBC wallet keystore and blockchain RPC.
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +58,7 @@ chains_data: dict[str, Any] = {
             "coordinator_url": "http://localhost:8203",
             "blockchain_url": BLOCKCHAIN_RPC_URL,
             "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "wallet_count": len(list(KEYSTORE_PATH.glob("*.json"))),
             "recent_activity": 0,
         }
@@ -134,7 +134,7 @@ async def list_chains():
     """List all blockchain chains"""
     # Update wallet count dynamically
     chains_data["chains"][0]["wallet_count"] = len(get_wallet_list())
-    chains_data["chains"][0]["updated_at"] = datetime.now().isoformat()
+    chains_data["chains"][0]["updated_at"] = datetime.now(UTC).isoformat()
     return JSONResponse(chains_data)
 
 
@@ -163,8 +163,8 @@ async def create_chain(request: dict[str, Any]):
         "coordinator_url": coordinator_url,
         "status": "active",
         "wallet_count": 0,
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
         "metadata": metadata,
     }
 
@@ -194,7 +194,7 @@ async def get_wallet_balance(chain_id: str, wallet_id: str):
             "chain_id": chain_id,
             "balance": balance,
             "currency": _brand.token_symbol,
-            "last_updated": datetime.now().isoformat(),
+            "last_updated": datetime.now(UTC).isoformat(),
             "mode": "daemon",
         }
     )
@@ -272,7 +272,7 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = No
                 "address": result.get("address", ""),
                 "public_key": result.get("public_key", ""),
                 "encrypted": result.get("encrypted", False),
-                "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "mode": "daemon",
             }
         )
@@ -308,7 +308,7 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = No
                 "address": address,
                 "public_key": public_key,
                 "encrypted": False,
-                "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "mode": "daemon",
             }
         )
@@ -338,7 +338,7 @@ async def get_chain_wallet_info(chain_id: str, wallet_id: str):
         "encrypted": wallet["encrypted"],
         "balance": balance,
         "currency": _brand.token_symbol,
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "metadata": {"chain_specific": True, "token_symbol": "AITBC"},
     }
     return JSONResponse(wallet_data)
@@ -393,7 +393,7 @@ async def migrate_wallet():
                 "public_key": "test-public-key",
                 "address": "test-address",
             },
-            "migration_timestamp": datetime.now().isoformat(),
+            "migration_timestamp": datetime.now(UTC).isoformat(),
         }
     )
 
@@ -433,7 +433,7 @@ async def create_wallet(request: dict[str, Any] | None = None):
                 "public_key": result.get("public_key", ""),
                 "chain_id": chain_id,
                 "encrypted": result.get("encrypted", False),
-                "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "mode": "daemon",
             }
         )
@@ -458,7 +458,7 @@ async def create_wallet(request: dict[str, Any] | None = None):
                 "public_key": public_key,
                 "chain_id": chain_id,
                 "encrypted": is_encrypted,
-                "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "mode": "daemon",
             }
         )

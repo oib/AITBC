@@ -461,6 +461,30 @@ class TestSettlementLockEscrow:
         assert row.escrow_id is None
         assert row.settlement_phase == "none"
 
+    async def test_lock_escrow_rejects_out_of_range_timeout(self, client, monkeypatch):
+        """#1575: caller-supplied timeout_seconds is bounded before it reaches
+        the settlement RPC."""
+        trade_id = await _seed_inter_chain_trade(amount=100)
+        fake = _FakeSettlementClient()
+        _patch_settlement_client(monkeypatch, fake)
+
+        for bad in (0, 30, 604801):
+            resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={"timeout_seconds": bad})
+            assert resp.status_code == 400, bad
+        # No escrow was created for the rejected timeouts.
+        assert fake.created_with is None
+        row = await _trade_row(trade_id)
+        assert row.escrow_id is None
+
+    async def test_lock_escrow_accepts_boundary_timeout(self, client, monkeypatch):
+        trade_id = await _seed_inter_chain_trade(amount=100)
+        fake = _FakeSettlementClient()
+        _patch_settlement_client(monkeypatch, fake)
+
+        resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={"timeout_seconds": 604800})
+        assert resp.status_code == 200
+        assert fake.created_with["timeout_seconds"] == 604800
+
     async def test_lock_escrow_rejects_terminal_trade(self, client, monkeypatch):
         trade_id = await _seed_inter_chain_trade(amount=100, status="cancelled")
         fake = _FakeSettlementClient()
