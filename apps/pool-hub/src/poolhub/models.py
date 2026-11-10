@@ -148,8 +148,10 @@ class ServiceConfig(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
-    # Add unique constraint for miner_id + service_type
-    __table_args__ = ({"schema": None},)
+    # One config row per miner per service type (#1397): the create route's
+    # select-then-insert raced into duplicate rows, after which every
+    # scalar_one_or_none lookup for that pair raised MultipleResultsFound.
+    __table_args__ = (UniqueConstraint("miner_id", "service_type", name="uq_service_config_miner_type"),)
 
     miner: Mapped[Miner] = relationship(backref="service_configs")
 
