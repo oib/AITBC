@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from aitbc.auth import AuthDep
 from pydantic import BaseModel, Field
@@ -83,9 +83,10 @@ async def list_compute_requests(
     svc: Annotated[ServeService, Depends(get_serve_service)],
     gpu_id: str | None = None,
     status: str | None = None,
+    limit: int = Query(200, ge=1, le=1000),
 ) -> dict[str, Any]:
     """List compute requests, optionally filtered — own requests only unless admin."""
-    requests = await svc.list_compute_requests(gpu_id, status, owner_id=_owner_scope(user))
+    requests = await svc.list_compute_requests(gpu_id, status, owner_id=_owner_scope(user), limit=limit)
     return {"requests": requests, "total": len(requests)}
 
 

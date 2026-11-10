@@ -37,8 +37,8 @@ class FakeServeService:
         self.calls.append(("submit", (gpu_id, model_name, input_data, priority, owner_id)))
         return {"success": True, "request_id": "req_test", "status": "queued"}
 
-    async def list_compute_requests(self, gpu_id=None, status=None, owner_id=None):
-        self.calls.append(("list", (gpu_id, status, owner_id)))
+    async def list_compute_requests(self, gpu_id=None, status=None, owner_id=None, limit=200):
+        self.calls.append(("list", (gpu_id, status, owner_id, limit)))
         return [{"request_id": "req_a"}]
 
     async def get_compute_request(self, request_id, owner_id=None):
@@ -123,12 +123,12 @@ class TestServeOwnershipScope:
     def test_list_scoped_to_client_sub(self, env):
         client, svc, _ = env
         client.get("/v1/serve/requests", headers=_auth(_token("user-7")))
-        assert svc.calls[-1] == ("list", (None, None, "user-7"))
+        assert svc.calls[-1] == ("list", (None, None, "user-7", 200))
 
     def test_list_admin_is_unrestricted(self, env):
         client, svc, _ = env
         client.get("/v1/serve/requests", headers=_auth(_token("admin-1", "admin")))
-        assert svc.calls[-1] == ("list", (None, None, None))
+        assert svc.calls[-1] == ("list", (None, None, None, 200))
 
     def test_get_scoped_to_owner(self, env):
         client, svc, _ = env
