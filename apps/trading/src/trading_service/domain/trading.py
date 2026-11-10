@@ -286,6 +286,9 @@ class TradeSettlement(TradingBase, table=True):
     processed_at: datetime | None = None
     completed_at: datetime | None = None
     refunded_at: datetime | None = None
+    # #1554: a settlement stuck in SETTLING had no expiry — funds could park
+    # forever. Stamped at create; the service lazily fails stale rows.
+    expires_at: datetime | None = None
 
     dispute_raised: bool = Field(default=False)
     dispute_details: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
