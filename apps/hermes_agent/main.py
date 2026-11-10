@@ -61,6 +61,16 @@ _CONSERVATIVE_TOOLSETS = "web,memory,todo"
 # the drain only needs to last long enough to collect whatever the kill
 # flushed.
 _POST_KILL_DRAIN_SECONDS = float(os.getenv("HERMES_KILL_DRAIN_SECONDS", "10"))
+# HERMES-OUT-1 (#1666) / HERMES-RESIDUAL-1 (#1683): stdout/stderr are drained
+# continuously (so the child never blocks on a full pipe) but only the first
+# _HERMES_MAX_OUTPUT_BYTES of each stream are retained; the rest is counted
+# and flagged as truncated. Without a cap, communicate() buffers the child's
+# entire output in RAM and _HERMES_RUN_MAX_CONCURRENT parallel runs turn a
+# runaway hermes into a memory-exhaustion path.
+_HERMES_MAX_OUTPUT_BYTES = int(os.getenv("HERMES_MAX_OUTPUT_BYTES", str(4 * 1024 * 1024)))
+# usage-file passthrough guard (#1666): hermes writes this file, but cap what
+# we are willing to slurp into memory before json.load.
+_USAGE_FILE_MAX_BYTES = 256 * 1024
 
 
 async def _require_run_credential(request: Request) -> None:
@@ -188,6 +198,64 @@ async def capabilities():
     }
 
 
+async def _communicate_bounded(proc: asyncio.subprocess.Process, limit: int) -> tuple[bytes, bytes, bool, bool]:
+    """Drain stdout+stderr concurrently, retaining at most ``limit`` bytes each.
+
+    Returns ``(stdout, stderr, stdout_truncated, stderr_truncated)``. Unlike
+    ``proc.communicate()`` the retained memory is bounded by ``limit`` per
+    stream regardless of how much the child writes.
+    """
+
+    out_stream = proc.stdout
+    err_stream = proc.stderr
+    if out_stream is None or err_stream is None:
+        raise RuntimeError("hermes subprocess pipes missing")
+
+    async def _drain(stream: asyncio.StreamReader) -> tuple[bytes, bool]:
+        kept = bytearray()
+        total = 0
+        while True:
+            chunk = await stream.read(65536)
+            if not chunk:
+                break
+            total += len(chunk)
+            remaining = limit - len(kept)
+            if remaining > 0:
+                kept += chunk[:remaining]
+        return bytes(kept), total > limit
+
+    # Drain both pipes concurrently: a sequential read can deadlock when the
+    # child fills the unread pipe's buffer while we wait on the other.
+    (out_b, out_trunc), (err_b, err_trunc) = await asyncio.gather(_drain(out_stream), _drain(err_stream))
+    return out_b, err_b, out_trunc, err_trunc
+
+
+def _kill_process_group(proc: asyncio.subprocess.Process) -> None:
+    """SIGKILL the child's whole process group (it is a session leader)."""
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.kill()  # noqa: unawaited-async — Process.kill() is synchronous
+        except ProcessLookupError:
+            pass
+
+
+async def _reap_after_kill(proc: asyncio.subprocess.Process) -> None:
+    """Bounded wait for the killed child to be reaped.
+
+    ``proc.wait()`` only waits on the direct child — a descendant that
+    escaped the process group (setsid/double-fork) keeps the pipes open but
+    cannot stretch this wait. Any cancellation delivered while reaping is
+    swallowed: the caller is already on a kill path and the child watcher
+    reaps the child even if we stop awaiting it.
+    """
+    try:
+        await asyncio.wait_for(proc.wait(), timeout=_POST_KILL_DRAIN_SECONDS)
+    except BaseException:  # noqa: BLE001 — TimeoutError and re-delivered CancelledError both fine here
+        logger.warning("post-kill reap timed out or was cancelled for pid %s", proc.pid)
+
+
 def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
     """Build the hermes one-shot command from the request and shop defaults."""
     if not _HERMES_PATH:
@@ -261,40 +329,56 @@ async def _run_hermes_inner(request: HermesRunRequest):
             stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
         )
+        timed_out = False
+        output_truncated = False
         try:
-            out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=request.max_time)
-            timed_out = False
+            out_b, err_b, out_trunc, err_trunc = await asyncio.wait_for(
+                _communicate_bounded(proc, _HERMES_MAX_OUTPUT_BYTES), timeout=request.max_time
+            )
+            output_truncated = out_trunc or err_trunc
         except TimeoutError:
             # The child is a session leader (start_new_session=True), so its
             # pid is also its process-group id. Killing only the direct child
             # leaves tool subprocesses alive holding the stdout/stderr pipes —
-            # communicate() below would then block until THEY exit, stretching
+            # a naive communicate() would then block until THEY exit, stretching
             # the enforced max_time bound arbitrarily (#1473).
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError, OSError):
-                proc.kill()
-            # Bounded drain: killpg covers the process group, but a descendant
-            # that escaped it (setsid / double-fork) can keep the pipes open
-            # past the kill, so cap the wait — the 504 below discards the
-            # output anyway and only the reap matters (the child watcher
-            # reaps the killed child even if we stop awaiting it).
-            try:
-                out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=_POST_KILL_DRAIN_SECONDS)
-            except TimeoutError:
-                logger.warning("post-kill drain timed out for pid %s; abandoning pipe read", proc.pid)
-                out_b, err_b = b"", b""
+            _kill_process_group(proc)
+            # Bounded reap: killpg covers the process group, but a descendant
+            # that escaped it (setsid / double-fork) keeps running — there is
+            # no cgroup containment (#1683 item 3, needs a design decision).
+            # proc.wait() only waits on the direct child, so the escapee
+            # cannot stretch this either; the 504 below discards output anyway.
+            await _reap_after_kill(proc)
+            out_b, err_b = b"", b""
             timed_out = True
+        except asyncio.CancelledError:
+            # HERMES-RESIDUAL-1 (#1683): a client disconnect or service shutdown
+            # cancels this task — without an explicit kill the hermes child
+            # keeps running detached in its own session with NO timeout.
+            _kill_process_group(proc)
+            await _reap_after_kill(proc)
+            raise
+        except BaseException:
+            # Any other failure mid-run (e.g. pipe error) must not leak the
+            # child either — same kill+reap, then propagate.
+            _kill_process_group(proc)
+            await _reap_after_kill(proc)
+            raise
         elapsed = time.time() - t_start
         stdout = out_b.decode(errors="replace")
         stderr = err_b.decode(errors="replace")
         returncode = -1 if timed_out else (proc.returncode or 0)
 
-        # Try to read usage report if it was produced
+        # Try to read usage report if it was produced. Cap the slurp
+        # (#1666): the file is written by the shop-controlled hermes binary,
+        # but an oversized or malformed file must not be loaded wholesale.
         usage: dict[str, Any] = {}
         try:
-            with open(usage_path) as f:
-                usage = json.load(f)
+            if os.path.getsize(usage_path) <= _USAGE_FILE_MAX_BYTES:
+                with open(usage_path) as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    usage = loaded
         except Exception:
             pass
 
@@ -320,6 +404,7 @@ async def _run_hermes_inner(request: HermesRunRequest):
         {
             "text": result_text,
             "status": "completed",
+            "output_truncated": output_truncated,
             "elapsed_seconds": elapsed_rounded,
             "duration_minutes": duration_minutes,
             "result_hash": result_hash,

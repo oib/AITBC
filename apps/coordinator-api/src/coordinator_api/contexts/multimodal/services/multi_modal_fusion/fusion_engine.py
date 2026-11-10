@@ -3,6 +3,7 @@
 Multi-Modal Fusion Engine - Main service for multi-modal fusion operations
 """
 
+import os
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -20,6 +21,11 @@ from .neural_modules import AdaptiveModalityWeighting, CrossModalAttention, Mult
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# MEMORY-RESIDUAL-1 (#1682): fusion_models grew one entry per train/evaluate
+# call and was never evicted — unbounded in-memory state per process. Cap it
+# (LRU: reads refresh recency, inserts evict the oldest) via env.
+_MAX_FUSION_MODELS = int(os.getenv("MULTIMODAL_MAX_FUSION_MODELS", "64"))
 
 
 class MultiModalFusionEngine:
@@ -45,6 +51,21 @@ class MultiModalFusionEngine:
             "structured": {"weight": 0.1, "encoder": "tabular", "dim": 256},
         }
         self.fusion_objectives = {"performance": 0.4, "efficiency": 0.3, "robustness": 0.2, "adaptability": 0.1}
+
+    def _register_fusion_model(self, model_id: str, entry: dict[str, Any]) -> None:
+        """Store a trained fusion model, evicting the LRU entry at the cap."""
+        if model_id in self.fusion_models:
+            del self.fusion_models[model_id]
+        while len(self.fusion_models) >= _MAX_FUSION_MODELS:
+            oldest = next(iter(self.fusion_models))
+            del self.fusion_models[oldest]
+            logger.info("Evicted LRU fusion model %s (cap %d)", oldest, _MAX_FUSION_MODELS)
+        self.fusion_models[model_id] = entry
+
+    def _touch_fusion_model(self, model_id: str) -> None:
+        """Mark a fusion model as recently used (LRU recency refresh)."""
+        entry = self.fusion_models.pop(model_id)
+        self.fusion_models[model_id] = entry
 
     async def transformer_fusion(
         self, session: Session, modal_data: dict[str, Any], fusion_config: dict[str, Any] | None = None
@@ -90,12 +111,15 @@ class MultiModalFusionEngine:
             training_history["losses"].append(loss.item())
             training_history["modality_weights"].append(modality_weights.mean(dim=0).cpu().numpy())
         model_id = f"transformer_fusion_{uuid4().hex[:8]}"
-        self.fusion_models[model_id] = {
-            "fusion_model": fusion_model.state_dict(),
-            "adaptive_weighting": adaptive_weighting.state_dict(),
-            "config": default_config,
-            "modality_dims": modality_dims,
-        }
+        self._register_fusion_model(
+            model_id,
+            {
+                "fusion_model": fusion_model.state_dict(),
+                "adaptive_weighting": adaptive_weighting.state_dict(),
+                "config": default_config,
+                "modality_dims": modality_dims,
+            },
+        )
         return {
             "fusion_strategy": "transformer_fusion",
             "model_id": model_id,
@@ -142,11 +166,14 @@ class MultiModalFusionEngine:
                 epoch_loss += float(total_loss)  # type: ignore[assignment]
             training_history["losses"].append(epoch_loss / 10)
         model_id = f"cross_modal_attention_{uuid4().hex[:8]}"
-        self.fusion_models[model_id] = {
-            "attention_networks": {name: net.state_dict() for name, net in attention_networks.items()},
-            "config": default_config,
-            "modality_names": modality_names,
-        }
+        self._register_fusion_model(
+            model_id,
+            {
+                "attention_networks": {name: net.state_dict() for name, net in attention_networks.items()},
+                "config": default_config,
+                "modality_names": modality_names,
+            },
+        )
         return {
             "fusion_strategy": "cross_modal_attention",
             "model_id": model_id,
@@ -169,6 +196,7 @@ class MultiModalFusionEngine:
         """Evaluate fusion model performance"""
         if model_id not in self.fusion_models:
             return {"error": "Model not found"}  # type: ignore[dict-item]
+        self._touch_fusion_model(model_id)
         model_info = self.fusion_models[model_id]
         fusion_strategy = model_info.get("config", {}).get("strategy", "unknown")
         if fusion_strategy == "transformer_fusion":

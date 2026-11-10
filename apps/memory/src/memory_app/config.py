@@ -33,5 +33,18 @@ class Settings(ServiceSettings):
     memory_max_blob_bytes: int = 16 * 1024 * 1024
     memory_max_blobs: int = 10_000
 
+    # MEMORY-RESIDUAL-1 (#1682): the count cap alone made StoreFullError
+    # terminal — no eviction, TTL, or delete existed. TTL (seconds; 0
+    # disables) expires blobs lazily; when the count cap is hit the store
+    # evicts expired entries first, then least-recently-used ones, instead
+    # of refusing the write.
+    memory_blob_ttl_seconds: int = 7 * 24 * 3600
+
+    # Optional shared-secret gate (#1682): when set, /store, /retrieve and
+    # DELETE require the X-API-Key header (constant-time compare). Unset
+    # keeps the previous open behavior — deployments that expose the port
+    # beyond loopback should set it.
+    memory_api_key: str | None = None
+
 
 settings = Settings()
