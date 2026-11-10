@@ -11,6 +11,28 @@ from ..logger import get_logger
 logger = get_logger(__name__)
 
 
+def _bounded_lease_duration(duration: Any) -> int | None:
+    """Validate and bound a client-requested lease duration (#1703).
+
+    Returns the duration in whole seconds, or None when the caller omitted it
+    (the settings default applies). Non-numeric values are rejected with 400
+    instead of surfacing as a 500 inside ``time.time() + duration``; values
+    above ``settings.subscription_max_lease_duration`` are clamped so a lease
+    can never be pinned effectively forever.
+    """
+    if duration is None:
+        return None
+    if isinstance(duration, bool) or not isinstance(duration, int | float):
+        raise HTTPException(status_code=400, detail="duration must be a number of seconds")
+    if duration <= 0:
+        raise HTTPException(status_code=400, detail="duration must be positive")
+    max_duration = settings.subscription_max_lease_duration
+    if duration > max_duration:
+        logger.warning("Clamping requested lease duration %s to maximum %s", duration, max_duration)
+        return max_duration
+    return int(duration)
+
+
 async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:
     """Register a follower node for block subscription with a lease.
 
@@ -31,7 +53,7 @@ async def register_subscription(request: dict[str, Any]) -> dict[str, Any]:
     node_id = request.get("node_id")
     transport = request.get("transport", "websocket")
     chain_id = request.get("chain_id", settings.chain_id)
-    duration = request.get("duration")
+    duration = _bounded_lease_duration(request.get("duration"))
     client_ip = request.get("_client_ip", "unknown")
     if not node_id:
         raise HTTPException(status_code=400, detail="node_id is required")
@@ -75,7 +97,7 @@ async def heartbeat(request: dict[str, Any]) -> dict[str, Any]:
     """
     node_id = request.get("node_id")
     chain_id = request.get("chain_id")
-    duration = request.get("duration")
+    duration = _bounded_lease_duration(request.get("duration"))
     client_ip = request.get("_client_ip", "unknown")
     if not node_id:
         raise HTTPException(status_code=400, detail="node_id is required")
