@@ -20,6 +20,7 @@ from typing import Any, cast
 import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import SharedHttpClient
 from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.utils.chain_id import resolve_chain_id
@@ -1207,7 +1208,7 @@ def start_withdrawal_monitoring() -> asyncio.Task[None] | None:
         return None
 
     try:
-        task = asyncio.create_task(withdrawal_monitor_loop())
+        task = create_task_with_logging(withdrawal_monitor_loop(), name="bridge_withdraw_monitor")
         return task
     except RuntimeError:
         logger.debug("No event loop running; starting withdrawal monitor in a thread", exc_info=True)
