@@ -305,6 +305,65 @@ def ensure_chain_db_healthy(
     return (ok, detail)
 
 
+def count_foreign_key_violations(engine: Engine) -> tuple[int, list[str]]:
+    """#1615: run ``PRAGMA foreign_key_check`` and return ``(count, sample)``.
+
+    Report-only: violations describe rows written while enforcement was off.
+    Enabling ``foreign_keys`` does not retroactively fail them — it only
+    refuses *new* violating writes — so a nonzero count here is a data
+    finding for the operator, not a startup blocker.
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(text("PRAGMA foreign_key_check")).fetchall()
+    sample = [" ".join(str(part) for part in row) for row in rows[:5]]
+    return (len(rows), sample)
+
+
+def maintain_chain_db_storage(chain_id: str = "") -> dict[str, int]:
+    """#1616: per-sweep storage maintenance for one chain's store.
+
+    Publishes ``chain_db_page_count`` / ``chain_db_freelist_pages`` gauges and
+    runs a bounded ``PRAGMA incremental_vacuum`` of at most
+    ``settings.db_incremental_vacuum_max_pages`` pages. On
+    ``auto_vacuum=NONE`` databases (every store created before this change)
+    the vacuum is a no-op and only the gauges do work; on
+    ``auto_vacuum=INCREMENTAL`` stores it returns freed pages to the OS.
+    Never raises for a missing store — the sweep logs and moves on.
+    """
+    from .metrics import metrics_registry
+
+    key = _safe_chain_key(chain_id)
+    engine = _engines.get(key)
+    if engine is None:
+        return {}
+    stats: dict[str, int] = {}
+    with engine.connect() as conn:
+        page_count = int(conn.execute(text("PRAGMA page_count")).scalar() or 0)
+        freelist = int(conn.execute(text("PRAGMA freelist_count")).scalar() or 0)
+    stats["page_count"] = page_count
+    stats["freelist_count"] = freelist
+    metrics_registry.set_gauge("chain_db_page_count", float(page_count))
+    metrics_registry.set_gauge("chain_db_freelist_pages", float(freelist))
+    max_pages = int(getattr(settings, "db_incremental_vacuum_max_pages", 0) or 0)
+    if max_pages > 0 and freelist > 0:
+        budget = min(freelist, max_pages)
+        with engine.connect() as conn:
+            conn.execute(text(f"PRAGMA incremental_vacuum({budget})"))
+            after = int(conn.execute(text("PRAGMA freelist_count")).scalar() or 0)
+        freed = freelist - after
+        if freed > 0:
+            metrics_registry.increment("chain_db_incremental_vacuum_pages_total", float(freed))
+            stats["freelist_after"] = after
+            logger.info(
+                "chain %s: incremental_vacuum freed %s pages (freelist %s -> %s)",
+                key,
+                freed,
+                freelist,
+                after,
+            )
+    return stats
+
+
 # Chain ids this process materialized itself (init_db / create_ok callers)
 # or explicitly opted into. Unioned with the settings-derived lists on
 # every check, so tests that monkeypatch settings keep working and an
@@ -451,12 +510,26 @@ def get_engine(chain_id: str = "", create_ok: bool = False, allow_foreign: bool 
 def _set_sqlite_pragmas(dbapi_connection: Any, connection_record: Any) -> None:
     """Set WAL and tuning pragmas on every new SQLite connection."""
     cursor = dbapi_connection.cursor()
+    # #1616 CHAINDB-VACUUM-1: databases created after this change get
+    # auto_vacuum=INCREMENTAL because this pragma lands on the first
+    # connection, before create_all builds the tables. It MUST run before
+    # journal_mode=WAL: once a database is in WAL mode the auto_vacuum
+    # header change is refused (verified: WAL-first leaves auto_vacuum=0 on
+    # a fresh file). On an existing database the pragma is a silent no-op —
+    # the header only changes via a full VACUUM — so ordering is safe on
+    # every connect.
+    cursor.execute("PRAGMA auto_vacuum=INCREMENTAL")
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.execute("PRAGMA cache_size=-64000")
     cursor.execute("PRAGMA temp_store=MEMORY")
     cursor.execute("PRAGMA mmap_size=30000000000")
     cursor.execute("PRAGMA busy_timeout=60000")
+    # #1615 CHAINDB-FK-ENFORCE-1: foreign_keys is per-connection and defaults
+    # OFF; opt-in only — see settings.db_foreign_keys_enabled for why the
+    # default stays off.
+    if settings.db_foreign_keys_enabled:
+        cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
 
@@ -953,6 +1026,21 @@ def init_db(chain_id: str = "") -> None:
     engine = get_engine(resolved_chain_id, create_ok=True)
     if getattr(settings, "db_integrity_check_enabled", True):
         verify_chain_db_integrity(resolved_chain_id, engine=engine, raise_on_failure=True)
+    if getattr(settings, "db_foreign_keys_enabled", False):
+        # #1615: report pre-existing FK violations once at startup. Report-only —
+        # enforcement refuses new bad writes; it does not retroactively fail
+        # rows written while foreign_keys was off.
+        fk_count, fk_sample = count_foreign_key_violations(engine)
+        if fk_count:
+            logger.warning(
+                "chain %s: %s foreign key violation(s) under PRAGMA foreign_key_check "
+                "(first: %s) — enforcement is on for new writes",
+                resolved_chain_id,
+                fk_count,
+                "; ".join(fk_sample),
+            )
+        else:
+            logger.info("chain %s: foreign_key_check clean", resolved_chain_id)
     _hold_keeper_connection(resolved_chain_id, engine)
 
     # No try/except here. This used to swallow anything whose message contained "already

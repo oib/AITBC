@@ -706,7 +706,7 @@ class BlockchainNode:
         mid-run chain.db corruption within one interval. A failure quarantines
         the chain (import/propose/attest all refuse); the sweep keeps running so
         a repaired DB is re-verified and un-quarantines."""
-        from .database import ensure_chain_db_healthy
+        from .database import ensure_chain_db_healthy, maintain_chain_db_storage
 
         interval = float(getattr(settings, "db_integrity_check_interval_seconds", 60.0))
         while True:
@@ -716,6 +716,11 @@ class BlockchainNode:
                     ensure_chain_db_healthy(chain_id, force=True)
                 except Exception as e:
                     logger.warning("db integrity sweep failed for %s: %s", chain_id, e)
+                try:
+                    # #1616: page/freelist gauges + bounded incremental_vacuum.
+                    maintain_chain_db_storage(chain_id)
+                except Exception as e:
+                    logger.warning("db storage sweep failed for %s: %s", chain_id, e)
 
     async def _shutdown(self) -> None:
         logger.info("Shutting down blockchain node, cancelling background tasks...")

@@ -86,6 +86,25 @@ class ChainSettings(BaseSettings):
     # refuses block import, block proposal, and attestation signing).
     db_integrity_check_enabled: bool = True
     db_integrity_check_interval_seconds: float = 60.0
+    # #1615 CHAINDB-FK-ENFORCE-1: enforce declared FOREIGN KEY constraints on
+    # every chain.db connection (PRAGMA foreign_keys=ON in _set_sqlite_pragmas).
+    # Default OFF pending the escrow write-path audit: the Escrow row is
+    # persisted when the lock is admitted — before the provider's Account row
+    # exists (provider accounts are materialized at block apply for v2+ locks,
+    # and only then) — so blanket enforcement would fail escrow creation for
+    # first-time providers. A PRAGMA foreign_key_check scan of the live bc-2
+    # store found zero violations, so existing data is clean; the risk is
+    # write ordering, not data.
+    db_foreign_keys_enabled: bool = False
+    # #1616 CHAINDB-VACUUM-1: bounded freelist reclaim, run once per db
+    # integrity sweep per chain. Only databases created after this change
+    # carry auto_vacuum=INCREMENTAL (set in _set_sqlite_pragmas before
+    # create_all); existing stores keep auto_vacuum=NONE, where
+    # incremental_vacuum is a no-op — reclaiming those needs a one-time
+    # offline VACUUM. The pass also publishes chain_db_page_count /
+    # chain_db_freelist_pages gauges so growth stays visible. 0 disables the
+    # vacuum (the gauges still run).
+    db_incremental_vacuum_max_pages: int = 500
 
     # Connection pooling (v0.6.0). Pool size for PostgreSQL/QueuePool-backed
     # engines. SQLite uses StaticPool (single writer) so this only applies when

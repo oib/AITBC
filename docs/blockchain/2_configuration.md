@@ -123,6 +123,29 @@ MEMPOOL_BACKEND=database
 MEMPOOL_DB_URL=postgresql+psycopg2://aitbc_mempool:<password>@localhost:5432/aitbc_mempool
 ```
 
+### chain.db maintenance knobs
+
+- `DB_INCREMENTAL_VACUUM_MAX_PAGES` (default `500`, `0` disables): each db
+  integrity sweep (`DB_INTEGRITY_CHECK_INTERVAL_SECONDS`, default 60 s) runs
+  a bounded `PRAGMA incremental_vacuum` per chain and exports
+  `chain_db_page_count` / `chain_db_freelist_pages` gauges. Only databases
+  created after this knob existed carry `auto_vacuum=INCREMENTAL`; on older
+  `auto_vacuum=NONE` stores the vacuum is a no-op. To reclaim space on an
+  existing store, convert it once with the node stopped — the header flag
+  and the rewrite must happen together:
+
+  ```bash
+  sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db "PRAGMA auto_vacuum=INCREMENTAL; VACUUM;"
+  ```
+
+  `VACUUM` rewrites the whole file and needs ~2× disk headroom.
+- `DB_FOREIGN_KEYS_ENABLED` (default `false`): sets `PRAGMA foreign_keys=ON`
+  on every chain.db connection and runs a `PRAGMA foreign_key_check` report
+  at `init_db`. Off by default — the escrow row is persisted when the lock
+  is admitted, before the provider's `account` row exists (it materializes
+  at block apply), so blanket enforcement would refuse escrow creation for
+  first-time providers. Enable only after the escrow write-path audit lands.
+
 ## Gossip Backend
 
 ```bash
