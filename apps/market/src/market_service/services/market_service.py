@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import hmac
 import ipaddress
+import math
 import os
 import re
 import socket
@@ -102,6 +103,28 @@ def _rating_created_at(value: Any) -> datetime:
     if dt.tzinfo is not None:
         dt = dt.astimezone(UTC).replace(tzinfo=None)
     return dt
+
+
+def _coerce_remote_rating(value: Any) -> float:
+    """Validate a remote rating before it is persisted (MKT-RATING-1, #1446).
+
+    ``add_service_rating`` enforces ``1.0 <= rating <= 5.0`` on the local
+    submit path, but ``sync_ratings_from_remote`` used to store whatever a
+    peer sent — out-of-range, non-finite, or non-numeric values were folded
+    straight into ``avg_rating``/``rating_count``. Remote payloads are
+    uncontrolled, so the same range check runs here; the coerced float (not
+    the raw value) is what gets stored, matching the column type. Raises
+    ``ValueError`` so the caller counts the row as failed.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"remote rating must be a number, got {value!r}")
+    try:
+        rating = float(value)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"remote rating is not numeric: {value!r}") from e
+    if not math.isfinite(rating) or not 1.0 <= rating <= 5.0:
+        raise ValueError(f"remote rating {rating!r} outside [1.0, 5.0]")
+    return rating
 
 
 # Keys a market job row may expose to the unauthenticated feed
@@ -1326,6 +1349,7 @@ class MarketService:
             for remote_rating in remote_ratings:
                 try:
                     remote_created = _rating_created_at(remote_rating["created_at"])
+                    rating_value = _coerce_remote_rating(remote_rating["rating"])
                     stmt = select(ServiceRating).where(
                         ServiceRating.service_id == remote_rating["service_id"],
                         ServiceRating.reviewer_id == remote_rating["reviewer_id"],
@@ -1334,7 +1358,7 @@ class MarketService:
                     existing = result.scalar_one_or_none()
                     if existing:
                         if remote_created > existing.created_at:
-                            existing.rating = remote_rating["rating"]
+                            existing.rating = rating_value
                             existing.comment = remote_rating["comment"]
                             existing.synced_at = datetime.now(UTC).replace(tzinfo=None)
                             updated_count += 1
@@ -1344,7 +1368,7 @@ class MarketService:
                         new_rating = ServiceRating(
                             id=remote_rating["id"],
                             service_id=remote_rating["service_id"],
-                            rating=remote_rating["rating"],
+                            rating=rating_value,
                             reviewer_id=remote_rating["reviewer_id"],
                             comment=remote_rating["comment"],
                             created_at=remote_created,
