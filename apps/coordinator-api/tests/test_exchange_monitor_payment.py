@@ -15,6 +15,14 @@ import coordinator_api.contexts.infrastructure.routers.exchange as exch_mod
 
 
 class _FakeState:
+    """Doc-API stand-in for RedisStateManager (#1533 surface).
+
+    ``set_doc`` stores the payload as the live payment (with TTL accepted and
+    ignored — expiry is pinned by the ``expires_at`` field tests set),
+    ``get_doc`` reads it back, ``docs`` enumerates the namespace. No hash API:
+    exchange moved hget/hset -> get_doc/set_doc/docs in 06ae8862c.
+    """
+
     def __init__(self, payment):
         self.payment = payment
         self.set_payloads: list[dict] = []
