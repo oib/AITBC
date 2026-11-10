@@ -37,8 +37,8 @@ async def test_coordinator_api_handler_close():
     """Test closing coordinator API handler."""
     handler = CoordinatorAPIHandler("http://localhost:8011")
 
-    # Create a client first
-    await handler._get_client()
+    # Create a client first (_get_client is sync — de-asynced in 34b12c341)
+    handler._get_client()
     assert handler._client is not None
 
     await handler.close()
@@ -61,7 +61,9 @@ async def test_agent_daemon_handler_handle_transaction():
 
     tx_data = {"hash": "0x123", "type": "agent_message", "to": "agent_address", "payload": {"trigger": "process"}}
 
-    with patch.object(handler, "_notify_agent_daemon", new_callable=AsyncMock) as mock_notify:
+    # _notify_agent_daemon is sync (de-asynced in 34b12c341) — a plain Mock,
+    # not AsyncMock, or the returned coroutine is never awaited.
+    with patch.object(handler, "_notify_agent_daemon") as mock_notify:
         await handler.handle_transaction(tx_data)
 
         mock_notify.assert_called_once_with(tx_data)
