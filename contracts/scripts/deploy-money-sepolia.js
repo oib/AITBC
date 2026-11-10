@@ -239,7 +239,11 @@ function buildPlan({ paymentToken, stakingToken }) {
 function resolveArgs(step, deployed) {
   return step.args.map((a) => {
     if (typeof a === "string" && a.startsWith("@")) {
-      const dep = deployed[a.slice(1)];
+      const ref = a.slice(1);
+      const depKey = Object.keys(deployed).find(
+        (k) => k.toLowerCase() === ref.toLowerCase()
+      );
+      const dep = deployed[ref] || (depKey && deployed[depKey]);
       if (!dep) throw new Error(`${step.name}: dependency ${a} not deployed yet`);
       return dep;
     }
@@ -287,7 +291,9 @@ function postDeployCalls(step, env) {
 }
 
 async function main() {
-  const live = process.argv.includes("--live");
+  // Hardhat 3 run task rejects unknown flags, so --live cannot always be
+  // passed on the CLI; MONEY_DEPLOY_LIVE=1 is the env equivalent.
+  const live = process.argv.includes("--live") || process.env.MONEY_DEPLOY_LIVE === "1";
   const contractsDir = `${import.meta.dirname}/..`;
 
   requireChainIdForKeyFile(process.env);
@@ -408,13 +414,25 @@ async function main() {
 
   // --- live deploy -------------------------------------------------------
   const sendCall = async (label, to, data) => {
-    const estimate = await ethers.provider.estimateGas({ from: deployer.address, to, data });
-    const gasLimit = padPostDeployGas(estimate);
-    const tx = await deployer.sendTransaction({ to, data, gasLimit });
-    const receipt = await tx.wait();
-    if (!receipt || receipt.status !== 1) throw new Error(`${label} reverted: ${tx.hash}`);
-    console.log(`${label}: ${tx.hash} gasUsed=${receipt.gasUsed}`);
-    return receipt;
+    // Load-balanced public RPCs can serve a stale pending-nonce — retry on
+    // nonce races; the post-deploy calls are idempotent authorizations.
+    let lastErr;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const estimate = await ethers.provider.estimateGas({ from: deployer.address, to, data });
+        const gasLimit = padPostDeployGas(estimate);
+        const tx = await deployer.sendTransaction({ to, data, gasLimit });
+        const receipt = await tx.wait();
+        if (!receipt || receipt.status !== 1) throw new Error(`${label} reverted: ${tx.hash}`);
+        console.log(`${label}: ${tx.hash} gasUsed=${receipt.gasUsed}`);
+        return receipt;
+      } catch (e) {
+        lastErr = e;
+        if (attempt === 3 || !/nonce too low|replacement transaction underpriced|already known|transaction underpriced/i.test(String(e))) throw e;
+        await new Promise((r) => setTimeout(r, 4000));
+      }
+    }
+    throw lastErr;
   };
 
   const appendRecord = (entry) => {
@@ -499,7 +517,13 @@ async function main() {
       address,
       c.interface.encodeFunctionData("transferOwnership", [owner])
     );
-    const nowOwner = await c.owner();
+    // Public RPCs (load-balanced) can serve a pre-receipt state right after
+    // tx.wait() — retry the read-back a few times before declaring failure.
+    let nowOwner = await c.owner();
+    for (let i = 0; i < 5 && nowOwner.toLowerCase() !== owner.toLowerCase(); i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      nowOwner = await c.owner();
+    }
     if (nowOwner.toLowerCase() !== owner.toLowerCase()) {
       throw new Error(`${step.name}: owner is ${nowOwner} after transferOwnership, expected ${owner}`);
     }
