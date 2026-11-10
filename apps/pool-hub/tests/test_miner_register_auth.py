@@ -71,3 +71,42 @@ async def test_first_registration_is_open() -> None:
     with patch("poolhub.app.routers.miners.MinerRepository", return_value=_repo_mock()):
         result = await register_miner(_request(), session, MagicMock())  # type: ignore[arg-type]
     assert result["success"] is True
+
+
+class TestWalletAddressValidation:
+    """#1570: wallet_address becomes the payout tx `to` verbatim — it must
+    be 0x + 40 hex chars (any case) or absent, never stored garbage."""
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "not-an-address",
+            "0x1234",
+            "0x" + "g" * 40,
+            "0x" + "a" * 39,
+            "0x" + "a" * 41,
+            "1234567890abcdef1234567890abcdef12345678",  # missing 0x
+        ],
+    )
+    def test_malformed_wallet_address_rejected(self, bad: str) -> None:
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            MinerRegisterRequest(miner_id="m-1", api_key="k", wallet_address=bad)
+
+    @pytest.mark.parametrize(
+        "good",
+        [
+            "0x" + "a" * 40,
+            "0x" + "A" * 40,
+            "0x" + "aB3" * 13 + "a",  # mixed case, 40 hex chars
+        ],
+    )
+    def test_valid_wallet_address_accepted(self, good: str) -> None:
+        req = MinerRegisterRequest(miner_id="m-1", api_key="k", wallet_address=good)
+        assert req.wallet_address == good
+
+    @pytest.mark.parametrize("empty", [None, "", "   "])
+    def test_blank_wallet_address_means_unset(self, empty: str | None) -> None:
+        req = MinerRegisterRequest(miner_id="m-1", api_key="k", wallet_address=empty)
+        assert req.wallet_address is None
