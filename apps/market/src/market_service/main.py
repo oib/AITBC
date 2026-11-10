@@ -1344,10 +1344,15 @@ async def rate_service(
         # answered 200 and wrote an orphan row that no aggregate would ever count (V23-81).
         # A service id resolves either way round, the same two lookups `get_service_ratings`
         # does below.
-        if not (await svc.get_software_service(service_id) or await svc.get_service_by_offer_id(service_id)):
+        service = await svc.get_software_service(service_id) or await svc.get_service_by_offer_id(service_id)
+        if not service:
             return JSONResponse(status_code=404, content={"error": "Service not found"})
         rating = await svc.add_service_rating(
-            service_id=service_id, rating=rating_data.rating, reviewer_id=rating_data.reviewer_id, comment=rating_data.comment
+            service_id=service_id,
+            rating=rating_data.rating,
+            reviewer_id=rating_data.reviewer_id,
+            comment=rating_data.comment,
+            service=service,
         )
         return {
             "status": "success",

@@ -606,16 +606,35 @@ def test_rate_service_not_found(client):
     assert [rating for rating in unsynced if rating["service_id"] == "no-such-service"] == []
 
 
+_RATING_REVIEWER = "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e"
+
+
+async def _seed_completed_job(service_key: str, buyer: str, state: str = "RELEASED") -> None:
+    """A local rating now requires a completed job/bid for the service (#1584)."""
+    from market_service.domain.market import MarketJob
+    from market_service.storage import get_session_context
+
+    async with get_session_context() as session:
+        session.add(
+            MarketJob(id=f"job-rate-{service_key}-{buyer[-4:]}", plugin_id=service_key, buyer_address=buyer, state=state)
+        )
+        await session.commit()
+
+
 def test_rate_a_registered_service(client, registered_service):
     """Rating a service that exists still works, and moves its aggregate.
 
     The existence check added in V23-81 sits in front of the happy path, so the happy path is
     worth pinning: the rating is stored and `rating_count` reflects it, which is exactly what
-    the orphan rows never did.
+    the orphan rows never did. #1584 adds the counterparty binding: the reviewer must have
+    completed a job for the service, so the fixture seeds one.
     """
+    import asyncio
+
+    asyncio.run(_seed_completed_job(registered_service, _RATING_REVIEWER))
     response = client.post(
         f"/v1/market/offer/{registered_service}/rate",
-        json={"rating": 4.0, "reviewer_id": "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e", "comment": "fine"},
+        json={"rating": 4.0, "reviewer_id": _RATING_REVIEWER, "comment": "fine"},
     )
     assert response.status_code == 200
     assert response.json()["rating"]["service_id"] == registered_service
@@ -626,6 +645,30 @@ def test_rate_a_registered_service(client, registered_service):
     ).json()
     assert ratings["count"] == 1
     assert ratings["service_info"] == {"avg_rating": 4.0, "rating_count": 1}
+
+
+def test_rate_rejects_reviewer_without_completed_job(client, registered_service):
+    """#1584: an arbitrary reviewer_id with no completed interaction is refused."""
+    response = client.post(
+        f"/v1/market/offer/{registered_service}/rate",
+        json={"rating": 1.0, "reviewer_id": "0x1111111111111111111111111111111111111111", "comment": "bomb"},
+    )
+    assert response.status_code == 400
+
+
+def test_rate_rejects_duplicate_reviewer(client, registered_service):
+    """#1584: one rating per reviewer per service — a second POST is refused.
+
+    Uses its own reviewer address: the suite shares one database, so reusing
+    _RATING_REVIEWER would collide with the rating the happy-path test wrote.
+    """
+    import asyncio
+
+    reviewer = "0x2222222222222222222222222222222222222222"
+    asyncio.run(_seed_completed_job(registered_service, reviewer))
+    body = {"rating": 4.0, "reviewer_id": reviewer, "comment": "fine"}
+    assert client.post(f"/v1/market/offer/{registered_service}/rate", json=body).status_code == 200
+    assert client.post(f"/v1/market/offer/{registered_service}/rate", json={**body, "rating": 1.0}).status_code == 400
 
 
 def test_get_ratings_default_paging(client):

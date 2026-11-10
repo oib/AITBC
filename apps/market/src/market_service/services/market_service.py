@@ -25,7 +25,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus
 from aitbc.market.offer_registration import verify_offer_registration
 from aitbc.utils.chain_id import resolve_chain_id
-from aitbc.utils.units import ait_to_units
+from aitbc.utils.units import ait_to_units, units_to_ait
 
 from ..config import settings
 from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, OfferAnchor, ServiceRating, SoftwareService
@@ -1240,13 +1240,92 @@ class MarketService:
         """Get current Unix timestamp"""
         return int(time.time())
 
+    # Job states that prove a paid interaction completed — a rating is only
+    # accepted from a reviewer who reached one of these with this service.
+    _RATING_PROVEN_STATES = frozenset({"RELEASED", "COMPLETED"})
+
+    async def _require_local_rating_binding(self, service_id: str, service: dict[str, Any] | None, reviewer_id: str) -> None:
+        """Bind a locally-submitted rating to a real counterparty interaction (#1584).
+
+        ``reviewer_id`` is caller-supplied, so without a check any caller
+        could stuff a service's rating or bomb it with fake reviews. A local
+        rating now requires the reviewer to be an address that completed a
+        job or bid for this service, one rating per reviewer per service,
+        and never the provider rating its own service. Remote-synced ratings
+        keep their peer-trust model (cross-node proof is a separate problem).
+        """
+        from sqlalchemy import or_, select
+        from sqlmodel import col
+
+        reviewer = self._canonical_address(reviewer_id)
+        provider = self._canonical_address(str((service or {}).get("provider_address") or ""))
+        if provider and reviewer == provider:
+            raise ValueError("Service provider cannot rate its own service")
+
+        # One rating per reviewer per service — compare canonically so case or
+        # whitespace variants of the same address cannot bypass it.
+        existing_rows = (
+            (await self.session.execute(select(ServiceRating).where(col(ServiceRating.service_id) == service_id)))
+            .scalars()
+            .all()
+        )
+        if any(self._canonical_address(str(r.reviewer_id)) == reviewer for r in existing_rows):
+            raise ValueError("Reviewer has already rated this service")
+
+        service = service or {}
+        keys = {k for k in {service_id, service.get("plugin_id"), service.get("offer_id")} if k}
+
+        def _buyer_proven(buyer: Any, state: str | None, completed_states: frozenset[str]) -> bool:
+            return bool(buyer) and state in completed_states and self._canonical_address(str(buyer)) == reviewer
+
+        job_rows = (
+            (
+                await self.session.execute(
+                    select(MarketJob)
+                    .where(or_(col(MarketJob.offer_id).in_(keys), col(MarketJob.plugin_id).in_(keys)))
+                    .where(col(MarketJob.buyer_address).isnot(None))
+                    .limit(200)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for job in job_rows:
+            if _buyer_proven(job.buyer_address, job.state, self._RATING_PROVEN_STATES):
+                return
+        bid_rows = (
+            (
+                await self.session.execute(
+                    select(Bid).where(col(Bid.offer_id).in_(keys), col(Bid.status) == "completed").limit(200)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for bid in bid_rows:
+            if _buyer_proven(bid.buyer, bid.status, frozenset({"completed"})):
+                return
+        raise ValueError("reviewer_id has no completed job or bid for this service")
+
     async def add_service_rating(
-        self, service_id: str, rating: float, reviewer_id: str, comment: str = "", source_node: str = "local"
+        self,
+        service_id: str,
+        rating: float,
+        reviewer_id: str,
+        comment: str = "",
+        source_node: str = "local",
+        service: dict[str, Any] | None = None,
     ) -> ServiceRating:
         """Add a service rating and update service average rating"""
         try:
             if not 1.0 <= rating <= 5.0:
                 raise ValueError("Rating must be between 1.0 and 5.0")
+            if source_node == "local":
+                if service is None:
+                    service = await self.get_software_service(service_id) or await self.get_service_by_offer_id(service_id)
+                if service is None:
+                    raise ValueError(f"Service not found: {service_id}")
+                await self._require_local_rating_binding(service_id, service, reviewer_id)
             service_rating = ServiceRating(
                 service_id=service_id, rating=rating, reviewer_id=reviewer_id, comment=comment, source_node=source_node
             )
@@ -2058,7 +2137,7 @@ class MarketService:
             logger.error("Error in confirm_market_job_pin: %s: %s", type(e).__name__, e)
             raise
 
-    async def _require_confirmed_settle_tx(self, tx_hash: str, job: MarketJob, expected_type: str) -> None:
+    async def _require_confirmed_settle_tx(self, tx_hash: str, job: MarketJob, expected_type: str) -> dict[str, Any]:
         """Refuse a caller-supplied settle hash that is not THIS job's escrow settlement.
 
         A caller-supplied hash is evidence, not authority: verify it on-chain
@@ -2067,6 +2146,13 @@ class MarketService:
         chain escrow is keyed by the market job id (``/rpc/escrow/{job_id}``),
         so the sealed tx must be an ``expected_type`` transaction whose payload
         ``job_id`` is this job's id.
+
+        #1584 extends the binding to the parties: the payload's
+        ``buyer_escrow_addr``/``provider_escrow_addr`` must match the job's
+        recorded addresses when present, and the tx recipient must be the
+        escrow payee (provider on release, buyer on refund). Returns the
+        verified tx so callers can derive settlement amounts from the
+        on-chain ``value`` instead of trusting caller-supplied figures.
         """
         chain_id = settings.default_chain_id or resolve_chain_id()
         tx = await self._rpc_client.get_transaction(tx_hash, chain_id=chain_id)
@@ -2078,6 +2164,51 @@ class MarketService:
         payload = tx.get("payload") or {}
         if payload.get("job_id") != job.id:
             raise ValueError(f"Transaction {tx_hash} is not bound to escrow for job {job.id}")
+
+        is_release = expected_type == "ESCROW_RELEASE"
+        payee_field = "provider_escrow_addr" if is_release else "buyer_escrow_addr"
+        counterparty_field = "buyer_escrow_addr" if is_release else "provider_escrow_addr"
+        job_payee = job.provider_address if is_release else job.buyer_address
+        job_counterparty = job.buyer_address if is_release else job.provider_address
+        expected_payee = self._canonical_address(str(job_payee or ""))
+        expected_counterparty = self._canonical_address(str(job_counterparty or ""))
+        payload_payee = payload.get(payee_field)
+        payload_counterparty = payload.get(counterparty_field)
+        if expected_payee and payload_payee and self._canonical_address(str(payload_payee)) != expected_payee:
+            raise ValueError(f"Transaction {tx_hash} payload {payee_field} does not match job {job.id} payee {expected_payee}")
+        if (
+            expected_counterparty
+            and payload_counterparty
+            and self._canonical_address(str(payload_counterparty)) != expected_counterparty
+        ):
+            raise ValueError(
+                f"Transaction {tx_hash} payload {counterparty_field} does not match job {job.id} counterparty {expected_counterparty}"
+            )
+        # The sealed row spells it `recipient`; a mempool-shaped dict uses `to`.
+        tx_recipient = self._canonical_address(str(tx.get("recipient") or tx.get("to") or ""))
+        effective_payee = self._canonical_address(str(payload_payee)) if payload_payee else expected_payee
+        if effective_payee and tx_recipient and tx_recipient != effective_payee:
+            raise ValueError(
+                f"Transaction {tx_hash} pays {tx_recipient}, not the escrow payee {effective_payee} for job {job.id}"
+            )
+        return tx
+
+    @staticmethod
+    def _settled_amount_ait(tx: dict[str, Any]) -> Decimal | None:
+        """AIT value a verified settle tx moved, from its on-chain ``value``.
+
+        The sealed row spells it ``value``; a mempool-shaped dict uses
+        ``amount``. Returns None when the tx carries no readable amount —
+        callers then leave the settlement amount unset rather than storing a
+        caller-supplied figure (#1584).
+        """
+        raw = tx.get("value", tx.get("amount"))
+        if raw is None:
+            return None
+        try:
+            return units_to_ait(int(raw))
+        except (TypeError, ValueError):
+            return None
 
     def _guard_release_settlement(
         self, job: MarketJob, payment: MarketJobPayment | None, job_id: str
@@ -2133,7 +2264,10 @@ class MarketService:
             tx_hash = release_data.get("tx_hash")
             released_amount = release_data.get("released_amount")
             if tx_hash:
-                await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_RELEASE")
+                tx = await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_RELEASE")
+                # The caller's released_amount is a claim, not evidence: store
+                # the amount the verified transaction actually moved (#1584).
+                released_amount = self._settled_amount_ait(tx)
             else:
                 # The chain escrow is keyed by job_id — the market job id is
                 # the escrow's job_id (the buyer CLI escrows under it). The
@@ -2191,7 +2325,10 @@ class MarketService:
             tx_hash = refund_data.get("tx_hash")
             refunded_amount = refund_data.get("refunded_amount")
             if tx_hash:
-                await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_REFUND")
+                tx = await self._require_confirmed_settle_tx(tx_hash, job, "ESCROW_REFUND")
+                # Same rule as release: the on-chain value is authoritative,
+                # never the caller-supplied figure (#1584).
+                refunded_amount = self._settled_amount_ait(tx)
             else:
                 # Same canonical binding as release: the escrow path key is
                 # the market job id, not escrow_contract_id (#1564).
