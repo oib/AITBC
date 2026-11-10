@@ -51,7 +51,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 import uvicorn  # noqa: E402
-from fastapi import Depends, FastAPI, Request  # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, Request  # noqa: E402
 from fastapi.responses import JSONResponse, Response, StreamingResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
@@ -67,6 +67,13 @@ OLLAMA_GATE_BIND = os.environ.get("OLLAMA_GATE_BIND_HOST", "127.0.0.1")
 # A generate call can run for a long time; the backend read timeout must
 # outlive the longest plausible streamed response, not a request budget.
 BACKEND_TIMEOUT = httpx.Timeout(connect=5.0, read=600.0, write=60.0, pool=10.0)
+# OLLAMA-GATE-BODY-1 (#1480): the gated proxy used to ``await request.body()``
+# with no ceiling — one request could make the sidecar allocate an arbitrary
+# body whole. Inference bodies (prompts + optional images) are legitimately
+# large but nowhere near this; 32 MiB is generous headroom. Enforced twice:
+# on Content-Length up front, and again while streaming so a missing or
+# dishonest header cannot bypass it.
+MAX_BODY_BYTES = int(os.environ.get("OLLAMA_GATE_MAX_BODY_BYTES", str(32 * 1024 * 1024)))
 
 # ── Paid-call policy knobs (APIGW-OLLAMA-DEPTH2-1, #1613) ──────────────────
 
@@ -232,10 +239,32 @@ def _validate_paid_body(payload: Any, job: dict[str, Any]) -> tuple[int, str] | 
     return None
 
 
+async def _read_bounded_body(request: Request) -> bytes:
+    """Request body under MAX_BODY_BYTES, or 413 — header check plus stream cap."""
+    length = request.headers.get("content-length")
+    if length is not None:
+        try:
+            declared = int(length)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid content-length") from None
+        if declared < 0:
+            raise HTTPException(status_code=400, detail="invalid content-length")
+        if declared > MAX_BODY_BYTES:
+            raise HTTPException(status_code=413, detail="request body too large")
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > MAX_BODY_BYTES:
+            raise HTTPException(status_code=413, detail="request body too large")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 async def _proxy_gated(request: Request, path: str, job: dict[str, Any]) -> Response:
     """Stream a gated POST to the ollama backend and stream the answer back."""
     assert _client is not None
-    body = await request.body()
+    body = await _read_bounded_body(request)
     try:
         payload = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):

@@ -231,3 +231,53 @@ def test_model_allowlist_env(monkeypatch):
     monkeypatch.setattr(gate, "_ALLOWED_MODELS", frozenset({"llama3.2:3b"}))
     assert gate._validate_paid_body({"model": "llama3.2:3b"}, {"job_id": "j"}) is None
     assert gate._validate_paid_body({"model": "other"}, {"job_id": "j"}) == (403, "model is not available on this shop")
+
+
+# --- OLLAMA-GATE-BODY-1 (#1480): bounded request body ---
+
+
+def _override_access():
+    gate.app.dependency_overrides[gate.require_job_access] = lambda: {"job_id": "job-A"}
+
+
+def test_oversized_content_length_is_413(client, monkeypatch):
+    monkeypatch.setattr(gate, "MAX_BODY_BYTES", 16)
+    _override_access()
+    try:
+        resp = client.post("/api/generate", content=b"x" * 64)
+        assert resp.status_code == 413
+    finally:
+        gate.app.dependency_overrides.pop(gate.require_job_access, None)
+
+
+def test_streamed_body_over_cap_is_413_without_content_length(monkeypatch):
+    """The stream cap catches a body whose Content-Length lied or is absent."""
+    from starlette.requests import Request
+
+    monkeypatch.setattr(gate, "MAX_BODY_BYTES", 10)
+
+    async def receive():
+        return {"type": "http.request", "body": b"x" * 32, "more_body": False}
+
+    scope = {"type": "http", "method": "POST", "path": "/api/generate", "headers": [], "query_string": b""}
+    req = Request(scope, receive)
+    import asyncio
+
+    with pytest.raises(Exception) as ei:
+        asyncio.run(gate._read_bounded_body(req))
+    assert getattr(ei.value, "status_code", None) == 413
+
+
+def test_body_under_cap_passes(monkeypatch):
+    from starlette.requests import Request
+
+    monkeypatch.setattr(gate, "MAX_BODY_BYTES", 1024)
+
+    async def receive():
+        return {"type": "http.request", "body": b'{"model":"m"}', "more_body": False}
+
+    scope = {"type": "http", "method": "POST", "path": "/api/generate", "headers": [], "query_string": b""}
+    req = Request(scope, receive)
+    import asyncio
+
+    assert asyncio.run(gate._read_bounded_body(req)) == b'{"model":"m"}'
