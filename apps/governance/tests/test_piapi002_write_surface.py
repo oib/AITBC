@@ -234,3 +234,10 @@ def test_execute_cross_chain_accepts_succeeded_status(client: TestClient, test_d
     # answers 200 with executed_on/failed lists, never the old 400.
     assert r.status_code == 200, r.text
     assert "failed" in r.json() or "executed_on" in r.json()
+
+
+def test_execute_cross_chain_unknown_proposal_404(client: TestClient) -> None:
+    """#1502 residual: the not-found branch runs before the signature gate —
+    an unknown proposal id answers 404 even unsigned. Pin the order."""
+    r = client.post("/v1/governance/proposals/no-such-proposal/execute-cross-chain")
+    assert r.status_code == 404

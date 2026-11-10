@@ -762,3 +762,28 @@ class TestRequestCoinsWalletBinding:
 
         result = asyncio.run(agent_stream.request_coins_handler(self._msg("agent-1", OTHER_ACCOUNT.address), cm, MagicMock()))
         assert result["action"] == "coins_transferred"
+
+
+class TestDiscoverLimitBounds:
+    """#1512: GET /api/v1/agent/messages/discover bounds ``limit`` to [1, 500];
+    POST /agents/discover passes its raw body to the registry clamp."""
+
+    @pytest.mark.parametrize("bad", ["0", "-1", "501", "10000", "abc"])
+    def test_messages_discover_limit_out_of_range_is_422(self, client, fake_state, bad):
+        fake_state.agent_registry.discover_agents = AsyncMock(return_value=[])
+        resp = client.get("/api/v1/agent/messages/discover", params={"limit": bad})
+        assert resp.status_code == 422, f"limit={bad}: {resp.status_code} {resp.text[:120]}"
+
+    def test_messages_discover_limit_in_range_ok(self, client, fake_state):
+        fake_state.agent_registry.discover_agents = AsyncMock(return_value=[])
+        for good in ("1", "50", "500"):
+            resp = client.get("/api/v1/agent/messages/discover", params={"limit": good})
+            assert resp.status_code == 200, f"limit={good}: {resp.status_code} {resp.text[:120]}"
+
+    def test_post_discover_nonint_limit_does_not_crash(self, client, fake_state):
+        """The raw body dict reaches ``discover_agents`` verbatim; the #1512
+        clamp turns a junk limit into the default instead of the old broad-
+        except empty list (or a 500)."""
+        resp = client.post("/v1/agents/discover", json={"limit": "not-an-int"})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["count"] == 0  # empty registry fixture
