@@ -13,6 +13,11 @@ import api_gateway.main as gateway
 from fastapi.testclient import TestClient
 
 
+# Headers httpx adds itself at send time — framing, not gateway-chosen
+# headers, so the fake must not record them as forwarded.
+_TRANSPORT_HEADERS = {"host", "content-length", "accept", "accept-encoding", "connection", "user-agent", "transfer-encoding"}
+
+
 class _CaptureClient:
     """Records every upstream call; satisfies lifespan aclose."""
 
@@ -22,6 +27,19 @@ class _CaptureClient:
     def _record(self, method, url, kwargs):
         self.calls.append({"method": method, "url": url, **kwargs})
         return httpx.Response(200, json={"ok": True})
+
+    def build_request(self, method, url, **kwargs):
+        return httpx.Request(method, url, **kwargs)
+
+    async def send(self, request, stream=False):
+        url = str(request.url).split("?", 1)[0]
+        kwargs = {
+            "headers": {k: v for k, v in request.headers.items() if k.lower() not in _TRANSPORT_HEADERS},
+            "params": request.url.params,
+        }
+        if request.content:
+            kwargs["content"] = request.content
+        return await getattr(self, request.method.lower())(url, **kwargs)
 
     async def get(self, url, **kwargs):
         return self._record("GET", url, kwargs)

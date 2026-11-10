@@ -34,6 +34,13 @@ class _CaptureClient:
     def __init__(self):
         self.headers: dict[str, str] = {}
 
+    def build_request(self, method, url, **kwargs):
+        return httpx.Request(method, url, **kwargs)
+
+    async def send(self, request, stream=False):
+        self.headers = dict(request.headers)
+        return httpx.Response(200, json={"ok": True})
+
     async def get(self, url, **kwargs):
         self.headers = kwargs.get("headers", {})
         return httpx.Response(200, json={"ok": True})
@@ -116,6 +123,32 @@ def test_service_jwt_passes_through(authed_gateway, monkeypatch):
     )
 
     assert capture.headers.get("authorization") == "Bearer service-jwt"
+
+
+# ── APIGW-DEPTH-1 (#1581): meta endpoints require the gateway credential ────
+
+
+@pytest.mark.parametrize("path", ["/services", "/v2", "/ready"])
+def test_meta_endpoints_require_auth(authed_gateway, path):
+    """Internal base_urls and the readiness probe surface are not anonymous."""
+    assert authed_gateway.get(path).status_code == 401
+    assert authed_gateway.get(path, headers={"X-Gateway-Key": "test-gateway-key"}).status_code == 200
+
+
+def test_health_stays_public(authed_gateway):
+    """Load-balancer probes must not need the gateway key."""
+    assert authed_gateway.get("/health").status_code == 200
+
+
+def test_interactive_docs_are_disabled(authed_gateway):
+    """docs/redoc/openapi.json disclosed the route table anonymously (#1581).
+
+    With the routes unregistered these paths fall through to the authenticated
+    catch-all: 401 without a credential, 404 with one — never a schema.
+    """
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert authed_gateway.get(path).status_code == 401
+        assert authed_gateway.get(path, headers={"X-Gateway-Key": "test-gateway-key"}).status_code == 404
 
 
 def test_health_is_reachable_without_credentials(authed_gateway):

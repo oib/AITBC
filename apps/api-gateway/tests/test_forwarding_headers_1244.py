@@ -137,6 +137,13 @@ class _HeaderCapture:
     def __init__(self) -> None:
         self.headers: dict[str, str] = {}
 
+    def build_request(self, method, url, **kwargs):
+        return httpx.Request(method, url, **kwargs)
+
+    async def send(self, request, stream=False):
+        self.headers = dict(request.headers)
+        return httpx.Response(200, json={"ok": True})
+
     async def get(self, url, **kwargs):
         self.headers = dict(kwargs.get("headers") or {})
         return httpx.Response(200, json={"ok": True})
