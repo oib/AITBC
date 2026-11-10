@@ -159,7 +159,7 @@ async def test_list_nodes_empty_table_returns_zero(monkeypatch):
 
     result = gpu_routes.list_edge_nodes(chain_id=CHAIN)
 
-    assert result == {"chain_id": CHAIN, "count": 0, "nodes": []}
+    assert result == {"chain_id": CHAIN, "count": 0, "total": 0, "nodes": []}
 
 
 @pytest.mark.asyncio
