@@ -551,6 +551,20 @@ class GovernanceService:
             raise ValueError(f"Proposal not found: {vote_proposal_id}")
         if proposal_status.status != ProposalStatus.ACTIVE:
             raise ValueError(f"Proposal is not active (status: {proposal_status.status})")
+        # The status stays ACTIVE until close_proposal runs, so without a
+        # window check a vote cast after voting_ends still lands in the
+        # tallies close_proposal reads — late weight can flip a decided
+        # result (#v11 item 11). Mirror close_proposal's tz handling.
+        now = datetime.now(UTC)
+        for bound, too_late in (
+            (proposal_status.voting_starts, False),
+            (proposal_status.voting_ends, True),
+        ):
+            if bound.tzinfo is None:
+                bound = bound.replace(tzinfo=UTC)
+            if (too_late and now > bound) or (not too_late and now < bound):
+                verb = "has ended" if too_late else "has not started"
+                raise ValueError(f"Voting period {verb} for proposal {vote_proposal_id}")
         for prior in await self.list_votes(proposal_id=vote_proposal_id):
             if str(prior.voter_id or "").lower() == voter_id.lower():
                 raise ValueError(f"voter {voter_id} has already voted on proposal {vote_proposal_id}")
