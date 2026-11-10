@@ -2,6 +2,41 @@ import { expect } from "chai";
 import { network } from "hardhat";
 const { ethers } = await network.getOrCreate();
 
+// EIP-712 domain for oracle performance signatures (#1472). Must match the
+// EIP712("AgentStaking", "1") initializer in AgentStaking.sol.
+async function signPerformanceUpdate(
+  oracleSigner,
+  staking,
+  agentWallet,
+  accuracy,
+  successful,
+  timestamp,
+  nonce
+) {
+  const domain = {
+    name: "AgentStaking",
+    version: "1",
+    chainId: (await ethers.provider.getNetwork()).chainId,
+    verifyingContract: await staking.getAddress(),
+  };
+  const types = {
+    PerformanceUpdate: [
+      { name: "agentWallet", type: "address" },
+      { name: "accuracy", type: "uint256" },
+      { name: "successful", type: "bool" },
+      { name: "timestamp", type: "uint256" },
+      { name: "nonce", type: "uint256" },
+    ],
+  };
+  return oracleSigner.signTypedData(domain, types, {
+    agentWallet,
+    accuracy,
+    successful,
+    timestamp,
+    nonce,
+  });
+}
+
 describe("AgentStaking Security Tests", function () {
   let agentStaking;
   let paymentToken;
@@ -332,19 +367,12 @@ describe("AgentStaking Security Tests", function () {
       const accuracy = 85;
       const successful = true;
       const nonce = await agentStaking.oracleNonces(oracle.address);
-
-      // Get current block timestamp
       const block = await ethers.provider.getBlock("latest");
-      const timestamp = block.timestamp + 3600; // 1 hour in future
+      const timestamp = block.timestamp;
 
-      // Create message hash
-      const messageHash = ethers.solidityPackedKeccak256(
-        ["address", "uint256", "bool", "uint256", "uint256"],
-        [agentWallet.address, accuracy, successful, timestamp, nonce]
+      const signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
       );
-
-      // Sign the message hash directly (not the eth signed message hash)
-      const signature = await oracle.signMessage(ethers.getBytes(messageHash));
 
       await expect(
         agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
@@ -358,21 +386,138 @@ describe("AgentStaking Security Tests", function () {
       ).to.emit(agentStaking, "PerformanceUpdateWithSignature");
     });
 
+    it("should reject a replayed performance signature", async function () {
+      const accuracy = 85;
+      const successful = true;
+      const nonce = await agentStaking.oracleNonces(oracle.address);
+      const block = await ethers.provider.getBlock("latest");
+      const timestamp = block.timestamp;
+
+      const signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+
+      await agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+        agentWallet.address, accuracy, successful, timestamp, nonce, signature
+      );
+
+      // Same signature, same nonce: the nonce was consumed by the first call.
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy, successful, timestamp, nonce, signature
+        )
+      ).to.be.revertedWith("Invalid nonce");
+    });
+
+    it("should reject a signature minted for a different AgentStaking deployment", async function () {
+      // #1472: the old digest had no chainid/verifyingContract, so a signature
+      // captured on one deployment replayed on another. EIP-712 binds the
+      // payload to address(this); a signature made for staking2 is invalid here.
+      const AIToken = await ethers.getContractFactory("AIToken");
+      const token2 = await AIToken.deploy(ethers.parseEther("1000000"));
+      await token2.waitForDeployment();
+      const AgentStaking2 = await ethers.getContractFactory("AgentStaking");
+      const staking2 = await AgentStaking2.deploy(
+        await token2.getAddress(),
+        ethers.ZeroAddress
+      );
+      await staking2.waitForDeployment();
+      await staking2.addSupportedAgent(agentWallet.address, 2);
+      await staking2.addOracle(oracle.address);
+
+      const accuracy = 85;
+      const successful = true;
+      const nonce = await agentStaking.oracleNonces(oracle.address);
+      const block = await ethers.provider.getBlock("latest");
+      const timestamp = block.timestamp;
+
+      // Signature is valid for staking2's domain but submitted to staking1.
+      const signature = await signPerformanceUpdate(
+        oracle, staking2, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy, successful, timestamp, nonce, signature
+        )
+      ).to.be.revertedWith("Invalid signature");
+    });
+
+    it("should rate-limit signed performance updates like the oracle path", async function () {
+      const accuracy = 85;
+      const successful = true;
+      const block = await ethers.provider.getBlock("latest");
+      const timestamp = block.timestamp;
+
+      let nonce = await agentStaking.oracleNonces(oracle.address);
+      let signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+      await agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+        agentWallet.address, accuracy, successful, timestamp, nonce, signature
+      );
+
+      // An immediate second signed update -- fresh nonce and signature -- must
+      // hit the same performanceUpdateDelay throttle as updateAgentPerformance.
+      nonce = await agentStaking.oracleNonces(oracle.address);
+      signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy + 1, successful, timestamp, nonce
+      );
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy + 1, successful, timestamp, nonce, signature
+        )
+      ).to.be.revertedWith("Update too frequent");
+
+      // The throttle is shared with the non-signature path.
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformance(
+          agentWallet.address, accuracy + 2, successful
+        )
+      ).to.be.revertedWith("Update too frequent");
+
+      // After the delay, a signed update succeeds again.
+      await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
+      await ethers.provider.send("evm_mine");
+      const later = await ethers.provider.getBlock("latest");
+      nonce = await agentStaking.oracleNonces(oracle.address);
+      signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy + 2, successful, later.timestamp, nonce
+      );
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy + 2, successful, later.timestamp, nonce, signature
+        )
+      ).to.emit(agentStaking, "PerformanceUpdateWithSignature");
+    });
+
+    it("should reject a signature timestamped in the future", async function () {
+      const accuracy = 85;
+      const successful = true;
+      const nonce = await agentStaking.oracleNonces(oracle.address);
+      const block = await ethers.provider.getBlock("latest");
+      const timestamp = block.timestamp + 3600; // within expiry window but ahead of now
+
+      const signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy, successful, timestamp, nonce, signature
+        )
+      ).to.be.revertedWith("Signature timestamp in future");
+    });
+
     it("should reject expired signature", async function () {
       const accuracy = 85;
       const successful = true;
       const timestamp = Math.floor(Date.now() / 1000) - 2 * 60 * 60; // 2 hours ago
       const nonce = await agentStaking.oracleNonces(oracle.address);
 
-      const messageHash = ethers.solidityPackedKeccak256(
-        ["address", "uint256", "bool", "uint256", "uint256"],
-        [agentWallet.address, accuracy, successful, timestamp, nonce]
+      const signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
       );
-      const ethSignedMessageHash = ethers.solidityPackedKeccak256(
-        ["string", "bytes32"],
-        ["\x19Ethereum Signed Message:\n32", messageHash]
-      );
-      const signature = await oracle.signMessage(ethers.getBytes(ethSignedMessageHash));
 
       await expect(
         agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
@@ -391,19 +536,12 @@ describe("AgentStaking Security Tests", function () {
       const successful = true;
       const nonce = BigInt(await agentStaking.oracleNonces(oracle.address)) + 1n;
 
-      // Get current block timestamp
       const block = await ethers.provider.getBlock("latest");
-      const timestamp = block.timestamp + 3600; // 1 hour in future
+      const timestamp = block.timestamp;
 
-      const messageHash = ethers.solidityPackedKeccak256(
-        ["address", "uint256", "bool", "uint256", "uint256"],
-        [agentWallet.address, accuracy, successful, timestamp, nonce]
+      const signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
       );
-      const ethSignedMessageHash = ethers.solidityPackedKeccak256(
-        ["string", "bytes32"],
-        ["\x19Ethereum Signed Message:\n32", messageHash]
-      );
-      const signature = await oracle.signMessage(ethers.getBytes(ethSignedMessageHash));
 
       await expect(
         agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
