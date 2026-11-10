@@ -95,7 +95,7 @@ def init_db() -> None:
         )
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-    with closing(sqlite3.connect(DB_PATH, timeout=10)) as conn:
+    with closing(_connect_db()) as conn:
         cursor = conn.cursor()
 
         # Full column set — identical to wallet_app.bridge.bridge_db.init_db.
@@ -199,9 +199,27 @@ def init_db() -> None:
         conn.commit()
 
 
+def _apply_pragmas(conn: sqlite3.Connection) -> None:
+    """WAL + busy_timeout parity with the wallet's bridge_db._connect_db and
+    aitbc_chain.database._set_sqlite_pragmas — this file has two writer
+    services and previously ran rollback-journal mode (#1559).
+    busy_timeout is per-connection; journal_mode is persistent but
+    re-asserting it on an already-WAL file is a no-op read."""
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+
+
+def _connect_db() -> sqlite3.Connection:
+    """Open a bridge deposits connection with the shared WAL pragmas."""
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    _apply_pragmas(conn)
+    return conn
+
+
 def _db_connection() -> sqlite3.Connection:
     """Get a fresh database connection with row factory enabled."""
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn = _connect_db()
     conn.row_factory = sqlite3.Row
     return conn
 

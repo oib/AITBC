@@ -67,12 +67,23 @@ def _money_str(value: Decimal | float | str | None) -> str:
     return s or "0"
 
 
+# WAL + busy_timeout parity with aitbc_chain.database._set_sqlite_pragmas.
+# This DB has two writer services (wallet + bridge-monitor) and previously
+# ran rollback-journal mode with sqlite3's 5s default busy wait — lock
+# contention surfaced as "database is locked" far earlier than intended
+# (#1559). busy_timeout is per-connection; journal_mode is persistent but
+# re-asserting it on an already-WAL file is a no-op read.
 def _connect_db(path: str | None = None) -> sqlite3.Connection:
     """Open a bridge DB connection with Decimal conversion enabled."""
-    return sqlite3.connect(
+    conn = sqlite3.connect(
         path or DB_PATH,
         detect_types=sqlite3.PARSE_DECLTYPES,
+        timeout=30,
     )
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    return conn
 
 
 def _add_column_if_not_exists(conn, table, column, col_type):
