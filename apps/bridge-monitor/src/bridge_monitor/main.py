@@ -874,6 +874,11 @@ class BridgeMonitor:
             posted = self._post_signed_tx(envelope)
             new_count = rebroadcast_count + 1
             if posted:
+                # #1721: the chain's tx hash differs from the client-derived
+                # envelope hash — adopt whatever the RPC reported here too,
+                # or the seal probe keeps polling a hash that can never
+                # resolve and the abandon proof "proves" a landed payout dead.
+                self._adopt_posted_hash(tx_hash, posted, derived)
                 logger.warning(
                     "Rebroadcast unsealed payout %s for deposit %s (attempt %s) — identical envelope",
                     payout_hash,
@@ -908,6 +913,118 @@ class BridgeMonitor:
             logger.warning("account nonce fetch failed for %s: %s", address, e)
         return None
 
+    @staticmethod
+    def _addr_key(addr: object) -> str:
+        """Case/``0x``-insensitive address key for on-chain comparisons."""
+        s = str(addr or "").strip().lower()
+        return s[2:] if s.startswith("0x") else s
+
+    @staticmethod
+    def _chain_tx_matches_envelope(row: dict, envelope: dict) -> bool:
+        """True when a chain transaction row IS the stored payout envelope.
+
+        The chain's tx hash can differ from the client-derived envelope hash
+        (#1721 — the server injects ``value`` before hashing), so content —
+        not hash — is the identity proof. Only fields the server preserves
+        verbatim may disqualify: a false negative here is the dangerous
+        direction (a landed payout judged dead → double payment).
+        """
+
+        def _i(v: object) -> int | None:
+            try:
+                return int(v)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return None
+
+        env_type = str(envelope.get("type") or "TRANSFER").upper()
+        if str(row.get("type") or "TRANSFER").upper() != env_type:
+            return False
+        if BridgeMonitor._addr_key(row.get("sender")) != BridgeMonitor._addr_key(envelope.get("from")):
+            return False
+        if BridgeMonitor._addr_key(row.get("recipient")) != BridgeMonitor._addr_key(envelope.get("to")):
+            return False
+        env_amount = _i(envelope.get("amount"))
+        row_amount = _i(row.get("value"))
+        if row_amount is None:
+            row_amount = _i((row.get("payload") or {}).get("amount"))
+        if env_amount is None or row_amount is None or env_amount != row_amount:
+            return False
+        env_fee = _i(envelope.get("fee"))
+        row_fee = _i(row.get("fee"))
+        if env_fee is not None and row_fee is not None and env_fee != row_fee:
+            return False
+        return True
+
+    def _payout_account_txs(self) -> list[dict] | None:
+        """Recent transactions from the payout account, or None on failure.
+
+        ``/rpc/transactions?sender=`` is the only read that identifies WHICH
+        transaction consumed a nonce slot — the tx-hash probes cannot, because
+        the stored ``ait_tx_hash`` may be a client-derived hash the chain
+        never indexed (#1721). Returns None (never a partial guess) when the
+        answer is unavailable or hits the page cap, so callers fail closed.
+        """
+        try:
+            import httpx
+
+            resp = httpx.get(
+                f"{self.blockchain_rpc_url}/rpc/transactions",
+                params={"sender": self.genesis_wallet_address, "limit": 500},
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                logger.warning("payout account tx query failed: HTTP %s", resp.status_code)
+                return None
+            rows = resp.json()
+            if not isinstance(rows, list):
+                return None
+            if len(rows) >= 500:
+                # At the server-side page cap the slot occupant may be on an
+                # unfetched page — the answer is not proven complete.
+                logger.warning("payout account tx query hit the 500-row page cap — slot proof incomplete")
+                return None
+            return rows
+        except Exception as e:  # noqa: BLE001 - probe boundary — None fails closed
+            logger.warning("payout account tx query failed: %s", e)
+            return None
+
+    @staticmethod
+    def _row_nonce(row: dict) -> int | None:
+        try:
+            n = int(row.get("nonce"))
+        except (TypeError, ValueError):
+            return None
+        return n
+
+    def _nonce_slot_verdict(self, envelope: dict) -> tuple[str, dict | None]:
+        """What consumed the envelope's nonce slot on chain.
+
+        ``chain_nonce > env_nonce`` proves SOME transaction from the payout
+        account sealed at ``env_nonce`` — the question the hash probes cannot
+        answer is whether that transaction is THIS envelope (#1721).
+
+        Returns ``("ours", row)`` when a sealed tx matching the envelope
+        content sits at its nonce — the payout landed (confirmed or
+        sealed-failed) under whatever hash the chain assigned.
+        ``("other", row)`` when a *different* confirmed tx holds the slot —
+        the envelope can never land. ``("unknown", None)`` when the slot
+        occupant cannot be identified; callers must fail closed.
+        """
+        env_nonce = self._row_nonce(envelope)
+        if env_nonce is None or env_nonce < 0:
+            return "unknown", None
+        rows = self._payout_account_txs()
+        if rows is None:
+            return "unknown", None
+        slot = [r for r in rows if self._row_nonce(r) == env_nonce and r.get("block_height") is not None]
+        for r in slot:
+            if self._chain_tx_matches_envelope(r, envelope):
+                return "ours", r
+        confirmed = [r for r in slot if str(r.get("status") or "").lower() in ("confirmed", "success")]
+        if confirmed:
+            return "other", confirmed[0]
+        return "unknown", None
+
     def _tx_on_chain(self, tx_hash: str) -> bool | None:
         """True if tx_hash is sealed in a block, False if absent/mempool, None if unknown."""
         try:
@@ -927,9 +1044,16 @@ class BridgeMonitor:
 
         Re-signing is only safe when the stored envelope can no longer
         land, which requires BOTH: the payout account's on-chain nonce
-        has already passed the envelope's nonce, and the envelope's hash
-        is not sealed on chain. Anything less refuses — a premature
-        re-sign is how double payments happen.
+        has already passed the envelope's nonce, AND the transaction that
+        consumed that nonce slot is proven NOT to be this envelope.
+
+        #1721: ``ait_tx_hash`` may hold the client-derived hash the chain
+        never indexed (rebroadcast never adopted the posted hash, or the
+        process died between POST-ack and the adopt write), so "hash not
+        sealed" alone proves nothing — a landed envelope looked dead and
+        the sweep double-paid. The slot-content proof in
+        ``_nonce_slot_verdict`` is the authoritative check; the hash probes
+        remain as a cheap early exit and extra witness.
         """
         d = get_deposit(tx_hash)
         if not d:
@@ -958,16 +1082,47 @@ class BridgeMonitor:
                 f"payout account nonce {chain_nonce} has not passed envelope nonce {env_nonce} "
                 "— the envelope can still land; refusing to re-sign"
             )
-        sealed = self._tx_on_chain(payout_hash)
-        if sealed is None:
-            return False, "cannot verify payout seal status — refusing"
-        if sealed:
-            return False, f"payout {payout_hash} IS sealed on chain — the deposit will complete normally; refusing"
-        # The envelope can never land: its nonce slot is taken by a later
-        # sealed transaction and the hash itself is not on chain. Free the
-        # row for a fresh payout — the retry path builds it ledger-first.
-        # The envelope fields are cleared (empty string = falsy) so no
-        # path hands the dead envelope back to the sweep.
+        # Probe every hash spelling the ledger holds — ait_tx_hash may be a
+        # stale client-derived value (#1721), so envelope_hash gets a probe
+        # too. Any sealed hit refuses outright.
+        probe_hashes = {canon_tx_hash(h) for h in (d.get("ait_tx_hash"), d.get("envelope_hash"), payout_hash) if h}
+        for h in probe_hashes:
+            sealed = self._tx_on_chain(h)
+            if sealed:
+                return False, f"payout {h} IS sealed on chain — the deposit will complete normally; refusing"
+        # The authoritative proof: identify WHICH transaction consumed the
+        # envelope's nonce slot. A stale ait_tx_hash makes "hash not found"
+        # meaningless — only the slot occupant's content can prove the
+        # envelope dead.
+        verdict, slot_tx = self._nonce_slot_verdict(envelope)
+        if verdict == "ours":
+            # The envelope landed (or sealed-failed) under the hash the
+            # chain assigned — possibly one the ledger never recorded.
+            # Adopt it so the seal probe resolves, then refuse: re-signing
+            # here is the double-payment #1721 demonstrated twice on-chain.
+            landed_hash = (slot_tx or {}).get("tx_hash")
+            if landed_hash and canon_tx_hash(landed_hash) != canon_tx_hash(d.get("ait_tx_hash") or ""):
+                update_deposit(tx_hash, ait_tx_hash=landed_hash)
+                logger.warning(
+                    "Deposit %s: adopted on-chain payout hash %s (stored %s was stale)",
+                    tx_hash,
+                    landed_hash,
+                    d.get("ait_tx_hash"),
+                )
+            return False, (
+                f"payout envelope IS on chain as {landed_hash} at nonce {env_nonce} "
+                "— the deposit will complete normally; refusing to re-sign"
+            )
+        if verdict != "other":
+            return False, (
+                "cannot prove which transaction consumed the envelope's nonce slot "
+                "(account tx query unavailable or incomplete) — refusing to re-sign"
+            )
+        # verdict == "other": a different confirmed transaction holds the
+        # nonce slot and no hash spelling is sealed — the envelope can never
+        # land. Free the row for a fresh payout — the retry path builds it
+        # ledger-first. The envelope fields are cleared (empty string =
+        # falsy) so no path hands the dead envelope back to the sweep.
         update_deposit(
             tx_hash,
             signed_tx="",
