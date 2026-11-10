@@ -252,3 +252,107 @@ class TestUnboundedLists:
 
         sig = inspect.signature(TradingService.list_requests)
         assert "limit" in sig.parameters
+
+
+class TestLegacyExpiry:
+    """#1562: TradeRequest/TradeMatch/TradeNegotiation expires_at is write-only
+    unless a lazy sweep flips stale non-terminal rows on read paths."""
+
+    async def test_expired_rows_lazily_cancel_or_expire(self, db_session):
+        from datetime import UTC, datetime, timedelta
+
+        from trading_service.domain.trading import (
+            NegotiationStatus,
+            TradeMatch,
+            TradeNegotiation,
+            TradeRequest,
+            TradeStatus,
+            TradeType,
+        )
+
+        past = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+        db_session.add(
+            TradeRequest(
+                request_id="req_exp",
+                buyer_agent_id="b",
+                trade_type=TradeType.AI_POWER,
+                title="expired",
+                status=TradeStatus.OPEN,
+                expires_at=past,
+            )
+        )
+        db_session.add(
+            TradeMatch(
+                match_id="match_exp",
+                request_id="req_exp",
+                buyer_agent_id="b",
+                seller_agent_id="s",
+                match_score=1.0,
+                confidence_level=0.5,
+                price_compatibility=1.0,
+                timing_compatibility=1.0,
+                specification_compatibility=1.0,
+                reputation_compatibility=1.0,
+                geographic_compatibility=1.0,
+                status=TradeStatus.MATCHING,
+                expires_at=past,
+            )
+        )
+        db_session.add(
+            TradeNegotiation(
+                negotiation_id="neg_exp",
+                match_id="match_exp",
+                buyer_agent_id="b",
+                seller_agent_id="s",
+                status=NegotiationStatus.PENDING,
+                expires_at=past,
+            )
+        )
+        await db_session.commit()
+
+        svc = _svc(db_session)
+        # Any legacy read path runs the sweep for all three tables.
+        await svc.list_requests()
+
+        request = await svc.get_request("req_exp")
+        assert request is not None
+        assert request.status == TradeStatus.CANCELLED
+
+        matches = await svc.list_matches()
+        match = next(m for m in matches if m.match_id == "match_exp")
+        assert match.status == TradeStatus.CANCELLED
+
+        from sqlalchemy import select
+
+        result = await db_session.execute(select(TradeNegotiation).where(TradeNegotiation.negotiation_id == "neg_exp"))
+        negotiation = result.scalars().first()
+        assert negotiation is not None
+        assert negotiation.status == NegotiationStatus.EXPIRED
+
+    async def test_null_expires_at_falls_back_to_created_at_ttl(self, db_session, monkeypatch):
+        from datetime import UTC, datetime, timedelta
+
+        from trading_service.domain.trading import TradeRequest, TradeStatus, TradeType
+
+        monkeypatch.setenv("TRADING_LEGACY_TTL_SECONDS", "60")
+        old = datetime.now(UTC).replace(tzinfo=None) - timedelta(seconds=120)
+        db_session.add(
+            TradeRequest(
+                request_id="req_legacy_null",
+                buyer_agent_id="b",
+                trade_type=TradeType.AI_POWER,
+                title="legacy",
+                status=TradeStatus.OPEN,
+                created_at=old,
+                updated_at=old,
+                last_activity=old,
+                expires_at=None,
+            )
+        )
+        await db_session.commit()
+
+        svc = _svc(db_session)
+        await svc.list_requests()
+        request = await svc.get_request("req_legacy_null")
+        assert request is not None
+        assert request.status == TradeStatus.CANCELLED
