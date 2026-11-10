@@ -1,6 +1,8 @@
 """Chain client — config constants, data layer, and shared DB/RPC helpers."""
 
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,7 @@ __all__ = [
     "rpc_url_for",
     "get_data_layer",
     "chain_db_path",
+    "chain_db_connect",
     "normalize_block",
     "get_chain_head",
     "get_transaction",
@@ -75,6 +78,27 @@ def chain_db_path() -> Path | None:
     if not path.exists():
         path = Path("/var/lib/aitbc/data/chain.db")
     return path if path.exists() else None
+
+
+# chain.db is a live WAL store owned by aitbc_chain.database, whose connections get
+# busy_timeout=60000. Explorer reads used to open it with sqlite's 5 s default and in
+# read-write mode — a checkpoint or writer burst could fail a page load with
+# "database is locked". Every explorer connection goes through chain_db_connect so the
+# lock-wait budget and the read-only guarantee cannot drift apart per call site.
+_CHAIN_DB_TIMEOUT_SECS = 30
+
+
+@asynccontextmanager
+async def chain_db_connect(db_path: Path) -> AsyncIterator[aiosqlite.Connection]:
+    """Open ``chain.db`` for read-only queries with a sane lock-wait budget.
+
+    ``timeout`` maps to sqlite's busy handler (the connect-level equivalent of
+    ``PRAGMA busy_timeout``); ``PRAGMA query_only=ON`` makes any accidental write
+    fail at the SQL layer instead of mutating the consensus store.
+    """
+    async with aiosqlite.connect(str(db_path), timeout=_CHAIN_DB_TIMEOUT_SECS) as conn:
+        await conn.execute("PRAGMA query_only=ON")
+        yield conn
 
 
 def __getattr__(name: str) -> Any:
@@ -126,7 +150,7 @@ async def get_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str
     try:
         db_path = chain_db_path()
         if db_path is not None:
-            async with aiosqlite.connect(str(db_path)) as conn:
+            async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
                 await cursor.execute(
@@ -182,7 +206,7 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
         # First try blockchain database for direct lookup
         db_path = chain_db_path()
         if db_path is not None:
-            async with aiosqlite.connect(str(db_path)) as conn:
+            async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
                 # Get block data
@@ -272,7 +296,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
         # First try blockchain database for direct lookup
         db_path = chain_db_path()
         if db_path is not None:
-            async with aiosqlite.connect(str(db_path)) as conn:
+            async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
                 # Get latest blocks with offset

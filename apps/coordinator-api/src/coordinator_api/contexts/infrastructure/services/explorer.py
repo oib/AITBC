@@ -30,6 +30,19 @@ from ....schemas import (
 from ..domain import Job, JobReceipt
 
 logger = get_logger(__name__)
+
+# chain.db is owned by aitbc_chain.database, whose connections get busy_timeout=60000.
+# These read paths used sqlite's 5 s default and opened the store read-write; match the
+# lock-wait budget and pin the connections read-only at the SQL layer.
+_CHAIN_DB_TIMEOUT_SECS = 30
+
+
+def _connect_chain_db(chain_db_path: Path) -> sqlite3.Connection:
+    conn = sqlite3.connect(str(chain_db_path), timeout=_CHAIN_DB_TIMEOUT_SECS)
+    conn.execute("PRAGMA query_only=ON")
+    return conn
+
+
 _STATUS_LABELS = {
     JobState.queued: "Queued",
     JobState.running: "Running",
@@ -270,7 +283,7 @@ class ExplorerService:
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
             if chain_db_path.exists():
-                with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                with closing(_connect_chain_db(chain_db_path)) as conn:
                     cursor = conn.cursor()
 
                     # Search for block by hash (with or without 0x prefix)
@@ -311,7 +324,7 @@ class ExplorerService:
                 chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
             if chain_db_path.exists():
-                with closing(sqlite3.connect(str(chain_db_path))) as conn:
+                with closing(_connect_chain_db(chain_db_path)) as conn:
                     cursor = conn.cursor()
 
                     # Search for transaction by hash (with or without 0x prefix)
