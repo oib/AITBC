@@ -2,7 +2,6 @@
 
 from typing import Any
 
-import aiosqlite
 import httpx
 from fastapi import APIRouter, HTTPException
 
@@ -10,6 +9,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
 
 from chain_client import (
+    chain_db_connect,
     chain_db_path,
     default_chain_id,
     rpc_url_for,
@@ -53,7 +53,7 @@ async def api_non_empty_blocks(
         if db_path is None:
             return {"blocks": []}
 
-        async with aiosqlite.connect(str(db_path)) as conn:
+        async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
             # Get current chain height
@@ -140,7 +140,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
         db_path = chain_db_path()
 
         if db_path is not None:
-            async with aiosqlite.connect(str(db_path)) as conn:
+            async with chain_db_connect(db_path) as conn:
                 cursor = await conn.cursor()
 
                 # Canonical block hashes are 0x-prefixed lowercase hex, so
@@ -266,7 +266,7 @@ async def api_blocks_by_address(
         if db_path is None:
             return {"blocks": []}
 
-        async with aiosqlite.connect(str(db_path)) as conn:
+        async with chain_db_connect(db_path) as conn:
             cursor = await conn.cursor()
 
             search_term = like_pattern(address)
