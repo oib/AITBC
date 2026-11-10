@@ -5133,6 +5133,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/ipfs/island/swarm-key/nonce",
+          "upstream": "/v1/ipfs/island/swarm-key/nonce",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/ipfs/list/{agent_id}",
           "upstream": "/v1/ipfs/list/{agent_id}",
           "methods": [

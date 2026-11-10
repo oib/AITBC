@@ -10727,6 +10727,70 @@
         }
       }
     },
+    "/v1/ipfs/island/swarm-key/nonce": {
+      "post": {
+        "tags": [
+          "ipfs"
+        ],
+        "summary": "Issue Island Swarm Key Nonce",
+        "description": "Issue a single-use, expiring swarm-key challenge nonce (#1712).\n\nThe nonce is bound to (chain_id, island_id, member_address); the member\nsigns it and posts the signature to /island/swarm-key within the TTL.",
+        "operationId": "issue_island_swarm_key_nonce_v1_ipfs_island_swarm_key_nonce_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IslandSwarmKeyNonceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Issue Island Swarm Key Nonce V1 Ipfs Island Swarm Key Nonce Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/ipfs/island/swarm-key": {
       "post": {
         "tags": [
@@ -40524,6 +40588,30 @@
         ],
         "title": "IdentityStatus",
         "description": "Agent identity status enumeration"
+      },
+      "IslandSwarmKeyNonceRequest": {
+        "properties": {
+          "chain_id": {
+            "type": "string",
+            "title": "Chain Id"
+          },
+          "island_id": {
+            "type": "string",
+            "title": "Island Id"
+          },
+          "member_address": {
+            "type": "string",
+            "title": "Member Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chain_id",
+          "island_id",
+          "member_address"
+        ],
+        "title": "IslandSwarmKeyNonceRequest",
+        "description": "Request model for a server-issued swarm-key challenge nonce."
       },
       "IslandSwarmKeyRequest": {
         "properties": {
