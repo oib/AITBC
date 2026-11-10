@@ -11,15 +11,53 @@ trade status. Escrow locking and settlement are deferred to v0.9.0.
 from __future__ import annotations
 
 import logging
+import os
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import and_, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import and_, or_
 from sqlmodel import select
 
 from ..domain.inter_chain import InterChainTrade
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_TRADE_TTL_SECONDS = 7 * 24 * 3600
+
+
+def _utcnow_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+async def _expire_stale_pending(session: AsyncSession) -> None:
+    """#1562: pending trades past expires_at must not match — flip them to
+    'cancelled' before candidate selection. Mirrors the lazy expiry in
+    InterChainTradeService; the engine gets its own session dependency."""
+    try:
+        ttl = int(os.environ.get("INTER_CHAIN_TRADE_TTL_SECONDS", str(_DEFAULT_TRADE_TTL_SECONDS)))
+    except (TypeError, ValueError):
+        ttl = _DEFAULT_TRADE_TTL_SECONDS
+    # expires_at is stamped at create time; trades older than the TTL that
+    # somehow lack the column value fall back to created_at + TTL.
+    cutoff = _utcnow_naive() - timedelta(seconds=max(60, ttl))
+    result = await session.execute(
+        update(InterChainTrade)
+        .where(
+            InterChainTrade.status == "pending",  # type: ignore[arg-type]
+            or_(  # type: ignore[operator]
+                InterChainTrade.expires_at < _utcnow_naive(),  # type: ignore[operator]
+                and_(  # type: ignore[operator]
+                    InterChainTrade.expires_at.is_(None),  # type: ignore[union-attr]
+                    InterChainTrade.created_at < cutoff,  # type: ignore[operator]
+                ),
+            ),
+        )
+        .values(status="cancelled", updated_at=_utcnow_naive())
+    )
+    if result.rowcount:
+        await session.commit()
+        logger.info("Expired %d stale pending trade(s) before matching", result.rowcount)
 
 
 class MatchingEngine:
@@ -40,6 +78,7 @@ class MatchingEngine:
 
         Returns a match result dict if a match is found, None otherwise.
         """
+        await _expire_stale_pending(self.session)
         # Get the trade to match (lock for update to prevent concurrent matching)
         stmt = select(InterChainTrade).where(InterChainTrade.trade_id == trade_id)
         result = await self.session.execute(stmt.with_for_update())
@@ -87,12 +126,6 @@ class MatchingEngine:
         # Take the best match (highest price, earliest time)
         match = candidates[0]
 
-        # Update both trades to "matched" status
-        trade.status = "matched"
-        trade.matched_trade_id = match.trade_id
-        match.status = "matched"
-        match.matched_trade_id = trade.trade_id
-
         # Capture response fields before commit — expire_on_commit=True
         # expires ORM attrs, and post-commit reads raise MissingGreenlet.
         resp = {
@@ -106,6 +139,38 @@ class MatchingEngine:
             "price": match.price,
         }
 
+        # #1562: claim BOTH trades with guarded UPDATEs — SELECT ... FOR
+        # UPDATE is a no-op on sqlite, the default backend, so two concurrent
+        # match_trade calls could both read the same counterparty as 'pending'
+        # and match it twice. The WHERE status='pending' recheck makes the
+        # claim atomic: whichever transaction commits first wins, the loser
+        # sees rowcount 0 and rolls back both sides of the pair.
+        now = _utcnow_naive()
+        claim_self = await self.session.execute(
+            update(InterChainTrade)
+            .where(
+                InterChainTrade.trade_id == trade_id,  # type: ignore[arg-type]
+                InterChainTrade.status == "pending",  # type: ignore[arg-type]
+            )
+            .values(status="matched", matched_trade_id=match.trade_id, updated_at=now)
+        )
+        claim_match = await self.session.execute(
+            update(InterChainTrade)
+            .where(
+                InterChainTrade.trade_id == match.trade_id,  # type: ignore[arg-type]
+                InterChainTrade.status == "pending",  # type: ignore[arg-type]
+            )
+            .values(status="matched", matched_trade_id=trade_id, updated_at=now)
+        )
+        if (claim_self.rowcount or 0) != 1 or (claim_match.rowcount or 0) != 1:
+            await self.session.rollback()
+            logger.info("Match for trade %s lost a concurrent claim race", trade_id)
+            return {
+                "trade_id": trade_id,
+                "status": "pending",
+                "matched": False,
+                "reason": "counterparty already matched concurrently",
+            }
         await self.session.commit()
 
         logger.info("Matched trade %s with %s", trade_id, resp["matched_trade_id"])
