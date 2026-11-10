@@ -1157,3 +1157,67 @@ class TestPendingSlices:
         """One node held on a pre-impl build while the fleet is pinned at H:
         bounded liveness degradation, no safety violation, raw journals "
         preserved."""
+
+
+class TestSignedAttestationPersist:
+    """Regression for the mesh-L2/L3 finding: ``_persist_signed_attestations``
+    pruned domain-keyed records by parsing ``chain_id`` as the height out of
+    the key (``chain_id:height:domain:hash:signer``), freezing the journal at
+    the pre-activation height on every post-H write."""
+
+    def test_domain_keyed_record_persists_and_reloads(self, monkeypatch, tmp_path):
+        svc, _broker, our_addr, _our_key, proposer_addr, _proposer_key = _service(monkeypatch, tmp_path)
+        svc._record_signed_attestation(
+            height=1608,
+            block_hash="0xaaaa",
+            signer=our_addr,
+            message={
+                "chain_id": CHAIN,
+                "height": 1608,
+                "hash": "0xaaaa",
+                "parent_hash": "0xparent",
+                "proposer": proposer_addr,
+                "state_root": "0xs",
+                "bridge_state_root": "0xb",
+            },
+            request_round=None,
+            round_lock=False,
+            signature="0xsig",
+            signature_domain=DOMAIN_BLOCK_ATTESTATION,
+        )
+        data = json.loads(svc._signed_attestations_path.read_text())
+        domain_prefix = f"{CHAIN}:1608:{DOMAIN_BLOCK_ATTESTATION}:"
+        persisted = [r for r in data["records"] if r["key"].startswith(domain_prefix)]
+        assert len(persisted) == 1
+        assert persisted[0]["record"]["signature_domain"] == DOMAIN_BLOCK_ATTESTATION
+        # Fresh index reload restores the domain-keyed record.
+        svc._signed_attestations.clear()
+        svc._signed_attestations_loaded = False
+        svc._ensure_signed_attestations_loaded()
+        assert any(k.startswith(domain_prefix) for k in svc._signed_attestations)
+
+    def test_mixed_legacy_and_domain_records_persist(self, monkeypatch, tmp_path):
+        svc, _broker, our_addr, _our_key, proposer_addr, _proposer_key = _service(monkeypatch, tmp_path)
+        for domain in (None, DOMAIN_BLOCK_ATTESTATION):
+            svc._record_signed_attestation(
+                height=1608,
+                block_hash="0xaaaa",
+                signer=our_addr,
+                message={
+                    "chain_id": CHAIN,
+                    "height": 1608,
+                    "hash": "0xaaaa",
+                    "parent_hash": "0xparent",
+                    "proposer": proposer_addr,
+                    "state_root": "0xs",
+                    "bridge_state_root": "0xb",
+                },
+                request_round=None,
+                round_lock=False,
+                signature="0xsig",
+                signature_domain=domain,
+            )
+        data = json.loads(svc._signed_attestations_path.read_text())
+        keys = [r["key"] for r in data["records"]]
+        assert any(k.startswith("1608:0xaaaa:") for k in keys)
+        assert any(k.startswith(f"{CHAIN}:1608:{DOMAIN_BLOCK_ATTESTATION}:") for k in keys)
