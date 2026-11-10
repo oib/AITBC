@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 
 from ..auth import AdminOrClientDep
 from ..config import settings
+from aitbc.rate_limiting import rate_limit
 
 
 router = APIRouter(tags=["media"])
@@ -35,6 +36,7 @@ def _max_upload_bytes() -> int:
 
 
 @router.post("/media/upload", summary="Upload a media file", tags=["media"])
+@rate_limit(rate=20, per=60)
 async def upload_media(
     request: Request,
     file: Annotated[UploadFile, File(...)],
@@ -104,7 +106,7 @@ async def upload_media(
 
 
 @router.get("/media/download/{token}", summary="Download a media file", tags=["media"], name="download_media")
-async def download_media(token: str) -> FileResponse:
+def download_media(token: str) -> FileResponse:
     """Download a previously uploaded media file by token."""
     media_dir = _media_dir()
     storage_path = media_dir / token

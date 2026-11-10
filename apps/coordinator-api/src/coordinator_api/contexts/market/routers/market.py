@@ -28,7 +28,7 @@ def _get_service(session: Annotated[Session, Depends(get_session)]) -> MarketSer
 
 
 @router.get("/market/offers", response_model=list[MarketOfferView], summary="List market offers")
-@limiter.limit("100/minute")
+@limiter.limit(lambda: settings.rate_limit_market_list)
 def list_market_offers(
     request: Request,
     *,

@@ -11,7 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc_shared import JobPayment
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import parse_rate_limit, rate_limit
 
 from ....auth import AdminOrClientDep
 from ....config import settings
@@ -92,7 +92,7 @@ async def _apply_offer_quote(req: JobCreate) -> tuple[JobCreate, OfferQuote | No
 
 
 @router.post("/jobs", response_model=JobView, status_code=status.HTTP_201_CREATED, summary="Submit a job")
-@rate_limit(rate=50, per=60)
+@rate_limit(*parse_rate_limit(settings.rate_limit_jobs_submit))
 async def submit_job(
     req: JobCreate,
     request: Request,

@@ -19,6 +19,7 @@ from ....auth import AuthDep
 from pydantic import BaseModel
 
 from ..services.dispute_resolution import DisputeStatus, get_dispute_service
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/disputes", tags=["disputes"])
 
@@ -53,6 +54,7 @@ class CastVoteRequest(BaseModel):
 
 
 @router.post("/file", summary="File a dispute")
+@rate_limit(rate=20, per=60)
 def file_dispute(request: Request, req: FileDisputeRequest, user: AuthDep) -> dict[str, Any]:
     """File a new dispute for a job"""
     try:
@@ -86,6 +88,7 @@ def file_dispute(request: Request, req: FileDisputeRequest, user: AuthDep) -> di
 
 
 @router.post("/evidence", summary="Submit evidence")
+@rate_limit(rate=20, per=60)
 def submit_evidence(request: Request, req: SubmitEvidenceRequest, user: AuthDep) -> dict[str, Any]:
     """Submit evidence for a dispute"""
     try:
@@ -118,6 +121,7 @@ def submit_evidence(request: Request, req: SubmitEvidenceRequest, user: AuthDep)
 
 
 @router.post("/vote", summary="Cast arbitrator vote")
+@rate_limit(rate=20, per=60)
 def cast_vote(request: Request, req: CastVoteRequest, user: AuthDep) -> dict[str, Any]:
     """Cast a vote as an arbitrator"""
     try:
@@ -215,6 +219,7 @@ def list_disputes(request: Request, status: str | None = None, party: str | None
 
 
 @router.post("/arbitrators/register", summary="Register as arbitrator")
+@rate_limit(rate=20, per=60)
 def register_arbitrator(request: Request, address: str, user: AuthDep) -> dict[str, Any]:
     """Register an address as an arbitrator.
 

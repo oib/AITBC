@@ -11,9 +11,10 @@ from sqlmodel import Session, col, select
 from aitbc_shared import JobPayment
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import parse_rate_limit, rate_limit
 
 from ....auth import MinerDep
+from ....config import settings
 from ....schemas import (
     AssignedJob,
     JobFailSubmit,
@@ -330,7 +331,7 @@ def _apply_tee_computation_attestation(
 
 
 @router.post("/miners/register", summary="Register or update miner")
-@rate_limit(rate=50, per=60)
+@rate_limit(*parse_rate_limit(settings.rate_limit_miner_register))
 async def register(
     req: MinerRegister,
     request: Request,
@@ -343,7 +344,7 @@ async def register(
 
 
 @router.post("/miners/heartbeat", summary="Send miner heartbeat")
-@rate_limit(rate=100, per=60)
+@rate_limit(*parse_rate_limit(settings.rate_limit_miner_heartbeat))
 async def heartbeat(
     req: MinerHeartbeat,
     request: Request,

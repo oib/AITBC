@@ -34,10 +34,13 @@ router = APIRouter(tags=["AI Agents"])
 
 
 @router.post("/workflows", response_model=AIAgentWorkflow)
+@rate_limit(rate=30, per=60)
 def create_workflow(
     workflow_data: AgentWorkflowCreate,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    *,
+    request: Request,
 ) -> AIAgentWorkflow:
     """Create a new AI agent workflow"""
     try:
@@ -154,10 +157,13 @@ def update_workflow(
 
 
 @router.delete("/workflows/{workflow_id}")
+@rate_limit(rate=30, per=60)
 def delete_workflow(
     workflow_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    *,
+    request: Request,
 ) -> dict[str, str]:
     """Delete an agent workflow"""
     try:
@@ -180,12 +186,15 @@ def delete_workflow(
 
 
 @router.post("/workflows/{workflow_id}/execute", response_model=AgentExecutionResponse)
+@rate_limit(rate=30, per=60)
 async def execute_workflow(
     workflow_id: str,
     execution_request: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    *,
+    http_request: Request,
 ) -> AgentExecutionResponse:
     """Execute an AI agent workflow"""
     if not settings.enable_orchestration_simulation:
@@ -281,11 +290,14 @@ def list_executions(
 
 
 @router.post("/workflows/{workflow_id}/cancel")
+@rate_limit(rate=30, per=60)
 async def cancel_workflow(
     workflow_id: str,
     execution_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Cancel a workflow execution"""
     try:
