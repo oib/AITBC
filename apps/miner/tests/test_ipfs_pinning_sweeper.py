@@ -113,6 +113,7 @@ def test_sweep_disabled_by_env(monkeypatch, state_path, sweeper):
         "errors": 0,
         "truncated": 0,
         "deferred": 0,
+        "reclaimed": 0,
     }
     assert sweeper["ipfs"] == []
 
@@ -424,3 +425,76 @@ def test_unpin_proceeds_when_job_lookup_fails_closed(state_path, sweeper):
     assert result["unpinned"] == 0
     assert result["deferred"] == 1
     assert "job-x" in ipfs_pinning_sweeper._load_state(state_path)
+
+
+# --- IPFS-PIN-LEAK-1 (#1687): crash-window reconcile + atomic state ---------
+
+
+def _age_untracked(path: Path, cid: str) -> None:
+    import json
+
+    state = json.loads(path.read_text())
+    state["_untracked"][cid] = "2000-01-01T00:00:00+00:00"
+    path.write_text(json.dumps(state))
+
+
+@pytest.mark.unit
+def test_reconcile_records_then_reclaims_untracked_pin(state_path, sweeper, monkeypatch):
+    """A daemon pin known to the market but absent from state is reclaimed
+    only after the grace window — the pin/add→save crash window."""
+    terminal = _job("job-old", state="RELEASED", cid=CID)
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_daemon_pins", lambda: {CID})
+    get_patch = patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=_jobs_response([terminal]))
+    get_patch.start()
+    try:
+        first = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+        assert first["reclaimed"] == 0
+        state = ipfs_pinning_sweeper._load_state(state_path)
+        assert CID in state.get("_untracked", {})
+        assert not any(u.endswith("/api/v0/pin/rm") for u in sweeper["ipfs"])
+
+        _age_untracked(state_path, CID)
+        second = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    finally:
+        get_patch.stop()
+    assert second["reclaimed"] == 1
+    assert any(u.endswith("/api/v0/pin/rm") for u in sweeper["ipfs"])
+    state = ipfs_pinning_sweeper._load_state(state_path)
+    assert CID not in state.get("_untracked", {})
+
+
+@pytest.mark.unit
+def test_reconcile_leaves_unknown_and_active_pins_alone(state_path, sweeper, monkeypatch):
+    """Pins the market never listed, and CIDs of active jobs, are never
+    touched — manual pins on the provider daemon stay safe."""
+    other = "Qm" + "a" * 44
+    active = _job("job-live", state="RUNNING", cid=other)
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_daemon_pins", lambda: {CID, other})
+    get_patch = patch.object(ipfs_pinning_sweeper.requests, "get", side_effect=_jobs_response([active]))
+    get_patch.start()
+    try:
+        # CID is pinned on the daemon but unknown to the market listing;
+        # `other` belongs to the active job and is tracked in state.
+        result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
+    finally:
+        get_patch.stop()
+    assert result["reclaimed"] == 0
+    assert not any(u.endswith("/api/v0/pin/rm") for u in sweeper["ipfs"])
+
+
+@pytest.mark.unit
+def test_save_state_is_atomic(state_path):
+    import json
+
+    ipfs_pinning_sweeper._save_state(state_path, {"job-1": {"cid": CID}})
+    assert json.loads(state_path.read_text()) == {"job-1": {"cid": CID}}
+    assert not state_path.with_name(state_path.name + ".tmp").exists()
+
+
+@pytest.mark.unit
+def test_pin_cid_rejects_ipfs_path_args(sweeper):
+    """Buyer-influenced payload.cid must not become a Kubo path arg (#1582)."""
+    assert ipfs_pinning_sweeper._pin_cid("ipfs/" + CID) is False
+    assert ipfs_pinning_sweeper._unpin_cid("/ipfs/" + CID) is False
+    assert ipfs_pinning_sweeper._object_size("a/b") is None
+    assert not any(u.endswith(("/pin/add", "/pin/rm", "/object/stat")) for u in sweeper["ipfs"])
