@@ -6,6 +6,7 @@ chain context, routing, and isolation for wallet operations.
 """
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -131,7 +132,11 @@ class ChainManager:
                 "default_chain_id": self.default_chain_id,
                 "updated_at": datetime.now(UTC).isoformat(),
             }
-            with open(self.config_path, "w") as f:
+            # chains.json carries coordinator_api_key — create 0o600 so the
+            # file is never world-readable under a permissive umask.
+            fd = os.open(self.config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w") as f:
                 json.dump(data, f, indent=2)
             logger.info("Saved %s chain configurations", len(self.chains))
         except Exception as e:

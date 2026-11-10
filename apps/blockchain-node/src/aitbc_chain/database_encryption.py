@@ -63,12 +63,13 @@ class KeyManager:
         # Ensure parent directory exists
         self.key_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Write key with restricted permissions
-        with open(self.key_path, "wb") as f:
+        # Create 0o600 atomically: the old write-then-chmod left a window
+        # where the DB key was readable under the process umask, and a
+        # pre-existing loose file kept its mode.
+        fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+        with os.fdopen(fd, "wb") as f:
             f.write(key)
-
-        # Set file permissions to 600 (owner read/write only)
-        os.chmod(self.key_path, stat.S_IRUSR | stat.S_IWUSR)
 
     def load_key(self) -> bytes | None:
         """Load encryption key from file.

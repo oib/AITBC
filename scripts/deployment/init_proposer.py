@@ -34,6 +34,19 @@ def _read_env(path: Path) -> dict[str, str]:
     return env
 
 
+def _write_secret(path: Path, text: str) -> None:
+    """Write a secret file 0o600 atomically.
+
+    ``Path.write_text`` + ``os.chmod`` leaves a window where the file is
+    readable under the process umask; ``os.open`` with mode 0o600 plus
+    ``fchmod`` closes it for both new and pre-existing files.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+
+
 def _set_env(path: Path, key: str, value: str) -> None:
     lines = path.read_text().splitlines() if path.exists() else []
     updated = False
@@ -140,8 +153,7 @@ def main() -> int:
         password = password_file.read_text().strip()
     if not password:
         password = secrets.token_hex(32)
-        password_file.write_text(password)
-        os.chmod(password_file, 0o600)
+        _write_secret(password_file, password)
 
     account = Account.create()
     private_bytes = bytes(account.key)
@@ -176,16 +188,13 @@ def main() -> int:
         "version": 1,
     }
 
-    keystore_file.write_text(json.dumps(keystore, indent=2))
-    os.chmod(keystore_file, 0o600)
+    _write_secret(keystore_file, json.dumps(keystore, indent=2))
 
     # Write password for node to find it
-    (keystore_dir / ".password").write_text(password)
-    os.chmod(keystore_dir / ".password", 0o600)
+    _write_secret(keystore_dir / ".password", password)
 
     _set_env(env_path, "PROPOSER_ID", address)
-    creds_path.write_text(address)
-    os.chmod(creds_path, 0o600)
+    _write_secret(creds_path, address)
 
     print(f"Generated proposer wallet: {address}")
     return 0

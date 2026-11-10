@@ -5,6 +5,7 @@ This script creates temporary test keys that should NOT be used in production.
 """
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -54,7 +55,10 @@ def main():
     }
 
     output_file = dev_dir / "validator_keys.json"
-    with open(output_file, "w") as f:
+    # Private key PEMs inside — 0o600 at creation, no umask window.
+    fd = os.open(output_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(keys_data, f, indent=2)
 
     print(f"Generated development validator keys at {output_file}")

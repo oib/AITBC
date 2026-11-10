@@ -9,6 +9,7 @@ This script:
 4. Updates User= from root to aitbc-internal where appropriate
 """
 
+import os
 import re
 import shlex
 from pathlib import Path
@@ -102,10 +103,17 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
                 else ln
                 for ln in lines_before
             ]
-            backup_path.write_text("\n".join(redacted))
+            # 0o600 at creation — the backup can hold plaintext secrets when
+            # there were no env_lines to redact, so no umask window.
+            fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write("\n".join(redacted))
         else:
-            backup_path.write_text(service_file.read_text())
-        backup_path.chmod(0o600)
+            fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(service_file.read_text())
         result["changes"].append(f"Backed up original to {backup_path} (mode 0600)")
 
     new_content = "\n".join(lines)

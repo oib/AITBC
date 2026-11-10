@@ -130,25 +130,30 @@ write_blockchain_env() {
         : "${AITBC_PROPOSER_KEY:?set AITBC_PROPOSER_KEY (the 64-hex private key) when AITBC_ENABLE_BLOCK_PRODUCTION=true}"
     fi
     mkdir -p "$(dirname "$out")"
-    {
-        echo "CHAIN_ID=${chain_id}"
-        echo "DB_PATH=${db_path}"
-        echo "RPC_BIND_HOST=${rpc_bind}"
-        echo "RPC_BIND_PORT=${rpc_port}"
-        echo "P2P_BIND_HOST=${p2p_bind}"
-        echo "P2P_BIND_PORT=${p2p_port}"
-        echo "ENABLE_BLOCK_PRODUCTION=${enable}"
-        echo "MINT_PER_UNIT=1000"
-        echo "COORDINATOR_RATIO=0.05"
-        echo "GOSSIP_BACKEND=${gossip}"
-        if [ -n "${gossip_url}" ]; then
-            echo "GOSSIP_BROADCAST_URL=${gossip_url}"
-        fi
-        if [ "${enable}" = "true" ]; then
-            echo "PROPOSER_ID=${AITBC_PROPOSER_ID}"
-            echo "PROPOSER_KEY=${AITBC_PROPOSER_KEY}"
-        fi
-    } > "${out}"
+    # umask 077 for the write itself: the file can carry PROPOSER_KEY, so it
+    # must never exist world-readable even for the instant before chmod.
+    (
+        umask 077
+        {
+            echo "CHAIN_ID=${chain_id}"
+            echo "DB_PATH=${db_path}"
+            echo "RPC_BIND_HOST=${rpc_bind}"
+            echo "RPC_BIND_PORT=${rpc_port}"
+            echo "P2P_BIND_HOST=${p2p_bind}"
+            echo "P2P_BIND_PORT=${p2p_port}"
+            echo "ENABLE_BLOCK_PRODUCTION=${enable}"
+            echo "MINT_PER_UNIT=1000"
+            echo "COORDINATOR_RATIO=0.05"
+            echo "GOSSIP_BACKEND=${gossip}"
+            if [ -n "${gossip_url}" ]; then
+                echo "GOSSIP_BROADCAST_URL=${gossip_url}"
+            fi
+            if [ "${enable}" = "true" ]; then
+                echo "PROPOSER_ID=${AITBC_PROPOSER_ID}"
+                echo "PROPOSER_KEY=${AITBC_PROPOSER_KEY}"
+            fi
+        } > "${out}"
+    )
     chmod 0600 "${out}"
     echo "[deploy-env] wrote ${out} (ENABLE_BLOCK_PRODUCTION=${enable})"
 }

@@ -50,9 +50,10 @@ def main():
         api_secret = env_vars["API_KEY_HASH_SECRET"]
         encrypted = encrypt_secret(api_secret, enc_password)
         output_file = keystore_config_dir / "api_hash_secret.enc"
-        with open(output_file, "wb") as f:
+        fd = os.open(output_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as f:
             f.write(encrypted)
-        os.chmod(output_file, 0o600)
         print(f"Migrated API_KEY_HASH_SECRET to: {output_file}")
     else:
         print("API_KEY_HASH_SECRET not found in .env")
@@ -62,9 +63,10 @@ def main():
         proposer_id = env_vars["proposer_id"]
         encrypted = encrypt_secret(proposer_id, enc_password)
         output_file = keystore_config_dir / "proposer_key.enc"
-        with open(output_file, "wb") as f:
+        fd = os.open(output_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as f:
             f.write(encrypted)
-        os.chmod(output_file, 0o600)
         print(f"Migrated proposer_id to: {output_file}")
     else:
         print("proposer_id not found in .env")

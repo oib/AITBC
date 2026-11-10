@@ -40,6 +40,13 @@ def _connect() -> sqlite3.Connection:
     path = _db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=30)
+    # The store holds key hashes + issuing IPs; sqlite creates it under the
+    # process umask (0644 in practice), so pin 0600 — tighten on every connect
+    # so a pre-existing loose file is repaired too.
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
     # #1560: WAL + busy_timeout on peer_keys.db.
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=30000")

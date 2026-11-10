@@ -726,8 +726,11 @@ def swarm_key(
     key = data.get("swarm_key", "")
     if output_path:
         out_path = Path(output_path)
-        out_path.write_text(key)
-        out_path.chmod(0o600)
+        # Swarm key is a secret — 0o600 at creation, no umask window.
+        fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(key)
         success(f"Swarm key written to {output_path}")
 
     result_data: dict[str, Any] = {

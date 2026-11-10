@@ -262,7 +262,10 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = No
 
         KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
         wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
-        with open(wallet_file, "w") as f:
+        # Wallet files carry the private key — create 0o600, never umask.
+        fd = os.open(wallet_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(wallet_data, f)
 
         return JSONResponse(
@@ -298,7 +301,9 @@ async def create_chain_wallet(chain_id: str, request: dict[str, Any] | None = No
 
         KEYSTORE_PATH.mkdir(parents=True, exist_ok=True)
         wallet_file = KEYSTORE_PATH / f"{wallet_name}.json"
-        with open(wallet_file, "w") as f:
+        fd = os.open(wallet_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(wallet_data, f)
 
         return JSONResponse(

@@ -76,9 +76,12 @@ def generate_keypair(name: str, password: str, keystore_dir: Path) -> dict[str, 
 
     keystore_file = keystore_dir / f"{name}.json"
     keystore_dir.mkdir(parents=True, exist_ok=True)
-    with open(keystore_file, "w") as f:
+    # Create with 0o600 atomically: write-then-chmod leaves a window where
+    # the encrypted private key is readable under the process umask.
+    fd = os.open(keystore_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # tighten pre-existing loose files
+    with os.fdopen(fd, "w") as f:
         json.dump(keystore, f, indent=2)
-    os.chmod(keystore_file, 0o600)
 
     print(f"Generated {name} keypair")
     print(f"  Address: {address}")

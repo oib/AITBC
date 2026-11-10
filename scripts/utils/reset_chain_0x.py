@@ -69,8 +69,11 @@ def _service_accounts(keys_file: Path) -> dict[str, str]:
         private_hex, address = new_account()
         minted[name] = {"address": address, "private_key": "0x" + private_hex}
     keys_file.parent.mkdir(parents=True, exist_ok=True)
-    keys_file.write_text(json.dumps(minted, indent=2))
-    os.chmod(keys_file, 0o600)
+    # Minted private keys — 0o600 at creation, no umask window.
+    fd = os.open(keys_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(minted, f, indent=2)
     print(f"[+] Minted {len(minted)} service account keys -> {keys_file} (0600, back this up)")
     return {name: entry["address"] for name, entry in minted.items()}
 

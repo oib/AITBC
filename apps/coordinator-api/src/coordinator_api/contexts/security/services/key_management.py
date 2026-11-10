@@ -313,9 +313,14 @@ class FileKeyStorage(KeyStorageBackend):
         try:
             file_path = os.path.join(self.storage_path, f"{key_pair.participant_id}.json")
             private_path = os.path.join(self.storage_path, f"{key_pair.participant_id}.priv")
+            # Create 0o600 before writing: aiofiles.open follows the umask,
+            # so write-then-chmod leaves a window where the private key is
+            # readable. Pre-creating with O_CREAT|0o600 keeps the mode.
+            fd = os.open(private_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.close(fd)  # noqa: unawaited-async - os.close is sync; the ratchet's async-shape heuristic misfires here
+            os.chmod(private_path, 0o600)  # covers a pre-existing loose file
             async with aiofiles.open(private_path, "wb") as f:
                 await f.write(key_pair.private_key)
-            os.chmod(private_path, 0o600)
             metadata = {
                 "participant_id": key_pair.participant_id,
                 "public_key": base64.b64encode(key_pair.public_key).decode(),
@@ -381,9 +386,11 @@ class FileKeyStorage(KeyStorageBackend):
         audit_path = os.path.join(self.storage_path, "audit.json")
         audit_priv_path = os.path.join(self.storage_path, "audit.priv")
         try:
+            fd = os.open(audit_priv_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.close(fd)  # noqa: unawaited-async - os.close is sync; the ratchet's async-shape heuristic misfires here
+            os.chmod(audit_priv_path, 0o600)  # covers a pre-existing loose file
             async with aiofiles.open(audit_priv_path, "wb") as f:
                 await f.write(key_pair.private_key)
-            os.chmod(audit_priv_path, 0o600)
             metadata = {
                 "participant_id": "audit",
                 "public_key": base64.b64encode(key_pair.public_key).decode(),
