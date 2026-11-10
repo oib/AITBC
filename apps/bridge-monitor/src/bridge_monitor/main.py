@@ -19,6 +19,7 @@ from .storage import (
     canon_tx_hash,
     count_pending_retry,
     create_deposit,
+    fail_stale_manual_pending,
     get_cursor,
     get_deposit,
     get_deposits_for_retry,
@@ -87,6 +88,11 @@ class BridgeMonitor:
             os.getenv("BRIDGE_STUCK_PAYOUT_BLOCKS", str(self.rebroadcast_blocks * self.max_rebroadcasts))
         )
         self.queue_alert_depth = int(os.getenv("BRIDGE_QUEUE_ALERT_DEPTH", "5"))
+        # Orphaned manual-* PENDING rows (a crash between the admin row
+        # insert and the SUBMITTED write) are failed by the sweep once
+        # older than this — the legitimate PENDING window inside one admin
+        # command is sub-second, so 15min is generous.
+        self.manual_orphan_seconds = 900
         # Float alerts used to fire on every poll while a condition held — a
         # low float is persistent, so the fleet check counted dozens of
         # identical ALERT lines. Emit at most once per interval per
@@ -974,6 +980,26 @@ class BridgeMonitor:
         )
         return True, f"payout {payout_hash} abandoned; deposit {tx_hash} queued for a fresh payout"
 
+    def _fail_orphaned_manual_payouts(self) -> None:
+        """Fail stale ``manual-*`` rows stuck in PENDING (#1433).
+
+        Only the admin command advances a manual row out of PENDING; a
+        crash mid-command orphans it where no sweep looks — the retry
+        queue reads ``pending_retry`` only and a manual row's zero ETH
+        amount could never be priced anyway. Restricted to the
+        ``manual-%`` prefix: every other 'pending' row belongs to the
+        wallet side's own deposit flow and must never be touched here.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        cutoff = (datetime.now(UTC) - timedelta(seconds=self.manual_orphan_seconds)).isoformat()
+        try:
+            failed = fail_stale_manual_pending(cutoff)
+            if failed:
+                logger.warning("Failed %s orphaned manual payout row(s) stuck in PENDING", failed)
+        except Exception as e:  # noqa: BLE001 - orphan sweep containment — a sweep failure must not kill the poll cycle
+            logger.warning("orphaned manual payout sweep failed: %s", e)
+
     def _check_queue_health(self) -> None:
         """Alert on head-of-line blocking the sweep cannot fix itself.
 
@@ -1340,6 +1366,7 @@ class BridgeMonitor:
                     self.poll_ethereum()
                     self.process_retry_queue()
                     self.process_submitted_deposits()
+                    self._fail_orphaned_manual_payouts()
                     self._check_queue_health()
                 except Exception as e:  # noqa: BLE001 - monitor service-loop containment
                     logger.error("Error in polling loop: %s", e)

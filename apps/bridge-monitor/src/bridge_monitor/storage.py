@@ -520,6 +520,38 @@ def get_submitted_deposits() -> list[dict[str, Any]]:
         return [dict(row) for row in rows]
 
 
+def fail_stale_manual_pending(cutoff_iso: str) -> int:
+    """Terminally fail stale ``manual-*`` rows stuck in PENDING (#1433).
+
+    ``admin.py manual-payout`` mints synthetic rows (``manual-<ts>``) that
+    only the admin command itself advances to SUBMITTED. A crash between
+    ``create_deposit`` and the SUBMITTED write leaves a PENDING row no
+    sweep owns: the retry queue reads only ``pending_retry`` and would
+    reprice ``eth_amount='0'`` forever, and nothing else selects PENDING.
+    Rows younger than ``cutoff_iso`` may be mid-command — only stale ones
+    are failed. The ``manual-%`` prefix is the only safe selector: the
+    wallet side shares this table and owns every other 'pending' row.
+    """
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE eth_deposits
+            SET status = ?, error_message = ?, completed_at = ?
+            WHERE status = ? AND tx_hash LIKE 'manual-%' AND created_at < ?
+            """,
+            (
+                BridgeDepositStatus.FAILED.value,
+                "orphaned manual payout row — process died before submit; re-issue manual-payout",
+                datetime.now(UTC).isoformat(),
+                BridgeDepositStatus.PENDING.value,
+                cutoff_iso,
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount
+
+
 def record_outbound(
     tx_hash: str,
     to_address: str,
