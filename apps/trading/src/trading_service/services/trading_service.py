@@ -2,15 +2,25 @@
 Trading service for managing trading operations
 """
 
+import os
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeSettlement, TradeStatus
+from ..domain.trading import (
+    NegotiationStatus,
+    TradeAgreement,
+    TradeMatch,
+    TradeNegotiation,
+    TradeRequest,
+    TradeSettlement,
+    TradeStatus,
+)
 
 
 _REQUEST_SERVER_FIELDS = frozenset(
@@ -71,10 +81,91 @@ _SETTLEMENT_SERVER_FIELDS = frozenset(
     }
 )
 
+# #1562: legacy P2P rows carried expires_at columns with zero readers.
+# The sweep runs lazily on every legacy read path (and once per /v1/transactions
+# fetch) — there is no background sweeper in this service. Rows predating the
+# TTL fallback (NULL expires_at) use created_at + TTL, matching the
+# InterChainTrade lazy-expiry pattern.
+_DEFAULT_LEGACY_TTL_SECONDS = 7 * 24 * 3600
+_LEGACY_EXPIRABLE_REQUEST_STATUSES = {TradeStatus.OPEN, TradeStatus.MATCHING, TradeStatus.NEGOTIATING}
+_LEGACY_EXPIRABLE_MATCH_STATUSES = {TradeStatus.OPEN, TradeStatus.MATCHING, TradeStatus.NEGOTIATING}
+_LEGACY_EXPIRABLE_NEGOTIATION_STATUSES = {
+    NegotiationStatus.PENDING,
+    NegotiationStatus.ACTIVE,
+    NegotiationStatus.COUNTERED,
+}
+
+
+def _legacy_ttl() -> timedelta:
+    try:
+        seconds = int(os.environ.get("TRADING_LEGACY_TTL_SECONDS", str(_DEFAULT_LEGACY_TTL_SECONDS)))
+    except (TypeError, ValueError):
+        seconds = _DEFAULT_LEGACY_TTL_SECONDS
+    return timedelta(seconds=max(60, seconds))
+
+
+def _utcnow() -> datetime:
+    # The legacy DateTime columns are timezone-naive (same convention as
+    # InterChainTrade); bind a naive UTC value so sqlite comparisons stay
+    # lexicographic-correct.
+    return datetime.now(UTC).replace(tzinfo=None)
+
 
 class TradingService:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def expire_stale_legacy(self) -> None:
+        """#1562: flip expired non-terminal legacy P2P rows on read paths.
+
+        Requests/matches have no ``expired`` TradeStatus, so they land on
+        ``cancelled``; negotiations use ``NegotiationStatus.EXPIRED``. NULL
+        ``expires_at`` rows fall back to ``created_at + TRADING_LEGACY_TTL_SECONDS``.
+        """
+        now = _utcnow()
+        cutoff = now - _legacy_ttl()
+        expired_predicate = or_(
+            TradeRequest.expires_at < now,  # type: ignore[operator]
+            and_(  # type: ignore[operator]
+                TradeRequest.expires_at.is_(None),  # type: ignore[union-attr]
+                TradeRequest.created_at < cutoff,  # type: ignore[operator]
+            ),
+        )
+        await self.session.execute(
+            update(TradeRequest)
+            .where(TradeRequest.status.in_(list(_LEGACY_EXPIRABLE_REQUEST_STATUSES)))  # type: ignore[attr-defined]
+            .where(expired_predicate)
+            .values(status=TradeStatus.CANCELLED, updated_at=now)
+        )
+
+        match_expired_predicate = or_(
+            TradeMatch.expires_at < now,  # type: ignore[operator]
+            and_(  # type: ignore[operator]
+                TradeMatch.expires_at.is_(None),  # type: ignore[union-attr]
+                TradeMatch.created_at < cutoff,  # type: ignore[operator]
+            ),
+        )
+        await self.session.execute(
+            update(TradeMatch)
+            .where(TradeMatch.status.in_(list(_LEGACY_EXPIRABLE_MATCH_STATUSES)))  # type: ignore[attr-defined]
+            .where(match_expired_predicate)
+            .values(status=TradeStatus.CANCELLED, updated_at=now)
+        )
+
+        negotiation_expired_predicate = or_(
+            TradeNegotiation.expires_at < now,  # type: ignore[operator]
+            and_(  # type: ignore[operator]
+                TradeNegotiation.expires_at.is_(None),  # type: ignore[union-attr]
+                TradeNegotiation.created_at < cutoff,  # type: ignore[operator]
+            ),
+        )
+        await self.session.execute(
+            update(TradeNegotiation)
+            .where(TradeNegotiation.status.in_(list(_LEGACY_EXPIRABLE_NEGOTIATION_STATUSES)))  # type: ignore[attr-defined]
+            .where(negotiation_expired_predicate)
+            .values(status=NegotiationStatus.EXPIRED, updated_at=now)
+        )
+        await self.session.commit()
 
     async def list_requests(
         self,
@@ -85,6 +176,7 @@ class TradingService:
         offset: int = 0,
     ) -> list[TradeRequest]:
         """List trade requests"""
+        await self.expire_stale_legacy()
         stmt = select(TradeRequest)
         if status:
             stmt = stmt.where(TradeRequest.status == status)
@@ -97,6 +189,7 @@ class TradingService:
 
     async def get_request(self, request_id: str) -> TradeRequest | None:
         """Get a specific trade request"""
+        await self.expire_stale_legacy()
         stmt = select(TradeRequest).where(TradeRequest.request_id == request_id)
         result = await self.session.execute(stmt)
         return result.scalars().first()
@@ -121,6 +214,7 @@ class TradingService:
         offset: int = 0,
     ) -> list[TradeMatch]:
         """List trade matches"""
+        await self.expire_stale_legacy()
         stmt = select(TradeMatch)
         if status:
             stmt = stmt.where(TradeMatch.status == status)
@@ -185,6 +279,7 @@ class TradingService:
 
     async def get_analytics(self, period_type: str = "daily") -> dict[str, Any]:
         """Get trading analytics"""
+        await self.expire_stale_legacy()
         # Counts
         req_count_stmt = select(func.count()).select_from(TradeRequest)
         req_count_result = await self.session.execute(req_count_stmt)

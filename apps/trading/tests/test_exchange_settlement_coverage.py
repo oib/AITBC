@@ -600,6 +600,74 @@ class TestSettlementStatus:
         assert body["escrow_status"] == "unknown"
         assert "error" in body
 
+    async def test_status_refunded_writes_back_terminal_phase(self, client, monkeypatch):
+        """#1562: a node-side refund must not stay invisible on the trade row."""
+        trade_id = await _seed_inter_chain_trade(
+            escrow_id="esc-123",
+            settlement_phase="escrow_created",
+            status="matched",
+        )
+        _patch_settlement_client(monkeypatch, _FakeSettlementClient(escrow_status="refunded"))
+
+        resp = client.get(f"/v1/trading/trades/{trade_id}/settlement-status")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["escrow_status"] == "refunded"
+        assert body["settlement_phase"] == "refunded"
+
+        row = await _trade_row(trade_id)
+        assert row.settlement_phase == "refunded"
+        assert row.status == "failed"
+
+    async def test_status_completed_writes_back_settled(self, client, monkeypatch):
+        trade_id = await _seed_inter_chain_trade(
+            escrow_id="esc-123",
+            settlement_phase="trade_executed",
+            status="confirmed",
+        )
+        _patch_settlement_client(monkeypatch, _FakeSettlementClient(escrow_status="completed"))
+
+        resp = client.get(f"/v1/trading/trades/{trade_id}/settlement-status")
+        assert resp.status_code == 200
+        assert resp.json()["settlement_phase"] == "settled"
+
+        row = await _trade_row(trade_id)
+        assert row.settlement_phase == "settled"
+        assert row.status == "completed"
+
+    async def test_status_sync_does_not_regress_terminal_local_phase(self, client, monkeypatch):
+        trade_id = await _seed_inter_chain_trade(
+            escrow_id="esc-123",
+            settlement_phase="refunded",
+            status="failed",
+        )
+        _patch_settlement_client(monkeypatch, _FakeSettlementClient(escrow_status="completed"))
+
+        resp = client.get(f"/v1/trading/trades/{trade_id}/settlement-status")
+        assert resp.status_code == 200
+        assert resp.json()["settlement_phase"] == "refunded"
+
+        row = await _trade_row(trade_id)
+        assert row.settlement_phase == "refunded"
+        assert row.status == "failed"
+
+    async def test_status_failed_marks_trade_failed_without_phase_regression(self, client, monkeypatch):
+        trade_id = await _seed_inter_chain_trade(
+            escrow_id="esc-123",
+            settlement_phase="escrow_locked",
+            status="matched",
+        )
+        _patch_settlement_client(monkeypatch, _FakeSettlementClient(escrow_status="failed"))
+
+        resp = client.get(f"/v1/trading/trades/{trade_id}/settlement-status")
+        assert resp.status_code == 200
+        assert resp.json()["escrow_status"] == "failed"
+        assert resp.json()["settlement_phase"] == "escrow_locked"
+
+        row = await _trade_row(trade_id)
+        assert row.settlement_phase == "escrow_locked"
+        assert row.status == "failed"
+
     async def test_status_404(self, client):
         resp = client.get("/v1/trading/trades/trade_missing/settlement-status")
         assert resp.status_code == 404

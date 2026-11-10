@@ -16,7 +16,7 @@ from aitbc.settlement.client import (
     SettlementClient,
 )
 from aitbc.settlement.types import SettlementConfig
-from aitbc.trading.types import SettlementPhase
+from aitbc.trading.types import InterChainTradeStatus, SettlementPhase
 from ..dependencies import get_inter_chain_service
 from ..domain.inter_chain import InterChainTrade
 
@@ -110,6 +110,93 @@ async def _claim_escrow_creation(
 async def _release_escrow_claim(svc: InterChainTradeService, trade_id: str, prior_phase: str) -> None:
     """Undo the escrow_creating claim after a failed create_escrow."""
     await _release_phase_claim(svc, trade_id, SettlementPhase.ESCROW_CREATING, prior_phase)
+
+
+# #1562: node escrow status -> local settlement phase. ``failed`` has no
+# SettlementPhase value; it is handled as a trade-status failure below.
+_REMOTE_TO_SETTLEMENT_PHASE = {
+    "pending": SettlementPhase.ESCROW_CREATED,
+    "locked": SettlementPhase.ESCROW_LOCKED,
+    "verified": SettlementPhase.LOCK_VERIFIED,
+    "executing": SettlementPhase.TRADE_EXECUTED,
+    "completed": SettlementPhase.SETTLED,
+    "refunded": SettlementPhase.REFUNDED,
+    "disputed": SettlementPhase.DISPUTED,
+}
+
+# Monotonic rank so a stale/late remote read cannot regress a fresher local
+# phase. Claim markers rank with the step they guard: ``escrow_creating`` is
+# below ``escrow_created`` (a remote pending may recover a lost create commit),
+# while ``settling``/``disputed`` sit above in-flight escrow states but below
+# the terminal phases.
+_PHASE_RANK = {
+    SettlementPhase.NONE.value: 0,
+    SettlementPhase.ESCROW_CREATING.value: 1,
+    SettlementPhase.ESCROW_CREATED.value: 2,
+    SettlementPhase.ESCROW_LOCKED.value: 3,
+    SettlementPhase.LOCK_VERIFIED.value: 4,
+    SettlementPhase.TRADE_EXECUTED.value: 5,
+    SettlementPhase.SETTLING.value: 6,
+    SettlementPhase.DISPUTED.value: 6,
+    SettlementPhase.SETTLED.value: 7,
+    SettlementPhase.REFUNDED.value: 7,
+}
+_LOCAL_TERMINAL_PHASES = {SettlementPhase.SETTLED.value, SettlementPhase.REFUNDED.value}
+_LOCAL_TERMINAL_STATUSES = {
+    InterChainTradeStatus.COMPLETED.value,
+    InterChainTradeStatus.CANCELLED.value,
+    InterChainTradeStatus.FAILED.value,
+}
+
+
+async def _sync_trade_from_escrow_status(
+    svc: InterChainTradeService, trade_id: str, escrow_status: str
+) -> InterChainTrade | None:
+    """Write a node-reported escrow status back onto the trade row (#1562).
+
+    The settlement-status endpoint used to be read-only: a node-side refund
+    (timeout monitor, dispute resolution) stayed invisible locally, leaving
+    ``settlement_phase='escrow_created'``/``status='matched'`` and letting a
+    later ``settle`` attempt fail against an already-refunded escrow.
+
+    The sync is lazy (runs when status is polled), monotonic (never regresses
+    a fresher local phase), and terminal-local-state preserving: once the row
+    is ``settled``/``refunded`` or the trade status is completed/cancelled/
+    failed, remote reads do not rewrite it.
+    """
+    remote = str(escrow_status).strip().lower()
+    if remote in {"", "unknown"}:
+        return None
+    remote_phase = _REMOTE_TO_SETTLEMENT_PHASE.get(remote)
+    remote_failed = remote == "failed"
+    if remote_phase is None and not remote_failed:
+        return None
+
+    trade = await _lock_trade_for_update(svc, trade_id)
+    if trade is None or not trade.escrow_id:
+        return None
+    if trade.settlement_phase in _LOCAL_TERMINAL_PHASES:
+        return trade
+
+    changed = False
+    if remote_phase is not None:
+        current_rank = _PHASE_RANK.get(trade.settlement_phase, 0)
+        remote_rank = _PHASE_RANK[remote_phase.value]
+        # A remote terminal phase always wins over a non-terminal local phase;
+        # non-terminal remote phases must not move backwards.
+        if remote_rank >= current_rank or remote_phase.value in _LOCAL_TERMINAL_PHASES:
+            if trade.settlement_phase != remote_phase.value:
+                trade.settlement_phase = remote_phase.value
+                changed = True
+    if remote in {"completed", "refunded", "failed"} and trade.status not in _LOCAL_TERMINAL_STATUSES:
+        trade.status = InterChainTradeStatus.COMPLETED.value if remote == "completed" else InterChainTradeStatus.FAILED.value
+        changed = True
+    if not changed:
+        return trade
+    trade.updated_at = datetime.now(UTC)
+    await svc.session.commit()
+    await svc.session.refresh(trade)
+    return trade
 
 
 @router.post("/v1/trading/trades/{trade_id}/lock-escrow")
@@ -284,18 +371,34 @@ async def settlement_status(
     trade = await svc.get_trade(trade_id)
     if not trade:
         return JSONResponse(status_code=404, content={"error": "Trade not found"})
+    escrow_status: str | None = None
+    sync_error: str | None = None
+    if trade.escrow_id:
+        try:
+            async with _get_settlement_client() as client:
+                escrow_status = await client.get_escrow_status(trade.escrow_id)
+            # #1562: mirror node-side terminal/progress states onto the trade
+            # row so refunds and completions are not invisible locally. A sync
+            # failure must not break the status read — the remote status is
+            # still reported below.
+            try:
+                synced = await _sync_trade_from_escrow_status(svc, trade_id, escrow_status)
+                if synced is not None:
+                    trade = synced
+            except Exception as exc:
+                sync_error = str(exc)
+                logger.exception("Settlement status sync failed for trade %s", trade_id)
+        except Exception as e:
+            logger.error("Get settlement status failed for trade %s: %s", trade_id, e)
+            escrow_status = "unknown"
+            sync_error = str(e)
     response: dict[str, Any] = {
         "trade_id": trade.trade_id,
         "settlement_phase": trade.settlement_phase,
         "escrow_id": trade.escrow_id,
     }
-    if trade.escrow_id:
-        try:
-            async with _get_settlement_client() as client:
-                escrow_status = await client.get_escrow_status(trade.escrow_id)
-            response["escrow_status"] = escrow_status
-        except Exception as e:
-            logger.error("Get settlement status failed for trade %s: %s", trade_id, e)
-            response["escrow_status"] = "unknown"
-            response["error"] = str(e)
+    if escrow_status is not None:
+        response["escrow_status"] = escrow_status
+    if sync_error is not None:
+        response["error"] = sync_error
     return response
