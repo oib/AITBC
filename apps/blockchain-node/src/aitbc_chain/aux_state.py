@@ -14,6 +14,7 @@ account-only by design; changing it invalidates every sealed block's root.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 
@@ -139,7 +140,14 @@ def _parse_dt(value: Any) -> datetime | None:
     return None
 
 
-def upsert_aux_rows(session: Any, chain_id: str, tables: dict[str, list[dict[str, Any]]]) -> dict[str, int]:
+def upsert_aux_rows(
+    session: Any,
+    chain_id: str,
+    tables: dict[str, list[dict[str, Any]]],
+    *,
+    max_rows_per_table: int | None = None,
+    max_payload_bytes: int | None = None,
+) -> dict[str, int]:
     """Upsert side-effect rows shipped by a peer's sync response.
 
     Keyed on each table's natural unique key (stake by ``id`` — the hub's
@@ -148,7 +156,28 @@ def upsert_aux_rows(session: Any, chain_id: str, tables: dict[str, list[dict[str
     fields are case-normalized with ``_to_ait_address``. Rows missing a key
     field are skipped loudly — the payload comes from our own peer and a
     malformed row means a bug, not data to guess at.
+
+    ``max_rows_per_table`` / ``max_payload_bytes`` bound the peer-controlled
+    payload BEFORE any row is applied (#1628): aux tables ride outside the
+    account state root, so the root check cannot catch an oversized or
+    hostile aux payload. A violation raises ``ValueError`` — the caller's
+    session rolls back, so neither accounts nor parameters commit either.
     """
+    if max_payload_bytes is not None:
+        # The payload arrived already JSON-parsed, so measure its serialized
+        # size — the same bound decode_state_diff applies to the diff (#1627).
+        try:
+            payload_bytes = len(json.dumps(tables, default=str).encode("utf-8"))
+        except (TypeError, ValueError):
+            payload_bytes = max_payload_bytes + 1
+        if payload_bytes > max_payload_bytes:
+            raise ValueError(f"aux_state payload of {payload_bytes} bytes exceeds cap {max_payload_bytes}; refusing sync")
+    if max_rows_per_table is not None:
+        for name, spec_rows in tables.items():
+            if name in AUX_TABLES and isinstance(spec_rows, list) and len(spec_rows) > max_rows_per_table:
+                raise ValueError(
+                    f"aux_state table {name!r} has {len(spec_rows)} rows, exceeding cap {max_rows_per_table}; refusing sync"
+                )
     counts: dict[str, int] = {}
     for name, spec in AUX_TABLES.items():
         rows = tables.get(name) or []
