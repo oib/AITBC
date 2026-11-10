@@ -694,12 +694,32 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             emit ConditionMet(_escrowId, condRelease.condition, _conditionMet, block.timestamp);
 
             if (_conditionMet) {
-                _releaseEscrow(_escrowId, "Condition verified and met");
+                // Stamp the verification and let releaseEscrow enforce
+                // oracleVerificationDelay — the same deferred-release
+                // semantics as the multi-oracle path — instead of paying
+                // the beneficiary instantly (#1470).
+                condRelease.finalVerificationTime = block.timestamp;
+                if (block.timestamp >= condRelease.finalVerificationTime + oracleVerificationDelay) {
+                    _releaseEscrow(_escrowId, "Condition verified and met");
+                }
             }
             return;
         }
 
-        // Multi-oracle verification mode
+        // Multi-oracle verification mode: only oracles assigned to this
+        // escrow may cast a verdict. An authorized-but-unassigned oracle
+        // could otherwise keep calling verifyCondition and push
+        // verificationCount to requiredVerifications, breaking the
+        // "N assigned oracles verified" threshold semantics (#1470).
+        bool isAssignedOracle = false;
+        for (uint256 i = 0; i < condRelease.assignedOracles.length; i++) {
+            if (condRelease.assignedOracles[i] == msg.sender) {
+                isAssignedOracle = true;
+                break;
+            }
+        }
+        require(isAssignedOracle, "Not assigned oracle");
+
         require(!oracleHasVerified[_escrowId][msg.sender], "Oracle already verified");
 
         oracleHasVerified[_escrowId][msg.sender] = true;
@@ -1080,14 +1100,43 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     function assignMultipleOracles(uint256 _escrowId, address[] memory _oracles) external onlyOwner escrowExists(_escrowId) {
         ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
 
+        // Validate the whole panel before touching state so a bad address
+        // cannot leave the escrow half-reset.
+        for (uint256 i = 0; i < _oracles.length; i++) {
+            require(authorizedOracles[_oracles[i]], "Unauthorized oracle");
+        }
+
+        // Rotate the panel cleanly (#1470): verdicts, per-oracle stamps and
+        // the met flag from the previous oracle set must not carry into the
+        // new one. Clear the stamps for both the outgoing and the incoming
+        // panel — an oracle present in both sets must be able to vote on
+        // the new panel.
+        uint256 oldPanelSize = condRelease.assignedOracles.length;
+        for (uint256 i = 0; i < oldPanelSize; i++) {
+            address oldOracle = condRelease.assignedOracles[i];
+            delete oracleHasVerified[_escrowId][oldOracle];
+            delete oracleVerdict[_escrowId][oldOracle];
+        }
+        for (uint256 i = 0; i < _oracles.length; i++) {
+            delete oracleHasVerified[_escrowId][_oracles[i]];
+            delete oracleVerdict[_escrowId][_oracles[i]];
+        }
+
         // Clear existing assigned oracles
         delete condRelease.assignedOracles;
 
         // Assign new oracles
         for (uint256 i = 0; i < _oracles.length; i++) {
-            require(authorizedOracles[_oracles[i]], "Unauthorized oracle");
             condRelease.assignedOracles.push(_oracles[i]);
         }
+
+        // Reset the tally and verdict state — stale votes from the previous
+        // panel would otherwise satisfy the new panel's threshold.
+        condRelease.verificationCount = 0;
+        condRelease.conditionMet = false;
+        condRelease.verificationTime = 0;
+        condRelease.finalVerificationTime = 0;
+        condRelease.confidence = 0;
 
         // Update required verifications based on oracle count
         condRelease.requiredVerifications = _oracles.length >= oracleVerificationThreshold
