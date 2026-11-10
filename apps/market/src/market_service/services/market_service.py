@@ -2956,6 +2956,16 @@ class MarketService:
 
             if job.expires_at and job.expires_at < datetime.now(UTC).replace(tzinfo=None):
                 job.state = "EXPIRED"
+                # Mirror _expire_stale_jobs: an escrowed payment on an expired
+                # (unfinished) job must go to the buyer, not sit escrowed
+                # where the sweeper's release pass could pay the provider.
+                if job.payment_id:
+                    payment = await self.session.get(MarketJobPayment, job.payment_id)
+                    if payment is not None and payment.status == "escrowed":
+                        payment.status = "refund_pending"
+                        payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                        self.session.add(payment)
+                        job.payment_status = "refund_pending"
                 await self.session.commit()
                 return None
 
