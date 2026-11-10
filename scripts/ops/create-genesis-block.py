@@ -190,7 +190,12 @@ def main() -> None:
 
         wallet_path = Path("/var/lib/aitbc/wallets/genesis.json")
         wallet_path.parent.mkdir(parents=True, exist_ok=True)
-        with wallet_path.open("w") as f:
+        # #1692: the file holds a private key — seal it 0600 like every other
+        # credential store (sell_escrow_monitor refuses non-0600 files). A
+        # plain open("w") would inherit the umask (typically 0644).
+        fd = os.open(wallet_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)  # covers a pre-existing file whose mode was wider
+        with os.fdopen(fd, "w") as f:
             json.dump(
                 {
                     "wallet_id": "genesis",
