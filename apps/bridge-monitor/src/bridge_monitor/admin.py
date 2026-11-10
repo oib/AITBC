@@ -62,6 +62,30 @@ def _valid_recipient(addr: object) -> bool:
     return valid_ait_recipient(addr)
 
 
+def _admin_lock() -> int | None:
+    """Exclusive non-blocking flock serializing mutating admin commands.
+
+    Two concurrent invocations race check-then-act: both ``manual-payout``
+    runs would pass ``_payout_in_flight()`` before either writes its
+    SUBMITTED row, then sign envelopes on the same nonce — the exact
+    mempool collision the one-envelope rule exists to prevent. The lock
+    file sits next to the ledger DB so ``BRIDGE_DEPOSITS_DB``/``DATA_DIR``
+    overrides relocate it into the scratch tree too. Returns the lock
+    fd (close to release) or None when another admin holds it.
+    """
+    import fcntl
+
+    from .storage import DB_PATH
+
+    fd = os.open(f"{DB_PATH}.admin.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        return None
+    return fd
+
+
 def write_off_denial_reason(d: dict, allow_recipient: bool) -> str | None:
     """None when the row may be written off, else why not."""
     if _valid_recipient(d.get("ait_recipient")) and not allow_recipient:
@@ -206,21 +230,35 @@ def main() -> int:
             return _report(f"manual payout {tx_hash}: failed to build signed payout — row marked FAILED", 1)
         return _report(f"manual payout {tx_hash}: {ait_amount} AIT to {to} submitted — sweep owns sealing", 0)
 
-    if ns.command == "status":
-        return cmd_status(ns.args[0]) if len(ns.args) == 1 else parser.error("status needs <tx_hash>")
-    if ns.command == "list":
-        return cmd_list(ns.status, ns.limit)
-    if ns.command == "write-off":
-        if len(ns.args) != 1:
-            parser.error("write-off needs <tx_hash>")
-        return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient)
-    if ns.command == "abandon-and-resign":
-        return cmd_abandon(ns.args[0]) if len(ns.args) == 1 else parser.error("abandon-and-resign needs <tx_hash>")
-    if ns.command == "manual-payout":
-        if len(ns.args) != 2:
-            parser.error("manual-payout needs <to> <amount_ait>")
-        return cmd_manual_payout(ns.args[0], ns.args[1])
-    return 2
+    # Mutating commands run under the admin lock: the ledger's
+    # one-envelope-in-flight invariant is check-then-act, so two concurrent
+    # admins could both pass _payout_in_flight() and sign colliding
+    # envelopes. Read commands stay lock-free.
+    lock_fd = None
+    if ns.command in {"write-off", "abandon-and-resign", "manual-payout"}:
+        lock_fd = _admin_lock()
+        if lock_fd is None:
+            print("another bridge-admin mutation is in progress — refusing to run concurrently", file=sys.stderr)
+            return 1
+    try:
+        if ns.command == "status":
+            return cmd_status(ns.args[0]) if len(ns.args) == 1 else parser.error("status needs <tx_hash>")
+        if ns.command == "list":
+            return cmd_list(ns.status, ns.limit)
+        if ns.command == "write-off":
+            if len(ns.args) != 1:
+                parser.error("write-off needs <tx_hash>")
+            return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient)
+        if ns.command == "abandon-and-resign":
+            return cmd_abandon(ns.args[0]) if len(ns.args) == 1 else parser.error("abandon-and-resign needs <tx_hash>")
+        if ns.command == "manual-payout":
+            if len(ns.args) != 2:
+                parser.error("manual-payout needs <to> <amount_ait>")
+            return cmd_manual_payout(ns.args[0], ns.args[1])
+        return 2
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
 
 
 if __name__ == "__main__":
