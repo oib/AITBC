@@ -132,3 +132,10 @@ def test_no_optional_route_parameter_is_declared_without_a_default() -> None:
         "Optional route parameters declared without a default are required parameters. "
         "Add `= None`:\n  " + "\n  ".join(offenders)
     )
+
+
+@pytest.mark.parametrize("path", ["/v1/governance/votes", "/v1/governance/profiles"])
+def test_list_endpoints_bound_their_result_set(client: TestClient, path: str) -> None:
+    """#1503: both list endpoints now take a bounded ``limit`` like their siblings."""
+    assert client.get(path, params={"limit": 0}).status_code == 422
+    assert client.get(path, params={"limit": 1}).status_code != 422

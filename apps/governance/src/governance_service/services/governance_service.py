@@ -102,13 +102,20 @@ class GovernanceService:
         self,
         role: str | None = None,
         user_id: str | None = None,
+        limit: int | None = None,
     ) -> list[GovernanceProfile]:
-        """List governance profiles"""
+        """List governance profiles.
+
+        ``limit`` is opt-in: internal callers (e.g. dedup scans) must not
+        silently truncate, so ``None`` keeps the unbounded read.
+        """
         stmt = select(GovernanceProfile)
         if role:
             stmt = stmt.where(GovernanceProfile.role == role)
         if user_id:
             stmt = stmt.where(GovernanceProfile.user_id == user_id)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -484,13 +491,21 @@ class GovernanceService:
         self,
         proposal_id: str | None = None,
         voter_id: str | None = None,
+        limit: int | None = None,
     ) -> list[Vote]:
-        """List votes"""
+        """List votes.
+
+        ``limit`` is opt-in: the duplicate-vote scan in ``create_vote`` and
+        the ``aggregate-votes`` tally need every row, so ``None`` keeps the
+        unbounded read; only the HTTP list endpoint passes a bound.
+        """
         stmt = select(Vote)
         if proposal_id:
             stmt = stmt.where(Vote.proposal_id == proposal_id)
         if voter_id:
             stmt = stmt.where(Vote.voter_id == voter_id)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
