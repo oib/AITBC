@@ -27,7 +27,7 @@ from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
-from ..db import _SETTLEMENT_STATES, get_db_path, ticks_to_decimal, to_ticks
+from ..db import _SETTLEMENT_STATES, connect_db, get_db_path, ticks_to_decimal, to_ticks
 from .base import RPC_BASE_URL, RPC_TIMEOUT, _idempotency_key, get_operation_ledger
 
 logger = get_logger(__name__)
@@ -378,7 +378,7 @@ class ExchangeMixin:
         # unbounded read on a public endpoint (#1543).
         limit = max(1, min(limit, _MAX_PAGE_ROWS))
 
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             cursor.execute(
@@ -441,7 +441,7 @@ class ExchangeMixin:
 
     def get_orderbook(self):
         """Get order book"""
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             labels = self._registry_labels(cursor)
@@ -601,7 +601,7 @@ class ExchangeMixin:
             # B1: Insert order and match within a single transaction.
             # BEGIN IMMEDIATE acquires the write lock before we read open orders,
             # preventing concurrent requests from double-matching the same counterparty.
-            conn = sqlite3.connect(get_db_path(), timeout=30)
+            conn = connect_db(get_db_path(), timeout=30)
             operation_attempt = 0
             idempotency_key = _idempotency_key(self)
             try:
@@ -943,7 +943,7 @@ class ExchangeMixin:
 
     def _commit_signed_order(self, data, envelope, address, env_hash, head) -> None:
         """Insert + match a verified order under BEGIN IMMEDIATE."""
-        conn = sqlite3.connect(get_db_path(), timeout=30)
+        conn = connect_db(get_db_path(), timeout=30)
         operation_attempt = 0
         idempotency_key = _idempotency_key(self)
         try:
@@ -1201,7 +1201,7 @@ class ExchangeMixin:
         self._commit_cancel(data, envelope, address, path_id)
 
     def _commit_cancel(self, data, envelope, address, order_id) -> None:
-        conn = sqlite3.connect(get_db_path(), timeout=30)
+        conn = connect_db(get_db_path(), timeout=30)
         operation_attempt = 0
         idempotency_key = _idempotency_key(self)
         try:
@@ -1289,7 +1289,7 @@ class ExchangeMixin:
         self._commit_register(envelope, address, env_hash)
 
     def _commit_register(self, envelope, address, env_hash) -> None:
-        conn = sqlite3.connect(get_db_path(), timeout=30)
+        conn = connect_db(get_db_path(), timeout=30)
         try:
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
@@ -1372,7 +1372,7 @@ class ExchangeMixin:
         self._commit_payout(envelope, address, env_hash, eth_address)
 
     def _commit_payout(self, envelope, address, env_hash, eth_address) -> None:
-        conn = sqlite3.connect(get_db_path(), timeout=30)
+        conn = connect_db(get_db_path(), timeout=30)
         try:
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
@@ -1424,7 +1424,7 @@ class ExchangeMixin:
         if _rate_limit_hit(f"read:{self._client_ip()}", _env_int("EXCHANGE_READS_PER_MIN", 60)):
             self.send_json_response({"error": "Rate limit reached"}, status=429)  # type: ignore[attr-defined]
             return
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             nodes = self._node_rows(conn)
         finally:
@@ -1563,7 +1563,7 @@ class ExchangeMixin:
         """Open a BEGIN IMMEDIATE transaction around an event application.
         ``work(cursor)`` returns the response dict or (status, payload) on a
         refused event — refusals roll back like the request paths do."""
-        conn = sqlite3.connect(get_db_path(), timeout=30)
+        conn = connect_db(get_db_path(), timeout=30)
         try:
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
@@ -1807,7 +1807,7 @@ class ExchangeMixin:
         from aitbc.crypto.signature_recovery import canonical_address
 
         address = canonical_address(raw_addr)
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             registry = cursor.execute("SELECT label, status FROM node_registry WHERE address = ?", (address,)).fetchone()
@@ -2185,7 +2185,7 @@ class ExchangeMixin:
         if not order or "order_type" not in order:
             return
 
-        conn = sqlite3.connect(get_db_path(), timeout=30)
+        conn = connect_db(get_db_path(), timeout=30)
         try:
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
@@ -2401,7 +2401,7 @@ def _persist_new_order(cursor, order: dict, new_id, new_type: str, settlement: b
 
 def _check_exchange_db() -> None:
     """The exchange database answers a trivial query."""
-    conn = sqlite3.connect(get_db_path())
+    conn = connect_db(get_db_path())
     try:
         conn.execute("SELECT 1")
     finally:

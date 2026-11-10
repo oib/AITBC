@@ -5,7 +5,6 @@ B3 backport: Database connections are closed via try/finally.
 """
 
 import secrets
-import sqlite3
 import urllib.parse
 from datetime import UTC, datetime
 
@@ -13,7 +12,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
-from ..db import get_db_path
+from ..db import connect_db, get_db_path
 from .base import _idempotency_key, get_operation_ledger
 
 logger = get_logger(__name__)
@@ -59,7 +58,7 @@ class MarketMixin:
             limit = max(1, min(int(query.get("limit", ["200"])[0]), 1000))
         except (TypeError, ValueError):
             limit = 200
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             if status_filter:
@@ -90,7 +89,7 @@ class MarketMixin:
 
     def handle_market_offer(self, path):
         offer_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             cursor.execute(
@@ -121,7 +120,7 @@ class MarketMixin:
             wallet = data.get("wallet")
             description = data.get("description", "")
             idempotency_key = _idempotency_key(self)
-            conn = sqlite3.connect(get_db_path())
+            conn = connect_db(get_db_path())
             operation_attempt = 0
             try:
                 # BEGIN IMMEDIATE: the ledger row and the offer/order rows commit
@@ -186,7 +185,7 @@ class MarketMixin:
             data = self._read_json_body()  # type: ignore[attr-defined]
             wallet = data.get("wallet")
             idempotency_key = _idempotency_key(self)
-            conn = sqlite3.connect(get_db_path())
+            conn = connect_db(get_db_path())
             operation_attempt = 0
             try:
                 conn.execute("BEGIN IMMEDIATE")
@@ -258,7 +257,7 @@ class MarketMixin:
             limit = max(1, min(int(query.get("limit", ["200"])[0]), 1000))
         except (TypeError, ValueError):
             limit = 200
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             if wallet:
@@ -296,7 +295,7 @@ class MarketMixin:
         if not wallet:
             self.send_json_response({"success": False, "error": "wallet query parameter is required"}, status=400)  # type: ignore[attr-defined]
             return
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM marketplace_orders WHERE id = ? AND wallet = ?", (order_id, wallet))
@@ -321,7 +320,7 @@ class MarketMixin:
         if not wallet:
             self.send_json_response({"success": False, "error": "wallet query parameter is required"}, status=400)  # type: ignore[attr-defined]
             return
-        conn = sqlite3.connect(get_db_path())
+        conn = connect_db(get_db_path())
         try:
             cursor = conn.cursor()
             cursor.execute("SELECT id FROM marketplace_offers WHERE id = ? AND wallet = ?", (offer_id, wallet))

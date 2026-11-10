@@ -97,6 +97,21 @@ def get_db_path():
     return db_path
 
 
+def connect_db(db_path: str | None = None, *, timeout: float = 30.0) -> sqlite3.Connection:
+    """Open a connection with WAL journal mode and an explicit busy timeout.
+
+    #1560: handlers previously mixed bare ``sqlite3.connect`` (5s default
+    busy timeout, rollback journal) with ``timeout=30`` ad-hoc connects.
+    ``timeout`` maps to sqlite3's busy timeout; the PRAGMAs make the 30s
+    bound explicit and set WAL once per database file.
+    """
+    conn = sqlite3.connect(db_path if db_path is not None else get_db_path(), timeout=timeout)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    return conn
+
+
 # Schema definitions — monetary columns are TEXT (Decimal-as-string) for exact arithmetic.
 # Using TEXT instead of REAL prevents float rounding drift (e.g., 0.1 * 0.3 = 0.03, not 0.030000000000000002).
 
@@ -532,7 +547,7 @@ def init_db():
     to TEXT via table rebuild.
     """
     db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
+    conn = connect_db(db_path)
     cursor = conn.cursor()
 
     # Create tables (IF NOT EXISTS — won't alter existing tables)

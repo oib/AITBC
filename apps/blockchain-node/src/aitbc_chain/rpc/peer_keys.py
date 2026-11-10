@@ -39,7 +39,10 @@ def _db_path() -> Path:
 def _connect() -> sqlite3.Connection:
     path = _db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    conn = sqlite3.connect(str(path), timeout=30)
+    # #1560: WAL + busy_timeout on peer_keys.db.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.execute(
         "CREATE TABLE IF NOT EXISTS peer_keys ("
         " key_hash TEXT PRIMARY KEY,"

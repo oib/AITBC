@@ -454,7 +454,11 @@ def _nonce_seen(nonce: str) -> bool:
     db_path = _nonce_db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     now = time.time()
-    conn = sqlite3.connect(db_path, timeout=5)
+    conn = sqlite3.connect(db_path, timeout=30)
+    # #1560: WAL + busy_timeout on the admin-nonce DB (raised from the 5s
+    # default so a busy writer does not fail closed on a live route).
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
     try:
         conn.execute("CREATE TABLE IF NOT EXISTS admin_nonce (nonce TEXT PRIMARY KEY, expires_at REAL NOT NULL)")
         conn.execute("DELETE FROM admin_nonce WHERE expires_at <= ?", (now,))
