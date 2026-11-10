@@ -28,6 +28,13 @@ class _FakeRedis:
         prefix = pattern.rstrip("*")
         return [k for k in self.store if k.startswith(prefix)]
 
+    async def scan_iter(self, match: str | None = None, count: int | None = None):
+        # #1530: production code iterates with SCAN, not KEYS.
+        prefix = (match or "*").rstrip("*")
+        for k in list(self.store):
+            if k.startswith(prefix):
+                yield k
+
     async def get(self, key: str) -> str | None:
         return self.store.get(key)
 

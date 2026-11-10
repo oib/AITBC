@@ -15,6 +15,21 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Redis retention bounds (#1529): every key this module writes either carries
+# a TTL or is rank-trimmed, so a busy coordinator cannot grow the keyspace
+# without limit. Message records and their per-agent index entries share one
+# TTL; subscriptions and peer connections get longer windows because they
+# are re-written on (re)connect/subscribe, which slides the expiry forward.
+MESSAGE_TTL_SECONDS = 7 * 24 * 60 * 60
+SUBSCRIPTION_TTL_SECONDS = 30 * 24 * 60 * 60
+PEER_TTL_SECONDS = 24 * 60 * 60
+# Per-agent index sets become zsets scored by message timestamp so reads can
+# paginate with ZREVRANGE instead of SMEMBERS + fetch-all (#1529). The rank
+# trim keeps only the newest entries per agent.
+MAX_INDEXED_MESSAGES_PER_AGENT = 1_000
+# Global timestamp zset bound — keeps the newest entries only.
+MAX_TIMESTAMP_INDEX_ENTRIES = 100_000
+
 
 class MessageStorage:
     """Redis-based message storage with a SQLite fallback."""
@@ -226,6 +241,14 @@ class MessageStorage:
             logger.error("SQLite delete failed for %s: %s", message_id, e)
             return False
 
+    async def _trim_index(self, key: str, keep: int = MAX_INDEXED_MESSAGES_PER_AGENT) -> None:
+        """Keep only the newest ``keep`` members of a message index zset.
+
+        Indexes are scored by message timestamp (epoch), so the oldest
+        entries sit at the lowest ranks; ``zremrangebyrank`` drops them.
+        """
+        await self.redis.zremrangebyrank(key, 0, -keep - 1)  # type: ignore[union-attr]
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -235,15 +258,22 @@ class MessageStorage:
         stored_in_redis = False
         if self.redis:
             try:
-                await self.redis.hset(f"message:{message_id}", mapping=message_data)  # type: ignore[arg-type]
+                message_key = f"message:{message_id}"
+                await self.redis.hset(message_key, mapping=message_data)  # type: ignore[arg-type]
+                await self.redis.expire(message_key, MESSAGE_TTL_SECONDS)
+                ts = self._timestamp_to_float(message_data)
                 sender_id = self._extract_sender(message_data)
                 if sender_id:
-                    await self.redis.sadd(f"messages:sender:{sender_id}", message_id)
+                    sender_key = f"messages:sender:{sender_id}"
+                    await self.redis.zadd(sender_key, {message_id: ts})
+                    await self._trim_index(sender_key)
                 receiver_id = self._extract_receiver(message_data)
                 if receiver_id:
-                    await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
-                ts = self._timestamp_to_float(message_data)
+                    receiver_key = f"messages:receiver:{receiver_id}"
+                    await self.redis.zadd(receiver_key, {message_id: ts})
+                    await self._trim_index(receiver_key)
                 await self.redis.zadd("messages:timestamp", {message_id: ts})
+                await self._trim_index("messages:timestamp", MAX_TIMESTAMP_INDEX_ENTRIES)
                 logger.debug("Stored message %s in Redis", message_id)
                 stored_in_redis = True
             except Exception as e:
@@ -271,7 +301,11 @@ class MessageStorage:
         redis_ok = False
         if self.redis:
             try:
-                await self.redis.hset(f"message:{message_id}", "status", status)
+                message_key = f"message:{message_id}"
+                await self.redis.hset(message_key, "status", status)
+                # hset on an expired/missing key recreates the hash without a
+                # TTL — re-apply it so status writes cannot leak keys (#1529).
+                await self.redis.expire(message_key, MESSAGE_TTL_SECONDS)
                 redis_ok = True
             except Exception as e:
                 logger.error("Redis update status failed for %s: %s", message_id, e)
@@ -287,20 +321,32 @@ class MessageStorage:
                 logger.error("Redis count failed: %s", e)
         return await self._sqlite_count()
 
+    async def _messages_for_index(self, index_key: str, limit: int, offset: int) -> list[dict[str, Any]]:
+        """Paginate a per-agent message index zset (newest first).
+
+        Replaces the old SMEMBERS + fetch-all + Python-sort path: the zset
+        score is the message timestamp, so ZREVRANGE gives the same ordering
+        with true limit/offset pagination (#1529). Index entries whose
+        message hash already expired are pruned lazily.
+        """
+        if self.redis is None:
+            return []
+        message_ids_raw = await self.redis.zrevrange(index_key, offset, offset + limit - 1)
+        messages = []
+        for mid in message_ids_raw:
+            message_id = str(mid)
+            data = await self.get_message(message_id)
+            if data:
+                messages.append(data)
+            else:
+                await self.redis.zrem(index_key, message_id)
+        return messages
+
     async def get_messages_by_sender(self, sender_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
         """Get messages sent by a specific agent."""
         if self.redis:
             try:
-                raw_ids = await self.redis.smembers(f"messages:sender:{sender_id}")
-                message_ids: list[str] = [str(m) for m in raw_ids]
-                # Sort is not available from the set; fetch full records and sort by timestamp.
-                messages = []
-                for mid in message_ids:
-                    data = await self.get_message(mid)
-                    if data:
-                        messages.append(data)
-                messages.sort(key=lambda m: m.get("timestamp", ""), reverse=True)
-                return messages[offset : offset + limit]
+                return await self._messages_for_index(f"messages:sender:{sender_id}", limit, offset)
             except Exception as e:
                 logger.error("Redis get by sender failed for %s: %s", sender_id, e)
         return await self._sqlite_get_by_field("sender", sender_id, limit, offset)
@@ -309,15 +355,7 @@ class MessageStorage:
         """Get messages received by a specific agent."""
         if self.redis:
             try:
-                raw_ids = await self.redis.smembers(f"messages:receiver:{receiver_id}")
-                message_ids: list[str] = [str(m) for m in raw_ids]
-                messages = []
-                for mid in message_ids:
-                    data = await self.get_message(mid)
-                    if data:
-                        messages.append(data)
-                messages.sort(key=lambda m: m.get("timestamp", ""), reverse=True)
-                return messages[offset : offset + limit]
+                return await self._messages_for_index(f"messages:receiver:{receiver_id}", limit, offset)
             except Exception as e:
                 logger.error("Redis get by receiver failed for %s: %s", receiver_id, e)
         return await self._sqlite_get_by_field("receiver", receiver_id, limit, offset)
@@ -349,9 +387,9 @@ class MessageStorage:
         if self.redis:
             try:
                 if sender_id:
-                    await self.redis.srem(f"messages:sender:{sender_id}", message_id)
+                    await self.redis.zrem(f"messages:sender:{sender_id}", message_id)
                 if receiver_id:
-                    await self.redis.srem(f"messages:receiver:{receiver_id}", message_id)
+                    await self.redis.zrem(f"messages:receiver:{receiver_id}", message_id)
                 await self.redis.zrem("messages:timestamp", message_id)
                 await self.redis.delete(f"message:{message_id}")
                 logger.debug("Deleted message %s from Redis", message_id)
@@ -378,8 +416,11 @@ class MessageStorage:
                     "subscribed_at": datetime.now(UTC).isoformat(),
                 },
             )
+            await self.redis.expire(f"subscription:{agent_id}:{topic}", SUBSCRIPTION_TTL_SECONDS)
             await self.redis.sadd(f"subscriptions:agent:{agent_id}", topic)
+            await self.redis.expire(f"subscriptions:agent:{agent_id}", SUBSCRIPTION_TTL_SECONDS)
             await self.redis.sadd(f"subscriptions:topic:{topic}", agent_id)
+            await self.redis.expire(f"subscriptions:topic:{topic}", SUBSCRIPTION_TTL_SECONDS)
             logger.debug("Stored subscription %s:%s", agent_id, topic)
             return True
         except Exception as e:
@@ -408,6 +449,9 @@ class MessageStorage:
             # This client connects with decode_responses=True (see connect()), so
             # redis-py returns str; its stubs describe the undecoded bytes shape.
             topics = cast("set[str]", await self.redis.smembers(f"subscriptions:agent:{agent_id}"))
+            # Slide the TTL forward on read so live subscriptions outlive the
+            # retention window while abandoned ones expire (#1529).
+            await self.redis.expire(f"subscriptions:agent:{agent_id}", SUBSCRIPTION_TTL_SECONDS)
             subscriptions = []
             for topic in topics:
                 sub = cast("dict[str, Any]", await self.redis.hgetall(f"subscription:{agent_id}:{topic}"))
@@ -426,6 +470,7 @@ class MessageStorage:
             raise RuntimeError("Redis not connected")
         try:
             raw = await self.redis.smembers(f"subscriptions:topic:{topic}")
+            await self.redis.expire(f"subscriptions:topic:{topic}", SUBSCRIPTION_TTL_SECONDS)
             return [str(m) for m in raw]
         except Exception as e:
             logger.error("Error retrieving subscribers for topic %s: %s", topic, e)
@@ -461,8 +506,11 @@ class PeerStorage:
             raise RuntimeError("Redis not connected")
         try:
             await self.redis.sadd(f"peers:{agent_id}", peer_id)
+            await self.redis.expire(f"peers:{agent_id}", PEER_TTL_SECONDS)
             if metadata:
-                await self.redis.hset(f"peer_connection:{agent_id}:{peer_id}", mapping=metadata)  # type: ignore[arg-type]
+                peer_key = f"peer_connection:{agent_id}:{peer_id}"
+                await self.redis.hset(peer_key, mapping=metadata)  # type: ignore[arg-type]
+                await self.redis.expire(peer_key, PEER_TTL_SECONDS)
             logger.debug("Added peer %s for agent %s", peer_id, agent_id)
             return True
         except Exception as e:
@@ -487,7 +535,9 @@ class PeerStorage:
         if self.redis is None:
             raise RuntimeError("Redis not connected")
         try:
-            peer_ids_raw = await self.redis.smembers(f"peers:{agent_id}")
+            peers_key = f"peers:{agent_id}"
+            peer_ids_raw = await self.redis.smembers(peers_key)
+            await self.redis.expire(peers_key, PEER_TTL_SECONDS)
             return [str(m) for m in peer_ids_raw]
         except Exception as e:
             logger.error("Error retrieving peers for agent %s: %s", agent_id, e)
@@ -498,7 +548,10 @@ class PeerStorage:
         if self.redis is None:
             raise RuntimeError("Redis not connected")
         try:
-            metadata_raw: dict[str, Any] = await self.redis.hgetall(f"peer_connection:{agent_id}:{peer_id}")  # type: ignore[assignment]
+            peer_key = f"peer_connection:{agent_id}:{peer_id}"
+            metadata_raw: dict[str, Any] = await self.redis.hgetall(peer_key)  # type: ignore[assignment]
+            if metadata_raw:
+                await self.redis.expire(peer_key, PEER_TTL_SECONDS)
             return metadata_raw if metadata_raw else None
         except Exception as e:
             logger.error("Error retrieving peer metadata for %s:%s: %s", agent_id, peer_id, e)
@@ -509,7 +562,9 @@ class PeerStorage:
         if self.redis is None:
             raise RuntimeError("Redis not connected")
         try:
-            peer_keys = await self.redis.keys("peers:*")
+            # scan_iter keeps this off the O(keyspace) KEYS path (#1530);
+            # batches are bounded by the SCAN COUNT hint.
+            peer_keys = [key async for key in self.redis.scan_iter("peers:*")]
             connections = {}
             for key in peer_keys:
                 key_str = key.decode("utf-8") if isinstance(key, bytes) else key
