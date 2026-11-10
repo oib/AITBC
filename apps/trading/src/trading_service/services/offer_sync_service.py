@@ -81,7 +81,6 @@ class OfferSyncService:
             timeout=settings.http_timeout,
             api_key=settings.blockchain_rpc_api_key,
         )
-        self._sync_tasks: dict[str, asyncio.Task[None]] = {}
         self._sync_status: OrderedDict[str, OfferSyncStatusEntry] = OrderedDict()
         # Single-flight locks, one per chain (#1567): ``is_syncing`` flags
         # were written but never read as a guard, so N concurrent discovers
@@ -322,6 +321,9 @@ class OfferSyncService:
         # total_count is the pre-pagination match count (#1419) — reporting
         # the post-limit length tells clients "2 matches" when 50 exist.
         total_count = len(ranked)
+        # chains_searched must reflect every matched chain, not just the
+        # returned page — compute it before the offset/limit slice.
+        chains_searched = sorted({o.chain_id for o in ranked})
         offset = max(0, request.offset)
         if request.limit > 0:
             ranked = ranked[offset : offset + request.limit]
@@ -331,7 +333,7 @@ class OfferSyncService:
         return OfferDiscoveryResult(
             offers=ranked,
             total_count=total_count,
-            chains_searched=list({o.chain_id for o in ranked}),
+            chains_searched=chains_searched,
             stale_count=len(self._cache.get_stale_offers()),
             sync_triggered=sync_triggered,
         )
