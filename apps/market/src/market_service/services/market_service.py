@@ -2955,18 +2955,25 @@ class MarketService:
                 return None
 
             if job.expires_at and job.expires_at < datetime.now(UTC).replace(tzinfo=None):
-                job.state = "EXPIRED"
-                # Mirror _expire_stale_jobs: an escrowed payment on an expired
-                # (unfinished) job must go to the buyer, not sit escrowed
-                # where the sweeper's release pass could pay the provider.
-                if job.payment_id:
-                    payment = await self.session.get(MarketJobPayment, job.payment_id)
-                    if payment is not None and payment.status == "escrowed":
-                        payment.status = "refund_pending"
-                        payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                        self.session.add(payment)
-                        job.payment_status = "refund_pending"
-                await self.session.commit()
+                # Only unfinished jobs expire — mirror _expire_stale_jobs.
+                # A COMPLETED job past its TTL keeps its terminal state:
+                # flipping it to EXPIRED would flip its escrowed payment to
+                # refund_pending and pay the buyer for finished work (and a
+                # RELEASED job would regress to EXPIRED). Access is still
+                # denied past expiry either way (#v11 item 6).
+                if job.state in {"QUEUED", "RUNNING"}:
+                    job.state = "EXPIRED"
+                    # Mirror _expire_stale_jobs: an escrowed payment on an expired
+                    # (unfinished) job must go to the buyer, not sit escrowed
+                    # where the sweeper's release pass could pay the provider.
+                    if job.payment_id:
+                        payment = await self.session.get(MarketJobPayment, job.payment_id)
+                        if payment is not None and payment.status == "escrowed":
+                            payment.status = "refund_pending"
+                            payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                            self.session.add(payment)
+                            job.payment_status = "refund_pending"
+                    await self.session.commit()
                 return None
 
             return {
