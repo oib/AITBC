@@ -147,4 +147,46 @@ contract GPUStakingTest is Test {
         uint256 accrued2 = staking.getPendingRewards(provider2, 1);
         assertGt(accrued2, 0);
     }
+
+    /**
+     * Pins issue #1462: unstakeGPU used to price the withdrawal off the
+     * provider's GLOBAL stakeAmount/gpuPower ratio while debiting the
+     * per-pool totals. With uneven stake-per-power ratios across pools the
+     * global average over- or under-paid relative to what the provider put
+     * into the named pool — draining other providers' accounted stake and
+     * underflow-locking late unstakers. Withdrawals must be priced off the
+     * provider's contribution to the pool being exited.
+     */
+    function testUnstakePricesOffPerPoolContribution() public {
+        staking.createPool("pool2", 1e15);
+
+        // Uneven ratios: pool1 is 1.0 token/power, pool2 is 2.0.
+        _stake(provider, 1, POWER, 100e18);
+        _stake(provider, 2, POWER, 200e18);
+
+        vm.warp(block.timestamp + 8 days); // past the 7-day lock
+
+        // Global ratio (300e18 / 200 power = 1.5) would return only 150e18
+        // for this exit; the per-pool share must return the full 200e18.
+        vm.prank(provider);
+        staking.unstakeGPU(2, POWER);
+        assertEq(token.balanceOf(provider), 1_000e18 - 300e18 + 200e18);
+
+        // The pool1 exit likewise returns exactly its own 100e18 — under
+        // the old pricing this leg underflow-reverted on pool.totalStaked.
+        vm.prank(provider);
+        staking.unstakeGPU(1, POWER);
+        assertEq(token.balanceOf(provider), 1_000e18);
+    }
+
+    function testUnstakeCannotExceedPoolContribution() public {
+        staking.createPool("pool2", 1e15);
+        _stake(provider, 1, POWER, STAKE);
+        _stake(provider, 2, POWER / 2, STAKE); // only 50 power in pool2
+
+        vm.warp(block.timestamp + 8 days);
+        vm.prank(provider);
+        vm.expectRevert("Exceeds pool contribution");
+        staking.unstakeGPU(2, POWER); // 100 > the 50 contributed to pool2
+    }
 }
