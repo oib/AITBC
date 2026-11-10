@@ -1922,6 +1922,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "invalid price_per_hour: {raw} / price_per_hour out of range: {raw} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2462,6 +2472,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid price_per_hour: {raw} / price_per_hour out of range: {raw} (expected 0 <= price <= {_MAX_PRICE_PER_HOUR})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
