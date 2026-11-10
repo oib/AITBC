@@ -113,8 +113,11 @@ class Bid(MarketBase, table=True):
     buyer: str = Field(default="", index=True)
     capacity: float = Field(default=0.0)
     price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    status: str = Field(default="pending", index=True)  # pending, completed, active, cancelled
+    status: str = Field(default="pending", index=True)  # pending, completed, active, cancelled, expired
     tx_hash: str | None = Field(default=None)
+    # #1554: a pending bid holds the offer in "booked" — without an expiry a
+    # buyer who never pays locks the offer forever. Naive-UTC like created_at.
+    expires_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
 
 

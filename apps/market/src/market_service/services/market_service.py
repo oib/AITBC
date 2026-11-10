@@ -45,6 +45,24 @@ def max_page_size() -> int:
         return 500
 
 
+def _env_ttl_seconds(name: str, default: int) -> int:
+    """Read a TTL env var in seconds; invalid values fall back to default."""
+    try:
+        return max(60, int(os.getenv(name, str(default))))
+    except (TypeError, ValueError):
+        return default
+
+
+def bid_ttl_seconds() -> int:
+    """Pending-bid lifetime before the sweeper expires it (#1554)."""
+    return _env_ttl_seconds("MARKET_BID_TTL_SECONDS", 24 * 3600)
+
+
+def offer_reservation_ttl_seconds() -> int:
+    """Reserved/booked offer hold lifetime before release (#1554)."""
+    return _env_ttl_seconds("MARKET_OFFER_RESERVATION_TTL_SECONDS", 24 * 3600)
+
+
 def _pin_sample_limit() -> int:
     """Max pin/ls lines the offer health check counts (HEALTH_PIN_SAMPLE_LIMIT)."""
     try:
@@ -551,6 +569,13 @@ class MarketService:
             await self.session.refresh(offer)  # _create_bid's commit expired it (#820)
             provider = offer.provider
             offer.status = "booked"
+            # #1554: a booked offer holds until the bid's payment window
+            # closes — stamp the reservation deadline the sweeper enforces.
+            # Kept in attributes (JSON) because MarketOffer is a shared model
+            # whose schema coordinator-api also manages.
+            attrs = dict(offer.attributes or {})
+            attrs["_reserved_until"] = (datetime.now(UTC) + timedelta(seconds=offer_reservation_ttl_seconds())).isoformat()
+            offer.attributes = attrs
             self.session.add(offer)
             await self.session.commit()
             await self.session.refresh(bid)
@@ -1274,6 +1299,9 @@ class MarketService:
                 capacity=capacity,
                 price=price,
                 status="pending",
+                # #1554: pending bids expire — the sweeper flips them and the
+                # offer reservation TTL releases the hold.
+                expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=bid_ttl_seconds()),
             )
             self.session.add(bid)
             await self.session.commit()
@@ -1608,6 +1636,19 @@ class MarketService:
                     "status": "completed",
                     "message": "Bid already completed",
                 }
+
+            # #1554: a pending bid past its TTL can no longer be paid — expire
+            # it here so a late tx_hash cannot complete a stale booking (the
+            # sweeper also expires these on its interval).
+            if bid.status == "pending" and bid.expires_at is not None:
+                expires_at = bid.expires_at
+                if expires_at.tzinfo is not None:
+                    expires_at = expires_at.replace(tzinfo=None)
+                if expires_at < datetime.now(UTC).replace(tzinfo=None):
+                    bid.status = "expired"
+                    self.session.add(bid)
+                    await self.session.commit()
+                    raise ValueError(f"Bid {bid_id} has expired")
 
             # Spent-hash check (#817): the tx must not already settle another
             # bid — verification proves payment, not that it was paid for THIS
