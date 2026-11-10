@@ -54,6 +54,8 @@ class SettlementPhase(StrEnum):
     - ``none``: no settlement initiated (trade not yet locked)
     - ``escrow_creating``: claim marker — an escrow-create RPC is in flight
       or its outcome is unknown (#1562 claim-then-call); never terminal
+    - ``settling``: claim marker — a settle RPC is in flight or its outcome
+      is unknown (#1562 claim-then-call); never terminal
     - ``escrow_created``: escrow record created, HTLC params generated
     - ``escrow_locked``: funds locked on source chain (HTLC funded)
     - ``lock_verified``: lock proof verified on destination chain
@@ -65,6 +67,7 @@ class SettlementPhase(StrEnum):
 
     NONE = "none"
     ESCROW_CREATING = "escrow_creating"
+    SETTLING = "settling"
     ESCROW_CREATED = "escrow_created"
     ESCROW_LOCKED = "escrow_locked"
     LOCK_VERIFIED = "lock_verified"

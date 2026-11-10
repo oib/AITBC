@@ -9,6 +9,7 @@ against an in-memory SQLite session, with the blockchain RPC client mocked.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
@@ -573,3 +574,178 @@ class TestPostCommitExpiry:
         assert result["status"] == "active"
         assert result["endpoint"] == "http://chain-a:8202"
         assert result["last_sync"]
+
+
+# ---------------------------------------------------------------------------
+# #1562 residuals: trade expiry, match claim race, settle claim-then-call
+# ---------------------------------------------------------------------------
+
+
+class TestTradeExpiry:
+    async def test_create_trade_stamps_expires_at(self, db_session):
+        from trading_service.services.inter_chain_service import InterChainTradeService
+
+        svc = InterChainTradeService(db_session)
+        trade = await _make_trade(svc)
+        assert trade.expires_at is not None
+        assert trade.expires_at > trade.created_at.replace(tzinfo=None)
+
+    async def test_stale_pending_trade_expires_lazily(self, db_session):
+        """A pending trade past expires_at flips to 'cancelled' on read."""
+        from sqlalchemy import update as sa_update
+
+        from trading_service.domain.inter_chain import InterChainTrade
+        from trading_service.services.inter_chain_service import InterChainTradeService
+
+        svc = InterChainTradeService(db_session)
+        trade = await _make_trade(svc)
+        past = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+        await db_session.execute(
+            sa_update(InterChainTrade).where(InterChainTrade.trade_id == trade.trade_id).values(expires_at=past)
+        )
+        await db_session.commit()
+
+        trades = await svc.list_trades()
+        assert trades[0].status == "cancelled"
+        fresh = await svc.get_trade(trade.trade_id)
+        assert fresh is not None and fresh.status == "cancelled"
+
+    async def test_legacy_null_expires_at_falls_back_to_created_at(self, db_session):
+        """Rows predating the column (NULL expires_at) still expire via TTL."""
+        from sqlalchemy import update as sa_update
+
+        from trading_service.domain.inter_chain import InterChainTrade
+        from trading_service.services.inter_chain_service import InterChainTradeService
+
+        svc = InterChainTradeService(db_session)
+        trade = await _make_trade(svc)
+        old = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)
+        await db_session.execute(
+            sa_update(InterChainTrade)
+            .where(InterChainTrade.trade_id == trade.trade_id)
+            .values(expires_at=None, created_at=old)
+        )
+        await db_session.commit()
+
+        await svc.list_trades()
+        fresh = await svc.get_trade(trade.trade_id)
+        assert fresh is not None and fresh.status == "cancelled"
+
+    async def test_expired_trade_cannot_match(self, db_session):
+        """An expired pending trade is cancelled before match selection."""
+        from sqlalchemy import update as sa_update
+
+        from trading_service.domain.inter_chain import InterChainTrade
+        from trading_service.services.inter_chain_service import InterChainTradeService
+        from trading_service.services.matching_engine import MatchingEngine
+
+        svc = InterChainTradeService(db_session)
+        buy = await _make_trade(svc, source_chain="chain-a", dest_chain="chain-b", amount=100)
+        sell = await _make_trade(
+            svc, source_chain="chain-b", dest_chain="chain-a", sender="0xrecipient", recipient="0xsender", amount=100
+        )
+        past = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+        await db_session.execute(
+            sa_update(InterChainTrade).where(InterChainTrade.trade_id == buy.trade_id).values(expires_at=past)
+        )
+        await db_session.commit()
+
+        engine = MatchingEngine(db_session)
+        result = await engine.match_trade(buy.trade_id)
+        assert result is not None
+        # Trade expired -> cancelled, so it reports not-pending, never matched.
+        assert result["matched"] is False
+        await db_session.refresh(sell)
+        assert sell.status == "pending"
+
+
+class TestSettleClaim:
+    async def _escrowed_trade(self, svc, session):
+        trade = await _make_trade(svc)
+        trade.escrow_id = "esc-1"
+        trade.settlement_phase = "escrow_created"
+        await session.commit()
+        return trade
+
+    async def test_fresh_settling_marker_refuses_with_409(self, db_session, monkeypatch):
+        """#1562: a second settle while the claim is fresh must not reach the RPC."""
+        from trading_service.routers import settlement as settlement_router
+        from trading_service.services.inter_chain_service import InterChainTradeService
+
+        svc = InterChainTradeService(db_session)
+        trade = await self._escrowed_trade(svc, db_session)
+        trade.settlement_phase = "settling"
+        trade.updated_at = datetime.now(UTC)
+        await db_session.commit()
+
+        called = False
+
+        class _FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def settle(self, escrow_id, secret):
+                nonlocal called
+                called = True
+                return {"ok": True}
+
+        monkeypatch.setattr(settlement_router, "_get_settlement_client", lambda: _FakeClient())
+        resp = await settlement_router.settle_trade(trade.trade_id, secret="s3cr3t", svc=svc)
+        assert resp.status_code == 409
+        assert called is False
+        await db_session.refresh(trade)
+        assert trade.settlement_phase == "settling"
+
+    async def test_stale_settling_marker_is_reclaimed(self, db_session, monkeypatch):
+        """#1562: a marker older than the TTL means the caller died — retry proceeds."""
+        from trading_service.routers import settlement as settlement_router
+        from trading_service.services.inter_chain_service import InterChainTradeService
+
+        svc = InterChainTradeService(db_session)
+        trade = await self._escrowed_trade(svc, db_session)
+        trade.settlement_phase = "settling"
+        trade.updated_at = datetime.now(UTC) - timedelta(seconds=600)
+        await db_session.commit()
+
+        class _FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def settle(self, escrow_id, secret):
+                return {"ok": True}
+
+        monkeypatch.setattr(settlement_router, "_get_settlement_client", lambda: _FakeClient())
+        resp = await settlement_router.settle_trade(trade.trade_id, secret="s3cr3t", svc=svc)
+        assert resp["result"] == {"ok": True}
+        await db_session.refresh(trade)
+        assert trade.settlement_phase == "settled"
+
+    async def test_failed_settle_releases_claim(self, db_session, monkeypatch):
+        """#1562: RPC failure restores the prior phase so the trade can retry."""
+        from trading_service.routers import settlement as settlement_router
+        from trading_service.services.inter_chain_service import InterChainTradeService
+
+        svc = InterChainTradeService(db_session)
+        trade = await self._escrowed_trade(svc, db_session)
+
+        class _FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def settle(self, escrow_id, secret):
+                raise RuntimeError("rpc down")
+
+        monkeypatch.setattr(settlement_router, "_get_settlement_client", lambda: _FakeClient())
+        resp = await settlement_router.settle_trade(trade.trade_id, secret="s3cr3t", svc=svc)
+        assert resp.status_code == 502
+        await db_session.refresh(trade)
+        assert trade.settlement_phase == "escrow_created"

@@ -48,6 +48,9 @@ class InterChainTrade(TradingBase, table=True):
     matched_trade_id: str | None = None  # ID of the counterparty trade (if matched)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # #1562: pending trades need a finite lifetime — a trade that never
+    # matches must not sit 'pending' forever. NULL = no expiry (legacy rows).
+    expires_at: datetime | None = None
 
     # v0.9.0 §B7: Atomic settlement (HTLC) fields
     escrow_id: str | None = None  # cross-chain escrow ID (set when escrow created)
