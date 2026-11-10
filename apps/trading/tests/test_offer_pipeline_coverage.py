@@ -592,3 +592,113 @@ class TestOfferCacheStaleness:
         cache.delete_offer("o1", "chain-a")
         assert cache.get_offer("o1") is None
         assert [o.offer_id for o in cache.list_offers_by_chain("chain-a")] == ["o2"]
+
+
+# ---------------------------------------------------------------------------
+# #1567 residuals — chain-namespaced keys + deletion reconciliation
+# ---------------------------------------------------------------------------
+
+
+class TestOfferCacheChainNamespacing:
+    """offer:{chain_id}:{offer_id} keys: the same offer_id on two chains is
+    two distinct entries — chain B's sync can no longer overwrite chain A's."""
+
+    async def test_same_offer_id_coexists_per_chain(self):
+        cache = OfferCache()
+        cache.set_offer(_offer("shared", chain_id="chain-a", price="1.0"), ttl=300)
+        cache.set_offer(_offer("shared", chain_id="chain-b", price="9.0"), ttl=300)
+
+        a = cache.get_offer("shared", "chain-a")
+        b = cache.get_offer("shared", "chain-b")
+        assert a is not None and a.price == Decimal("1.0")
+        assert b is not None and b.price == Decimal("9.0")
+
+        assert [o.chain_id for o in cache.list_offers_by_chain("chain-a")] == ["chain-a"]
+        assert [o.chain_id for o in cache.list_offers_by_chain("chain-b")] == ["chain-b"]
+
+    async def test_delete_offer_is_chain_scoped(self):
+        cache = OfferCache()
+        cache.set_offer(_offer("shared", chain_id="chain-a"), ttl=300)
+        cache.set_offer(_offer("shared", chain_id="chain-b"), ttl=300)
+
+        cache.delete_offer("shared", "chain-a")
+        assert cache.get_offer("shared", "chain-a") is None
+        assert cache.get_offer("shared", "chain-b") is not None
+
+    async def test_chainless_lookup_finds_namespaced_offer(self):
+        """get_offer(offer_id) without a chain still resolves via the registry."""
+        cache = OfferCache()
+        cache.set_offer(_offer("solo", chain_id="chain-b"), ttl=300)
+        found = cache.get_offer("solo")
+        assert found is not None and found.chain_id == "chain-b"
+
+
+class TestSyncDeletionReconciliation:
+    """#1567: sync_chain removes cached offers the chain no longer reports —
+    but only when the response is known complete (below the page limit)."""
+
+    async def test_sync_deletes_offers_absent_from_response(self):
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        cache = OfferCache()
+        cache.set_offer(_offer("gone", chain_id="chain-a"), ttl=300)
+        cache.set_offer(_offer("kept", chain_id="chain-a"), ttl=300)
+        cache.set_offer(_offer("other-chain", chain_id="chain-b"), ttl=300)
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(
+            return_value=[{"gpu_id": "kept", "provider": "p", "price": "1.0", "status": "available"}]
+        )
+        svc = OfferSyncService(session=AsyncMock(), cache=cache, blockchain_client=blockchain)
+        result = await svc.sync_chain("chain-a")
+
+        assert result["deleted"] == 1
+        assert cache.get_offer("gone", "chain-a") is None
+        assert cache.get_offer("kept", "chain-a") is not None
+        # Other chains' namespaces are untouched.
+        assert cache.get_offer("other-chain", "chain-b") is not None
+
+    async def test_sync_empty_response_clears_chain(self):
+        """A chain reporting zero offers has genuinely deregistered them all."""
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        cache = OfferCache()
+        cache.set_offer(_offer("dropped", chain_id="chain-a"), ttl=300)
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(return_value=[])
+        svc = OfferSyncService(session=AsyncMock(), cache=cache, blockchain_client=blockchain)
+        result = await svc.sync_chain("chain-a")
+
+        assert result["deleted"] == 1
+        assert cache.list_offers_by_chain("chain-a") == []
+
+    async def test_sync_at_page_limit_skips_reconciliation(self):
+        """A full page may be truncated — deleting then would drop live offers."""
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        cache = OfferCache()
+        cache.set_offer(_offer("maybe-gone", chain_id="chain-a"), ttl=300)
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(return_value=[{"gpu_id": f"g{i}", "price": "1.0"} for i in range(500)])
+        svc = OfferSyncService(session=AsyncMock(), cache=cache, blockchain_client=blockchain)
+        result = await svc.sync_chain("chain-a")
+
+        assert result["deleted"] == 0
+        assert cache.get_offer("maybe-gone", "chain-a") is not None
+
+    async def test_sync_error_never_deletes(self):
+        """A failed sync must not reconcile — the response proves nothing."""
+        from trading_service.services.offer_sync_service import OfferSyncService
+
+        cache = OfferCache()
+        cache.set_offer(_offer("safe", chain_id="chain-a"), ttl=300)
+
+        blockchain = AsyncMock()
+        blockchain.query_offers = AsyncMock(side_effect=RuntimeError("rpc down"))
+        svc = OfferSyncService(session=AsyncMock(), cache=cache, blockchain_client=blockchain)
+        result = await svc.sync_chain("chain-a")
+
+        assert "error" in result
+        assert cache.get_offer("safe", "chain-a") is not None

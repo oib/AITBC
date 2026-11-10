@@ -4,9 +4,11 @@ Wraps ``RedisCache`` from ``aitbc.caching`` to provide offer-specific
 caching with per-chain staleness detection. Falls back to in-memory
 dict when Redis is unavailable (matching RedisCache's behavior).
 
-The cache stores offers keyed by ``offer_id`` and maintains a per-chain
-index for efficient chain-scoped queries. Sync metadata (last_sync,
-offer_count, stale_count) is tracked per chain.
+The cache stores offers keyed by ``offer:{chain_id}:{offer_id}`` — the chain
+namespace matters: two chains can legitimately carry the same offer_id, and a
+bare ``offer:{offer_id}`` key let one chain's sync overwrite the other's entry
+(#1567). A per-chain index is maintained for efficient chain-scoped queries.
+Sync metadata (last_sync, offer_count, stale_count) is tracked per chain.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ class OfferCache:
     """Cache for cross-chain offers with staleness tracking.
 
     Wraps ``RedisCache`` for offer-specific caching. Each offer is
-    stored as JSON keyed by ``offer:{offer_id}``. A per-chain index
+    stored as JSON keyed by ``offer:{chain_id}:{offer_id}``. A per-chain index
     is maintained at ``chain:{chain_id}:offers`` (a set of offer IDs).
     Sync metadata is stored at ``chain:{chain_id}:sync_meta``.
     """
@@ -41,7 +43,20 @@ class OfferCache:
         self._config = config or OfferSyncConfig()
         self._cache = RedisCache(redis_url=redis_url, default_ttl=default_ttl or self._config.cache_ttl_seconds)
 
-    def _offer_key(self, offer_id: str) -> str:
+    @staticmethod
+    def _offer_key(chain_id: str, offer_id: str) -> str:
+        """Namespaced offer key — ``offer:{chain_id}:{offer_id}`` (#1567).
+
+        The chain id is part of the key so a sync on chain B can never
+        overwrite chain A's entry for the same offer_id. Entries written
+        before namespacing lived at ``offer:{offer_id}``; they age out via
+        TTL and are also removed by :meth:`delete_offer`.
+        """
+        return f"offer:{chain_id}:{offer_id}"
+
+    @staticmethod
+    def _legacy_offer_key(offer_id: str) -> str:
+        """Pre-#1567 unnamespaced key, kept only for delete hygiene."""
         return f"offer:{offer_id}"
 
     def _chain_index_key(self, chain_id: str) -> str:
@@ -68,21 +83,39 @@ class OfferCache:
         chains = [c for c in self._get_chain_registry() if c != chain_id]
         self._cache.set(self._CHAINS_INDEX_KEY, chains)
 
-    def get_offer(self, offer_id: str) -> SyncedOffer | None:
-        """Get a single offer from the cache."""
-        raw = self._cache.get(self._offer_key(offer_id))
+    def _read_offer_key(self, key: str) -> SyncedOffer | None:
+        raw = self._cache.get(key)
         if raw is None:
             return None
         try:
             data = json.loads(raw) if isinstance(raw, str | bytes) else raw
+            if not isinstance(data, dict):
+                return None
             return SyncedOffer.from_dict(data)
-        except (json.JSONDecodeError, TypeError, KeyError) as e:
-            logger.warning("Failed to deserialize offer %s: %s", offer_id, e)
+        except (json.JSONDecodeError, TypeError, KeyError, AttributeError) as e:
+            logger.warning("Failed to deserialize offer at %s: %s", key, e)
             return None
+
+    def get_offer(self, offer_id: str, chain_id: str | None = None) -> SyncedOffer | None:
+        """Get a single offer from the cache.
+
+        With ``chain_id`` this is a direct namespaced lookup. Without it the
+        known chain registry is scanned for the offer_id — callers that know
+        the chain should pass it (O(1) vs O(chains)).
+        """
+        if chain_id is not None:
+            return self._read_offer_key(self._offer_key(chain_id, offer_id))
+        for cid in self._get_known_chains():
+            offer = self._read_offer_key(self._offer_key(cid, offer_id))
+            if offer is not None:
+                return offer
+        # Pre-#1567 entries live at the unnamespaced key until TTL — keep them
+        # readable so a rolling deploy does not blank the cache.
+        return self._read_offer_key(self._legacy_offer_key(offer_id))
 
     def set_offer(self, offer: SyncedOffer, ttl: int | None = None) -> None:
         """Store an offer in the cache and update the chain index."""
-        key = self._offer_key(offer.offer_id)
+        key = self._offer_key(offer.chain_id, offer.offer_id)
         self._cache.set(key, json.dumps(offer.to_dict()), ttl or self._config.cache_ttl_seconds)
         # Update chain index (store as JSON list since RedisCache doesn't expose sets)
         self._register_chain(offer.chain_id)
@@ -94,19 +127,24 @@ class OfferCache:
 
     def delete_offer(self, offer_id: str, chain_id: str | None = None) -> None:
         """Delete an offer from the cache and chain index."""
-        offer = self.get_offer(offer_id)
+        offer = self.get_offer(offer_id, chain_id)
         if chain_id is None and offer:
             chain_id = offer.chain_id
-        self._cache.delete(self._offer_key(offer_id))
         if chain_id:
+            self._cache.delete(self._offer_key(chain_id, offer_id))
             self._remove_from_chain_index(chain_id, offer_id)
+            # Pre-#1567 entries live at the unnamespaced key; drop it only
+            # when it provably belongs to this chain.
+            legacy = self._read_offer_key(self._legacy_offer_key(offer_id))
+            if legacy is not None and legacy.chain_id == chain_id:
+                self._cache.delete(self._legacy_offer_key(offer_id))
 
     def list_offers_by_chain(self, chain_id: str) -> list[SyncedOffer]:
         """List all cached offers for a specific chain."""
         offer_ids = self._get_chain_index(chain_id)
         offers: list[SyncedOffer] = []
         for oid in offer_ids:
-            offer = self.get_offer(oid)
+            offer = self.get_offer(oid, chain_id)
             if offer and offer.chain_id == chain_id:
                 offers.append(offer)
         return offers
@@ -128,9 +166,9 @@ class OfferCache:
                     seen.add(offer.offer_id)
         return all_offers
 
-    def is_stale(self, offer_id: str) -> bool:
+    def is_stale(self, offer_id: str, chain_id: str | None = None) -> bool:
         """Check if an offer is stale based on its last_synced timestamp."""
-        offer = self.get_offer(offer_id)
+        offer = self.get_offer(offer_id, chain_id)
         if not offer or not offer.last_synced:
             return True
         try:
@@ -153,7 +191,7 @@ class OfferCache:
             offers = []
             for cid in self._get_known_chains():
                 offers.extend(self.list_offers_by_chain(cid))
-        return [o.offer_id for o in offers if self.is_stale(o.offer_id)]
+        return [o.offer_id for o in offers if self.is_stale(o.offer_id, o.chain_id)]
 
     def get_sync_metadata(self, chain_id: str) -> dict[str, Any]:
         """Get sync metadata for a chain (last_sync, offer_count, stale_count)."""
@@ -186,7 +224,7 @@ class OfferCache:
         self._register_chain(chain_id)
         offers = self.list_offers_by_chain(chain_id)
         metadata["offer_count"] = len(offers)
-        metadata["stale_count"] = sum(1 for o in offers if self.is_stale(o.offer_id))
+        metadata["stale_count"] = sum(1 for o in offers if self.is_stale(o.offer_id, o.chain_id))
         self._cache.set(
             self._chain_meta_key(chain_id),
             json.dumps(metadata),
@@ -203,7 +241,12 @@ class OfferCache:
         """Clear all offers for a chain. Returns the number of offers removed."""
         offer_ids = self._get_chain_index(chain_id)
         for oid in offer_ids:
-            self._cache.delete(self._offer_key(oid))
+            self._cache.delete(self._offer_key(chain_id, oid))
+            # Legacy unnamespaced keys can't be attributed to a chain without
+            # reading them — drop only this chain's.
+            legacy = self._read_offer_key(self._legacy_offer_key(oid))
+            if legacy is not None and legacy.chain_id == chain_id:
+                self._cache.delete(self._legacy_offer_key(oid))
         self._cache.delete(self._chain_index_key(chain_id))
         self._cache.delete(self._chain_meta_key(chain_id))
         self._unregister_chain(chain_id)
