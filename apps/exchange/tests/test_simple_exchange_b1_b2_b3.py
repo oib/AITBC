@@ -648,3 +648,69 @@ class TestMarketNaNPriceRejected:
         finally:
             conn.close()
         assert count == 0
+
+
+class TestMarketOfferPriceBounds:
+    """#1675: POST /v1/market/offers price must be finite, > 0 and <= 1e15.
+
+    The old ``data.get("price") or ... or 0`` fallback stored 0 for
+    None/[]/{} and accepted -1/1e18/1e30 verbatim as TEXT.
+    """
+
+    @pytest.mark.parametrize(
+        "price",
+        [0, -1, -0.000001, 1e18, 1e30, "NaN", "abc", None, [], {}],
+    )
+    def test_bad_price_rejected_without_insert(self, temp_db, price):
+        import sqlite3
+
+        from apps.exchange.simple_exchange.handlers.market import MarketMixin
+
+        handler = MagicMock()
+        handler._require_api_key = MagicMock(return_value=True)
+        handler._read_json_body = MagicMock(return_value={"item": "gpu", "price": price})
+        handler.send_json_response = MagicMock()
+        handler.handle_market_create_offer = MarketMixin.handle_market_create_offer.__get__(handler, MarketMixin)
+
+        with patch("apps.exchange.simple_exchange.handlers.market.get_db_path", return_value=temp_db):
+            handler.handle_market_create_offer()
+
+        assert handler.send_json_response.called
+        assert handler.send_json_response.call_args.kwargs.get("status") == 400
+        conn = sqlite3.connect(temp_db)
+        try:
+            count = conn.execute("SELECT COUNT(*) FROM marketplace_offers").fetchone()[0]
+        finally:
+            conn.close()
+        assert count == 0
+
+    def test_missing_price_rejected(self, temp_db):
+        from apps.exchange.simple_exchange.handlers.market import MarketMixin
+
+        handler = MagicMock()
+        handler._require_api_key = MagicMock(return_value=True)
+        handler._read_json_body = MagicMock(return_value={"item": "gpu"})
+        handler.send_json_response = MagicMock()
+        handler.handle_market_create_offer = MarketMixin.handle_market_create_offer.__get__(handler, MarketMixin)
+
+        with patch("apps.exchange.simple_exchange.handlers.market.get_db_path", return_value=temp_db):
+            handler.handle_market_create_offer()
+
+        assert handler.send_json_response.call_args.kwargs.get("status") == 400
+
+    def test_valid_price_still_creates_offer(self, temp_db):
+        from apps.exchange.simple_exchange.handlers.market import MarketMixin
+
+        handler = MagicMock(spec=MarketMixin)
+        handler._require_api_key = MagicMock(return_value=True)
+        handler._read_json_body = MagicMock(return_value={"item": "gpu-a100", "price": "2.5", "wallet": "0xtest"})
+        handler.send_json_response = MagicMock()
+        handler._new_market_id = MarketMixin._new_market_id.__get__(handler, MarketMixin)
+        handler._marketplace_ttl_seconds = lambda: 7 * 24 * 3600
+        handler._marketplace_expires_at = MarketMixin._marketplace_expires_at.__get__(handler, MarketMixin)
+        handler.handle_market_create_offer = MarketMixin.handle_market_create_offer.__get__(handler, MarketMixin)
+
+        with patch("apps.exchange.simple_exchange.handlers.market.get_db_path", return_value=temp_db):
+            handler.handle_market_create_offer()
+
+        assert handler.send_json_response.call_args.kwargs.get("status") == 201
