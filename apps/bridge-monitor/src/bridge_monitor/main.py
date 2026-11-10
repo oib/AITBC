@@ -833,8 +833,14 @@ class BridgeMonitor:
             if abandoned:
                 logger.warning("Sweep auto-abandoned stuck payout for deposit %s — %s", tx_hash, why)
                 continue
-            # Not sealed deep enough (or not sealed at all).
-            submitted_height = d.get("submitted_height") or (head or 0)
+            # Not sealed deep enough (or not sealed at all). A NULL
+            # submitted_height means the sign-time head fetch failed —
+            # unknown age must read as OLDEST, not as "now": falling back
+            # to the current head would keep the row inside the seal
+            # window forever and it would never be rebroadcast (#1436,
+            # same defect class as the stuck-payout alert below). A
+            # successful rebroadcast writes the real height back.
+            submitted_height = int(d.get("submitted_height") or 0)
             rebroadcast_count = int(d.get("rebroadcast_count") or 0)
             if head is None:
                 continue  # can't judge distance — try next poll
@@ -980,8 +986,13 @@ class BridgeMonitor:
             submitted = get_submitted_deposits()
             if submitted and self.stuck_payout_blocks > 0:
                 head = self._head_height()
+                # BRIDGE-MON-ALERT-1 (#1436): a NULL submitted_height (the
+                # sign-time /rpc/head fetch failed) is UNKNOWN age, not
+                # "now" — falling back to the current head made the row
+                # look brand new and suppressed this alert on exactly the
+                # rows most likely to be stuck. Unknown reads as oldest.
                 oldest_tx, oldest_height = min(
-                    ((d["eth_tx_hash"], int(d.get("submitted_height") or (head or 0))) for d in submitted),
+                    ((d["eth_tx_hash"], int(d.get("submitted_height") or 0)) for d in submitted),
                     key=lambda t: t[1],
                 )
                 if head is not None and head - oldest_height > self.stuck_payout_blocks:
