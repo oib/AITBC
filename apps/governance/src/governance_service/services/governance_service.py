@@ -103,6 +103,7 @@ class GovernanceService:
         role: str | None = None,
         user_id: str | None = None,
         limit: int | None = None,
+        offset: int = 0,
     ) -> list[GovernanceProfile]:
         """List governance profiles.
 
@@ -114,6 +115,8 @@ class GovernanceService:
             stmt = stmt.where(GovernanceProfile.role == role)
         if user_id:
             stmt = stmt.where(GovernanceProfile.user_id == user_id)
+        if offset:
+            stmt = stmt.offset(offset)
         if limit is not None:
             stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
@@ -492,6 +495,7 @@ class GovernanceService:
         proposal_id: str | None = None,
         voter_id: str | None = None,
         limit: int | None = None,
+        offset: int = 0,
     ) -> list[Vote]:
         """List votes.
 
@@ -504,6 +508,8 @@ class GovernanceService:
             stmt = stmt.where(Vote.proposal_id == proposal_id)
         if voter_id:
             stmt = stmt.where(Vote.voter_id == voter_id)
+        if offset:
+            stmt = stmt.offset(offset)
         if limit is not None:
             stmt = stmt.limit(limit)
         result = await self.session.execute(stmt)
