@@ -11,9 +11,8 @@ the flag ON and one inert-emit check OFF. This file pins the OFF *wiring*
 * armed control — the same harness subscribes/publishes with the flag ON, so
   the OFF assertions cannot pass vacuously.
 
-Characterization: ``handle_evidence`` has no internal flag gate; OFF safety
-rests on the listener never being started (asserted below), not on the
-handler refusing records.
+``handle_evidence`` carries its own flag gate (defense in depth, like
+``handle_abandon``): OFF it ingests nothing even if called directly.
 """
 
 from __future__ import annotations
@@ -136,14 +135,26 @@ async def test_armed_control_local_pair_publishes(monkeypatch):
     assert _counter("equivocation_published_total") == 1.0
 
 
-def test_handle_evidence_has_no_internal_flag_gate(monkeypatch):
-    """Characterization: OFF safety is the un-started listener, not the
-    handler. A directly-delivered valid record is ingested even with the flag
-    OFF (only reachable if something calls handle_evidence bypassing
-    start())."""
+def test_handle_evidence_ignores_records_when_off(monkeypatch):
+    """OFF: a directly-delivered valid record is dropped, stored and counted nowhere."""
     from aitbc_chain.consensus.slashing import SlashingManager
 
     monkeypatch.setattr(settings, "equivocation_replication_enabled", False)
+    mgr = SlashingManager()
+    svc = _svc()
+    monkeypatch.setattr(svc, "_equivocation_recorder", lambda: mgr)
+    out = svc.handle_evidence(_record())
+    assert out.status == "disabled" and not out.slashable and out.record is None
+    assert len(er.get_store(CHAIN)) == 0
+    assert mgr.get_slashing_history(_base.VAL) == []
+    assert all(_counter(name) == 0.0 for name in REPLICATION_COUNTERS)
+
+
+def test_handle_evidence_ingests_when_armed(monkeypatch):
+    """Armed control: the same record is stored and slashable, so the OFF test is not vacuous."""
+    from aitbc_chain.consensus.slashing import SlashingManager
+
+    monkeypatch.setattr(settings, "equivocation_replication_enabled", True)
     mgr = SlashingManager()
     svc = _svc()
     monkeypatch.setattr(svc, "_equivocation_recorder", lambda: mgr)
