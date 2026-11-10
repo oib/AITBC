@@ -40524,7 +40524,7 @@
           "pin": {
             "type": "boolean",
             "title": "Pin",
-            "default": false
+            "default": true
           }
         },
         "type": "object",
