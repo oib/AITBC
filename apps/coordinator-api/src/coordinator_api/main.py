@@ -523,15 +523,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         lifecycle_state.set_state(lifecycle_state.STOPPED)
 
 
+def _is_production_deployment() -> bool:
+    """Production check for the fail-closed startup asserts.
+
+    ``is_production()`` reads ENVIRONMENT/APP_ENV/NODE_ENV and accepts both
+    "production" and "prod"; ``settings.environment`` additionally covers a
+    value supplied only through the pydantic ``.env`` file. Either source
+    saying production must trip the assert — checking only
+    ``settings.environment == "production"`` let ``ENVIRONMENT=prod`` skip the
+    auth/test-mode gate entirely.
+    """
+    from aitbc.utils.env import is_production
+
+    return settings.environment == "production" or is_production()
+
+
 def _assert_production_config() -> None:
     # Fail closed: production must have auth enabled and not be in test mode
-    if settings.environment == "production":
+    if _is_production_deployment():
         assert settings.auth_enabled and not settings.test_mode, (
             "Production environment requires auth_enabled=True and test_mode=False"
         )
 
     # Fail closed: production FHE requires a real provider when mock is disabled
-    if settings.environment == "production" and settings.fhe_enabled and not settings.fhe_allow_mock:
+    if _is_production_deployment() and settings.fhe_enabled and not settings.fhe_allow_mock:
         from .contexts.zk_applications.services.fhe_service import FHEService
 
         fhe_service = FHEService()
