@@ -26,7 +26,7 @@ from aitbc.security import RateLimiter
 from aitbc_chain.gossip.backends.base import GossipBackend, TopicSubscription
 from aitbc_chain.gossip.backends.mesh import MeshGossipBackend
 from aitbc_chain.gossip.backends.websocket import WebsocketGossipBackend
-from aitbc_chain.gossip.broker import create_backend
+from aitbc_chain.gossip.broker import create_backend, gossip_broker
 from aitbc_chain.gossip.telemetry import (
     EventLoopLagMonitor,
     close_code_class,
@@ -629,9 +629,16 @@ def test_ws_queue_depth_value_and_gauge_under_backlog(caplog, _ws_test_settings,
     # Determinism: with gossip_priority_enabled the broker only enqueues to
     # PriorityMessageQueue and a 1ms drain task delivers asynchronously — all
     # five rx_publish samples can read queue_depth=0 despite real backlog
-    # (observed 1/3 flake on node2). Disabling priority makes publish→put
-    # synchronous so the stalled echo deterministically observes the backlog.
+    # (observed 1/3 flake on node2, then a deterministic [0,0,0,0,0] suite
+    # red). Disabling priority makes publish→put synchronous so the stalled
+    # echo deterministically observes the backlog.
+    # NOTE: GossipBroker snapshots the flag into ``_priority_enabled`` at
+    # construction and the module-level ``gossip_broker`` is built at import
+    # time, so patching ``settings.gossip_priority_enabled`` alone is a no-op
+    # — the drain path stays live and the flake persists. Patch the broker
+    # attribute itself (settings patch kept for any settings-level readers).
     monkeypatch.setattr(settings, "gossip_priority_enabled", False)
+    monkeypatch.setattr(gossip_broker, "_priority_enabled", False)
     topic = "transactions"
     tc = bounded_topic_label(topic)
     real_send = websocket_module._gossip_ws_send_json
