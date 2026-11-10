@@ -483,3 +483,93 @@ class TestChainDiscoveryService:
         assert ok.status == "active"
         assert ok.block_height == 777
         assert bad.status == "unreachable"
+
+
+# ---------------------------------------------------------------------------
+# Post-commit expiry regression (production sessions use expire_on_commit=True;
+# the db_session fixture above disables it, which is why these paths 500'd)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def expiring_session():
+    """Same schema as db_session but with expire_on_commit=True — the
+    production default that triggered MissingGreenlet on post-commit reads."""
+    from trading_service.domain.base import trading_metadata
+    from trading_service.domain.inter_chain import (  # noqa: F401
+        InterChainTrade,
+        IslandRegistryEntry,
+    )
+    from trading_service.domain.trading import (  # noqa: F401
+        TradeAgreement,
+        TradeMatch,
+        TradeNegotiation,
+        TradeRequest,
+        TradeSettlement,
+    )
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(trading_metadata.create_all)
+
+    async with AsyncSession(engine, expire_on_commit=True) as session:
+        yield session
+
+    await engine.dispose()
+
+
+class TestPostCommitExpiry:
+    """#1411 residual — match_trade and get_chain_health read ORM attrs after
+    commit; with expire_on_commit=True those reads raised MissingGreenlet and
+    returned 500 AFTER the state change had already committed."""
+
+    async def test_match_trade_happy_path_expiring_session(self, expiring_session):
+        from trading_service.services.inter_chain_service import InterChainTradeService
+        from trading_service.services.matching_engine import MatchingEngine
+
+        svc = InterChainTradeService(expiring_session)
+        buy = await _make_trade(
+            svc,
+            source_chain="chain-a",
+            dest_chain="chain-b",
+            sender="0xbuyer",
+            recipient="0xseller",
+            amount=500,
+        )
+        buy_id = buy.trade_id  # capture before the next commit expires it
+        sell = await _make_trade(
+            svc,
+            source_chain="chain-b",
+            dest_chain="chain-a",
+            sender="0xseller",
+            recipient="0xbuyer",
+            amount=500,
+            price=Decimal("2.0"),
+        )
+        sell_id = sell.trade_id
+
+        engine = MatchingEngine(expiring_session)
+        result = await engine.match_trade(buy_id)
+
+        assert result is not None
+        assert result["matched"] is True
+        assert result["matched_trade_id"] == sell_id
+        assert result["source_chain"] == "chain-a"
+        assert result["price"] == Decimal("2.0")
+
+    async def test_get_chain_health_expiring_session(self, expiring_session, monkeypatch):
+        svc = _discovery(expiring_session)
+        await svc.register_chain("chain-a", "http://chain-a:8202")
+
+        fake_client = MagicMock()
+        fake_client.get_chain_health = AsyncMock(return_value={"healthy": True})
+        fake_client.get_block_height = AsyncMock(return_value=1234)
+        monkeypatch.setattr(
+            "trading_service.services.chain_discovery.BlockchainClient",
+            MagicMock(return_value=fake_client),
+        )
+
+        result = await svc.get_chain_health("chain-a")
+        assert result["status"] == "active"
+        assert result["endpoint"] == "http://chain-a:8202"
+        assert result["last_sync"]
