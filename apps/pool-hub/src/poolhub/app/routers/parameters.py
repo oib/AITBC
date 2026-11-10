@@ -93,7 +93,10 @@ def _validate_parameter_value(parameter_name: str, new_value: Any) -> None:
         value_ok = False
     if value_ok and expected_type in (dict, list):
         try:
-            encoded = json.dumps(new_value)
+            # allow_nan=False: NaN/Infinity serialize to bare `NaN`/`Infinity`
+            # literals — invalid strict JSON that PostgreSQL jsonb rejects at
+            # commit time (a 500 after validation passed). Reject up front.
+            encoded = json.dumps(new_value, allow_nan=False)
         except (TypeError, ValueError):
             value_ok = False
         else:

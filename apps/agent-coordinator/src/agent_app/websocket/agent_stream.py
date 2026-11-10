@@ -511,8 +511,17 @@ def _ensure_agent_db_columns(conn: sqlite3.Connection) -> None:
     for name, decl in _AGENT_DB_COMPAT_COLUMNS.items():
         if name not in existing:
             # nosec B608 - identifiers come from the static _AGENT_DB_COMPAT_COLUMNS map
-            conn.execute(f"ALTER TABLE coin_requests ADD COLUMN {name} {decl}")
-            logger.info("Added missing column %s to agent coin_requests ledger", name)
+            try:
+                conn.execute(f"ALTER TABLE coin_requests ADD COLUMN {name} {decl}")
+            except sqlite3.OperationalError as e:
+                # Concurrent openers race the same ALTER: the loser sees
+                # 'duplicate column name' even though the column now exists —
+                # that is convergence, not failure (#v11 item 9). Any other
+                # operational error still propagates to the open retry loop.
+                if "duplicate column" not in str(e).lower():
+                    raise
+            else:
+                logger.info("Added missing column %s to agent coin_requests ledger", name)
 
 
 def _agent_db_conn() -> sqlite3.Connection | None:
