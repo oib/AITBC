@@ -128,7 +128,11 @@ class MarketJobSweeper:
             await self._expire_stale_jobs(session, now_naive)
 
             # 1. Release: jobs that completed or expired and are past the grace period.
-            release_cutoff = now - timedelta(seconds=self.refund_grace_seconds)
+            # expires_at/updated_at are naive-UTC columns (domain
+            # default_factory strips tzinfo); bind naive cutoffs so the
+            # comparisons do not depend on dialect-specific tz coercion of
+            # an aware datetime (#1575).
+            release_cutoff = (now - timedelta(seconds=self.refund_grace_seconds)).replace(tzinfo=None)
 
             release_stmt = (
                 select(MarketJob, MarketJobPayment)
@@ -154,7 +158,7 @@ class MarketJobSweeper:
                     counts["failed"] += 1
 
             # 2. Refund: failed/canceled jobs or payments already marked refund_pending.
-            min_age = now - timedelta(seconds=self.min_age_seconds)
+            min_age = (now - timedelta(seconds=self.min_age_seconds)).replace(tzinfo=None)
 
             refund_stmt = (
                 select(MarketJob, MarketJobPayment)

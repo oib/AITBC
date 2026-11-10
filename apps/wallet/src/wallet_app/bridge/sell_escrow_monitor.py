@@ -33,7 +33,9 @@ import json
 import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
+
+from wallet_app.utc_time import parse_stored, utc_now
 from decimal import Decimal
 from typing import Any, cast
 
@@ -957,7 +959,7 @@ async def _resolve_lock_release_failure(cfg: SellConfig, row: dict[str, Any], ex
 def _lock_age_seconds(row: dict[str, Any]) -> float:
     locked_at = row.get("locked_at") or row.get("created_at")
     try:
-        return (datetime.now() - datetime.fromisoformat(str(locked_at))).total_seconds()
+        return (utc_now() - parse_stored(locked_at)).total_seconds()
     except (TypeError, ValueError):
         return 0.0
 
@@ -991,7 +993,7 @@ async def _price_lock_eth_amount(cfg: SellConfig, row: dict[str, Any], quote: di
         return Decimal(str(eth_amount))
     expired = True
     try:
-        expired = datetime.now() > datetime.fromisoformat(str(quote.get("expires_at") or ""))
+        expired = utc_now() > parse_stored(quote.get("expires_at") or "")
     except (TypeError, ValueError):
         pass
     if expired:
@@ -1055,7 +1057,7 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
             error=f"{amount_eth} ETH exceeds SELL_MAX_ETH_PER_TX={cfg.max_eth_per_tx}",
         )
         return
-    since = (datetime.now() - timedelta(hours=24)).isoformat()
+    since = (utc_now() - timedelta(hours=24)).isoformat()
     if get_sell_eth_committed_since(since) + amount_eth > cfg.max_eth_per_day:
         update_sell_lock_status(row["ait_tx_hash"], "queued_reserve", error="daily sell release cap reached")
         return
@@ -1207,7 +1209,7 @@ def _expire_stale_quotes() -> int:
     expired = 0
     for quote in get_sell_quotes_by_status(("quoted",)):
         try:
-            if datetime.now() > datetime.fromisoformat(str(quote.get("expires_at"))):
+            if utc_now() > parse_stored(quote.get("expires_at")):
                 update_sell_quote_status(str(quote["id"]), "expired")
                 expired += 1
         except Exception:  # noqa: BLE001 - bad quote row skipped — expired count stays accurate

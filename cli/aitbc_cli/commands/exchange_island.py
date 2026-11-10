@@ -5,7 +5,7 @@ Commands for trading AIT coin against ETH on the island exchange
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, cast
 
@@ -146,7 +146,7 @@ def _build_exchange_tx(
     nonce = account.get("nonce", 0)
 
     pair = f"AIT/{quote_currency}"
-    order_id = f"exchange_{side}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{address}{ait_amount}{quote_currency}'.encode()).hexdigest()[:8]}"
+    order_id = f"exchange_{side}_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{address}{ait_amount}{quote_currency}'.encode()).hexdigest()[:8]}"
 
     order_payload: dict[str, Any] = {
         "action": side,
@@ -159,7 +159,7 @@ def _build_exchange_tx(
         "status": "open",
         "island_id": island_id,
         "chain_id": chain_id,
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
     if side == "buy" and price:
         order_payload["max_price"] = str(price)
@@ -737,7 +737,7 @@ def cancel(ctx, order_id: str, wallet: str | None, password: str | None, passwor
             "order_id": order_id,
             "user_id": address,
             "status": "cancelled",
-            "cancelled_at": datetime.now().isoformat(),
+            "cancelled_at": datetime.now(UTC).isoformat(),
             "island_id": island_id,
             "chain_id": chain_id,
             # TransactionRequest.validate_payload injects missing "to"/"amount"

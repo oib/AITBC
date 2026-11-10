@@ -215,3 +215,21 @@ def test_re_registering_after_execution_does_not_pay_again(bare_client, attempt:
         assert _execute(bare_client).json()["already_executed"] is True
 
     assert len(signed_transactions()) == 1
+
+
+def test_registered_row_uses_naive_utc_columns(bare_client) -> None:
+    """#1575: CoinRequest columns are naive DateTime storing UTC — writers and
+    sweepers must agree on that convention or expiry compares skew."""
+    from datetime import UTC, datetime
+
+    from .conftest import stored_request
+
+    _register(bare_client)
+    row = stored_request("req-0001")
+    assert row is not None
+    # Naive-UTC wall time, not host-local and not tz-aware: the sweeper
+    # cutoff is built the same way.
+    for stamp in (row.created_at, row.expires_at):
+        assert stamp is not None
+        assert stamp.tzinfo is None
+        assert abs((datetime.now(UTC).replace(tzinfo=None) - stamp).total_seconds()) < 60 * 60 * 25
