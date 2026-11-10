@@ -28,6 +28,12 @@ from ..domain.trading import (
 
 _DEFAULT_SETTLEMENT_TTL_SECONDS = 7 * 24 * 3600
 
+# #1727: shared money ceiling — the same 1e15 bound the market service's
+# MAX_PAYMENT_AMOUNT, the exchange _MARKET_MAX_PRICE/_ENV_DECIMAL_MAX and
+# subscriptions._MAX_PRICE_FILTER use. A finite-but-absurd magnitude (1e30)
+# has no sane interpretation and overflows Numeric(20,8) on stricter backends.
+MAX_MONEY_AMOUNT = Decimal("1000000000000000")
+
 
 def _settlement_ttl() -> timedelta:
     """Settlement lifetime before a stuck SETTLING row is failed (#1554)."""
@@ -169,6 +175,8 @@ def _optional_decimal(data: dict[str, Any], key: str) -> None:
         raise ValueError(f"{key} must be a decimal") from exc
     if not value.is_finite() or value < 0:
         raise ValueError(f"{key} must be a finite non-negative decimal")
+    if value > MAX_MONEY_AMOUNT:
+        raise ValueError(f"{key} must not exceed {MAX_MONEY_AMOUNT}")
 
 
 def _validate_request_data(data: dict[str, Any]) -> None:

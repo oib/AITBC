@@ -16,6 +16,7 @@ from aitbc_agent_core import get_active_brand
 
 from ..dependencies import get_session_dep, require_trading_api_key, require_webhook_signature
 from ..domain import ExchangePayment
+from ..services.trading_service import MAX_MONEY_AMOUNT
 from ..storage import get_session
 
 router = APIRouter(tags=["exchange"])
@@ -73,6 +74,11 @@ async def create_exchange_payment(
         raise HTTPException(status_code=400, detail="Amounts must be finite")
     if payment_request.aitbc_amount <= 0 or payment_request.eth_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
+    # #1727: finite+positive is not enough — cap at the shared money ceiling
+    # (market MAX_PAYMENT_AMOUNT / exchange _MARKET_MAX_PRICE) so a fuzzed
+    # 1e30 magnitude cannot be booked.
+    if payment_request.aitbc_amount > MAX_MONEY_AMOUNT or payment_request.eth_amount > MAX_MONEY_AMOUNT:
+        raise HTTPException(status_code=400, detail=f"Amount must not exceed {MAX_MONEY_AMOUNT}")
     expected_eth = payment_request.aitbc_amount / ETHEREUM_CONFIG["exchange_rate"]
     if payment_request.eth_amount != expected_eth:
         raise HTTPException(status_code=400, detail="Amount mismatch")

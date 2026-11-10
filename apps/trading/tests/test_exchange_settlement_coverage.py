@@ -133,6 +133,20 @@ class TestExchangePaymentCreation:
         )
         assert resp.status_code == 400
 
+    def test_create_payment_money_ceiling(self, client):
+        """#1727: finite+positive+ratio is not enough — amounts are bounded at
+        the shared 1e15 money ceiling (market MAX_PAYMENT_AMOUNT)."""
+        ceiling = Decimal("1000000000000000")
+        over = ceiling + Decimal("0.00000001")
+        huge = Decimal("1e30")
+        for aitbc, expect in ((ceiling, 200), (over, 400), (huge, 400)):
+            eth = aitbc / EXCHANGE_RATE
+            resp = client.post(
+                "/v1/exchange/create-payment",
+                json={"user_id": f"u-{aitbc}", "aitbc_amount": str(aitbc), "eth_amount": str(eth)},
+            )
+            assert resp.status_code == expect, f"{aitbc}: {resp.status_code} {resp.text[:200]}"
+
     def test_create_payment_requires_api_key(self):
         from fastapi.testclient import TestClient
         from trading_service.main import app
