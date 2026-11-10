@@ -494,7 +494,9 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="No escrow found for task")
     try:
         amount_units, body = await _parse_complete_body(request, entry)
-    except ValueError as e:
+    except (TypeError, ValueError) as e:
+        # TypeError: amount_units was a JSON object/array — int() rejects it;
+        # without this it escaped as an unhandled 500.
         raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
     await _require_provider_signature(entry, "complete", task_id, body)
     try:
