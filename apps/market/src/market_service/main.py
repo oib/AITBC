@@ -94,10 +94,14 @@ app.add_middleware(RequestValidationMiddleware, max_request_size=10 * 1024 * 102
 # `request: Request` parameter, so the decorator would find nothing to key on and put every
 # caller in one shared bucket -- one client could then lock out the rest. The middleware
 # always has the request and keys by client IP.
+# #1678: scoped to mutating methods (same as trading/pool-hub) — GET polling
+# from dashboards/explorers must not burn the per-IP write budget.
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 app.add_middleware(
     RateLimitMiddleware,
     rate=settings.rate_limit_requests,
     per=settings.rate_limit_window_seconds,
+    methods=_MUTATING_METHODS,
     exclude_paths=["/health", "/ready", "/live", "/metrics"],
     error_message="Market rate limit exceeded",
 )
