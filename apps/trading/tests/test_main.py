@@ -169,3 +169,52 @@ def test_mutating_routes_reject_missing_key(anon_client, gate_key, method, path)
 )
 def test_every_protected_router_rejects_missing_key(anon_client, gate_key, path):
     assert anon_client.get(path).status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# #1674: inter-chain create input bounds (v7 money-edge fuzz)
+# ---------------------------------------------------------------------------
+
+_INTER_CHAIN_CREATE = {
+    "source_chain": "chain-a",
+    "dest_chain": "chain-b",
+    "sender": "0xsender",
+    "recipient": "0xrecipient",
+    "amount": 100,
+}
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"amount": -1},
+        {"amount": 0},
+        {"amount": 10**15 + 1},
+        {"amount": 1e18},  # float — StrictInt rejects
+        {"amount": True},  # bool — StrictInt rejects
+        {"amount": "100"},  # str — StrictInt rejects
+        {"quantity": -1},
+        {"quantity": 0},
+        {"quantity": 10**9 + 1},
+        {"quantity": 1e18},
+        {"quantity": True},
+        # NB: explicit null is accepted as "unset" (-> quantity 0), identical
+        # to omitting the field — StrictInt | None cannot distinguish them.
+        {"price": -1},
+        {"price": "1e30"},
+    ],
+)
+def test_inter_chain_create_rejects_bad_money_input(client, override):
+    """#1674: quantity/amount/price must be finite, in-range, correctly typed."""
+    response = client.post("/v1/trading/inter-chain/create", json={**_INTER_CHAIN_CREATE, **override})
+    assert response.status_code in (400, 422), f"{override}: {response.status_code} {response.text[:200]}"
+
+
+def test_inter_chain_create_accepts_valid_input(client):
+    """#1674 invariant: a sane payload still creates the trade."""
+    response = client.post(
+        "/v1/trading/inter-chain/create",
+        json={**_INTER_CHAIN_CREATE, "quantity": 3, "price": "1.5"},
+    )
+    assert response.status_code == 200, response.text[:300]
+    assert response.json()["status"] == "pending"

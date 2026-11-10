@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
+from pydantic import StrictInt
 
 from ..dependencies import get_chain_discovery, get_inter_chain_service, get_matching_engine
 from ..services.chain_discovery import ChainDiscoveryService
@@ -12,6 +13,15 @@ from ..services.inter_chain_service import InterChainTradeService
 from ..services.matching_engine import MatchingEngine
 
 router = APIRouter(tags=["inter-chain"])
+
+# #1674: money-edge bounds for inter-chain trade creation. ``amount`` is
+# integer compute-units (1 AIT = 36,000,000 units per the value model), so
+# 1e15 units is ~27 billion AIT — far above any real trade while still
+# rejecting fuzzed magnitudes. ``quantity`` counts items; 1e9 is already
+# absurd. The price ceiling matches subscriptions._MAX_PRICE_FILTER.
+_MAX_INTER_CHAIN_AMOUNT = 10**15
+_MAX_INTER_CHAIN_QUANTITY = 10**9
+_MAX_INTER_CHAIN_PRICE = Decimal("1000000000000000")
 
 
 @router.get("/v1/trading/chains")
@@ -53,19 +63,29 @@ async def create_inter_chain_trade(
     dest_chain: Annotated[str, Body(embed=True)],
     sender: Annotated[str, Body(embed=True)],
     recipient: Annotated[str, Body(embed=True)],
-    amount: Annotated[int, Body(embed=True)],
+    # StrictInt rejects bool/float/str/None coercions that lax ``int`` accepted
+    # (True -> 1, 1e18 -> 1000000000000000000) — #1674.
+    amount: Annotated[StrictInt, Body(embed=True)],
     offer_id: Annotated[str | None, Body(embed=True)] = None,
     price: Annotated[Decimal, Body(embed=True)] = Decimal("0"),
-    quantity: Annotated[int, Body(embed=True)] = 0,
+    quantity: Annotated[StrictInt | None, Body(embed=True)] = None,
 ):
     """Create a new inter-chain trade."""
-    if amount <= 0:
-        raise HTTPException(status_code=400, detail="Amount must be positive")
+    if amount <= 0 or amount > _MAX_INTER_CHAIN_AMOUNT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Amount must be between 1 and {_MAX_INTER_CHAIN_AMOUNT}",
+        )
     # #1608: Decimal("NaN") parses but raises InvalidOperation on compare.
     if not price.is_finite():
         raise HTTPException(status_code=400, detail="Price must be finite")
-    if price < 0:
-        raise HTTPException(status_code=400, detail="Price cannot be negative")
+    if price < 0 or price > _MAX_INTER_CHAIN_PRICE:
+        raise HTTPException(status_code=400, detail=f"Price must be between 0 and {_MAX_INTER_CHAIN_PRICE}")
+    if quantity is not None and not 1 <= quantity <= _MAX_INTER_CHAIN_QUANTITY:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Quantity must be between 1 and {_MAX_INTER_CHAIN_QUANTITY}",
+        )
     return await svc.create_trade(
         source_chain=source_chain,
         dest_chain=dest_chain,
@@ -74,7 +94,7 @@ async def create_inter_chain_trade(
         amount=amount,
         offer_id=offer_id,
         price=price,
-        quantity=quantity,
+        quantity=quantity or 0,
     )
 
 
