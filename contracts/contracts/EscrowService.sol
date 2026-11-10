@@ -697,8 +697,12 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
                 // Stamp the verification and let releaseEscrow enforce
                 // oracleVerificationDelay — the same deferred-release
                 // semantics as the multi-oracle path — instead of paying
-                // the beneficiary instantly (#1470).
-                condRelease.finalVerificationTime = block.timestamp;
+                // the beneficiary instantly (#1470). Stamp once: this
+                // branch has no per-oracle hasVerified latch, so repeated
+                // calls must not push the release time out indefinitely.
+                if (condRelease.finalVerificationTime == 0) {
+                    condRelease.finalVerificationTime = block.timestamp;
+                }
                 if (block.timestamp >= condRelease.finalVerificationTime + oracleVerificationDelay) {
                     _releaseEscrow(_escrowId, "Condition verified and met");
                 }
