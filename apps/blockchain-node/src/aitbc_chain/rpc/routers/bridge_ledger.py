@@ -125,28 +125,50 @@ def ledger_register_route(request: Request, body: LedgerRegisterRequest) -> dict
         raise HTTPException(status_code=503, detail="Ledger store unavailable") from e
 
 
+# /pending worklist budget (BRIDGE-LEDGER-PENDING-UNBOUNDED, #1598): the
+# relayer polls this on every pass, so an unbounded ``status='pending'`` scan
+# hydrated the whole backlog per poll. ``limit`` is clamped like the sibling
+# ``/bridge/transfers`` list; the backlog drains over successive polls because
+# confirmed rows leave the pending set.
+_LEDGER_PENDING_DEFAULT_LIMIT = 500
+_LEDGER_PENDING_MAX_LIMIT = 1000
+
+
 @router.get("/pending", summary="Relayer worklist for a target chain")
 @rate_limit(rate=120, per=60)
-def ledger_pending_route(request: Request, target_chain: str) -> dict[str, Any]:
+def ledger_pending_route(request: Request, target_chain: str, limit: int = _LEDGER_PENDING_DEFAULT_LIMIT) -> dict[str, Any]:
     """Rows whose ``target_chain`` matches and status is ``pending``.
 
-    This replaces the relayer's local ``status='pending'`` scan.
+    This replaces the relayer's local ``status='pending'`` scan. Bounded by
+    ``limit`` (default 500, hard cap 1000) with a stable oldest-first order —
+    ``lock_time`` then ``transfer_id`` — so a backlog larger than the window
+    still drains FIFO across polls. ``truncated`` reports that more pending
+    rows remain beyond the returned page.
     """
+    limit = max(1, min(limit, _LEDGER_PENDING_MAX_LIMIT))
     try:
-        from sqlmodel import select
+        from sqlmodel import col, select
 
         from ...base_models import CrossChainTransfer
         from ...database import session_scope
 
         with session_scope() as session:
-            rows = session.exec(
-                select(CrossChainTransfer).where(
+            stmt = (
+                select(CrossChainTransfer)
+                .where(
                     CrossChainTransfer.target_chain == target_chain,
                     CrossChainTransfer.status == "pending",
                 )
-            ).all()
+                .order_by(col(CrossChainTransfer.lock_time).asc(), CrossChainTransfer.transfer_id)
+                # Fetch one extra row to detect a truncated backlog without a
+                # second count query.
+                .limit(limit + 1)
+            )
+            rows = session.exec(stmt).all()
+        truncated = len(rows) > limit
+        rows = rows[:limit]
         transfers = [_row(r) for r in rows]
-        return {"transfers": transfers, "count": len(transfers)}
+        return {"transfers": transfers, "count": len(transfers), "limit": limit, "truncated": truncated}
     except HTTPException:
         raise
     except Exception as e:
