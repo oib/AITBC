@@ -583,6 +583,21 @@ class TestAPIKeyStoreAtomicity:
         assert row["usage_count"] == 1 and row["last_used"] is not None
         assert manager._usage == {}
 
+    def test_validate_error_path_includes_valid_key(self, tmp_path, monkeypatch):
+        # SHARED-AUTH-APIKEY-1 (#1440): the generic error path must carry
+        # "valid" — agent-coordinator indexes result["valid"] and a missing
+        # key turned a transient store error into a KeyError/HTTP 500.
+        manager = self._manager(tmp_path)
+        manager.generate_api_key("user1")
+
+        def boom():
+            raise OSError("simulated store I/O error")
+
+        monkeypatch.setattr(manager, "_refresh", boom)
+        result = manager.validate_api_key("whatever")
+        assert result["status"] == "error"
+        assert result["valid"] is False
+
 
 class TestJWTIssAudBinding:
     """R12-HARDEN-1 (#1233): iss/aud claims — minted always, enforced only

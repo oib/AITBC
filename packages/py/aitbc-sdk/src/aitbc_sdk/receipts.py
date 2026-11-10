@@ -9,9 +9,6 @@ from typing import Any, cast
 import httpx
 from aitbc_crypto.signing import ReceiptVerifier
 
-from aitbc_errors import NetworkError
-from aitbc.network import AITBCHTTPClient
-
 
 @dataclass
 class SignatureValidation:
@@ -95,18 +92,23 @@ class CoordinatorReceiptClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_seconds = backoff_seconds
-        self._http: AITBCHTTPClient | None = None
+        self._http: httpx.Client | None = None
 
-    def _client(self) -> AITBCHTTPClient:
+    def _client(self) -> httpx.Client:
         """Return this instance's HTTP client, creating it on first use.
 
         This built a fresh client on every call and never closed any of them. Since
         _request() calls it inside its retry loop, and iter_receipts() calls _request()
         once per page, a paginated fetch leaked one client and connection pool per page
         and per retry attempt.
+
+        A plain ``httpx.Client`` is used deliberately: ``AITBCHTTPClient`` has no
+        ``request()`` method and collapses status codes into ``NetworkError``,
+        while ``_request`` needs the raw response for its 404→None and
+        429/5xx→retry distinction.
         """
         if self._http is None:
-            self._http = AITBCHTTPClient(
+            self._http = httpx.Client(
                 base_url=self.base_url,
                 timeout=self.timeout,
                 headers={"X-Api-Key": self.api_key},
@@ -236,7 +238,7 @@ class CoordinatorReceiptClient:
             try:
                 client = self._client()
                 response = client.request(method=method, url=url, params=params)
-            except NetworkError:
+            except httpx.HTTPError:
                 if attempt >= self.max_retries:
                     raise
                 attempt += 1

@@ -34,3 +34,26 @@ def test_security_package_importable() -> None:
     from shared_core.core import security
 
     assert security is not None
+
+
+def test_get_async_engine_does_not_double_prefix_async_urls(monkeypatch) -> None:
+    """SHARED-DB-ASYNCURL-1 (#1447): get_async_engine must not rewrite an
+    already dialect-qualified URL — "sqlite:///" is a substring of
+    "sqlite+aiosqlite:///" and produced "sqlite+aiosqlite+aiosqlite:///"."""
+    from shared_core.core import database
+    from shared_core.core.config import DatabaseConfig
+
+    calls: list[str] = []
+    monkeypatch.setattr(database, "create_async_engine", lambda url, **kw: calls.append(url) or url)
+
+    database.get_async_engine(DatabaseConfig(adapter="sqlite", url="sqlite+aiosqlite:////tmp/x.db"))
+    database.get_async_engine(DatabaseConfig(adapter="sqlite", url="sqlite:////tmp/x.db"))
+    database.get_async_engine(DatabaseConfig(adapter="postgresql", url="postgresql+asyncpg://h/db"))
+    database.get_async_engine(DatabaseConfig(adapter="postgresql", url="postgresql://h/db"))
+
+    assert calls == [
+        "sqlite+aiosqlite:////tmp/x.db",
+        "sqlite+aiosqlite:////tmp/x.db",
+        "postgresql+asyncpg://h/db",
+        "postgresql+asyncpg://h/db",
+    ]

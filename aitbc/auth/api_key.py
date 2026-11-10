@@ -267,7 +267,7 @@ class APIKeyManager:
             return {"status": "error", "valid": False, "message": "API key store is corrupt; refusing to operate"}
         except (OSError, TypeError, KeyError) as e:
             logger.error("Error validating API key: %s", e)
-            return {"status": "error", "message": "API key validation failed"}
+            return {"status": "error", "valid": False, "message": "API key validation failed"}
 
     def _maybe_flush_usage(self) -> None:
         """Fold deferred usage counters into the store once per interval.
