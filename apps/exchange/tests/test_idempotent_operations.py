@@ -97,11 +97,11 @@ class TestMarketOfferIdempotency:
         conn = sqlite3.connect(exchange_db)
         conn.execute(
             "CREATE TABLE marketplace_offers (id TEXT PRIMARY KEY, item TEXT, item_type TEXT, price TEXT,"
-            " wallet TEXT, status TEXT, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+            " wallet TEXT, status TEXT, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TEXT)"
         )
         conn.execute(
             "CREATE TABLE marketplace_orders (id TEXT PRIMARY KEY, order_type TEXT, item TEXT, price TEXT,"
-            " wallet TEXT, status TEXT, offer_id TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+            " wallet TEXT, status TEXT, offer_id TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TEXT)"
         )
         conn.execute(
             "INSERT INTO marketplace_offers (id, item, item_type, price, wallet, status) VALUES ('of-1', 'gpu', 'hw', '5', '0xw', 'active')"
@@ -116,3 +116,65 @@ class TestMarketOfferIdempotency:
         second = _post("/v1/market/offers/of-1/book", {"wallet": "0xbuyer"}, key="bk-1")
         assert second.status_code == 201
         assert json.loads(second.body)["order_id"] == order_id
+
+
+def _get(path: str):
+    return asyncio.run(_dispatch(_request("GET", path), "GET"))
+
+
+class TestMarketplaceExpiry:
+    """#1563: marketplace rows carry expires_at; read paths lazily flip stale
+    rows to 'expired' and booking an expired offer fails."""
+
+    DDL = [
+        "CREATE TABLE marketplace_offers (id TEXT PRIMARY KEY, item TEXT, item_type TEXT, price TEXT,"
+        " wallet TEXT, status TEXT, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        " expires_at TEXT)",
+        "CREATE TABLE marketplace_orders (id TEXT PRIMARY KEY, order_type TEXT, item TEXT, price TEXT,"
+        " wallet TEXT, status TEXT, offer_id TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+        " expires_at TEXT)",
+    ]
+
+    def _seed(self, exchange_db, offer_expires="2999-01-01 00:00:00", order_expires="2999-01-01 00:00:00"):
+        conn = sqlite3.connect(exchange_db)
+        for ddl in self.DDL:
+            conn.execute(ddl)
+        conn.execute(
+            "INSERT INTO marketplace_offers (id, item, item_type, price, wallet, status, expires_at)"
+            " VALUES ('of-x', 'gpu', 'hw', '5', '0xw', 'active', ?)",
+            (offer_expires,),
+        )
+        conn.execute(
+            "INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status, offer_id, expires_at)"
+            " VALUES ('ord-sell', 'SELL', 'gpu', '5', '0xw', 'open', 'of-x', ?)",
+            (order_expires,),
+        )
+        conn.commit()
+        conn.close()
+
+    def test_stale_offer_and_sell_order_expire_lazily(self, exchange_db):
+        self._seed(exchange_db, offer_expires="2000-01-01 00:00:00", order_expires="2999-01-01 00:00:00")
+        resp = _get("/v1/market/offers")
+        assert resp.status_code == 200
+        offers = json.loads(resp.body)
+        assert offers[0]["status"] == "expired"
+        assert offers[0]["expires_at"] == "2000-01-01 00:00:00"
+        conn = sqlite3.connect(exchange_db)
+        offer_status = conn.execute("SELECT status FROM marketplace_offers WHERE id='of-x'").fetchone()[0]
+        # The open SELL order follows its expired offer even though its own
+        # expires_at is still in the future.
+        order_status = conn.execute("SELECT status FROM marketplace_orders WHERE id='ord-sell'").fetchone()[0]
+        conn.close()
+        assert offer_status == "expired"
+        assert order_status == "expired"
+
+    def test_fresh_offer_stays_active(self, exchange_db):
+        self._seed(exchange_db)
+        resp = _get("/v1/market/offers/of-x")
+        assert resp.status_code == 200
+        assert json.loads(resp.body)["status"] == "active"
+
+    def test_book_expired_offer_is_rejected(self, exchange_db):
+        self._seed(exchange_db, offer_expires="2000-01-01 00:00:00")
+        resp = _post("/v1/market/offers/of-x/book", {"wallet": "0xbuyer"})
+        assert resp.status_code == 404
