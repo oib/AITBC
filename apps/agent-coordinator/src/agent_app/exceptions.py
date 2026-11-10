@@ -4,6 +4,7 @@ from typing import Any
 from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.middleware import register_request_validation_error_handler
 
 logger = get_logger(__name__)
 
@@ -11,6 +12,10 @@ __all__ = ["register_exception_handlers"]
 
 
 def register_exception_handlers(app: Any) -> None:
+    # #1676: literal NaN/Infinity JSON bodies must answer a serializable 422,
+    # not a 500 — same handler the other money-path services install.
+    register_request_validation_error_handler(app)
+
     @app.exception_handler(404)
     def not_found_handler(request: Any, exc: Any) -> JSONResponse:
         return JSONResponse(

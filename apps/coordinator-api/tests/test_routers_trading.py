@@ -93,6 +93,17 @@ class TestTradeRequestLifecycle:
         assert isinstance(rows, list)
         assert any(r["buyer_agent_id"] == AGENT for r in rows)
 
+    def test_list_requests_limit_bounds(self, client: TestClient) -> None:
+        """#1543 (8acafe389): ``limit`` went from ``int | None`` (unbounded
+        ``.limit(None)``) to ``Query(default=200, ge=1, le=1000)`` — pin the
+        bounds so the unbounded read cannot regress."""
+        for bad in ("0", "-1", "1001", "99999", "abc"):
+            resp = client.get(f"{BASE}/requests", params={"limit": bad}, headers=_headers())
+            assert resp.status_code == 422, f"limit={bad}: {resp.status_code} {resp.text[:120]}"
+        for good in ("1", "200", "1000"):
+            resp = client.get(f"{BASE}/requests", params={"limit": good}, headers=_headers())
+            assert resp.status_code == 200, f"limit={good}: {resp.status_code} {resp.text[:120]}"
+
     def test_validation(self, client: TestClient) -> None:
         # invalid agent id format
         assert (

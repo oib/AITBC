@@ -786,3 +786,31 @@ class TestDiscoverLimitBounds:
         resp = client.post("/v1/agents/discover", json={"limit": "not-an-int"})
         assert resp.status_code == 200, resp.text
         assert resp.json()["count"] == 0  # empty registry fixture
+
+
+class TestMessageListLimitBounds:
+    """#1543 residual (8acafe389): /inbox and /history gained
+    ``Query(ge=1, le=500)`` / ``offset ge=0`` — pin the bounds so a regression
+    to the uncapped Query(100) is caught."""
+
+    @pytest.mark.parametrize("bad", ["0", "-1", "501", "10000", "abc"])
+    def test_inbox_limit_out_of_range_is_422(self, client, fake_state, bad):
+        resp = client.get("/api/v1/agent/messages/inbox", params={"agent_id": "a1", "limit": bad})
+        assert resp.status_code == 422, f"limit={bad}: {resp.status_code} {resp.text[:120]}"
+
+    @pytest.mark.parametrize("bad", ["0", "-1", "501", "abc"])
+    def test_history_limit_out_of_range_is_422(self, client, fake_state, bad):
+        resp = client.get("/api/v1/agent/messages/history", params={"limit": bad})
+        assert resp.status_code == 422, f"limit={bad}: {resp.status_code} {resp.text[:120]}"
+
+    @pytest.mark.parametrize("bad", ["-1", "-100", "abc"])
+    def test_history_offset_negative_is_422(self, client, fake_state, bad):
+        resp = client.get("/api/v1/agent/messages/history", params={"offset": bad})
+        assert resp.status_code == 422, f"offset={bad}: {resp.status_code} {resp.text[:120]}"
+
+    def test_inbox_limit_in_range_ok(self, client, fake_state):
+        fake_state.message_storage.get_messages_by_receiver = AsyncMock(return_value=[])
+        fake_state.message_storage.get_message_count = AsyncMock(return_value=0)
+        for good in ("1", "100", "500"):
+            resp = client.get("/api/v1/agent/messages/inbox", params={"agent_id": "a1", "limit": good})
+            assert resp.status_code == 200, f"limit={good}: {resp.status_code} {resp.text[:120]}"
