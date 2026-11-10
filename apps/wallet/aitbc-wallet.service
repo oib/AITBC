@@ -24,7 +24,7 @@ KillMode=mixed
 TimeoutStopSec=5
 Restart=on-failure
 RestartSec=10
-StartLimitInterval=60
+StartLimitIntervalSec=60
 StartLimitBurst=3
 # Logging
 StandardOutput=journal
