@@ -8,6 +8,7 @@ Delivery-guarantee tests for agent messaging:
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -172,7 +173,7 @@ class TestSQLiteFallback:
             "sender": "agent-a",
             "recipient": "agent-b",
             "content": "hello",
-            "timestamp": "2026-08-21T12:00:00+00:00",
+            "timestamp": datetime.now(UTC).isoformat(),
             "status": "pending",
         }
         stored = asyncio.run(sqlite_storage.store_message(message_id, data))
@@ -191,7 +192,7 @@ class TestSQLiteFallback:
             "sender": "agent-a",
             "recipient": "agent-b",
             "content": "hello",
-            "timestamp": "2026-08-21T12:00:00+00:00",
+            "timestamp": datetime.now(UTC).isoformat(),
             "status": "pending",
         }
         asyncio.run(sqlite_storage.store_message(message_id, data))
@@ -210,7 +211,7 @@ class TestSQLiteFallback:
                         "sender": "agent-a",
                         "recipient": "agent-b",
                         "content": f"msg {i}",
-                        "timestamp": f"2026-08-21T12:00:0{i}+00:00",
+                        "timestamp": datetime.now(UTC).isoformat(),
                         "status": "pending",
                     },
                 )
