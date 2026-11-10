@@ -88,9 +88,14 @@ def _select_candidates(
 
     ranked: list[dict[str, Any]] = []
     for miner, miner_status, score in active_miners:
-        if miner.gpu_vram_gb and miner.gpu_vram_gb < min_vram:
+        # `or 0` is deliberate (#1398): gpu_vram_gb/ram_gb are Float columns
+        # whose registration default is 0.0, and a bare truthiness check let a
+        # GPU-less miner satisfy any min_vram_gb requirement. None and 0.0
+        # both mean "no usable hardware" and must fail a positive minimum;
+        # they still pass when no minimum is requested (min == 0).
+        if float(miner.gpu_vram_gb or 0) < min_vram:
             continue
-        if miner.ram_gb and miner.ram_gb < min_ram:
+        if float(miner.ram_gb or 0) < min_ram:
             continue
         if capabilities_required and not capabilities_required.issubset(set(miner.capabilities or [])):
             continue

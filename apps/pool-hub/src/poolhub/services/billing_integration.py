@@ -89,9 +89,16 @@ class BillingIntegration:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Send one usage event to coordinator-api, raising if it does not land."""
-        if not unit_price:
+        # `is None`, not falsy (#1400): Decimal("0") is a legitimate explicit
+        # price (genuinely-free usage) and must not be replaced by the fallback.
+        if unit_price is None:
             pricing_config = self.fallback_pricing.get(resource_type, {})
             unit_price = pricing_config.get("unit_price", Decimal("0"))
+        # Billing events with negative or non-finite amounts corrupt
+        # coordinator-api invoice data; reject before the event is built.
+        for name, value in (("quantity", quantity), ("unit_price", unit_price)):
+            if not value.is_finite() or value < 0:
+                raise ValueError(f"{name} must be a finite, non-negative Decimal; got {value!r}")
         total_cost = unit_price * quantity
         billing_event = {
             "tenant_id": tenant_id,
