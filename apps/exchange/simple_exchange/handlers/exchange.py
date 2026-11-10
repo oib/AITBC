@@ -235,11 +235,23 @@ def _exchange_chain_id() -> str:
     return os.getenv("EXCHANGE_CHAIN_ID") or resolve_chain_id()
 
 
+# #1608: env-sourced decimals feed fee/price-band/min-order math. A NaN,
+# negative, or absurd value must not reach that math — non-finite or
+# negative input falls back to the default, and anything beyond this bound
+# is clamped to it.
+_ENV_DECIMAL_MAX = Decimal("1000000000000000")
+
+
 def _env_decimal(name: str, default: str) -> Decimal:
     try:
-        return Decimal(os.getenv(name, default))
+        value = Decimal(os.getenv(name, default))
     except (InvalidOperation, ValueError):
         return Decimal(default)
+    if not value.is_finite() or value < 0:
+        return Decimal(default)
+    if value > _ENV_DECIMAL_MAX:
+        return _ENV_DECIMAL_MAX
+    return value
 
 
 def _env_int(name: str, default: int) -> int:
