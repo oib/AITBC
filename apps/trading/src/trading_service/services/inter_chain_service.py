@@ -147,6 +147,27 @@ class InterChainTradeService:
         await self.session.refresh(trade)
         return trade
 
+    async def cancel_trade(self, trade_id: str) -> InterChainTrade | None:
+        """Cancel a pending inter-chain trade (#1562).
+
+        Only ``pending`` trades may be cancelled here: a ``matched`` trade may
+        already have an escrow/settlement in flight on the counterparty side,
+        so cancelling it locally would strand the pair — that path needs the
+        settlement lifecycle's own cancel/refund transitions (residual).
+        """
+        trade = await self.get_trade(trade_id)
+        if not trade:
+            return None
+        if trade.status != InterChainTradeStatus.PENDING.value:
+            logger.warning("cancel_trade: refusing to cancel trade %s in status %r", trade_id, trade.status)
+            return trade
+        trade.status = InterChainTradeStatus.CANCELLED.value
+        trade.updated_at = datetime.now(UTC)
+        await self.session.commit()
+        await self.session.refresh(trade)
+        logger.info("Cancelled inter-chain trade %s", trade_id)
+        return trade
+
     async def get_trade_history(
         self,
         source_chain: str | None = None,
