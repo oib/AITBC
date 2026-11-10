@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from sqlalchemy import text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -36,6 +37,11 @@ logger = logging.getLogger(__name__)
 # so an instance dict would reset on every call and never save a probe.
 _RECONCILE_PROBE_CONCURRENCY = 4
 _RECONCILE_NEG_CACHE_SECONDS = 60.0
+
+# Name of the unique index on votes(proposal_id, lower(voter_id)) — the DB
+# backstop for the check-then-insert duplicate-vote scan (#1610). Must match
+# ``uq_votes_proposal_voter_ci`` in domain/governance.py and migration 006.
+_VOTE_UNIQUE_INDEX = "uq_votes_proposal_voter_ci"
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -646,21 +652,35 @@ class GovernanceService:
         # the authoritative voting_power_used.
         vote.voting_power_used = vote.voting_power
 
-        self.session.add(vote)
+        try:
+            self.session.add(vote)
 
-        # Update proposal vote counters
-        proposal = await self.get_proposal(vote.proposal_id)
-        if proposal:
-            if vote.vote_type == VoteType.FOR:
-                proposal.yes_votes += vote.voting_power_used
-                proposal.votes_for = proposal.yes_votes
-            elif vote.vote_type == VoteType.AGAINST:
-                proposal.no_votes += vote.voting_power_used
-                proposal.votes_against = proposal.no_votes
-            elif vote.vote_type == VoteType.ABSTAIN:
-                proposal.votes_abstain += vote.voting_power_used
+            # Update proposal vote counters. The add above means the next
+            # session.execute autoflushes the INSERT — the IntegrityError can
+            # surface here or at commit(), so both sit inside this try.
+            proposal = await self.get_proposal(vote.proposal_id)
+            if proposal:
+                if vote.vote_type == VoteType.FOR:
+                    proposal.yes_votes += vote.voting_power_used
+                    proposal.votes_for = proposal.yes_votes
+                elif vote.vote_type == VoteType.AGAINST:
+                    proposal.no_votes += vote.voting_power_used
+                    proposal.votes_against = proposal.no_votes
+                elif vote.vote_type == VoteType.ABSTAIN:
+                    proposal.votes_abstain += vote.voting_power_used
 
-        await self.session.commit()
+            await self.session.commit()
+        except IntegrityError as exc:
+            # GOV-VOTE-RACE-1 (#1610): the duplicate-vote scan above is
+            # check-then-insert; _VOTE_UNIQUE_INDEX is the DB backstop for a
+            # racer that passed the same scan. Roll back (which also reverts
+            # the proposal vote-counter bump) and surface the same "already
+            # voted" error the sequential path raises. Matching on the index
+            # name keeps unrelated integrity failures (FK, PK) visible.
+            await self.session.rollback()
+            if _VOTE_UNIQUE_INDEX in str(exc):
+                raise ValueError(f"voter {voter_id} has already voted on proposal {vote_proposal_id}") from None
+            raise
         await self.session.refresh(vote)
         return vote
 
