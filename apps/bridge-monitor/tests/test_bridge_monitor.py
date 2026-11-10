@@ -21,6 +21,44 @@ from bridge_monitor.main import BridgeMonitor
 from bridge_monitor.storage import BridgeDepositStatus
 
 
+def _slot_row(envelope, tx_hash="0xslotother", **over):
+    """A sealed chain tx row at the envelope's nonce that is NOT the
+    envelope — the 'other' occupant that makes abandon safe (#1721)."""
+    row = {
+        "tx_hash": tx_hash,
+        "nonce": envelope["nonce"],
+        "block_height": 300,
+        "status": "confirmed",
+        "type": "TRANSFER",
+        "sender": "0x" + "b" * 40,
+        "recipient": "0x" + "e" * 40,  # different recipient → not ours
+        "value": 999,
+        "fee": 360000,
+        "payload": {"amount": 999},
+    }
+    row.update(over)
+    return row
+
+
+def _ours_row(envelope, tx_hash="0x" + "9" * 64, **over):
+    """A sealed chain tx row that IS the envelope — landed under the hash
+    the chain assigned, which the ledger's stale ait_tx_hash never saw."""
+    row = {
+        "tx_hash": tx_hash,
+        "nonce": envelope["nonce"],
+        "block_height": 300,
+        "status": "confirmed",
+        "type": envelope.get("type", "TRANSFER"),
+        "sender": envelope.get("from"),
+        "recipient": envelope.get("to"),
+        "value": envelope.get("amount"),
+        "fee": envelope.get("fee"),
+        "payload": envelope.get("payload") or {},
+    }
+    row.update(over)
+    return row
+
+
 @pytest.fixture
 def monitor(tmp_path, monkeypatch):
     """BridgeMonitor with temp DB and stubbed external deps."""
@@ -183,6 +221,28 @@ class TestSubmittedLifecycle:
         assert d["status"] == BridgeDepositStatus.SUBMITTED.value
         assert d["rebroadcast_count"] == 1
 
+    def test_rebroadcast_adopts_rpc_hash(self, monitor, tmp_path):
+        """#1721: a rebroadcast must correct ait_tx_hash to the hash the chain
+        reported — the client-derived envelope hash never resolves on-chain,
+        so leaving it stale breaks the seal probe and the abandon proof."""
+        from bridge_monitor.storage import get_deposit
+
+        self._submitted_row(monitor)
+        server_hash = "0x" + "9" * 64
+        with (
+            patch.object(monitor, "_head_height", return_value=100),
+            patch.object(monitor, "_account_nonce", return_value=7),  # nonce not passed → no abandon
+            patch.object(monitor, "_post_signed_tx", return_value=server_hash),
+            patch("httpx.get") as mock_get,
+        ):
+            mock_get.return_value = MagicMock(status_code=404)
+            monitor.process_submitted_deposits()
+
+        d = get_deposit("0xsub")
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert d["ait_tx_hash"] == server_hash  # adopted the chain's hash
+        assert d["rebroadcast_count"] == 1
+
     def test_rejected_at_apply_stays_submitted_and_alerts(self, monitor, tmp_path, caplog):
         """Payout sealed with a failed status: stays SUBMITTED, alerts, no resubmit."""
         import logging
@@ -311,10 +371,11 @@ class TestWriteOffAndAbandon:
         assert "sealed" in msg
 
     def test_abandon_succeeds_and_queues_retry(self, monitor, tmp_path):
-        self._submitted_for_abandon(monitor)
+        envelope, _ = self._submitted_for_abandon(monitor)
         with (
             patch.object(monitor, "_account_nonce", return_value=9),  # nonce 9 > envelope nonce 7
             patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_payout_account_txs", return_value=[_slot_row(envelope)]),
         ):
             ok, msg = monitor.abandon_payout("0xabn")
         assert ok
@@ -324,6 +385,74 @@ class TestWriteOffAndAbandon:
         assert d["status"] == BridgeDepositStatus.PENDING_RETRY.value
         # envelope fields cleared so no path hands the dead envelope back
         assert not d["signed_tx"] and not d["envelope_hash"] and not d["ait_tx_hash"]
+
+    def test_abandon_refuses_when_envelope_landed_under_unknown_hash(self, monitor):
+        """#1721 invariant: SUBMITTED row whose ait_tx_hash is the stale
+        client-derived hash while the envelope sealed under the chain's own
+        hash must NOT be abandonable — and the proof must heal the hash."""
+        envelope, _ = self._submitted_for_abandon(monitor)
+        landed = _ours_row(envelope)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),  # nonce passed 7
+            patch.object(monitor, "_tx_on_chain", return_value=False),  # stale hash 404s forever
+            patch.object(monitor, "_payout_account_txs", return_value=[landed]),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert not ok
+        assert "on chain" in msg
+        from bridge_monitor.storage import get_deposit
+
+        d = get_deposit("0xabn")
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value  # NOT re-queued
+        assert d["ait_tx_hash"] == landed["tx_hash"]  # adopted the real hash
+        assert d["signed_tx"]  # envelope retained — the sweep owns it now
+
+    def test_abandon_refuses_when_slot_occupant_unproven(self, monitor):
+        """Nonce passed + hashes 404 but the account tx query is unavailable
+        → fail closed: no proof the slot holds a different tx."""
+        self._submitted_for_abandon(monitor)
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_payout_account_txs", return_value=None),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert not ok
+        assert "nonce slot" in msg
+        from bridge_monitor.storage import get_deposit
+
+        assert get_deposit("0xabn")["status"] == BridgeDepositStatus.SUBMITTED.value
+
+    def test_abandon_refuses_when_no_confirmed_slot_tx(self, monitor):
+        """Nonce passed but no CONFIRMED tx sits at the envelope's nonce —
+        the slot occupant is unproven (only a sealed-failed foreign row, or
+        nothing at all) → fail closed."""
+        envelope, _ = self._submitted_for_abandon(monitor)
+        failed_only = _slot_row(envelope, status="failed")
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_payout_account_txs", return_value=[failed_only]),
+        ):
+            ok, _ = monitor.abandon_payout("0xabn")
+        assert not ok
+        from bridge_monitor.storage import get_deposit
+
+        assert get_deposit("0xabn")["status"] == BridgeDepositStatus.SUBMITTED.value
+
+    def test_abandon_refuses_when_our_envelope_sealed_failed(self, monitor):
+        """Our envelope sealed with a failed status still counts as 'ours' —
+        funds may or may not have moved; the operator decides, not the code."""
+        envelope, _ = self._submitted_for_abandon(monitor)
+        landed = _ours_row(envelope, status="failed")
+        with (
+            patch.object(monitor, "_account_nonce", return_value=9),
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_payout_account_txs", return_value=[landed]),
+        ):
+            ok, msg = monitor.abandon_payout("0xabn")
+        assert not ok
+        assert "on chain" in msg
 
 
 class TestCursorSafety:
@@ -608,6 +737,7 @@ class TestPayoutSerialization:
             patch.object(monitor, "_head_height", return_value=200),
             patch.object(monitor, "_account_nonce", return_value=9),  # nonce passed 5
             patch.object(monitor, "_tx_on_chain", return_value=False),  # never sealed
+            patch.object(monitor, "_payout_account_txs", return_value=[_slot_row(envelope)]),
             patch.object(monitor, "_post_signed_tx") as mock_post,
             patch("httpx.get") as mock_get,
         ):
@@ -712,6 +842,7 @@ class TestPayoutSerialization:
         with (
             patch.object(monitor, "_account_nonce", return_value=9),
             patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_payout_account_txs", return_value=[_slot_row(envelope)]),
         ):
             ok, _ = monitor.abandon_payout("0xab")
 
