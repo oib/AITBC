@@ -57,7 +57,8 @@ async def test_sweeper_releases_expired_job(sweeper) -> None:
 
     counts = await sw.sweep_once()
     assert counts["released"] == 1
-    assert "escrow-expired" in rpc.released
+    # #1564: the escrow path key is the market job id, not escrow_contract_id.
+    assert created["job_id"] in rpc.released
 
     job = await service.get_market_job(created["job_id"])
     assert job["state"] == "RELEASED"
@@ -87,7 +88,8 @@ async def test_sweeper_refunds_canceled_job(sweeper) -> None:
 
     counts = await sw.sweep_once()
     assert counts["refunded"] == 1
-    assert "escrow-canceled" in rpc.refunded
+    # #1564: the escrow path key is the market job id, not escrow_contract_id.
+    assert created["job_id"] in rpc.refunded
 
     job = await service.get_market_job(created["job_id"])
     assert job["state"] == "REFUNDED"
