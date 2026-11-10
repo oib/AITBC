@@ -1,20 +1,22 @@
 """Market matching service for matching GPU providers with consumers"""
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 import httpx
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.market import OfferFSM, OfferStatus
+from aitbc.market import OfferStatus
 from aitbc.utils.chain_id import resolve_chain_id
 
 from ..config import settings
 from ..domain.market import MarketOffer
-from ..domain.offer_status import spellings_of, to_offer_status
+from ..domain.offer_status import spellings_of
 from .market_service import max_page_size, offer_reservation_ttl_seconds
 
 logger = get_logger(__name__)
@@ -131,6 +133,31 @@ class MatchingService:
             score *= 1.1
         return min(max(score, 0.0), 1.0)
 
+    async def _claim_available_offer(self, offers: Sequence[MarketOffer]) -> MarketOffer | None:
+        """CAS-claim the first still-AVAILABLE candidate (#1424 item 6).
+
+        The conditional UPDATE ... WHERE status IN (available spellings) is
+        the compare-and-swap: rowcount != 1 means another matcher (or a
+        booking/cancel) won the row, so fall through to the next candidate.
+        The #1554 reservation deadline rides in the same write so the claim
+        and the sweeper TTL land atomically.
+        """
+        reserved_until = (datetime.now(UTC) + timedelta(seconds=offer_reservation_ttl_seconds())).isoformat()
+        for candidate in offers:
+            claim_attrs = dict(candidate.attributes or {})
+            claim_attrs["_reserved_until"] = reserved_until
+            claim = await self.session.execute(
+                update(MarketOffer)
+                .where(
+                    col(MarketOffer.id) == candidate.id,
+                    col(MarketOffer.status).in_(spellings_of(OfferStatus.AVAILABLE)),
+                )
+                .values(status=OfferStatus.RESERVED.value, attributes=claim_attrs)
+            )
+            if getattr(claim, "rowcount", 0) == 1:
+                return candidate
+        return None
+
     async def match_and_assign(
         self,
         requirements: dict[str, Any],
@@ -171,25 +198,18 @@ class MatchingService:
                 logger.info("No matching offers found for requirements (chain_id=%s)", chain_id)
                 return {"status": "no_match", "chain_id": chain_id}
 
-            best_offer = offers[0]
-
-            # Reserve the offer via OfferFSM. The stored word may be an alias
-            # ("open"), which OfferFSM.from_string rejects — map it first
-            # (#1442).
-            current = to_offer_status(best_offer.status)
-            fsm = OfferFSM(current)
-            fsm.transition(OfferStatus.RESERVED)
-            best_offer.status = OfferStatus.RESERVED.value
-            # #1554: a matched offer stays RESERVED until the coordinator
-            # task completes or the reservation TTL lapses — the sweeper
-            # returns expired holds to AVAILABLE. Stored in attributes (JSON)
-            # because MarketOffer is a shared model (see book_offer).
-            reserved_attrs = dict(best_offer.attributes or {})
-            reserved_attrs["_reserved_until"] = (
-                datetime.now(UTC) + timedelta(seconds=offer_reservation_ttl_seconds())
-            ).isoformat()
-            best_offer.attributes = reserved_attrs
+            # Reserve via compare-and-swap (#1424 item 6): the SELECT above
+            # only found AVAILABLE candidates — two concurrent matches could
+            # both pick the same offer and both reserve it. Committed before
+            # the coordinator call, matching the previous semantics.
+            best_offer = await self._claim_available_offer(offers)
+            if best_offer is None:
+                logger.info("No matching offers left to reserve (chain_id=%s)", chain_id)
+                return {"status": "no_match", "chain_id": chain_id}
             await self.session.commit()
+            # The CAS bypassed the ORM — refresh so the in-memory row (and
+            # same-session readers) sees 'reserved', not the stale spelling.
+            await self.session.refresh(best_offer)
 
             # Submit task to agent-coordinator
             task_id = None
@@ -225,7 +245,8 @@ class MatchingService:
             except Exception as e:
                 logger.warning("Failed to submit task to agent-coordinator: %s", e)
                 # Release the reservation so the offer does not stay stuck.
-                fsm.transition(OfferStatus.AVAILABLE)
+                # The CAS wrote 'reserved'; the in-memory row still holds the
+                # pre-claim spelling, so write the canonical AVAILABLE word.
                 best_offer.status = OfferStatus.AVAILABLE.value
                 released_attrs = dict(best_offer.attributes or {})
                 released_attrs.pop("_reserved_until", None)
