@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
@@ -277,13 +277,19 @@ async def find_matches(request: Request, request_id: str, session: Annotated[Ses
 @router.get("/requests/{request_id}/matches")
 @rate_limit(rate=200, per=60)
 def get_trade_matches(
-    request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    request_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[TradeMatchResponse]:
     """Get trade matches for a request"""
     try:
         matches = (
             session.execute(
-                select(TradeMatch).where(TradeMatch.request_id == request_id).order_by(desc(TradeMatch.match_score))  # type: ignore[arg-type]
+                select(TradeMatch)
+                .where(TradeMatch.request_id == request_id)
+                .order_by(desc(TradeMatch.match_score))  # type: ignore[arg-type]
+                .limit(limit)
             )
             .scalars()
             .all()

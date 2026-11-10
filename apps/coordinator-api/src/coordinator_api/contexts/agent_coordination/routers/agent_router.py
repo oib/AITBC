@@ -7,7 +7,7 @@ import json
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
@@ -65,6 +65,7 @@ def list_workflows(
     tags: list[str] | None = None,
     owner_id: str | None = None,
     is_public: bool | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[AIAgentWorkflow]:
     """List agent workflows with filtering"""
     try:
@@ -78,7 +79,7 @@ def list_workflows(
         if tags:
             for tag in tags:
                 query = query.where(AIAgentWorkflow.tags.contains([tag]))  # type: ignore[attr-defined]
-        workflows = session.execute(query).scalars().all()
+        workflows = session.execute(query.limit(limit)).scalars().all()
         return workflows  # type: ignore[return-value]
     except Exception as e:
         logger.error("Failed to list workflows: %s", e)
