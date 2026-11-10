@@ -40,6 +40,18 @@ class FakeRedis:
         bucket.extend(values)
         return len(bucket)
 
+    async def ltrim(self, key: str, start: int, stop: int) -> bool:
+        bucket = self.lists.get(key)
+        if bucket is None:
+            return True
+        n = len(bucket)
+        # Redis semantics: negative indexes count from the tail; stop=-1 is the
+        # last element. Only the -N..-1 form is exercised by the repository.
+        lo = max(start + n, 0) if start < 0 else min(start, n)
+        hi = min(stop + n, n - 1) if stop < 0 else min(stop, n - 1)
+        self.lists[key] = bucket[lo : hi + 1] if hi >= lo else []
+        return True
+
     async def delete(self, key: str) -> int:
         self.deleted.append(key)
         self.lists.pop(key, None)
@@ -95,6 +107,22 @@ class TestCreateRequest:
         assert payload["job_id"] == "job-1"
         assert payload["request_id"] == str(request.id)
         assert payload["top_k"] == 3
+
+    async def test_enqueue_trims_list_to_bound(self, session_factory, redis, monkeypatch):
+        """#1531: the write-only match-requests list must stay bounded."""
+        import poolhub.repositories.match_repository as match_repo_mod
+
+        monkeypatch.setattr(match_repo_mod, "_MATCH_REQUESTS_MAX", 3)
+
+        async with session_factory() as s:
+            repo = MatchRepository(s, redis)
+            for i in range(6):
+                await repo.create_request(job_id=f"job-{i}", requirements={}, enqueue=True)
+
+        queued = redis.lists["poolhub:match-requests"]
+        assert len(queued) == 3
+        # Newest entries survive (rpush tail), oldest are trimmed from the head.
+        assert [json.loads(q)["job_id"] for q in queued] == ["job-3", "job-4", "job-5"]
 
     async def test_enqueue_false_skips_redis(self, session_factory, redis):
         async with session_factory() as s:
