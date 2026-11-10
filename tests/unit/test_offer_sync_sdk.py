@@ -228,6 +228,104 @@ class TestSyncedOffer:
         assert restored.price == offer.price
         assert restored.sync_status == offer.sync_status
 
+    # -- wire-contract pins: canonical to_dict() shape vs. the legacy
+    #    blockchain-node market-listing shape (#1635). The node publishes
+    #    listings keyed listing_id/seller_address/item_type with status
+    #    "active"; from_dict must map both shapes onto the same fields or
+    #    every node event collapses to an empty offer_id / shared cache key.
+
+    @staticmethod
+    def _legacy_node_listing() -> dict:
+        """Faithful copy of the dict apps/blockchain-node/src/aitbc_chain/rpc/market.py
+        builds for each parsed market_create tx (the ``offer`` payload the
+        trading sync layer consumes)."""
+        return {
+            "listing_id": "tx_0042",
+            "seller_address": "0xSeller00000000000000000000000000000001",
+            "provider_address": "0xProvider000000000000000000000000000002",
+            "service_type": "gpu_market",
+            "model": "",
+            "item_type": "GPU",
+            "price": 0.05,
+            "price_unit": "AIT/h",
+            "description": "H100 rental",
+            "deployment_type": "",
+            "gpu_name": "NVIDIA H100",
+            "gpu_device": "0",
+            "gpu_uuid": "GPU-aaa",
+            "gpu_model": "NVIDIA H100",
+            "memory_gb": 80,
+            "disk_quota_mb": 512000,
+            "compute_capability": "9.0",
+            "endpoint": "http://10.0.0.5:11434",
+            "status": "active",
+            "created_at": "2026-11-10T00:00:00+00:00",
+        }
+
+    def test_from_dict_legacy_node_wire_shape(self) -> None:
+        offer = SyncedOffer.from_dict(self._legacy_node_listing())
+
+        # The #1635 regression: these keys must NOT collapse to "".
+        assert offer.offer_id == "tx_0042"
+        assert offer.provider == "0xSeller00000000000000000000000000000001"
+        assert offer.service_type == "gpu_market"
+        # Node says "active"; the OfferFSM word is "available".
+        assert offer.status == "available"
+        assert offer.price == Decimal("0.05")
+        # The wire carries no quantity/capacity key.
+        assert offer.quantity == 0
+
+    def test_from_dict_legacy_wire_folds_extras_into_attributes(self) -> None:
+        offer = SyncedOffer.from_dict(self._legacy_node_listing())
+
+        # Subscription filters read region/gpu_model out of attributes, so
+        # the wire's descriptive keys must survive the round trip there.
+        assert offer.attributes["gpu_model"] == "NVIDIA H100"
+        assert offer.attributes["memory_gb"] == 80
+        assert offer.attributes["endpoint"] == "http://10.0.0.5:11434"
+        # provider_address is not a SyncedOffer field and not a provider
+        # fallback -- it folds into attributes rather than silently
+        # overwriting provider (which stays the seller_address).
+        assert offer.attributes["provider_address"] == "0xProvider000000000000000000000000000002"
+        # Known wire keys must not leak into attributes.
+        assert "listing_id" not in offer.attributes
+        assert "seller_address" not in offer.attributes
+        assert "status" not in offer.attributes
+
+    def test_from_dict_canonical_shape_still_wins_on_shared_keys(self) -> None:
+        """When a payload carries BOTH shapes' keys, canonical keys win —
+        the mapping order is part of the contract."""
+        data = self._legacy_node_listing()
+        data.update(
+            {
+                "offer_id": "canon_009",
+                "provider": "0xCanonicalProvider",
+                "service_type": "compute",
+                "quantity": 4,
+                "status": "reserved",
+            }
+        )
+        offer = SyncedOffer.from_dict(data)
+        assert offer.offer_id == "canon_009"
+        assert offer.provider == "0xCanonicalProvider"
+        assert offer.service_type == "compute"
+        assert offer.quantity == 4
+        assert offer.status == "reserved"
+
+    def test_from_dict_status_alias_and_passthrough(self) -> None:
+        """Only the known node alias is translated; other statuses pass
+        through verbatim so OfferFSM states are never mangled."""
+        assert SyncedOffer.from_dict({"status": "active"}).status == "available"
+        assert SyncedOffer.from_dict({"status": "in_use"}).status == "in_use"
+        assert SyncedOffer.from_dict({"status": "delisted"}).status == "delisted"
+
+    def test_from_dict_id_fallback_chain(self) -> None:
+        """offer_id resolution order is pinned: offer_id > listing_id >
+        gpu_id > id > "" — a drift in precedence changes cache keys."""
+        assert SyncedOffer.from_dict({"listing_id": "l1", "gpu_id": "g1", "id": "i1"}).offer_id == "l1"
+        assert SyncedOffer.from_dict({"gpu_id": "g1", "id": "i1"}).offer_id == "g1"
+        assert SyncedOffer.from_dict({"id": "i1"}).offer_id == "i1"
+
 
 # ---------------------------------------------------------------------------
 # OfferDiscoveryRequest
