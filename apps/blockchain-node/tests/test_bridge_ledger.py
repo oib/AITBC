@@ -177,6 +177,77 @@ class TestLedgerRouteContract:
             (ledger_read_route(None, "0xmissing"))
         assert exc.value.status_code == 404
 
+    def test_pending_is_bounded_ordered_and_flags_truncation(self, ledger_db):
+        """#1598: /pending serves at most `limit` rows, oldest first, and
+        reports `truncated` when the backlog continues past the window."""
+        base = datetime(2026, 10, 1, tzinfo=UTC)
+        for i, tid in enumerate(("0xa", "0xb", "0xc")):
+            ledger_db.add(
+                CrossChainTransfer(
+                    transfer_id=tid,
+                    source_chain="chain-a",
+                    target_chain="island-1",
+                    sender="0xS",
+                    recipient="0xR",
+                    amount=1,
+                    status="pending",
+                    lock_time=base.replace(hour=i + 1),
+                )
+            )
+        # A confirmed row and a different target must not appear.
+        ledger_db.add(
+            CrossChainTransfer(
+                transfer_id="0xdone",
+                source_chain="chain-a",
+                target_chain="island-1",
+                sender="0xS",
+                recipient="0xR",
+                amount=1,
+                status="confirmed",
+                lock_time=base,
+            )
+        )
+        ledger_db.add(
+            CrossChainTransfer(
+                transfer_id="0xother",
+                source_chain="chain-a",
+                target_chain="island-9",
+                sender="0xS",
+                recipient="0xR",
+                amount=1,
+                status="pending",
+                lock_time=base,
+            )
+        )
+        ledger_db.commit()
+
+        page = ledger_pending_route(None, "island-1", limit=2)
+        assert page["count"] == 2
+        assert page["limit"] == 2
+        assert page["truncated"] is True
+        # Oldest lock_time first — the backlog drains FIFO across polls.
+        assert [t["transfer_id"] for t in page["transfers"]] == ["0xa", "0xb"]
+
+        rest = ledger_pending_route(None, "island-1", limit=500)
+        assert rest["count"] == 3
+        assert rest["truncated"] is False
+        assert [t["transfer_id"] for t in rest["transfers"]] == ["0xa", "0xb", "0xc"]
+
+    def test_pending_limit_is_clamped(self, ledger_db):
+        ledger_db.add(
+            CrossChainTransfer(
+                transfer_id="0xa",
+                source_chain="chain-a",
+                target_chain="island-1",
+                sender="0xS",
+                recipient="0xR",
+                amount=1,
+                status="pending",
+            )
+        )
+        ledger_db.commit()
+        assert ledger_pending_route(None, "island-1", limit=0)["limit"] == 1
+
 
 class TestIntakeWriteThrough:
     def test_register_called_when_ledger_url_set(self, bridge, engine, development, monkeypatch):
