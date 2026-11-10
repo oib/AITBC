@@ -17,7 +17,7 @@ import logging
 from collections import OrderedDict
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, ClassVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -58,6 +58,16 @@ _MAX_TRACKED_CHAINS = 256
 class OfferSyncService:
     """Service for synchronizing offers across AITBC chains."""
 
+    # #1680 residual: ``get_offer_sync_service`` builds a fresh instance per
+    # request, so per-instance locks never single-flighted concurrent HTTP
+    # syncs — two requests each ran a full 500-offer sync for the same chain.
+    # The lock registry is process-global (one event loop per service
+    # process; the OfferCache/Redis data layer was already shared). Status
+    # entries stay per-instance: they are per-request reporting state.
+    # asyncio locks bind to a loop lazily on first contention, so tests on
+    # fresh loops keep working while uncontended.
+    _sync_locks: ClassVar[OrderedDict[str, asyncio.Lock]] = OrderedDict()
+
     def __init__(
         self,
         session: AsyncSession,
@@ -76,8 +86,8 @@ class OfferSyncService:
         # Single-flight locks, one per chain (#1567): ``is_syncing`` flags
         # were written but never read as a guard, so N concurrent discovers
         # each ran a full sync. ``lock.locked()`` + ``async with`` is atomic
-        # in asyncio — no await between check and acquire.
-        self._sync_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
+        # in asyncio — no await between check and acquire. Shared across
+        # instances via the class attribute above (#1680 residual).
 
     def _sync_lock_for(self, chain_id: str) -> asyncio.Lock:
         """Single-flight lock per chain, LRU-bounded (#1680).
