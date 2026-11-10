@@ -910,6 +910,14 @@ def address(
     )
 
 
+# Sanity ceiling for ``wallet send --fee`` (V13-RES2-WALLET-FEE-1, #1714):
+# the fee is burned on seal and the only other bound is the sender balance,
+# so an absurd --fee is a signed loss, not a rejected transaction. 1000x the
+# standard fee is far above any priority bump this chain's min_fee=0 mempool
+# needs; ``--allow-high-fee`` is the deliberate override.
+MAX_SEND_FEE_AIT = DEFAULT_TX_FEE_AIT * 1000  # 10 AIT
+
+
 @wallet.command(
     epilog="""Examples:
 
@@ -918,6 +926,11 @@ def address(
 @click.option("--to-address", "to_address", required=True, help="Destination address.")
 @click.option("--amount", "amount", required=True, type=DECIMAL, help="Amount of AIT.")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
+@click.option(
+    "--allow-high-fee",
+    is_flag=True,
+    help=f"Override the {MAX_SEND_FEE_AIT} AIT sanity ceiling on --fee",
+)
 @click.option(
     "--wait",
     "wait_seal",
@@ -932,6 +945,7 @@ def send(
     to_address: str,
     amount: Decimal,
     fee: Decimal,
+    allow_high_fee: bool,
     wait_seal: bool,
     password: str | None,
     password_file: str | None,
@@ -939,6 +953,20 @@ def send(
     rpc_url: str | None,
 ):
     """Send AITBC tokens from the active wallet to another address."""
+    # Client-side fee sanity (#1714): refuse negative fees and absurd burns
+    # before anything is signed — the node only checks fee >= 0 and balance.
+    if fee < 0:
+        abort(ctx, f"Invalid fee: {fee} AIT (must be >= 0)")
+        raise click.Abort()
+    if fee > MAX_SEND_FEE_AIT and not allow_high_fee:
+        abort(
+            ctx,
+            f"Refusing fee {fee} AIT: above the {MAX_SEND_FEE_AIT} AIT sanity ceiling "
+            f"({DEFAULT_TX_FEE_AIT} AIT standard). The fee is burned on seal — "
+            "pass --allow-high-fee if this is deliberate.",
+        )
+        raise click.Abort()
+
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_sign_path"]
 
@@ -1048,7 +1076,11 @@ def send(
         "amount": amount_seconds,
         "nonce": actual_nonce,
         "fee": fee_seconds,
-        "payload": {"amount": amount_seconds},
+        # payload carries to/amount exactly as the node's TransactionRequest
+        # validator canonicalizes them (#1669): the signed bytes must equal
+        # the payload the node verifies, so both fields are set here rather
+        # than left for node-side injection.
+        "payload": {"to": to_address, "amount": amount_seconds},
     }
 
     # Sign transaction (secp256k1, matching the node verifier — see A1 wire format)

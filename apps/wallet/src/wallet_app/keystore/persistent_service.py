@@ -506,9 +506,16 @@ class PersistentKeystoreService:
                     "type": "TRANSFER",
                 }
 
-                # Add custom payload if provided
-                if payload:
-                    tx_data["payload"] = payload
+                # Add custom payload if provided — then pin the fields the
+                # node's TransactionRequest validator injects before signature
+                # verification (payload.to / payload.amount, #1669). The signed
+                # bytes must equal what the node rebuilds, so the wallet sets
+                # them itself with the same setdefault semantics; node-side
+                # injection then becomes a no-op and the signature verifies.
+                signed_payload = dict(payload) if payload else {}
+                signed_payload.setdefault("to", recipient)
+                signed_payload.setdefault("amount", amount)
+                tx_data["payload"] = signed_payload
 
                 # Sign keccak256 of the canonical JSON with secp256k1 —
                 # the same message the node's verify_transaction_signature

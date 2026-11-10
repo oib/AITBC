@@ -9,6 +9,7 @@ Routes requests to microservices
 import asyncio  # noqa: E402
 import hmac  # noqa: E402
 import os  # noqa: E402
+import re  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
 from collections.abc import AsyncIterator, Callable  # noqa: E402
@@ -260,7 +261,10 @@ app = FastAPI(
 )
 if SLOWAPI_AVAILABLE:
     app.state.limiter = limiter
-app.add_middleware(RequestIDMiddleware)
+# The gateway is the trust edge: a client-supplied X-Request-ID is forged
+# correlation + log/response injection, so inbound ids are not honored here.
+# Upstream services keep the middleware default (trust the gateway's stamp).
+app.add_middleware(RequestIDMiddleware, trust_inbound=False)
 app.add_middleware(PerformanceLoggingMiddleware)
 app.add_middleware(RequestValidationMiddleware, max_request_size=10 * 1024 * 1024)
 app.add_middleware(ErrorHandlerMiddleware)
@@ -510,6 +514,54 @@ async def ready() -> Response:
 _UNSENT_REQUEST_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
 
 
+# APIGW-RETRY-1 (#1667): a client Idempotency-Key alone used to enable
+# ambiguous-write retries on EVERY proxied route, but most upstreams do not
+# deduplicate the key — a post-send retry could double-apply the write. The
+# no-confirm retry path is now an allowlist of (service, upstream-path)
+# pairs verified to honor Idempotency-Key dedup. Entries match the UPSTREAM
+# path (after the v1 rewrite / v2 verbatim forwarding), not the public
+# spelling, so both /v1/... and /api/v2/... routes resolve identically.
+# Verified against:
+#   coordinator-api contexts/payments/operations.py begin_operation callers
+#     (POST /v1/jobs, /v1/jobs/{id}/accept, /v1/payments{,/release,/refund},
+#      /v1/escrow/{relay,release,refund}),
+#   trading exchange_compat.create_exchange_payment (POST /v1/exchange/create-payment),
+#   exchange simple_exchange handlers (_idempotency_key + OperationLedger:
+#     POST /api/orders, /api/orders/{id}/cancel, /v1/market/offers[/book]).
+# Routes NOT listed — e.g. coordinator job cancel/reject, exchange node
+# register/payout, market service writes — get AmbiguousUpstreamError on a
+# post-send failure even when the caller sent a key.
+_IDEMPOTENT_DEDUP_ROUTES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("coordinator", re.compile(r"v1/jobs/?$")),
+    ("coordinator", re.compile(r"v1/jobs/[^/]+/accept/?$")),
+    ("coordinator", re.compile(r"v1/payments/?$")),
+    ("coordinator", re.compile(r"v1/payments/[^/]+/(?:release|refund)/?$")),
+    ("coordinator", re.compile(r"v1/escrow/(?:relay|release|refund)/?$")),
+    ("trading", re.compile(r"v1/exchange/create-payment/?$")),
+    ("exchange", re.compile(r"api/orders/?$")),
+    ("exchange", re.compile(r"api/orders/[^/]+/cancel/?$")),
+    ("exchange", re.compile(r"v1/market/offers/?$")),
+    ("exchange", re.compile(r"v1/market/offers/[^/]+/book/?$")),
+)
+
+
+def _upstream_path(service_name: str, target_url: str) -> str:
+    """The path portion of ``target_url`` relative to the service's base URL."""
+    base = _V2_SERVICE_URLS.get(service_name) or str(SERVICES[service_name]["base_url"])
+    if target_url.startswith(base):
+        return target_url[len(base) :].lstrip("/")
+    return target_url
+
+
+def _write_retry_is_deduped(service_name: str, upstream_path: str, headers: Headers) -> bool:
+    """True when this write may retry ambiguous outcomes: Idempotency-Key
+    present AND the upstream route verifiably deduplicates it (#1667)."""
+    if "idempotency-key" not in {k.lower() for k in headers.keys()}:
+        return False
+    path = upstream_path.lstrip("/")
+    return any(svc == service_name and pattern.fullmatch(path) for svc, pattern in _IDEMPOTENT_DEDUP_ROUTES)
+
+
 class AmbiguousUpstreamError(Exception):
     """The upstream may have accepted the request before its response was lost.
 
@@ -542,6 +594,25 @@ async def _read_bounded(response: httpx.Response) -> bytes:
     return b"".join(chunks)
 
 
+async def _send_and_read_bounded(
+    client: httpx.AsyncClient, request: httpx.Request, deadline: float | None
+) -> tuple[httpx.Response, bytes]:
+    """One proxied attempt: send + bounded body read under the shared deadline.
+
+    ``deadline`` is a ``time.monotonic()`` timestamp shared across all retry
+    attempts (APIGW-RETRY-1, #1667) — ``None`` disables the deadline entirely.
+    """
+    if deadline is None:
+        response = await client.send(request, stream=True)
+        return response, await _read_bounded(response)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("upstream deadline exhausted across retries")
+    async with asyncio.timeout(remaining):
+        response = await client.send(request, stream=True)
+        return response, await _read_bounded(response)
+
+
 async def proxy_with_retry(
     client: httpx.AsyncClient,
     method: str,
@@ -563,9 +634,14 @@ async def proxy_with_retry(
     upstream may have committed the request before the response was lost, so
     they are retried only for safe methods or writes whose Idempotency-Key the
     upstream deduplicates. Non-idempotent writes get AmbiguousUpstreamError.
+
+    ``UPSTREAM_DEADLINE_SECONDS`` is a TOTAL deadline across all attempts
+    (APIGW-RETRY-1, #1667), not a per-attempt budget — three retries used to
+    multiply the worst-case upstream wait by the retry count.
     """
     max_retries = 3
     retry_delay = 0.5
+    deadline = time.monotonic() + UPSTREAM_DEADLINE_SECONDS if UPSTREAM_DEADLINE_SECONDS > 0 else None
     for attempt in range(max_retries):
         # stream=True: httpx returns after response headers; the body stays on
         # the wire until _read_bounded pulls it under the cap. Send-level
@@ -574,13 +650,7 @@ async def proxy_with_retry(
         response: httpx.Response | None = None
         body = b""
         try:
-            if UPSTREAM_DEADLINE_SECONDS > 0:
-                async with asyncio.timeout(UPSTREAM_DEADLINE_SECONDS):
-                    response = await client.send(request, stream=True)
-                    body = await _read_bounded(response)
-            else:
-                response = await client.send(request, stream=True)
-                body = await _read_bounded(response)
+            response, body = await _send_and_read_bounded(client, request, deadline)
         except _UNSENT_REQUEST_ERRORS:
             if attempt < max_retries - 1:
                 logger.warning("Upstream unreachable before send on attempt %s/%s, retrying...", attempt + 1, max_retries)
@@ -638,6 +708,29 @@ def _resolve_target(path: str) -> tuple[str, str] | JSONResponse:
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not found"})
 
 
+# Client-asserted forwarding metadata the edge must never pass through
+# (APIGW-HEADER-TRUST-2, #1681): upstreams honor Forwarded / X-Forwarded-Host
+# / X-Forwarded-Proto when building URLs and scheme decisions, so a verbatim
+# client value steers those responses. X-Forwarded-For / X-Real-IP are handled
+# separately — overwritten from the observed peer, never forwarded.
+_UNTRUSTED_FORWARDING_HEADERS = frozenset(
+    {
+        "forwarded",
+        "x-forwarded",
+        "x-forwarded-host",
+        "x-forwarded-proto",
+        "x-forwarded-port",
+        "x-forwarded-server",
+        "x-forwarded-scheme",
+        "x-original-url",
+        "x-original-host",
+        "x-original-proto",
+        "x-rewrite-url",
+        "x-host",
+    }
+)
+
+
 # RFC 7230 §6.1 hop-by-hop headers — connection-specific, never forwarded.
 # Anything the Connection header nominates joins this set per-request.
 _HOP_BY_HOP_HEADERS = frozenset(
@@ -688,6 +781,12 @@ def _stamp_forwarding_headers(headers: dict[str, str], request: Request) -> None
         return
     headers["x-real-ip"] = peer
     headers["x-forwarded-for"] = peer
+
+
+def _strip_client_forwarding_headers(headers: dict[str, str]) -> None:
+    """Drop client-asserted Forwarded/X-Forwarded-* metadata in place (#1681)."""
+    for name in [k for k in headers if k.lower() in _UNTRUSTED_FORWARDING_HEADERS]:
+        del headers[name]
 
 
 def _upstream_headers(response: httpx.Response) -> dict[str, str]:
@@ -768,6 +867,10 @@ async def proxy_request(
         headers = _strip_hop_by_hop(request.headers)
         headers.pop("host", None)
         headers.pop("content-length", None)
+        # Client-asserted Forwarded/X-Forwarded-* metadata is dropped at the
+        # edge — upstreams that honor it would otherwise take URL/scheme
+        # decisions from whatever the caller wrote (#1681).
+        _strip_client_forwarding_headers(headers)
         # Ask upstreams for identity encoding — httpx transparently decodes a
         # gzipped body but the response headers would still claim gzip.
         headers.pop("accept-encoding", None)
@@ -783,8 +886,12 @@ async def proxy_request(
         headers["x-request-id"] = request.state.request_id
         body = await request.body() if request.method in ("POST", "PUT", "PATCH") else None
         # Safe methods replay freely. A write replays post-send failures only
-        # when it carries an Idempotency-Key the upstream deduplicates.
-        retry_ambiguous = request.method in ("GET", "HEAD", "OPTIONS") or "idempotency-key" in request.headers
+        # when it carries an Idempotency-Key AND the upstream route verifiably
+        # deduplicates it — a bare client key is not proof of upstream dedup
+        # (APIGW-RETRY-1, #1667).
+        retry_ambiguous = request.method in ("GET", "HEAD", "OPTIONS") or _write_retry_is_deduped(
+            service_name, _upstream_path(service_name, target_url), request.headers
+        )
         upstream_status, upstream_headers, upstream_body = await proxy_with_retry(
             client,
             request.method,
