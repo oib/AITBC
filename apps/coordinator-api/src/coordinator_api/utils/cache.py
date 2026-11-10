@@ -9,6 +9,7 @@ Caching strategy for expensive queries
 
 import asyncio
 import gc
+import sys
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from functools import wraps
@@ -19,6 +20,53 @@ from aitbc.caching import generate_cache_key
 
 logger = get_logger(__name__)
 
+# COORD-CACHE-MEM-1 (#1689): bounds for the deep-size estimator. Cached values
+# are arbitrary payloads (lists/dicts/ORM-derived objects); recursion is
+# capped so a pathological self-referential or huge structure cannot turn
+# set() into an unbounded walk. Elements beyond the visit cap are charged a
+# flat per-item estimate instead of being walked.
+_SIZE_MAX_DEPTH = 8
+_SIZE_MAX_ITEMS = 2048
+_SIZE_ATOMIC_TYPES = (str, bytes, bytearray, int, float, bool, type(None))
+
+
+def _estimate_obj_size(obj: Any, depth: int = 0, seen: set[int] | None = None) -> int:
+    """Approximate in-memory size of ``obj`` in bytes.
+
+    sys.getsizeof alone measures only the container shell — the #1689 defect.
+    This walks dict/list/tuple/set/frozenset up to bounded depth/item counts
+    and charges sys.getsizeof for everything else (strings/bytes report
+    their real payload; arbitrary objects report their shallow shell).
+    """
+    if seen is None:
+        seen = set()
+    oid = id(obj)
+    if oid in seen:
+        return 0
+    seen.add(oid)
+    try:
+        size = sys.getsizeof(obj)
+        if isinstance(obj, _SIZE_ATOMIC_TYPES) or depth >= _SIZE_MAX_DEPTH:
+            return size
+        if isinstance(obj, dict):
+            items = list(obj.items())
+        elif isinstance(obj, (list, tuple, set, frozenset)):
+            items = [(None, v) for v in obj]
+        else:
+            return size
+        visited = 0
+        for k, v in items:
+            if visited >= _SIZE_MAX_ITEMS:
+                size += 64  # flat charge per unvisited item
+                continue
+            visited += 1
+            if k is not None:
+                size += _estimate_obj_size(k, depth + 1, seen)
+            size += _estimate_obj_size(v, depth + 1, seen)
+        return size
+    finally:
+        seen.discard(oid)
+
 
 class CacheManager:
     """Simple in-memory cache with TTL support and memory management"""
@@ -28,6 +76,12 @@ class CacheManager:
         self._stats = {"hits": 0, "misses": 0, "sets": 0, "evictions": 0}
         self.max_size = max_size
         self.max_memory_mb = max_memory_mb
+        # COORD-CACHE-MEM-1 (#1689): running estimate of cached payload bytes,
+        # maintained incrementally on set/delete/evict/expiry. Replaces the
+        # old sys.getsizeof(self._cache) shell measurement that never saw
+        # the values.
+        self._estimated_bytes = 0
+        self._max_memory_bytes = max_memory_mb * 1024 * 1024
 
     def get(self, key: str) -> Any | None:
         """Get value from cache"""
@@ -36,7 +90,7 @@ class CacheManager:
             return None
         cache_entry = self._cache[key]
         if datetime.now(UTC) > cache_entry["expires_at"]:
-            del self._cache[key]
+            self._remove_entry(key)
             self._stats["evictions"] += 1
             self._stats["misses"] += 1
             return None
@@ -44,27 +98,55 @@ class CacheManager:
         logger.debug("Cache hit for key: %s", key)
         return cache_entry["value"]
 
+    def _entry_cost(self, key: str, value: Any) -> int:
+        """Estimated bytes charged for one cache entry (key + value)."""
+        return _estimate_obj_size(key) + _estimate_obj_size(value)
+
+    def _remove_entry(self, key: str) -> None:
+        """Delete an entry and decrement the running byte estimate."""
+        entry = self._cache.pop(key, None)
+        if entry is not None:
+            self._estimated_bytes -= entry.get("cost", 0)
+            if self._estimated_bytes < 0:
+                self._estimated_bytes = 0
+
     def set(self, key: str, value: Any, ttl_seconds: int = 300) -> None:
         """Set value in cache with TTL and enforce size/memory limits"""
+        cost = self._entry_cost(key, value)
+        # Overwriting an existing key releases its old charge first.
+        if key in self._cache:
+            self._remove_entry(key)
+        expires_at = datetime.now(UTC) + timedelta(seconds=ttl_seconds)
+        # Enforce the memory cap on EVERY set (#1689): evict oldest until the
+        # new entry fits. A single entry larger than the whole cap evicts
+        # everything else and is still stored — the bound is best-effort for
+        # oversized singletons, exact for aggregate growth.
+        while self._estimated_bytes + cost > self._max_memory_bytes and self._cache:
+            self._evict_oldest()
         if len(self._cache) >= self.max_size:
             self._evict_oldest()
-        expires_at = datetime.now(UTC) + timedelta(seconds=ttl_seconds)
-        self._cache[key] = {"value": value, "expires_at": expires_at, "created_at": datetime.now(UTC), "ttl": ttl_seconds}
+        self._cache[key] = {
+            "value": value,
+            "expires_at": expires_at,
+            "created_at": datetime.now(UTC),
+            "ttl": ttl_seconds,
+            "cost": cost,
+        }
+        self._estimated_bytes += cost
         self._stats["sets"] += 1
         logger.debug("Cache set for key: %s, TTL: %ss", key, ttl_seconds)
-        if self._stats["sets"] % 100 == 0:
-            self._check_memory_limit()
 
     def delete(self, key: str) -> bool:
         """Delete key from cache"""
         if key in self._cache:
-            del self._cache[key]
+            self._remove_entry(key)
             return True
         return False
 
     def clear(self) -> None:
         """Clear all cache entries"""
         self._cache.clear()
+        self._estimated_bytes = 0
         logger.info("Cache cleared")
 
     def cleanup_expired(self) -> int:
@@ -72,7 +154,7 @@ class CacheManager:
         now = datetime.now(UTC)
         expired_keys = [key for key, entry in self._cache.items() if now > entry["expires_at"]]
         for key in expired_keys:
-            del self._cache[key]
+            self._remove_entry(key)
         self._stats["evictions"] += len(expired_keys)
         if expired_keys:
             logger.info("Cleaned up %s expired cache entries", len(expired_keys))
@@ -96,21 +178,26 @@ class CacheManager:
         if not self._cache:
             return
         oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]["created_at"])
-        del self._cache[oldest_key]
+        self._remove_entry(oldest_key)
         self._stats["evictions"] += 1
         logger.debug("Evicted oldest cache entry: %s", oldest_key)
 
     def _check_memory_limit(self) -> None:
-        """Check if cache exceeds memory limit and evict if needed"""
-        import sys
+        """Check if cache exceeds memory limit and evict if needed.
 
-        cache_size_mb = sys.getsizeof(self._cache) / (1024 * 1024)
-        if cache_size_mb > self.max_memory_mb:
-            logger.warning("Cache memory limit exceeded (%sMB > %sMB), evicting entries", cache_size_mb, self.max_memory_mb)
-            evict_count = max(1, int(len(self._cache) * 0.2))
-            for _ in range(evict_count):
-                self._evict_oldest()
-            gc.collect()
+        Retained for compatibility; enforcement now happens on every set()
+        via the incremental byte estimate (#1689). This drains any residual
+        overage (e.g. entries stored before an estimate correction).
+        """
+        while self._estimated_bytes > self._max_memory_bytes and self._cache:
+            self._evict_oldest()
+        if self._estimated_bytes > self._max_memory_bytes:
+            logger.warning(
+                "Cache memory limit still exceeded after evicting all entries (estimate %s bytes > %s bytes)",
+                self._estimated_bytes,
+                self._max_memory_bytes,
+            )
+        gc.collect()
 
 
 cache_manager = CacheManager(max_size=1000, max_memory_mb=100)
