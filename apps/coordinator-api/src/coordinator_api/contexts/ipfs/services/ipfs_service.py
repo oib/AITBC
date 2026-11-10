@@ -365,12 +365,17 @@ class IPFSService:
         memory_type: str = "experience",
         tags: list[str] | None = None,
         compress: bool = True,
-        pin: bool = False,
+        pin: bool = True,
     ) -> MemoryUploadResult:
         """Upload agent memory data to IPFS.
 
         Serializes the memory dict as JSON and uploads it via the IPFS client.
         Raises RuntimeError if IPFS node is unavailable (no mock CIDs).
+
+        ``pin`` defaults to True (V13-RES2-IPFS-GC-1, #1713): the island
+        daemon runs ``ipfs daemon --enable-gc``, so an unpinned CID is
+        collectable while the memory record still references it. Callers
+        that genuinely want a transient object can pass ``pin=False``.
         """
         tags = (tags or [])[: self.DEFAULT_MAX_TAGS]
         raw = json.dumps(memory_data, indent=2).encode("utf-8")

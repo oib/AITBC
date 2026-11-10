@@ -171,3 +171,20 @@ class TestRetrieveViaLocalCat:
         got = await svc.client.get_content("Qm" + "a" * 44)
         assert got == b"gw"
         assert any("ipfs.io" in c for c in calls)
+
+
+class TestMemoryPinDefault:
+    async def test_memory_upload_pins_by_default(self) -> None:
+        """#1713: island daemon runs --enable-gc; default must be pin=True."""
+        svc = _service()
+        svc.client.upload_file = AsyncMock(return_value=_upload_result())  # type: ignore[method-assign]
+        result = await svc.upload_memory(agent_id="a", memory_data={"k": "v"})
+        assert result.pinned is True
+        assert svc.client.upload_file.call_args.kwargs["pin"] is True
+
+    async def test_explicit_unpinned_still_allowed(self) -> None:
+        svc = _service()
+        svc.client.upload_file = AsyncMock(return_value=_upload_result())  # type: ignore[method-assign]
+        result = await svc.upload_memory(agent_id="a", memory_data={"k": "v"}, pin=False)
+        assert result.pinned is False
+        assert svc.client.upload_file.call_args.kwargs["pin"] is False
