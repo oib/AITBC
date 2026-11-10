@@ -99,6 +99,9 @@ class OfferSearchService:
         limit: int = 100,
     ) -> list[SyncedOffer]:
         """Search offers with text query and filters."""
+        # Clamp like the router does — a negative limit would slice from the
+        # end / pass through to the backend unbounded (#1543).
+        limit = min(max(int(limit), 1), 500)
         if self._enabled and self._client is not None:
             try:
                 filter_expr: list[str] = []

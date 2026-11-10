@@ -77,7 +77,13 @@ class InterChainTradeService:
         limit: int = 100,
         offset: int = 0,
     ) -> list[InterChainTrade]:
-        """List trades with optional filters."""
+        """List trades with optional filters.
+
+        ``limit``/``offset`` are clamped — a negative limit would otherwise
+        reach ``.limit()`` as SQLite "unlimited" (#1543).
+        """
+        limit = min(max(int(limit), 1), 500)
+        offset = max(int(offset), 0)
         stmt = select(InterChainTrade)
         if status:
             stmt = stmt.where(InterChainTrade.status == status)
@@ -152,6 +158,7 @@ class InterChainTradeService:
         Returns completed/cancelled/failed trades, optionally filtered
         by source/dest chain.
         """
+        limit = min(max(int(limit), 1), 500)
         stmt = select(InterChainTrade).where(InterChainTrade.status.in_(["completed", "cancelled", "failed"]))  # type: ignore[attr-defined]
         if source_chain:
             stmt = stmt.where(InterChainTrade.source_chain == source_chain)

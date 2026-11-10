@@ -697,6 +697,10 @@ class MarketService:
             local_rows = {s.plugin_id: s for s in local_services}
             await self._resolve_offer_anchors(merged_offers, chain_id, local_rows)
 
+            # The merge can exceed the page ceiling (blockchain page + local
+            # page); the public list contract is one bounded page (#1543).
+            merged_offers = merged_offers[: max_page_size()]
+
             logger.info(
                 "Returning %s total offers (%s from blockchain, %s from local)",
                 len(merged_offers),
@@ -1133,10 +1137,18 @@ class MarketService:
         from ..domain.market import GraphEdge, GraphNode
 
         try:
-            node_stmt = select(GraphNode).where(GraphNode.graph_id == graph_id)  # type: ignore[arg-type]
+            node_stmt = (
+                select(GraphNode)
+                .where(GraphNode.graph_id == graph_id)  # type: ignore[arg-type]
+                .limit(max_page_size())
+            )
             node_result = await self.session.execute(node_stmt)
             nodes = node_result.scalars().all()
-            edge_stmt = select(GraphEdge).where(GraphEdge.graph_id == graph_id)  # type: ignore[arg-type]
+            edge_stmt = (
+                select(GraphEdge)
+                .where(GraphEdge.graph_id == graph_id)  # type: ignore[arg-type]
+                .limit(max_page_size())
+            )
             edge_result = await self.session.execute(edge_stmt)
             edges = edge_result.scalars().all()
             return {
@@ -1215,6 +1227,10 @@ class MarketService:
         try:
             from sqlalchemy import select
 
+            # Caller limits are clamped to the server page ceiling — a
+            # negative or huge ?limit= must not become an unbounded read (#1543).
+            limit = min(max(int(limit), 1), max_page_size())
+            offset = max(int(offset), 0)
             stmt = select(ServiceRating).where(ServiceRating.service_id == service_id)  # type: ignore[arg-type]
             stmt = stmt.order_by(ServiceRating.created_at.desc())  # type: ignore[attr-defined]
             stmt = stmt.limit(limit).offset(offset)
@@ -1241,7 +1257,13 @@ class MarketService:
         try:
             from sqlalchemy import select
 
-            stmt = select(ServiceRating).where(ServiceRating.synced_at.is_(None)).limit(limit)  # type: ignore[union-attr]
+            # Same ceiling as the sibling list paths — ?limit= was unchecked (#1543).
+            limit = min(max(int(limit), 1), max_page_size())
+            stmt = (
+                select(ServiceRating)
+                .where(ServiceRating.synced_at.is_(None))  # type: ignore[union-attr]
+                .limit(limit)
+            )
             result = await self.session.execute(stmt)
             ratings = result.scalars().all()
             return [
@@ -2152,6 +2174,11 @@ class MarketService:
                 .where(col(MarketJob.offer_id) == offer_id)
                 .where(col(MarketJob.service_type) == "ipfs")
                 .where(col(MarketJob.state).in_({"QUEUED", "RUNNING"}))
+                # Bounded scan: the endpoint returns a scalar but still
+                # materialises every matching row (#1543). A buyer/offer pair
+                # with more active jobs than the page ceiling under-reports —
+                # accepted trade-off vs an unbounded read.
+                .limit(max_page_size())
             )
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())

@@ -3,7 +3,7 @@
 import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,8 +117,10 @@ async def get_transactions(
     action: str | None = None,
     status: str | None = None,
     island_id: str | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
+    # Bounded by default (#1543): an absent or huge ?limit= used to scan every
+    # row in all three tables — including under island_id.
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ):
     """Query trading transactions."""
     try:
@@ -138,9 +140,10 @@ async def get_transactions(
         wanted = [action] if action else list(fetchers)
         # island_id is a post-fetch filter (not a column), so the SQL cap is
         # only exact when it is absent: each table contributes at most
-        # offset+limit merged rows, which bounds the fetch without changing
-        # the result. With island_id set, keep the unbounded scan.
-        cap = (offset or 0) + limit if (limit is not None and island_id is None) else None
+        # offset+limit merged rows, which bounds the fetch. With island_id
+        # set the post-filter can only shrink the page further — the fetch
+        # stays bounded either way (#1543).
+        cap = offset + limit
         transactions = []
         for act in wanted:
             fetch, serialize = fetchers.get(act), serializers.get(act)
@@ -151,8 +154,7 @@ async def get_transactions(
             transactions = [t for t in transactions if t.get("island_id") == island_id]
         if offset:
             transactions = transactions[offset:]
-        if limit is not None:
-            transactions = transactions[:limit]
+        transactions = transactions[:limit]
         return transactions
     except Exception:
         logger.exception("Transaction query error")
