@@ -140,6 +140,8 @@ class TestPaymentStorageBounds:
         status = client.get(f"{BASE}/payment-status/{payment_id}", headers=_headers())
         assert status.status_code == 200
         assert status.json()["status"] == "pending"
+
+
 class TestMonitorPaymentTermination:
     """AUDIT-RETRY (#1576): monitor_payment must terminate once the payment
     reaches a terminal status instead of polling it every 30s forever."""
@@ -149,7 +151,7 @@ class TestMonitorPaymentTermination:
         import time
 
         payment_id = "pay-monitor-confirmed"
-        await exch_mod._state.hset(
+        await exch_mod._state.set_doc(
             exch_mod._NAMESPACE,
             payment_id,
             {"status": "confirmed", "expires_at": int(time.time()) + 3600},
@@ -162,12 +164,12 @@ class TestMonitorPaymentTermination:
         import time
 
         payment_id = "pay-monitor-expired"
-        await exch_mod._state.hset(
+        await exch_mod._state.set_doc(
             exch_mod._NAMESPACE,
             payment_id,
             {"status": "pending", "expires_at": int(time.time()) - 10},
         )
         await asyncio.wait_for(_REAL_MONITOR_PAYMENT(payment_id), timeout=2)
-        payment = await exch_mod._state.hget(exch_mod._NAMESPACE, payment_id)
+        payment = await exch_mod._state.get_doc(exch_mod._NAMESPACE, payment_id)
         assert payment is not None
         assert payment["status"] == "expired"
