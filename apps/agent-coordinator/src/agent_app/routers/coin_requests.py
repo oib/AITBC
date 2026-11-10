@@ -115,9 +115,21 @@ def register_coin_request(
         raise HTTPException(status_code=422, detail="Amount must be positive")
 
     with get_db_session() as session:
+        # BEGIN IMMEDIATE takes the sqlite write lock before the prior-grant
+        # probe runs, so the idempotency check, coin_request_policy.decide and
+        # the INSERT are one atomic step against every other connection —
+        # including other uvicorn workers sharing this file. Without it two
+        # concurrent registrations with different request_ids but the same
+        # destination both pass has_prior_grant and both land APPROVED (#1580).
+        # Same mechanism the WS first-grant claim uses in agent_stream.
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
         existing = session.query(CoinRequest).filter(CoinRequest.id == req.request_id).first()
         if existing is not None:
-            if int(existing.amount or 0) != req.amount or str(existing.wallet_address) != req.wallet_address:
+            if (
+                int(existing.amount or 0) != req.amount
+                or str(existing.wallet_address) != req.wallet_address
+                or str(existing.sender) != req.sender
+            ):
                 logger.warning(
                     "Register refused: %s already exists for %s to %s, re-registered as %s to %s",
                     req.request_id,
@@ -229,6 +241,7 @@ def remote_execute_coin_request(
         amount = int(stored.amount or 0)
         recipient = str(stored.wallet_address)
         existing_hash = stored.transaction_hash
+        expires_at = stored.expires_at
 
     # A retry after a lost response must not pay again. Report the original outcome so
     # the caller can reconcile instead of being left unsure whether the first call landed.
@@ -263,6 +276,29 @@ def remote_execute_coin_request(
             "recipient": recipient,
         }
 
+    # expires_at bounds how long a registered request stays executable
+    # (REQUEST_TTL). An approved-but-expired grant must not disburse (#1579):
+    # flip it to EXPIRED so the row stops looking spendable and refuse. Rows
+    # already claimed or paid returned above — expiry never strands
+    # reconciliation of a payment that already happened.
+    if status == CoinRequestStatus.APPROVED and expires_at is not None and expires_at < datetime.now(UTC).replace(tzinfo=None):
+        with get_db_session() as session:
+            row = (
+                session.query(CoinRequest)
+                .filter(CoinRequest.id == req.request_id, CoinRequest.status == CoinRequestStatus.APPROVED)
+                .first()
+            )
+            if row is not None:
+                row.status = CoinRequestStatus.EXPIRED
+                row.audit_log = (row.audit_log or "") + (
+                    f" | Auto-expired at {datetime.now(UTC).isoformat()} — expires_at {expires_at.isoformat()} passed"
+                )
+        logger.warning("Execute refused: request %s expired at %s before execution", req.request_id, expires_at)
+        raise HTTPException(
+            status_code=409,
+            detail=f"Coin request {req.request_id} expired at {expires_at.isoformat()} before it was executed",
+        )
+
     if status != CoinRequestStatus.APPROVED:
         status_name = status.value if status is not None else "unknown"
         logger.warning("Execute refused: request %s has status %s", req.request_id, status_name)
@@ -296,7 +332,16 @@ def remote_execute_coin_request(
     with get_db_session() as session:
         claimed = (
             session.query(CoinRequest)
-            .filter(CoinRequest.id == req.request_id, CoinRequest.transaction_hash.is_(None))
+            .filter(
+                CoinRequest.id == req.request_id,
+                CoinRequest.status == CoinRequestStatus.APPROVED,
+                CoinRequest.transaction_hash.is_(None),
+                # Re-check expiry inside the claim itself: the status read
+                # above and this UPDATE are not one transaction, so a request
+                # can cross its expires_at — or be swept to EXPIRED — in
+                # between (#1579).
+                (CoinRequest.expires_at.is_(None)) | (CoinRequest.expires_at > datetime.now(UTC).replace(tzinfo=None)),
+            )
             .update({"transaction_hash": claim}, synchronize_session=False)
         )
     if not claimed:
