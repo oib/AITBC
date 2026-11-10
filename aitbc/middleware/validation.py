@@ -2,12 +2,60 @@
 Request validation middleware for FastAPI
 """
 
+import json
+import math
+from typing import Any
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _json_safe(value: Any) -> Any:
+    """Render ``value`` so ``json.dumps`` can always serialize it.
+
+    Literal ``NaN``/``Infinity`` JSON floats parse into Python floats that
+    strict JSON cannot carry — FastAPI's default 422 body echoes them back
+    verbatim in ``input``/``ctx`` and the response itself dies with
+    "Out of range float values are not JSON compliant" (#1676). Non-finite
+    floats become their repr; anything else unserializable likewise.
+    """
+    if isinstance(value, float):
+        return value if math.isfinite(value) else repr(value)
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    try:
+        json.dumps(value, allow_nan=False)
+        return value
+    except (TypeError, ValueError):
+        return repr(value)
+
+
+def register_request_validation_error_handler(app: FastAPI) -> None:
+    """Install a JSON-safe ``RequestValidationError`` handler (#1676).
+
+    FastAPI's built-in 422 response echoes ``exc.errors()`` verbatim; a body
+    containing literal ``NaN``/``Infinity`` therefore 500s instead of 422ing.
+    This handler keeps the default ``{"detail": [...]}`` shape but sanitizes
+    every field value, so the error body always serializes.
+    """
+
+    @app.exception_handler(RequestValidationError)
+    async def _request_validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        try:
+            errors = exc.errors()
+        except Exception:
+            # Defensive: a pathological error object must not 500 the 422 path.
+            errors = []
+        detail = [{str(k): _json_safe(v) for k, v in error.items()} for error in errors]
+        return JSONResponse(status_code=422, content={"detail": detail})
 
 
 class RequestValidationMiddleware:

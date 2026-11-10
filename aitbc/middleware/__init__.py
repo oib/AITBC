@@ -9,7 +9,7 @@ from .legacy_paths import MARKETPLACE_PATH_ALIASES, LegacyPathRewriteMiddleware
 from .performance import PerformanceLoggingMiddleware
 from .prometheus_metrics import PrometheusMetricsMiddleware
 from .request_id import RequestIDMiddleware
-from .validation import RequestValidationMiddleware
+from .validation import RequestValidationMiddleware, register_request_validation_error_handler
 
 __all__ = [
     "CorrelationIDMiddleware",
@@ -20,5 +20,6 @@ __all__ = [
     "PrometheusMetricsMiddleware",
     "RequestIDMiddleware",
     "RequestValidationMiddleware",
+    "register_request_validation_error_handler",
     "setup_cors",
 ]

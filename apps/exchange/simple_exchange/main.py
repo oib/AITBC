@@ -18,6 +18,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import Response
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.middleware import register_request_validation_error_handler
 from .db import init_db
 from .handlers import ExchangeAPIHandler
 from .handlers.base import MAX_BODY_BYTES, get_operation_ledger
@@ -156,6 +157,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+# #1676: literal NaN/Infinity JSON must answer a serializable 422, not 500.
+register_request_validation_error_handler(app)
 
 
 @app.api_route("/{full_path:path}", methods=["GET", "HEAD", "OPTIONS"])

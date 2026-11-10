@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.middleware import register_request_validation_error_handler
 from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit
 
 from ..database import close_engine, create_engine, get_session_factory
@@ -70,6 +71,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(**settings.asgi_kwargs(), lifespan=lifespan)
+
+# #1676: literal NaN/Infinity JSON must answer a serializable 422, not 500.
+register_request_validation_error_handler(app)
 
 # #1544: pool-hub had no rate limiting at all. Two anonymous write endpoints —
 # POST /v1/match and first-time POST /v1/miners/register — accept unauthenticated
