@@ -14,8 +14,15 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 
 from aitbc_chain.gossip.relay import SimpleBroadcast
+
+# asyncio_mode=auto only applies when the repo-root pyproject is the pytest
+# rootdir; invoked as `pytest apps/blockchain-node/tests` the app's own
+# pyproject wins and strict mode requires the marker (same as
+# test_gossip_relay.py).
+pytestmark = pytest.mark.asyncio
 
 _CHANNEL = "blocks.concurrency"
 _MESSAGES = 1000
