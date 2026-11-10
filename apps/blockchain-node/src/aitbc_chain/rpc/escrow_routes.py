@@ -158,6 +158,25 @@ def verify_rpc_api_key(api_key: str | None = Security(_api_key_header)) -> str:
 _RPC_API_PEER_KEYS = frozenset(k.strip() for k in os.getenv("BLOCKCHAIN_RPC_API_KEY_PEERS", "").split(",") if k.strip())
 
 
+def rpc_peer_key_accepted(api_key: str | None) -> bool:
+    """True when ``api_key`` is this node's RPC key, a configured peer-node
+    key, or a live issued join key.
+
+    Shared by the HTTP dependency below and the /subscribe/ws handshake
+    (#1702), which carries the key inside the WebSocket message instead of
+    an X-API-Key header.
+    """
+    if not api_key:
+        return False
+    if _RPC_API_KEY and hmac.compare_digest(api_key.encode(), _RPC_API_KEY.encode()):
+        return True
+    if any(hmac.compare_digest(api_key.encode(), k.encode()) for k in _RPC_API_PEER_KEYS):
+        return True
+    from .peer_keys import is_issued_key
+
+    return is_issued_key(api_key)
+
+
 def verify_rpc_peer_key(api_key: str | None = Security(_api_key_header)) -> str:
     """Accept this node's own RPC key, a configured peer-node key, or an
     issued join key.
@@ -170,16 +189,8 @@ def verify_rpc_peer_key(api_key: str | None = Security(_api_key_header)) -> str:
     bound to a single node_id — the subscription routes enforce that binding,
     so an issued key can only ever manage its own lease.
     """
-    if api_key and (
-        hmac.compare_digest(api_key.encode(), _RPC_API_KEY.encode())
-        or any(hmac.compare_digest(api_key.encode(), k.encode()) for k in _RPC_API_PEER_KEYS)
-    ):
-        return api_key
-    if api_key:
-        from .peer_keys import is_issued_key
-
-        if is_issued_key(api_key):
-            return api_key
+    if rpc_peer_key_accepted(api_key):
+        return api_key or ""
     _logger.warning("Rejected peer RPC request: missing or invalid X-API-Key")
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
