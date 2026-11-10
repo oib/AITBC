@@ -25,7 +25,7 @@ from decimal import Decimal
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
-from sqlmodel import select
+from sqlmodel import func, select
 
 from aitbc.rate_limiting import rate_limit
 
@@ -651,29 +651,44 @@ def get_cross_chain_stats(request: Request) -> dict[str, Any]:
     bridge = _get_bridge()
     swap_stats: dict[str, dict[str, Any]] = {}
     bridge_stats: dict[str, dict[str, Any]] = {}
-    seen_swaps: set[str] = set()
-    seen_transfers: set[str] = set()
     total_volume_units = 0
+    # Aggregate in SQL per chain store instead of hydrating every swap and
+    # transfer row on every known chain per request (#1514). The old
+    # seen_swaps/seen_transfers dedupe only ever fired when several chain ids
+    # resolved to the same physical DB (the single-engine session-factory
+    # fallback); keying on the session bind URL reproduces that exactly —
+    # one aggregate pass per distinct store, never per chain id.
+    seen_stores: set[str] = set()
     for chain_id in bridge._known_chains():
         if not bridge._chain_db_ready(chain_id):
             continue
         try:
             with bridge._session_for(chain_id) as session:
-                for swap in session.exec(select(CrossChainSwap)).all():
-                    if swap.swap_id in seen_swaps:
-                        continue
-                    seen_swaps.add(swap.swap_id)
-                    entry = swap_stats.setdefault(swap.status, {"status": swap.status, "count": 0, "volume": 0})
-                    entry["count"] += 1
-                    entry["volume"] += swap.amount_units
-                    total_volume_units += swap.amount_units
-                for transfer in session.exec(select(CrossChainTransfer)).all():
-                    if transfer.transfer_id in seen_transfers:
-                        continue
-                    seen_transfers.add(transfer.transfer_id)
-                    entry = bridge_stats.setdefault(transfer.status, {"status": transfer.status, "count": 0, "volume": 0})
-                    entry["count"] += 1
-                    entry["volume"] += transfer.amount
+                store_key = str(session.get_bind().url)
+                if store_key in seen_stores:
+                    continue
+                seen_stores.add(store_key)
+                for status, count, volume in session.exec(
+                    select(
+                        CrossChainSwap.status,
+                        func.count(),
+                        func.coalesce(func.sum(CrossChainSwap.amount_units), 0),
+                    ).group_by(CrossChainSwap.status)
+                ).all():
+                    entry = swap_stats.setdefault(status, {"status": status, "count": 0, "volume": 0})
+                    entry["count"] += int(count)
+                    entry["volume"] += int(volume)
+                    total_volume_units += int(volume)
+                for status, count, volume in session.exec(
+                    select(
+                        CrossChainTransfer.status,
+                        func.count(),
+                        func.coalesce(func.sum(CrossChainTransfer.amount), 0),
+                    ).group_by(CrossChainTransfer.status)
+                ).all():
+                    entry = bridge_stats.setdefault(status, {"status": status, "count": 0, "volume": 0})
+                    entry["count"] += int(count)
+                    entry["volume"] += int(volume)
         except Exception as exc:
             _logger.warning("bridge stats: chain %s query failed: %s", chain_id, exc)
             continue
