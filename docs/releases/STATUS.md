@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-11-08
+**Last updated:** 2026-11-10
 **Audit report:** [AUDIT.md](../archive/releases/AUDIT.md)
 
 ## Release Status Table
@@ -73,6 +73,18 @@
 | v0.25.9 | Bridge payout monitor, governance service-local reclassification, v9 shadow window | ✅ Complete | Tagged 2026-10-04 at `217eaa9742`; see v0.25.9_change.log |
 | v0.25.10 | Escrow settlement passes, energy-rate guard, v11/v12 consensus pins, governance parameter tooling | ✅ Complete | Tagged 2026-10-07 at `6fc1ed373b`; see v0.25.10_change.log |
 | v0.25.11 | On-chain messaging (votes, moderation, DMs, agent SDK), bridge ledger/ops hardening, authority monitoring, website status pages | ✅ Complete | Finalised 2026-10-16; KR-2…KR-6 key rotations, v13/v14 shared activation at 46,100; see v0.25.11_change.log |
+| v0.25.12 | Post-v0.25.11 consolidation: chain-stall alert, MCP group allow-list, CLI exit-code sweeps, failover/backup drills, escrow release/refund relays | ✅ Complete | Tagged 2026-10-21 at `a63b94a90`; see v0.25.12_change.log |
+| v0.25.13 | MCP routing/groups hardening, post-tag follow-ups | 📝 Staged | Log dated 2026-10-25; tag pending; see v0.25.13_change.log |
+| v0.26.0 | Post-reset window: RPC `chain_id` 400s, governance sealed-proposal reader, reset-window gate tooling, scenario coverage | 📝 Staged | Collected through ~24 Oct; tag pending; see v0.26.0_change.log |
+| v0.27.0 | RAM optimization wave: systemd memory ranking/caps, coordinator startup footprint, journal-errors streaming rewrite, watchdog/OOM visibility, SSH mux | 📝 Staged | Staging text; tag pending per operator ruling; see v0.27.0_change.log |
+| v0.28.0 | Post-reset tasks: island gauge rename, CLI error/exit sweeps, failover + backup runbooks, PG-capable services, fork guards, DB-open safety, dependabot bumps | 📝 Staged | Covers `main` through ~27 Oct 2026; tag pending; see v0.28.0_change.log |
+| v0.29.0 | Post-v0.28 window: consensus domain separation (#1298), state transitions v21–v24 (#1314), mempool reservations (#1300), agent-spend policy, contract + app audit-bug waves (#1380–#1512) | 📝 Draft | Staging draft covering ~1,140 commits (27 Oct → 10 Nov); biggest-gaps pass, full per-commit collection still owed; see v0.29.0_change.log |
+
+> **Release-log coverage note (2026-11-10):** commits on `main` after the
+> v0.28.0 staging cutoff (~27 Oct) were not yet in any change log; the
+> v0.29.0 draft above is the first pass. Until it is finalised, treat the
+> table's "Complete" markers as applying only to the tagged/staged logs
+> listed.
 
 ## Security Audit Summary
 

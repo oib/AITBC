@@ -48,9 +48,24 @@ Read the release notes newest-first:
 
 ### Current Releases (v0.5.x+)
 
-- **[v0.25.0](v0.25/v0.25.0_change.log)** - On-chain liquidity, sync consolidation and MCP expansion
-- **[v0.25.6](v0.25/v0.25.6_change.log)** - Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path
-- **[v0.25.1](v0.25/v0.25.1_change.log)** - Open follow-ups and design notes after v0.25.0
+- **[v0.29.0](v0.29/v0.29.0_change.log)** - Post-v0.28 window (staging draft): consensus domain separation (#1298), state transitions v21–v24 (#1314), mempool reservations (#1300), agent-spend policy, contract + app audit-bug waves (#1380–#1512)
+- **[v0.28.0](v0.28/v0.28.0_change.log)** - Post-reset tasks: island gauges, CLI error/exit sweeps, failover + backup runbooks, PG-capable services, fork guards (staged, tag pending)
+- **[v0.27.0](v0.27/v0.27.0_change.log)** - RAM optimization wave: systemd memory caps, coordinator startup footprint, journal-errors streaming, watchdog/OOM visibility (staged, tag pending)
+- **[v0.26.0](v0.26/v0.26.0_change.log)** - Post-reset window: RPC `chain_id` 400s, governance sealed-proposal reader, reset-window gate tooling (staged, tag pending)
+- **[v0.25.13](v0.25/v0.25.13_change.log)** - MCP routing/groups hardening, post-tag follow-ups (staged, tag pending)
+- **[v0.25.12](v0.25/v0.25.12_change.log)** - Post-v0.25.11 consolidation: chain-stall alert, MCP groups, CLI exit codes, failover/backup drills, escrow relays ✅ tagged 2026-10-21
+- **[v0.25.11](v0.25/v0.25.11_change.log)** - On-chain messaging, bridge ledger/ops hardening, KR-2…KR-6 key rotations, v13/v14 shared activation ✅
+- **[v0.25.10](v0.25/v0.25.10_change.log)** - Escrow settlement passes, energy-rate guard, v11/v12 consensus pins, governance parameter tooling ✅
+- **[v0.25.9](v0.25/v0.25.9_change.log)** - Bridge payout monitor, governance service-local reclassification, v9 shadow window ✅
+- **[v0.25.8](v0.25/v0.25.8_change.log)** - Post-v0.25.2-tag consolidation: coordinator hardening, faucet budgets, consensus freshness & fork choice, fleet ops ✅
+- **[v0.25.7](v0.25/v0.25.7_change.log)** - First-class IPFS marketplace support ✅
+- **[v0.25.6](v0.25/v0.25.6_change.log)** - Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path ✅
+- **[v0.25.5](v0.25/v0.25.5_change.log)** - Audit reconciliation: register fully closed, fleet hardening, dead-code removal ✅
+- **[v0.25.4](v0.25/v0.25.4_change.log)** - Bridge, escrow/consensus hardening, GPU electricity-cost floor ✅
+- **[v0.25.3](v0.25/v0.25.3_change.log)** - Escrow and settlement hardening ✅
+- **[v0.25.2](v0.25/v0.25.2_change.log)** - CLI, docs, and test surface cleanup ✅
+- **[v0.25.1](v0.25/v0.25.1_change.log)** - Open follow-ups and design notes after v0.25.0 ✅
+- **[v0.25.0](v0.25/v0.25.0_change.log)** - On-chain liquidity, sync consolidation and MCP expansion ✅
 - **[v0.24.0](v0.24/v0.24.0_change.log)** - Hub node development special (split into v0.24.1–v0.24.18 by topic)
 - **[v0.23.0](v0.23/v0.23.0_change.log)** - Design & Correctness Audit (split into v0.23.1–v0.23.34 by topic)
 - **[v0.10.18](v0.10/v0.10.18_change.log)** - Update Deployment Stabilization (market_metrics migration conflict, wallet keystore restore, update.sh/health_check.sh fixes, poetry switch, schema-drift reconciliation) ✅ complete
@@ -146,6 +161,6 @@ This directory records versioned release notes, migration context, and milestone
 
 ---
 
-*Last updated: July 21, 2026*
+*Last updated: November 10, 2026*
 *Version: 2.4*
-*Status: Release index updated through v0.25.1*
+*Status: Release index updated through the v0.29.0 staging draft (v0.25.2–v0.25.13, v0.26.0, v0.27.0, v0.28.0 entries added 2026-11-10)*
