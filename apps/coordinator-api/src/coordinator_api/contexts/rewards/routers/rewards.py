@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc
 from sqlmodel import Session, select
@@ -302,7 +302,7 @@ def get_reward_leaderboard(
     session: Annotated[Session, Depends(get_session)],
     tier: str | None = None,
     period: str | None = None,
-    limit: int | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> list[dict[str, Any]]:
     """Get reward leaderboard"""
     try:
@@ -377,6 +377,7 @@ def get_agent_milestones(
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
     include_completed: bool | None = None,
+    limit: int = Query(default=200, ge=1, le=500),
 ) -> list[MilestoneResponse]:
     """Get milestones for an agent"""
     try:
@@ -385,7 +386,7 @@ def get_agent_milestones(
         query = select(RewardMilestone).where(RewardMilestone.agent_id == agent_id)
         if include_completed is False:
             query = query.where(RewardMilestone.is_completed == False)  # noqa: E712
-        milestones = session.execute(query.order_by(desc(RewardMilestone.created_at))).scalars().all()  # type: ignore[arg-type]
+        milestones = session.execute(query.order_by(desc(RewardMilestone.created_at)).limit(limit)).scalars().all()  # type: ignore[arg-type]
         return [
             MilestoneResponse(
                 id=milestone.id,
@@ -415,7 +416,7 @@ def get_reward_distributions(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
-    limit: int = 100,
+    limit: int = Query(default=100, ge=1, le=500),
     status: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get reward distribution history for an agent"""

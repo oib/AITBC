@@ -4,7 +4,7 @@ import asyncio
 from typing import Annotated, Any
 
 from aitbc.rate_limiting import rate_limit
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -53,8 +53,8 @@ async def list_bounties(
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
     status: BountyStatus | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> list[dict[str, Any]]:
     """List bounty tasks with optional status filter."""
 
@@ -88,8 +88,8 @@ async def get_my_submissions(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> list[dict[str, Any]]:
     """Get all submissions by a developer."""
 

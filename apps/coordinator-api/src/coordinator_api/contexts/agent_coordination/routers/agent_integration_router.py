@@ -589,7 +589,7 @@ def get_production_alerts(
     request: Request,
     user: AdminDep,
     severity: str | None = None,
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=500),
 ) -> dict[str, Any]:
     """Get production alerts and notifications"""
     try:

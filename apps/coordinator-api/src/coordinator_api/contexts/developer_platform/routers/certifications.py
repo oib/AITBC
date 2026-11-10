@@ -104,7 +104,9 @@ async def get_developer_certifications(
 
         certifications = await run_in_threadpool(
             lambda: (
-                session.execute(select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id))
+                session.execute(
+                    select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id).limit(500)
+                )
                 .scalars()
                 .all()
             )

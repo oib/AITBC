@@ -40,11 +40,20 @@ async def get_platform_overview(
                 "total_payout": 250000.0,
             }  # not-money: demo/simulation value, not a live amount
 
-        # Get developer statistics with fallback
+        # Get developer statistics with fallback — COUNT(*) in SQL, not
+        # len(all rows): the tables grow unboundedly (#1543).
         try:
-            total_developers = await run_in_threadpool(lambda: len(session.execute(select(DeveloperProfile)).all()))
-            active_developers = await run_in_threadpool(
-                lambda: len(session.execute(select(DeveloperProfile).where(DeveloperProfile.is_active)).scalars().all())
+            total_developers = int(
+                await run_in_threadpool(
+                    lambda: session.execute(select(func.count()).select_from(DeveloperProfile)).scalar_one()
+                )
+            )
+            active_developers = int(
+                await run_in_threadpool(
+                    lambda: session.execute(
+                        select(func.count()).select_from(DeveloperProfile).where(DeveloperProfile.is_active)
+                    ).scalar_one()
+                )
             )
         except Exception:
             total_developers = 1250
@@ -52,13 +61,19 @@ async def get_platform_overview(
 
         # Get certification statistics with fallback
         try:
-            total_certifications = await run_in_threadpool(lambda: len(session.execute(select(DeveloperCertification)).all()))
+            total_certifications = int(
+                await run_in_threadpool(
+                    lambda: session.execute(select(func.count()).select_from(DeveloperCertification)).scalar_one()
+                )
+            )
         except Exception:
             total_certifications = 320
 
         # Get regional hub statistics with fallback
         try:
-            total_hubs = await run_in_threadpool(lambda: len(session.execute(select(RegionalHub)).all()))
+            total_hubs = int(
+                await run_in_threadpool(lambda: session.execute(select(func.count()).select_from(RegionalHub)).scalar_one())
+            )
         except Exception:
             total_hubs = 8
 

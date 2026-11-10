@@ -396,7 +396,7 @@ async def get_inbox(
     request: Request,
     principal: OptionalAgent,
     agent_id: str = Query(..., description="Agent ID"),
-    limit: int = Query(100, description="Maximum messages"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum messages"),
     unread_only: bool = Query(False, description="Only unread messages"),
 ) -> dict[str, Any]:
     """Get agent's inbox. Enforce mode: only the bound principal (or an admin)
@@ -423,8 +423,8 @@ async def get_message_history(
     principal: OptionalAgent,
     sender_id: str | None = Query(None, description="Filter by sender ID"),
     receiver_id: str | None = Query(None, description="Filter by receiver ID"),
-    limit: int = Query(100, description="Maximum number of messages"),
-    offset: int = Query(0, description="Offset for pagination"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of messages"),
+    offset: int = Query(0, ge=0, description="Offset for pagination"),
 ) -> dict[str, Any]:
     """Get message history with optional filters.
 

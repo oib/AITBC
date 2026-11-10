@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 
 from aitbc_shared import MarketOffer
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -56,9 +56,12 @@ def sync_offers(
 
 
 @router.get("/market/miner-offers", summary="List all miner offers", response_model=list[MarketOfferView])
-def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -> list[MarketOfferView]:
+def list_miner_offers(
+    session: Annotated[Session, Depends(get_session)],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[MarketOfferView]:
     """List all offers created from miners"""
-    offers = session.execute(select(MarketOffer)).scalars().all()
+    offers = session.execute(select(MarketOffer).limit(limit)).scalars().all()
     filtered_offers = [offer for offer in offers if offer.provider.startswith("miner_")]
     result = []
     for offer in filtered_offers:
@@ -85,12 +88,15 @@ def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -> list
 
 
 @router.get("/offers", summary="List all market offers (Fixed)")
-def list_all_offers(session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
+def list_all_offers(
+    session: Annotated[Session, Depends(get_session)],
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[dict[str, Any]]:
     """List all market offers - Fixed version to avoid AttributeError"""
     try:
         from sqlmodel import select
 
-        offers = session.execute(select(MarketOffer)).scalars().all()
+        offers = session.execute(select(MarketOffer).limit(limit)).scalars().all()
         result = []
         for offer in offers:
             attrs = offer.attributes or {}

@@ -407,8 +407,8 @@ def get_blocks(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     user: AdminOrClientDep,
-    limit: int = 20,
-    offset: int = 0,
+    limit: int = Query(default=20, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> dict:
     """Get recent blockchain blocks"""
     try:

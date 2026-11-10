@@ -263,8 +263,8 @@ def list_executions(
     user: AdminDep,
     workflow_id: str | None = None,
     status: AgentStatus | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ) -> list[AgentExecutionStatus]:
     """List agent executions with filtering"""
     try:
@@ -331,8 +331,8 @@ def list_workflow_executions(
     workflow_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
-    limit: int | None = None,
-    offset: int | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ) -> list[AgentExecutionStatus]:
     """List executions for a specific workflow"""
     try:
