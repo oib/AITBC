@@ -49,6 +49,14 @@ class Settings(ServiceSettings):
     # HTTP client timeout
     http_timeout: float = Field(default=10.0)
 
+    # Rate limiting (#1544): per-client-IP limit on mutating endpoints, applied
+    # by RateLimitMiddleware in main.py. Read methods (GET/HEAD/OPTIONS) are
+    # not counted, so dashboard/explorer polling is never throttled; health,
+    # readiness and metrics paths are exempt there. Same shape as the market
+    # service's rate_limit_requests/rate_limit_window_seconds pair.
+    rate_limit_requests: int = Field(default=120)
+    rate_limit_window_seconds: int = Field(default=60)
+
     # v0.8.1: Offer sync settings
     offer_sync_enabled: bool = Field(default=True)
     offer_sync_interval_seconds: int = Field(default=60)

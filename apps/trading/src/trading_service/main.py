@@ -20,6 +20,7 @@ from aitbc.middleware import (
     RequestIDMiddleware,
     RequestValidationMiddleware,
 )
+from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit
 
 from .config import settings
 from .dependencies import require_trading_api_key
@@ -85,6 +86,24 @@ app = FastAPI(
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(PerformanceLoggingMiddleware)
 app.add_middleware(RequestValidationMiddleware, max_request_size=10 * 1024 * 1024)
+# #1544: this service had no rate limiting at all — every mutation relied on
+# X-Trading-Api-Key alone while endpoints like /v1/exchange/create-payment
+# spawn background tasks and /v1/trading/chains/register stores arbitrary
+# endpoints later used for outbound RPCs. Scoped to mutating methods so
+# explorer/dashboard GET polling is never throttled; probes and metrics are
+# exempt. Keyed by client_ip_for_rate_limit (trusted-proxy aware) rather than
+# the middleware's raw peer default, which collapses every nginx-proxied
+# caller into one 127.0.0.1 bucket.
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+app.add_middleware(
+    RateLimitMiddleware,
+    rate=settings.rate_limit_requests,
+    per=settings.rate_limit_window_seconds,
+    key_func=client_ip_for_rate_limit,
+    methods=_MUTATING_METHODS,
+    exclude_paths=["/health", "/ready", "/live", "/metrics"],
+    error_message="Trading rate limit exceeded",
+)
 app.add_middleware(ErrorHandlerMiddleware)
 
 # Register feature routers in order of route specificity (static paths first).

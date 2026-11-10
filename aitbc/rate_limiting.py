@@ -6,7 +6,7 @@ Provides decorators and middleware for API rate limiting
 import asyncio
 import ipaddress
 import os
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from functools import wraps
 from typing import Any
 
@@ -280,6 +280,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         key_func: Callable[[Request], str] | None = None,
         error_message: str = "Rate limit exceeded",
         exclude_paths: Sequence[str] | None = None,
+        include_paths: Sequence[str] | None = None,
+        methods: Iterable[str] | None = None,
     ) -> None:
         """
         Initialize rate limit middleware
@@ -295,6 +297,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 interval from a fixed address, so counting them against a per-IP budget
                 means the orchestrator can exhaust it and then read the resulting 429 as
                 the service being unhealthy.
+            include_paths: When set, ONLY these exact paths are limited — every other
+                path passes through uncounted. Lets a service stack a tight limiter for
+                a few anonymous write endpoints on top of (or instead of) a general one.
+            methods: When set, only requests using one of these HTTP methods are
+                counted; other methods pass through uncounted. ``{"POST", "PUT",
+                "PATCH", "DELETE"}`` scopes the limit to mutating endpoints so read
+                polling (dashboards, explorers, heartbeats-on-GET) is never throttled.
 
         Note:
             The limiter is in-process. Behind N workers the effective limit is N x rate,
@@ -307,6 +316,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.key_func = key_func
         self.error_message = error_message
         self.exclude_paths = frozenset(exclude_paths or ())
+        self.include_paths = frozenset(include_paths) if include_paths is not None else None
+        self.methods = frozenset(m.upper() for m in methods) if methods is not None else None
         self._limiter = RateLimiter(rate=rate, per=per)
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -326,7 +337,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not _is_rate_limiting_enabled():
             return await call_next(request)
 
-        if request.url.path in self.exclude_paths:
+        path = request.url.path
+        if path in self.exclude_paths:
+            return await call_next(request)
+        if self.include_paths is not None and path not in self.include_paths:
+            return await call_next(request)
+        if self.methods is not None and request.method.upper() not in self.methods:
             return await call_next(request)
 
         key = self.key_func(request) if self.key_func else request.client.host if request.client else "unknown"
