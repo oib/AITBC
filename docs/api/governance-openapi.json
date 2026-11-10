@@ -1449,7 +1449,7 @@
             }
           },
           "400": {
-            "description": "Proposal must be in 'passed' status to execute cross-chain (current: {proposal.status})",
+            "description": "Proposal must be in 'succeeded' status to execute cross-chain (current: {proposal.status})",
             "content": {
               "application/json": {
                 "schema": {
