@@ -245,6 +245,7 @@ _MARKET_ORDERS_SCHEMA = """
         price TEXT NOT NULL,
         wallet TEXT,
         status TEXT DEFAULT 'open',
+        offer_id TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 """
@@ -600,6 +601,11 @@ def init_db():
             "settlement_fee_tx_hash TEXT",
         ],
     )
+
+    # offer_id links a marketplace order back to its marketplace_offers row
+    # (#1563): the offer DELETE cascade and any future reconciliation need a
+    # durable key — the order_id was previously only returned to the caller.
+    _add_columns(cursor, "marketplace_orders", ["offer_id TEXT"])
 
     # ETH-8 phase 3 (dark): the node's signed payout address (set via the
     # exchange_set_payout verb) and when it was claimed. History lives in
