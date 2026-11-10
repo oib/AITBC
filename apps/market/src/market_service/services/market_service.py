@@ -2227,6 +2227,10 @@ class MarketService:
                 "public_endpoint": job.payload.get("public_endpoint"),
                 "expires_at": job.expires_at.isoformat() if job.expires_at else None,
                 "size": job.payload.get("size"),
+                # The paid model — shop gates bind the request body's model
+                # to it (APIGW-OLLAMA-DEPTH2-1, #1613). Column first, payload
+                # fallback for rows that only recorded it in the payload.
+                "model": job.model or (job.payload or {}).get("model"),
             }
         except Exception as e:
             logger.error("Error in get_market_job_access_token: %s: %s", type(e).__name__, e)

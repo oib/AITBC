@@ -635,15 +635,27 @@ server {
     #     add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     # }
 
+    # Ollama inference goes through the shop gate (aitbc-ollama-gate,
+    # 127.0.0.1:8271), never straight to the ollama daemon — the gate enforces
+    # the per-job access token, model binding and option bounds
+    # (OLLAMA-PROXY-GATE-1 #841 / APIGW-OLLAMA-DEPTH2-1 #1613). Pointing this
+    # location at :11434 directly would bypass all of it.
     location /ollama/ {
-        proxy_pass http://127.0.0.1:11434/;
+        proxy_pass http://127.0.0.1:8271/;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        # NDJSON token streaming + long generations: no buffering, long reads.
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept, X-Access-Key, X-Access-Secret, X-Job-Id" always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 

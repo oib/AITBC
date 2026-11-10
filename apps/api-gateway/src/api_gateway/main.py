@@ -11,7 +11,7 @@ import hmac  # noqa: E402
 import os  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
-from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: E402
+from collections.abc import AsyncIterator, Callable  # noqa: E402
 from typing import Any, TypeVar  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
@@ -93,6 +93,15 @@ RATE_LIMIT = os.getenv("API_GATEWAY_RATE_LIMIT", "100/minute")
 # forwarding headers (uvicorn proxy_headers / forwarded_allow_ips=127.0.0.1).
 PREAUTH_RATE_LIMIT = os.getenv("API_GATEWAY_PREAUTH_RATE_LIMIT", "300/minute")
 COORDINATOR_URL = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
+# Upstream response bound (APIGW-OLLAMA-DEPTH2-1 / APIGW-DEPTH-1, #1613/#1581):
+# the proxy used to hand httpx a non-streaming send, so response.content was
+# buffered whole with no ceiling — a huge or drip-fed upstream could hold a
+# connection and RAM per in-flight request. The body is now read off the
+# stream under GATEWAY_MAX_RESPONSE_BYTES and the whole send+read runs under
+# GATEWAY_UPSTREAM_DEADLINE_SECONDS (0 disables the deadline). Both are
+# env-tunable; the cap defaults well above the 10 MB request ceiling.
+MAX_RESPONSE_BYTES = int(os.getenv("GATEWAY_MAX_RESPONSE_BYTES", str(64 * 1024 * 1024)))
+UPSTREAM_DEADLINE_SECONDS = float(os.getenv("GATEWAY_UPSTREAM_DEADLINE_SECONDS", "300"))
 # Coordinator-owned sub-families of /v1/market — the rest (jobs, offers,
 # ratings, ipfs, match, ...) belongs to the market service on :8102.
 # The coordinator-owned market sub-routes must be listed before the generic
@@ -237,7 +246,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="AITBC API Gateway", description="Routes requests to AITBC microservices", version="0.1.0", lifespan=lifespan
+    title="AITBC API Gateway",
+    description="Routes requests to AITBC microservices",
+    version="0.1.0",
+    lifespan=lifespan,
+    # APIGW-DEPTH-1 (#1581): the interactive docs and the OpenAPI schema are
+    # unauthenticated meta surface — /docs, /redoc and /openapi.json disclosed
+    # the full route table to anonymous callers. The schema is still generated
+    # on demand for scripts/extract_openapi_specs.py via app.openapi().
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 if SLOWAPI_AVAILABLE:
     app.state.limiter = limiter
@@ -326,23 +345,41 @@ def pre_auth_ip_limit(request: Request) -> None:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded")
 
 
+# Opt-in: count completed upstream 5xx responses toward the breaker, not just
+# transport failures (APIGW-DEPTH-1 residual, #1581). Off by default — a
+# service that legitimately answers 5xx on some routes must not trip the
+# breaker on sporadic errors; enable per deployment when upstream 5xx means
+# "down".
+BREAKER_COUNT_5XX = os.getenv("GATEWAY_BREAKER_COUNT_5XX", "false").lower() in ("1", "true", "yes")
+
 circuit_breaker_state: dict[str, dict[str, object]] = {
-    name: {"failures": 0, "last_failure_time": None, "is_open": False} for name in (*SERVICES, *_V2_SERVICE_URLS)
+    name: {"failures": 0, "last_failure_time": None, "is_open": False, "probe_in_flight": False}
+    for name in (*SERVICES, *_V2_SERVICE_URLS)
 }
 CIRCUIT_BREAKER_THRESHOLD = 5
 CIRCUIT_BREAKER_TIMEOUT = 60
 
 
 def check_circuit_breaker(service_name: str) -> bool:
-    """Check if circuit breaker is open."""
+    """Check if circuit breaker is open.
+
+    Half-open (APIGW-DEPTH-1, #1581): after the timeout the breaker admits a
+    SINGLE probe request instead of resetting outright — the old code let the
+    whole traffic flood back at once (thundering herd) and a still-sick
+    upstream re-opened only after another full threshold of failures. The
+    probe's outcome is settled by note_upstream_response/record_failure.
+    Monotonic clock: loop.time() is also monotonic but get_event_loop() is
+    deprecated in this context.
+    """
     state = circuit_breaker_state[service_name]
     if state["is_open"]:
-        current_time = asyncio.get_event_loop().time()
         last_failure = state["last_failure_time"]
-        if last_failure is not None and current_time - last_failure > CIRCUIT_BREAKER_TIMEOUT:  # type: ignore[operator]
-            state["is_open"] = False
-            state["failures"] = 0
-            logger.info("Circuit breaker reset")
+        if (
+            last_failure is not None and time.monotonic() - last_failure > CIRCUIT_BREAKER_TIMEOUT  # type: ignore[operator]
+        ):
+            if state["probe_in_flight"]:
+                return False
+            state["probe_in_flight"] = True
             return True
         return False
     return True
@@ -351,11 +388,35 @@ def check_circuit_breaker(service_name: str) -> bool:
 def record_failure(service_name: str) -> None:
     """Record a failure for circuit breaker."""
     state = circuit_breaker_state[service_name]
+    state["probe_in_flight"] = False
     state["failures"] = (state["failures"] or 0) + 1  # type: ignore[operator]
-    state["last_failure_time"] = asyncio.get_event_loop().time()
+    state["last_failure_time"] = time.monotonic()
     if state["failures"] >= CIRCUIT_BREAKER_THRESHOLD:  # type: ignore[operator]
         state["is_open"] = True
         logger.warning("Circuit breaker opened")
+
+
+def note_upstream_response(service_name: str, status_code: int) -> None:
+    """Settle breaker state once an upstream response has been received.
+
+    A half-open probe that got any HTTP response proves the upstream is
+    reachable: <500 closes the breaker, >=500 re-opens it immediately. For
+    non-probe traffic a 5xx counts as a failure only when the operator opted
+    in via GATEWAY_BREAKER_COUNT_5XX.
+    """
+    state = circuit_breaker_state[service_name]
+    if state["probe_in_flight"]:
+        state["probe_in_flight"] = False
+        if status_code < 500:
+            state["is_open"] = False
+            state["failures"] = 0
+            state["last_failure_time"] = None
+            logger.info("Circuit breaker closed by half-open probe")
+        else:
+            record_failure(service_name)
+        return
+    if BREAKER_COUNT_5XX and status_code >= 500:
+        record_failure(service_name)
 
 
 @app.get("/health")
@@ -364,13 +425,13 @@ def health() -> dict[str, str]:
     return create_simple_health_response("api-gateway")
 
 
-@app.get("/services")
+@app.get("/services", dependencies=[Depends(verify_auth)])
 def list_services() -> dict[str, dict[str, object]]:
     """List registered services"""
     return {service_name: {"prefix": config["prefix"], "url": config["base_url"]} for service_name, config in SERVICES.items()}
 
 
-@app.get("/v2")
+@app.get("/v2", dependencies=[Depends(verify_auth)])
 def api_v2_index() -> dict[str, object]:
     """The service-qualified API surface.
 
@@ -388,7 +449,7 @@ def api_v2_index() -> dict[str, object]:
     }
 
 
-@app.get("/ready")
+@app.get("/ready", dependencies=[Depends(verify_auth)])
 async def ready() -> Response:
     """Readiness probe — 503 while an enabled required feature is unavailable.
 
@@ -453,10 +514,44 @@ class AmbiguousUpstreamError(Exception):
     """
 
 
+class _ResponseTooLarge(Exception):
+    """Upstream response exceeded GATEWAY_MAX_RESPONSE_BYTES while streaming."""
+
+
+async def _read_bounded(response: httpx.Response) -> bytes:
+    """Read a streamed upstream response under MAX_RESPONSE_BYTES.
+
+    The send used ``stream=True`` so httpx never buffers the body whole; this
+    accumulates chunks only up to the cap, then aborts. ``aiter_bytes`` yields
+    decoded content, matching what ``response.content`` used to return (the
+    gateway strips Accept-Encoding upstream, so identity encoding is expected
+    anyway).
+    """
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in response.aiter_bytes():
+        total += len(chunk)
+        if total > MAX_RESPONSE_BYTES:
+            raise _ResponseTooLarge(f"upstream response exceeded {MAX_RESPONSE_BYTES} bytes")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 async def proxy_with_retry(
-    client: httpx.AsyncClient, method: str, url: str, *, retry_ambiguous: bool = False, **kwargs: object
-) -> httpx.Response:
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    *,
+    retry_ambiguous: bool = False,
+    headers: dict[str, str] | None = None,
+    params: httpx.QueryParams | str | None = None,
+    content: bytes | None = None,
+) -> tuple[int, dict[str, str], bytes]:
     """Proxy request with retry logic for transient failures.
+
+    Returns ``(status_code, safe_headers, body)`` — the body is read under
+    ``MAX_RESPONSE_BYTES`` before this returns, so the gateway never buffers
+    an unbounded upstream response (APIGW-OLLAMA-DEPTH2-1, #1613).
 
     Pre-send failures are retried for every method. Post-send failures —
     read/write timeouts, mid-stream network errors — are ambiguous: the
@@ -466,10 +561,21 @@ async def proxy_with_retry(
     """
     max_retries = 3
     retry_delay = 0.5
-    send: Callable[..., Awaitable[httpx.Response]] = getattr(client, method.lower())
     for attempt in range(max_retries):
+        # stream=True: httpx returns after response headers; the body stays on
+        # the wire until _read_bounded pulls it under the cap. Send-level
+        # errors still classify exactly as before (nothing reached upstream).
+        request = client.build_request(method, url, headers=headers, params=params, content=content)
+        response: httpx.Response | None = None
+        body = b""
         try:
-            return await send(url, **kwargs)
+            if UPSTREAM_DEADLINE_SECONDS > 0:
+                async with asyncio.timeout(UPSTREAM_DEADLINE_SECONDS):
+                    response = await client.send(request, stream=True)
+                    body = await _read_bounded(response)
+            else:
+                response = await client.send(request, stream=True)
+                body = await _read_bounded(response)
         except _UNSENT_REQUEST_ERRORS:
             if attempt < max_retries - 1:
                 logger.warning("Upstream unreachable before send on attempt %s/%s, retrying...", attempt + 1, max_retries)
@@ -484,6 +590,15 @@ async def proxy_with_retry(
                 await asyncio.sleep(retry_delay * (attempt + 1))
                 continue
             raise
+        finally:
+            # The stream must be closed however the attempt ended — on success
+            # the bounded read already consumed it; on error this releases the
+            # connection instead of leaking it until GC.
+            if response is not None:
+                await response.aclose()
+        if response is None:
+            raise httpx.RequestError("Max retries exceeded")
+        return response.status_code, _upstream_headers(response), body
     raise httpx.RequestError("Max retries exceeded")
 
 
@@ -661,15 +776,51 @@ async def proxy_request(
         # Propagate correlation — the middleware sets state.request_id but does
         # not inject it into the incoming headers.
         headers["x-request-id"] = request.state.request_id
-        kwargs: dict[str, object] = {"headers": headers, "params": request.query_params}
-        if request.method in ["POST", "PUT", "PATCH"]:
-            body = await request.body()
-            kwargs["content"] = body
+        body = await request.body() if request.method in ("POST", "PUT", "PATCH") else None
         # Safe methods replay freely. A write replays post-send failures only
         # when it carries an Idempotency-Key the upstream deduplicates.
         retry_ambiguous = request.method in ("GET", "HEAD", "OPTIONS") or "idempotency-key" in request.headers
-        response = await proxy_with_retry(client, request.method, target_url, retry_ambiguous=retry_ambiguous, **kwargs)
-        return Response(content=response.content, status_code=response.status_code, headers=_upstream_headers(response))
+        upstream_status, upstream_headers, upstream_body = await proxy_with_retry(
+            client,
+            request.method,
+            target_url,
+            retry_ambiguous=retry_ambiguous,
+            headers=headers,
+            # Raw query string keeps repeated params verbatim (#1425 semantics)
+            # and satisfies httpx's params type without a starlette->httpx cast.
+            params=request.url.query,
+            content=body,
+        )
+        # Any HTTP response — including a half-open probe's — settles the
+        # breaker before the body is handed to the client.
+        note_upstream_response(service_name, upstream_status)
+        return Response(content=upstream_body, status_code=upstream_status, headers=upstream_headers)
+    except _ResponseTooLarge:
+        logger.error("Upstream response over cap for %s %s", request.method, target_url)
+        record_failure(service_name)
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={
+                "error": {"type": "upstream_response_too_large", "message": "Upstream response exceeded the gateway size cap"}
+            },
+        )
+    except TimeoutError:
+        # GATEWAY_UPSTREAM_DEADLINE_SECONDS elapsed mid send/read — the
+        # upstream may have committed the request, so this is the same
+        # outcome-unknown class as AmbiguousUpstreamError.
+        logger.error("Upstream deadline exceeded for %s %s", request.method, target_url)
+        record_failure(service_name)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": {
+                    "type": "outcome_unknown",
+                    "message": "The upstream did not answer within the gateway deadline; "
+                    "the request may have been accepted. Reconcile or retry with an Idempotency-Key.",
+                    "service": service_name,
+                }
+            },
+        )
     except AmbiguousUpstreamError:
         logger.error(
             "Ambiguous outcome for %s %s: upstream may have accepted it; not retried without Idempotency-Key",

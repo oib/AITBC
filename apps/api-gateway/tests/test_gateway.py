@@ -74,6 +74,13 @@ class _CaptureClient:
     def __init__(self):
         self.url = ""
 
+    def build_request(self, method, url, **kwargs):
+        return httpx.Request(method, url, **kwargs)
+
+    async def send(self, request, stream=False):
+        self.url = str(request.url).split("?", 1)[0]
+        return httpx.Response(200, json={"ok": True})
+
     async def get(self, url, **kwargs):
         self.url = url
         return httpx.Response(200, json={"ok": True})
@@ -133,6 +140,13 @@ def test_escrow_prefix_forwards_to_rpc_escrow(client, monkeypatch):
     captured: dict[str, str] = {}
 
     class FakeClient:
+        def build_request(self, method, url, **kwargs):
+            return httpx.Request(method, url, **kwargs)
+
+        async def send(self, request, stream=False):
+            captured["url"] = str(request.url).split("?", 1)[0]
+            return httpx.Response(200, json={"ok": True})
+
         async def post(self, url, **kwargs):
             captured["url"] = url
             return httpx.Response(200, json={"ok": True})

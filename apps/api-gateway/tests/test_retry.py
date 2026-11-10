@@ -28,6 +28,11 @@ def _request(method: str = "POST") -> httpx.Request:
     return httpx.Request(method, "http://upstream.invalid/x")
 
 
+# Headers httpx adds itself at send time — the gateway never chose them, so
+# the fake must not record them as forwarded headers.
+_TRANSPORT_HEADERS = {"host", "content-length", "accept", "accept-encoding", "connection", "user-agent", "transfer-encoding"}
+
+
 class _FlakyClient:
     """Returns queued results/exceptions; records call count and headers."""
 
@@ -43,6 +48,18 @@ class _FlakyClient:
         if isinstance(item, Exception):
             raise item
         return item
+
+    def build_request(self, method, url, **kwargs):
+        return httpx.Request(method, url, **kwargs)
+
+    async def send(self, request, stream=False):
+        kwargs = {
+            "headers": {k: v for k, v in request.headers.items() if k.lower() not in _TRANSPORT_HEADERS},
+            "params": request.url.params,
+        }
+        if request.content:
+            kwargs["content"] = request.content
+        return await self._next(kwargs)
 
     async def get(self, url, **kwargs):
         return await self._next(kwargs)
