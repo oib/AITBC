@@ -125,7 +125,10 @@ def _files_in(out_dir: Path, env: dict[str, str]) -> dict[str, str]:
     if result.returncode != 0:
         _skip_when_nothing_could_extract(result.stderr + result.stdout)
     assert result.returncode == 0, result.stderr[-2000:]
-    return {p.name: p.read_text() for p in sorted(out_dir.glob("*-openapi.json"))}
+    # *.json, not *-openapi.json: api-v2-map.json is generated too and was
+    # invisible to this comparison — a nondeterministic qualifier map would
+    # have passed the env-independence check while drifting in the drift hook.
+    return {p.name: p.read_text() for p in sorted(out_dir.glob("*.json"))}
 
 
 def _hook_config() -> dict:
