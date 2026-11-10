@@ -28,6 +28,12 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+#: Bounds for ``discover_agents`` — the query dict comes from an untrusted
+#: POST body, so an absent ``limit`` must not mean "return every agent" and a
+#: supplied one must not be able to ask for the whole registry (#1512).
+_DISCOVER_DEFAULT_LIMIT = 100
+_DISCOVER_MAX_LIMIT = 500
+
 
 def _same_address(a: str, b: str) -> bool:
     """Case-insensitive EVM address comparison (EIP-55-insensitive)."""
@@ -312,8 +318,18 @@ class AgentRegistry:
                 min_score = query["min_health_score"]
                 candidate_agents = [a for a in candidate_agents if a.health_score >= min_score]
             results = sorted(candidate_agents, key=lambda a: a.health_score, reverse=True)
-            if "limit" in query:
-                results = results[: query["limit"]]
+            # ``limit`` arrives from an untrusted query dict (POST /agents/discover
+            # takes the body verbatim): absent meant "return every agent", a
+            # non-int crashed into the broad except and silently emptied the
+            # result, and nothing capped the size (#1512). Clamp to a sane
+            # default/ceiling instead.
+            raw_limit = query.get("limit")
+            try:
+                limit = int(raw_limit) if raw_limit is not None else _DISCOVER_DEFAULT_LIMIT
+            except (TypeError, ValueError):
+                limit = _DISCOVER_DEFAULT_LIMIT
+            limit = max(1, min(limit, _DISCOVER_MAX_LIMIT))
+            results = results[:limit]
             logger.info("Discovered %s agents for query: %s", len(results), query)
             return results
         except Exception as e:
