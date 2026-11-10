@@ -136,6 +136,27 @@ def test_health_is_public(anon_client):
 
 
 @pytest.mark.parametrize(
+    "method,path",
+    [
+        ("post", "/v1/trading/requests"),
+        ("post", "/v1/transactions"),
+        ("post", "/v1/trading/inter-chain/create"),
+        ("post", "/v1/trading/trades/some-trade/settle"),
+        ("post", "/v1/trading/trades/some-trade/lock-escrow"),
+        ("post", "/v1/trading/offers/subscribe"),
+    ],
+)
+def test_mutating_routes_reject_missing_key(anon_client, gate_key, method, path):
+    """Every trading write router is included with
+    ``dependencies=[Depends(require_trading_api_key)]`` — a mutating call
+    with no ``X-Trading-Api-Key`` must 401 at the router gate before any
+    handler or body validation runs. The existing pins only exercised a
+    GET; these cover the money-moving POST surface."""
+    response = getattr(anon_client, method)(path, json={})
+    assert response.status_code == 401, f"{method.upper()} {path}: {response.status_code}"
+
+
+@pytest.mark.parametrize(
     "path",
     [
         "/v1/trading/requests",
