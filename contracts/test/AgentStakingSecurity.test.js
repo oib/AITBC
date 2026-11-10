@@ -725,4 +725,105 @@ describe("AgentStaking Security Tests", function () {
       expect(period).to.equal(newPeriod);
     });
   });
+
+  // Merge-regression pin (#1457 + #1461 + #1472 in one lifecycle): a stake
+  // that goes SLASHED -> withdrawSlashedStake -> COMPLETED must not wedge the
+  // agent — a fresh stake on the same agent, followed by an EIP-712
+  // oracle-signed performance update, must still verify (domain binds
+  // chainid + this deployment, untouched by stake lifecycle) and the metrics
+  // the update writes must reflect only the live stake.
+  describe("slash-exit then EIP-712 oracle update (merged #1457/#1472)", function () {
+    it("signed performance update works after slash, withdraw, and re-stake", async function () {
+      // Stake -> slash -> wait out unbonding -> withdrawSlashedStake.
+      await paymentToken.connect(staker).approve(
+        await agentStaking.getAddress(),
+        ethers.MaxUint256
+      );
+      await agentStaking.connect(staker).stakeOnAgent(
+        agentWallet.address,
+        ethers.parseEther("1000"),
+        30 * 24 * 60 * 60,
+        false
+      );
+      await agentStaking.slashStake(0, 10, "merged-pin slash");
+
+      const unbonding = await agentStaking.unbondingPeriod();
+      await ethers.provider.send("evm_increaseTime", [Number(unbonding) + 1]);
+      await ethers.provider.send("evm_mine");
+      await agentStaking.connect(staker).withdrawSlashedStake(0);
+
+      // The agent can be staked again — the completed stake did not poison
+      // agentActiveStakes or the metrics accounting.
+      await agentStaking.connect(staker).stakeOnAgent(
+        agentWallet.address,
+        ethers.parseEther("500"),
+        30 * 24 * 60 * 60,
+        false
+      );
+
+      // EIP-712 signed update still verifies post-lifecycle: fresh nonce,
+      // fresh signature, same domain.
+      const accuracy = 90;
+      const successful = true;
+      const nonce = await agentStaking.oracleNonces(oracle.address);
+      const block = await ethers.provider.getBlock("latest");
+      const timestamp = block.timestamp;
+      const signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy, successful, timestamp, nonce, signature
+        )
+      ).to.emit(agentStaking, "PerformanceUpdateWithSignature");
+      expect(await agentStaking.oracleNonces(oracle.address)).to.equal(nonce + 1n);
+
+      // Metrics reflect exactly one recorded submission — the slashed and
+      // withdrawn stake contributed nothing here. getAgentMetrics returns a
+      // tuple: [4]=totalSubmissions, [5]=successfulSubmissions.
+      const metrics = await agentStaking.getAgentMetrics(agentWallet.address);
+      expect(metrics[4]).to.equal(1);
+      expect(metrics[5]).to.equal(1);
+    });
+
+    it("approved appeal restores ACTIVE and a signed update still verifies", async function () {
+      // Slash -> appeal inside the slashedAt-anchored window (#1461) ->
+      // approved appeal restores ACTIVE -> EIP-712 update path unaffected.
+      await paymentToken.connect(staker).approve(
+        await agentStaking.getAddress(),
+        ethers.parseEther("1000")
+      );
+      await agentStaking.connect(staker).stakeOnAgent(
+        agentWallet.address,
+        ethers.parseEther("1000"),
+        30 * 24 * 60 * 60,
+        false
+      );
+      await agentStaking.slashStake(0, 10, "appeal-pin slash");
+
+      await agentStaking.connect(staker).appealSlashing(0, "merged-pin appeal");
+      await agentStaking.resolveSlashAppeal(0, true);
+
+      const stake = await agentStaking.stakes(0);
+      expect(stake.status).to.equal(0); // ACTIVE again
+
+      // performanceUpdateDelay may already be consumed by earlier tests in
+      // this file? No — each `it` gets a fresh deployment via beforeEach.
+      // But the appeal itself does not touch lastPerformanceUpdateTime, so
+      // the signed update below is the first performance write.
+      const accuracy = 88;
+      const successful = true;
+      const nonce = await agentStaking.oracleNonces(oracle.address);
+      const block = await ethers.provider.getBlock("latest");
+      const timestamp = block.timestamp;
+      const signature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy, successful, timestamp, nonce, signature
+        )
+      ).to.emit(agentStaking, "PerformanceUpdateWithSignature");
+    });
+  });
 });
