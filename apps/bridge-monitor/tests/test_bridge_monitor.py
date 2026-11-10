@@ -1593,3 +1593,100 @@ class TestSweepAdminLock:
 
         assert mock_build.call_count == 1
         assert get_deposit("0xret-free")["status"] == BridgeDepositStatus.SUBMITTED.value
+
+
+class TestNullSubmittedHeight:
+    """BRIDGE-MON-ALERT-1 (#1436): a NULL ``submitted_height`` — the
+    sign-time ``/rpc/head`` fetch failed — is UNKNOWN age, not "now".
+    Both consumers must read it as oldest: the stuck-payout alert (a
+    missing height used to make the row look brand new and suppress the
+    alert) and the rebroadcast seal window (same fallback kept the row
+    inside the window forever, so it was never rebroadcast)."""
+
+    @staticmethod
+    def _null_height_row(monitor, tx_hash="0xnullh"):
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        envelope = {
+            "type": "TRANSFER",
+            "chain_id": "ait-test",
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 100,
+            "nonce": 7,
+            "fee": 360000,
+            "payload": {"amount": 100},
+            "signature": "0xdeadbeef",
+        }
+        payout_hash = monitor._envelope_tx_hash(envelope)
+        create_deposit(tx_hash, "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            tx_hash,
+            ait_amount="100",
+            signed_tx=_json.dumps(envelope),
+            envelope_hash=payout_hash,
+            ait_tx_hash=payout_hash,
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        # submitted_height stays NULL — _head_height() returned None at sign
+        return envelope, payout_hash
+
+    def test_null_height_row_alerts_as_oldest(self, monitor, caplog):
+        import logging
+
+        self._null_height_row(monitor)
+        with (
+            patch.object(monitor, "_head_height", return_value=monitor.stuck_payout_blocks + 100),
+            caplog.at_level(logging.CRITICAL),
+        ):
+            monitor._check_queue_health()
+
+        alerts = [r for r in caplog.records if "payout slot blocked" in r.message]
+        assert alerts and "0xnullh" in alerts[0].message
+
+    def test_known_recent_height_does_not_alert(self, monitor, caplog):
+        """Guard against the fix over-firing: a row with a real, recent
+        submitted_height inside the window stays silent."""
+        import logging
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        create_deposit("0xfreshh", "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            "0xfreshh",
+            signed_tx='{"nonce": 1}',
+            submitted_height=95,
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        with (
+            patch.object(monitor, "_head_height", return_value=100),
+            caplog.at_level(logging.CRITICAL),
+        ):
+            monitor._check_queue_health()
+
+        assert not any("payout slot blocked" in r.message for r in caplog.records)
+
+    def test_null_height_row_is_rebroadcast_eligible(self, monitor):
+        """Unknown age must not park the row inside the seal window: the
+        sweep rebroadcasts the identical stored envelope and heals the
+        height on success."""
+        from bridge_monitor.storage import get_deposit
+
+        envelope, _ = self._null_height_row(monitor)
+        with (
+            patch.object(monitor, "_head_height", return_value=100),
+            patch.object(monitor, "_account_nonce", return_value=0),  # abandon refuses: nonce not passed
+            patch.object(monitor, "_tx_on_chain", return_value=False),
+            patch.object(monitor, "_post_signed_tx", return_value="0xsame") as mock_post,
+            patch("httpx.get") as mock_get,
+        ):
+            mock_get.return_value = MagicMock(status_code=404)  # tx gone from mempool
+            monitor.process_submitted_deposits()
+
+        mock_post.assert_called_once_with(envelope)
+        d = get_deposit("0xnullh")
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert d["rebroadcast_count"] == 1
+        assert d["submitted_height"] == 100  # real height written back
