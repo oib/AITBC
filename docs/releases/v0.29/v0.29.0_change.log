@@ -1,0 +1,199 @@
+# v0.29.0 — post-v0.28.0 work (staging draft)
+
+**Baseline**: the `v0.28.0` staging log names commits through ~27 Oct 2026
+(newest named: `e8dc0c272`). Sections below collect commits accrued on
+`main` after that cutoff — 2026-10-27 → 2026-11-10, ~1,140 commits.
+**Tag**: `v0.29.0` (pending — staging draft; per-commit placement is a
+proposal pending the operator's release-placement ruling, same convention
+as the v0.26.0/v0.28.0 collections).
+**Drafted**: 2026-11-10 (release-notes freshness pass, item 30).
+
+> **Coverage caveat**: this is a *biggest-gaps* draft, not the exhaustive
+> per-commit collection the tagged logs carry. The full window is ~1,140
+> commits; the sections below name the dominant families with their
+> principal commits. A complete `git log` sweep against this file is still
+> owed before the tag.
+
+### Consensus domain separation (#1298) — landed inert below activation height
+
+- `5a2844d0d` — S0: domain-separated signing primitives +
+  `consensus_domain_separation_height` (inert).
+- `7e3d6d1f7` — S1: domain-gated sign/verify at proposal + attestation
+  sites (inert below activation).
+- `57bfbaccd` — S2: evidence-store `signature_domain` + attestation-lock
+  journal.
+- `ca16b6836` — S3: acceptance-key domain components + dual-accept window.
+- `3da65ad7a` + `e3775f8b5` — T1–T22 domain-separation matrix; T13/T18w
+  dual-accept legs un-skipped.
+- `9e63ba4ba` — T15: shared attestation-lock lapse constant, height-gated.
+- `2dc1ad9e0` — T7a/T14: unconditional round authentication post-H.
+- `cc3ec1f62` — persist domain-keyed signed attestations by record height.
+- `f68e537a4`, `da738422b`, `473c4f18f`, `962d0d293`, `c97b91f83`,
+  `3a57d04a0`, `f714cc5ec` — same-hash retry horizon inside the
+  attestation-lock window: positive-horizon pin, startup/fleet surfacing,
+  default OFF, parent+tx-snapshot binding, drift counter.
+- `e3357ce61` + `6eb516a90` — #1301 integration: the abandon statement is
+  signed under its own consensus domain at the separation height; L2
+  proposer-signed abandon releases the voter journal (default OFF).
+- `59433185b`, `b084ad8f0` — activation runbook + post-impl matrix status.
+
+### State-transition versions v21–v24 (all inert/armed per-height; none
+auto-activate)
+
+- `99d35f76a` — v21: on-chain agent spend sessions (AGENT-SPEND-B-1).
+- `49c846e37` + `75441ffdd` + `236bc4ee5`/`acb647ed5` — v23: escrow
+  obligation bound for release/refund/sweep (#1230/#1232), governed fee
+  allowance so the designed `ESCROW_FEE_SWEEP` leg is sweepable, and
+  authoritative sender-state refresh at v23+.
+- `610183955`, `8f69e869f`, `4e915fc99`, `97174cfd0`, `422ef0054`,
+  `2e93ffdf9`, `8c0a47ee2`, `f7a162464`, `e7b86c270`, `49d1a12d9`,
+  `e30ea5145` — v24 (#1314): inert primitives (parity session, R1
+  invalidation, R2 flush), authoritative reads at the V1–V7 sites,
+  admission-mirror parity via `block_version`, sealed-tx visibility for
+  same-block applies, golden-corpus registration; MC1–MC7
+  composition-mutant legs vs the v23 refresh. **Landed dormant — arming
+  is an ops decision, not implied by merge.**
+- `6909058de` + `ed0c2d3e7` — consensus-visible `VALIDATOR_DEACTIVATE`
+  (#1198/#1263).
+- `6c601ef68`, `5b341f262`, `4e5cf17cb`, `3dace1ba0`, `15267ab28` —
+  attestation/vote-journal hardening: durable vote journal +
+  fetch-before-unlock + seal re-publish (#1268 Ph-1), three-way
+  `locate_voted_block` verdict with contention hold (#1280), UC
+  justification barrier (#1281), round-keyed attestation lock behind flag
+  (#1242, sandbox).
+
+### Mempool reservations (#1300, P2-v2.4)
+
+- `9bb7c3327` — reservation core: `peek_reserve` lifecycle, lock-key
+  hardening, sealed-admission gate, evictor rules.
+- `c3d8aed31` — sealed reconcile sweep + flag-gated `peek_reserve`
+  proposer path with release map.
+- `4dd8dbf3f` — fork-revert releases dead-attempt reservations on requeue.
+- `f9b1c9881`, `47305e7c9`, `0c713d716`, `42d449b6f` — integration + PG
+  parity pins (lock-timeout surfaces `MempoolAdmissionTimeout`).
+  **Flag-gated; default path unchanged.**
+
+### Agent-spend policy + contracts C1 (#1140/#1141/#1143)
+
+- `fc6f93886`, `e08bc7dcb`, `8082fcf39`, `ba84cbc1d`, `f2230b663` —
+  coordinator spend sessions, wallet fail-closed gate, buyer/provider
+  `agent_id` binding at escrow lock, agent-id resolve on job-payment and
+  market-run paths, GPU quote/buy agent binding.
+- `c610d0f10` — contracts Phase C1: AgentWallet policy owner, period cap,
+  allowlist (Refs #1143).
+
+### Smart-contract audit fixes (#1464–#1472)
+
+- `0d20ab547` — #1464: stop `assignment-in-require` self-approving the
+  proposer into the AgentDAO multi-sig count.
+- `4628f0ef6` — #1466: enforce `escrowType`/`releaseCondition` on
+  PaymentProcessor escrow release.
+- `289ebab81` + `86d4f5554` — EscrowService: close oracle-verification
+  gaps; gate `releaseEscrow` on all release conditions.
+- `7d7cf06b9` — #1469: restrict AgentBounty `disputeSubmission` to bounty
+  participants.
+- `b49f9ff6d` — #1467: checkpoint `lastRewardTime` on unstake (stops
+  reward replay).
+- `bbf317d05` — #1470: stamp single-oracle `finalVerificationTime` once.
+- `910da58e2` — #1465: bound tier-update APY refresh to active stakes.
+- `aaa5364ca` — #1472: domain-separate oracle signatures and rate-limit
+  signed updates.
+- `4c6d1cd94` — #1468: register stub contracts (not EOAs) in mocha
+  registry fixtures.
+
+### Application audit-bug waves (#1380–#1512, landed 8–10 Nov)
+
+- **ops-signer**: `c40cc0fb0` (#1380 refuse line breaks in memo/audit
+  fields), `dab1e8fa1` (#1381 audit requests refused before
+  `handle_request`), `90c296882` coverage, `43476d23f` unpin.
+- **edge**: `62a647775` (#1384 limit in `list_metrics`), `2b609bee5`
+  (#1385 gpu_listings mirror upsert), `f0df2459b` + `82d95de59` (#1386
+  ComputeResult expiry + aware datetimes), `80d9468af` (#1390 db.id
+  before commit), `5a0235d7a`, `6d3f77485` (bridge request 500 fix).
+- **gpu**: `edf41a62d` (#1387 RUNNING→COMPLETED guard), `0f263e1a2` +
+  `646e4408b` (#1389 status/price validation), `e3d8ab63e` +
+  `2e8de8e65` (#1388 bookable-status filter, price_per_hour on PUT),
+  `1cd8d2891` C901 refactor.
+- **pool-hub**: `3e617ef08` (#1398/#1400/#1401 filter/billing/payout
+  leftovers), `07216f2f5` (#1397 ServiceConfig unique constraint +
+  race-safe create), `cf1e214a6` (#1494/#1495 400/422 not 500),
+  `c5c4fe280` (#1500 parameters/apply auth + type validation),
+  `49795b5c5` (#1421 governance parameter change → all miner
+  ServiceConfigs), `47a742654` xfail un-pins, `a67e017ef` refactor.
+- **governance**: `e9b8d153d` (#1404–#1406 replay window on signed write
+  routes + bounded queries), `1ed12b09d` (execute-cross-chain accepts
+  `succeeded`), `8a616092a` (aggregate-votes ORM attribute tally),
+  `39391af7d` (bound votes/profiles lists).
+- **monitoring**: `1bdfa3a89` (#1407 health check verifies status code +
+  real timing).
+- **exchange/wallet**: `39c0e64fd` (#1408 bound public list endpoints),
+  `03a26cf78` (#1409 `sign_message` uses the wallet's secp256k1 key).
+- **trading**: `42f15f49c` (#1410–#1420 payment/query/matching/settlement/
+  offer-pipeline batch), `99cda3c8e` coverage.
+- **market/coordinator/agent-coordinator bounds**: `83c540c21` (#1505
+  real plugin rows), `afa5c5c2e` (#1507 edge-advertise page bound),
+  `59f2e2baa` (#1510 pure-SQL list endpoints `limit<=1000`),
+  `532c9949c` (#1512 agent discovery bound).
+- **coordinator-api residual**: `ae8faa47e` (#1377 QUERYCAP batch),
+  `0803ab0bb` + `6ed3f6de5` + `3f47932a2` (#1375 market conditions from
+  live GPU listings, no `np.random`; #1379 adapter signature mapping),
+  `2a43edbc2` (#1234 app-level body cap matching nginx).
+- **sync/explorer/blockchain-node**: `d3358a94a` (bound aux-state delta
+  reads), `bca6d787a` (reuse embedded tx list in `/api/blocks/{height}`),
+  `8660558f8` (`_ensure_pool_accounts` idempotent).
+
+### Assurance-program tail (R11–R16, #1224–#1229)
+
+- `ee33b5af4` + `d4f971d66` — #1233/#1185: iss/aud JWT claims minted on
+  all paths (enforcement dormant); `JWT_REQUIRE_EXP` verify-side gate for
+  exp-less tokens.
+- `26339be2e` — #1204: nginx edge key-injection for gated public bridge
+  reads; `e5f31f965` — #1222 website `bridgePayoutAddress` from env.
+- `823b383d2` + `8ebc26762` — R13-OPS-1/2: backup assurance verify timer,
+  offsite/gitea/drill plan, version-gate + gov-leg executor runbooks.
+- `26a7663e1` (#1265 `PRAGMA quick_check`), `5feb57b39` (#1267
+  sustained-pressure watchdog), `91d1df45b` (#1271 island swarm probe),
+  `adf486f94` (#1276 per-phase import timing), `aeea4724f` (#1270
+  validator_deactivation digest class).
+
+### Ops, deploy and test-infrastructure waves
+
+- `451fba65f` (#1303) + `7a1e186e3` (#1302): `node-island` /
+  `rpc-island` systemd unit templates + sizing docs.
+- `0e4c04aea` — #1322 default-off tentative-reorg apply probe before a
+  peer segment displaces ours.
+- `d4e8d1d71` + `cfba1733a` + `2873f2de4` + `d595d5710` + `5ee320dba` —
+  #1159/#1308 chain-aware gossip WS demux (`?chain=` + per-chain broker),
+  peer-attributed observability, attempt-correlated late acks,
+  per-chain refusal metrics, `GOSSIP_AUTH_SIGN_CHAIN_SCOPE` split.
+- `f707782dc` + `f80e4d228` + `034a91afc` — escrow lifecycle hardening:
+  row carries contract lifecycle state, serialised release/refund across
+  RPC workers, snapshot/restore dropped (the transaction is the rollback).
+- `494bb969a` — #1118 rehearsal tooling: idempotent contract-batch deploy
+  + smoke suite.
+- ~120 commits under `test(stress)`/`docs(stress)`/`fix(stress)` — the
+  scenario/stress harness matured through the October governance-EXECUTE
+  legs (#706/#709/#740/#720/#742 families): spend-guard accounting
+  (#991/#992), refusal classifiers, maturity-watcher gates, serial-lock
+  discipline, wallet-topology pinning to node1, MATURITY/KNOWN runbook
+  updates.
+- `c468a40a3`, `58a3e2c4f`, `2f0db0e9c`, `291242f1e` — coordinator-api
+  coverage sweeps (#1289 lane): client_resolver, sdk/enterprise_client,
+  agent_core_adapters, compliance finance, LayerZero bridge adapter.
+- `12a2a7d6a` — BNT-3: clear message for retired RPC surfaces + docs
+  marks (after BNT-2 retired protocol-transfer surfaces that cannot seal
+  at v9: `c03ddbc66`, `f54decccc`).
+- Bridge/reset ops: `3e0949c00` (B13 `bridge_outbound` migration dry-run
+  harness, BR-7), `56997c21b`/`44e3fa9e6`/`df8c6a70e`/`c0d1cf731`
+  (BR-9 Sepolia rehearsal tooling + Safe executor fixes), `f59d6f209`
+  (BR-8 repeatable `--env-file` preflight), `0e1c41e80`/`78fb32bf1`/
+  `846857f9f`/`45f41ce9a` (BR-12 post-activation audit + hardening), and
+  the 2026-10-13 Sepolia rehearsal record `016f14957`.
+
+### Known-unlogged remainder
+
+Roughly half the window's commits are small fixes/tests not yet named
+here (per-area `fix(...)`/`test(...)`/`chore(...)` traffic across
+coordinator-api, blockchain-node, scripts, ci, deploy, cli). They need
+the same per-commit collection pass the director ran for v0.26.0 before
+this log can be finalised.
