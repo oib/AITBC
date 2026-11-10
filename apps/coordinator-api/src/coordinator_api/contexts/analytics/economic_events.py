@@ -120,7 +120,9 @@ class EventStore:
         """Sum absolute event amounts for an actor."""
         if self._session is None:
             events = self._events
-        else:
-            stmt = select(EconomicEvent).where(EconomicEvent.actor_id == actor_id)
-            events = list(self._session.execute(stmt).scalars().all())
-        return sum((e.amount for e in events if e.actor_id == actor_id), Decimal("0"))
+            return sum((e.amount for e in events if e.actor_id == actor_id), Decimal("0"))
+        # Aggregate in SQL — the previous select-all-then-sum read every event
+        # the actor ever produced into memory (#1543-class unbounded read).
+        stmt = select(sa.func.coalesce(sa.func.sum(EconomicEvent.amount), 0)).where(EconomicEvent.actor_id == actor_id)
+        total = self._session.execute(stmt).scalar()
+        return Decimal(str(total or 0))
