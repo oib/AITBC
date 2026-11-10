@@ -820,6 +820,12 @@ class ChainSettings(BaseSettings):
     # delta response; above it the peer falls back to a full snapshot.
     sync_aux_lookback_seconds: int = 900
     sync_aux_max_rows: int = 5000
+    # Decompressed-size cap for a peer-supplied state diff (#1627): the delta
+    # endpoint's payload is decoded before the state-root check runs, so the
+    # bound has to live at decompress time or a compressed bomb OOMs first.
+    # 64 MiB is ~650k account changes at the ~100-byte/change estimate — far
+    # above any legitimate delta (threshold already falls back at 50% of state).
+    sync_state_diff_max_bytes: int = 67_108_864
 
     # V-4 seal-path missing-data guard, dry-run mode (design
     # docs/design/bridge-state-root-grandfathering.md). Classifies every

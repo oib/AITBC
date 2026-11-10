@@ -333,7 +333,10 @@ class StateSyncMixin(SyncBase):
         # Decode the StateDiff
         try:
             diff_bytes = base64.b64decode(encoded_diff) if isinstance(encoded_diff, str) else encoded_diff
-            diff = decode_state_diff(diff_bytes)
+            # Peer-controlled compressed payload: bound the DECOMPRESSED size
+            # here — the root check below runs only after decode, so an
+            # unbounded decompress_json is a pre-verification OOM (#1627).
+            diff = decode_state_diff(diff_bytes, max_bytes=settings.sync_state_diff_max_bytes)
         except Exception as e:
             self._logger.error("Failed to decode state diff: %s", e)
             return await self.sync_state_from(source_url)
