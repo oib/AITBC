@@ -25,6 +25,7 @@ from .utils import (
     PREREGISTERED_CREDIT_TX_TYPES,
     _require_supported_chain,
     _resolved_tx_type,
+    clamp_limit,
     get_chain_id,
     normalize_transaction_data,
     verify_transaction_signature,
@@ -660,25 +661,75 @@ def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict
         raise HTTPException(status_code=400, detail=f"Failed to submit market transaction: {str(e)}") from e
 
 
+# GPU_MARKET rows that can affect /transactions/market/match (#1623): rows
+# that are purchasable offers, withdrawals (cancel action, cancelled payload
+# status, or a `replaces` list), or both. Everything else the type carries —
+# job settlements, ratings — is dead weight the endpoint used to hydrate on
+# every call. The predicate is an exact superset of what the Python logic
+# below inspects: offers via OFFER_ACTIONS, self-withdrawal via the same
+# is_cancel rule as withdrawn_listing_ids, and `replaces` on any non-cancel
+# row. The Python checks remain the exact-match guard.
+_MARKET_MATCH_CANDIDATE_EXPRESSIONS = {
+    "sqlite": (
+        # json_valid must gate the json_* calls through CASE: SQLite does not
+        # guarantee AND/OR evaluation order, and json_type/json_extract raise
+        # "malformed JSON" on corrupt payloads.
+        "CASE WHEN json_valid(payload) THEN ("
+        "json_extract(payload, '$.\"action\"') IN ('offer','software_offer','cancel','cancelled')"
+        " OR lower(json_extract(payload, '$.\"status\"')) = 'cancelled'"
+        " OR json_type(payload, '$.\"replaces\"') IS NOT NULL)"
+        " ELSE 0 END"
+    ),
+    "postgresql": (
+        "(json_typeof(payload) = 'object') AND ("
+        "(payload ->> 'action') IN ('offer','software_offer','cancel','cancelled')"
+        " OR lower(payload ->> 'status') = 'cancelled'"
+        " OR payload -> 'replaces' IS NOT NULL)"
+    ),
+}
+
+
+def _market_match_candidate_clause(session: Any) -> Any:
+    """SQL predicate restricting GPU_MARKET rows to match-relevant payloads.
+
+    Returns None on dialects without a JSON expression mapping — the caller
+    then keeps the unfiltered scan rather than guessing at semantics.
+    """
+    template = _MARKET_MATCH_CANDIDATE_EXPRESSIONS.get(session.get_bind().dialect.name)
+    if template is None:
+        return None
+    return literal_column(template)
+
+
 @rate_limit(rate=10, per=60)
-def match_market(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def match_market(request: Request, chain_id: str | None = None, limit: int = 500) -> dict[str, Any]:
     """Return active market listings that could be matched against bids."""
     from ..config import settings
 
     chain_id = get_chain_id(chain_id)
+    # Same clamp as the other list endpoints (#1057). The semantic bound is
+    # the payload predicate in SQL — a bare LIMIT on the candidate scan
+    # would hide listings whose withdrawals arrive later (#1623).
+    limit = clamp_limit(limit, default=500, maximum=500)
     with session_scope(chain_id) as session:
-        # Bounded candidate window (#1511): every confirmed GPU_MARKET row
-        # ever used to be hydrated per call. Newest N rows only — a cancel or
-        # `replaces` older than the window can no longer hide an in-window
-        # listing, the documented trade-off of settings.market_scan_max_rows.
-        offers = session.exec(
+        # The semantic bound is the payload predicate in SQL — a bare LIMIT
+        # on the candidate scan would hide listings whose withdrawals arrive
+        # later (#1623). The #1511 newest-N window stays as a second bound so
+        # an unsupported dialect (clause=None) can never scan unbounded.
+        query = (
             select(Transaction)
             .where(Transaction.chain_id == chain_id)
             .where(Transaction.type == "GPU_MARKET")
             .where(Transaction.status == "confirmed")
+            # Newest first so the output cap drops the oldest listings,
+            # matching the /market/listings convention (bbeb9879d).
             .order_by(Transaction.id.desc())  # type: ignore[union-attr]
             .limit(max(1, settings.market_scan_max_rows))
-        ).all()
+        )
+        clause = _market_match_candidate_clause(session)
+        if clause is not None:
+            query = query.where(clause)
+        offers = session.exec(query).all()
         # Only a seller's own cancel or `replaces` hides a listing (M-1).
         withdrawn = withdrawn_listing_ids((tx.id, tx.sender, tx.payload or {}) for tx in offers)
         matches = [
@@ -708,10 +759,14 @@ def match_market(request: Request, chain_id: str | None = None) -> dict[str, Any
             and str((tx.payload or {}).get("status", "")).lower() != "cancelled"
             and f"tx_{tx.id}" not in withdrawn
         ]
+        total = len(matches)
         return {
             "chain_id": chain_id,
-            "matches": matches,
-            "total": len(matches),
+            "matches": matches[:limit],
+            "total": total,
+            # Honest truncation flag: `total` stays the true match count so a
+            # capped page never silently looks complete (#1623).
+            "truncated": total > limit,
         }
 
 

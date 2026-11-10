@@ -371,9 +371,9 @@ def submit_market_transaction_route(request: Request, tx_data: dict[str, Any]) -
 
 @router.get("/transactions/market/match", summary="Match market offers")
 @rate_limit(rate=10, per=60)
-def match_market_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+def match_market_route(request: Request, chain_id: str | None = None, limit: int = 500) -> dict[str, Any]:
     """Return active market listings for price discovery / matching."""
-    return match_market(request, chain_id)  # type: ignore[no-any-return]
+    return match_market(request, chain_id, limit)  # type: ignore[no-any-return]
 
 
 @router.get("/transactions", summary="Query transactions")
