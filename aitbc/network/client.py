@@ -68,6 +68,28 @@ def _detail_suffix_inner(exc: BaseException) -> str:
     return ""
 
 
+def _response_json(response: httpx.Response) -> JSONResponse:
+    """Parse a successful response body inside the retry boundary.
+
+    Returns ``{}`` for empty bodies (204/205) and translates a malformed
+    JSON body into ``httpx.DecodingError`` — an ``httpx.HTTPError`` — so the
+    retry policy applies the same GET-retry / write-ambiguity semantics as
+    the sync ``requests`` path instead of leaking a raw
+    ``json.JSONDecodeError`` to the caller.
+    """
+    if not response.content:
+        return {}
+    try:
+        parsed: JSONResponse = response.json()
+    except ValueError as e:
+        try:
+            request = response.request
+        except RuntimeError:
+            request = None
+        raise httpx.DecodingError(str(e), request=request) from e
+    return parsed
+
+
 # Hosts a configured API key may be sent to. The CLI registers its
 # configured service URLs here at config load (#850); ``None`` means no
 # restriction — service processes that never register behave exactly as
@@ -288,7 +310,7 @@ class AITBCHTTPClient:
         def _make_request():
             response = self.session.get(url, params=params, headers=req_headers, timeout=self.timeout)
             response.raise_for_status()
-            return response.json()
+            return response.json() if response.content else {}
 
         try:
             result: JSONResponse = self.retry_policy.execute(_make_request, method="GET")
@@ -352,7 +374,7 @@ class AITBCHTTPClient:
         def _make_request():
             response = self.session.post(url, data=data, json=json, headers=req_headers, timeout=self.timeout)
             response.raise_for_status()
-            return response.json()
+            return response.json() if response.content else {}
 
         try:
             result: JSONResponse = self.retry_policy.execute(
@@ -415,7 +437,7 @@ class AITBCHTTPClient:
         def _make_request():
             response = self.session.put(url, data=data, json=json, headers=req_headers, timeout=self.timeout)
             response.raise_for_status()
-            return response.json()
+            return response.json() if response.content else {}
 
         try:
             result: JSONResponse = self.retry_policy.execute(_make_request, method="PUT")
@@ -726,11 +748,10 @@ class AsyncAITBCHTTPClient:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(url, params=params, headers=req_headers)
                 response.raise_for_status()
-                return response
+                return _response_json(response)
 
         try:
-            response = await self.retry_policy.execute_async(_make_request, method="GET")
-            result: JSONResponse = response.json()
+            result: JSONResponse = await self.retry_policy.execute_async(_make_request, method="GET")
             self.cache.set(cache_key, result)  # noqa: unawaited-async — CacheLayer.set is synchronous
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
@@ -792,13 +813,12 @@ class AsyncAITBCHTTPClient:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(url, data=data, json=json, headers=req_headers)
                 response.raise_for_status()
-                return response
+                return _response_json(response)
 
         try:
-            response = await self.retry_policy.execute_async(
+            result: JSONResponse = await self.retry_policy.execute_async(
                 _make_request, method="POST", retry_ambiguous=bool(idempotency_key)
             )
-            result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
@@ -857,11 +877,10 @@ class AsyncAITBCHTTPClient:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.put(url, data=data, json=json, headers=req_headers)
                 response.raise_for_status()
-                return response
+                return _response_json(response)
 
         try:
-            response = await self.retry_policy.execute_async(_make_request, method="PUT")
-            result: JSONResponse = response.json()
+            result: JSONResponse = await self.retry_policy.execute_async(_make_request, method="PUT")
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
@@ -918,13 +937,12 @@ class AsyncAITBCHTTPClient:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.patch(url, data=data, json=json, headers=req_headers)
                 response.raise_for_status()
-                return response
+                return _response_json(response)
 
         try:
-            response = await self.retry_policy.execute_async(
+            result: JSONResponse = await self.retry_policy.execute_async(
                 _make_request, method="PATCH", retry_ambiguous=bool(idempotency_key)
             )
-            result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
@@ -981,11 +999,10 @@ class AsyncAITBCHTTPClient:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.delete(url, params=params, headers=req_headers)
                 response.raise_for_status()
-                return response
+                return _response_json(response)
 
         try:
-            response = await self.retry_policy.execute_async(_make_request, method="DELETE")
-            result = response.json() if response.content else {}
+            result = await self.retry_policy.execute_async(_make_request, method="DELETE")
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:

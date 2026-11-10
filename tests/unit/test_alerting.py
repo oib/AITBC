@@ -85,6 +85,64 @@ class TestAlertRule:
         assert alert.severity == AlertSeverity.INFO
         assert alert.title == "T"
 
+    def test_check_interval_gates_condition_evaluation(self):
+        # SHARED-ALERTING-1 (#1444): check_interval must gate how often the
+        # condition is evaluated, not just feed the manager's sleep.
+        calls = []
+
+        def condition():
+            calls.append(1)
+            return True
+
+        rule = AlertRule(
+            name="interval",
+            condition=condition,
+            severity=AlertSeverity.INFO,
+            title_template="T",
+            message_template="M",
+            source="test",
+            check_interval=3600,
+            cooldown=0,
+        )
+        assert rule.should_fire() is True
+        assert rule.should_fire() is False
+        assert rule.should_fire() is False
+        assert calls == [1]
+
+    def test_check_interval_elapsed_allows_recheck(self):
+        calls = []
+
+        def condition():
+            calls.append(1)
+            return False
+
+        rule = AlertRule(
+            name="interval2",
+            condition=condition,
+            severity=AlertSeverity.INFO,
+            title_template="T",
+            message_template="M",
+            source="test",
+            check_interval=0,
+        )
+        rule.should_fire()
+        rule.should_fire()
+        assert calls == [1, 1]
+
+    def test_fire_ids_unique_within_same_second(self):
+        # SHARED-ALERTING-1 (#1444): same-second fires must not collide.
+        rule = AlertRule(
+            name="dup",
+            condition=lambda: True,
+            severity=AlertSeverity.INFO,
+            title_template="T",
+            message_template="M",
+            source="test",
+            cooldown=0,
+        )
+        ids = {rule.fire().id for _ in range(5)}
+        assert len(ids) == 5
+
 
 class TestAlertManager:
     def test_add_and_remove_rule(self):

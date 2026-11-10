@@ -338,6 +338,19 @@ class TestJsonUtils:
         set_nested_value(data, "a", "b", "c", value="test")
         assert data["a"]["b"]["c"] == "test"
 
+    def test_set_nested_value_clobbers_non_dict_intermediate(self):
+        """SHARED-JSONUTILS-1 (#1441): a non-dict intermediate value is
+        replaced with {} instead of raising TypeError."""
+        for bad in ("scalar", [1, 2], 42):
+            data = {"a": bad}
+            set_nested_value(data, "a", "b", value="test")
+            assert data == {"a": {"b": "test"}}
+
+    def test_set_nested_value_missing_intermediate(self):
+        data = {"a": {}}
+        set_nested_value(data, "a", "b", "c", value="test")
+        assert data == {"a": {"b": {"c": "test"}}}
+
     def test_flatten_json(self):
         """Test flatten_json"""
         data = {"a": {"b": {"c": "value"}}, "d": "simple"}

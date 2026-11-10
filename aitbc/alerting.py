@@ -4,6 +4,7 @@ Alerting and notification system for AITBC applications
 """
 
 import asyncio
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -177,23 +178,35 @@ class AlertRule:
         self.cooldown = cooldown
         self.metadata = metadata or {}
         self.last_fired: datetime | None = None
+        self.last_check: datetime | None = None
         self.enabled = True
 
     def should_fire(self) -> bool:
-        """Check if alert should fire"""
+        """Check if alert should fire.
+
+        ``check_interval`` gates how often ``condition`` is evaluated —
+        previously it only fed ``AlertManager._run_checks``' sleep, so a
+        rule configured for 300s was evaluated on every tick.
+        """
         if not self.enabled:
             return False
+        now = datetime.now(UTC)
+        if self.last_check is not None and (now - self.last_check).total_seconds() < self.check_interval:
+            return False
         if self.last_fired:
-            time_since_last = (datetime.now(UTC) - self.last_fired).total_seconds()
+            time_since_last = (now - self.last_fired).total_seconds()
             if time_since_last < self.cooldown:
                 return False
+        self.last_check = now
         return self.condition()
 
     def fire(self) -> Alert:
         """Create alert from this rule"""
         self.last_fired = datetime.now(UTC)
         return Alert(
-            id=f"{self.name}-{int(datetime.now(UTC).timestamp())}",
+            # Second-resolution ids collided for same-second fires with
+            # cooldown=0; the random suffix keeps ids unique.
+            id=f"{self.name}-{int(self.last_fired.timestamp())}-{secrets.token_hex(4)}",
             severity=self.severity,
             title=self.title_template,
             message=self.message_template,

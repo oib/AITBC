@@ -49,12 +49,18 @@ def get_sessionmaker(engine):
 def get_async_engine(config: DatabaseConfig):
     """Create async SQLAlchemy engine."""
     if config.adapter == "sqlite":
-        # SQLite async uses aiosqlite
-        async_url = config.effective_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+        # SQLite async uses aiosqlite — skip the rewrite when the URL is
+        # already dialect-qualified ("sqlite:///" is a substring of
+        # "sqlite+aiosqlite:///" and would double-prefix the scheme).
+        async_url = config.effective_url
+        if "sqlite+aiosqlite" not in async_url:
+            async_url = async_url.replace("sqlite:///", "sqlite+aiosqlite:///")
         return create_async_engine(async_url, echo=config.db_echo if hasattr(config, "db_echo") else False)
     else:
         # PostgreSQL async uses asyncpg
-        async_url = config.effective_url.replace("postgresql://", "postgresql+asyncpg://")
+        async_url = config.effective_url
+        if "postgresql+asyncpg" not in async_url:
+            async_url = async_url.replace("postgresql://", "postgresql+asyncpg://")
         return create_async_engine(
             async_url,
             pool_size=config.pool_size,
