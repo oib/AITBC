@@ -60,9 +60,10 @@ apps/blockchain-node/src/aitbc_chain/network/discovery.py	_send_discovery_messag
 apps/blockchain-node/src/aitbc_chain/network/health.py	_check_availability	writer.close()	1
 apps/blockchain-node/src/aitbc_chain/network/health.py	_measure_throughput	writer.close()	1
 apps/blockchain-node/src/aitbc_chain/network/nat_traversal.py	_stun_request	sock.close()	1
-apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection	message.get("island_chain_id", "")	1
-apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection	message.get("island_name", "")	1
-apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection	writer.close()	11
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection	writer.close()	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection_inner	message.get("island_chain_id", "")	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection_inner	message.get("island_name", "")	1
+apps/blockchain-node/src/aitbc_chain/p2p_network.py	_handle_inbound_connection_inner	writer.close()	11
 apps/blockchain-node/src/aitbc_chain/p2p_network.py	_listen_to_stream	writer.close()	1
 apps/blockchain-node/src/aitbc_chain/p2p_network.py	stop	self._server.close()	1
 apps/blockchain-node/src/aitbc_chain/p2p_network.py	stop	writer.close()	1

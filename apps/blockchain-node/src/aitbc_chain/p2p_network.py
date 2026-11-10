@@ -74,6 +74,10 @@ class P2PNetworkService:
         self._stop_event = asyncio.Event()
         self.active_connections: dict[str, asyncio.StreamWriter] = {}
         self.connected_endpoints: set[tuple[str, int]] = set()
+        # #1630: inbound connections still in handshake hold an FD but are not
+        # yet in active_connections — count them per source IP so a pre-auth
+        # flood cannot bypass the per-IP/total caps.
+        self._pending_inbound_by_ip: dict[str, int] = {}
         self.public_endpoint: tuple[str, int] | None = None
         self.nat_traversal: NATTraversalService | None = None
         if stun_servers:
@@ -298,9 +302,50 @@ class P2PNetworkService:
         except Exception as e:
             logger.debug("Failed to dial peer %s:%s: %s", host, port, e)
 
+    def _inbound_capacity_ok(self, ip: str) -> bool:
+        """Enforce total + per-source-IP inbound caps (#1630).
+
+        Counts established peers (active_connections writers) plus
+        handshakes still in flight (``_pending_inbound_by_ip``) so neither a
+        completed-mesh flood nor a pre-auth handshake flood can exhaust FDs.
+        """
+        total = len(self.active_connections) + sum(self._pending_inbound_by_ip.values())
+        if total >= settings.p2p_max_connections:
+            return False
+        if ip:
+            established = 0
+            for writer in self.active_connections.values():
+                try:
+                    peer = writer.get_extra_info("peername")
+                except Exception:
+                    peer = None
+                if peer and peer[0] == ip:
+                    established += 1
+            if established + self._pending_inbound_by_ip.get(ip, 0) >= settings.p2p_max_connections_per_ip:
+                return False
+        return True
+
     async def _handle_inbound_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Handle incoming P2P TCP connections from other nodes"""
         addr = writer.get_extra_info("peername")
+        ip = addr[0] if addr else ""
+        if not self._inbound_capacity_ok(ip):
+            logger.warning("Refusing inbound P2P connection from %s: connection cap reached", addr)
+            writer.close()
+            return
+        self._pending_inbound_by_ip[ip] = self._pending_inbound_by_ip.get(ip, 0) + 1
+        try:
+            await self._handle_inbound_connection_inner(reader, writer, addr)
+        finally:
+            remaining = self._pending_inbound_by_ip.get(ip, 1) - 1
+            if remaining > 0:
+                self._pending_inbound_by_ip[ip] = remaining
+            else:
+                self._pending_inbound_by_ip.pop(ip, None)
+
+    async def _handle_inbound_connection_inner(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, addr: Any
+    ) -> None:
         logger.info("Incoming P2P connection from %s", addr)
         try:
             data = await asyncio.wait_for(reader.readline(), timeout=5.0)
@@ -451,10 +496,29 @@ class P2PNetworkService:
     ) -> None:
         """Read loop for an established TCP stream (both inbound and outbound)"""
         addr = endpoint
+        # #1631: bound the read loop. A peer that stops sending must not hold
+        # its active_connections slot forever — peers ping every ~10s, so a
+        # silence longer than the timeout means dead. And well-formed spam is
+        # still spam: a simple token bucket caps messages/second per peer.
+        read_timeout = settings.p2p_stream_read_timeout_seconds
+        rate = settings.p2p_peer_messages_per_second
+        msg_tokens = rate
+        msg_last = asyncio.get_running_loop().time()
         try:
             while not self._stop_event.is_set():
-                data = await reader.readline()
+                try:
+                    data = await asyncio.wait_for(reader.readline(), timeout=read_timeout)
+                except TimeoutError:
+                    logger.info("Peer %s silent for %.0fs; closing stream", peer_id or addr, read_timeout)
+                    break
                 if not data:
+                    break
+                now = asyncio.get_running_loop().time()
+                msg_tokens = min(rate, msg_tokens + (now - msg_last) * rate)
+                msg_last = now
+                msg_tokens -= 1.0
+                if msg_tokens < 0:
+                    logger.warning("Peer %s exceeded %.1f msg/s rate limit; closing stream", peer_id or addr, rate)
                     break
                 try:
                     from .network.compression import decode_payload
