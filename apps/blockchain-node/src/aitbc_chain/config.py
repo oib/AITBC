@@ -170,6 +170,15 @@ class ChainSettings(BaseSettings):
     p2p_bind_host: str = "0.0.0.0"  # nosec B104
     p2p_bind_port: int = 8200
     p2p_node_id: str = ""
+    # Dormant TCP-mesh hardening bounds (#1630/#1631). p2p_network.py is not
+    # deployed (aitbc-blockchain-p2p runs gossip.relay), but its docstring
+    # requires admission parity if it is ever re-enabled — these caps bound
+    # inbound connections (total + per source IP), the post-handshake read
+    # loop (silence timeout = dead-peer reap), and per-peer message rate.
+    p2p_max_connections: int = 64
+    p2p_max_connections_per_ip: int = 8
+    p2p_stream_read_timeout_seconds: float = 300.0
+    p2p_peer_messages_per_second: float = 100.0
 
     contact_email: str = os.getenv("CONTACT_EMAIL", "operator@aitbc.invalid")
 
