@@ -178,6 +178,33 @@ class TestResolve:
         assert ledger.resolve("k1") is False
 
 
+class TestConcurrentBegin:
+    """Two simultaneous ``begin`` calls on one key must produce exactly one
+    EXECUTE — BEGIN IMMEDIATE serializes the check-then-insert (#1417-class
+    guard for the coordinator payments idempotency path)."""
+
+    def test_threads_race_single_execute(self, ledger):
+        import concurrent.futures
+
+        def _begin(_):
+            return ledger.begin("k-race", "op", "h1").status
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            statuses = list(pool.map(_begin, range(8)))
+
+        assert statuses.count(BeginStatus.EXECUTE) == 1, statuses
+        assert all(s in (BeginStatus.EXECUTE, BeginStatus.IN_PROGRESS) for s in statuses)
+
+    @pytest.mark.asyncio
+    async def test_async_race_single_execute(self, ledger):
+        import asyncio
+
+        results = await asyncio.gather(*(ledger.begin_async("k-race-async", "op", "h1") for _ in range(8)))
+        statuses = [r.status for r in results]
+        assert statuses.count(BeginStatus.EXECUTE) == 1, statuses
+        assert all(s in (BeginStatus.EXECUTE, BeginStatus.IN_PROGRESS) for s in statuses)
+
+
 class TestServiceIsolation:
     def test_same_key_different_services(self, db):
         a = OperationLedger(db, service="svc-a")
