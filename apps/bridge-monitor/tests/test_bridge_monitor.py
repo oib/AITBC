@@ -379,7 +379,46 @@ class TestPollLiveness:
 
         assert monitor._poll_fail_streak == 4
         alerts = [r for r in caplog.records if "ALERT" in r.message]
-        assert len(alerts) == 2  # streaks 3 and 4 alert; 1-2 log at error
+        # #1706: the persistent condition alerts once per throttle interval,
+        # not once per failed poll — streaks 3 and 4 share one alert.
+        assert len(alerts) == 1
+        assert "3 consecutive" in alerts[0].message
+
+    def test_poll_failure_alert_throttled_then_realerts_after_recovery(self, monitor, caplog):
+        """#1706: a still-failing streak does not re-alert inside the
+        interval; a recovered-then-failed-again streak alerts immediately."""
+        import logging
+
+        with (
+            patch.object(monitor, "_check_float"),
+            patch.object(monitor, "eth_rpc") as mock_rpc,
+            caplog.at_level(logging.CRITICAL),
+        ):
+            mock_rpc._get_web3.side_effect = RuntimeError("endpoint down")
+            for _ in range(3):
+                monitor.poll_ethereum()
+            first = [r for r in caplog.records if "ALERT" in r.message]
+            assert len(first) == 1
+
+            # Streak keeps growing inside the throttle window — no new ALERT.
+            monitor.poll_ethereum()
+            assert len([r for r in caplog.records if "ALERT" in r.message]) == 1
+
+            # RPC recovers: streak resets and the throttle key clears.
+            mock_rpc._get_web3.side_effect = None
+            mock_rpc._get_web3.return_value.eth.block_number = 100
+            mock_rpc._get_web3.return_value.eth.get_block.return_value = {"transactions": []}
+            monitor.poll_ethereum()
+            assert monitor._poll_fail_streak == 0
+
+            # A fresh outage alerts again on the third failure.
+            mock_rpc._get_web3.side_effect = RuntimeError("endpoint down again")
+            caplog.clear()
+            for _ in range(3):
+                monitor.poll_ethereum()
+            alerts = [r for r in caplog.records if "ALERT" in r.message]
+            assert len(alerts) == 1
+            assert "3 consecutive" in alerts[0].message
 
     def test_success_resets_streak(self, monitor):
         monitor._poll_fail_streak = 5
