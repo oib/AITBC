@@ -2,24 +2,28 @@
 Trading service for managing trading operations
 """
 
+import math
 import os
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import uuid4
 
+from pydantic import ValidationError
 from sqlalchemy import and_, func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from ..domain.trading import (
     NegotiationStatus,
+    SettlementType,
     TradeAgreement,
     TradeMatch,
     TradeNegotiation,
     TradeRequest,
     TradeSettlement,
     TradeStatus,
+    TradeType,
 )
 
 
@@ -81,7 +85,7 @@ _SETTLEMENT_SERVER_FIELDS = frozenset(
     }
 )
 
-# #1562: legacy P2P rows carried expires_at columns with zero readers.
+# #1562/#1608: legacy P2P rows carried expires_at columns with zero readers.
 # The sweep runs lazily on every legacy read path (and once per /v1/transactions
 # fetch) — there is no background sweeper in this service. Rows predating the
 # TTL fallback (NULL expires_at) use created_at + TTL, matching the
@@ -109,6 +113,90 @@ def _utcnow() -> datetime:
     # InterChainTrade); bind a naive UTC value so sqlite comparisons stay
     # lexicographic-correct.
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+def _model_or_value_error(model: type, data: dict[str, Any]):
+    """Build a SQLModel row, mapping pydantic ValidationError to ValueError.
+
+    The legacy routers accept arbitrary JSON dicts; without this the model's
+    ValidationError escaped as an HTTP 500 instead of a client error (#1608).
+    """
+    try:
+        return model(**data)
+    except ValidationError as exc:
+        raise ValueError(str(exc)) from exc
+
+
+def _require_str(data: dict[str, Any], key: str) -> None:
+    value = data.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{key} must be a non-empty string")
+
+
+def _require_enum(data: dict[str, Any], key: str, enum: type) -> None:
+    try:
+        enum(data.get(key))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{key} must be one of {[member.value for member in enum]}") from exc
+
+
+def _require_number(data: dict[str, Any], key: str, low: float, high: float) -> None:
+    value = data.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{key} must be a finite number")
+    if not low <= float(value) <= high:
+        raise ValueError(f"{key} must be between {low} and {high}")
+
+
+def _optional_decimal(data: dict[str, Any], key: str) -> None:
+    if key not in data or data[key] is None:
+        return
+    try:
+        value = Decimal(str(data[key]))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ValueError(f"{key} must be a decimal") from exc
+    if not value.is_finite() or value < 0:
+        raise ValueError(f"{key} must be a finite non-negative decimal")
+
+
+def _validate_request_data(data: dict[str, Any]) -> None:
+    _require_str(data, "buyer_agent_id")
+    _require_enum(data, "trade_type", TradeType)
+    _require_str(data, "title")
+    priority = data.get("priority", 5)
+    if isinstance(priority, bool) or not isinstance(priority, int) or not 1 <= priority <= 10:
+        raise ValueError("priority must be an integer between 1 and 10")
+
+
+def _validate_match_data(data: dict[str, Any]) -> None:
+    for key in ("request_id", "buyer_agent_id", "seller_agent_id"):
+        _require_str(data, key)
+    _require_number(data, "match_score", 0, 100)
+    _require_number(data, "confidence_level", 0, 1)
+    for key in (
+        "price_compatibility",
+        "timing_compatibility",
+        "specification_compatibility",
+        "reputation_compatibility",
+        "geographic_compatibility",
+    ):
+        _require_number(data, key, 0, 100)
+
+
+def _validate_agreement_data(data: dict[str, Any]) -> None:
+    for key in ("negotiation_id", "buyer_agent_id", "seller_agent_id", "title"):
+        _require_str(data, key)
+    _require_enum(data, "trade_type", TradeType)
+    _require_enum(data, "settlement_type", SettlementType)
+    _optional_decimal(data, "total_price")
+
+
+def _validate_settlement_data(data: dict[str, Any]) -> None:
+    for key in ("agreement_id", "buyer_agent_id", "seller_agent_id"):
+        _require_str(data, key)
+    _require_enum(data, "settlement_type", SettlementType)
+    for key in ("total_amount", "platform_fee", "processing_fee", "gas_fee", "net_amount_seller"):
+        _optional_decimal(data, key)
 
 
 class TradingService:
@@ -198,7 +286,8 @@ class TradingService:
         """Create a new trade request"""
         data = {k: v for k, v in request_data.items() if k not in _REQUEST_SERVER_FIELDS}
         data.setdefault("request_id", f"req_{uuid4().hex[:8]}")
-        request = TradeRequest(**data)
+        _validate_request_data(data)
+        request = _model_or_value_error(TradeRequest, data)
         request.status = TradeStatus.OPEN
         self.session.add(request)
         await self.session.commit()
@@ -229,7 +318,8 @@ class TradingService:
         """Create a new trade match"""
         data = {k: v for k, v in match_data.items() if k not in _MATCH_SERVER_FIELDS}
         data.setdefault("match_id", f"match_{uuid4().hex[:8]}")
-        match = TradeMatch(**data)
+        _validate_match_data(data)
+        match = _model_or_value_error(TradeMatch, data)
         match.status = TradeStatus.MATCHING
         self.session.add(match)
         await self.session.commit()
@@ -259,7 +349,8 @@ class TradingService:
         """Create a new trade agreement"""
         data = {k: v for k, v in agreement_data.items() if k not in _AGREEMENT_SERVER_FIELDS}
         data.setdefault("agreement_id", f"agree_{uuid4().hex[:8]}")
-        agreement = TradeAgreement(**data)
+        _validate_agreement_data(data)
+        agreement = _model_or_value_error(TradeAgreement, data)
         agreement.status = TradeStatus.AGREED
         self.session.add(agreement)
         await self.session.commit()
@@ -270,7 +361,8 @@ class TradingService:
         """Create a new trade settlement"""
         data = {k: v for k, v in settlement_data.items() if k not in _SETTLEMENT_SERVER_FIELDS}
         data.setdefault("settlement_id", f"settle_{uuid4().hex[:8]}")
-        settlement = TradeSettlement(**data)
+        _validate_settlement_data(data)
+        settlement = _model_or_value_error(TradeSettlement, data)
         settlement.status = TradeStatus.SETTLING
         self.session.add(settlement)
         await self.session.commit()
