@@ -11,6 +11,8 @@ Provides:
 from __future__ import annotations
 
 import json
+import re
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -20,6 +22,20 @@ import httpx
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
+
+# IPFS-DEPTH-1 (#1582): Kubo pin/add, pin/rm and cat take an *IPFS path* arg,
+# not just a bare CID — "ipfs/<cid>", "/ipfs/<cid>" or ".." segments can reach
+# repo objects outside the DAG. Only bare CIDs (alphanumeric base32/base58/
+# base36 spellings) are accepted; anything with a separator is refused before
+# it reaches the daemon.
+_CID_ARG_RE = re.compile(r"[A-Za-z0-9]{1,256}")
+
+
+def _validate_cid_arg(cid: str) -> str:
+    """Return ``cid`` if it is a bare CID-shaped arg, else raise ValueError."""
+    if not isinstance(cid, str) or not _CID_ARG_RE.fullmatch(cid):
+        raise ValueError(f"Invalid CID argument: {cid!r}")
+    return cid
 
 
 @dataclass
@@ -63,11 +79,17 @@ class IPFSClient:
         pinning_service: str | None = None,
         pinning_key: str | None = None,
         session: Any = None,
+        public_gateway_fallback: bool = False,
     ) -> None:
         self.api_url = api_url.rstrip("/")
         self.gateway_url = gateway_url.rstrip("/")
         self.pinning_service = pinning_service
         self.pinning_key = pinning_key
+        # IPFS-DEPTH-1 (#1582): fetching through the public ipfs.io gateway
+        # leaks every retrieved CID to a third party. It stays available only
+        # as an explicit opt-in for nodes whose content lives on the public
+        # swarm; the default is local-Kubo ``cat`` only.
+        self.public_gateway_fallback = public_gateway_fallback
         self._client = httpx.AsyncClient(timeout=60.0, limits=httpx.Limits(max_connections=100, max_keepalive_connections=20))
         self._available: bool | None = None
 
@@ -162,8 +184,21 @@ class IPFSClient:
             return False
 
     async def get_content(self, cid: str) -> bytes | None:
-        """Retrieve content from IPFS by CID"""
-        if cid.startswith("Qm") and len(cid) == 46:
+        """Retrieve content from IPFS by CID via the local Kubo node.
+
+        ``/api/v0/cat`` resolves CIDv0 and CIDv1 and never leaves the island
+        swarm. The public gateway is only consulted when
+        ``public_gateway_fallback`` was explicitly enabled — every fallback
+        fetch would otherwise hand the CID to ipfs.io.
+        """
+        cid = _validate_cid_arg(cid)
+        try:
+            response = await self._client.post(f"{self.api_url}/api/v0/cat", params={"arg": cid}, timeout=30.0)
+            if response.status_code == 200:
+                return response.content
+        except Exception as e:
+            logger.debug("Could not fetch CID %s from local IPFS node: %s", cid, e)
+        if self.public_gateway_fallback:
             try:
                 response = await self._client.get(f"{self.gateway_url}/ipfs/{cid}", timeout=30.0, follow_redirects=True)
                 if response.status_code == 200:
@@ -174,6 +209,7 @@ class IPFSClient:
 
     async def pin_cid(self, cid: str, name: str = "") -> bool:
         """Pin an existing CID to the local node"""
+        cid = _validate_cid_arg(cid)
         if not await self.check_availability():
             return False
         try:
@@ -185,6 +221,7 @@ class IPFSClient:
 
     async def unpin_cid(self, cid: str) -> bool:
         """Unpin a CID from the local node"""
+        cid = _validate_cid_arg(cid)
         if not await self.check_availability():
             return False
         try:
@@ -250,17 +287,53 @@ class IPFSService:
     - Agent memory upload/retrieve/batch/delete
     """
 
+    # IPFS-DEPTH-1 (#1582): unbounded pin/upload let any caller fill the Kubo
+    # repo and leak memory in the process-lifetime registries below.
+    DEFAULT_MAX_MEMORY_BYTES = 4 * 1024 * 1024
+    DEFAULT_REGISTRY_MAX = 10_000
+    DEFAULT_MAX_BATCH_MEMORIES = 50
+    DEFAULT_MAX_TAGS = 32
+
     def __init__(self, session: Any = None) -> None:
         # Accept either a DB session (legacy) or a config dict (router pattern)
         if isinstance(session, dict):
             config = session
             api_url = config.get("ipfs_url", "http://localhost:5001")
-            self.client = IPFSClient(api_url=api_url)
+            self.client = IPFSClient(
+                api_url=api_url,
+                public_gateway_fallback=bool(config.get("ipfs_public_gateway_fallback", False)),
+            )
+            self._max_memory_bytes = int(config.get("ipfs_max_memory_bytes", self.DEFAULT_MAX_MEMORY_BYTES))
+            self._registry_max = int(config.get("ipfs_registry_max", self.DEFAULT_REGISTRY_MAX))
+            self._max_batch_memories = int(config.get("ipfs_max_batch_memories", self.DEFAULT_MAX_BATCH_MEMORIES))
         else:
             self.client = IPFSClient()
-        self._uploads: dict[str, IPFSUploadResult] = {}
-        self._memories: dict[str, tuple[dict[str, Any], MemoryMetadata]] = {}
+            self._max_memory_bytes = self.DEFAULT_MAX_MEMORY_BYTES
+            self._registry_max = self.DEFAULT_REGISTRY_MAX
+            self._max_batch_memories = self.DEFAULT_MAX_BATCH_MEMORIES
+        # OrderedDict LRU registries — bounded so a long-lived coordinator
+        # cannot grow them without limit (#1582).
+        self._uploads: OrderedDict[str, IPFSUploadResult] = OrderedDict()
+        self._memories: OrderedDict[str, tuple[dict[str, Any], MemoryMetadata]] = OrderedDict()
         self.session = session if not isinstance(session, dict) else None
+
+    def _remember_upload(self, key: str, result: IPFSUploadResult) -> None:
+        self._uploads[key] = result
+        self._uploads.move_to_end(key)
+        while len(self._uploads) > self._registry_max:
+            self._uploads.popitem(last=False)
+
+    def _remember_memory(self, cid: str, data: dict[str, Any], metadata: MemoryMetadata) -> None:
+        self._memories[cid] = (data, metadata)
+        self._memories.move_to_end(cid)
+        while len(self._memories) > self._registry_max:
+            self._memories.popitem(last=False)
+
+    def _owned_cids(self) -> set[str]:
+        """CIDs this service instance uploaded — the only ones delete may unpin."""
+        owned = set(self._memories)
+        owned.update(r.cid for r in self._uploads.values() if r.cid)
+        return owned
 
     async def initialize(self) -> None:
         """Initialize the service — check IPFS node availability."""
@@ -270,7 +343,7 @@ class IPFSService:
         """Store AI job result on IPFS"""
         data = json.dumps(result_data, indent=2).encode("utf-8")
         result = await self.client.upload_file(data=data, filename=f"job_{job_id}_result.json", pin=True)
-        self._uploads[job_id] = result
+        self._remember_upload(job_id, result)
         logger.info("Job result stored on IPFS: %s -> %s", job_id, result.cid)
         return result
 
@@ -299,9 +372,13 @@ class IPFSService:
         Serializes the memory dict as JSON and uploads it via the IPFS client.
         Raises RuntimeError if IPFS node is unavailable (no mock CIDs).
         """
-        tags = tags or []
+        tags = (tags or [])[: self.DEFAULT_MAX_TAGS]
         raw = json.dumps(memory_data, indent=2).encode("utf-8")
         size = len(raw)
+        if size > self._max_memory_bytes:
+            raise ValueError(
+                f"memory_data serializes to {size} bytes, exceeding the {self._max_memory_bytes}-byte per-upload cap"
+            )
         # Compression is handled by IPFS natively; we track the original size
         result = await self.client.upload_file(
             data=raw,
@@ -315,7 +392,7 @@ class IPFSService:
             tags=tags,
             integrity_hash=result.cid,
         )
-        self._memories[result.cid] = (memory_data, metadata)
+        self._remember_memory(result.cid, memory_data, metadata)
         return MemoryUploadResult(
             cid=result.cid,
             size=size,
@@ -353,6 +430,8 @@ class IPFSService:
         batch_size: int = 10,
     ) -> list[MemoryUploadResult]:
         """Upload multiple memories in batches."""
+        if len(memories) > self._max_batch_memories:
+            raise ValueError(f"batch of {len(memories)} memories exceeds the {self._max_batch_memories}-memory cap")
         results: list[MemoryUploadResult] = []
         for i in range(0, len(memories), batch_size):
             batch = memories[i : i + batch_size]
@@ -387,7 +466,18 @@ class IPFSService:
         return cids
 
     async def delete_memory(self, cid: str) -> bool:
-        """Delete/unpin a memory from IPFS."""
+        """Delete/unpin a memory from IPFS.
+
+        IPFS-DEPTH-1 (#1582): only CIDs this service instance uploaded may be
+        unpinned — the shared Kubo node also holds pins owned by other
+        tenants (store_job_result, store_evidence, provider rentals), and an
+        unscoped ``pin/rm`` was a cross-tenant destruction primitive. A CID
+        outside the upload registries returns False (404 at the router); the
+        operator path for daemon-side pins remains ``ipfs pin rm``.
+        """
+        if cid not in self._owned_cids():
+            logger.warning("Refusing to unpin CID %s: not uploaded via this service", cid)
+            return False
         success = await self.client.unpin_cid(cid)
         if success:
             self._memories.pop(cid, None)
