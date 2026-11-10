@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
@@ -57,6 +58,21 @@ class MinerRegisterRequest(BaseModel):
         # positive minimum in /v1/match; negatives and Inf are storable too.
         if not math.isfinite(v) or v < 0:
             raise ValueError("hardware sizes must be finite and non-negative")
+        return v
+
+    @field_validator("wallet_address")
+    @classmethod
+    def _valid_wallet_address(cls, v: str | None) -> str | None:
+        # #1570: wallet_address is stored verbatim and later used as the
+        # payout transaction's `to`. A malformed value is only discovered
+        # at chain-submit time, where the failed payout row then wedges
+        # the epoch's UNIQUE(miner_id, chain_id, epoch) claim forever.
+        # Blank means "no wallet" (same as None downstream).
+        if v is None or not v.strip():
+            return None
+        v = v.strip()
+        if not re.fullmatch(r"0x[0-9a-fA-F]{40}", v):
+            raise ValueError("wallet_address must be '0x' followed by 40 hex characters")
         return v
 
 
