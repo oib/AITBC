@@ -14755,6 +14755,18 @@
             }
           },
           {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -15339,6 +15351,18 @@
             }
           },
           {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -15811,6 +15835,18 @@
         "operationId": "get_production_dashboard_v1_agents_integration_production_dashboard_get",
         "parameters": [
           {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -15872,6 +15908,18 @@
         "description": "Get overall production health status",
         "operationId": "get_production_health_v1_agents_integration_production_health_get",
         "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
           {
             "name": "Authorization",
             "in": "header",
