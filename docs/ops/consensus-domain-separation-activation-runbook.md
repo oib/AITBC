@@ -122,10 +122,14 @@ the new record kinds cleanly (additive-tolerant).
 | L4 mixed-version | mesh, sandbox-only (E, CARD6) | T20, T13 (if armed) | One node on pre-impl build, pin H → bounded liveness degradation, no safety violation; per-node SHA+flags+raw journals recorded. |
 | Activation soak | fleet | all | Post-pin watch points above clean through H and window close. |
 
-Skipped-matrix dependencies (must land before their legs can run):
-T7a/T14 unconditional round auth; T11/T12 proposer emission gate +
-pin-expiry ruling; T13/T18w dual-accept window; T15 130 s shared lapse
-constant; T19 AD disposition; T20 mesh leg.
+Matrix status (post-impl, 2026-11-10): T13/T18w dual-accept, T15 130 s
+shared lapse constant, and T7a/T14 unconditional round auth have landed;
+T11/T12 proposer emission gate + pin-expiry and T19 same-key rotation
+remain AD-pending; T20 is E's L4 mixed-version mesh leg (CARD6). L0–L3
+mesh legs evidenced on `aitbc-drill2-*` (see #1298 ledger,
+`evidence/1298-mesh-L2L3-20261110/`); the `attestation_signed.json`
+domain-key persist defect found there is fixed (`cc3ec1f62`) and
+verified live (`evidence/1298-persistfix-verify-20261110/`).
 
 ## Evidence capture format
 
