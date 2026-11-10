@@ -73,10 +73,6 @@ class TestAddFeedback:
         assert payload["job_id"] == "job-1"
         assert payload["tokens_spent"] is None
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="Decimal tokens_spent breaks json.dumps inside the swallowed try — publish is silently skipped; fix tracked in #1394",
-    )
     async def test_publish_with_tokens_spent_reaches_redis(self, session, redis):
         repo = FeedbackRepository(session, redis)
         await repo.add_feedback(

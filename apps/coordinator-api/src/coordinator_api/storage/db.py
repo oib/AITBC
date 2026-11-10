@@ -77,14 +77,14 @@ def init_db() -> Engine:
 def session_scope() -> Generator[Session]:
     """Context manager for database sessions."""
     engine = get_engine()
-    with Session(engine) as session:
+    with Session(engine, expire_on_commit=False) as session:
         yield session
 
 
 def get_session() -> Generator[Session]:
     """Get a database session."""
     engine = get_engine()
-    with Session(engine) as session:
+    with Session(engine, expire_on_commit=False) as session:
         yield session
 
 
@@ -127,14 +127,14 @@ async def get_async_engine() -> AsyncEngine:
 async def async_session_scope() -> AsyncGenerator[AsyncSession]:
     """Async context manager for database sessions."""
     engine = await get_async_engine()
-    async with AsyncSession(engine) as session:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session
 
 
 async def get_async_session() -> AsyncSession:
     """Get an async database session."""
     engine = await get_async_engine()
-    return async_sessionmaker(engine)()
+    return async_sessionmaker(engine, expire_on_commit=False)()
 
 
 async def init_async_db() -> None:

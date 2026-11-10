@@ -28,6 +28,7 @@ from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.crypto.signature_recovery import canonical_address  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.utils.json_utils import to_jsonable  # noqa: E402
 from aitbc.market import OfferStatus  # noqa: E402
 from aitbc.market.job_request_signature import verify_jobs_request_signature  # noqa: E402
 from aitbc.utils.chain_id import resolve_chain_id  # noqa: E402
@@ -359,7 +360,9 @@ async def get_offer(offer_id: str, svc: Annotated[MarketService, Depends(get_mar
             logger.info("GET /v1/market/offers/%s: not found", offer_id)
             return JSONResponse(status_code=404, content={"error": "Offer not found"})
         logger.info("GET /v1/market/offers/%s returned an offer", offer_id)
-        return result
+        # to_jsonable: the raw SQLModel would be float-cast by
+        # jsonable_encoder on its Decimal price columns (#1635).
+        return to_jsonable(result.model_dump(mode="python"))
     except Exception as e:
         logger.error("Error in GET /v1/market/offers/%s: %s: %s", offer_id, type(e).__name__, str(e))
         raise
@@ -542,9 +545,13 @@ async def create_offer(
             return early
         result = await svc.create_offer(offer_data)
         logger.info("POST /v1/market/offers created offer with id: %s", result.id)
+        # to_jsonable keeps Decimal prices exact — the raw model would be
+        # float-cast by jsonable_encoder (#1635). The ledger stores the same
+        # encoding so replay matches the live response.
+        response_body = to_jsonable(result.model_dump(mode="python"))
         if key:
-            await _get_operations_ledger().complete_async(key, attempt, jsonable_encoder(result))
-        return result
+            await _get_operations_ledger().complete_async(key, attempt, response_body)
+        return response_body
     except ValueError as e:
         # Only reachable from the status validation the service now does: a request naming a
         # state this service does not have. 400 rather than the 500 that splatting the body
@@ -599,7 +606,7 @@ async def get_market_overview(svc: Annotated[MarketService, Depends(get_market_s
         "status": "operational",
         "total_offers": len(offers),
         "active_offers": len(active_offers),
-        "average_price_per_hour": avg_price,
+        "average_price_per_hour": str(avg_price),
         "regions": list({o.get("region", "unknown") for o in active_offers}),
         "service_types": list({o.get("service_type", "unknown") for o in active_offers}),
         "timestamp": svc.get_current_timestamp(),
@@ -616,7 +623,13 @@ async def get_offer_history(offer_id: str, svc: Annotated[MarketService, Depends
     history = {
         "offer_id": offer_id,
         "created_at": offer.created_at,
-        "price_history": [{"price": offer.price_per_hour, "timestamp": offer.created_at, "reason": "initial_listing"}],
+        "price_history": [
+            {
+                "price": str(offer.price_per_hour) if offer.price_per_hour is not None else None,
+                "timestamp": offer.created_at,
+                "reason": "initial_listing",
+            }
+        ],
         "booking_count": 0,
         "total_revenue": 0,
         "last_booked": None,
@@ -741,8 +754,10 @@ async def calculate_dynamic_pricing(
     suggested_price = base_price * Decimal(str(price_multiplier))
     return {
         "offer_id": offer_id,
-        "base_price": base_price,
-        "suggested_price": suggested_price,
+        # str(Decimal): price fields must not be float-cast by
+        # jsonable_encoder (#1635).
+        "base_price": str(base_price) if base_price else "0",
+        "suggested_price": str(suggested_price),
         "price_multiplier": price_multiplier,
         "supply_demand_ratio": supply_demand_ratio,
         "current_demand": current_demand,

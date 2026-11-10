@@ -4,10 +4,65 @@ Centralized JSON loading, saving, and manipulation
 """
 
 import json
+from datetime import date, datetime, time
+from decimal import Decimal
+from enum import Enum
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from ..exceptions import ConfigurationError
+
+
+def json_default(value: Any) -> Any:
+    """Shared ``json.dumps`` ``default`` hook for non-JSON-native types.
+
+    The single convention for lossy-free serialization (#1585/#1635):
+
+    - ``Decimal`` → ``str`` — exact, matches the offer/bridge wire format
+      (never a binary float for money)
+    - ``datetime``/``date``/``time`` → ``isoformat()``
+    - ``UUID`` → ``str``
+    - ``Enum`` → its ``.value``
+    - ``bytes``/``bytearray`` → UTF-8 decode (``errors="replace"``)
+    - ``set``/``frozenset`` → ``list``
+    - anything else → ``str(value)`` (same fallback as ``default=str``)
+
+    Use as ``json.dumps(payload, default=json_default)`` or feed
+    ``to_jsonable()`` output to ``httpx json=``/ORM JSON columns.
+    """
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, datetime | date | time):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, bytes | bytearray):
+        return bytes(value).decode("utf-8", errors="replace")
+    if isinstance(value, set | frozenset):
+        return list(value)
+    return str(value)
+
+
+def to_jsonable(value: Any) -> Any:
+    """Recursively convert ``value`` into JSON-column/transport-safe types.
+
+    Companion to :func:`json_default` for callers that need the converted
+    object itself (SQLAlchemy JSON columns, ``httpx json=`` payloads,
+    response dicts) rather than a ``default=`` hook. Handles dicts, lists,
+    tuples, sets and the scalar types listed on :func:`json_default`.
+    """
+    if isinstance(value, dict):
+        return {k: to_jsonable(v) for k, v in value.items()}
+    if isinstance(value, list | tuple | set | frozenset):
+        return [to_jsonable(v) for v in value]
+    if isinstance(value, Decimal | datetime | date | time | UUID | Enum):
+        return json_default(value)
+    if isinstance(value, bytes | bytearray):
+        return bytes(value).decode("utf-8", errors="replace")
+    return value
 
 
 def load_json(path: Path) -> dict[str, Any]:

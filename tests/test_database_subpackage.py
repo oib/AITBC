@@ -762,7 +762,7 @@ class TestPoolingFunctions:
         session = create_pooled_sessionmaker(mock_engine, autoflush=False, autocommit=False)
 
         assert session == mock_session
-        mock_sessionmaker.assert_called_once_with(bind=mock_engine, autoflush=False, autocommit=False)
+        mock_sessionmaker.assert_called_once_with(bind=mock_engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
     @patch("aitbc.database.pooling.create_async_engine")
     def test_create_async_pooled_engine_sqlite(self, mock_create_async_engine, tmp_path):

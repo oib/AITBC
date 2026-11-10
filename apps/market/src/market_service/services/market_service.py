@@ -295,7 +295,10 @@ def _gpu_offer_to_service_dict(offer: dict[str, Any], chain_id: str | None, hub_
         "plugin_id": offer.get("gpu_id", offer.get("id", "unknown")),
         "service_type": "gpu_market",
         "model": offer.get("model", "unknown"),
-        "price": Decimal(str(offer.get("price_per_hour"))),
+        # str(Decimal): these dicts go straight to HTTP responses — a bare
+        # Decimal is float-cast by FastAPI's jsonable_encoder, losing
+        # precision on a public price field (#1635).
+        "price": str(Decimal(str(offer.get("price_per_hour")))),
         "price_unit": "per_hour",
         "offer_id": offer.get("gpu_id", "unknown"),
         "endpoint": None,
@@ -335,7 +338,7 @@ def _local_offer_dict(s: "SoftwareService") -> dict[str, Any]:
         "plugin_id": s.plugin_id,
         "service_type": s.service_type,
         "model": s.model,
-        "price": s.price,
+        "price": str(s.price),
         "price_unit": s.price_unit,
         "offer_id": s.offer_id,
         "endpoint": _sanitize_endpoint(s.endpoint),
@@ -442,7 +445,9 @@ class MarketService:
                             "id": offer.id,
                             "provider": offer.provider,
                             "capacity": offer.capacity,
-                            "price": offer.price,
+                            # str(Decimal): public price fields must not be
+                            # float-cast by jsonable_encoder (#1635).
+                            "price": str(offer.price),
                             "sla": offer.sla,
                             "status": offer.status,
                             "created_at": offer.created_at.isoformat() if offer.created_at else None,
@@ -451,7 +456,7 @@ class MarketService:
                             "gpu_memory_gb": offer.gpu_memory_gb,
                             "gpu_count": offer.gpu_count,
                             "cuda_version": offer.cuda_version,
-                            "price_per_hour": offer.price_per_hour,
+                            "price_per_hour": str(offer.price_per_hour) if offer.price_per_hour is not None else None,
                             "region": offer.region,
                             "chain_id": offer.chain_id,
                         }
@@ -592,7 +597,7 @@ class MarketService:
             "period_type": period_type,
             "total_offers": total_offers,
             "total_capacity": total_capacity,
-            "average_price": Decimal(avg_price).quantize(Decimal("0.01")) if avg_price else Decimal("0"),
+            "average_price": str(Decimal(avg_price).quantize(Decimal("0.01"))) if avg_price else "0",
         }
 
     async def list_plugins(self, plugin_type: str | None = None, status: str = "approved") -> list[dict[str, Any]]:
@@ -1554,7 +1559,7 @@ class MarketService:
                 "plugin_id": service.plugin_id,
                 "service_type": service.service_type,
                 "model": service.model,
-                "price": service.price,
+                "price": str(service.price),
                 "price_unit": service.price_unit,
                 "offer_id": service.offer_id,
                 "endpoint": service.endpoint,

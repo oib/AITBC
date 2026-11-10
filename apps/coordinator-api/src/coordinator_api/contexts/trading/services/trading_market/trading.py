@@ -11,6 +11,7 @@ from uuid import uuid4
 from sqlmodel import Session, or_, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.json_utils import to_jsonable
 
 from ...domain.trading import (
     NegotiationStatus,
@@ -32,22 +33,12 @@ def _json_safe(value: Any) -> Any:
 
     Trade JSON columns (seller_offer/proposed_terms/current_terms/...) must
     not receive datetime/Decimal objects — SQLAlchemy's JSON type raises
-    TypeError on commit (#1326). Decimal serializes as str to preserve
-    precision (no-float-money); datetime/date as ISO strings.
+    TypeError on commit (#1326). Delegates to the shared encoder
+    (``aitbc.utils.json_utils.to_jsonable``, #1585): Decimal serializes as
+    str to preserve precision (no-float-money); datetime/date as ISO
+    strings; UUID/Enum/bytes/sets handled the same way fleet-wide.
     """
-    if isinstance(value, dict):
-        return {k: _json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple, set)):
-        return [_json_safe(v) for v in value]
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, datetime):
-        return value.isoformat()
-    import datetime as _dt
-
-    if isinstance(value, _dt.date):
-        return value.isoformat()
-    return value
+    return to_jsonable(value)
 
 
 class MatchingEngine:
