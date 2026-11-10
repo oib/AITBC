@@ -337,6 +337,8 @@ None/0. — do not rely on it.
 | `reason` | – | Free-text rationale |
 | ~~`voting_power`~~ | ignored | Server derives it from on-chain balance/stake |
 
+Votes are only accepted while the proposal is `active` **and** inside its voting window (`voting_starts` ≤ now ≤ `voting_ends`, UTC). A vote before the window opens or after it closes is rejected — late weight cannot change a tally `close` has already computed.
+
 > The field name is `vote_type` end-to-end — including inside a hand-crafted `GOVERNANCE_VOTE` transaction payload. A payload carrying `vote` instead is admitted to the mempool, drained by the proposer, and skipped with no error surfaced to the submitter (bc-2 live sweep, 28 Oct).
 
 **Response:**
