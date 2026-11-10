@@ -606,6 +606,45 @@ describe("AgentStaking Security Tests", function () {
       ).to.be.revertedWith("Invalid nonce");
     });
 
+    it("should not consume the oracle nonce on a failed signature", async function () {
+      // #1472: the nonce and rate-limit timestamp are only advanced after
+      // the signature verifies. A bad signature must not burn the oracle's
+      // nonce -- otherwise anyone could invalidate the oracle's next update
+      // by submitting one malformed call first.
+      const accuracy = 85;
+      const successful = true;
+      const nonce = await agentStaking.oracleNonces(oracle.address);
+      const block = await ethers.provider.getBlock("latest");
+      const timestamp = block.timestamp;
+
+      // A signature that does not recover to the oracle (attacker signs the
+      // same typed data).
+      const badSignature = await signPerformanceUpdate(
+        attacker, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy, successful, timestamp, nonce, badSignature
+        )
+      ).to.be.revertedWith("Invalid signature");
+
+      // The nonce and the rate-limit clock are untouched by the failure.
+      expect(await agentStaking.oracleNonces(oracle.address)).to.equal(nonce);
+      expect(await agentStaking.lastPerformanceUpdateTime(agentWallet.address)).to.equal(0);
+
+      // The oracle's real update with the SAME nonce still succeeds.
+      const goodSignature = await signPerformanceUpdate(
+        oracle, agentStaking, agentWallet.address, accuracy, successful, timestamp, nonce
+      );
+      await expect(
+        agentStaking.connect(oracle).updateAgentPerformanceWithSignature(
+          agentWallet.address, accuracy, successful, timestamp, nonce, goodSignature
+        )
+      ).to.emit(agentStaking, "PerformanceUpdateWithSignature");
+      expect(await agentStaking.oracleNonces(oracle.address)).to.equal(nonce + 1n);
+    });
+
     it("should enforce time delay for performance updates", async function () {
       // First update should succeed
       await agentStaking.connect(oracle).updateAgentPerformance(

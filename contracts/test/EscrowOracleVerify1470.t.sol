@@ -248,4 +248,36 @@ contract EscrowOracleVerify1470Test is Test {
         vm.expectRevert("Condition not met");
         escrow.releaseEscrow(id, "manual");
     }
+
+    /// #1470 residual (bbf317d05): the single-oracle branch has no per-oracle
+    /// hasVerified latch, so verifyCondition can be called repeatedly. The
+    /// first met verdict stamps finalVerificationTime once; a repeat call
+    /// must NOT push the deferred release out — otherwise a second verdict
+    /// would postpone release indefinitely.
+    function test_SingleOracleStampNotExtendedByRepeatVerify() public {
+        uint256 id = _createOracleEscrow();
+        vm.prank(depositor);
+        escrow.setReleaseCondition(id, keccak256("perf"), oracle1, "perf met?");
+        address[] memory empty = new address[](0);
+        escrow.assignMultipleOracles(id, empty);
+
+        vm.prank(oracle1);
+        escrow.verifyCondition(id, true, 90);
+        (,, uint256 firstStamp) = _cond(id);
+        assertEq(firstStamp, block.timestamp);
+
+        // A second verdict before the delay elapses must not move the stamp.
+        vm.warp(block.timestamp + 30 minutes);
+        vm.prank(oracle1);
+        escrow.verifyCondition(id, true, 95);
+        (,, uint256 secondStamp) = _cond(id);
+        assertEq(secondStamp, firstStamp, "repeat verify must not re-stamp");
+
+        // Release opens at firstStamp + delay — anchored to the FIRST
+        // verdict, not the repeat call.
+        vm.warp(firstStamp + escrow.oracleVerificationDelay());
+        vm.prank(depositor);
+        escrow.releaseEscrow(id, "manual");
+        assertEq(token.balanceOf(beneficiary), AMOUNT);
+    }
 }
