@@ -33,6 +33,13 @@ router = APIRouter(tags=["exchange"])
 _state = RedisStateManager.get_instance_sync()
 _NAMESPACE = "exchange"
 
+# Payments are stored one key per document with this TTL (#1533): hash
+# fields cannot expire individually, and the previous single-hash layout
+# grew forever while /exchange/market-stats HGETALL'd all of it per call.
+# 7 days covers the 1h pending window plus a generous status-poll/audit
+# grace; market-stats counts therefore reflect the retained window.
+PAYMENT_RECORD_TTL_SECONDS = 7 * 24 * 60 * 60
+
 # ETH configuration
 ETH_CONFIG: dict[str, Any] = {
     "testnet": True,
@@ -79,8 +86,8 @@ async def create_payment(
         "tx_hash": None,
     }
 
-    # Store payment
-    await _state.hset(_NAMESPACE, payment_id, payment)
+    # Store payment (per-key doc with TTL — see PAYMENT_RECORD_TTL_SECONDS)
+    await _state.set_doc(_NAMESPACE, payment_id, payment, ttl=PAYMENT_RECORD_TTL_SECONDS)
 
     # Start payment monitoring in background
     background_tasks.add_task(monitor_payment, payment_id)
@@ -94,14 +101,14 @@ async def create_payment(
 async def get_payment_status(request: Request, payment_id: str) -> dict[str, Any]:
     """Get payment status"""
 
-    payment = await _state.hget(_NAMESPACE, payment_id)
+    payment = await _state.get_doc(_NAMESPACE, payment_id)
     if payment is None:
         raise HTTPException(status_code=404, detail="Payment not found")
 
     # Check if expired
     if payment["status"] == "pending" and time.time() > payment["expires_at"]:
         payment["status"] = "expired"
-        await _state.hset(_NAMESPACE, payment_id, payment)
+        await _state.set_doc(_NAMESPACE, payment_id, payment, ttl=PAYMENT_RECORD_TTL_SECONDS)
 
     return payment
 
@@ -141,7 +148,9 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
     current_time = int(time.time())
     yesterday_time = current_time - 24 * 60 * 60  # 24 hours ago
 
-    all_payments = (await _state.hgetall(_NAMESPACE)).values()
+    # SCAN-bounded enumeration of the TTL'd payment docs (#1533) — replaces
+    # the unbounded HGETALL of the whole exchange hash.
+    all_payments = (await _state.docs(_NAMESPACE)).values()
 
     daily_volume = 0
     for payment in all_payments:
@@ -171,14 +180,14 @@ async def monitor_payment(payment_id: str) -> None:
     import asyncio
 
     while True:
-        payment = await _state.hget(_NAMESPACE, payment_id)
+        payment = await _state.get_doc(_NAMESPACE, payment_id)
         if payment is None:
             break
 
         # Check if expired
         if payment["status"] == "pending" and time.time() > payment["expires_at"]:
             payment["status"] = "expired"
-            await _state.hset(_NAMESPACE, payment_id, payment)
+            await _state.set_doc(_NAMESPACE, payment_id, payment, ttl=PAYMENT_RECORD_TTL_SECONDS)
             break
 
         # In production, check blockchain for payment
