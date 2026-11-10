@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from ....auth import AdminDep
 from ..services.oracle_service import get_oracle_service
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/oracle", tags=["oracle"])
 
@@ -82,6 +83,7 @@ async def get_all_prices(request: Request) -> dict[str, Any]:
 
 
 @router.post("/price", summary="Set price (admin)")
+@rate_limit(rate=30, per=60)
 async def set_price(request: Request, req: SetPriceRequest, user: AdminDep) -> dict[str, Any]:
     """
     Set price for a trading pair (admin function).
@@ -101,7 +103,7 @@ async def set_price(request: Request, req: SetPriceRequest, user: AdminDep) -> d
 
 
 @router.get("/health", summary="Health check")
-async def oracle_health(request: Request) -> dict[str, Any]:
+def oracle_health(request: Request) -> dict[str, Any]:
     """Check oracle service health"""
     return {"status": "healthy", "service": "oracle"}
 

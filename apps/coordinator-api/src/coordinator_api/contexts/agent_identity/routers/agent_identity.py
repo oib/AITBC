@@ -8,8 +8,9 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.rate_limiting import rate_limit
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
@@ -69,11 +70,14 @@ def _require_address_or_admin(session: Session, user: dict[str, Any], address: A
 
 
 @router.post("/identities", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def create_agent_identity(
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> JSONResponse:
     """Create a new agent identity with cross-chain mappings"""
     _require_address_or_admin(session, user, request.get("owner_address"))
@@ -143,12 +147,15 @@ async def get_agent_identity(
 
 
 @router.put("/identities/{agent_id}", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def update_agent_identity(
     agent_id: str,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Update agent identity and related components"""
     _require_owned_identity(session, agent_id, user)
@@ -164,12 +171,15 @@ async def update_agent_identity(
 
 
 @router.post("/identities/{agent_id}/deactivate", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def deactivate_agent_identity(
     agent_id: str,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Deactivate an agent identity across all chains"""
     _require_owned_identity(session, agent_id, user)
@@ -189,12 +199,15 @@ async def deactivate_agent_identity(
 
 
 @router.post("/identities/{agent_id}/cross-chain/register", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def register_cross_chain_identity(
     agent_id: str,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Register cross-chain identity mappings"""
     _require_owned_identity(session, agent_id, user)
@@ -243,6 +256,7 @@ async def get_cross_chain_mapping(
 
 
 @router.put("/identities/{agent_id}/cross-chain/{chain_id}", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def update_cross_chain_mapping(
     agent_id: str,
     chain_id: int,
@@ -250,6 +264,8 @@ async def update_cross_chain_mapping(
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Update cross-chain mapping for a specific chain"""
     _require_owned_identity(session, agent_id, user)
@@ -279,6 +295,7 @@ async def update_cross_chain_mapping(
 
 
 @router.post("/identities/{agent_id}/cross-chain/{chain_id}/verify", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def verify_cross_chain_identity(
     agent_id: str,
     chain_id: int,
@@ -286,6 +303,8 @@ async def verify_cross_chain_identity(
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Verify identity on a specific blockchain"""
     _require_address_or_admin(session, user, request.get("verifier_address"))
@@ -319,12 +338,15 @@ async def verify_cross_chain_identity(
 
 
 @router.post("/identities/{agent_id}/migrate", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def migrate_agent_identity(
     agent_id: str,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Migrate agent identity from one chain to another"""
     _require_owned_identity(session, agent_id, user)
@@ -341,12 +363,15 @@ async def migrate_agent_identity(
 
 
 @router.post("/identities/{agent_id}/wallets", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_agent_wallet(
     agent_id: str,
     request: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Create an agent wallet on a specific blockchain"""
     _require_owned_identity(session, agent_id, user)
@@ -386,6 +411,7 @@ async def get_wallet_balance(
 
 
 @router.post("/identities/{agent_id}/wallets/{chain_id}/transactions", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def execute_wallet_transaction(
     agent_id: str,
     chain_id: int,
@@ -393,6 +419,8 @@ async def execute_wallet_transaction(
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Execute a transaction from agent wallet"""
     _require_owned_identity(session, agent_id, user)
@@ -467,12 +495,15 @@ async def get_all_agent_wallets(
 
 
 @router.post("/identities/{agent_id}/wallets/{chain_id}/export", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 def export_agent_wallet(
     agent_id: str,
     chain_id: int,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Export agent wallet data for backup or migration"""
     _require_owned_identity(session, agent_id, user)
@@ -512,12 +543,15 @@ def export_agent_wallet(
 
 
 @router.delete("/identities/{agent_id}/wallets/{chain_id}", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 def delete_agent_wallet(
     agent_id: str,
     chain_id: int,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Delete an agent wallet"""
     _require_owned_identity(session, agent_id, user)
@@ -554,6 +588,7 @@ def delete_agent_wallet(
 
 
 @router.post("/identities/{agent_id}/wallets/{chain_id}/sign", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 def sign_message(
     agent_id: str,
     chain_id: int,
@@ -561,6 +596,8 @@ def sign_message(
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Sign a message with agent wallet.
 
@@ -578,11 +615,14 @@ def sign_message(
 
 
 @router.post("/identities/{agent_id}/sync-reputation", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def sync_agent_reputation(
     agent_id: str,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Sync agent reputation across all chains"""
     _require_owned_identity(session, agent_id, user)
@@ -629,12 +669,15 @@ def get_supported_chains(
 
 
 @router.post("/identities/{agent_id}/export", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def export_agent_identity(
     agent_id: str,
     request: dict[str, Any] | None,
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Export agent identity data for backup or migration"""
     _require_owned_identity(session, agent_id, user)
@@ -647,11 +690,14 @@ async def export_agent_identity(
 
 
 @router.post("/identities/import", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def import_agent_identity(
     export_data: dict[str, Any],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Import agent identity data from backup or migration"""
     _require_address_or_admin(session, user, (export_data.get("identity") or {}).get("owner_address"))
@@ -663,10 +709,13 @@ async def import_agent_identity(
 
 
 @router.post("/registry/cleanup-expired", response_model=dict[str, Any])
+@rate_limit(rate=30, per=60)
 async def cleanup_expired_verifications(
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Clean up expired verification records"""
     if user.get("role") != "admin":
@@ -679,11 +728,14 @@ async def cleanup_expired_verifications(
 
 
 @router.post("/identities/batch-verify", response_model=list[dict[str, Any]])
+@rate_limit(rate=30, per=60)
 async def batch_verify_identities(
     verifications: list[dict[str, Any]],
     manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> list[dict[str, Any]]:
     """Batch verify multiple identities"""
     wallets = _caller_wallets(session, user)
@@ -736,11 +788,14 @@ async def resolve_address_to_agent(
 
 
 @router.post("/identities/{agent_id}/spend-sessions", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_spend_session(
     agent_id: str,
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Owner issues a scoped spend session for an agent."""
     identity = _require_owned_identity(session, agent_id, user)
@@ -800,11 +855,14 @@ async def list_spend_sessions(
 
 
 @router.post("/identities/{agent_id}/spend-sessions/{session_id}/revoke", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def revoke_spend_session(
     agent_id: str,
     session_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     _require_owned_identity(session, agent_id, user)
     svc = SpendSessionService(session)

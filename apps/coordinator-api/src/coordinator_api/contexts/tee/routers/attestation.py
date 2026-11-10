@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -12,6 +12,7 @@ from ....auth import AuthDep
 from ....config import settings
 from ....storage import get_session
 from ..attestation import EnclaveIdentity, EnclaveOwnershipError, EnclaveStatus, TEEAttestation, TEEAttestationService
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(tags=["tee"], prefix="/tee")
 
@@ -43,9 +44,12 @@ class EnclaveRegister(BaseModel):
 
 
 @router.post("/attestations", response_model=TEEAttestation, status_code=status.HTTP_201_CREATED)
+@rate_limit(rate=30, per=60)
 def submit_attestation(
     payload: AttestationSubmit,
     service: Annotated[TEEAttestationService, Depends(_get_service)],
+    *,
+    request: Request,
 ) -> TEEAttestation:
     """Submit and verify a TEE attestation quote.
 
@@ -75,10 +79,13 @@ def get_attestation(
 
 
 @router.post("/enclaves", response_model=EnclaveIdentity, status_code=status.HTTP_201_CREATED)
+@rate_limit(rate=30, per=60)
 def register_enclave(
     payload: EnclaveRegister,
     service: Annotated[TEEAttestationService, Depends(_get_service)],
     user: AuthDep,
+    *,
+    request: Request,
 ) -> EnclaveIdentity:
     """Register or update an enclave identity.
 

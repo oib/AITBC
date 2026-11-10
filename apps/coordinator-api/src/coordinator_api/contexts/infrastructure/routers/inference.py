@@ -21,6 +21,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from aitbc.network import SharedHttpClient
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/inference", tags=["inference"])
 
@@ -60,6 +61,7 @@ class ModelInfo(BaseModel):
 
 
 @router.post("/generate", summary="Generate text")
+@rate_limit(rate=20, per=60)
 async def generate(request: Request, req: InferenceRequest) -> dict[str, Any]:
     """
     Generate text using an AI model via Ollama.
@@ -102,6 +104,7 @@ async def generate(request: Request, req: InferenceRequest) -> dict[str, Any]:
 
 
 @router.post("/generate/stream", summary="Generate text (streaming)")
+@rate_limit(rate=20, per=60)
 async def generate_stream(request: Request, req: InferenceRequest):
     """
     Generate text with streaming response.
@@ -145,6 +148,7 @@ async def generate_stream(request: Request, req: InferenceRequest):
 
 
 @router.post("/batch", summary="Batch inference")
+@rate_limit(rate=20, per=60)
 async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[str, Any]:
     """
     Run inference on multiple prompts in batch.
@@ -226,6 +230,7 @@ async def list_models(request: Request) -> dict[str, Any]:
 
 
 @router.post("/models/{model_name}/pull", summary="Pull model")
+@rate_limit(rate=10, per=60)
 async def pull_model(request: Request, model_name: str) -> dict[str, Any]:
     """Pull a model from Ollama registry"""
     try:

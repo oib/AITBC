@@ -14,8 +14,9 @@ from coordinator_api.contexts.infrastructure.services.redis_state import RedisSt
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import parse_rate_limit, rate_limit
 
+from ....config import settings
 from ....schemas import (
     ExchangePaymentRequest,
     ExchangePaymentResponse,
@@ -51,7 +52,7 @@ ETH_CONFIG: dict[str, Any] = {
 
 
 @router.post("/exchange/create-payment", response_model=ExchangePaymentResponse)
-@rate_limit(rate=20, per=60)
+@rate_limit(*parse_rate_limit(settings.rate_limit_exchange_payment))
 async def create_payment(
     request: Request, payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks
 ) -> dict[str, Any]:
@@ -184,8 +185,15 @@ async def monitor_payment(payment_id: str) -> None:
         if payment is None:
             break
 
+        # Any terminal status ends the watch — previously only 'pending'
+        # expiry or a vanished row broke the loop, so a payment confirmed
+        # (or failed) by another path polled Redis every 30s forever,
+        # leaking one task per payment (#1602).
+        if payment.get("status") != "pending":
+            break
+
         # Check if expired
-        if payment["status"] == "pending" and time.time() > payment["expires_at"]:
+        if time.time() > payment["expires_at"]:
             payment["status"] = "expired"
             await _state.set_doc(_NAMESPACE, payment_id, payment, ttl=PAYMENT_RECORD_TTL_SECONDS)
             break

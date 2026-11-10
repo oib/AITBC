@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from ....auth import require_auth
 from ....storage import get_session
 from ..hipaa import ConsentRecord, HIPAAComplianceService, PHIAccessLog
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(tags=["compliance", "hipaa"], prefix="/hipaa", dependencies=[Depends(require_auth)])
 
@@ -36,9 +37,12 @@ class RightToDelete(BaseModel):
 
 
 @router.post("/consent", response_model=ConsentRecord, status_code=status.HTTP_201_CREATED)
+@rate_limit(rate=20, per=60)
 def grant_consent(
     payload: ConsentGrant,
     service: Annotated[HIPAAComplianceService, Depends(_get_service)],
+    *,
+    request: Request,
 ) -> ConsentRecord:
     """Record patient consent for a specific purpose."""
     return service.grant_consent(
@@ -50,9 +54,12 @@ def grant_consent(
 
 
 @router.post("/consent/{consent_id}/revoke", response_model=ConsentRecord)
+@rate_limit(rate=20, per=60)
 def revoke_consent(
     consent_id: str,
     service: Annotated[HIPAAComplianceService, Depends(_get_service)],
+    *,
+    request: Request,
 ) -> ConsentRecord:
     """Revoke an existing consent record."""
     try:
@@ -62,12 +69,15 @@ def revoke_consent(
 
 
 @router.post("/phi/access", response_model=PHIAccessLog, status_code=status.HTTP_201_CREATED)
+@rate_limit(rate=20, per=60)
 def access_phi(
     subject_id: str,
     actor_id: str,
     resource_id: str,
     purpose: str,
     service: Annotated[HIPAAComplianceService, Depends(_get_service)],
+    *,
+    request: Request,
 ) -> PHIAccessLog:
     """Request access to PHI; denied if consent is missing or revoked."""
     from aitbc.compliance.errors import PolicyViolationError
@@ -79,10 +89,13 @@ def access_phi(
 
 
 @router.post("/phi/delete", response_model=list[PHIAccessLog], status_code=status.HTTP_201_CREATED)
+@rate_limit(rate=20, per=60)
 def right_to_delete(
     payload: RightToDelete,
     subject_id: str,
     service: Annotated[HIPAAComplianceService, Depends(_get_service)],
+    *,
+    request: Request,
 ) -> list[PHIAccessLog]:
     """Process a patient right-to-delete request."""
     return service.right_to_delete(subject_id, payload.actor_id)

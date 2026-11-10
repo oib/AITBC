@@ -9,7 +9,7 @@ from sqlmodel import Session, col, select
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import parse_rate_limit, rate_limit
 from aitbc_shared import JobPayment
 
 from ....auth import AdminDep  # NEW: JWT auth
@@ -101,7 +101,7 @@ def create_test_miner(
 
 
 @router.get("/stats", summary="Get coordinator stats")
-@rate_limit(rate=100, per=60)
+@rate_limit(*parse_rate_limit(settings.rate_limit_admin_stats))
 @cached(**get_cache_config("job_list"))
 def get_stats(
     request: Request,
@@ -444,6 +444,7 @@ async def auto_adjudicate_disputes(
 
 
 @router.post("/payments/{job_id}/retry-release", summary="Reset and retry a terminally blocked escrow release")
+@rate_limit(rate=20, per=60)
 async def retry_release(
     request: Request,
     job_id: str,

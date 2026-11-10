@@ -45,7 +45,7 @@
             }
           },
           "403": {
-            "description": "invalid_identity_proof / identity_address and identity_proof are required when AGENT_MSG_SIGNATURE_MODE=enforce",
+            "description": "invalid_identity_nonce / invalid_identity_proof / identity_address and identity_proof are required when AGENT_MSG_SIGNATURE_MODE=enforce",
             "content": {
               "application/json": {
                 "schema": {
@@ -398,7 +398,7 @@
             }
           },
           "403": {
-            "description": "invalid_rotation_timestamp / stale_rotation_timestamp / invalid_identity_proof / invalid_rotation_proof",
+            "description": "invalid_identity_nonce / invalid_rotation_timestamp / stale_rotation_timestamp / invalid_identity_proof / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -909,6 +909,16 @@
               }
             }
           },
+          "403": {
+            "description": "Invalid signed_at / Stale caller signature / Caller signature does not match escrow provider / Provider signature required (signature + signed_at, or agent_signature + timestamp + nonce)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No escrow found for task",
             "content": {
@@ -987,6 +997,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid signed_at / Stale caller signature / Caller signature does not match escrow provider / Provider signature required (signature + signed_at, or agent_signature + timestamp + nonce)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1856,6 +1876,26 @@
               }
             }
           },
+          "401": {
+            "description": "agent authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "agent_mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Message {message_id} not found",
             "content": {
@@ -1927,6 +1967,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "agent authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "agent_mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6375,6 +6435,16 @@
               }
             }
           },
+          "401": {
+            "description": "Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Coin request {req.request_id} is already registered with different terms",
             "content": {
@@ -6449,6 +6519,16 @@
           },
           "400": {
             "description": "Insufficient genesis balance: {balance} < {total_required}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing API key",
             "content": {
               "application/json": {
                 "schema": {

@@ -92,6 +92,28 @@ class TaskRegistry:
         with self._lock:
             self._tasks.clear()
 
+    def track(self, task: asyncio.Task[Any], *, name: str) -> asyncio.Task[Any]:
+        """Adopt an already-created task for status reporting and ``cancel_all``.
+
+        Used by ``create_task_with_logging`` for fire-and-forget spawns that
+        bypass ``create_task`` (which takes a callable, not a coroutine
+        object). Without this, those tasks were invisible to shutdown
+        cancellation (#1602). Done tasks are pruned once the registry grows
+        past ``_TRACK_PRUNE_THRESHOLD`` so high-frequency per-request spawns
+        cannot grow it without bound. If a live task is already registered
+        under ``name``, the new task is left untracked rather than evicting
+        the cancellable one.
+        """
+        with self._lock:
+            if len(self._tasks) > _TRACK_PRUNE_THRESHOLD:
+                self._tasks = {n: t for n, t in self._tasks.items() if not t.done()}
+            existing = self._tasks.get(name)
+            if existing is not None and not existing.done():
+                logger.debug("Task %s already tracked; new task left untracked", name)
+                return task
+            self._tasks[name] = task
+        return task
+
     def get_status(self) -> dict[str, str]:
         """Get status of all tracked tasks."""
         with self._lock:
@@ -113,6 +135,10 @@ class TaskRegistry:
 # Global registry for convenience (use per-module registry for isolation)
 _global_registry = TaskRegistry()
 
+# Prune done tasks from the global registry once it grows past this size so
+# per-request fire-and-forget spawns cannot leak entries forever (#1602).
+_TRACK_PRUNE_THRESHOLD = 512
+
 
 def get_global_registry() -> TaskRegistry:
     """Get the global task registry."""
@@ -124,7 +150,9 @@ def create_task_with_logging(coro: Any, *, name: str) -> asyncio.Task[Any]:
 
     Unlike ``TaskRegistry.create_task`` (which takes a callable), this
     accepts a coroutine object — matching the ``asyncio.create_task``
-    signature — and adds a done-callback that logs any unhandled exception.
+    signature — adds a done-callback that logs any unhandled exception,
+    and registers the task with the global ``TaskRegistry`` so shutdown
+    paths that call ``cancel_all`` can stop it (#1602).
 
     Use this for services that don't have a ``TaskRegistry`` instance but
     still need error visibility for background tasks.
@@ -153,4 +181,7 @@ def create_task_with_logging(coro: Any, *, name: str) -> asyncio.Task[Any]:
             logger.error("Background task %s failed: %s", name, exc, exc_info=exc)
 
     task.add_done_callback(_log_exception)
+    # Register with the global registry so lifespan shutdown can cancel
+    # these tasks instead of letting them write after close_async_db (#1602).
+    _global_registry.track(task, name=name)
     return task

@@ -180,6 +180,28 @@ def _get_rate_limit_key(request: Request | None, key_func: Callable[[Request], s
     return _client_ip_for_rate_limit(request)
 
 
+_RATE_LIMIT_PERIOD_SECONDS = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
+
+
+def parse_rate_limit(value: str) -> tuple[int, int]:
+    """Parse a ``"<count>/<unit>"`` limit string into ``rate_limit()`` arguments.
+
+    Accepts the slowapi-style strings used by the ``rate_limit_*`` settings
+    (e.g. ``"100/minute"``) and returns ``(rate, per_seconds)``. Raises
+    ``ValueError`` on malformed input so a bad env value fails loudly at
+    startup instead of silently disabling a limit.
+    """
+    try:
+        count_s, unit = value.strip().split("/", 1)
+        rate = int(count_s)
+        per = _RATE_LIMIT_PERIOD_SECONDS[unit.strip().lower()]
+    except (ValueError, KeyError) as e:
+        raise ValueError(f"Invalid rate limit {value!r}: expected '<count>/<second|minute|hour|day>'") from e
+    if rate <= 0:
+        raise ValueError(f"Invalid rate limit {value!r}: count must be positive")
+    return rate, per
+
+
 def rate_limit(
     rate: int = 100,
     per: int = 60,

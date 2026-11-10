@@ -238,6 +238,11 @@ def _scan(fn: Any, found: dict[int, ErrorResponse], _depth: int = 0) -> None:
     raise sites count toward the route. Helpers are scanned at `_depth == 1`, so calls
     they make are never followed -- the descent is exactly one level.
     """
+    # Route endpoints are typically decorator wrappers (@rate_limit et al.);
+    # functools.wraps links back via __wrapped__ but leaves __globals__ pointing
+    # at the decorator's module, which would hide same-module private helpers
+    # (#1601: newly throttled routes lost their documented error responses).
+    fn = inspect.unwrap(fn)
     tree = _source_tree(fn)
     if tree is None:
         return

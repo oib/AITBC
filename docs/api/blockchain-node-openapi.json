@@ -2815,7 +2815,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -2877,7 +2877,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -2987,7 +2987,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -8749,6 +8749,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -8958,6 +8968,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -9057,6 +9077,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -9119,6 +9149,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9230,6 +9270,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9438,6 +9488,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -9490,6 +9550,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9584,6 +9654,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -9645,6 +9725,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10212,7 +10302,17 @@
             }
           },
           "400": {
-            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / Quoted amount {expected_units} is below min_amount {min_amount_units} (slippage protection)",
+            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / {field} is required (integer compute-units) / {field} must be integer compute-units (1 AIT = 36,000,000 units) / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signature required for cross-chain lock",
             "content": {
               "application/json": {
                 "schema": {
@@ -10223,6 +10323,16 @@
           },
           "500": {
             "description": "Swap locked on-chain but the swap record could not be stored; reconcile using the X-Transfer-Id header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -10279,6 +10389,16 @@
           },
           "404": {
             "description": "Swap not found: {swap_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -10365,6 +10485,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10414,7 +10544,27 @@
             }
           },
           "400": {
-            "description": "source_chain, target_chain, token, sender and recipient are required / Source and target chains must be different",
+            "description": "source_chain, target_chain, token, sender and recipient are required / Source and target chains must be different / {field} is required (integer compute-units) / {field} must be integer compute-units (1 AIT = 36,000,000 units) / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signature required for cross-chain lock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -10478,6 +10628,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10525,6 +10685,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Cross Chain Stats Rpc Cross Chain Stats Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14645,7 +14815,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -14707,7 +14877,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -14817,7 +14987,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -20579,6 +20749,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -20788,6 +20968,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -20887,6 +21077,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -20949,6 +21149,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21060,6 +21270,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21268,6 +21488,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -21320,6 +21550,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -21414,6 +21654,16 @@
               }
             }
           },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Bridge module not available",
             "content": {
@@ -21475,6 +21725,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chain '{chain_id}' not in supported_chains (allowed: {get_supported_chains()})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22042,7 +22302,17 @@
             }
           },
           "400": {
-            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / Quoted amount {expected_units} is below min_amount {min_amount_units} (slippage protection)",
+            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / {field} is required (integer compute-units) / {field} must be integer compute-units (1 AIT = 36,000,000 units) / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signature required for cross-chain lock",
             "content": {
               "application/json": {
                 "schema": {
@@ -22053,6 +22323,16 @@
           },
           "500": {
             "description": "Swap locked on-chain but the swap record could not be stored; reconcile using the X-Transfer-Id header",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -22109,6 +22389,16 @@
           },
           "404": {
             "description": "Swap not found: {swap_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -22195,6 +22485,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -22244,7 +22544,27 @@
             }
           },
           "400": {
-            "description": "source_chain, target_chain, token, sender and recipient are required / Source and target chains must be different",
+            "description": "source_chain, target_chain, token, sender and recipient are required / Source and target chains must be different / {field} is required (integer compute-units) / {field} must be integer compute-units (1 AIT = 36,000,000 units) / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Signature required for cross-chain lock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -22308,6 +22628,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -22355,6 +22685,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Cross Chain Stats V1 Cross Chain Stats Get"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Cross-chain bridge not initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

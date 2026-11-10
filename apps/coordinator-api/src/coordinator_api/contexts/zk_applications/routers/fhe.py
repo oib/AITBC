@@ -11,11 +11,12 @@ import base64
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from pydantic import BaseModel, Field
 
 from ....auth import AuthDep
 from ..services.fhe_service import EncryptedData, FHEService, FHEContext
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/fhe", tags=["fhe"])
 
@@ -131,7 +132,8 @@ def _context_response(context_id: str, context: FHEContext) -> dict[str, Any]:
 
 
 @router.post("/context/generate", summary="Generate FHE context")
-async def generate_context(req: GenerateContextRequest, current_user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def generate_context(req: GenerateContextRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Generate a new FHE encryption context with keys."""
     _ensure_available()
     try:
@@ -148,7 +150,8 @@ async def generate_context(req: GenerateContextRequest, current_user: AuthDep) -
 
 
 @router.post("/encrypt", summary="Encrypt data")
-async def encrypt_data(req: EncryptRequest, current_user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def encrypt_data(req: EncryptRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Encrypt plaintext data using FHE."""
     _ensure_available()
     if req.context_id not in _contexts:
@@ -165,7 +168,8 @@ async def encrypt_data(req: EncryptRequest, current_user: AuthDep) -> dict[str, 
 
 
 @router.post("/decrypt", summary="Decrypt data")
-async def decrypt_data(req: DecryptRequest, current_user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def decrypt_data(req: DecryptRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Decrypt FHE-encrypted data."""
     _ensure_available()
     if req.encrypted_id not in _encrypted:
@@ -179,7 +183,8 @@ async def decrypt_data(req: DecryptRequest, current_user: AuthDep) -> dict[str, 
 
 
 @router.post("/add", summary="Homomorphic addition")
-async def homomorphic_add(req: HomomorphicOpRequest, current_user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def homomorphic_add(req: HomomorphicOpRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Perform homomorphic addition: E(a) + E(b) = E(a + b)."""
     _ensure_available()
     if req.context_id not in _contexts:
@@ -196,7 +201,8 @@ async def homomorphic_add(req: HomomorphicOpRequest, current_user: AuthDep) -> d
 
 
 @router.post("/multiply-scalar", summary="Homomorphic scalar multiplication")
-async def homomorphic_multiply(req: HomomorphicOpRequest, current_user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def homomorphic_multiply(req: HomomorphicOpRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Perform homomorphic multiplication by scalar: E(a) * s = E(a*s)."""
     _ensure_available()
     if req.context_id not in _contexts:
@@ -213,7 +219,8 @@ async def homomorphic_multiply(req: HomomorphicOpRequest, current_user: AuthDep)
 
 
 @router.post("/inference", summary="Encrypted inference")
-async def encrypted_inference(req: InferenceRequest, current_user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=30, per=60)
+def encrypted_inference(req: InferenceRequest, current_user: AuthDep, *, request: Request) -> dict[str, Any]:
     """Perform ML inference on encrypted data."""
     _ensure_available()
     if req.context_id not in _contexts:
@@ -228,7 +235,7 @@ async def encrypted_inference(req: InferenceRequest, current_user: AuthDep) -> d
 
 
 @router.get("/context/{context_id}", summary="Get context info")
-async def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, Any]:
+def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, Any]:
     """Get information about an FHE context."""
     _ensure_available()
     if context_id not in _contexts:
@@ -237,7 +244,7 @@ async def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, 
 
 
 @router.get("/health", summary="Health check")
-async def fhe_health(current_user: AuthDep) -> dict[str, Any]:
+def fhe_health(current_user: AuthDep) -> dict[str, Any]:
     """Check FHE service health."""
     providers = _get_service().list_providers()
     try:

@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.exc import OperationalError
@@ -26,6 +26,7 @@ from aitbc.market.energy_pricing import (
 )
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units, units_to_ait
+from aitbc.rate_limiting import rate_limit
 from aitbc_shared import JobPayment
 
 from ....auth import AuthDep, MinerDep
@@ -426,10 +427,13 @@ def _build_energy_quote(
 
 
 @router.post("/market/gpu/register")
+@rate_limit(rate=30, per=60)
 def register_gpu(
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Register a GPU in the market."""
     gpu_specs = request.get("gpu", {})
@@ -519,9 +523,12 @@ def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session
 
 
 @router.post("/market/gpu/quote")
+@rate_limit(rate=30, per=60)
 def quote_gpu(
     request: GPUQuoteRequest,
     session: Annotated[Session, Depends(get_session)],
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.
 
@@ -632,11 +639,14 @@ def quote_gpu(
 
 
 @router.post("/market/gpu/purchase")
+@rate_limit(rate=20, per=60)
 async def buy_gpu(
     request: GPUBuyRequest,
     session: Annotated[Session, Depends(get_session)],
     engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Buy GPU compute from market with blockchain payment and AI job scheduling."""
     # #1075: the purchase must belong to the caller — a body-supplied buyer_id
@@ -940,7 +950,10 @@ async def buy_gpu(
 
 
 @router.post("/market/gpu/sell")
-def sell_gpu(request: GPUSellRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+def sell_gpu(
+    request: GPUSellRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep, *, http_request: Request
+) -> dict[str, Any]:
     """List GPU for sale on market with specified price."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
     if gpu.miner_id != user.get("sub"):
@@ -963,12 +976,15 @@ def sell_gpu(request: GPUSellRequest, session: Annotated[Session, Depends(get_se
 
 
 @router.post("/market/gpu/{gpu_id}/book", status_code=http_status.HTTP_201_CREATED)
+@rate_limit(rate=30, per=60)
 async def book_gpu(
     gpu_id: str,
     request: GPUBookRequest,
     session: Annotated[Session, Depends(get_session)],
     engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Book a GPU with dynamic pricing."""
     gpu = await run_in_threadpool(_get_gpu_or_404, session, gpu_id)
@@ -1033,7 +1049,10 @@ async def book_gpu(
 
 
 @router.post("/market/gpu/{gpu_id}/release")
-def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)], user: AuthDep) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+def release_gpu(
+    gpu_id: str, session: Annotated[Session, Depends(get_session)], user: AuthDep, *, request: Request
+) -> dict[str, Any]:
     """Release a booked GPU."""
     gpu = _get_gpu_or_404(session, gpu_id)
     _expire_stale_booking(session, gpu)
@@ -1064,11 +1083,14 @@ def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)], 
 
 
 @router.post("/market/gpu/{gpu_id}/confirm")
+@rate_limit(rate=20, per=60)
 def confirm_gpu_booking(
     gpu_id: str,
     request: GPUConfirmRequest,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Confirm a booking (client ACK)."""
     gpu = _get_gpu_or_404(session, gpu_id)
@@ -1100,10 +1122,13 @@ def confirm_gpu_booking(
 
 
 @router.post("/tasks/ollama")
+@rate_limit(rate=30, per=60)
 async def submit_ollama_task(
     request: OllamaTaskRequest,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Submit an Ollama inference task to the persistent Redis queue."""
     await run_in_threadpool(_get_gpu_or_404, session, request.gpu_id)
@@ -1123,8 +1148,9 @@ async def submit_ollama_task(
 
 
 @router.post("/payments/send")
+@rate_limit(rate=20, per=60)
 async def send_payment(
-    request: PaymentRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep
+    request: PaymentRequest, session: Annotated[Session, Depends(get_session)], user: AuthDep, *, http_request: Request
 ) -> dict[str, Any]:
     """Record a real payment for a task or booking and return its actual status."""
     if request.amount <= 0:
@@ -1186,11 +1212,14 @@ async def send_payment(
 
 
 @router.delete("/market/gpu/{gpu_id}")
+@rate_limit(rate=20, per=60)
 def delete_gpu(
     gpu_id: str,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
     force: bool = Query(default=False, description="Force delete even if GPU is booked"),
+    *,
+    request: Request,
 ) -> dict[str, Any]:
     """Delete (unregister) a GPU from the market."""
     gpu = _get_gpu_or_404(session, gpu_id)
@@ -1246,11 +1275,14 @@ def get_gpu_reviews(
 
 
 @router.post("/market/gpu/{gpu_id}/reviews", status_code=http_status.HTTP_201_CREATED)
+@rate_limit(rate=30, per=60)
 def add_gpu_review(
     gpu_id: str,
     request: GPUReviewRequest,
     session: Annotated[Session, Depends(get_session)],
     user: AuthDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Add a review for a GPU."""
     try:
@@ -1454,10 +1486,13 @@ async def get_pricing(
 
 
 @router.post("/market/native-energy/profile", status_code=http_status.HTTP_201_CREATED)
+@rate_limit(rate=30, per=60)
 def register_native_energy_profile(
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Register or update an AIT-native energy profile for a GPU resource."""
     data = request.get("profile") or request
@@ -1510,10 +1545,13 @@ def register_native_energy_profile(
 
 
 @router.post("/market/native-energy/rate")
+@rate_limit(rate=30, per=60)
 def publish_native_energy_rate(
     request: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
     user: MinerDep,
+    *,
+    http_request: Request,
 ) -> dict[str, Any]:
     """Publish or update the global AIT/EUR rate for native energy quotes."""
     data = request.get("rate") or request
