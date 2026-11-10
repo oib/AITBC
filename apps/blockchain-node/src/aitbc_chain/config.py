@@ -1694,6 +1694,46 @@ def legacy_attestation_dual_accept_open(height: int | None, cfg: ChainSettings =
     return activation <= height < until
 
 
+def bridge_header_signature_domains(height: int | None, channel: str, cfg: ChainSettings = settings) -> list[str | None]:
+    """#1521: preimages a bridge proof's header-message signatures may verify under.
+
+    Bridge proofs carry the sealed block's consensus signature plus validator
+    attestations over the same canonical header message. Since #1298 those
+    are domain-separated at/above ``consensus_domain_separation_height``:
+    the proposer signature lives under ``DOMAIN_BLOCK_PROPOSAL`` and
+    validator attestations under ``DOMAIN_BLOCK_ATTESTATION`` — inside the
+    bounded dual-accept window legacy attestation preimages still verify.
+    Below the activation height, or while it is unset, only the legacy
+    preimage is valid — byte-identical to pre-#1298 behaviour.
+
+    ``channel`` is ``"proposal"`` (the block's own signature — hard cutover,
+    no dual-accept, mirroring consensus) or ``"attestation"`` (validator
+    signatures — dual-accept inside the window, mirroring consensus).
+    ``None`` entries mean the legacy shared preimage.
+    """
+    from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION, DOMAIN_BLOCK_PROPOSAL
+
+    activation = cfg.consensus_domain_separation_height
+    if activation is None or height is None or height < activation:
+        return [None]
+    if channel == "proposal":
+        return [DOMAIN_BLOCK_PROPOSAL]
+    domains: list[str | None] = [DOMAIN_BLOCK_ATTESTATION]
+    if legacy_attestation_dual_accept_open(height, cfg):
+        domains.append(None)
+    return domains
+
+
+def bridge_header_signing_domain(height: int | None, channel: str, cfg: ChainSettings = settings) -> str | None:
+    """#1521: the single domain a NEW bridge-proof signature at ``height`` mints under.
+
+    Returns ``None`` for the legacy shared preimage (pre-activation), else the
+    channel's domain tag — ``DOMAIN_BLOCK_PROPOSAL`` for the block signature
+    slot, ``DOMAIN_BLOCK_ATTESTATION`` for validator signature slots.
+    """
+    return bridge_header_signature_domains(height, channel, cfg)[0]
+
+
 def is_block_producer(cfg: ChainSettings = settings) -> bool:
     """Whether this node produces blocks — hub mode or a configured PBFT validator.
 
