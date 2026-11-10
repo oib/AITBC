@@ -64,7 +64,34 @@ class InterChainTradeService:
         price: Decimal = Decimal("0"),
         quantity: int = 0,
     ) -> InterChainTrade:
-        """Create a new inter-chain trade."""
+        """Create a new inter-chain trade.
+
+        #1553: a retried create with identical terms replays the existing
+        pending trade instead of stacking a duplicate that could reach
+        escrow/settlement twice. The natural key is the full term set —
+        two genuinely different trades differ in at least one field.
+        """
+        now = _utcnow_naive()
+        existing_stmt = select(InterChainTrade).where(
+            InterChainTrade.status == "pending",  # type: ignore[arg-type]
+            InterChainTrade.source_chain == source_chain,
+            InterChainTrade.dest_chain == dest_chain,
+            InterChainTrade.sender == sender,
+            InterChainTrade.recipient == recipient,
+            InterChainTrade.amount == amount,
+            InterChainTrade.offer_id == offer_id,
+            InterChainTrade.price == price,
+            InterChainTrade.quantity == quantity,
+            or_(  # type: ignore[operator]
+                InterChainTrade.expires_at.is_(None),  # type: ignore[union-attr]
+                InterChainTrade.expires_at > now,  # type: ignore[operator]
+            ),
+        )
+        existing = (await self.session.execute(existing_stmt)).scalars().first()
+        if existing is not None:
+            logger.info("Replaying existing inter-chain trade %s for identical create", existing.trade_id)
+            return existing
+
         trade = InterChainTrade(
             source_chain=source_chain,
             dest_chain=dest_chain,
