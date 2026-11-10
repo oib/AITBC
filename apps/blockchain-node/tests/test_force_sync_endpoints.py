@@ -156,9 +156,13 @@ async def test_export_chain_filters_records_by_chain_id(isolated_engine, mock_re
         )
         session.commit()
 
-    result = rpc_sync.export_chain(mock_request, chain_id="chain-a")
+    # export_chain returns a JSONResponse with the body already serialized
+    # (single-serialization fix, #1506) — decode it for assertions.
+    response = rpc_sync.export_chain(mock_request, chain_id="chain-a")
+    result = json.loads(response.body)
 
     assert result["success"] is True
+    assert isinstance(result["export_size_bytes"], int) and result["export_size_bytes"] > 0
     assert result["export_data"]["chain_id"] == "chain-a"
     assert [block["height"] for block in result["export_data"]["blocks"]] == [0, 1]
     assert {block["chain_id"] for block in result["export_data"]["blocks"]} == {"chain-a"}

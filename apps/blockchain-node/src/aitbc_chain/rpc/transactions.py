@@ -663,13 +663,21 @@ def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict
 @rate_limit(rate=10, per=60)
 def match_market(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Return active market listings that could be matched against bids."""
+    from ..config import settings
+
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
+        # Bounded candidate window (#1511): every confirmed GPU_MARKET row
+        # ever used to be hydrated per call. Newest N rows only — a cancel or
+        # `replaces` older than the window can no longer hide an in-window
+        # listing, the documented trade-off of settings.market_scan_max_rows.
         offers = session.exec(
             select(Transaction)
             .where(Transaction.chain_id == chain_id)
             .where(Transaction.type == "GPU_MARKET")
             .where(Transaction.status == "confirmed")
+            .order_by(Transaction.id.desc())  # type: ignore[union-attr]
+            .limit(max(1, settings.market_scan_max_rows))
         ).all()
         # Only a seller's own cancel or `replaces` hides a listing (M-1).
         withdrawn = withdrawn_listing_ids((tx.id, tx.sender, tx.payload or {}) for tx in offers)
