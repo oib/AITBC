@@ -59,10 +59,17 @@ describe("Phase 4 Modular Smart Contracts - Basic Tests", function () {
     it("Should register and retrieve contracts", async function () {
       const testContractId = ethers.keccak256(ethers.toUtf8Bytes("TestContract"));
 
-      await contractRegistry.registerContract(testContractId, user1.address);
+      // The registry rejects EOAs (NoCodeAtAddress, #1122) — register a
+      // deployed stub instead of the user1 signer address.
+      const MockVerifier = await ethers.getContractFactory("MockVerifier");
+      const stub = await MockVerifier.deploy();
+      await stub.waitForDeployment();
+      const stubAddress = await stub.getAddress();
+
+      await contractRegistry.registerContract(testContractId, stubAddress);
 
       const retrievedAddress = await contractRegistry.getContract(testContractId);
-      expect(retrievedAddress).to.equal(user1.address);
+      expect(retrievedAddress).to.equal(stubAddress);
     });
   });
 
