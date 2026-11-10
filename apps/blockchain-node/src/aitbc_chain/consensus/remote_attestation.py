@@ -1535,20 +1535,14 @@ class RemoteAttestationService:
         import os
 
         self._signed_attestations_path.parent.mkdir(parents=True, exist_ok=True)
-        heights = []
-        valid_keys = []
+        entries = []
         for key, rec in self._signed_attestations.items():
             try:
-                heights.append(int(rec["height"]))
-                valid_keys.append(key)
+                entries.append((key, rec, int(rec["height"])))
             except (KeyError, TypeError, ValueError):
                 continue
-        cutoff = (max(heights) - SIGNED_ONCE_MAX_HEIGHTS) if heights else 0
-        records = [
-            {"key": key, "record": rec}
-            for key, rec in ((k, self._signed_attestations[k]) for k in valid_keys)
-            if int(key.split(":", 1)[0]) >= cutoff
-        ]
+        cutoff = (max(h for _, _, h in entries) - SIGNED_ONCE_MAX_HEIGHTS) if entries else 0
+        records = [{"key": key, "record": rec} for key, rec, h in entries if h >= cutoff]
         payload = json.dumps({"version": 1, "chain_id": self._chain_id, "records": records})
         tmp = self._signed_attestations_path.with_name(self._signed_attestations_path.name + ".tmp")
         with open(tmp, "w") as f:
