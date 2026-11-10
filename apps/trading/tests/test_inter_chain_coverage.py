@@ -374,6 +374,31 @@ class TestChainDiscoveryService:
         inactive = await svc.list_chains(status="inactive")
         assert [c.chain_id for c in inactive] == ["chain-b"]
 
+    @pytest.mark.parametrize(
+        "bad_endpoint",
+        [
+            "file:///etc/passwd",
+            "gopher://internal:70/x",
+            "ftp://chain:21",
+            "chain-a:8202",
+            "http://",
+            "",
+            "   ",
+        ],
+    )
+    async def test_register_chain_rejects_non_http_endpoints(self, db_session, bad_endpoint):
+        """#1539 — the stored endpoint is fetched later; only http(s)+host allowed."""
+        svc = _discovery(db_session)
+        with pytest.raises(ValueError, match="http"):
+            await svc.register_chain("chain-bad", bad_endpoint)
+        assert await svc.list_chains() == []
+
+    async def test_register_chain_accepts_private_http_endpoints(self, db_session):
+        """Fleet islands live on private ranges — those must still register."""
+        svc = _discovery(db_session)
+        entry = await svc.register_chain("chain-priv", "http://10.0.0.5:8202")
+        assert entry.endpoint == "http://10.0.0.5:8202"
+
     async def test_get_chain_missing(self, db_session):
         svc = _discovery(db_session)
         assert await svc.get_chain("nope") is None

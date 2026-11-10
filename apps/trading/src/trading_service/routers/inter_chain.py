@@ -30,7 +30,10 @@ async def register_chain(
     svc: Annotated[ChainDiscoveryService, Depends(get_chain_discovery)],
 ):
     """Register a new chain in the island registry."""
-    return await svc.register_chain(chain_id=chain_id, endpoint=endpoint)
+    try:
+        return await svc.register_chain(chain_id=chain_id, endpoint=endpoint)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/v1/trading/chains/{chain_id}/health")
