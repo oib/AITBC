@@ -314,6 +314,24 @@ def _signed_jobs_request(
     return signer, None
 
 
+def _job_party_addresses(job: dict[str, Any]) -> set[str]:
+    """Canonical addresses of a job's buyer/provider, skipping malformed rows.
+
+    Stored addresses are caller-influenced at write time; one that no longer
+    canonicalizes is dropped rather than crashing the read (#1449).
+    """
+    parties: set[str] = set()
+    for key in ("buyer_address", "provider_address"):
+        raw = job.get(key)
+        if not raw:
+            continue
+        try:
+            parties.add(canonical_address(str(raw)))
+        except (TypeError, ValueError):
+            continue
+    return parties
+
+
 @app.get("/v1/market/offers")
 async def get_offers(
     svc: Annotated[MarketService, Depends(get_market_service)],
@@ -909,13 +927,23 @@ async def register_ipfs_rental_token(
 @app.get("/v1/market/ipfs/rental/{access_key}")
 async def get_ipfs_rental_token(
     access_key: str,
-    access_secret: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
+    access_secret: str | None = None,
+    x_access_secret: Annotated[str | None, Header()] = None,
 ) -> Any:
-    """Validate an IPFS rental token and return its details."""
+    """Validate an IPFS rental token and return its details.
+
+    Same credential transport rule as ``/v1/market/access/{key}``: the secret
+    may arrive as the ``access_secret`` query parameter (legacy callers) or
+    the ``X-Access-Secret`` header, which keeps it out of URLs and access
+    logs (#1448). Header wins when both are sent.
+    """
+    secret = x_access_secret if x_access_secret is not None else access_secret
+    if not secret:
+        return JSONResponse(status_code=400, content={"error": "access_secret is required"})
     try:
         logger.info("GET /v1/ipfs/rental/%s called", access_key)
-        result = await svc.get_ipfs_rental_token(access_key, access_secret)
+        result = await svc.get_ipfs_rental_token(access_key, secret)
         if not result:
             return JSONResponse(status_code=404, content={"error": "Invalid, expired, or unknown IPFS rental token"})
         logger.info("GET /v1/ipfs/rental/%s returned token", access_key)
@@ -1081,8 +1109,7 @@ async def get_market_job(
         if error_response is not None:
             return error_response
         if signer:
-            parties = {canonical_address(str(result[key])) for key in ("buyer_address", "provider_address") if result.get(key)}
-            if canonical_address(signer) in parties:
+            if canonical_address(signer) in _job_party_addresses(result):
                 return result
             auth_attempted = True
         if auth_attempted:
@@ -1129,6 +1156,12 @@ async def confirm_market_job_pin(
     try:
         confirm_data = confirm_data or {}
         logger.info("POST /v1/market/jobs/%s/pin-confirm called", job_id)
+        # size lands verbatim in job.payload and is later summed into usage
+        # analytics — reject anything that is not a non-negative int before
+        # any state is touched (#1449).
+        pin_size = confirm_data.get("size")
+        if pin_size is not None and (isinstance(pin_size, bool) or not isinstance(pin_size, int) or pin_size < 0):
+            return JSONResponse(status_code=400, content={"error": "size must be a non-negative integer"})
         if confirm_data.get("provider_confirmed"):
             job = await svc.get_market_job(job_id)
             if not job:
