@@ -238,7 +238,9 @@ class AITBCExchange:
 
 ## Rate Limits
 
-`POST /v1/exchange/create-payment` and `POST /v1/login` are limited to 20
-requests per minute per caller via `@rate_limit` (see
-`aitbc/rate_limiting.py`). Other routes carry their own per-route limits;
-there are no per-plan tiers.
+Mutating methods (`POST`/`PUT`/`PATCH`/`DELETE`) are limited to 120 requests
+per 60 seconds per client IP via the shared `RateLimitMiddleware`
+(`aitbc/rate_limiting.py`, keyed by `client_ip_for_rate_limit`). Read
+endpoints, `/health`, `/ready`, `/live`, and `/metrics` are exempt. There are
+no per-plan tiers; pool-hub additionally applies a tighter 30/60s limit to
+anonymous `/v1/match` and `/v1/miners/register` writes.

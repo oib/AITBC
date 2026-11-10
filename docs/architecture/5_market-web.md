@@ -399,7 +399,7 @@ if (import.meta.env.DEV) {
 
 - Never commit API keys
 - Use environment variables for secrets
-- Implement rate limiting
+- ~~Implement rate limiting~~ — done: `RateLimitMiddleware` covers mutating methods (120/60s per client IP)
 - Validate all inputs
 - Use HTTPS in production
 
