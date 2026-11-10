@@ -17,8 +17,9 @@ from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
@@ -565,19 +566,37 @@ class MarketService:
             # so a rejected transition does not leave a bid behind.
             OfferFSM(current).transition(OfferStatus.RESERVED)
 
+            # CAS claim (#1424 item 6): the AVAILABLE check above and the status
+            # write used to be separated by the bid insert's awaits, so two
+            # concurrent bookings could both pass and both persist a bid. The
+            # conditional UPDATE ... WHERE status IN (available spellings) is
+            # the compare-and-swap — rowcount != 1 means another booking (or a
+            # cancel) won the row first. It shares _create_bid's commit, so the
+            # claim and the bid land atomically: no window with the offer
+            # 'booked' and no bid, and none with a bid on a still-available
+            # offer. The #1554 reservation deadline rides in the same write
+            # so the sweeper TTL cannot be lost between commits.
+            booked_attrs = dict(offer.attributes or {})
+            booked_attrs["_reserved_until"] = (
+                datetime.now(UTC) + timedelta(seconds=offer_reservation_ttl_seconds())
+            ).isoformat()
+            claim = await self.session.execute(
+                update(MarketOffer)
+                .where(
+                    col(MarketOffer.id) == offer_id,
+                    col(MarketOffer.status).in_(spellings_of(OfferStatus.AVAILABLE)),
+                )
+                .values(status="booked", attributes=booked_attrs)
+            )
+            if getattr(claim, "rowcount", 0) != 1:
+                raise ValueError(f"Offer {offer_id} is not available (status={offer.status})")
+
             bid = await self._create_bid(offer_id, booking_data, offer)
             await self.session.refresh(offer)  # _create_bid's commit expired it (#820)
             provider = offer.provider
-            offer.status = "booked"
-            # #1554: a booked offer holds until the bid's payment window
-            # closes — stamp the reservation deadline the sweeper enforces.
-            # Kept in attributes (JSON) because MarketOffer is a shared model
-            # whose schema coordinator-api also manages.
-            attrs = dict(offer.attributes or {})
-            attrs["_reserved_until"] = (datetime.now(UTC) + timedelta(seconds=offer_reservation_ttl_seconds())).isoformat()
-            offer.attributes = attrs
-            self.session.add(offer)
-            await self.session.commit()
+            # The CAS claim already wrote status='booked' and the #1554
+            # _reserved_until deadline atomically with the bid; the ORM row
+            # is refreshed below so no second write is needed here.
             await self.session.refresh(bid)
             logger.info("Created bid for offer %s: %s", offer_id, bid.id)
             return {
