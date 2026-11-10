@@ -25,7 +25,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto import TransactionService
@@ -52,6 +52,9 @@ EXECUTION_CLAIM_PREFIX = "claiming:"
 # How long a registered request stays executable, matching the window the WebSocket
 # handler already gives a pending request.
 REQUEST_TTL = timedelta(hours=24)
+
+# Largest amount CoinRequest.amount (a SQLite INTEGER column) can store.
+_MAX_STORABLE_AMOUNT = 2**63 - 1
 
 
 def _require_api_key(x_api_key: str | None) -> None:
@@ -93,6 +96,15 @@ class RegisterRequest(BaseModel):
     wallet_address: str
     recipient: str | None = None
 
+    @field_validator("amount", mode="before")
+    @classmethod
+    def _reject_bool_amount(cls, v: object) -> object:
+        # Pydantic lax-mode coerces JSON `true` to int 1 — a boolean is not a
+        # coin amount (#v11 money fuzz round 4). Reject before coercion.
+        if isinstance(v, bool):
+            raise ValueError("amount must be an integer, not a boolean")
+        return v
+
 
 @router.post("/register")
 # Per-IP on top of the global middleware: a faucet drain only needs a few
@@ -113,6 +125,12 @@ def register_coin_request(
 
     if req.amount <= 0:
         raise HTTPException(status_code=422, detail="Amount must be positive")
+    if req.amount > _MAX_STORABLE_AMOUNT:
+        # The CoinRequest.amount column is a SQLite INTEGER; anything past
+        # int64 overflows at INSERT with an unhandled OverflowError -> 500 on
+        # a money path (#v11 money fuzz round 4). Policy ceilings bound what
+        # can be *approved*; this bounds what can be *stored*.
+        raise HTTPException(status_code=422, detail="Amount too large")
 
     with get_db_session() as session:
         # BEGIN IMMEDIATE takes the sqlite write lock before the prior-grant
