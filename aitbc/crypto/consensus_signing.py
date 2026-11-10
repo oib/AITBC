@@ -169,6 +169,29 @@ def sign_consensus_message_domain(message: dict[str, Any], private_key: str, dom
         raise ValueError(f"Failed to sign domain-separated consensus message: {e}") from e
 
 
+def recover_signer_domain(message: dict[str, Any], signature: str, domain: str | None) -> str | None:
+    """Recover the signer of ``message`` under ``domain`` (``None`` = legacy preimage).
+
+    ``None`` delegates to ``recover_signer`` — the canonical-JSON preimage
+    every pre-#1298 signature used. A domain tag verifies against
+    ``keccak256(domain + ":" + canonical_json(message))``, the same
+    construction ``sign_consensus_message_domain`` produces. Returns None on
+    any failure so callers can try the next candidate preimage.
+    """
+    if not signature:
+        return None
+    try:
+        if domain is None:
+            from .crypto import recover_signer
+
+            return recover_signer(message, signature)
+        from .signature_recovery import SignatureMalformed, recover_address
+
+        return recover_address(_domain_preimage(message, domain), signature)
+    except (SignatureMalformed, ValueError, ImportError):
+        return None
+
+
 def verify_consensus_message_domain(
     message: dict[str, Any],
     signature: str,

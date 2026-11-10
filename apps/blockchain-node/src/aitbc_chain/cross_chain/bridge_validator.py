@@ -396,16 +396,23 @@ class BridgeValidatorMixin(BridgeBase):
         and checks the multi-sig threshold against the validator set.
         """
         from aitbc.bridge import build_verification_message, check_threshold, recover_all_signers
+        from aitbc_chain.config import bridge_header_signature_domains
 
         message = build_verification_message(header)
         validator_signatures = proof.get("validator_signatures", [])
         proposer_signature = proof.get("proposer_signature", "")
 
-        all_sigs = list(validator_signatures)
-        if proposer_signature and proposer_signature not in all_sigs:
-            all_sigs.append(proposer_signature)
-
-        signers = recover_all_signers(message, all_sigs)
+        # #1521: the two signature channels verify under different
+        # height-gated preimages — the block's own signature is a consensus
+        # PROPOSAL signature, validator_signatures are ATTESTATION signatures
+        # (with the bounded dual-accept window still honouring legacy
+        # attestations). Below the armed activation height both channels are
+        # the legacy shared preimage, unchanged.
+        height = getattr(header, "height", None)
+        proposer_domains = bridge_header_signature_domains(height, "proposal")
+        attester_domains = bridge_header_signature_domains(height, "attestation")
+        signers = recover_all_signers(message, [proposer_signature] if proposer_signature else [], proposer_domains)
+        signers += recover_all_signers(message, validator_signatures, attester_domains)
         source_chain = header.chain_id or proof.get("source_chain") or proof.get("chain_id")
         if not source_chain:
             logger.warning("Block header missing chain_id")
