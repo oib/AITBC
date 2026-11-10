@@ -25,7 +25,7 @@ from decimal import Decimal
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from aitbc.rate_limiting import rate_limit
 
@@ -526,7 +526,10 @@ def list_cross_chain_swaps(
                     query = query.where(CrossChainSwap.status == status)
                 if user_address:
                     query = query.where(CrossChainSwap.user_address == user_address)
-                query = query.limit(limit)
+                # Stable order in SQL too: created_at ties (same-second
+                # inserts) otherwise let the per-chain LIMIT pick a
+                # different subset per call.
+                query = query.order_by(col(CrossChainSwap.created_at).desc(), col(CrossChainSwap.swap_id).desc()).limit(limit)
                 for record in session.exec(query).all():
                     if record.swap_id in seen:
                         continue
@@ -535,7 +538,8 @@ def list_cross_chain_swaps(
         except Exception as exc:
             _logger.warning("swap list: chain %s query failed: %s", chain_id, exc)
             continue
-    results.sort(key=lambda s: s.get("created_at") or "", reverse=True)
+    # swap_id is the tiebreaker so same-created_at rows keep a stable order.
+    results.sort(key=lambda s: (s.get("created_at") or "", s.get("swap_id") or ""), reverse=True)
     if status:
         results = [s for s in results if s.get("status") == status]
     return {"swaps": results[:limit], "count": len(results[:limit])}

@@ -59,7 +59,7 @@ async def api_activity_timeline(
                 FROM "transaction"
                 WHERE {where}
                 GROUP BY DATE(created_at), type
-                ORDER BY day
+                ORDER BY day, type
                 """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
@@ -279,7 +279,7 @@ async def api_top_addresses(
                 FROM "transaction"
                 WHERE {where}
                 GROUP BY addr
-                ORDER BY tx_count DESC
+                ORDER BY tx_count DESC, addr
                 LIMIT ?
             """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,

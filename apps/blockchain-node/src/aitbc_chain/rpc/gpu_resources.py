@@ -129,7 +129,9 @@ def list_gpus(chain_id: str | None = None, status: str | None = None, limit: int
             if status:
                 query = query.where(GPURegistration.status == status)  # type: ignore[arg-type]
 
-            query = query.limit(limit)
+            # gpu_id is the stable order: a bare LIMIT with no ORDER BY can
+            # return a different subset on each call.
+            query = query.order_by(GPURegistration.gpu_id).limit(limit)
             result = session.execute(query)
             gpus = result.scalars().all()
             alloc_counts = _active_allocation_counts(session, chain_id, [g.gpu_id for g in gpus])
@@ -546,6 +548,7 @@ def list_edge_nodes(chain_id: str | None = None, limit: int = 100) -> dict[str, 
             result = session.execute(
                 select(EdgeNodeRegistration)
                 .where(EdgeNodeRegistration.chain_id == chain_id)  # type: ignore[arg-type]
+                .order_by(EdgeNodeRegistration.node_id)
                 .limit(limit)
             )
             rows = result.scalars().all()

@@ -292,7 +292,7 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                         SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                         FROM "transaction"
                         WHERE {tx_where}
-                        ORDER BY created_at
+                        ORDER BY created_at, tx_hash
                         LIMIT ?
                     """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                         [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
@@ -395,7 +395,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                         SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
                         FROM "transaction"
                         WHERE {tx_where}
-                        ORDER BY created_at
+                        ORDER BY created_at, tx_hash
                         LIMIT ?
                     """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                         [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],

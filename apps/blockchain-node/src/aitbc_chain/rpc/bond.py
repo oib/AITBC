@@ -49,7 +49,11 @@ def get_bond(request: Request, bond_id: str, chain_id: str | None = None) -> dic
 def list_bonds(request: Request, provider: str, chain_id: str | None = None) -> dict[str, Any]:
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
-        bonds = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.provider == canonical_address(provider))).all()
+        # bond_id order keeps the listing deterministic — unordered .all()
+        # can return rows in any order between calls.
+        bonds = session.exec(
+            select(Bond).where(Bond.chain_id == chain_id, Bond.provider == canonical_address(provider)).order_by(Bond.bond_id)
+        ).all()
         return {
             "success": True,
             "provider": provider,
