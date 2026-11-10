@@ -35,6 +35,41 @@ from ..domain.offer_status import spellings_of, to_offer_status
 logger = get_logger(__name__)
 
 
+# #1673: caller-supplied ttl_seconds reaches ``timedelta(seconds=...)`` when
+# expires_at is derived — an unbounded value like 1e18 overflows the C long
+# inside timedelta and answers 500. Jobs are short-lived by design; one year
+# is the sane ceiling.
+MAX_JOB_TTL_SECONDS = 31_536_000
+
+
+def _validated_job_ttl(value: Any) -> int:
+    """Normalize ``ttl_seconds`` to a bounded int, or raise ValueError (#1673).
+
+    Accepts ints, integral floats and digit strings (the JSON body arrives as
+    a plain dict, so pydantic never sees it). Rejects bools, non-integral
+    floats, NaN/Infinity, non-numeric strings, and anything outside
+    ``1..MAX_JOB_TTL_SECONDS``.
+    """
+    if isinstance(value, bool):
+        raise ValueError("ttl_seconds must be an integer")
+    if isinstance(value, int):
+        ttl = value
+    elif isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise ValueError("ttl_seconds must be a whole number of seconds")
+        ttl = int(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text.isdigit():
+            raise ValueError("ttl_seconds must be an integer")
+        ttl = int(text)
+    else:
+        raise ValueError("ttl_seconds must be an integer")
+    if not 1 <= ttl <= MAX_JOB_TTL_SECONDS:
+        raise ValueError(f"ttl_seconds must be between 1 and {MAX_JOB_TTL_SECONDS}")
+    return ttl
+
+
 def max_page_size() -> int:
     """Server-side ceiling for list endpoints (MARKET_MAX_PAGE_SIZE, default 500).
 
@@ -2062,6 +2097,11 @@ class MarketService:
             offer_id = data.get("offer_id")
             if offer_id:
                 await self._require_known_offer(str(offer_id))
+
+            # #1673: bound ttl_seconds before it reaches timedelta() below —
+            # 1e18 used to OverflowError into a 500.
+            if data.get("ttl_seconds") is not None:
+                data["ttl_seconds"] = _validated_job_ttl(data["ttl_seconds"])
 
             # Normalize timestamps
             for field in ("requested_at", "expires_at", "created_at", "updated_at"):

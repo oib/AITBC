@@ -344,3 +344,22 @@ async def test_create_market_job_rejects_bad_payment_amount(service: MarketServi
         await service.create_market_job(_job_fields(offer_id="offer-amt", payment={"amount": "NaN"}))
     with pytest.raises(ValueError, match="payment amount"):
         await service.create_market_job(_job_fields(offer_id="offer-amt", payment={"amount": "-1"}))
+
+
+@pytest.mark.asyncio
+async def test_create_market_job_rejects_out_of_range_ttl(service: MarketService) -> None:
+    """#1673: ttl_seconds feeds timedelta() — values that overflow the C long
+    (1e18) or fall outside the sane window answer 400-class ValueError, and a
+    valid ttl still derives expires_at."""
+    await _register_offer(service, "offer-ttl")
+
+    for bad in (10**18, 1e18, -5, 0, True, "soon", float("nan"), float("inf"), 31_536_001):
+        with pytest.raises(ValueError, match="ttl_seconds"):
+            await service.create_market_job(_job_fields(offer_id="offer-ttl", ttl_seconds=bad))
+
+    created = await service.create_market_job(_job_fields(offer_id="offer-ttl", ttl_seconds=3600))
+    job = await service.session.get(MarketJob, created["job_id"])
+    assert job is not None
+    assert job.ttl_seconds == 3600
+    assert job.expires_at is not None
+    assert job.expires_at > job.requested_at
