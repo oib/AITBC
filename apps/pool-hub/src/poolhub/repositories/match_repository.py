@@ -100,6 +100,14 @@ class MatchRepository:
                         await self._redis.publish(channel, payload)
         return results
 
+    async def get_request_by_job_id(self, job_id: str) -> MatchRequest | None:
+        """Latest match request for a job — the idempotency lookup (#1553)."""
+        stmt: Select[tuple[MatchRequest]] = (
+            select(MatchRequest).where(MatchRequest.job_id == job_id).order_by(MatchRequest.created_at.desc()).limit(1)
+        )
+        result = await self._session.execute(stmt)
+        return result.scalars().first()
+
     async def get_request(self, request_id: UUID) -> MatchRequest | None:
         return await self._session.get(MatchRequest, request_id)
 

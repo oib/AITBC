@@ -90,6 +90,11 @@ class MinerStatus(Base):
 
 class MatchRequest(Base):
     __tablename__ = "match_requests"
+    # One match request per job_id (#1553): duplicate POST /v1/match calls
+    # used to append duplicate MatchRequest/MatchResult rows that feed
+    # billing sums. create_all builds fresh DBs with the constraint; existing
+    # DBs get it from the alembic revision (dedup first).
+    __table_args__ = (UniqueConstraint("job_id", name="uq_match_request_job_id"),)
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
