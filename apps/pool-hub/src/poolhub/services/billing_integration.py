@@ -22,6 +22,11 @@ from ..settings import settings
 
 logger = get_logger(__name__)
 
+# Same magnitude ceiling the market/trading money validators use
+# (MAX_PAYMENT_AMOUNT / MAX_MONEY_AMOUNT): a finite-but-absurd quantity or
+# price would otherwise flow straight into coordinator-api invoice totals.
+MAX_BILLING_AMOUNT = Decimal("1000000000000000")
+
 
 class BillingIntegration:
     """Service for integrating pool-hub with coordinator-api billing"""
@@ -96,10 +101,17 @@ class BillingIntegration:
             unit_price = pricing_config.get("unit_price", Decimal("0"))
         # Billing events with negative or non-finite amounts corrupt
         # coordinator-api invoice data; reject before the event is built.
+        # Upper bound matches the fleet money convention — /v1/sla/usage/record
+        # accepts caller-supplied quantity/unit_price, so an unbounded product
+        # would write an absurd invoice line (#v10 item 11).
         for name, value in (("quantity", quantity), ("unit_price", unit_price)):
             if not value.is_finite() or value < 0:
                 raise ValueError(f"{name} must be a finite, non-negative Decimal; got {value!r}")
+            if value > MAX_BILLING_AMOUNT:
+                raise ValueError(f"{name} must not exceed {MAX_BILLING_AMOUNT}; got {value!r}")
         total_cost = unit_price * quantity
+        if not total_cost.is_finite() or total_cost > MAX_BILLING_AMOUNT:
+            raise ValueError(f"total_amount must be a finite Decimal not exceeding {MAX_BILLING_AMOUNT}; got {total_cost!r}")
         billing_event = {
             "tenant_id": tenant_id,
             "event_type": "usage",

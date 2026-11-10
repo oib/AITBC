@@ -7,6 +7,7 @@ the proposal ID is provided and the parameter change is well-formed.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 
@@ -64,6 +65,12 @@ GOVERNANCE_PARAMETERS: dict[str, type] = {
 _MAX_CONCURRENT_MIN = 0
 _MAX_CONCURRENT_MAX = 10
 
+# JSON-typed governance params (pricing/config/capabilities) had no size
+# bound — a governance credential could write arbitrarily large payloads
+# into every ServiceConfig row for the service. 64 KiB is far above any
+# legitimate pricing/config blob.
+_MAX_GOVERNANCE_JSON_BYTES = 64 * 1024
+
 
 def _validate_parameter_value(parameter_name: str, new_value: Any) -> None:
     """Type-check a governance parameter value (#1500).
@@ -84,6 +91,17 @@ def _validate_parameter_value(parameter_name: str, new_value: Any) -> None:
         # capabilities is list[str] on the service schema — a JSON list of
         # ints would pass isinstance(list) but violate the column contract.
         value_ok = False
+    if value_ok and expected_type in (dict, list):
+        try:
+            encoded = json.dumps(new_value)
+        except (TypeError, ValueError):
+            value_ok = False
+        else:
+            if len(encoded.encode("utf-8")) > _MAX_GOVERNANCE_JSON_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Parameter '{parameter_name}' exceeds {_MAX_GOVERNANCE_JSON_BYTES} bytes serialized",
+                )
     if not value_ok:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

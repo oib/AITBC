@@ -206,11 +206,17 @@ class SLACollector:
             total_parallel_capacity=sum(m.max_parallel for m in (await self.db.execute(select(Miner))).scalars().all()),
             total_queue_length=sum(ms.queue_len for ms in miner_statuses),
             capacity_utilization_pct=100.0 - capacity_availability_pct,
-            forecast_capacity=total_miners,
-            recommended_scaling="stable",
-            scaling_reason="Capacity within normal range",
+            # #1395 residual: there is no forecast engine — the previous
+            # hardcoded forecast_capacity=total_miners / "stable" /
+            # "Capacity within normal range" were fabricated values persisted
+            # into every snapshot and served by GET /capacity/snapshots. The
+            # columns are non-nullable, so write explicit not-available
+            # sentinels until the schema allows NULL (design note on #1395).
+            forecast_capacity=-1,
+            recommended_scaling="unavailable",
+            scaling_reason="capacity forecasting not implemented (#1395); snapshot carries measured fields only",
             timestamp=datetime.now(UTC),
-            meta_data={"method": "real_time_collection"},
+            meta_data={"method": "real_time_collection", "forecast": "not_implemented"},
         )
         self.db.add(snapshot)
         await self.db.commit()
