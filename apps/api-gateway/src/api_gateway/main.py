@@ -402,7 +402,9 @@ def note_upstream_response(service_name: str, status_code: int) -> None:
     A half-open probe that got any HTTP response proves the upstream is
     reachable: <500 closes the breaker, >=500 re-opens it immediately. For
     non-probe traffic a 5xx counts as a failure only when the operator opted
-    in via GATEWAY_BREAKER_COUNT_5XX.
+    in via GATEWAY_BREAKER_COUNT_5XX; any <500 response forgives sporadic
+    failures so the counter cannot grow forever on a recovered service
+    (GW-CIRCUIT-1, #1428).
     """
     state = circuit_breaker_state[service_name]
     if state["probe_in_flight"]:
@@ -417,6 +419,9 @@ def note_upstream_response(service_name: str, status_code: int) -> None:
         return
     if BREAKER_COUNT_5XX and status_code >= 500:
         record_failure(service_name)
+    elif status_code < 500:
+        state["failures"] = 0
+        state["last_failure_time"] = None
 
 
 @app.get("/health")
