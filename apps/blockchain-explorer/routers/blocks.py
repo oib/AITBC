@@ -312,49 +312,10 @@ async def api_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
     if not block_data:
         raise HTTPException(status_code=404, detail="Block not found")
 
-    # Add transactions for this block
-    try:
-        db_path = chain_db_path()
-
-        if db_path is not None:
-            async with aiosqlite.connect(str(db_path)) as conn:
-                cursor = await conn.cursor()
-
-                # Get transactions for this block
-                await cursor.execute(
-                    """
-                    SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
-                    FROM "transaction"
-                    WHERE block_height = ?
-                    ORDER BY created_at
-                """,
-                    (height,),
-                )
-
-                transactions = []
-                rows = await cursor.fetchall()
-                for row in rows:
-                    tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
-                    transactions.append(
-                        {
-                            "tx_hash": tx_hash,
-                            "sender": sender,
-                            "recipient": recipient,
-                            "payload": payload,
-                            "amount": value,
-                            "fee": fee,
-                            "nonce": nonce,
-                            "type": tx_type,
-                            "status": status,
-                            "created_at": created_at,
-                        }
-                    )
-
-                block_data["transactions"] = transactions
-        else:
-            block_data["transactions"] = []
-    except Exception:
-        logger.exception("Error getting transactions for block %s", height)
-        block_data["transactions"] = []
-
+    # get_block already embeds the block's transaction list on the DB path;
+    # only the RPC fallback lacks the key. Reuse the embedded list: the
+    # second query this endpoint used to run was uncapped and overwrote
+    # block_data["transactions"] — it would bypass any cap applied inside
+    # get_block (EXPLORER-RESP-1 residual, #1516).
+    block_data.setdefault("transactions", [])
     return block_data

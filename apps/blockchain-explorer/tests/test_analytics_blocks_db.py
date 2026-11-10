@@ -134,6 +134,38 @@ def test_blocks_by_address_like_escape(client, monkeypatch, tmp_path):
     assert len(resp.json()["blocks"]) == 1
 
 
+def test_block_by_height_reuses_embedded_transactions(monkeypatch):
+    """api_block must not re-scan the transaction table: get_block already
+    embeds the (capped) list — the endpoint's own query used to bypass that
+    cap with a second unbounded per-block read."""
+
+    async def fake_get_block(height, chain_id=None):
+        return {"height": height, "hash": "0xh", "transactions": [{"tx_hash": "0xt"}]}
+
+    monkeypatch.setattr(blocks_router, "get_block", fake_get_block)
+
+    def _boom(*_a, **_k):
+        raise AssertionError("api_block must not open a second DB connection")
+
+    monkeypatch.setattr(blocks_router.aiosqlite, "connect", _boom)
+
+    out = asyncio.run(blocks_router.api_block(1))
+    assert out["transactions"] == [{"tx_hash": "0xt"}]
+
+
+def test_block_by_height_rpc_path_gets_empty_transactions(monkeypatch):
+    """The RPC fallback of get_block carries no transaction list — the
+    endpoint still answers with an empty list rather than 500."""
+
+    async def fake_get_block(height, chain_id=None):
+        return {"height": height, "hash": "0xh"}
+
+    monkeypatch.setattr(blocks_router, "get_block", fake_get_block)
+
+    out = asyncio.run(blocks_router.api_block(1))
+    assert out["transactions"] == []
+
+
 def test_block_by_hash_rpc_scan_finds_match(monkeypatch):
     monkeypatch.setattr(blocks_router, "chain_db_path", lambda: None)
     target_hash = "0x" + "bb" * 32
