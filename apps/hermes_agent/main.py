@@ -54,6 +54,13 @@ _HERMES_RUN_API_KEY = os.getenv("HERMES_RUN_API_KEY", "")
 _HERMES_RUN_MAX_CONCURRENT = int(os.getenv("HERMES_RUN_MAX_CONCURRENT", "4"))
 _run_semaphore = asyncio.Semaphore(_HERMES_RUN_MAX_CONCURRENT)
 _CONSERVATIVE_TOOLSETS = "web,memory,todo"
+# Post-kill drain bound (#1473): after the process group is SIGKILLed, a
+# descendant that escaped the group (setsid / double-fork) can keep the
+# stdout/stderr pipes open and stretch communicate() — and the enforced
+# max_time bound — arbitrarily. The 504 path discards the output anyway, so
+# the drain only needs to last long enough to collect whatever the kill
+# flushed.
+_POST_KILL_DRAIN_SECONDS = float(os.getenv("HERMES_KILL_DRAIN_SECONDS", "10"))
 
 
 async def _require_run_credential(request: Request) -> None:
@@ -267,7 +274,16 @@ async def _run_hermes_inner(request: HermesRunRequest):
                 os.killpg(proc.pid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError, OSError):
                 proc.kill()
-            out_b, err_b = await proc.communicate()
+            # Bounded drain: killpg covers the process group, but a descendant
+            # that escaped it (setsid / double-fork) can keep the pipes open
+            # past the kill, so cap the wait — the 504 below discards the
+            # output anyway and only the reap matters (the child watcher
+            # reaps the killed child even if we stop awaiting it).
+            try:
+                out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=_POST_KILL_DRAIN_SECONDS)
+            except TimeoutError:
+                logger.warning("post-kill drain timed out for pid %s; abandoning pipe read", proc.pid)
+                out_b, err_b = b"", b""
             timed_out = True
         elapsed = time.time() - t_start
         stdout = out_b.decode(errors="replace")

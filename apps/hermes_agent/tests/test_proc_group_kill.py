@@ -49,3 +49,36 @@ async def test_timeout_kills_process_group(tmp_path: Path, monkeypatch: pytest.M
     assert exc_info.value.status_code == 504
     # communicate() must not wait out the grandchildren's 300s sleeps.
     assert elapsed < 60
+
+
+@pytest.mark.asyncio
+async def test_timeout_bounds_drain_past_group_escape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A grandchild that escaped the process group cannot stretch the bound.
+
+    ``setsid`` puts the sleeper in a new session AND a new process group, so
+    os.killpg(proc.pid) cannot reach it; it keeps the inherited pipes open
+    forever. The post-kill drain is capped by _POST_KILL_DRAIN_SECONDS, so
+    the 504 still returns promptly (#1473 residual).
+    """
+    fake = tmp_path / "fake-hermes"
+    fake.write_text("#!/bin/sh\nsetsid sleep 300 &\nexec sleep 300\n")
+    fake.chmod(0o755)
+
+    monkeypatch.setattr(hermes, "_HERMES_PATH", str(fake))
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "")
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_MODELS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_PROVIDERS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", [])
+    monkeypatch.setattr(hermes, "_POST_KILL_DRAIN_SECONDS", 1.0)
+
+    request = HermesRunRequest(prompt="x", max_time=1)
+    start = time.monotonic()
+    with pytest.raises(HTTPException) as exc_info:
+        await hermes._run_hermes_inner(request)
+    elapsed = time.monotonic() - start
+
+    assert exc_info.value.status_code == 504
+    # 1s max_time + ~1s drain bound — nowhere near the escapee's 300s sleep.
+    assert elapsed < 30
