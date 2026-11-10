@@ -130,3 +130,63 @@ def test_endpoint_completes_running_job(client) -> None:
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "completed"
     assert asyncio.run(_job_status(job_id)) == GPUJobStatus.COMPLETED
+
+
+# --- Mutation-sweep pins (#1387 follow-ups) ---------------------------------
+#
+# Two mutants survived the original five-plus-three pins:
+#
+# 1. Dropping `.with_for_update()` from the complete_job SELECT — the row lock
+#    is what stops a concurrent cancel/complete from interleaving between the
+#    status read and the COMPLETED write. sqlite renders FOR UPDATE as a
+#    no-op, so the lock is only visible when the statement is compiled for a
+#    locking dialect (postgres).
+# 2. Widening the endpoint's `except JobStateError` to `except Exception` —
+#    a DB failure would then be reported to the caller as a 409 state
+#    conflict instead of a 500.
+
+
+class _SpySession:
+    """AsyncSession proxy that records the statements execute() receives."""
+
+    def __init__(self, session: object) -> None:
+        self._session = session
+        self.statements: list[object] = []
+
+    async def execute(self, stmt: object, *args: object, **kwargs: object) -> object:
+        self.statements.append(stmt)
+        return await self._session.execute(stmt, *args, **kwargs)  # type: ignore[attr-defined]
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._session, name)
+
+
+@pytest.mark.asyncio
+async def test_complete_job_select_locks_the_row() -> None:
+    from sqlalchemy.dialects import postgresql
+
+    job_id = _job_id()
+    await _insert_job(job_id, GPUJobStatus.RUNNING)
+    async with get_session() as session:
+        spy = _SpySession(session)
+        await EdgeGPUService(spy).complete_job(job_id)  # type: ignore[arg-type]
+    assert spy.statements, "complete_job issued no SELECT"
+    sql = str(spy.statements[0].compile(dialect=postgresql.dialect()))
+    assert "FOR UPDATE" in sql
+
+
+def test_endpoint_does_not_swallow_unexpected_errors(client, monkeypatch) -> None:
+    """A non-JobStateError from complete_job must surface as a 500, not a 409."""
+
+    class _ExplodingService:
+        async def complete_job(self, job_id: str) -> None:
+            raise RuntimeError("db exploded")
+
+    app.dependency_overrides[main.get_edge_service] = lambda: _ExplodingService()
+    try:
+        # The app's error-handler middleware turns unhandled exceptions into a
+        # 500 response rather than propagating them through TestClient.
+        resp = client.post(f"/v1/gpu/queue/{_job_id()}/complete")
+        assert resp.status_code == 500
+    finally:
+        app.dependency_overrides.pop(main.get_edge_service, None)
