@@ -104,6 +104,9 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
         else:
             return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}"})
         return {"status": "success", "transaction_id": transaction_id}
+    except ValueError as exc:
+        await session.rollback()
+        return JSONResponse(status_code=422, content={"error": str(exc)})
     except Exception:
         await session.rollback()
         logger.exception("Transaction submission error")

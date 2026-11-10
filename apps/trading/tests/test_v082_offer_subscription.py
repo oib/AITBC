@@ -472,6 +472,25 @@ class TestWebSocketEndpoint:
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 
+    def test_search_rejects_bad_price_bounds(self) -> None:
+        """#1608: NaN/negative/huge/inverted price filters are 400s, not 500s."""
+        from fastapi.testclient import TestClient
+
+        from trading_service.main import app
+
+        client = TestClient(app, headers={"X-Trading-Api-Key": "test-trading-key"})
+        for params in (
+            {"min_price": "-1"},
+            {"min_price": "0", "max_price": "1000000000000001"},
+            {"min_price": "10", "max_price": "1"},
+        ):
+            response = client.get("/v1/trading/offers/search", params=params)
+            assert response.status_code == 400, params
+        # FastAPI's Decimal parser rejects literal NaN before the handler;
+        # either way it is a client error, never a 500.
+        response = client.get("/v1/trading/offers/search", params={"max_price": "NaN"})
+        assert response.status_code in (400, 422)
+
     def test_subscribe_missing_node_id(self) -> None:
         from fastapi.testclient import TestClient
 

@@ -550,3 +550,101 @@ class TestEnvDecimalHardening:
             else:
                 raise AssertionError(f"to_decimal accepted non-finite {bad!r}")
         assert to_decimal("1.5") == Decimal("1.5")
+
+
+class TestSignedEnvelopeInt64Bounds:
+    """#1608: signed envelope integers must fit SQLite int64 — values above
+    2**63-1 used to reach the DB layer as OverflowError/500."""
+
+    INT64_MAX = (1 << 63) - 1
+
+    def _handler(self):
+        from apps.exchange.simple_exchange.handlers.exchange import ExchangeMixin
+
+        handler = MagicMock()
+        handler._order_envelope_error = ExchangeMixin._order_envelope_error.__get__(handler, ExchangeMixin)
+        handler._cancel_envelope_error = ExchangeMixin._cancel_envelope_error.__get__(handler, ExchangeMixin)
+        return handler
+
+    def _order_envelope(self, **overrides):
+        envelope = {
+            "side": "BUY",
+            "pair": "AIT/ETH",
+            "amount_ticks": 1,
+            "price_ticks": 1,
+            "expiry_height": 1,
+            "account_nonce": 0,
+        }
+        envelope.update(overrides)
+        return envelope
+
+    def test_order_envelope_rejects_above_int64(self):
+        handler = self._handler()
+        for field in ("amount_ticks", "price_ticks", "expiry_height", "account_nonce"):
+            assert handler._order_envelope_error(self._order_envelope(**{field: self.INT64_MAX + 1})) == f"Invalid {field}"
+
+    def test_order_envelope_accepts_int64_max(self):
+        handler = self._handler()
+        envelope = self._order_envelope(
+            amount_ticks=self.INT64_MAX,
+            price_ticks=self.INT64_MAX,
+            expiry_height=self.INT64_MAX,
+            account_nonce=self.INT64_MAX,
+        )
+        assert handler._order_envelope_error(envelope) is None
+
+    def test_cancel_envelope_rejects_above_int64_and_negative_nonce(self):
+        handler = self._handler()
+        base = {"action": "exchange_cancel", "order_id": 1, "expiry_height": 1, "account_nonce": 0}
+        for field in ("order_id", "expiry_height", "account_nonce"):
+            envelope = dict(base, **{field: self.INT64_MAX + 1})
+            assert handler._cancel_envelope_error(envelope) == f"Invalid {field}"
+        assert handler._cancel_envelope_error(dict(base, account_nonce=-1)) == "Invalid account_nonce"
+        assert handler._cancel_envelope_error(base) is None
+
+
+class TestRecentTradesInvalidLimit:
+    """#1608: ?limit=abc must degrade to the default page, never raise."""
+
+    def test_invalid_limit_still_responds(self, temp_db):
+        from apps.exchange.simple_exchange.handlers.exchange import ExchangeMixin
+
+        handler = MagicMock(spec=ExchangeMixin)
+        handler.send_json_response = MagicMock()
+        handler.get_recent_trades = ExchangeMixin.get_recent_trades.__get__(handler, ExchangeMixin)
+
+        parsed = MagicMock()
+        parsed.query = "limit=abc"
+
+        with patch("apps.exchange.simple_exchange.handlers.exchange.get_db_path", return_value=temp_db):
+            handler.get_recent_trades(parsed)
+
+        assert handler.send_json_response.called
+
+
+class TestMarketNaNPriceRejected:
+    """#1608: market _to_decimal is the shared non-finite guard — a NaN price
+    must be a 400 before any marketplace row is written."""
+
+    def test_nan_price_rejected_without_insert(self, temp_db):
+        import sqlite3
+
+        from apps.exchange.simple_exchange.handlers.market import MarketMixin
+
+        handler = MagicMock()
+        handler._require_api_key = MagicMock(return_value=True)
+        handler._read_json_body = MagicMock(return_value={"item": "gpu", "price": "NaN"})
+        handler.send_json_response = MagicMock()
+        handler.handle_market_create_offer = MarketMixin.handle_market_create_offer.__get__(handler, MarketMixin)
+
+        with patch("apps.exchange.simple_exchange.handlers.market.get_db_path", return_value=temp_db):
+            handler.handle_market_create_offer()
+
+        assert handler.send_json_response.called
+        assert handler.send_json_response.call_args.kwargs.get("status") == 400
+        conn = sqlite3.connect(temp_db)
+        try:
+            count = conn.execute("SELECT COUNT(*) FROM marketplace_offers").fetchone()[0]
+        finally:
+            conn.close()
+        assert count == 0

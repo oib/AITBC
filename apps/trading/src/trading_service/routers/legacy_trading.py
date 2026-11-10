@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..dependencies import get_trading_service
 from ..services.trading_service import TradingService
@@ -34,7 +34,10 @@ async def get_request(request_id: str, svc: Annotated[TradingService, Depends(ge
 @router.post("/v1/trading/requests")
 async def create_request(request_data: dict[str, Any], svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Create a new trade request."""
-    return await svc.create_request(request_data)
+    try:
+        return await svc.create_request(request_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/v1/trading/matches")
@@ -55,7 +58,10 @@ async def get_matches(
 @router.post("/v1/trading/matches")
 async def create_match(match_data: dict[str, Any], svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Create a new trade match."""
-    return await svc.create_match(match_data)
+    try:
+        return await svc.create_match(match_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/v1/trading/agreements")
@@ -76,7 +82,10 @@ async def get_agreements(
 @router.post("/v1/trading/agreements")
 async def create_agreement(agreement_data: dict[str, Any], svc: Annotated[TradingService, Depends(get_trading_service)]):
     """Create a new trade agreement."""
-    return await svc.create_agreement(agreement_data)
+    try:
+        return await svc.create_agreement(agreement_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/v1/trading/analytics")

@@ -1,6 +1,6 @@
 """Offer subscription, heartbeat, search, and WebSocket endpoints."""
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import asyncio
 import json
 import secrets
@@ -24,6 +24,33 @@ from ..state import (
 
 router = APIRouter(tags=["subscriptions"])
 logger = get_logger(__name__)
+
+# #1608: offer price filters are Decimal-compared against offer prices. Bound
+# them to finite, non-negative values within the same magnitude cap the
+# exchange env-decimal path uses so NaN/negative/huge filters cannot reach
+# the comparisons (or serialize into subscription state) unchecked.
+_MAX_PRICE_FILTER = Decimal("1000000000000000")
+
+
+def _price_filter(value: Any, name: str) -> Decimal | None:
+    if value is None or value == "":
+        return None
+    try:
+        bound = value if isinstance(value, Decimal) else Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ValueError(f"{name} must be a decimal") from exc
+    if not bound.is_finite() or bound < 0 or bound > _MAX_PRICE_FILTER:
+        raise ValueError(f"{name} must be a finite price between 0 and {_MAX_PRICE_FILTER}")
+    return bound
+
+
+def _validated_price_filters(filters: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
+    min_price = _price_filter(filters.get("min_price"), "min_price")
+    max_price = _price_filter(filters.get("max_price"), "max_price")
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise ValueError("min_price must not exceed max_price")
+    return min_price, max_price
+
 
 # Active WebSocket connections per node_id. Subscription leases are keyed
 # by node_id and shared by all of a node's connections, so the lease is
@@ -121,6 +148,16 @@ async def offer_subscription_websocket(websocket: WebSocket):
             await websocket.send_json({"error": "node_id is required"})
             await websocket.close(code=1008)
             return
+        if not isinstance(filters, dict):
+            await websocket.send_json({"error": "filters must be an object"})
+            await websocket.close(code=1008)
+            return
+        try:
+            min_price, max_price = _validated_price_filters(filters)
+        except ValueError as exc:
+            await websocket.send_json({"error": str(exc)})
+            await websocket.close(code=1008)
+            return
 
         # Unique per connection: two sockets from the same node must not
         # overwrite each other's notification registration.
@@ -138,8 +175,8 @@ async def offer_subscription_websocket(websocket: WebSocket):
         subscription = OfferSubscription(
             chain_id=filters.get("chain_id", chain_id),
             service_type=filters.get("service_type"),
-            min_price=filters.get("min_price"),
-            max_price=filters.get("max_price"),
+            min_price=min_price,
+            max_price=max_price,
             region=filters.get("region"),
             gpu_model=filters.get("gpu_model"),
             debounce_ms=settings.offer_subscription_debounce_ms,
@@ -274,11 +311,15 @@ def search_offers(
 
     Falls back to in-memory search when the external index is unavailable.
     """
-    # #1608: NaN/Infinity price bounds parse as Decimal but raise
-    # InvalidOperation inside the search comparisons — reject up front.
-    for bound in (min_price, max_price):
-        if bound is not None and not bound.is_finite():
-            return JSONResponse(status_code=400, content={"error": "Price bounds must be finite"})
+    # #1608: price bounds must be finite, non-negative, bounded, and ordered —
+    # NaN/negative/huge/inverted filters are client errors, not 500s.
+    try:
+        min_price = _price_filter(min_price, "min_price")
+        max_price = _price_filter(max_price, "max_price")
+        if min_price is not None and max_price is not None and min_price > max_price:
+            raise ValueError("min_price must not exceed max_price")
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
     svc = get_search_service()
     results = svc.search(
         query=q,
