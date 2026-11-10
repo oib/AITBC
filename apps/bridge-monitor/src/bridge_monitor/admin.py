@@ -70,20 +70,14 @@ def _admin_lock() -> int | None:
     SUBMITTED row, then sign envelopes on the same nonce — the exact
     mempool collision the one-envelope rule exists to prevent. The lock
     file sits next to the ledger DB so ``BRIDGE_DEPOSITS_DB``/``DATA_DIR``
-    overrides relocate it into the scratch tree too. Returns the lock
-    fd (close to release) or None when another admin holds it.
+    overrides relocate it into the scratch tree too. The monitor sweep
+    takes the same lock around its own payout decision+submit, so a
+    manual command and a sweep pass cannot interleave either. Returns
+    the lock fd (close to release) or None when another holder has it.
     """
-    import fcntl
+    from .storage import try_admin_lock
 
-    from .storage import DB_PATH
-
-    fd = os.open(f"{DB_PATH}.admin.lock", os.O_RDWR | os.O_CREAT, 0o600)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        os.close(fd)
-        return None
-    return fd
+    return try_admin_lock()
 
 
 def write_off_denial_reason(d: dict, allow_recipient: bool) -> str | None:
