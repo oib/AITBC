@@ -1533,6 +1533,11 @@ class MarketService:
                 logger.warning("ratings/sync batch truncated to %s rows", len(batch))
             for remote_rating in batch:
                 try:
+                    # Same 1-5 range the local submit path enforces — a
+                    # malformed peer payload must not poison avg_rating (#1446).
+                    rating_value = float(remote_rating["rating"])
+                    if not 1.0 <= rating_value <= 5.0:
+                        raise ValueError(f"rating out of range: {remote_rating['rating']!r}")
                     remote_created = _rating_created_at(remote_rating["created_at"])
                     rating_value = _coerce_remote_rating(remote_rating["rating"])
                     # Dedup case-insensitively: "0xAbC" and "0xabc" are the

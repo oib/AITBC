@@ -940,7 +940,7 @@ async def get_ipfs_rental_token(
     """
     secret = x_access_secret if x_access_secret is not None else access_secret
     if not secret:
-        return JSONResponse(status_code=400, content={"error": "access_secret is required"})
+        return JSONResponse(status_code=401, content={"error": "access_secret is required (X-Access-Secret header preferred)"})
     try:
         logger.info("GET /v1/ipfs/rental/%s called", access_key)
         result = await svc.get_ipfs_rental_token(access_key, secret)
@@ -1304,7 +1304,7 @@ async def get_market_access_token(
     """
     secret = x_access_secret if x_access_secret is not None else access_secret
     if not secret:
-        return JSONResponse(status_code=400, content={"error": "access_secret is required"})
+        return JSONResponse(status_code=401, content={"error": "access_secret is required (X-Access-Secret header preferred)"})
     try:
         logger.info("GET /v1/market/access/%s called", access_key)
         result = await svc.get_market_job_access_token(access_key, secret)

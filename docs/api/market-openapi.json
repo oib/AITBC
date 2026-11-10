@@ -1447,8 +1447,8 @@
               }
             }
           },
-          "400": {
-            "description": "access_secret is required",
+          "401": {
+            "description": "access_secret is required (X-Access-Secret header preferred)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2410,8 +2410,8 @@
               }
             }
           },
-          "400": {
-            "description": "access_secret is required",
+          "401": {
+            "description": "access_secret is required (X-Access-Secret header preferred)",
             "content": {
               "application/json": {
                 "schema": {
