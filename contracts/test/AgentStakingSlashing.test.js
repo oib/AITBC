@@ -268,6 +268,117 @@ describe("AgentStaking slashing (SC-06)", function () {
     });
   });
 
+  describe("slashed remainder exit (#1457)", function () {
+    // SLASHED used to be terminal: the un-slashed remainder was stranded
+    // forever and pool/metrics accounting never unwound. withdrawSlashedStake
+    // now pays the remainder after unbondingPeriod measured from slashedAt.
+
+    it("pays the staker exactly the un-slashed remainder, not 100%", async function () {
+      await makeStakes(1);
+      const stakeId = await staking.agentStakes(agent.address, 0);
+
+      const ownerBefore = await token.balanceOf(owner.address);
+      const stakerBefore = await token.balanceOf(staker.address);
+      await staking.slashStake(stakeId, 10, "manual");
+
+      // Exactly 10% confiscated to the owner; nothing to the staker yet.
+      const expectedSlash = (STAKE * 10n) / 100n;
+      expect((await token.balanceOf(owner.address)) - ownerBefore).to.equal(expectedSlash);
+      expect(await token.balanceOf(staker.address)).to.equal(stakerBefore);
+
+      // Accounting unwound by the confiscated share only.
+      const metrics = await staking.getAgentMetrics(agent.address);
+      expect(metrics[0]).to.equal(STAKE - expectedSlash);
+      const pool = await staking.getStakingPool(agent.address);
+      expect(pool[0]).to.equal(STAKE - expectedSlash);
+
+      // Enforces the unbonding delay from slashedAt.
+      await ethers.provider.send("evm_increaseTime", [6 * 24 * 60 * 60]);
+      await expect(staking.connect(staker).withdrawSlashedStake(stakeId)).to.be.revertedWith(
+        "Unbonding period not ended",
+      );
+
+      await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60]);
+      await staking.connect(staker).withdrawSlashedStake(stakeId);
+
+      const remainder = STAKE - expectedSlash;
+      expect((await token.balanceOf(staker.address)) - stakerBefore).to.equal(remainder);
+
+      // Fully unwound.
+      const metricsAfter = await staking.getAgentMetrics(agent.address);
+      expect(metricsAfter[0]).to.equal(0n);
+      const poolAfter = await staking.getStakingPool(agent.address);
+      expect(poolAfter[0]).to.equal(0n);
+
+      const stake = await staking.stakes(stakeId);
+      expect(stake.status).to.equal(2); // COMPLETED
+      expect(stake.amount).to.equal(remainder);
+
+      // Terminal: no second withdrawal, no normal unbond path.
+      await expect(staking.connect(staker).withdrawSlashedStake(stakeId)).to.be.revertedWith(
+        "Stake not slashed",
+      );
+      await expect(staking.connect(staker).unbondStake(stakeId)).to.be.revertedWith("Stake not active");
+    });
+
+    it("recovers remainders for every stake slashed by checkAndSlashAgent", async function () {
+      await makeStakes(3);
+      const unbonding = await staking.unbondingPeriod();
+
+      await staking.checkAndSlashAgent(agent.address); // owner = deployer signer
+      await ethers.provider.send("evm_increaseTime", [Number(unbonding) + 1]);
+
+      const metrics = await staking.getAgentMetrics(agent.address);
+      const expectedRemainderEach = STAKE - (STAKE * DEFAULT_SLASH_PCT) / 100n;
+      expect(metrics[0]).to.equal(expectedRemainderEach * 3n);
+
+      const stakerBefore = await token.balanceOf(staker.address);
+      for (let i = 0; i < 3; i++) {
+        const stakeId = await staking.agentStakes(agent.address, i);
+        await staking.connect(staker).withdrawSlashedStake(stakeId);
+      }
+      expect((await token.balanceOf(staker.address)) - stakerBefore).to.equal(
+        expectedRemainderEach * 3n,
+      );
+
+      const metricsAfter = await staking.getAgentMetrics(agent.address);
+      expect(metricsAfter[0]).to.equal(0n);
+      const poolAfter = await staking.getStakingPool(agent.address);
+      expect(poolAfter[0]).to.equal(0n);
+    });
+
+    it("rejects withdrawal by a non-owner and on non-slashed stakes", async function () {
+      await makeStakes(1);
+      const stakeId = await staking.agentStakes(agent.address, 0);
+      await staking.slashStake(stakeId, 10, "manual");
+
+      await expect(staking.connect(reporter).withdrawSlashedStake(stakeId)).to.be.revertedWith(
+        "Not stake owner",
+      );
+
+      await makeStakes(1); // second stake stays ACTIVE
+      const activeId = await staking.agentStakes(agent.address, 1);
+      await expect(staking.connect(staker).withdrawSlashedStake(activeId)).to.be.revertedWith(
+        "Stake not slashed",
+      );
+    });
+
+    it("does not let an approved appeal resurrect a withdrawn stake", async function () {
+      await makeStakes(1);
+      const stakeId = await staking.agentStakes(agent.address, 0);
+      await staking.slashStake(stakeId, 10, "manual");
+
+      await staking.connect(staker).appealSlashing(stakeId, "appeal");
+      const unbonding = await staking.unbondingPeriod();
+      await ethers.provider.send("evm_increaseTime", [Number(unbonding) + 1]);
+      await staking.connect(staker).withdrawSlashedStake(stakeId);
+
+      await expect(staking.resolveSlashAppeal(stakeId, true)).to.be.revertedWith(
+        "Stake no longer slashed",
+      );
+    });
+  });
+
   describe("batch size control", function () {
     it("is owner-only", async function () {
       await expect(staking.connect(reporter).setMaxSlashBatch(5)).to.revert(ethers);
