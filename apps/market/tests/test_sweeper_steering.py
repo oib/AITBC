@@ -23,7 +23,7 @@ from sqlmodel import select
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from market_service.domain.market import IpfsRentalToken, MarketJob, MarketJobPayment
+from market_service.domain.market import IpfsRentalToken, MarketJob, MarketJobPayment, SoftwareService
 from market_service.services.ipfs_rental_sweeper import IpfsRentalSweeper
 from market_service.services.market_service import MarketService
 from market_service.storage import get_session_context
@@ -99,6 +99,8 @@ class TestSweeperSettlesOwnedEscrow:
     @pytest.mark.asyncio
     async def test_market_job_splat_drops_settlement_fields(self, session):
         svc = MarketService(session)
+        session.add(SoftwareService(service_type="ipfs", offer_id="o1"))
+        await session.commit()
         await svc.create_market_job(
             {
                 "offer_id": "o1",
