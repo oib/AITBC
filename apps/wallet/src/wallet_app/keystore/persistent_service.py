@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import threading
 from collections.abc import Iterable
@@ -28,6 +29,25 @@ from aitbc.utils.validation import validate_address
 logger = get_logger(__name__)
 
 _DEFAULT_DB = settings.ledger_db_path.parent / "keystore.db"
+
+
+def _validate_send_inputs(*, amount: int, fee: int, nonce: int | None, recipient: str) -> None:
+    """Refuse unsignable send parameters before they reach tx_data.
+
+    The node only accepts positive-amount transfers with fee >= 0 and a
+    0x+40hex recipient; a negative amount would also underflow the node's
+    ``amount + fee <= balance`` admission check. Shape-only check on the
+    recipient — ``validate_address`` additionally demands the EIP-55
+    checksum, which would reject lowercase-but-valid input the node accepts.
+    """
+    if amount <= 0:
+        raise ValueError("amount must be positive")
+    if fee < 0:
+        raise ValueError("fee must not be negative")
+    if nonce is not None and nonce < 0:
+        raise ValueError("nonce must not be negative")
+    if not re.fullmatch(r"0x[0-9a-fA-F]{40}", recipient):
+        raise ValueError(f"recipient is not a valid 0x address: {recipient!r}")
 
 
 @dataclass
@@ -465,6 +485,13 @@ class PersistentKeystoreService:
                 recipient = recipient.strip()
                 if not recipient.startswith("0x"):
                     recipient = "0x" + recipient
+
+                # Input validation before signing: the node only accepts
+                # positive-amount transfers with fee >= 0 and a 0x+40hex
+                # recipient. Refuse locally instead of signing a transaction
+                # the node must reject — a negative amount would also defeat
+                # the sender-balance admission check (amount + fee <= balance).
+                _validate_send_inputs(amount=amount, fee=fee, nonce=nonce, recipient=recipient)
 
                 # Build transaction data — EXACTLY the fields the node signs
                 # for verification (_unsigned_tx_fields): no timestamp (the
