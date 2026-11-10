@@ -47,7 +47,19 @@ def _run(cmd: list[str], env: dict[str, str] | None = None, check: bool = True) 
     return subprocess.run(cmd, env=proc_env, check=check, capture_output=True, text=True)
 
 
+# Island identifiers become a path component under AITBC_DATA_DIR. Anything
+# outside this allowlist — separators, dots-only names, '..' — could escape
+# the repo root, so it is rejected before it ever reaches a path (#1451).
+_ISLAND_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def _validate_island_id(island_id: str) -> None:
+    if not _ISLAND_ID_RE.match(island_id):
+        raise ValueError(f"invalid island id {island_id!r}: must match {_ISLAND_ID_RE.pattern}")
+
+
 def _repo_path(island_id: str) -> Path:
+    _validate_island_id(island_id)
     data_dir = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc/data"))
     return data_dir / "ipfs-island" / island_id
 
@@ -158,6 +170,19 @@ def main(argv: list[str] | None = None) -> int:
     if not args.island_id:
         logger.error("--island-id or ISLAND_ID is required")
         return 1
+    try:
+        _validate_island_id(args.island_id)
+    except ValueError as e:
+        logger.error("%s", e)
+        return 2
+    for name, port in (
+        ("--api-port", args.api_port),
+        ("--gateway-port", args.gateway_port),
+        ("--swarm-port", args.swarm_port),
+    ):
+        if not 1 <= port <= 65535:
+            logger.error("%s must be in 1-65535, got %s", name, port)
+            return 2
 
     repo = Path(args.repo) if args.repo else _repo_path(args.island_id)
     _init_repo(repo)
