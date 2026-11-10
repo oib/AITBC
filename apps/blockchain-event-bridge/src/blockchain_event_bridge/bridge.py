@@ -1,6 +1,7 @@
 """Core bridge logic for blockchain event to agent trigger mapping."""
 
 import asyncio
+import inspect
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
@@ -93,6 +94,25 @@ class BlockchainEventBridge:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
+        # BRIDGE-EVT-SUBSCRIBER-1 (#1431): cancelling the run tasks is not
+        # enough — each subscriber's stop() releases its gossip
+        # Subscription/broker (or the contract subscriber's HTTP client and
+        # checkpoint flush) and clears its _running flag so a later start()
+        # is not refused as "already running". Await the async stops, call
+        # the sync contract one, and contain per-subscriber failures.
+        for subscriber in (
+            self.block_subscriber,
+            self.transaction_subscriber,
+            self.contract_subscriber,
+        ):
+            if subscriber is None:
+                continue
+            try:
+                result = subscriber.stop()
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as e:
+                logger.error("Error stopping %s subscriber: %s", type(subscriber).__name__, e, exc_info=True)
         # Close any handlers that opened persistent HTTP clients.
         for handler in (
             self.coordinator_handler,

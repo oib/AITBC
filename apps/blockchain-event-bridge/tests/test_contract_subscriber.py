@@ -66,7 +66,7 @@ async def test_contract_subscriber_stop():
     settings = Settings(subscribe_contracts=False)
     subscriber = ContractEventSubscriber(settings)
 
-    await subscriber.stop()
+    subscriber.stop()  # stop() is synchronous (de-asynced in 34b12c341)
     assert subscriber._running is False
 
 
