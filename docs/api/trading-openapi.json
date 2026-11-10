@@ -1790,7 +1790,7 @@
             }
           },
           "400": {
-            "description": "Amount must be positive / Price must be finite / Price cannot be negative",
+            "description": "Amount must be between 1 and {_MAX_INTER_CHAIN_AMOUNT} / Price must be finite / Price must be between 0 and {_MAX_INTER_CHAIN_PRICE} / Quantity must be between 1 and {_MAX_INTER_CHAIN_QUANTITY}",
             "content": {
               "application/json": {
                 "schema": {
@@ -3057,9 +3057,15 @@
             "default": "0"
           },
           "quantity": {
-            "type": "integer",
-            "title": "Quantity",
-            "default": 0
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
           }
         },
         "type": "object",
