@@ -145,9 +145,15 @@ class StateDiff:
         return compress_json(self.to_dict())
 
     @classmethod
-    def decode(cls, data: bytes) -> StateDiff:
-        """Deserialize from compressed bytes."""
-        return cls.from_dict(decompress_json(data))
+    def decode(cls, data: bytes, max_bytes: int | None = None) -> StateDiff:
+        """Deserialize from compressed bytes.
+
+        ``max_bytes`` bounds the DECOMPRESSED size — sync payloads arrive
+        from peers, so callers on the trust boundary must pass a cap or a
+        gzip/zstd bomb expands fully in memory before any verification runs
+        (#1627).
+        """
+        return cls.from_dict(decompress_json(data, max_bytes=max_bytes))
 
 
 def compute_state_diff(
@@ -239,9 +245,9 @@ def encode_state_diff(diff: StateDiff) -> bytes:
     return diff.encode()
 
 
-def decode_state_diff(data: bytes) -> StateDiff:
+def decode_state_diff(data: bytes, max_bytes: int | None = None) -> StateDiff:
     """Decode a StateDiff from compressed bytes. Backward compat."""
-    return StateDiff.decode(data)
+    return StateDiff.decode(data, max_bytes=max_bytes)
 
 
 def apply_state_diff(
