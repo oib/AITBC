@@ -80,6 +80,31 @@ async def _submit_gpu_tx(tx: dict[str, Any], tx_type: str) -> str:
     return str(tx_hash)
 
 
+def _active_allocation_counts(session: Any, chain_id: str, gpu_ids: list[str]) -> dict[str, int]:
+    """Count open (``status='active'``) GPUAllocation rows per gpu_id (#1566).
+
+    One grouped query for the whole page — the per-GPU ``/gpu/allocations``
+    endpoint exists but calling it per listing row would be an N+1 fan-out.
+    """
+    if not gpu_ids:
+        return {}
+    from sqlalchemy import func
+    from sqlmodel import select
+
+    from ..state.gpu_resources import GPUAllocation
+
+    rows = session.exec(
+        select(GPUAllocation.gpu_id, func.count())
+        .where(
+            GPUAllocation.chain_id == chain_id,
+            GPUAllocation.status == "active",
+            GPUAllocation.gpu_id.in_(gpu_ids),  # type: ignore[attr-defined]
+        )
+        .group_by(GPUAllocation.gpu_id)
+    ).all()
+    return {str(gpu_id): int(count) for gpu_id, count in rows}
+
+
 @router.get("/gpus", summary="List all registered GPUs", tags=["gpu_resources"])
 @rate_limit(rate=100, per=60)
 def list_gpus(chain_id: str | None = None, status: str | None = None, limit: int = 100) -> dict[str, Any]:
@@ -107,6 +132,7 @@ def list_gpus(chain_id: str | None = None, status: str | None = None, limit: int
             query = query.limit(limit)
             result = session.execute(query)
             gpus = result.scalars().all()
+            alloc_counts = _active_allocation_counts(session, chain_id, [g.gpu_id for g in gpus])
 
             return {
                 "gpus": [
@@ -119,6 +145,9 @@ def list_gpus(chain_id: str | None = None, status: str | None = None, limit: int
                         "region": g.region,
                         "price_per_hour": str(g.price_per_hour),
                         "status": g.status,
+                        # #1566: an "active" registration with open allocations
+                        # is spoken for — market must not list it as available.
+                        "active_allocations": alloc_counts.get(g.gpu_id, 0),
                         "registered_at": g.registered_at.isoformat() if g.registered_at else None,
                     }
                     for g in gpus
@@ -251,6 +280,7 @@ def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
             if not gpu:
                 raise HTTPException(status_code=404, detail="GPU not found on-chain")
 
+            alloc_counts = _active_allocation_counts(session, chain_id, [gpu.gpu_id])
             return {
                 "gpu_id": gpu.gpu_id,
                 "miner_id": gpu.miner_id,
@@ -263,6 +293,8 @@ def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
                 "registered_by": gpu.registered_by,
                 "registered_at": gpu.registered_at.isoformat() if gpu.registered_at else None,
                 "status": gpu.status,
+                # #1566: see list_gpus — open allocations mean not bookable.
+                "active_allocations": alloc_counts.get(gpu.gpu_id, 0),
             }
 
     except HTTPException:

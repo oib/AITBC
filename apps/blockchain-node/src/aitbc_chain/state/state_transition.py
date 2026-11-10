@@ -107,6 +107,16 @@ _ZERO_VALUE_TX_TYPES = frozenset(
     {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET", "VALIDATOR_DEACTIVATE"}
 )
 
+# v25 (#1566): GPURegistration.price_per_hour is Numeric(20,8) — at most 12
+# integer digits. The bound mirrors the coordinator-side
+# _validated_price_per_hour (#1389/#1566): finite, >= 0, <= column max.
+_GPU_PRICE_PER_HOUR_MAX = Decimal("999999999999.99999999")
+
+
+def _gpu_price_per_hour_in_range(price: Decimal) -> bool:
+    """v25 GPU_REGISTER price bound: finite Decimal in [0, Numeric(20,8) max]."""
+    return price.is_finite() and Decimal("0") <= price <= _GPU_PRICE_PER_HOUR_MAX
+
 
 def _is_zero_value_tx_type(tx_type: str, block_version: int) -> bool:
     """Whether ``tx_type`` may not carry value under the rules of ``block_version``.
@@ -1405,6 +1415,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v25_threshold = getattr(settings, "state_transition_v25_height", None)
+    if v25_threshold and height >= v25_threshold:
+        return 25
     v24_threshold = getattr(settings, "state_transition_v24_height", None)
     if v24_threshold and height >= v24_threshold:
         return 24
@@ -2344,9 +2357,14 @@ class StateTransition:
             if not isinstance(payload.get("memory_gb"), int):
                 return (False, "GPU_REGISTER payload must include integer memory_gb")
             try:
-                Decimal(str(payload.get("price_per_hour", 0)))
+                gpu_price = Decimal(str(payload.get("price_per_hour", 0)))
             except Exception:
                 return (False, "GPU_REGISTER payload must include a valid price_per_hour")
+            if block_version >= 25 and not _gpu_price_per_hour_in_range(gpu_price):
+                # v25 (#1566): negative/NaN/Infinity/oversized prices were
+                # storable pre-gate; bound them now that the column is
+                # Numeric(20,8). Below v25 the parse-only rule replays history.
+                return (False, "GPU_REGISTER price_per_hour out of range")
             if value != 0:
                 return (False, "GPU_REGISTER must have value=0")
             if block_version >= 7:
@@ -2912,7 +2930,7 @@ class StateTransition:
         if tx_type == "GPU_REGISTER":
             payload = tx_data.get("payload") or {}
             gpu_data = {**(payload if isinstance(payload, dict) else {}), "registered_by": sender_addr}
-            ok, msg = self.handle_gpu_registration(session, chain_id, gpu_data)
+            ok, msg = self.handle_gpu_registration(session, chain_id, gpu_data, block_version=block_version)
             if not ok:
                 return (False, msg)
         if tx_type == "GPU_DEREGISTER" and block_version >= 10:
@@ -3532,7 +3550,13 @@ class StateTransition:
         """Get the last processed nonce for each address."""
         return self._processed_nonces.copy()
 
-    def handle_gpu_registration(self, session: Session, chain_id: str, gpu_data: dict[str, Any]) -> tuple[bool, str]:
+    def handle_gpu_registration(
+        self,
+        session: Session,
+        chain_id: str,
+        gpu_data: dict[str, Any],
+        block_version: int = 1,
+    ) -> tuple[bool, str]:
         """
         Handle GPU registration state transition.
 
@@ -3540,6 +3564,10 @@ class StateTransition:
             session: Database session
             chain_id: Chain identifier
             gpu_data: GPU registration data
+            block_version: State-transition rule version of the containing
+                block. v25+ bounds ``price_per_hour`` to a finite Decimal in
+                [0, Numeric(20,8) max] (#1566); callers that omit it get the
+                pre-gate rules so historical replay is unchanged.
 
         Returns:
             Tuple of (success, error_message)
@@ -3559,9 +3587,12 @@ class StateTransition:
                 existing.capabilities = list(gpu_data.get("capabilities", existing.capabilities) or [])
                 raw_price = gpu_data.get("price_per_hour", existing.price_per_hour)
                 try:
-                    existing.price_per_hour = Decimal(str(raw_price))
+                    new_price = Decimal(str(raw_price))
                 except Exception:
                     return (False, f"Invalid price_per_hour for GPU {gpu_id}")
+                if block_version >= 25 and not _gpu_price_per_hour_in_range(new_price):
+                    return (False, f"price_per_hour out of range for GPU {gpu_id}")
+                existing.price_per_hour = new_price
                 existing.status = "active"
                 existing.updated_at = datetime.now(UTC)
             else:
@@ -3572,6 +3603,8 @@ class StateTransition:
                     price = Decimal(str(price))
                 except Exception:
                     return (False, f"Invalid price_per_hour for GPU {gpu_id}")
+                if block_version >= 25 and not _gpu_price_per_hour_in_range(price):
+                    return (False, f"price_per_hour out of range for GPU {gpu_id}")
                 try:
                     memory_gb = int(gpu_data.get("memory_gb", 0))
                 except Exception:

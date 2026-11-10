@@ -675,6 +675,17 @@ class MarketService:
                     status=status if status else _GPU_LISTING_DEFAULT_STATUS,
                 )
                 for offer in offers:
+                    # #1566: a GPU holding open on-chain allocations stays
+                    # status='active' but is spoken for — an allocation does
+                    # not touch gpu.status. The chain RPC reports the count;
+                    # nodes predating the field yield 0 and keep old behavior.
+                    if int(offer.get("active_allocations") or 0) > 0:
+                        logger.info(
+                            "Skipping allocated GPU offer %s (active_allocations=%s)",
+                            offer.get("gpu_id", offer.get("id", "unknown")),
+                            offer.get("active_allocations"),
+                        )
+                        continue
                     price_per_hour = offer.get("price_per_hour")
                     if price_per_hour is None:
                         logger.warning(
@@ -981,9 +992,13 @@ class MarketService:
                     # not resolve as a bookable offer, and a row without a
                     # price cannot be priced — Decimal(str(None)) would 500.
                     gpu_status = gpu.get("status")
-                    if (gpu_status is not None and gpu_status != _GPU_LISTING_DEFAULT_STATUS) or gpu.get(
-                        "price_per_hour"
-                    ) is None:
+                    if (
+                        (gpu_status is not None and gpu_status != _GPU_LISTING_DEFAULT_STATUS)
+                        or gpu.get("price_per_hour") is None
+                        # #1566: open allocations mean the GPU is spoken for —
+                        # same visibility rule as the list path.
+                        or int(gpu.get("active_allocations") or 0) > 0
+                    ):
                         gpu = None
                 if gpu:
                     data = _gpu_offer_to_service_dict(gpu, None, settings.hub_rpc_url)
