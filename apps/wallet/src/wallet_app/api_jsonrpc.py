@@ -35,6 +35,10 @@ def handle_jsonrpc(
 ) -> dict[str, Any]:
     method = request.get("method")
     params = request.get("params") or {}
+    if not isinstance(params, dict):
+        # params must be an object; list/scalar params would AttributeError
+        # on .get below and surface as a 500 instead of a JSON-RPC error.
+        return _response(error={"code": -32602, "message": "params must be an object"}, request_id=request.get("id"))
     request_id = request.get("id")
 
     if method == "receipts.verify_latest":
@@ -69,8 +73,16 @@ def handle_jsonrpc(
         secret_b64 = params.get("secret_key")
         if not wallet_id or not password:
             return _response(error={"code": -32602, "message": "wallet_id and password required"}, request_id=request_id)
-        secret = base64.b64decode(secret_b64) if secret_b64 else None
-        record = keystore.create_wallet(wallet_id=wallet_id, password=password, secret=secret, metadata=metadata)
+        if not isinstance(metadata, dict):
+            return _response(error={"code": -32602, "message": "metadata must be an object"}, request_id=request_id)
+        try:
+            secret = base64.b64decode(secret_b64) if secret_b64 else None
+        except Exception:
+            return _response(error={"code": -32602, "message": "invalid base64 secret_key"}, request_id=request_id)
+        try:
+            record = keystore.create_wallet(wallet_id=wallet_id, password=password, secret=secret, metadata=metadata)
+        except ValueError as e:
+            return _response(error={"code": -32602, "message": str(e)}, request_id=request_id)
         ledger.upsert_wallet(record.wallet_id, record.public_key, record.metadata)
         ledger.record_event(record.wallet_id, "created", {"metadata": record.metadata})
         return _response(
