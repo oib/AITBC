@@ -1906,7 +1906,8 @@ class MarketService:
                 stmt = stmt.where(col(MarketJob.state) == state)
             if offer_id:
                 stmt = stmt.where(col(MarketJob.offer_id) == offer_id)
-            stmt = stmt.order_by(col(MarketJob.created_at).desc()).limit(min(limit, max_page_size()))
+            # Floor at 1: SQLite treats LIMIT < 0 as unlimited.
+            stmt = stmt.order_by(col(MarketJob.created_at).desc()).limit(min(max(limit, 1), max_page_size()))
 
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())
