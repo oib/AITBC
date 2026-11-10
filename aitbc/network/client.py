@@ -2,6 +2,7 @@
 HTTP client implementations for AITBC applications
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -71,16 +72,21 @@ def _detail_suffix_inner(exc: BaseException) -> str:
 def _response_json(response: httpx.Response) -> JSONResponse:
     """Parse a successful response body inside the retry boundary.
 
-    Returns ``{}`` for empty bodies (204/205) and translates a malformed
-    JSON body into ``httpx.DecodingError`` — an ``httpx.HTTPError`` — so the
-    retry policy applies the same GET-retry / write-ambiguity semantics as
-    the sync ``requests`` path instead of leaking a raw
-    ``json.JSONDecodeError`` to the caller.
+    Returns ``{}`` for empty bodies (204/205). A body that is not JSON at
+    all raises the stdlib ``json.JSONDecodeError`` unchanged: it is a
+    ``ValueError``, not an ``httpx.HTTPError``, so the retry policy does not
+    replay the request and the caller sees the parse failure directly (the
+    escrow-funding lookup relies on exactly that contract). Any other
+    ``ValueError`` from the decoder is translated into ``httpx.DecodingError``
+    so it still picks up the GET-retry / write-ambiguity semantics of the
+    retry boundary instead of leaking an unclassified error.
     """
     if not response.content:
         return {}
     try:
         parsed: JSONResponse = response.json()
+    except json.JSONDecodeError:
+        raise
     except ValueError as e:
         try:
             request = response.request
