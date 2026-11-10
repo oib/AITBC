@@ -9,6 +9,7 @@ the enforced time bound is then a lie.
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 import time
 from pathlib import Path
@@ -16,10 +17,18 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Load under a unique module name — sibling root-layout apps ship their own
+# main.py and a bare ``import main`` collides in sys.modules across suites
+# (whoever imports first wins; the loser's tests get the wrong FastAPI app).
+# Same convention as test_smoke.py in this directory. Registered in
+# sys.modules so importlib.reload() in sibling tests keeps working.
+_spec = importlib.util.spec_from_file_location("aitbc_hermes_main", Path(__file__).resolve().parents[1] / "main.py")
+hermes = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+sys.modules["aitbc_hermes_main"] = hermes
+_spec.loader.exec_module(hermes)
 
-import main as hermes
-from main import HermesRunRequest
+HermesRunRequest = hermes.HermesRunRequest
 
 
 @pytest.mark.asyncio

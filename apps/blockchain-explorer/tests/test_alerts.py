@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import routers.alerts as alerts_mod
-from main import app
+from aitbc_explorer_main import app
 
 
 @pytest.fixture

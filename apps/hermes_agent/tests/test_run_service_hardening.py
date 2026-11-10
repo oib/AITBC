@@ -12,18 +12,43 @@ neither default nor allow-list is configured an explicit conservative
 capped by a semaphore. These FAIL on current main.
 """
 
+import importlib.util
 import sys
 from pathlib import Path
 
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Load under a unique module name — sibling root-layout apps ship their own
+# main.py and a bare ``import main`` collides in sys.modules across suites
+# (whoever imports first wins; the loser's tests get the wrong FastAPI app).
+# Same convention as test_smoke.py in this directory. Registered in
+# sys.modules so importlib.reload() below keeps working. Attribute access
+# (hermes.X) rather than name aliases so a reload cannot leave stale refs.
+_MAIN_PATH = Path(__file__).resolve().parents[1] / "main.py"
 
-import main as hermes
-from main import HermesRunRequest, _build_command
+
+def _load_main():
+    """Exec main.py fresh under the unique test module name.
+
+    ``importlib.reload`` cannot be used: it re-resolves the module by name
+    through sys.path, and ``aitbc_hermes_main`` exists only as a
+    spec_from_file_location module, so reload raises ModuleNotFoundError.
+    """
+    spec = importlib.util.spec_from_file_location("aitbc_hermes_main", _MAIN_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+_spec = importlib.util.spec_from_file_location("aitbc_hermes_main", _MAIN_PATH)
+hermes = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+sys.modules["aitbc_hermes_main"] = hermes
+_spec.loader.exec_module(hermes)
 
 
 def _req(**over):
-    return HermesRunRequest(prompt="x", **over)
+    return hermes.HermesRunRequest(prompt="x", **over)
 
 
 def _toolsets_arg(cmd):
@@ -34,9 +59,9 @@ def test_empty_toolsets_uses_default(monkeypatch):
     monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
     monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "web,memory")
     monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", "web,memory")
-    assert _toolsets_arg(_build_command(_req(toolsets=","), "/tmp/u")) == "web,memory"
-    assert _toolsets_arg(_build_command(_req(toolsets=" , , "), "/tmp/u")) == "web,memory"
-    assert _toolsets_arg(_build_command(_req(toolsets=""), "/tmp/u")) == "web,memory"
+    assert _toolsets_arg(hermes._build_command(_req(toolsets=","), "/tmp/u")) == "web,memory"
+    assert _toolsets_arg(hermes._build_command(_req(toolsets=" , , "), "/tmp/u")) == "web,memory"
+    assert _toolsets_arg(hermes._build_command(_req(toolsets=""), "/tmp/u")) == "web,memory"
 
 
 def test_unconfigured_env_forces_conservative_toolsets(monkeypatch):
@@ -44,7 +69,7 @@ def test_unconfigured_env_forces_conservative_toolsets(monkeypatch):
     monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
     monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "")
     monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", "")
-    arg = _toolsets_arg(_build_command(_req(), "/tmp/u"))
+    arg = _toolsets_arg(hermes._build_command(_req(), "/tmp/u"))
     assert arg is not None and arg, "no --toolsets at all — falls through to the full profile"
 
 
@@ -53,10 +78,8 @@ def test_run_requires_credential(monkeypatch):
     from fastapi.testclient import TestClient
 
     monkeypatch.setenv("HERMES_RUN_API_KEY", "s3cret")
-    import importlib
-
-    importlib.reload(hermes)
-    client = TestClient(hermes.app)
+    fresh = _load_main()  # re-exec so the env var is read at module level
+    client = TestClient(fresh.app)
     r = client.post("/run", json={"prompt": "x"})
     assert r.status_code == 401, f"/run answered {r.status_code} with no credential"
 
