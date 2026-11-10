@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session, col, select
 
+from aitbc.network.url_safety import validate_outbound_url
 from aitbc.rate_limiting import rate_limit
 
 from ....storage import get_session
@@ -175,6 +176,17 @@ def create_webhook(
     for event in webhook.events:
         if event not in VALID_EVENTS:
             raise HTTPException(400, f"Invalid event: {event}")
+
+    # SSRF guard (#1577): rows are not dispatched today, but the stored URL
+    # becomes a live POST target the moment a dispatcher lands — refuse
+    # non-public targets at registration so the store is safe by
+    # construction. PARTNER_WEBHOOK_ALLOWED_TARGETS (host[:port], comma-
+    # separated) is the operator escape hatch for internal endpoints. A
+    # dispatcher MUST re-validate at send time (DNS can change).
+    try:
+        validate_outbound_url(webhook.url, allowlist_env="PARTNER_WEBHOOK_ALLOWED_TARGETS")
+    except ValueError as e:
+        raise HTTPException(400, f"Invalid webhook URL: {e}") from e
 
     # Generate webhook secret if not provided
     secret = webhook.secret or secrets.token_urlsafe(32)

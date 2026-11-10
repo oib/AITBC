@@ -13,6 +13,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
+from aitbc.network.url_safety import validate_outbound_url
 
 try:
     from email.mime.multipart import MIMEMultipart
@@ -224,11 +225,20 @@ class NotificationManager:
         }
 
     def configure_slack(self, webhook_url: str, channel: str) -> Any:
-        """Configure Slack notifications"""
+        """Configure Slack notifications.
+
+        Raises ValueError if the URL is not http(s) to a public host —
+        alerting POSTs alert payloads there (#1577)."""
+        validate_outbound_url(webhook_url)
         self.slack_config = {"webhook_url": webhook_url, "channel": channel}
 
     def add_webhook(self, name: str, url: str, headers: dict[str, str] | None = None) -> Any:
-        """Add webhook configuration"""
+        """Add webhook configuration.
+
+        Raises ValueError if the URL is not http(s) to a public host —
+        alerting POSTs alert payloads (and caller-supplied headers) there
+        (#1577)."""
+        validate_outbound_url(url)
         self.webhook_configs[name] = {"url": url, "headers": headers or {}}
 
     async def send_notification(self, channel: NotificationChannel, alert: Alert, message: str) -> Any:

@@ -92,6 +92,36 @@ def _has_credential_headers(headers: dict[str, str]) -> bool:
     return any(str(name).lower() in _CREDENTIAL_HEADER_NAMES for name in headers)
 
 
+def _strip_credential_headers(headers: dict[str, str]) -> None:
+    for name in list(headers):
+        if str(name).lower() in _CREDENTIAL_HEADER_NAMES:
+            del headers[name]
+
+
+class _CredentialSafeSession(requests.Session):
+    """Session that drops credential headers when a redirect leaves the origin.
+
+    ``requests`` strips ``Authorization`` on cross-host redirects but replays
+    every other header verbatim — a 30x from a trusted host would forward
+    ``X-API-Key``/``X-Trading-Api-Key`` to whoever the ``Location`` names
+    (#1577). ``rebuild_auth`` runs once per redirect hop before the follow-up
+    request is sent, so removing the headers here is the last point where the
+    leak can still be stopped. Same-host redirects (and https→https port
+    changes) keep the credentials.
+    """
+
+    def rebuild_auth(self, prepared_request, response):
+        super().rebuild_auth(prepared_request, response)
+        old = urlparse(response.url)
+        new = urlparse(prepared_request.url)
+        old_host = (old.hostname or "").lower()
+        new_host = (new.hostname or "").lower()
+        old_scheme = (old.scheme or "").lower()
+        new_scheme = (new.scheme or "").lower()
+        if old_host != new_host or old_scheme != new_scheme:
+            _strip_credential_headers(prepared_request.headers)
+
+
 def _check_api_key_target(base_url: str, api_key: str | None = None, headers: dict[str, str] | None = None) -> None:
     if _trusted_api_key_hosts is None:
         return
@@ -155,7 +185,7 @@ class AITBCHTTPClient:
         _check_api_key_target(base_url, headers=self.headers)
         self.correlation_id = correlation_id
         self.logger = get_logger(__name__)
-        self.session = requests.Session()
+        self.session = _CredentialSafeSession()
         self.session.headers.update(self.headers)
 
         # Initialize components

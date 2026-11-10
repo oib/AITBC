@@ -22,8 +22,16 @@ from trading_service.storage import engine
 EXCHANGE_RATE = 100000  # mirrors ETHEREUM_CONFIG["exchange_rate"]
 
 
-def _sig(payment_id: str, tx_hash: str, secret: str) -> str:
-    return hmac.new(secret.encode(), f"{payment_id}:{tx_hash}".encode(), hashlib.sha256).hexdigest()
+def _sig(payment_id: str, tx_hash: str, secret: str, timestamp: int | None = None) -> tuple[str, int]:
+    """(X-Signature, X-Timestamp) pair for the freshness-bound webhook HMAC."""
+    ts = int(time.time()) if timestamp is None else timestamp
+    sig = hmac.new(secret.encode(), f"{payment_id}:{tx_hash}:{ts}".encode(), hashlib.sha256).hexdigest()
+    return sig, ts
+
+
+def _webhook_headers(payment_id: str, tx_hash: str, secret: str, timestamp: int | None = None) -> dict[str, str]:
+    sig, ts = _sig(payment_id, tx_hash, secret, timestamp)
+    return {"X-Signature": sig, "X-Timestamp": str(ts)}
 
 
 async def _seed_exchange_payment(**overrides):
@@ -200,7 +208,7 @@ class TestExchangeWebhookConfirm:
         resp = client.post(
             f"/v1/exchange/confirm-payment/{pid}",
             params={"tx_hash": tx},
-            headers={"X-Signature": _sig(pid, tx, "test-webhook-secret")},
+            headers=_webhook_headers(pid, tx, "test-webhook-secret"),
         )
         # #1410: endpoint disabled (501) until on-chain verification + minting exist
         assert resp.status_code == 501
@@ -233,7 +241,7 @@ class TestExchangeWebhookConfirm:
         resp = client.post(
             f"/v1/exchange/confirm-payment/{pid}",
             params={"tx_hash": tx},
-            headers={"X-Signature": _sig(pid, tx, "test-webhook-secret")},
+            headers=_webhook_headers(pid, tx, "test-webhook-secret"),
         )
         # #1410: disabled endpoint answers 501 regardless of payment state
         assert resp.status_code == 501
@@ -247,9 +255,71 @@ class TestExchangeWebhookConfirm:
         resp = client.post(
             f"/v1/exchange/confirm-payment/{pid}",
             params={"tx_hash": tx},
-            headers={"X-Signature": _sig(pid, tx, "test-webhook-secret")},
+            headers=_webhook_headers(pid, tx, "test-webhook-secret"),
         )
         assert resp.status_code in (400, 422, 501, 502)
+
+    async def test_confirm_payment_missing_timestamp_401(self, client):
+        """#1577: X-Timestamp is required — the signature alone is replayable."""
+        pid = await _seed_exchange_payment(status="pending")
+        tx = "0xabc"
+        resp = client.post(
+            f"/v1/exchange/confirm-payment/{pid}",
+            params={"tx_hash": tx},
+            headers={"X-Signature": "anything"},
+        )
+        assert resp.status_code == 401
+
+    async def test_confirm_payment_stale_timestamp_401(self, client):
+        """A correctly-signed but old timestamp is refused (replay window)."""
+        pid = await _seed_exchange_payment(status="pending")
+        tx = "0xabc"
+        stale = int(time.time()) - 3600
+        resp = client.post(
+            f"/v1/exchange/confirm-payment/{pid}",
+            params={"tx_hash": tx},
+            headers=_webhook_headers(pid, tx, "test-webhook-secret", timestamp=stale),
+        )
+        assert resp.status_code == 401
+
+    async def test_confirm_payment_future_timestamp_401(self, client):
+        pid = await _seed_exchange_payment(status="pending")
+        tx = "0xabc"
+        future = int(time.time()) + 3600
+        resp = client.post(
+            f"/v1/exchange/confirm-payment/{pid}",
+            params={"tx_hash": tx},
+            headers=_webhook_headers(pid, tx, "test-webhook-secret", timestamp=future),
+        )
+        assert resp.status_code == 401
+
+    async def test_confirm_payment_legacy_scheme_signature_401(self, client):
+        """Signatures minted over the old ``payment_id:tx_hash`` payload
+        (no timestamp) no longer verify."""
+        pid = await _seed_exchange_payment(status="pending")
+        tx = "0xabc"
+        ts = int(time.time())
+        legacy = hmac.new(b"test-webhook-secret", f"{pid}:{tx}".encode(), hashlib.sha256).hexdigest()
+        resp = client.post(
+            f"/v1/exchange/confirm-payment/{pid}",
+            params={"tx_hash": tx},
+            headers={"X-Signature": legacy, "X-Timestamp": str(ts)},
+        )
+        assert resp.status_code == 401
+
+    async def test_confirm_payment_skew_window_configurable(self, client, monkeypatch):
+        """EXCHANGE_WEBHOOK_MAX_SKEW_SECONDS widens the freshness window."""
+        monkeypatch.setenv("EXCHANGE_WEBHOOK_MAX_SKEW_SECONDS", "7200")
+        pid = await _seed_exchange_payment(status="pending")
+        tx = "0xabc"
+        ts = int(time.time()) - 3600  # stale under the 300s default, fresh under 7200s
+        resp = client.post(
+            f"/v1/exchange/confirm-payment/{pid}",
+            params={"tx_hash": tx},
+            headers=_webhook_headers(pid, tx, "test-webhook-secret", timestamp=ts),
+        )
+        # Signature now verifies → disabled endpoint answers 501, not 401
+        assert resp.status_code == 501
 
 
 class TestExchangeReadEndpoints:

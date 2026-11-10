@@ -406,7 +406,10 @@ class TestSLAMonitor:
 
 
 class TestNotificationManager:
-    def test_configure_channels(self):
+    def test_configure_channels(self, monkeypatch):
+        # #1577: webhook/slack URLs are validated against public addresses at
+        # config time; allowlist the fixture hosts so no DNS is needed.
+        monkeypatch.setenv("AITBC_OUTBOUND_URL_ALLOWED_TARGETS", "hooks.slack.com,webhook.example.com")
         nm = NotificationManager()
         nm.configure_email("smtp.example.com", 587, "user", "pass", "from@example.com")
         assert nm.email_config["smtp_server"] == "smtp.example.com"
@@ -414,6 +417,14 @@ class TestNotificationManager:
         assert nm.slack_config["channel"] == "#alerts"
         nm.add_webhook("primary", "https://webhook.example.com")
         assert "primary" in nm.webhook_configs
+
+    def test_webhook_rejects_private_target(self):
+        """#1577: add_webhook refuses non-public URLs (SSRF guard)."""
+        nm = NotificationManager()
+        with pytest.raises(ValueError):
+            nm.add_webhook("internal", "http://169.254.169.254/latest/meta-data")
+        with pytest.raises(ValueError):
+            nm.configure_slack("http://127.0.0.1:8080/hook", "#alerts")
 
 
 class TestAlertManager:
