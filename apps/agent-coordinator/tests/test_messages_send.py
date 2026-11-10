@@ -167,5 +167,7 @@ class TestMessageStorageIndexing:
             )
         )
 
-        storage.redis.sadd.assert_any_call("messages:sender:agent-a", "msg-1")
-        storage.redis.sadd.assert_any_call("messages:receiver:agent-b", "msg-1")
+        # #1529: per-agent indexes are zsets scored by timestamp so reads can
+        # paginate with ZREVRANGE; the member is the message id.
+        storage.redis.zadd.assert_any_call("messages:sender:agent-a", {"msg-1": pytest.approx(1787313600.0)})
+        storage.redis.zadd.assert_any_call("messages:receiver:agent-b", {"msg-1": pytest.approx(1787313600.0)})

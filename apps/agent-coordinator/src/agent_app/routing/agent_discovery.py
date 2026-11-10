@@ -446,7 +446,9 @@ class AgentRegistry:
         if not self.redis_client:
             return
         try:
-            keys = await self.redis_client.keys("agent:*")
+            # SCAN iteration instead of KEYS: KEYS blocks the whole Redis
+            # server for the duration of the scan (#1530).
+            keys = [key async for key in self.redis_client.scan_iter("agent:*")]
             for key in keys:
                 try:
                     data = await self.redis_client.get(key)
