@@ -608,6 +608,11 @@ class ChainSettings(BaseSettings):
     # exactly as before.
     gossip_max_connections_per_ip_total: int = int(os.getenv("GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL", "0"))
     gossip_max_messages_per_minute_total: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE_TOTAL", "0"))
+    # Per-source-IP cap on /rpc/subscribe/ws block-push connections (#1587):
+    # the endpoint accepted unlimited sockets per IP, each holding a broker
+    # subscription and two forwarder tasks. 8 covers a follower running
+    # several chains plus reconnect overlap.
+    subscribe_ws_max_connections_per_ip: int = int(os.getenv("SUBSCRIBE_WS_MAX_CONNECTIONS_PER_IP", "8"))
 
     # Multi-chain per island (v0.6.4). Chains hosted on this island.
     # Comma-separated list of chain_ids. If empty, defaults to [chain_id]

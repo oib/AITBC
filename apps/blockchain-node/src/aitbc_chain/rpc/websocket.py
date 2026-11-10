@@ -67,6 +67,30 @@ _gossip_ip_connections: dict[tuple[str, str], int] = {}
 # the optional aggregate ceiling (GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL) is O(1).
 _gossip_ip_total: dict[str, int] = {}
 
+# Per-source-IP connection count for /subscribe/ws (#1587). The gossip ws
+# path has had this since #1159; the block-push endpoint had none, so one
+# IP could hold unlimited sockets (each with a broker subscription and two
+# forwarder tasks). Keyed on IP alone — the chain is only known after the
+# handshake frame, and the slot must be held from accept onward.
+_subscribe_ip_connections: dict[str, int] = {}
+
+
+def _acquire_subscribe_ip_slot(client_ip: str) -> bool:
+    """Take a /subscribe/ws slot for ``client_ip``; False when at the cap."""
+    if _subscribe_ip_connections.get(client_ip, 0) >= settings.subscribe_ws_max_connections_per_ip:
+        return False
+    _subscribe_ip_connections[client_ip] = _subscribe_ip_connections.get(client_ip, 0) + 1
+    return True
+
+
+def _release_subscribe_ip_slot(client_ip: str) -> None:
+    remaining = _subscribe_ip_connections.get(client_ip, 1) - 1
+    if remaining > 0:
+        _subscribe_ip_connections[client_ip] = remaining
+    else:
+        _subscribe_ip_connections.pop(client_ip, None)
+
+
 # Lazily-created per-chain brokers for chains this process serves beyond
 # ``settings.chain_id``. The default chain keeps using the module-global
 # ``gossip_broker`` wired by main.py; every other chain MUST resolve its
@@ -728,12 +752,23 @@ async def subscription_websocket(websocket: WebSocket) -> None:
     3. Server subscribes to block topic and pushes new blocks to client
     4. Server sends ping every 20s, expects pong response
     """
-    await websocket.accept()
+    # #1587: per-source-IP connection cap, taken BEFORE accept so a refused
+    # client never gets a socket (or a broker subscription slot).
+    client_ip = _gossip_client_ip(websocket)
+    if not _acquire_subscribe_ip_slot(client_ip):
+        logger.warning("Subscribe websocket connection limit for %s", client_ip)
+        await _gossip_ws_close(websocket, code=1008)
+        return
     node_id: str | None = None
     # Bound before the handshake so the finally block can look up the entry
     # even when the client disconnects before sending its subscription message.
     chain_id: str = ""
     try:
+        try:
+            await asyncio.wait_for(websocket.accept(), timeout=_GOSSIP_WS_OP_TIMEOUT)
+        except TimeoutError:
+            await _gossip_ws_close(websocket, code=1011)
+            return
         # The handshake frame is the only inbound message this endpoint reads,
         # but it was unbounded: a client that never sends (or trickles one)
         # held the connection — and its slot in _active_subscribers bookkeeping
@@ -750,44 +785,46 @@ async def subscription_websocket(websocket: WebSocket) -> None:
         try:
             data = json.loads(message)
         except json.JSONDecodeError:
-            await websocket.send_json({"error": "Invalid JSON"})
-            await websocket.close(code=1008)
+            await _gossip_ws_send_json(websocket, {"error": "Invalid JSON"})
+            await _gossip_ws_close(websocket, code=1008)
             return
         if not isinstance(data, dict):
-            await websocket.send_json({"error": "Subscription message must be a JSON object"})
-            await websocket.close(code=1008)
+            await _gossip_ws_send_json(websocket, {"error": "Subscription message must be a JSON object"})
+            await _gossip_ws_close(websocket, code=1008)
             return
         node_id = data.get("node_id")
         chain_id = data.get("chain_id", settings.chain_id)
         transport = data.get("transport", "websocket")
         if not node_id:
-            await websocket.send_json({"error": "node_id is required"})
-            await websocket.close(code=1008)
+            await _gossip_ws_send_json(websocket, {"error": "node_id is required"})
+            await _gossip_ws_close(websocket, code=1008)
             return
         try:
             expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
 
             if expiry <= time.time():
-                await websocket.send_json(
-                    {"error": "No valid lease found. Register subscription first via POST /rpc/subscribe"}
+                await _gossip_ws_send_json(
+                    websocket, {"error": "No valid lease found. Register subscription first via POST /rpc/subscribe"}
                 )
-                await websocket.close(code=1008)
+                await _gossip_ws_close(websocket, code=1008)
                 return
         except Exception as e:
             logger.error("Failed to validate lease for %s: %s", node_id, e)
-            await websocket.send_json({"error": "Failed to validate lease"})
-            await websocket.close(code=1011)
+            await _gossip_ws_send_json(websocket, {"error": "Failed to validate lease"})
+            await _gossip_ws_close(websocket, code=1011)
             return
         _active_subscribers[node_id, chain_id] = websocket
         logger.info("WebSocket subscriber connected: %s (chain=%s, transport=%s)", node_id, chain_id, transport)
-        await websocket.send_json({"status": "subscribed", "node_id": node_id, "chain_id": chain_id, "transport": transport})
+        await _gossip_ws_send_json(
+            websocket, {"status": "subscribed", "node_id": node_id, "chain_id": chain_id, "transport": transport}
+        )
         topic = f"blocks.{chain_id}"
         broker = _broker_for_chain(chain_id)
         if broker is None:
-            await websocket.send_json({"error": "Unsupported chain"})
-            await websocket.close(code=1008)
+            await _gossip_ws_send_json(websocket, {"error": "Unsupported chain"})
+            await _gossip_ws_close(websocket, code=1008)
             return
-        block_subscription = await broker.subscribe(topic)
+        block_subscription = await broker.subscribe(topic, max_queue_size=100)
 
         async def _send_blocks() -> None:
             """Send blocks to subscriber."""
@@ -795,7 +832,10 @@ async def subscription_websocket(websocket: WebSocket) -> None:
                 async for block_data in block_subscription:
                     if isinstance(block_data, str):
                         block_data = json.loads(block_data)
-                    await websocket.send_json(block_data)
+                    # Bounded send (#1587): a peer that stops reading must
+                    # not wedge this task — same _GOSSIP_WS_OP_TIMEOUT the
+                    # gossip ws path got in #1165.
+                    await _gossip_ws_send_json(websocket, block_data)
                     logger.debug("Sent block to %s", node_id)
             except WebSocketDisconnect:
                 logger.info("WebSocket disconnected for %s", node_id)
@@ -807,7 +847,21 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             try:
                 while True:
                     await asyncio.sleep(20)
-                    await websocket.send_json({"type": "ping", "timestamp": time.time()})
+                    # #1587: the lease was only validated at handshake — a
+                    # connection that outlives its lease kept receiving
+                    # block pushes forever. Revalidate each heartbeat; a
+                    # lapsed lease closes the stream. A lease_tracker error
+                    # is transient and must not drop live subscribers.
+                    try:
+                        lease_expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
+                    except Exception as e:
+                        logger.warning("Lease revalidation failed for %s: %s", node_id, e)
+                        lease_expiry = time.time() + 1
+                    if lease_expiry <= time.time():
+                        logger.info("Lease expired for %s; closing subscribe ws", node_id)
+                        await _gossip_ws_close(websocket, code=1008)
+                        return
+                    await _gossip_ws_send_json(websocket, {"type": "ping", "timestamp": time.time()})
             except WebSocketDisconnect:  # expected disconnect
                 pass
             # intentional silent cleanup
@@ -830,10 +884,11 @@ async def subscription_websocket(websocket: WebSocket) -> None:
     except Exception as e:
         logger.error("WebSocket error for %s: %s", node_id, e)
     finally:
+        _release_subscribe_ip_slot(client_ip)
         if node_id and (node_id, chain_id) in _active_subscribers:
             del _active_subscribers[node_id, chain_id]
         try:
-            await websocket.close()
+            await _gossip_ws_close(websocket)
         except Exception:  # nosec
             pass
         logger.info("WebSocket subscriber cleanup complete: %s", node_id)
