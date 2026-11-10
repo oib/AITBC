@@ -8,6 +8,7 @@ a local SQLite database so messages are still durably stored on the
 
 import json
 import os
+import time
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -116,9 +117,26 @@ class MessageStorage:
     # SQLite fallback helpers
     # ------------------------------------------------------------------
 
+    async def _sqlite_purge_expired(self) -> None:
+        """Delete fallback rows past ``MESSAGE_TTL_SECONDS`` (#1554).
+
+        The Redis path expires message hashes after 7 days; the SQLite
+        fallback had no equivalent, so rows accumulated forever whenever
+        Redis was unavailable. Runs on the store path — one indexed DELETE
+        per write keeps the table bounded without a separate sweeper.
+        """
+        if not self.sqlite_conn:
+            return
+        try:
+            await self.sqlite_conn.execute("DELETE FROM messages WHERE timestamp < ?", (time.time() - MESSAGE_TTL_SECONDS,))
+            await self.sqlite_conn.commit()
+        except Exception as e:
+            logger.error("SQLite expiry purge failed: %s", e)
+
     async def _sqlite_store(self, message_id: str, message_data: dict[str, Any]) -> bool:
         if not self.sqlite_conn:
             return False
+        await self._sqlite_purge_expired()
         try:
             data = json.dumps(message_data)
             sender = self._extract_sender(message_data)
