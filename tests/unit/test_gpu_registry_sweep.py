@@ -166,6 +166,22 @@ class TestMain:
         assert sweep_mod.main(["--chain-id", CHAIN, "--db", str(tmp_path / "gone.db")]) == 2
         assert "not found" in capsys.readouterr().err
 
+    def test_default_db_path_honours_aitbc_data_dir(self, sweep_mod, tmp_path, monkeypatch, capsys):
+        """#1497: with no --db, the default path is $AITBC_DATA_DIR/data/<chain>/chain.db."""
+        data_dir = tmp_path / "scratch-data"
+        db_path = data_dir / "data" / CHAIN / "chain.db"
+        db_path.parent.mkdir(parents=True)
+        _make_db(
+            db_path,
+            [(CHAIN, "gpu-live-05", "active", "0x08aB8011")],
+            [],
+        )
+        monkeypatch.setenv("AITBC_DATA_DIR", str(data_dir))
+        monkeypatch.delenv("CHAIN_ID", raising=False)
+        assert sweep_mod.main(["--chain-id", CHAIN]) == 0
+        out = capsys.readouterr().out
+        assert "gpu-live-05" in out and "nothing changed" in out
+
     def test_chain_id_is_required(self, sweep_mod, replayed_db, monkeypatch):
         monkeypatch.delenv("CHAIN_ID", raising=False)
         with pytest.raises(SystemExit) as exc:

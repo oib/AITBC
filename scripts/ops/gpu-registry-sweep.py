@@ -181,7 +181,11 @@ def _counts(db_path: Path, chain_id: str) -> tuple[int, int]:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--chain-id", default=os.getenv("CHAIN_ID", ""), help="Chain ID (default: $CHAIN_ID)")
-    parser.add_argument("--db", help="chain.db to sweep (default: /var/lib/aitbc/data/<chain-id>/chain.db)")
+    parser.add_argument(
+        "--db",
+        help="chain.db to sweep (default: $AITBC_DATA_DIR/data/<chain-id>/chain.db, "
+        "or /var/lib/aitbc/data/<chain-id>/chain.db when unset)",
+    )
     parser.add_argument("--apply", action="store_true", help="back up the database, then delete the retired rows")
     parser.add_argument(
         "--check", action="store_true", help=f"change nothing; exit {EXIT_RETIRED_ROWS_PRESENT} if retired rows are present"
@@ -198,7 +202,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     if args.apply and args.check:
         parser.error("--apply and --check are mutually exclusive")
     if not args.db:
-        args.db = f"/var/lib/aitbc/data/{args.chain_id}/chain.db"
+        args.db = f"{os.getenv('AITBC_DATA_DIR', '/var/lib/aitbc')}/data/{args.chain_id}/chain.db"
     return args
 
 
