@@ -27,6 +27,14 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+class BlobTooLargeError(ValueError):
+    """Raised when a blob exceeds the configured per-blob byte cap."""
+
+
+class StoreFullError(RuntimeError):
+    """Raised when the store already holds the configured maximum of blobs."""
+
+
 def _derive_fernet_key(master_key: str, salt: bytes) -> bytes:
     """Derive a Fernet-compatible key from the configured master key.
 
@@ -71,8 +79,26 @@ class MemoryStore:
             logger.warning("Memory service: MEMORY_MASTER_KEY is not set; blobs are stored as plaintext")
 
     def store_blob(self, owner: str, data: bytes, tags: dict[str, Any] | None = None) -> ContentAddressedBlob:
-        """Store a blob and return its content-addressed descriptor."""
+        """Store a blob and return its content-addressed descriptor.
+
+        Content addressing makes the store idempotent: re-storing identical
+        bytes returns the committed record unchanged rather than clobbering
+        the original owner/tags/created_at (#1427).
+        """
+        if len(data) > settings.memory_max_blob_bytes:
+            raise BlobTooLargeError(f"blob of {len(data)} bytes exceeds the {settings.memory_max_blob_bytes}-byte cap")
         content_address = _compute_content_address(data)
+        existing = self._store.get(content_address)
+        if existing is not None:
+            return ContentAddressedBlob(
+                content_address=existing["content_address"],
+                owner=existing["owner"],
+                size=existing["size"],
+                tags=existing["tags"],
+                created_at=existing["created_at"],
+            )
+        if len(self._store) >= settings.memory_max_blobs:
+            raise StoreFullError(f"memory store is full ({settings.memory_max_blobs} blobs)")
         stored_data = data
         encrypted = self._fernet is not None
         if self._fernet:

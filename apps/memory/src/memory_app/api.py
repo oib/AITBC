@@ -10,7 +10,8 @@ from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
 
-from .service import MemoryStore
+from .config import settings
+from .service import BlobTooLargeError, MemoryStore, StoreFullError
 
 router = APIRouter(tags=["memory"])
 store = MemoryStore()
@@ -57,6 +58,10 @@ async def store_blob(request: Request, body: StoreRequest) -> dict[str, Any]:
     """Store a content-addressed blob."""
     import base64
 
+    # Reject on the encoded length before decoding so an oversize body never
+    # materialises as bytes (base64 inflates by ~4/3 plus padding).
+    if len(body.data) > (settings.memory_max_blob_bytes * 4) // 3 + 4:
+        raise HTTPException(status_code=413, detail=f"blob exceeds the {settings.memory_max_blob_bytes}-byte cap")
     try:
         data = base64.b64decode(body.data)
         blob = store.store_blob(body.owner, data, body.tags)
@@ -67,6 +72,10 @@ async def store_blob(request: Request, body: StoreRequest) -> dict[str, Any]:
             "tags": blob.tags,
             "created_at": blob.created_at.isoformat(),
         }
+    except BlobTooLargeError as e:
+        raise HTTPException(status_code=413, detail=str(e)) from e
+    except StoreFullError as e:
+        raise HTTPException(status_code=507, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
