@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from . import abandon, unavail
 from .block_hash import compute_block_hash
 from .pbft import PBFTConsensus
-from .remote_attestation import RemoteAttestationService
+from .remote_attestation import RemoteAttestationService, attestation_lock_window_seconds
 from .vote_fetch import contention_hold, kick_pull, locate_voted_block
 from .vote_journal import (
     KIND_PROPOSE,
@@ -1250,8 +1250,10 @@ class PoAProposer:
         for a mesh peer that actually serves X and kick a pull toward it, so
         the head advances onto the attested block instead of competing with
         it. If no peer can serve X, the proposal is still suppressed until
-        the lock expires (one proposer round), which bounds the liveness hit
-        when the attested block never materialises.
+        the lock expires (the effective attestation-lock lapse — #1298 T15
+        shares ``attestation_lock_window_seconds`` with the attester side),
+        which bounds the liveness hit when the attested block never
+        materialises.
 
         Under ``attestation_round_lock_enabled`` (#1242) the suppression
         decision uses the shared U1/U2 verdict for ``(next_height,
@@ -1262,7 +1264,9 @@ class PoAProposer:
             return False
         if not getattr(settings, "attestation_lock_enabled", True):
             return False
-        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        # #1298 T15: the SAME effective lapse window the attester enforces —
+        # one shared constant, no attester/proposer drift.
+        window = attestation_lock_window_seconds(next_height)
         if getattr(settings, "attestation_round_lock_enabled", False):
             if round_number is None:
                 self._logger.warning(

@@ -163,6 +163,28 @@ def _lock_lapse_seconds() -> float:
     )
 
 
+def attestation_lock_window_seconds(height: int | None) -> float:
+    """#1298 T15 (design v2.2 proposer coupling, v2.6 single derived
+    constant): the binding attestation-lock lapse window for signings at
+    ``height``. Attester lock call sites AND the proposer suppression in
+    ``_honor_attestation_lock`` both consume this one function so the two
+    windows cannot drift.
+
+    At/above the armed ``consensus_domain_separation_height`` the window is
+    ``_lock_lapse_seconds()`` (round + header max-age + future skew = 130s
+    at defaults): an honest re-attestation after it provably lands in a
+    new derived round, so same-round multi-hash stays equivocation, period.
+    Below the armed height the legacy ``consensus_proposer_round_seconds``
+    window stays byte-identical — the 60→130s resize bundles into
+    activation (design rollout), so pre-activation behaviour is
+    replay-unchanged. The durable journal keeps pruning at 2x the lapse
+    unconditionally: a longer keep is conservative, never a coverage hole.
+    """
+    if _attestation_domain_active(height):
+        return _lock_lapse_seconds()
+    return float(getattr(settings, "consensus_proposer_round_seconds", 60))
+
+
 class _RoundLockEntry:
     """One signed (height, round) -> block_hash record (#1242).
 
@@ -834,7 +856,7 @@ class RemoteAttestationService:
         # Attestation lock: having signed one header at this height, refuse a
         # rival hash for one round window. Double-signing two blocks at h is
         # the equivocation that lets an asymmetric partition become a fork.
-        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        window = attestation_lock_window_seconds(height_int)
         if not round_lock and getattr(settings, "attestation_lock_enabled", True):
             existing = self.attestation_lock(height_int, window, att_sig_domain)
             if existing is not None and existing[0] != header_hash:
@@ -1378,9 +1400,12 @@ class RemoteAttestationService:
         if self._signed_once_contains(height, block_hash, signature_domain):
             return False
         now = time.monotonic()
-        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        # #1298 T15: each height prunes at 2x ITS effective lock window —
+        # pre-activation heights keep the 60s round window, post-activation
+        # heights the 130s lapse, so a live lock is never dropped early.
         self._attested = {
-            h: {d: e for d, e in domains.items() if now - e[2] < 2 * window} for h, domains in self._attested.items()
+            h: {d: e for d, e in domains.items() if now - e[2] < 2 * attestation_lock_window_seconds(h)}
+            for h, domains in self._attested.items()
         }
         self._attested = {h: domains for h, domains in self._attested.items() if domains}
         self._attested.setdefault(height, {})[signature_domain] = (block_hash, proposer, now)
@@ -1978,7 +2003,9 @@ class RemoteAttestationService:
         """
         self._ensure_round_locks_loaded()
         now = time.monotonic()
-        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        # #1298 T15: the U2 monotonic-fallback window is the same effective
+        # attestation-lock lapse the attester path enforces.
+        window = attestation_lock_window_seconds(height)
         unlock_window = self._unlock_window()
         for (lh, lr, _domain), entry in self._round_locks.items():
             if lh != height or entry.block_hash == block_hash:
@@ -2016,7 +2043,6 @@ class RemoteAttestationService:
                 return
             now_mono = time.monotonic()
             now_wall = time.time()
-            window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
             for rec in data.get("records", []):
                 try:
                     if rec.get("kind") == "attestation":
@@ -2025,7 +2051,9 @@ class RemoteAttestationService:
                     h, r = int(rec["h"]), int(rec["r"])
                     signed_wall = float(rec["signed_wall"])
                     age_wall = now_wall - signed_wall
-                    if age_wall >= 2 * window:
+                    # #1298 T15: prune at 2x the record height's effective
+                    # lock window (post-activation lapse, not the 60s round).
+                    if age_wall >= 2 * attestation_lock_window_seconds(h):
                         continue
                     req_wall = rec.get("request_seen_wall")
                     # #1298: the record's signature_domain is part of the
@@ -2104,10 +2132,10 @@ class RemoteAttestationService:
 
         self._round_locks_path.parent.mkdir(parents=True, exist_ok=True)
         now_wall = time.time()
-        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
         payload_records = []
         for (h, r, _domain), e in self._round_locks.items():
-            if now_wall - e.signed_wall >= 2 * window:
+            # #1298 T15: 2x the record height's effective lock window.
+            if now_wall - e.signed_wall >= 2 * attestation_lock_window_seconds(h):
                 continue
             record = {
                 "h": h,
@@ -2168,8 +2196,11 @@ class RemoteAttestationService:
         self._ensure_round_locks_loaded()
         now_mono = time.monotonic()
         now_wall = time.time()
-        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
-        self._round_locks = {k: e for k, e in self._round_locks.items() if now_mono - e.signed_at < 2 * window}
+        # #1298 T15: prune each entry at 2x ITS height's effective lock
+        # window — post-activation heights keep records for the full lapse.
+        self._round_locks = {
+            k: e for k, e in self._round_locks.items() if now_mono - e.signed_at < 2 * attestation_lock_window_seconds(k[0])
+        }
         key = (height, round_, signature_domain)
         if key not in self._round_locks:
             req_seen = self._requests_seen.get(height, {}).get(round_)
