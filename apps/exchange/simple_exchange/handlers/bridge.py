@@ -6,7 +6,9 @@ from pathlib import Path
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.decimal import to_decimal as _to_decimal
+
 from ..config import bridge_config
+from .base import _env_int, mutating_rate_limit_reached
 
 logger = get_logger(__name__)
 
@@ -76,6 +78,9 @@ class BridgeMixin:
 
     def handle_bridge_deposit(self):
         """POST /v1/bridge/deposit — initiate ETH→AIT bridge deposit"""
+        # #1678: bridge mutations had no rate limiting — bound per IP.
+        if mutating_rate_limit_reached(self, "bridge", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
@@ -204,6 +209,9 @@ class BridgeMixin:
         multi-sig signatures and returns the validation result, so integrators can
         test the 2-of-3 policy before withdrawals go live.
         """
+        # #1678: bridge mutations had no rate limiting — bound per IP.
+        if mutating_rate_limit_reached(self, "bridge", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:
@@ -407,6 +415,9 @@ class BridgeMixin:
 
     def handle_bridge_estimate(self):
         """POST /v1/bridge/estimate — estimate AIT amount for ETH"""
+        # #1678: bridge mutations had no rate limiting — bound per IP.
+        if mutating_rate_limit_reached(self, "bridge", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
         try:

@@ -9,12 +9,10 @@ connections are closed via ``try/finally`` (B3 backport).
 import json
 import os
 import sqlite3
-import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections import deque
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -28,7 +26,17 @@ from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import _SETTLEMENT_STATES, connect_db, get_db_path, ticks_to_decimal, to_ticks
-from .base import RPC_BASE_URL, RPC_TIMEOUT, _idempotency_key, get_operation_ledger
+from .base import (
+    RPC_BASE_URL,
+    RPC_TIMEOUT,
+    _RATE_BUCKETS,  # noqa: F401 - tests clear rate buckets via __globals__
+    _RATE_LOCK,  # noqa: F401 - tests clear rate buckets via __globals__
+    _env_int,
+    _idempotency_key,
+    _rate_limit_hit,
+    get_operation_ledger,
+    mutating_rate_limit_reached,
+)
 
 logger = get_logger(__name__)
 
@@ -264,13 +272,6 @@ def _env_decimal(name: str, default: str) -> Decimal:
     return value
 
 
-def _env_int(name: str, default: int) -> int:
-    try:
-        return int(os.getenv(name, str(default)))
-    except ValueError:
-        return default
-
-
 def _canonical_envelope_json(envelope: dict) -> bytes:
     """Sorted-keys compact JSON — the repo's signing/verifying encoding."""
     return json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode()
@@ -311,36 +312,9 @@ def _short_addr(address: str | None) -> str | None:
     return address[:6] + "…" + address[-4:] if len(address) > 12 else address
 
 
-# In-memory sliding-window buckets for the section-9 abuse limits. The
-# handlers run on a ThreadPoolExecutor (main.py), so a lock guards the map;
-# buckets are per-process state — restarting the service resets the windows,
-# which the design accepts (limits exist to blunt spam, not to audit it).
-_RATE_LOCK = threading.Lock()
-_RATE_BUCKETS: dict[str, deque] = {}
-_RATE_WINDOW_S = 60.0
-_RATE_MAX_KEYS = 10_000
-
-
-def _rate_limit_hit(key: str, per_minute: int) -> bool:
-    """Record one event for ``key``; True when the window is already full."""
-    if per_minute <= 0:
-        return False
-    now = time.monotonic()
-    with _RATE_LOCK:
-        if len(_RATE_BUCKETS) >= _RATE_MAX_KEYS:
-            for k, bucket in list(_RATE_BUCKETS.items()):
-                if not bucket or now - bucket[-1] > _RATE_WINDOW_S:
-                    del _RATE_BUCKETS[k]
-        dq = _RATE_BUCKETS.get(key)
-        if dq is None:
-            dq = deque()
-            _RATE_BUCKETS[key] = dq
-        while dq and now - dq[0] > _RATE_WINDOW_S:
-            dq.popleft()
-        if len(dq) >= per_minute:
-            return True
-        dq.append(now)
-        return False
+# The sliding-window rate-limit buckets and helpers moved to handlers/base.py
+# (#1678) so the market/bridge mixins share them; the names stay importable
+# from this module for the tests that reach them via __globals__.
 
 
 def _apply_exchange_fee(gross_ait: Decimal) -> tuple[Decimal, Decimal]:
@@ -1216,6 +1190,12 @@ class ExchangeMixin:
         if not _signed_orders_required():
             self.send_error(404, "Not Found")  # type: ignore[attr-defined]
             return
+        # #1678: signed cancel costs a secp256k1 verify like placement — same
+        # per-IP budget, checked before the body is even read.
+        max_per_min = _env_int("EXCHANGE_MAX_ORDERS_PER_MIN", 20)
+        if _rate_limit_hit(f"ip:{self._client_ip()}:cancel", max_per_min):
+            self.send_json_response({"error": "Order cancel rate limit reached"}, status=429)  # type: ignore[attr-defined]
+            return
         data = self._read_json_body()  # type: ignore[attr-defined]
         if not data:
             self.send_error(400, "Missing request body")  # type: ignore[attr-defined]
@@ -1224,6 +1204,9 @@ class ExchangeMixin:
         if verified is None:
             return
         envelope, address, _env_hash = verified
+        if _rate_limit_hit(f"addr:{address}:cancel", max_per_min):
+            self.send_json_response({"error": "Order cancel rate limit reached"}, status=429)  # type: ignore[attr-defined]
+            return
         field_error = self._cancel_envelope_error(envelope)
         if field_error is not None:
             self.send_error(400, field_error)  # type: ignore[attr-defined]
@@ -2090,6 +2073,9 @@ class ExchangeMixin:
         Requires the client to provide their wallet address in the request
         body. No mock address is generated.
         """
+        # #1678: outbound wallet-service lookup per call — bound it.
+        if mutating_rate_limit_reached(self, "wallet-connect", _env_int("EXCHANGE_MUTATING_PER_MIN", 60)):
+            return
         if not self._require_api_key():  # type: ignore[attr-defined]
             return
 
