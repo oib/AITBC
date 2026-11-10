@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from aitbc.middleware import setup_cors
 
 from aitbc.aitbc_logging import configure_logging, get_logger
-from aitbc.rate_limiting import RateLimitMiddleware
+from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit
 
 from .config import settings, validated_cors_origins
 from .exceptions import register_exception_handlers
@@ -28,8 +28,21 @@ def create_app() -> FastAPI:
 
     setup_cors(app, allow_origins=validated_cors_origins(settings.cors_origins))
 
-    # Add rate limiting middleware
-    app.add_middleware(RateLimitMiddleware, rate=100, per=60)
+    # Add rate limiting middleware — scoped to mutating methods so GET
+    # polling (dashboards, status pages, agent status reads) is never
+    # throttled into a self-DoS, matching trading/pool-hub. Keyed by
+    # client_ip_for_rate_limit (trusted-proxy aware) rather than the raw
+    # peer default, which collapses proxied callers into one bucket.
+    _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+    app.add_middleware(
+        RateLimitMiddleware,
+        rate=100,
+        per=60,
+        key_func=client_ip_for_rate_limit,
+        methods=_MUTATING_METHODS,
+        exclude_paths=["/health", "/metrics", "/v1/metrics"],
+        error_message="Agent coordinator rate limit exceeded",
+    )
 
     for router in ROUTERS:
         # Check if router already has a prefix (like agent_messaging.router)
