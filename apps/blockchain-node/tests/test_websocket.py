@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import time
 from contextlib import ExitStack
+from types import SimpleNamespace
 
 from aitbc_chain.app import create_app
 from aitbc_chain.config import settings
@@ -436,3 +439,103 @@ async def test_gossip_websocket_hung_accept_still_releases_ip_count(monkeypatch:
         assert websocket_module._gossip_ip_connections.get(ip, 0) == 0
     finally:
         websocket_module._gossip_ip_connections.pop(ip, None)
+
+
+# ---------------------------------------------------------------------------
+# #1587: /subscribe/ws per-IP cap, bounded sends, lease revalidation
+# ---------------------------------------------------------------------------
+
+
+class _SubscribeWs:
+    """Minimal WebSocket double for subscription_websocket unit tests."""
+
+    def __init__(self, client_ip: str) -> None:
+        self.client = SimpleNamespace(host=client_ip)
+        self.headers: dict = {}
+        self.query_params: dict = {}
+        self.accepted = False
+        self.sent: list = []
+        self.closed: list = []
+        self._handshake_sent = False
+
+    async def accept(self) -> None:
+        self.accepted = True
+
+    async def receive_text(self) -> str:
+        if not self._handshake_sent:
+            self._handshake_sent = True
+            return json.dumps({"node_id": "node-1", "chain_id": "chain-a", "transport": "websocket"})
+        await asyncio.Event().wait()
+        raise AssertionError("unreachable")
+
+    async def send_json(self, message: dict) -> None:
+        self.sent.append(message)
+
+    async def close(self, code: int | None = None, reason: str | None = None) -> None:
+        self.closed.append(code)
+
+
+class _FakeBlockBroker:
+    async def subscribe(self, topic: str, max_queue_size: int = 100):
+        class _Sub:
+            def __aiter__(self):
+                async def _gen():
+                    await asyncio.Event().wait()
+                    yield  # pragma: no cover
+
+                return _gen()
+
+            def close(self) -> None:
+                return None
+
+        return _Sub()
+
+
+@pytest.mark.asyncio
+async def test_subscribe_ws_per_ip_cap_refuses_before_accept(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1587: a source IP at its connection cap is refused before accept —
+    no socket, no broker subscription."""
+    monkeypatch.setattr(settings, "subscribe_ws_max_connections_per_ip", 0)
+    ip = "198.51.100.30"
+    websocket_module._subscribe_ip_connections.pop(ip, None)
+    ws = _SubscribeWs(ip)
+    try:
+        await websocket_module.subscription_websocket(ws)
+        assert ws.accepted is False
+        assert ws.closed == [1008]
+        assert websocket_module._subscribe_ip_connections.get(ip, 0) == 0
+    finally:
+        websocket_module._subscribe_ip_connections.pop(ip, None)
+
+
+@pytest.mark.asyncio
+async def test_subscribe_ws_lease_expiry_closes_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1587: the lease was only checked at handshake — the heartbeat now
+    revalidates it, so a lapsed lease closes the block push."""
+    monkeypatch.setattr(websocket_module, "_broker_for_chain", lambda chain_id: _FakeBlockBroker())
+    calls = {"n": 0}
+
+    async def _expiry(node_id: str, chain_id: str | None = None) -> float:
+        calls["n"] += 1
+        # First call is the handshake check (valid); heartbeat re-checks expire.
+        return time.time() + 3600 if calls["n"] == 1 else 0.0
+
+    monkeypatch.setattr(websocket_module.lease_tracker, "get_lease_expiry", _expiry)
+    real_sleep = asyncio.sleep
+
+    async def _fast_sleep(delay: float, *args: object, **kwargs: object) -> None:
+        await real_sleep(min(delay, 0.02))
+
+    monkeypatch.setattr(asyncio, "sleep", _fast_sleep)
+    ip = "198.51.100.31"
+    websocket_module._subscribe_ip_connections.pop(ip, None)
+    ws = _SubscribeWs(ip)
+    try:
+        await asyncio.wait_for(websocket_module.subscription_websocket(ws), timeout=10.0)
+        assert ws.accepted is True
+        assert 1008 in ws.closed
+        assert websocket_module._subscribe_ip_connections.get(ip, 0) == 0
+        assert ("node-1", "chain-a") not in websocket_module._active_subscribers
+    finally:
+        websocket_module._subscribe_ip_connections.pop(ip, None)
+        websocket_module._active_subscribers.pop(("node-1", "chain-a"), None)
