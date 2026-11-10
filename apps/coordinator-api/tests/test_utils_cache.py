@@ -52,6 +52,24 @@ def test_memory_cap_evicts_on_value_payload_not_dict_shell():
 
 
 @pytest.mark.unit
+def test_expiry_paths_decrement_byte_estimate():
+    """#1689: cleanup_expired and an expired get() must release the byte
+    charge — otherwise the estimate only ever grows and the cap evicts
+    live entries while dead weight keeps the counter pinned."""
+    cache = CacheManager(max_size=1000, max_memory_mb=100)
+    cache.set("a", "x" * 1000, ttl_seconds=-1)
+    cache.set("b", "y" * 1000, ttl_seconds=-1)
+    assert cache._estimated_bytes > 0
+    assert cache.cleanup_expired() == 2
+    assert cache._estimated_bytes == 0
+
+    # An expired read takes the same _remove_entry path.
+    cache.set("c", "z" * 1000, ttl_seconds=-1)
+    assert cache.get("c") is None
+    assert cache._estimated_bytes == 0
+
+
+@pytest.mark.unit
 def test_memory_cap_enforced_on_every_set():
     """#1689: enforcement is per-set, not sampled every 100 sets."""
     cache = CacheManager(max_size=1000, max_memory_mb=1)
