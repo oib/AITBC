@@ -371,6 +371,20 @@ class SyncManager:
                 block_hash="",
                 reason="Not a block message",
             )
+        # height must be an int: import_block does arithmetic on it
+        # (``height - our_height``), and a string/None from a malformed peer
+        # message would raise TypeError instead of producing an ImportResult.
+        if not isinstance(block_data["height"], int) or isinstance(block_data["height"], bool):
+            logger.debug(
+                "Ignoring block message with non-integer height",
+                extra={"source": source, "chain_id": chain_id, "height": block_data.get("height")},
+            )
+            return ImportResult(
+                accepted=False,
+                height=-1,
+                block_hash="",
+                reason="Not a block message",
+            )
         if self._should_skip_block(chain_id, block_data):
             logger.debug(
                 "Skipping self-proposed block %s from %s",
@@ -583,27 +597,35 @@ class SyncManager:
                     block_data = await asyncio.wait_for(state.gossip_sub.get(), timeout=1.0)
                 except asyncio.TimeoutError:
                     continue
-                if isinstance(block_data, str):
-                    block_data = json.loads(block_data)
-                if not isinstance(block_data, dict):
-                    logger.warning("Unexpected gossip message type", extra={"type": type(block_data)})
-                    continue
-                if "height" not in block_data or "proposer" not in block_data:
-                    logger.debug(
-                        "Skipping non-block gossip message",
-                        extra={
-                            "keys": list(block_data.keys())[:10],
-                            "source": "gossip",
-                            "chain_id": chain_id,
-                        },
-                    )
-                    continue
-                await self.handle_block(chain_id, block_data, source="gossip")
+                try:
+                    await self._process_gossip_message(chain_id, block_data)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    logger.warning("Dropping malformed gossip block message on %s: %s", chain_id, e)
         except asyncio.CancelledError:
             pass
         finally:
             if state.gossip_sub:
                 state.gossip_sub.close()
+
+    async def _process_gossip_message(self, chain_id: str, block_data: Any) -> None:
+        if isinstance(block_data, str):
+            block_data = json.loads(block_data)
+        if not isinstance(block_data, dict):
+            logger.warning("Unexpected gossip message type", extra={"type": type(block_data)})
+            return
+        if "height" not in block_data or "proposer" not in block_data:
+            logger.debug(
+                "Skipping non-block gossip message",
+                extra={
+                    "keys": list(block_data.keys())[:10],
+                    "source": "gossip",
+                    "chain_id": chain_id,
+                },
+            )
+            return
+        await self.handle_block(chain_id, block_data, source="gossip")
 
     async def _tick(self, chain_id: str) -> float:
         state = self._chain_states[chain_id]

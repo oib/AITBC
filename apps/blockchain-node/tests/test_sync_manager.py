@@ -192,6 +192,67 @@ def test_tick_uses_synced_poll_interval(sync_manager, monkeypatch):
     assert interval == 30.0
 
 
+def test_handle_block_rejects_non_integer_height(sync_manager):
+    """A malformed peer message with a string/None height must not reach
+    import_block — it would raise TypeError on ``height - our_height``."""
+    chain_sync = sync_manager._chain_states["test-chain"].chain_sync
+    for bad_height in ("12", None, 1.5, True):
+        result = _run(
+            sync_manager.handle_block(
+                "test-chain", {"height": bad_height, "hash": "0xabc", "proposer": "hub"}, source="gossip"
+            )
+        )
+        assert not result.accepted
+        assert result.reason == "Not a block message"
+    assert chain_sync.import_block.call_count == 0
+
+
+class _FakeTopicSubscription:
+    """Minimal stand-in for gossip TopicSubscription: queued items then idle."""
+
+    def __init__(self, items: list[object]) -> None:
+        self._queue: asyncio.Queue[object] = asyncio.Queue()
+        for item in items:
+            self._queue.put_nowait(item)
+        self.closed = False
+
+    async def get(self) -> object:
+        return await self._queue.get()
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_gossip_consumer_survives_malformed_messages(sync_manager):
+    """One bad gossip frame must not kill the consumer task — previously an
+    exception ended it with no supervisor restart and the chain silently
+    stopped receiving pushed blocks."""
+    chain_sync = sync_manager._chain_states["test-chain"].chain_sync
+    chain_sync.import_block.return_value = ImportResult(accepted=True, height=7, block_hash="0xabc", reason="")
+    state = sync_manager._chain_states["test-chain"]
+    state.gossip_sub = _FakeTopicSubscription(
+        [
+            "{not json",  # json.loads raises
+            {"height": "x", "proposer": "hub"},  # non-int height -> ImportResult, no import
+            {"height": 7, "hash": "0xabc", "proposer": "hub"},  # valid block still processed
+        ]
+    )
+
+    async def _drive() -> None:
+        consumer = asyncio.create_task(sync_manager._gossip_consumer("test-chain"))
+        # Let the consumer drain the queue, then stop it.
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if chain_sync.import_block.call_count >= 1:
+                break
+        sync_manager._stop_event.set()
+        await asyncio.wait_for(consumer, timeout=5.0)
+
+    _run(_drive())
+    assert chain_sync.import_block.call_count == 1
+    assert state.gossip_sub.closed
+
+
 def test_handle_block_skips_self_proposed(sync_manager, monkeypatch):
     monkeypatch.setattr(settings, "blockchain_mode", "hub")
     chain_sync = sync_manager._chain_states["test-chain"].chain_sync
