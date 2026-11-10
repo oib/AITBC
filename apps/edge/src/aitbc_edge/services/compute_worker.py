@@ -15,6 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
+from sqlalchemy import delete
 from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
@@ -155,14 +156,26 @@ async def _execute_and_store(request_id: str) -> None:
 
         output_data, metrics, _execution_time, success, error = await _execute_request(request)
 
-        request.completed_at = datetime.now(UTC)
-        request.updated_at = datetime.now(UTC)
-        if success:
-            request.status = "completed"
-            request.error = None
+        # A cancel may have landed while the request executed: cancel_compute_
+        # request commits "cancelled" from another session, so re-read the row
+        # before overwriting its terminal status. The ComputeResult is still
+        # stored — get_compute_result does not consult request status.
+        await session.refresh(request)
+        if request.status != "running":
+            logger.info(
+                "Compute request %s finished but was %s meanwhile; keeping that status",
+                request_id,
+                request.status,
+            )
         else:
-            request.status = "failed"
-            request.error = error
+            request.completed_at = datetime.now(UTC)
+            request.updated_at = datetime.now(UTC)
+            if success:
+                request.status = "completed"
+                request.error = None
+            else:
+                request.status = "failed"
+                request.error = error
 
         result_status = "completed" if success else "failed"
         now = datetime.now(UTC)
@@ -216,11 +229,51 @@ async def process_queued_requests() -> int:
     return count
 
 
+async def _requeue_interrupted_requests() -> int:
+    """Return requests orphaned in ``running`` to the queue (#1640).
+
+    ``_execute_and_store`` commits ``status="running"`` before executing; a
+    crash between that commit and the result write leaves the row ``running``
+    forever because ``process_queued_requests`` only selects ``queued``.
+    This worker executes requests serially, so at startup any ``running`` row
+    is by definition orphaned by a previous process — safe to requeue.
+    """
+    async with get_session() as session:
+        result = await session.execute(select(ComputeRequest).where(ComputeRequest.status == "running"))
+        stale = list(result.scalars().all())
+        for req in stale:
+            req.status = "queued"
+            req.started_at = None
+            req.updated_at = datetime.now(UTC)
+        if stale:
+            await session.commit()
+    return len(stale)
+
+
+async def _purge_expired_results() -> int:
+    """Delete ComputeResult rows past their ``expires_at`` (#1641).
+
+    ``get_compute_result`` filters expired rows at read time, but nothing
+    removed them — the table grew without bound. Runs once per worker loop
+    iteration; the DELETE is a no-op scan once the table is small.
+    """
+    async with get_session() as session:
+        result = await session.execute(
+            delete(ComputeResult).where(ComputeResult.expires_at <= datetime.now(UTC))  # type: ignore[arg-type]
+        )
+        await session.commit()
+        return getattr(result, "rowcount", 0) or 0
+
+
 async def run_compute_worker() -> None:
     """Main worker loop."""
     if not settings.edge_worker_enabled:
         logger.info("Edge compute worker is disabled")
         return
+
+    requeued = await _requeue_interrupted_requests()
+    if requeued:
+        logger.warning("Edge compute worker requeued %d request(s) orphaned in 'running'", requeued)
 
     logger.info(
         "Starting edge compute worker (executor=%s, poll_interval=%s)",
@@ -232,6 +285,9 @@ async def run_compute_worker() -> None:
             processed = await process_queued_requests()
             if processed:
                 logger.info("Edge compute worker processed %d request(s)", processed)
+            purged = await _purge_expired_results()
+            if purged:
+                logger.info("Edge compute worker purged %d expired result(s)", purged)
         except Exception:
             logger.exception("Edge compute worker iteration failed")
         await asyncio.sleep(settings.edge_worker_poll_interval)

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from ..schemas.serve import ComputeRequest, ComputeResult
 from ..storage import get_session
@@ -98,14 +98,18 @@ class ServeService:
         gpu_id: str | None = None,
         status: str | None = None,
         owner_id: str | None = None,
+        limit: int = 200,
     ) -> list[dict[str, Any]]:
         """List compute requests, optionally filtered.
 
         ``owner_id`` restricts results to the caller's own requests;
-        ``None`` means admin/unrestricted.
+        ``None`` means admin/unrestricted. ``limit`` bounds the read —
+        the table only grows, so an unbounded select is a memory/IO
+        hazard (#1642).
         """
+        bounded = max(1, min(int(limit), 1000))
         async with get_session() as session:
-            query = select(ComputeRequest)
+            query = select(ComputeRequest).order_by(col(ComputeRequest.created_at).desc()).limit(bounded)
 
             if gpu_id:
                 query = query.where(ComputeRequest.gpu_id == gpu_id)
