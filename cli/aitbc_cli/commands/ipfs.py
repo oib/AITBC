@@ -157,6 +157,26 @@ def _ipfs_pin_cid(ipfs_api: str, cid: str) -> bool:
         return False
 
 
+def _ipfs_is_pinned(ipfs_api: str, cid: str) -> bool:
+    """Return True if the CID already carries a pin on the daemon.
+
+    Used before pin/add so an abort cleanup never removes a pin this run did
+    not create (IPFS-PIN-LEAK-1, #1687).
+    """
+    try:
+        response = requests.post(
+            f"{ipfs_api.rstrip('/')}/api/v0/pin/ls",
+            params={"arg": cid},
+            timeout=TIMEOUT,
+        )
+        response.raise_for_status()
+        keys = (response.json() or {}).get("Keys") or {}
+        return cid in keys or any(k.endswith(cid) or cid in k for k in keys)
+    except Exception:
+        # Unknown pin state: treat as pinned so cleanup stays conservative.
+        return True
+
+
 def _ipfs_unpin_cid(ipfs_api: str, cid: str) -> bool:
     """Unpin a CID on an IPFS API."""
     try:

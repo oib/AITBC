@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,6 +43,18 @@ logger = get_logger(__name__)
 ACTIVE_STATES = frozenset({"QUEUED", "RUNNING"})
 
 IPFS_API_URL = os.environ.get("IPFS_API_URL", "http://127.0.0.1:5002")
+
+# IPFS-DEPTH-1 (#1582) residual: the market job payload's ``cid`` is
+# buyer-influenced and lands as a Kubo arg on *this* provider's daemon.
+# Kubo pin/add accepts IPFS paths, not just CIDs — only bare alphanumeric
+# CID spellings are allowed through.
+_CID_ARG_RE = re.compile(r"[A-Za-z0-9]{1,256}")
+
+# IPFS-PIN-LEAK-1 (#1687): a crash between pin/add and _save_state orphans a
+# pin the state file never recorded. Pins that are on the daemon, untracked
+# in state, known to the market job listing, and older than this grace
+# window are reclaimed. Default 6h; 0 disables reconciliation.
+_UNTRACKED_PIN_GRACE_SECONDS = int(os.environ.get("IPFS_UNTRACKED_PIN_GRACE_SECONDS", "21600"))
 
 
 def _market_base() -> str:
@@ -148,9 +161,18 @@ def _load_state(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def _save_state(path: Path, state: dict[str, dict[str, Any]]) -> None:
+    """Persist state atomically.
+
+    A crash mid-``write_text`` used to leave a truncated JSON file that
+    ``_load_state`` then quarantined — orphaning every tracked pin forever
+    (#1486 class / #1687 crash window). Write-then-rename means readers only
+    ever see a complete file.
+    """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(state, indent=2))
+        tmp = path.with_name(f"{path.name}.tmp")
+        tmp.write_text(json.dumps(state, indent=2))
+        os.replace(tmp, path)
     except OSError as e:
         logger.warning("Could not persist ipfs-pinning state to %s: %s", path, e)
 
@@ -169,7 +191,14 @@ def _daemon_available() -> bool:
         return False
 
 
+def _valid_cid_arg(cid: str) -> bool:
+    return isinstance(cid, str) and bool(_CID_ARG_RE.fullmatch(cid))
+
+
 def _pin_cid(cid: str) -> bool:
+    if not _valid_cid_arg(cid):
+        logger.warning("Refusing to pin malformed CID arg %r", cid)
+        return False
     try:
         # pin/add blocks until the content is fetched from the swarm.
         _ipfs_post("/api/v0/pin/add", params={"arg": cid}, timeout=120)
@@ -180,6 +209,9 @@ def _pin_cid(cid: str) -> bool:
 
 
 def _unpin_cid(cid: str) -> bool:
+    if not _valid_cid_arg(cid):
+        logger.warning("Refusing to unpin malformed CID arg %r", cid)
+        return False
     try:
         _ipfs_post("/api/v0/pin/rm", params={"arg": cid}, timeout=30)
         return True
@@ -189,6 +221,8 @@ def _unpin_cid(cid: str) -> bool:
 
 
 def _object_size(cid: str) -> int | None:
+    if not _valid_cid_arg(cid):
+        return None
     try:
         data = _ipfs_post("/api/v0/object/stat", params={"arg": cid}, timeout=30).json()
         cumulative = data.get("CumulativeSize")
@@ -461,6 +495,10 @@ def _unpin_stale_jobs(
     active_cids = {cid for cid in map(_job_cid, active_jobs) if cid}
 
     for job_id, entry in list(state.items()):
+        if job_id.startswith("_"):
+            # Reserved bookkeeping keys (e.g. "_untracked" reconcile state)
+            # are not job entries.
+            continue
         if job_id in active_ids:
             continue
         cid = entry.get("cid")
@@ -484,9 +522,102 @@ def _unpin_stale_jobs(
         del state[job_id]
 
 
+def _daemon_pins() -> set[str] | None:
+    """CIDs currently pinned on the local daemon, or None when unreachable."""
+    try:
+        data = _ipfs_post("/api/v0/pin/ls", timeout=30).json()
+    except (requests.RequestException, ValueError):
+        return None
+    keys = data.get("Keys") if isinstance(data, dict) else None
+    if not isinstance(keys, dict):
+        return set()
+    # Keys may be bare CIDs or "/ipfs/<cid>" paths — normalise to the CID.
+    return {str(k).rsplit("/", 1)[-1] for k in keys}
+
+
+def _handle_untracked_candidate(
+    cid: str,
+    market_cids: set[str],
+    untracked: dict[str, Any],
+    now: datetime,
+    result: dict[str, int],
+) -> None:
+    """First-seen bookkeeping and grace-gated reclaim for one daemon pin."""
+    if cid not in market_cids:
+        return
+    first_seen_raw = untracked.get(cid)
+    if first_seen_raw is None:
+        untracked[cid] = now.isoformat()
+        return
+    try:
+        age = (now - datetime.fromisoformat(str(first_seen_raw))).total_seconds()
+    except ValueError:
+        age = _UNTRACKED_PIN_GRACE_SECONDS + 1
+    if age < _UNTRACKED_PIN_GRACE_SECONDS:
+        return
+    if _unpin_cid(cid):
+        result["reclaimed"] += 1
+        untracked.pop(cid, None)
+        logger.info("Reclaimed untracked IPFS pin %s after grace window", cid)
+    # On unpin failure keep the entry so the next sweep retries.
+
+
+def _reconcile_untracked_pins(
+    state: dict[str, dict[str, Any]],
+    jobs: list[dict[str, Any]],
+    result: dict[str, int],
+) -> None:
+    """Reclaim pins the state file never recorded (crash window, #1687).
+
+    ``state`` is the only tracker this sweeper has: a crash between
+    ``pin/add`` and ``_save_state`` — or a failed save — orphans the pin
+    forever because ``--enable-gc`` never collects pinned blocks. Each
+    complete sweep diffs ``pin/ls`` against state; a pinned CID that is
+    (a) untracked, (b) not referenced by an active job, and (c) known to the
+    market listing for this provider is remembered under the reserved
+    ``"_untracked"`` key and unpinned once it has stayed untracked for
+    ``IPFS_UNTRACKED_PIN_GRACE_SECONDS``. Pins the market has never heard of
+    are left alone — they may be legitimate manual pins on this daemon.
+    """
+    if _UNTRACKED_PIN_GRACE_SECONDS <= 0:
+        return
+    daemon_pins = _daemon_pins()
+    if daemon_pins is None:
+        return
+
+    tracked_cids = {
+        str(entry.get("cid"))
+        for job_id, entry in state.items()
+        if not job_id.startswith("_") and isinstance(entry, dict) and entry.get("cid")
+    }
+    active_cids = {cid for job in jobs if str(job.get("state", "")).upper() in ACTIVE_STATES for cid in [_job_cid(job)] if cid}
+    market_cids = {cid for job in jobs for cid in [_job_cid(job)] if cid}
+
+    untracked: dict[str, Any] = state.setdefault("_untracked", {})
+    now = datetime.now(UTC)
+    for cid in sorted(daemon_pins - tracked_cids - active_cids):
+        _handle_untracked_candidate(cid, market_cids, untracked, now, result)
+
+    # Forget bookkeeping for CIDs no longer pinned at all.
+    for cid in list(untracked):
+        if cid not in daemon_pins:
+            untracked.pop(cid, None)
+    if not untracked:
+        state.pop("_untracked", None)
+
+
 def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[str, int]:
     """Run one provider-side pin sweep. Returns counters for logging/tests."""
-    result = {"pinned": 0, "confirmed": 0, "unpinned": 0, "skipped_quota": 0, "errors": 0, "truncated": 0, "deferred": 0}
+    result = {
+        "pinned": 0,
+        "confirmed": 0,
+        "unpinned": 0,
+        "skipped_quota": 0,
+        "errors": 0,
+        "truncated": 0,
+        "deferred": 0,
+        "reclaimed": 0,
+    }
     if os.environ.get("IPFS_HOSTING_ENABLED", "1").lower() in ("0", "false", "no"):
         return result
     if not provider_address:
@@ -509,6 +640,7 @@ def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[st
     _pin_active_jobs(active_jobs, market_url, state, result, provider_address)
     if listing_complete:
         _unpin_stale_jobs(state, active_jobs, market_url, provider_address, result)
+        _reconcile_untracked_pins(state, jobs, result)
     else:
         # The inspected set may be missing active jobs — unpinning now could
         # reclaim paid hosting. Defer reclamation to a complete sweep (#1489).
