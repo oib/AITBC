@@ -64,7 +64,7 @@ async def api_non_empty_blocks(
             max_scope, max_scope_params = await chain_scope(conn, "block", cid)
             max_where, max_params = scoped_where("", max_scope, [], max_scope_params)
             max_clause = f"WHERE {max_where}" if max_where else ""
-            await cursor.execute(f"SELECT MAX(height) FROM block {max_clause}", max_params)
+            await cursor.execute(f"SELECT MAX(height) FROM block {max_clause}", max_params)  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
             row = await cursor.fetchone()
             max_height = row[0] if row and row[0] is not None else 0
 
@@ -84,7 +84,7 @@ async def api_non_empty_blocks(
                 WHERE {where}
                 ORDER BY b.height DESC
                 LIMIT ? OFFSET ?
-            """,
+            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 [*params, limit, offset],
             )
 
@@ -103,7 +103,7 @@ async def api_non_empty_blocks(
                     FROM "transaction"
                     WHERE {tx_where}
                     ORDER BY created_at
-                """,
+                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                     tx_params,
                 )
 
@@ -173,7 +173,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
                     WHERE {where}
-                """,
+                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                     params,
                 )
 
@@ -187,7 +187,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
                         SELECT height, hash, proposer, timestamp, tx_count, state_root
                         FROM block
                         WHERE {legacy_where}
-                    """,
+                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                         legacy_params,
                     )
                     result = await cursor.fetchone()
@@ -204,7 +204,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
                         FROM "transaction"
                         WHERE {tx_where}
                         ORDER BY created_at
-                    """,
+                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                         tx_params,
                     )
 
@@ -317,7 +317,7 @@ async def api_blocks_by_address(
                 WHERE {where}
                 ORDER BY b.height DESC
                 LIMIT ?
-            """,
+            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
 
