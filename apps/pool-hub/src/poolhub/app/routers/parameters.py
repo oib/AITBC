@@ -56,6 +56,24 @@ GOVERNANCE_PARAMETERS: dict[str, type] = {
 }
 
 
+def _validate_parameter_value(parameter_name: str, new_value: Any) -> None:
+    """Type-check a governance parameter value (#1500).
+
+    bool is a subclass of int — a JSON `true` must not satisfy an int
+    parameter, and a negative value is meaningless for the numeric
+    governance parameters (currently only max_concurrent).
+    """
+    expected_type = GOVERNANCE_PARAMETERS[parameter_name]
+    value_ok = isinstance(new_value, expected_type)
+    if expected_type is int and (isinstance(new_value, bool) or (isinstance(new_value, int) and new_value < 0)):
+        value_ok = False
+    if not value_ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Parameter '{parameter_name}' expects type {expected_type.__name__}, got {type(new_value).__name__}",
+        )
+
+
 _governance_auth = APIKeyAuthenticator(
     expected_key=settings.coordinator_shared_secret,
     auth_enabled=True,
@@ -85,21 +103,7 @@ async def apply_parameter_change(
             f"Allowed: {list(GOVERNANCE_PARAMETERS.keys())}",
         )
 
-    # Validate type of new_value
-    expected_type = GOVERNANCE_PARAMETERS[change.parameter_name]
-    value_ok = isinstance(change.new_value, expected_type)
-    if expected_type is int:
-        # bool is a subclass of int — a JSON `true` must not satisfy an int
-        # parameter, and a negative value is meaningless for the numeric
-        # governance parameters (currently only max_concurrent).
-        if isinstance(change.new_value, bool) or (isinstance(change.new_value, int) and change.new_value < 0):
-            value_ok = False
-    if not value_ok:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Parameter '{change.parameter_name}' expects type {expected_type.__name__}, "
-            f"got {type(change.new_value).__name__}",
-        )
+    _validate_parameter_value(change.parameter_name, change.new_value)
 
     # Governance changes are service-wide: ServiceConfig is keyed per-miner
     # (miner_id + service_type) and the request carries no miner_id, so the
