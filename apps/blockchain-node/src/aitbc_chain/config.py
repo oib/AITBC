@@ -1193,6 +1193,14 @@ class ChainSettings(BaseSettings):
     # existing v23 ruleset stays untouched; v24 activates only the #1314
     # changes on top of it.
     state_transition_v24_height: int | None = None
+    # v25 (#1566): GPU_REGISTER price_per_hour bounds — the payload price must
+    # be a finite Decimal in [0, Numeric(20,8) max] at validate AND apply.
+    # ``None`` (the default) keeps every rule unarmed: the activation height is
+    # an operator pin set fleet-wide with the restart wave — a mid-rollout
+    # mixed set would apply different state rules and fork, and an unguarded
+    # bound would diverge replay of any historical block carrying an
+    # out-of-range price.
+    state_transition_v25_height: int | None = None
     # #1298 I3b domain separation: at or above this height, block-proposal
     # and block-attestation signatures use domain-separated preimages
     # (aitbc-consensus-v1:block_proposal / :block_attestation) so a signature

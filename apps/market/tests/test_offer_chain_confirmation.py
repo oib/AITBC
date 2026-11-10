@@ -554,3 +554,40 @@ async def test_asking_for_deactivated_shows_the_deactivated_gpu(service: MarketS
     assert gpu_ids == {"gpu-down"}
     assert next(o for o in offers if o["plugin_id"] == "gpu-down")["status"] == "deactivated"
     assert rpc.status_filters == ["deactivated"]
+
+
+def _gpu_row_alloc(gpu_id: str, status: str = "active", allocs: int = 0) -> dict:
+    row = _gpu_row(gpu_id, status)
+    row["active_allocations"] = allocs
+    return row
+
+
+@pytest.mark.asyncio
+async def test_allocated_gpu_hidden_from_default_listing(service: MarketService) -> None:
+    """#1566: status stays 'active' while allocations are open — the market must
+    still keep the GPU out of bookable listings."""
+    rpc = StatusFilteringRPC([_gpu_row_alloc("gpu-free-1566", allocs=0), _gpu_row_alloc("gpu-busy-1566", allocs=2)])
+    service._rpc_client = rpc  # type: ignore[assignment]
+
+    ids = {o["plugin_id"] for o in await service.list_software_services()}
+
+    assert "gpu-free-1566" in ids
+    assert "gpu-busy-1566" not in ids
+
+
+@pytest.mark.asyncio
+async def test_allocated_gpu_hidden_from_single_read(service: MarketService) -> None:
+    rpc = StubRPC(gpu_info=_gpu_row_alloc("gpu-busy-single-1566", allocs=1))
+    service._rpc_client = rpc  # type: ignore[assignment]
+
+    assert await service.get_software_service("gpu-busy-single-1566") is None
+
+
+@pytest.mark.asyncio
+async def test_unallocated_gpu_still_resolves_single_read(service: MarketService) -> None:
+    rpc = StubRPC(gpu_info=_gpu_row_alloc("gpu-free-single-1566", allocs=0))
+    service._rpc_client = rpc  # type: ignore[assignment]
+
+    detail = await service.get_software_service("gpu-free-single-1566")
+    assert detail is not None
+    assert detail["plugin_id"] == "gpu-free-single-1566"
