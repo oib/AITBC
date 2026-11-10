@@ -234,6 +234,30 @@ def test_get_plugins(client):
     assert isinstance(response.json()["plugins"], list)
 
 
+def test_get_plugins_lists_registered_plugin(client):
+    """#1505: GET /v1/market/plugins must serve the plugin table, not a
+    hardcoded demo list — a plugin registered via POST has to be readable."""
+    created = client.post(
+        "/v1/market/plugins",
+        json={
+            "name": "audit-sweep-plugin",
+            "description": "registered by the plugins-listing pin",
+            "author": "Coder B",
+            "type": "cli",
+            "version": "0.0.1",
+        },
+    )
+    assert created.status_code == 200
+    plugin_id = created.json()["id"]
+
+    response = client.get("/v1/market/plugins?plugin_type=cli&status=pending")
+    assert response.status_code == 200
+    body = response.json()
+    ids = [p["id"] for p in body["plugins"]]
+    assert plugin_id in ids
+    assert body["total"] == len(body["plugins"])
+
+
 # --- Offer by ID ---
 
 

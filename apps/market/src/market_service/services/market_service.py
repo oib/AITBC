@@ -585,6 +585,7 @@ class MarketService:
             if status:
                 stmt = stmt.where(Plugin.status == status)  # type: ignore[arg-type]
             stmt = stmt.order_by(Plugin.created_at.desc())  # type: ignore[attr-defined]
+            stmt = stmt.limit(max_page_size())
             result = await self.session.execute(stmt)
             plugins = result.scalars().all()
             return [
