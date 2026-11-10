@@ -39,6 +39,63 @@ def _market_price_or_raise(value) -> Decimal:
     return price
 
 
+def _create_offer_price(data: dict) -> str:
+    """Resolve the create-offer price field; ValueError -> HTTP 400 (#1675)."""
+    price_raw = data.get("price")
+    if price_raw is None:
+        price_raw = data.get("price_per_hour")
+    if price_raw is None:
+        raise ValueError("price is required")
+    return str(_market_price_or_raise(price_raw))
+
+
+def _book_offer_price(data: dict, offer_price) -> str:
+    """Buyer-supplied book price, bounded like offer prices (#1675).
+
+    Absent/falsy falls back to the (already validated) offer price — the
+    legacy ``or`` semantics; a truthy value must pass the same bounds.
+    """
+    price_raw = data.get("price")
+    if price_raw:
+        return str(_market_price_or_raise(price_raw))
+    return str(offer_price)
+
+
+# -- idempotency-ledger helpers (module-level so MagicMock-bound mixin tests
+#    still exercise the real code; keeps the handlers under the C901 ratchet) --
+
+
+def _op_begin(conn, idempotency_key, operation, payload):
+    """Begin the ledger row inside the open transaction.
+
+    Returns ``(begin, attempt)`` — ``begin`` is None when no
+    Idempotency-Key was sent; ``attempt`` is only meaningful on an
+    EXECUTE begin. On a non-EXECUTE outcome the caller must rollback
+    and answer via ``_send_operation_result``.
+    """
+    if not idempotency_key:
+        return None, 0
+    begin = get_operation_ledger().begin(idempotency_key, operation, request_hash(payload), conn=conn)
+    if begin.status is not BeginStatus.EXECUTE:
+        return begin, 0
+    return begin, begin.attempt
+
+
+def _op_complete(idempotency_key, operation_attempt, result, *, response_status, conn) -> bool:
+    """Complete the ledger row; True when there was nothing to complete."""
+    if not idempotency_key:
+        return True
+    return get_operation_ledger().complete(
+        idempotency_key, operation_attempt, result, response_status=response_status, conn=conn
+    )
+
+
+def _op_fail(idempotency_key, operation_attempt, message) -> None:
+    """Fail the ledger row after a rolled-back transaction."""
+    if idempotency_key and operation_attempt:
+        get_operation_ledger().fail(idempotency_key, operation_attempt, message)
+
+
 class MarketMixin:
     """Market offer and order management methods."""
 
@@ -187,15 +244,9 @@ class MarketMixin:
             data = self._read_json_body()  # type: ignore[attr-defined]
             item = data.get("item") or data.get("item_type") or "service"
             item_type = data.get("item_type") or item
-            # B2: Use Decimal for price (stored as TEXT). #1675: the old
-            # ``or 0`` fallback turned None/[]/{} into a free offer — price is
-            # now required and must be finite, > 0 and <= _MARKET_MAX_PRICE.
-            price_raw = data.get("price")
-            if price_raw is None:
-                price_raw = data.get("price_per_hour")
-            if price_raw is None:
-                raise ValueError("price is required")
-            price = str(_market_price_or_raise(price_raw))
+            # B2: Use Decimal for price (stored as TEXT). #1675: price is
+            # required and must be finite, > 0 and <= _MARKET_MAX_PRICE.
+            price = _create_offer_price(data)
             wallet = data.get("wallet")
             description = data.get("description", "")
             idempotency_key = _idempotency_key(self)
@@ -207,13 +258,11 @@ class MarketMixin:
                 conn.execute("BEGIN IMMEDIATE")
                 cursor = conn.cursor()
                 self._expire_stale_market_rows(cursor)
-                if idempotency_key:
-                    begin = get_operation_ledger().begin(idempotency_key, "market_create_offer", request_hash(data), conn=conn)
-                    if begin.status is not BeginStatus.EXECUTE:
-                        conn.rollback()
-                        self._send_operation_result(begin)  # type: ignore[attr-defined]
-                        return
-                    operation_attempt = begin.attempt
+                begin, operation_attempt = _op_begin(conn, idempotency_key, "market_create_offer", data)
+                if begin is not None and begin.status is not BeginStatus.EXECUTE:
+                    conn.rollback()
+                    self._send_operation_result(begin)  # type: ignore[attr-defined]
+                    return
                 offer_id = self._new_market_id("offer")
                 order_id = self._new_market_id("order")
                 cursor.execute(
@@ -240,15 +289,12 @@ class MarketMixin:
                 )
                 offer = self._market_offer_row(cursor.fetchone())
                 offer["order_id"] = order_id
-                if idempotency_key and not get_operation_ledger().complete(
-                    idempotency_key, operation_attempt, offer, response_status=201, conn=conn
-                ):
+                if not _op_complete(idempotency_key, operation_attempt, offer, response_status=201, conn=conn):
                     raise RuntimeError("operation lease superseded mid-transaction")
                 conn.commit()
             except Exception:
                 conn.rollback()
-                if idempotency_key and operation_attempt:
-                    get_operation_ledger().fail(idempotency_key, operation_attempt, "offer creation failed")
+                _op_fail(idempotency_key, operation_attempt, "offer creation failed")
                 raise
             finally:
                 conn.close()
@@ -273,18 +319,13 @@ class MarketMixin:
             try:
                 conn.execute("BEGIN IMMEDIATE")
                 cursor = conn.cursor()
-                if idempotency_key:
-                    begin = get_operation_ledger().begin(
-                        idempotency_key,
-                        "market_book_offer",
-                        request_hash({"offer_id": offer_id, "body": data}),
-                        conn=conn,
-                    )
-                    if begin.status is not BeginStatus.EXECUTE:
-                        conn.rollback()
-                        self._send_operation_result(begin)  # type: ignore[attr-defined]
-                        return
-                    operation_attempt = begin.attempt
+                begin, operation_attempt = _op_begin(
+                    conn, idempotency_key, "market_book_offer", {"offer_id": offer_id, "body": data}
+                )
+                if begin is not None and begin.status is not BeginStatus.EXECUTE:
+                    conn.rollback()
+                    self._send_operation_result(begin)  # type: ignore[attr-defined]
+                    return
                 self._expire_stale_market_rows(cursor)
                 # Only an active offer may be booked (#1563): the old query
                 # had no status filter and fell back to item=offer_id, so a
@@ -300,19 +341,13 @@ class MarketMixin:
                 row = cursor.fetchone()
                 if row is None:
                     conn.rollback()
-                    if idempotency_key and operation_attempt:
-                        get_operation_ledger().fail(idempotency_key, operation_attempt, "offer not found or not active")
+                    _op_fail(idempotency_key, operation_attempt, "offer not found or not active")
                     self.send_json_response({"success": False, "error": "Offer not found or not active"}, status=404)  # type: ignore[attr-defined]
                     return
                 matched_offer_id, item, offer_price = row
                 # B2: Use Decimal for price (stored as TEXT). #1675: an
-                # explicit buyer price gets the same bounds as offer prices;
-                # absent/empty falls back to the (already validated) offer price.
-                price_raw = data.get("price")
-                if price_raw:
-                    price = str(_market_price_or_raise(price_raw))
-                else:
-                    price = str(offer_price)
+                # explicit buyer price gets the same bounds as offer prices.
+                price = _book_offer_price(data, offer_price)
                 order_id = self._new_market_id("order")
                 cursor.execute(
                     """
@@ -331,15 +366,12 @@ class MarketMixin:
                 )
                 order = self._market_order_row(cursor.fetchone())
                 response = {"success": True, "order": order, "order_id": order_id}
-                if idempotency_key and not get_operation_ledger().complete(
-                    idempotency_key, operation_attempt, response, response_status=201, conn=conn
-                ):
+                if not _op_complete(idempotency_key, operation_attempt, response, response_status=201, conn=conn):
                     raise RuntimeError("operation lease superseded mid-transaction")
                 conn.commit()
             except Exception:
                 conn.rollback()
-                if idempotency_key and operation_attempt:
-                    get_operation_ledger().fail(idempotency_key, operation_attempt, "offer booking failed")
+                _op_fail(idempotency_key, operation_attempt, "offer booking failed")
                 raise
             finally:
                 conn.close()
