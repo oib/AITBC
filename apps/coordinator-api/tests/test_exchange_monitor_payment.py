@@ -25,6 +25,16 @@ class _FakeState:
     async def hset(self, ns: str, pid: str, payload) -> None:
         self.set_payloads.append(payload)
 
+    async def get_doc(self, ns: str, key: str):
+        return self.payment
+
+    async def set_doc(self, ns: str, key: str, value: dict, ttl: int | None = None) -> None:
+        self.set_payloads.append(value)
+        self.payment = value
+
+    async def docs(self, ns: str):
+        return {"pay": self.payment} if self.payment is not None else {}
+
 
 @pytest.mark.asyncio
 async def test_confirmed_status_breaks_loop(monkeypatch: pytest.MonkeyPatch) -> None:
