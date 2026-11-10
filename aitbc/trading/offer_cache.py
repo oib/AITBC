@@ -158,12 +158,15 @@ class OfferCache:
         # We don't have a global index, so we scan chain indices.
         # This is acceptable for v0.8.1 (polling-based, limited chains).
         all_offers: list[SyncedOffer] = []
-        seen: set[str] = set()
+        # #1677: dedup on (chain_id, offer_id) — post-#1567 the same offer_id
+        # on two chains is two distinct offers, not a duplicate.
+        seen: set[tuple[str, str]] = set()
         for chain_id in self._get_known_chains():
             for offer in self.list_offers_by_chain(chain_id):
-                if offer.offer_id not in seen and offer.service_type == service_type:
+                key = (offer.chain_id, offer.offer_id)
+                if key not in seen and offer.service_type == service_type:
                     all_offers.append(offer)
-                    seen.add(offer.offer_id)
+                    seen.add(key)
         return all_offers
 
     def is_stale(self, offer_id: str, chain_id: str | None = None) -> bool:
