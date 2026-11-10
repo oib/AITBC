@@ -168,6 +168,70 @@ class RedisStateManager:
         await self._invalidate_cache(namespace)
 
     # ------------------------------------------------------------------
+    # Per-key JSON documents with optional TTL (#1533)
+    #
+    # Hash fields cannot carry individual TTLs, so records that must expire
+    # (e.g. exchange payments) are stored one key per document under
+    # ``aitbc:coordinator:{namespace}:{key}`` instead of fields of the
+    # ``aitbc:coordinator:{namespace}`` hash. ``docs()`` enumerates them via
+    # SCAN in bounded batches — never KEYS/HGETALL.
+    # ------------------------------------------------------------------
+
+    async def set_doc(self, namespace: str, key: str, value: dict[str, Any], ttl: int | None = None) -> None:
+        """Store a JSON document under a per-key string, optionally with TTL."""
+        if self._redis:
+            rkey = self._key(namespace, key)
+            payload = json.dumps(value)
+            if ttl is not None:
+                await self._redis.set(rkey, payload, ex=ttl)
+            else:
+                await self._redis.set(rkey, payload)
+        else:
+            self._memory[f"{namespace}:{key}"] = value
+        await self._invalidate_cache(namespace)
+
+    async def get_doc(self, namespace: str, key: str) -> dict[str, Any] | None:
+        """Get a per-key JSON document."""
+        if self._redis:
+            raw = await self._redis.get(self._key(namespace, key))
+            return json.loads(raw) if raw else None
+        doc = self._memory.get(f"{namespace}:{key}")
+        return doc if isinstance(doc, dict) else None
+
+    async def delete_doc(self, namespace: str, key: str) -> None:
+        """Delete a per-key JSON document."""
+        if self._redis:
+            await self._redis.delete(self._key(namespace, key))
+        else:
+            self._memory.pop(f"{namespace}:{key}", None)
+        await self._invalidate_cache(namespace)
+
+    async def docs(self, namespace: str) -> dict[str, dict[str, Any]]:
+        """Enumerate all documents in a namespace, keyed by doc key.
+
+        SCAN-based with count=100 batches so a large namespace cannot stall
+        Redis the way KEYS/HGETALL-of-everything would (#1533). Total work is
+        bounded by the per-document TTLs callers set.
+        """
+        if self._redis:
+            prefix = f"aitbc:coordinator:{namespace}:"
+            out: dict[str, dict[str, Any]] = {}
+            cursor = 0
+            while True:
+                cursor, keys = await self._redis.scan(cursor, match=f"{prefix}*", count=100)
+                for k in keys:
+                    raw = await self._redis.get(k)
+                    if raw is None:
+                        continue
+                    doc_key = k[len(prefix) :] if isinstance(k, str) else k.decode()[len(prefix) :]
+                    out[doc_key] = json.loads(raw)
+                if cursor == 0:
+                    break
+            return out
+        mem_prefix = f"{namespace}:"
+        return {k[len(mem_prefix) :]: v for k, v in self._memory.items() if k.startswith(mem_prefix) and isinstance(v, dict)}
+
+    # ------------------------------------------------------------------
     # Counter operations (for job/message counters)
     # ------------------------------------------------------------------
 

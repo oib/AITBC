@@ -109,3 +109,30 @@ class TestRatesAndStats:
         # route lives at /v1/agents/test (exchange router has no path prefix)
         resp = client.get("/v1/agents/test", headers=_headers())
         assert resp.status_code == 200
+
+
+class TestPaymentStorageBounds:
+    """#1533: payments must be per-key TTL'd docs, not hash fields."""
+
+    def test_create_payment_uses_doc_storage_not_hash(self, client: TestClient) -> None:
+        exch_mod._state._memory.pop("exchange", None)
+        resp = client.post(f"{BASE}/create-payment", json=_payment(), headers=_headers())
+        assert resp.status_code == 200
+        payment_id = resp.json()["payment_id"]
+
+        mem = exch_mod._state._memory
+        # Per-key doc under "exchange:{payment_id}", never a field of a
+        # namespace hash (which cannot carry per-field TTL).
+        assert mem.get(f"exchange:{payment_id}", {}).get("payment_id") == payment_id
+        # No namespace-hash dict was populated for exchange.
+        assert mem.get("exchange") in (None, {})
+
+        # docs() enumeration feeds market-stats without HGETALL.
+        docs = exch_mod._state._memory
+        enumerated = {k[len("exchange:") :]: v for k, v in docs.items() if k.startswith("exchange:")}
+        assert payment_id in enumerated
+
+        # Status lookup round-trips through get_doc.
+        status = client.get(f"{BASE}/payment-status/{payment_id}", headers=_headers())
+        assert status.status_code == 200
+        assert status.json()["status"] == "pending"
