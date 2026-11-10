@@ -15,7 +15,10 @@ _URL_RE = re.compile(r"https?://\S+")
 
 # Trailing characters a URL regex match commonly over-captures from the
 # surrounding sentence — kept so "for url '<redacted>'." stays readable.
-_TRAILING = "').,;]>\""
+# ':' covers "http://host:8202: All connection attempts failed" — a URL
+# immediately followed by a colon (#1636); without it the match reaches
+# urlsplit with '8202:' as the port and parts.port raises ValueError.
+_TRAILING = "').,;]>\":"
 
 
 def redact_url(url: str | None) -> str:
@@ -31,8 +34,14 @@ def redact_url(url: str | None) -> str:
     if not parts.scheme or not parts.hostname:
         return "(redacted)"
     host = parts.hostname
-    if parts.port is not None:
-        host = f"{host}:{parts.port}"
+    try:
+        port = parts.port
+    except ValueError:
+        # Malformed port (e.g. 'host:8202:path' reached urlsplit whole) —
+        # drop the port rather than raising inside the logging formatter.
+        port = None
+    if port is not None:
+        host = f"{host}:{port}"
     return f"{parts.scheme}://{host}"
 
 

@@ -29,6 +29,6 @@ def test_memory_store_and_retrieve() -> None:
     assert body["size"] == len(b"hello memory")
     assert body["content_address"].startswith("cid:")
 
-    retrieved = client.get(f"/v1/retrieve/{body['content_address']}")
+    retrieved = client.get(f"/v1/retrieve/{body['content_address']}", params={"owner": "test-user"})
     assert retrieved.status_code == 200
     assert base64.b64decode(retrieved.json()["data"]) == b"hello memory"
