@@ -189,6 +189,40 @@ def test_concurrent_first_grant_claims_exactly_one_wins(monkeypatch, tmp_path) -
     assert _count_approved(str(db)) == 1
 
 
+def test_concurrent_first_open_of_fresh_ledger_all_succeed(monkeypatch, tmp_path) -> None:
+    """#1658: N threads opening a FRESH coins.db at once race the
+    journal_mode/CREATE TABLE first writes; busy_timeout does not cover that
+    window, so _agent_db_conn used to return None for the losers (~40% repro)
+    and a legitimate first grant failed closed. The open path now retries the
+    lock briefly — every opener must get a working connection."""
+    db = tmp_path / "coins.db"
+    monkeypatch.setenv("AGENT_DB_PATH", str(db))
+
+    n = 8
+    barrier = threading.Barrier(n)
+    results: list[bool] = []
+    results_lock = threading.Lock()
+
+    def open_conn() -> None:
+        barrier.wait(timeout=10)
+        conn = agent_stream._agent_db_conn()
+        # sqlite3 connections are bound to their creating thread — close here.
+        ok = conn is not None
+        if conn is not None:
+            conn.close()
+        with results_lock:
+            results.append(ok)
+
+    threads = [threading.Thread(target=open_conn) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert len(results) == n
+    assert results == [True] * n
+
+
 # --- Schema convergence (#1604) --------------------------------------------------------------
 
 

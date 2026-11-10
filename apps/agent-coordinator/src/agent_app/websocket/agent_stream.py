@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import time
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units, units_to_ait
 from collections.abc import Callable
@@ -490,6 +491,11 @@ _AGENT_DB_SCHEMA = (
 # ledger at all and the caller's park-on-unreadable path takes over.
 _AGENT_DB_COMPAT_COLUMNS = {"rejection_reason": "TEXT", "signed_transaction": "TEXT"}
 
+# #1658: bounded retries for the fresh-file first-open lock race — 10 attempts
+# with 50–500 ms linear backoff covers the schema-create window without
+# stalling a genuinely broken store for long.
+_AGENT_DB_OPEN_ATTEMPTS = 10
+
 
 def _ensure_agent_db_columns(conn: sqlite3.Connection) -> None:
     """Bring a pre-existing ``coin_requests`` table up to the ORM column set.
@@ -518,17 +524,34 @@ def _agent_db_conn() -> sqlite3.Connection | None:
     take an explicit ``BEGIN IMMEDIATE`` write lock around its check-and-insert.
     """
     db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
-    try:
-        conn = sqlite3.connect(db_path, timeout=30, isolation_level=None)
-        # #1560: WAL + busy_timeout on the coin-request ledger.
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=30000")
-        conn.execute(_AGENT_DB_SCHEMA)
-        _ensure_agent_db_columns(conn)
-        return conn
-    except Exception as e:
-        logger.warning("Could not open coin-request ledger %s: %s", db_path, e)
-        return None
+    last_error: Exception | None = None
+    # #1658: N workers opening a FRESH file race the journal_mode/CREATE TABLE
+    # first writes; busy_timeout does not cover that schema-lock window, so a
+    # legitimate first grant used to fail closed with 'database is locked'.
+    # Retry the whole open briefly before declaring the ledger unwritable.
+    for attempt in range(_AGENT_DB_OPEN_ATTEMPTS):
+        conn: sqlite3.Connection | None = None
+        try:
+            conn = sqlite3.connect(db_path, timeout=30, isolation_level=None)
+            # #1560: WAL + busy_timeout on the coin-request ledger.
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=30000")
+            conn.execute(_AGENT_DB_SCHEMA)
+            _ensure_agent_db_columns(conn)
+            return conn
+        except Exception as e:
+            last_error = e
+            if conn is not None:
+                try:
+                    conn.close()
+                except sqlite3.Error:
+                    pass
+            locked = isinstance(e, sqlite3.OperationalError) and "locked" in str(e).lower()
+            if not locked or attempt + 1 >= _AGENT_DB_OPEN_ATTEMPTS:
+                break
+            time.sleep(0.05 * (attempt + 1))
+    logger.warning("Could not open coin-request ledger %s: %s", db_path, last_error)
+    return None
 
 
 def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash: str) -> None:
