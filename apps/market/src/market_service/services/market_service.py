@@ -1452,20 +1452,27 @@ class MarketService:
         try:
             from datetime import UTC, datetime
 
-            from sqlalchemy import select
+            from sqlalchemy import func, select
 
             synced_count = 0
             updated_count = 0
             skipped_count = 0
             failed_count = 0
             touched_services: set[str] = set()
-            for remote_rating in remote_ratings:
+            # Bound the batch like every other list path (#1634) — the route
+            # is API-key gated but the payload size was caller-controlled.
+            batch = remote_ratings[: max_page_size()]
+            if len(remote_ratings) > len(batch):
+                logger.warning("ratings/sync batch truncated to %s rows", len(batch))
+            for remote_rating in batch:
                 try:
                     remote_created = _rating_created_at(remote_rating["created_at"])
                     rating_value = _coerce_remote_rating(remote_rating["rating"])
+                    # Dedup case-insensitively: "0xAbC" and "0xabc" are the
+                    # same reviewer and must not become two ratings (#1634).
                     stmt = select(ServiceRating).where(
                         ServiceRating.service_id == remote_rating["service_id"],
-                        ServiceRating.reviewer_id == remote_rating["reviewer_id"],
+                        func.lower(ServiceRating.reviewer_id) == str(remote_rating["reviewer_id"]).strip().lower(),
                     )
                     result = await self.session.execute(stmt)
                     existing = result.scalar_one_or_none()
@@ -1486,7 +1493,10 @@ class MarketService:
                             comment=remote_rating["comment"],
                             created_at=remote_created,
                             synced_at=datetime.now(UTC).replace(tzinfo=None),
-                            source_node=remote_rating.get("source_node", "remote"),
+                            # source_node is caller-supplied provenance —
+                            # sanitize it rather than trusting the raw value
+                            # (#1634).
+                            source_node=str(remote_rating.get("source_node") or "remote").strip()[:128] or "remote",
                         )
                         self.session.add(new_rating)
                         synced_count += 1

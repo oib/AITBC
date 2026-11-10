@@ -1130,6 +1130,35 @@ async def cancel_market_job(
     try:
         cancel_data = cancel_data or {}
         logger.info("POST /v1/market/jobs/%s/cancel called", job_id)
+        # #1634: a cancel flips the job to CANCELED and queues a refund, so a
+        # supplied wallet signature must verify AND belong to a job party —
+        # a bad or foreign signature is a 403, never silently ignored. The
+        # unsigned API-key path stays for the operator tier (the sweeper and
+        # CLI flows that hold no party key), matching the pin-confirm
+        # precedent: proofs are checked when presented.
+        if any(
+            (
+                cancel_data.get("signer_address"),
+                cancel_data.get("chain_id"),
+                cancel_data.get("issued_at") is not None,
+                cancel_data.get("signature"),
+            )
+        ):
+            job = await svc.get_market_job(job_id)
+            if not job:
+                return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+            error, signer = verify_jobs_request_signature(
+                signer_address=cancel_data.get("signer_address"),
+                chain_id=cancel_data.get("chain_id"),
+                issued_at=cancel_data.get("issued_at"),
+                route=f"/v1/market/jobs/{job_id}/cancel",
+                signature=cancel_data.get("signature"),
+                expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+            )
+            if error or not signer:
+                return JSONResponse(status_code=403, content={"error": error or "invalid cancel signature"})
+            if canonical_address(signer) not in _job_party_addresses(job):
+                return JSONResponse(status_code=403, content={"error": "signer is not a party to this job"})
         result = await svc.cancel_market_job(job_id, reason=cancel_data.get("reason", ""))
         return result
     except ValueError as e:

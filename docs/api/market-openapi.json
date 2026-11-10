@@ -2004,8 +2004,23 @@
               }
             }
           },
+          "403": {
+            "description": "signer is not a party to this job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found",
+            "description": "Job not found: {job_id}",
             "content": {
               "application/json": {
                 "schema": {
