@@ -331,11 +331,11 @@ async def test_apply_statement_filters_by_target_service_type() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("bad_value", [0, 11, 10**30, -1, True, 4.0, "4"])
-async def test_apply_max_concurrent_out_of_service_bounds_is_400(bad_value: Any) -> None:
-    """#1421 second pass: governance apply must honour the same 1..10 bound the
-    service's own ServiceConfig schemas enforce — 0 would drain capacity and
-    an out-of-range int overflows the Integer column on PostgreSQL."""
+@pytest.mark.parametrize("bad_value", [11, 10**30, -1, True, 4.0, "4"])
+async def test_apply_max_concurrent_out_of_bounds_is_400(bad_value: Any) -> None:
+    """#1421 second pass: governance apply must bound max_concurrent — an
+    out-of-range int overflows the Integer column on PostgreSQL. 0 stays
+    valid (pinned accepted value: the 'accept nothing' lever)."""
     cfg = _config(max_concurrent=1)
     session = _Session([cfg])
     with pytest.raises(HTTPException) as exc:
