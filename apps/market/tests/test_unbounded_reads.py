@@ -254,3 +254,12 @@ async def test_health_check_does_not_materialise_pin_body(capped):
 async def _aiter(lines):
     for line in lines:
         yield line
+
+
+async def test_jobs_negative_limit_is_floored(capped):
+    """limit=-5 must not become SQLite 'unlimited' — same class as ratings."""
+    async with get_session_context() as session:
+        await _seed_jobs(session)
+        svc = MarketService(session)
+        jobs = await svc.list_market_jobs(limit=-5)
+        assert len(jobs) <= 5, f"negative limit unbounded: {len(jobs)} jobs"
