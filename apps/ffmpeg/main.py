@@ -9,6 +9,7 @@ Port: 8230
 import asyncio
 import hashlib
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -46,6 +47,27 @@ _UPLOAD_CHUNK = 1024 * 1024
 # the other form fields on top, so the header check needs slack the per-file
 # limit does not.
 _MAX_BODY_BYTES = _MAX_UPLOAD_BYTES + _UPLOAD_CHUNK
+
+# FFMPEG-ARGV-1 (#1456): caller-controlled form fields reach the ffmpeg argv.
+# codec becomes the -c:v encoder name, bitrate becomes -b:v/-maxrate/-bufsize,
+# so both are validated to the shapes the encoder map and ffmpeg actually
+# understand before they are interpolated — anything else is a 400, never a
+# decode-time ffmpeg error or an IndexError 500.
+_CODEC_RE = re.compile(r"^[a-z0-9_]{1,16}$")
+_BITRATE_RE = re.compile(r"^\d{1,4}(\.\d{1,3})?[kKmMgG]?$")
+# ~400 Mbit/s ceiling: generous for any legitimate transcode, small enough
+# that a nonsense rate cannot size absurd VBV buffers.
+_MAX_BITRATE_BPS = 400_000_000
+_BITRATE_UNITS = {"k": 1_000, "m": 1_000_000, "g": 1_000_000_000}
+
+# FFMPEG-CONC-1 (#1459): each /process job spawns an ffmpeg child that may run
+# for the full 3600s timeout against a shared GPU and the unit's MemoryMax=2G.
+# Unbounded admission means N paid jobs fight for NVENC and RAM until the unit
+# is OOM-killed or every job times out. The counter is a plain int — the
+# check-and-increment has no await between it and the increment, so it is
+# atomic on the event loop — default 2 concurrent transcodes.
+_MAX_CONCURRENT = int(os.getenv("FFMPEG_MAX_CONCURRENT", "2"))
+_inflight = 0
 
 
 @asynccontextmanager
@@ -250,6 +272,22 @@ async def process_video(
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
 
+    # FFMPEG-ARGV-1 (#1456): validate caller-controlled fields before they are
+    # interpolated into the ffmpeg argv.
+    codec_key = codec.strip().lower()
+    if not _CODEC_RE.fullmatch(codec_key):
+        raise HTTPException(status_code=400, detail="codec must be a short encoder label like 'h264' or 'hevc'")
+    bitrate_value = bitrate.strip()
+    if not _BITRATE_RE.fullmatch(bitrate_value):
+        raise HTTPException(status_code=400, detail="bitrate must look like '5M', '2500k' or '10'")
+    # Normalize to an explicit unit, then bound the rate itself.
+    if not bitrate_value[-1].isalpha():
+        bitrate_value = f"{bitrate_value}M"
+    _num = float("".join(c for c in bitrate_value if c.isdigit() or c == "."))
+    _unit = bitrate_value[-1].lower()
+    if _num * _BITRATE_UNITS[_unit] > _MAX_BITRATE_BPS:
+        raise HTTPException(status_code=400, detail=f"bitrate exceeds the {_MAX_BITRATE_BPS // 1_000_000}M cap")
+
     # Validate GPU acceleration is available
     try:
         result = await _run_cmd(["ffmpeg", "-hwaccels"], timeout=15)
@@ -262,15 +300,31 @@ async def process_video(
 
         raise HTTPException(status_code=503, detail="Internal server error") from e
 
+    # FFMPEG-CONC-1 (#1459): admit at most _MAX_CONCURRENT transcodes. The
+    # check-and-increment has no await between it and the increment, so it is
+    # atomic on the event loop; the slot is released in the finally below.
+    global _inflight
+    if _inflight >= _MAX_CONCURRENT:
+        raise HTTPException(status_code=503, detail="FFmpeg service busy; retry later")
+    _inflight += 1
+
     # Create temporary files. The upload is spooled, never buffered whole --
     # see _spool_upload for why. Both suffixes go through _safe_suffix: the
     # caller controls output_format as much as the filename, and a "/" in
     # either lands in the temp path the kernel resolves.
-    input_path = await _spool_upload(file, _safe_suffix(file.filename))
-
-    output_suffix = _safe_suffix(f"out.{output_format}")
-    with tempfile.NamedTemporaryFile(suffix=output_suffix, delete=False) as output_tmp:
-        output_path = output_tmp.name
+    input_path: str | None = None
+    output_path: str | None = None
+    try:
+        input_path = await _spool_upload(file, _safe_suffix(file.filename))
+        output_suffix = _safe_suffix(f"out.{output_format}")
+        with tempfile.NamedTemporaryFile(suffix=output_suffix, delete=False) as output_tmp:
+            output_path = output_tmp.name
+    except BaseException:
+        # Setup failed after (or during) spooling — do not orphan the upload.
+        if input_path is not None and os.path.exists(input_path):
+            os.unlink(input_path)
+        _inflight -= 1
+        raise
 
     try:
         t_start = time.time()
@@ -278,7 +332,6 @@ async def process_video(
         # Map requested codec to an FFmpeg encoder name.
         # `codec` from the CLI is a short label like "h264" or "hevc"; the actual
         # encoder depends on the accelerator (nvenc for NVIDIA cuda, vaapi for AMD/Intel, etc.).
-        codec_key = codec.lower()
         if _hw_accel == "cuda":
             encoder = f"{codec_key}_nvenc"
         elif _hw_accel == "vaapi":
@@ -292,13 +345,9 @@ async def process_video(
         else:
             encoder = codec_key
 
-        # Ensure bitrate has a valid unit (k/M) and compute the VBV buffer size.
-        bitrate_value = bitrate.strip()
-        if not bitrate_value[-1].isalpha():
-            bitrate_value = f"{bitrate_value}M"
-        # bufsize: use the numeric value, defaulting to the same unit as the rate.
+        # bufsize mirrors the (already validated) bitrate value and unit.
         numeric = "".join(c for c in bitrate_value if c.isdigit() or c == ".")
-        unit = bitrate_value[-1].lower() if bitrate_value[-1].isalpha() else "m"
+        unit = bitrate_value[-1].lower()
         bufsize = f"{numeric}{unit}"
 
         # Build FFmpeg command. Hardware-accelerated decode + encode when possible.
@@ -359,7 +408,9 @@ async def process_video(
         # ruling 1A): the caller gets the CID and the local file is deleted in
         # the finally below instead of leaking in the unit's tmpfs.
         try:
-            output_cid = await asyncio.to_thread(_ipfs_add_file, output_path, f"output.{output_format}")
+            # The IPFS filename gets the same sanitized extension the temp
+            # output used — output_format is caller-controlled (#1456).
+            output_cid = await asyncio.to_thread(_ipfs_add_file, output_path, f"output{output_suffix}")
         except Exception as e:
             logger.error("IPFS upload of ffmpeg output failed: %s", e)
             raise HTTPException(status_code=502, detail="output upload to IPFS failed") from e
@@ -382,10 +433,12 @@ async def process_video(
 
     finally:
         # Cleanup input and output files — the output is delivered through
-        # IPFS, keeping it local was the #799 tmpfs leak.
+        # IPFS, keeping it local was the #799 tmpfs leak. The concurrency
+        # slot is released here too (#1459).
         for _p in (input_path, output_path):
-            if os.path.exists(_p):
+            if _p is not None and os.path.exists(_p):
                 os.unlink(_p)
+        _inflight -= 1
 
 
 if __name__ == "__main__":
