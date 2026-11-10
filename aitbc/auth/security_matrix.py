@@ -166,6 +166,16 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # Any authenticated token
     "/v1/cross-chain*": AuthLevel.ANY,
     "/v1/agent-identity*": AuthLevel.ANY,
+    # IPFS-API-AUTHZ-1 (#1686): the mutating memory/pin surface is admin-or-
+    # client — ANY let every role unpin arbitrary CIDs, pin unbounded content,
+    # and enumerate agent memories on the shared Kubo node. Reads (retrieve,
+    # list, stats, health) and the signature-gated island/swarm-key routes stay
+    # under the "/v1/ipfs*" ANY floor below; exact entries win over the
+    # wildcard in get_auth_level().
+    "/v1/ipfs/upload": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/ipfs/batch-upload": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/ipfs/create-deal": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/ipfs/delete": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/ipfs*": AuthLevel.ANY,
     "/v1/inference*": AuthLevel.ANY,
     "/v1/agents*": AuthLevel.ANY,
