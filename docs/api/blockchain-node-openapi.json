@@ -3976,6 +3976,16 @@
               ],
               "title": "Chain Id"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
@@ -15795,6 +15805,16 @@
                 }
               ],
               "title": "Chain Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "title": "Limit"
             }
           }
         ],

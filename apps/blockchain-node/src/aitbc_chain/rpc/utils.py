@@ -33,6 +33,18 @@ _poa_proposers: dict[str, Any] = {}
 OFFER_ACTIONS = ("offer", "software_offer")
 
 
+def clamp_limit(value: int | None, default: int, maximum: int) -> int:
+    """Clamp a client-supplied ``limit`` query param into ``[1, maximum]``.
+
+    Shared form of the per-endpoint ``max(1, min(limit, 500))`` clamps added
+    under #1057/#1622: ``None`` (param omitted) falls back to ``default``;
+    ``0`` and negatives clamp to 1 so they can never mean "unbounded".
+    """
+    if value is None:
+        return default
+    return max(1, min(value, maximum))
+
+
 def _as_id_list(value: Any) -> list[str]:
     """A payload field that may hold one id, a list of ids, or nothing."""
     if not value:
