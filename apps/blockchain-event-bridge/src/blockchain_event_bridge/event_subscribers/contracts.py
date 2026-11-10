@@ -174,7 +174,18 @@ class ContractEventSubscriber:
                         "topics": self.event_topics.get(contract_name, []),
                     },
                 )
-                logs = logs_data.get("logs", [])
+                # BRIDGE-EVT-LOGS-1 (#1430): the node answers application-level
+                # failures with HTTP 200 and an error-shaped body ({"error": …}
+                # or any body without a "logs" list). Treating that as an empty
+                # scan would advance the checkpoint past blocks that were never
+                # read — raise instead so the range is retried next poll.
+                if "error" in logs_data:
+                    raise RuntimeError(f"/eth_getLogs error body for {contract_name}: {logs_data['error']}")
+                logs = logs_data.get("logs")
+                if not isinstance(logs, list):
+                    raise RuntimeError(
+                        f"/eth_getLogs response missing 'logs' list for {contract_name}: keys={sorted(logs_data)}"
+                    )
                 if logs:
                     logger.info("Found %s events for %s", len(logs), contract_name)
                     for log in logs:
