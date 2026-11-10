@@ -181,7 +181,10 @@ async def health():
         result = await _run_cmd(["ffmpeg", "-version"], timeout=15)
         return create_simple_health_response(
             "ffmpeg",
-            status="ok",
+            # The binary probe is the service's only real dependency; a
+            # non-zero exit means every transcode would fail, so the status
+            # must not stay "ok" just because the process is alive.
+            status="ok" if result.returncode == 0 else "error",
             gpu_device=_device,
             hw_accel=_hw_accel,
             ready=result.returncode == 0,

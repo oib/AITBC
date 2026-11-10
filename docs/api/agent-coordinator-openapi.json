@@ -6513,7 +6513,7 @@
     "/health": {
       "get": {
         "summary": "Health Check",
-        "description": "Health check endpoint.\n\nAnonymous callers get ``{status, service, timestamp}`` only \u2014 version,\nmemory and disk detail go only to a resolved principal (any mode:\nthe credential merely has to resolve, not satisfy a scope).",
+        "description": "Health check endpoint.\n\nAnonymous callers get ``{status, service, timestamp}`` only \u2014 version,\nmemory and disk detail go only to a resolved principal (any mode:\nthe credential merely has to resolve, not satisfy a scope).\n\nRedis carries the agent registry: every register/unregister/identity\nmutator persists through it, so a dead Redis breaks the service's core\nwrites while the process stays up. The probe goes through the live\nregistry client; an app built without the lifespan (tests) has no\nclient and the check is skipped. An unhealthy result answers 503 \u2014\nuptime monitors key on the status code, not the body.",
         "operationId": "health_check_health_get",
         "responses": {
           "200": {

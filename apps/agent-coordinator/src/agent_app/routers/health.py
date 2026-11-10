@@ -1,11 +1,12 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.health_checks import create_basic_health_check
+from aitbc.health_checks import HealthStatus, create_basic_health_check
 from aitbc.rate_limiting import rate_limit
 
+from .. import state
 from ..services.agent_auth import AgentPrincipal, optional_agent
 
 logger = get_logger(__name__)
@@ -24,16 +25,44 @@ _health_checker = create_basic_health_check("agent-coordinator")
 @router.head("/health", include_in_schema=False)
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
-def health_check(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+async def health_check(request: Request, response: Response, principal: OptionalAgent) -> dict[str, Any]:
     """Health check endpoint.
 
     Anonymous callers get ``{status, service, timestamp}`` only — version,
     memory and disk detail go only to a resolved principal (any mode:
     the credential merely has to resolve, not satisfy a scope).
+
+    Redis carries the agent registry: every register/unregister/identity
+    mutator persists through it, so a dead Redis breaks the service's core
+    writes while the process stays up. The probe goes through the live
+    registry client; an app built without the lifespan (tests) has no
+    client and the check is skipped. An unhealthy result answers 503 —
+    uptime monitors key on the status code, not the body.
     """
     result = _health_checker.get_health_dict()
     # Preserve the version field expected by callers
     result["version"] = "1.0.0"
+
+    registry = state.agent_registry
+    redis_client = getattr(registry, "redis_client", None) if registry is not None else None
+    if redis_client is not None:
+        try:
+            await redis_client.ping()
+        except Exception:
+            logger.warning("Health check: agent registry Redis ping failed")
+            result["status"] = HealthStatus.UNHEALTHY
+            result["message"] = "Unhealthy: redis"
+            details = dict(result.get("details") or {})
+            details["redis"] = {
+                "status": HealthStatus.UNHEALTHY.value,
+                "message": "Redis ping failed",
+                "details": None,
+            }
+            result["details"] = details
+
+    if result.get("status") == HealthStatus.UNHEALTHY:
+        response.status_code = 503
+
     if principal is None:
         return {
             "service": result.get("service"),
