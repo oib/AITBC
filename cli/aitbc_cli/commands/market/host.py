@@ -26,9 +26,11 @@ from ..ipfs import (
     _daemon_available,
     _hub_market_client,
     _ipfs_add_file,
+    _ipfs_is_pinned,
     _ipfs_object_size,
     _ipfs_pin_cid,
     _ipfs_swarm_connect,
+    _ipfs_unpin_cid,
     _is_cid,
 )
 from ._group import market
@@ -250,6 +252,72 @@ def _release_and_track(
     return release_result
 
 
+def _refund_orphaned_escrow(job_id: str, contract_id: str | None) -> None:
+    """Best-effort refund of an escrow whose market job was never registered.
+
+    IPFS-PIN-LEAK-1 (#1687): aborts between ``_escrow_create`` and
+    ``_track_market_job`` leave a locked escrow with no job row — no sweeper
+    can ever find it. The on-chain escrow is keyed by ``job_id``, so the same
+    refund RPC ``market cancel`` uses applies here. Failure is only warned:
+    the operator can still refund once the lock is visible on-chain.
+    """
+    refund_result, refund_failures = _post_escrow_rpc(
+        get_config(),
+        f"/rpc/escrow/{job_id}/refund",
+        {"reason": "ipfs_hosting_aborted"},
+        timeout=20,
+    )
+    if refund_result is None:
+        warning(
+            f"Escrow refund failed ({'; '.join(refund_failures) or 'no endpoint reachable'}); "
+            f"escrow {contract_id or job_id} stays locked — refund it manually."
+        )
+    else:
+        warning(f"Aborted IPFS hosting; escrow refund submitted for {contract_id or job_id}: {refund_result}")
+
+
+def _pin_hosting_cid(ipfs_api: str, cid: str) -> tuple[bool, bool]:
+    """Pin ``cid`` for hosting; return ``(pinned, pin_created)``.
+
+    ``pin_created`` is True only when this call added the pin — abort
+    cleanup must never remove a pre-existing pin on the same CID
+    (IPFS-PIN-LEAK-1, #1687).
+    """
+    was_pinned = _ipfs_is_pinned(ipfs_api, cid)
+    pinned = _ipfs_pin_cid(ipfs_api, cid)
+    return pinned, bool(pinned and not was_pinned)
+
+
+def _register_ipfs_market_job(
+    job_data: dict[str, Any],
+    *,
+    ipfs_api: str,
+    cid: str,
+    pin_created: bool,
+    job_id: str,
+    contract_id: str,
+) -> dict[str, Any]:
+    """Register the market job, undoing pin+escrow on any failure (#1687).
+
+    An abort after a successful pin used to leave the pin in place AND the
+    escrow locked with no market job record for any sweeper to find.
+    """
+    try:
+        market_result = _track_market_job(job_data)
+    except Exception:
+        if pin_created:
+            _ipfs_unpin_cid(ipfs_api, cid)
+        _refund_orphaned_escrow(job_id, contract_id)
+        raise
+    if not market_result:
+        if pin_created:
+            _ipfs_unpin_cid(ipfs_api, cid)
+        _refund_orphaned_escrow(job_id, contract_id)
+        error("Failed to register market job; pin and escrow cleaned up (best-effort).")
+        raise click.Abort()
+    return market_result
+
+
 def _run_ipfs_hosting(
     ctx: click.Context,
     offer_id_or_plugin_id: str,
@@ -311,11 +379,15 @@ def _run_ipfs_hosting(
         raise click.Abort()
 
     pinned = False
+    pin_created = False
     if pin:
-        pinned = _ipfs_pin_cid(ipfs_api, cid)
+        pinned, pin_created = _pin_hosting_cid(ipfs_api, cid)
         if not pinned:
-            # Leave a pending job record so the sweeper can refund later, but tell the user.
-            error(f"Failed to pin CID {cid} on {ipfs_api}. Escrow {contract_id} is locked.")
+            # The escrow is already locked and no market job record exists
+            # yet, so nothing would ever refund it — attempt the refund
+            # here instead of stranding buyer funds (#1687).
+            _refund_orphaned_escrow(job_id, contract_id)
+            error(f"Failed to pin CID {cid} on {ipfs_api}. Escrow {contract_id} refund attempted.")
             raise click.Abort()
 
     if content_size is None:
@@ -372,10 +444,14 @@ def _run_ipfs_hosting(
         "payment_amount": str(total_cost),
     }
 
-    market_result = _track_market_job(job_data)
-    if not market_result:
-        error("Failed to register market job; the escrow is locked but no record exists.")
-        raise click.Abort()
+    market_result = _register_ipfs_market_job(
+        job_data,
+        ipfs_api=ipfs_api,
+        cid=cid,
+        pin_created=pin_created,
+        job_id=job_id,
+        contract_id=contract_id,
+    )
 
     # Confirm pin so the job transitions to RUNNING.
     _confirm_market_pin(job_id, content_size)

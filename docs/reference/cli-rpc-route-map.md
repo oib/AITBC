@@ -155,6 +155,8 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc market exchange mint-ait` | `/rpc/accounts/{genesis_wallet_address}` | `get_account_alias_route` (core.py) | —
 | `aitbc market exchange mint-ait` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc market hermes` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
+| `aitbc market host` | `/rpc/escrow/` | — | —
+| `aitbc market host` | `/rpc/escrow/{job_id}/refund` | `refund_escrow` (escrow_routes.py) | `ESCROW_REFUND`
 | `aitbc market list` | `/rpc/mempool` | `get_mempool_api_route` (core.py) | —
 | `aitbc market list` | `/rpc/transactions` | `query_transactions_route` (core.py) | —
 | `aitbc market match` | `/rpc/transactions/market/match` | `match_market_route` (core.py) | —
