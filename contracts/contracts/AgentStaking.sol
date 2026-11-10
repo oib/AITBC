@@ -501,20 +501,15 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
             totalAmount -= penalty;
         }
 
-        stake.status = StakeStatus.COMPLETED;
+        // Settle principal: COMPLETED status, metrics/pool unwind, transfer.
+        // Shared with withdrawSlashedStake via _settleStakeExit -- the contract
+        // is at the 24KB size limit, so the two exit paths cannot each carry
+        // an inlined copy.
+        _settleStakeExit(stake, totalAmount);
 
-        // Update agent metrics
-        _updateAgentMetrics(stake.agentWallet, stake.amount, false);
-
-        // Update staking pool
-        _updateStakingPool(stake.agentWallet, msg.sender, stake.amount, false);
-
-        // Transfer tokens back to staker. The early-exit penalty goes to the
-        // owner/treasury — it used to stay in the contract, inflating the
-        // balance with funds nobody could withdraw (#1112).
-        if (totalAmount > 0) {
-            require(paymentToken.transfer(msg.sender, totalAmount), "Stake transfer failed");
-        }
+        // The early-exit penalty goes to the owner/treasury — it used to stay
+        // in the contract, inflating the balance with funds nobody could
+        // withdraw (#1112).
         if (penalty > 0) {
             require(paymentToken.transfer(owner(), penalty), "Penalty transfer failed");
         }
@@ -525,6 +520,38 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
         // distributeAgentEarnings -> pendingRewards -> claimPoolRewards.
         emit StakeCompleted(_stakeId, msg.sender, totalAmount, 0);
         emit StakeUnbonded(_stakeId, msg.sender, totalAmount, penalty);
+    }
+
+    /**
+     * @dev Withdraws the un-slashed remainder of a slashed stake (#1457).
+     *
+     * SLASHED used to be terminal: unbondStake requires ACTIVE and
+     * completeUnbonding requires UNBONDING, so the (100 - slashPct)% left
+     * after a slash was stranded in the contract forever -- every slash
+     * effectively confiscated 100% of the stake. The remainder now exits
+     * through this path once unbondingPeriod has elapsed since the slash.
+     *
+     * The delay is measured from slashedAt, not the stake's lock end: the
+     * staker did not choose to exit, so re-imposing the full lock +
+     * unbonding wait would punish them twice on top of the slash. The
+     * early-unbond penalty is likewise not applied -- the slash is already
+     * the punishment. The remainder keeps its pool shares and metrics
+     * accounting until this call removes them, so reward distribution and
+     * removeSupportedAgent stay consistent in the meantime.
+     */
+    function withdrawSlashedStake(uint256 _stakeId) external
+        stakeExists(_stakeId)
+        onlyStakeOwner(_stakeId)
+        nonReentrant
+    {
+        Stake storage stake = stakes[_stakeId];
+        require(stake.status == StakeStatus.SLASHED, "Stake not slashed");
+        require(block.timestamp >= stake.slashedAt + unbondingPeriod, "Unbonding period not ended");
+
+        uint256 remainder = stake.amount;
+        _settleStakeExit(stake, remainder);
+
+        emit StakeCompleted(_stakeId, msg.sender, remainder, 0);
     }
 
     /**
@@ -1060,12 +1087,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
         require(_slashingPercentage <= 100, "Invalid percentage");
         require(stake.amount > 0, "No amount to slash");
 
-        uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
-        stake.amount -= slashAmount;
-        stake.status = StakeStatus.SLASHED;
-        stake.slashedAt = block.timestamp;
-
-        _removeAgentActiveStake(stake.agentWallet, _stakeId);
+        uint256 slashAmount = _applySlash(stake, _slashingPercentage);
 
         require(paymentToken.transfer(owner(), slashAmount), "Transfer failed");
 
@@ -1118,6 +1140,45 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
      * When stakes remain, SlashingIncomplete is emitted and continueSlashing finishes the
      * job. Nothing is lost: slashProgress only advances over stakes this call handled.
      */
+    /**
+     * @dev Shared tail of the two stake-exit paths (completeUnbonding and
+     * withdrawSlashedStake): marks the stake COMPLETED, unwinds the stake's
+     * remaining amount from agent metrics and pool accounting, and pays
+     * _payoutAmount to the staker. Internal so the 24KB contract stays under
+     * the size limit -- one copy serves both exits.
+     */
+    function _settleStakeExit(Stake storage stake, uint256 _payoutAmount) internal {
+        stake.status = StakeStatus.COMPLETED;
+        _updateAgentMetrics(stake.agentWallet, stake.amount, false);
+        _updateStakingPool(stake.agentWallet, stake.staker, stake.amount, false);
+        if (_payoutAmount > 0) {
+            require(paymentToken.transfer(stake.staker, _payoutAmount), "Stake transfer failed");
+        }
+    }
+
+    /**
+     * @dev Applies a slash to one ACTIVE stake: reduces the amount by the
+     * percentage, marks it SLASHED, and unwinds the confiscated share from
+     * agent metrics and pool accounting (#1457). Shared by slashStake and
+     * _slashAllStakesForAgent -- kept as one internal function because
+     * AgentStaking sits at the 24KB contract-size limit.
+     *
+     * Only the confiscated share is removed from the accounting here; the
+     * un-slashed remainder stays accounted until the staker exits via
+     * withdrawSlashedStake, which then removes it. Without this split the
+     * metrics and pool drifted permanently on every slash.
+     * @return slashAmount Amount confiscated by this slash
+     */
+    function _applySlash(Stake storage stake, uint256 _slashingPercentage) internal returns (uint256 slashAmount) {
+        slashAmount = (stake.amount * _slashingPercentage) / 100;
+        stake.amount -= slashAmount;
+        stake.status = StakeStatus.SLASHED;
+        stake.slashedAt = block.timestamp;
+        _removeAgentActiveStake(stake.agentWallet, stake.stakeId);
+        _updateAgentMetrics(stake.agentWallet, slashAmount, false);
+        _updateStakingPool(stake.agentWallet, stake.staker, slashAmount, false);
+    }
+
     function _slashAllStakesForAgent(
         address _agentWallet,
         uint256 _slashingPercentage,
@@ -1137,11 +1198,7 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
             Stake storage stake = stakes[stakeId];
 
             if (stake.status == StakeStatus.ACTIVE && stake.amount > 0) {
-                uint256 slashAmount = (stake.amount * _slashingPercentage) / 100;
-                stake.amount -= slashAmount;
-                stake.status = StakeStatus.SLASHED;
-                stake.slashedAt = block.timestamp;
-                _removeAgentActiveStake(_agentWallet, stakeId);
+                uint256 slashAmount = _applySlash(stake, _slashingPercentage);
                 slashedTotal += slashAmount;
 
                 emit StakeSlashed(stakeId, stake.staker, slashAmount, _reason);
@@ -1236,6 +1293,11 @@ contract AgentStaking is Ownable, ReentrancyGuard, Pausable, EIP712 {
 
         if (_approved) {
             Stake storage stake = stakes[_stakeId];
+            // #1457: only a still-SLASHED stake can be re-activated. Once the
+            // staker has withdrawn the remainder the stake is COMPLETED and
+            // its funds are gone -- flipping it back to ACTIVE would mint a
+            // phantom balance the staker could unbond a second time.
+            require(stake.status == StakeStatus.SLASHED, "Stake no longer slashed");
             stake.status = StakeStatus.ACTIVE;
             _addAgentActiveStake(stake.agentWallet, _stakeId);
             emit SlashAppealApproved(_stakeId);
