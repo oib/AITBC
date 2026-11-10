@@ -23,16 +23,45 @@ _QUIET_PATHS = frozenset(
 )
 
 
+_REQUEST_ID_MAX_LEN = 128
+# Conservative charset for an inbound correlation id: uuid/hex plus the
+# separators real generators emit. Anything else (whitespace, control chars,
+# quotes) is rejected outright — the value is interpolated into log lines and
+# reflected in a response header, so it must never carry injection bytes
+# (APIGW-HEADER-TRUST-2, #1681).
+_REQUEST_ID_ALLOWED = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-:")
+
+
+def _sanitize_inbound_request_id(value: str | None) -> str | None:
+    """Return ``value`` when it is a safe correlation id, else None."""
+    if not value:
+        return None
+    value = value.strip()
+    if not value or len(value) > _REQUEST_ID_MAX_LEN:
+        return None
+    if any(ch not in _REQUEST_ID_ALLOWED for ch in value):
+        return None
+    return value
+
+
 class RequestIDMiddleware:
     """Middleware to add request ID to all requests for correlation.
 
     Pure ASGI rather than ``BaseHTTPMiddleware``: the base class spawns an
     anyio task and copies contextvars on every request.
+
+    ``trust_inbound`` controls whether a client-supplied ``X-Request-ID`` is
+    honored. Upstream services keep the default ``True`` — they should trust
+    the id the gateway (or another trusted hop) stamped. An edge gateway that
+    faces clients directly passes ``False`` so callers cannot forge the
+    correlation id that lands in logs, the response header, and upstream
+    requests (#1681).
     """
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, trust_inbound: bool = True) -> None:
         self.app = app
         self.header_name = "X-Request-ID"
+        self.trust_inbound = trust_inbound
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -40,7 +69,8 @@ class RequestIDMiddleware:
             return
 
         request = Request(scope)
-        request_id = request.headers.get(self.header_name) or str(uuid.uuid4())
+        inbound = request.headers.get(self.header_name) if self.trust_inbound else None
+        request_id = _sanitize_inbound_request_id(inbound) or str(uuid.uuid4())
         set_request_id(request_id)
         scope.setdefault("state", {})["request_id"] = request_id
         scope["state"]["correlation_id"] = request_id  # Alias for correlation tracking

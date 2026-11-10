@@ -309,6 +309,73 @@ def test_submit_body_uses_node_aliases_and_reads_transaction_hash(
     assert result["tx_hash"] == "0xbeef"
 
 
+def test_signed_payload_pins_node_injected_fields(keystore: PersistentKeystoreService) -> None:
+    """#1669: the node's TransactionRequest validator injects payload.to /
+    payload.amount before signature verification. The wallet must sign the
+    payload exactly as the node rebuilds it — payload-less sends used to 403.
+    """
+    record = keystore.create_wallet("gina", TEST_PASSWORD)
+    captured: dict = {}
+
+    def fake_submit(self, tx_data, signature):
+        captured["tx_data"] = tx_data
+        return {"success": True, "transaction_hash": "0xcafe"}
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(PersistentKeystoreService, "_submit_transaction_to_chain", fake_submit)
+    monkey.setattr(PersistentKeystoreService, "_get_account_nonce", lambda self, addr: 3)
+    monkey.setenv("CHAIN_ID", "test-chain")
+    try:
+        result = keystore.sign_and_submit_transaction("gina", TEST_PASSWORD, "0x" + "55" * 20, 9, chain_id="test-chain")
+    finally:
+        monkey.undo()
+
+    assert result["success"] is True
+    tx = captured["tx_data"]
+    # Exactly what the node canonicalizes: top-level fields plus a payload
+    # that already carries to/amount, so node-side injection is a no-op.
+    assert tx["payload"] == {"to": "0x" + "55" * 20, "amount": 9}
+    assert tx["payload"]["to"] == tx["to"]
+    assert tx["payload"]["amount"] == tx["amount"]
+    assert record.public_key == tx["from"]
+
+
+def test_caller_payload_keys_preserved_under_node_injection(keystore: PersistentKeystoreService) -> None:
+    """A caller payload keeps its own keys; to/amount are only filled when
+    absent — the same setdefault semantics the node applies."""
+    keystore.create_wallet("hank", TEST_PASSWORD)
+    captured: dict = {}
+
+    def fake_submit(self, tx_data, signature):
+        captured["tx_data"] = tx_data
+        return {"success": True, "transaction_hash": "0xf00d"}
+
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(PersistentKeystoreService, "_submit_transaction_to_chain", fake_submit)
+    monkey.setattr(PersistentKeystoreService, "_get_account_nonce", lambda self, addr: 0)
+    monkey.setenv("CHAIN_ID", "test-chain")
+    monkey.setenv("AITBC_SPEND_POLICY_ENFORCE", "0")
+    try:
+        result = keystore.sign_and_submit_transaction(
+            "hank",
+            TEST_PASSWORD,
+            "0x" + "66" * 20,
+            4,
+            nonce=1,
+            chain_id="test-chain",
+            payload={"op": "wallet.execute", "max_amount": 10, "memo": "hi"},
+        )
+    finally:
+        monkey.undo()
+
+    assert result["success"] is True
+    payload = captured["tx_data"]["payload"]
+    assert payload["memo"] == "hi"
+    assert payload["op"] == "wallet.execute"
+    assert payload["to"] == "0x" + "66" * 20
+    assert payload["amount"] == 4
+
+
 def test_nonce_lookup_error_propagates(keystore: PersistentKeystoreService) -> None:
     """A failed nonce fetch must not silently sign with nonce 0 — the error
     surfaces and nothing is submitted."""

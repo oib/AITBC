@@ -142,11 +142,64 @@ def test_exhausted_unsent_retries_report_unavailable(client, monkeypatch):
     assert response.json()["error"]["type"] == "service_unavailable"
 
 
-def test_idempotency_key_and_request_id_forwarded(client, monkeypatch):
+def test_idempotency_key_forwarded_but_client_request_id_not_honored(client, monkeypatch):
+    """#1681: the edge generates its own X-Request-ID — a client-supplied one
+    is a forgery vector and must never reach the upstream stamp."""
     flaky = _FlakyClient(httpx.Response(201, json={"ok": True}))
     monkeypatch.setattr(client.app.state, "http_client", flaky)
 
     client.post("/v1/coordinator/jobs", json={}, headers={"Idempotency-Key": "op-9", "X-Request-ID": "req-7"})
 
     assert flaky.last_headers.get("idempotency-key") == "op-9"
-    assert flaky.last_headers.get("x-request-id") == "req-7"
+    forwarded_id = flaky.last_headers.get("x-request-id")
+    assert forwarded_id and forwarded_id != "req-7"
+
+
+def test_ambiguous_write_retry_denied_off_dedup_allowlist(client, monkeypatch):
+    """#1667: Idempotency-Key alone must not enable retries on a route whose
+    upstream does not deduplicate it — job cancel is not on the allowlist."""
+    flaky = _FlakyClient(httpx.ReadTimeout("timed out", request=_request()))
+    monkeypatch.setattr(client.app.state, "http_client", flaky)
+
+    response = client.post("/v1/coordinator/jobs/job-1/cancel", json={}, headers={"Idempotency-Key": "op-1"})
+
+    assert flaky.calls == 1
+    assert response.status_code == 503
+    assert response.json()["error"]["type"] == "outcome_unknown"
+
+
+def test_ambiguous_write_retry_denied_without_key_even_on_allowlist(client, monkeypatch):
+    """The allowlist still requires the client to actually send a key."""
+    flaky = _FlakyClient(httpx.ReadTimeout("timed out", request=_request()))
+    monkeypatch.setattr(client.app.state, "http_client", flaky)
+
+    response = client.post("/v1/coordinator/jobs", json={})
+
+    assert flaky.calls == 1
+    assert response.status_code == 503
+    assert response.json()["error"]["type"] == "outcome_unknown"
+
+
+def test_ambiguous_write_retry_allowed_on_verified_dedup_route(client, monkeypatch):
+    """POST /v1/coordinator/jobs maps to upstream v1/jobs — begin_operation
+    dedups Idempotency-Key there, so the retry is safe."""
+    flaky = _FlakyClient(httpx.ReadTimeout("t", request=_request()), httpx.Response(201, json={"ok": True}))
+    monkeypatch.setattr(client.app.state, "http_client", flaky)
+
+    response = client.post("/v1/coordinator/jobs", json={}, headers={"Idempotency-Key": "op-2"})
+
+    assert flaky.calls == 2
+    assert response.status_code == 201
+
+
+def test_ambiguous_write_retry_allowed_via_v2_spelling(client, monkeypatch):
+    """/v2/coordinator/v1/jobs (publicly /api/v2/coordinator/v1/jobs) resolves
+    to the same upstream path — the allowlist matches upstream paths, not
+    public spellings."""
+    flaky = _FlakyClient(httpx.ReadTimeout("t", request=_request()), httpx.Response(201, json={"ok": True}))
+    monkeypatch.setattr(client.app.state, "http_client", flaky)
+
+    response = client.post("/v2/coordinator/v1/jobs", json={}, headers={"Idempotency-Key": "op-3"})
+
+    assert flaky.calls == 2
+    assert response.status_code == 201

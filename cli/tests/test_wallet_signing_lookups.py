@@ -343,6 +343,63 @@ def test_send_aborts_when_account_response_has_no_nonce(runner, tmp_path, monkey
 
 
 # ---------------------------------------------------------------------------
+# wallet send --fee sanity bound (#1714) and canonical payload (#1669)
+# ---------------------------------------------------------------------------
+
+
+def _send_with_fee(runner, tmp_path, monkeypatch, extra_args):
+    """Run `wallet send` with the fake RPC; return (result, posted tx bodies)."""
+    wallet_path = _write_wallet(tmp_path)
+    fake_client = _fake_http_client(get_data={"nonce": 7}, post_data={"transaction_hash": "0xbeef"})
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    with (
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_serving_chain_lookup("ait-testnet")),
+        patch("aitbc_cli.commands.wallet.basic.AITBCHTTPClient", fake_client),
+    ):
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", str(wallet_path), *SEND_ARGS, "--rpc-url", "http://10.0.0.9:8202", *extra_args],
+            obj={},
+        )
+    posted = [body for c in fake_client.instances for ep, body in c.posts if ep == "/rpc/transaction"]
+    return result, posted
+
+
+def test_send_rejects_fee_above_sanity_ceiling(runner, tmp_path, monkeypatch):
+    """#1714: an absurd --fee must abort client-side before anything is signed
+    or submitted — the fee is burned on seal."""
+    result, posted = _send_with_fee(runner, tmp_path, monkeypatch, ["--fee", "50"])
+    assert result.exit_code != 0
+    assert "sanity ceiling" in result.output
+    assert posted == []
+
+
+def test_send_allow_high_fee_overrides_ceiling(runner, tmp_path, monkeypatch):
+    """The deliberate override still signs and submits."""
+    result, posted = _send_with_fee(runner, tmp_path, monkeypatch, ["--fee", "50", "--allow-high-fee"])
+    assert result.exit_code == 0, result.output
+    assert posted and posted[-1]["fee"] > 0
+
+
+def test_send_rejects_negative_fee(runner, tmp_path, monkeypatch):
+    result, posted = _send_with_fee(runner, tmp_path, monkeypatch, ["--fee=-1"])
+    assert result.exit_code != 0
+    assert "fee" in result.output.lower()
+    assert posted == []
+
+
+def test_send_payload_carries_to_and_amount_for_node_canonical_form(runner, tmp_path, monkeypatch):
+    """#1669: the signed payload must equal what the node's TransactionRequest
+    validator rebuilds — payload.to and payload.amount pinned, not injected."""
+    result, posted = _send_with_fee(runner, tmp_path, monkeypatch, ["--amount", "1.5", "--fee", "0.01"])
+    assert result.exit_code == 0, result.output
+    tx = posted[-1]
+    assert tx["payload"]["to"] == "0x1234567890abcdef1234567890abcdef12345678"
+    assert tx["payload"]["amount"] == tx["amount"]
+    assert tx["payload"]["to"] == tx["to"]
+
+
+# ---------------------------------------------------------------------------
 # transactions send (_resolve_nonce feeds the signing path)
 # ---------------------------------------------------------------------------
 
