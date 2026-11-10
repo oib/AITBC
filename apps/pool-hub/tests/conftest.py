@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -22,18 +23,44 @@ if str(_SRC) not in sys.path:
 os.environ.setdefault("POOLHUB_COORDINATOR_SHARED_SECRET", "test-secret")
 
 
+class _ScalarResult:
+    def __init__(self, row: Any) -> None:
+        self._row = row
+
+    def scalar_one_or_none(self) -> Any:
+        return self._row
+
+
 class FakeSession:
     """Minimal AsyncSession stand-in enforcing the reward_payouts unique constraint.
 
     Mirrors what Postgres does on (miner_id, chain_id, epoch_number) so the payout
-    decision path can be exercised without a database.
+    decision path can be exercised without a database. ``execute`` answers the
+    miner wallet lookup (#1401): every miner resolves to ``default_wallet``
+    unless ``miner_wallets[miner_id]`` overrides it (None = no wallet registered).
     """
 
-    def __init__(self, already_claimed: set[tuple[str, str, int]] | None = None) -> None:
+    default_wallet = "0x000000000000000000000000000000000000dEaD"
+
+    def __init__(
+        self,
+        already_claimed: set[tuple[str, str, int]] | None = None,
+        miner_wallets: dict[str, str | None] | None = None,
+    ) -> None:
         self.claimed: set[tuple[str, str, int]] = set(already_claimed or ())
         self.added: list[Any] = []
         self.commits = 0
         self.rollbacks = 0
+        self.miner_wallets = miner_wallets or {}
+
+    async def execute(self, stmt: Any) -> _ScalarResult:
+        params = stmt.compile().params
+        miner_id = next((v for k, v in params.items() if k.startswith("miner_id")), None)
+        if miner_id is None:
+            return _ScalarResult(None)
+        wallet = self.miner_wallets.get(miner_id, self.default_wallet)
+        row = SimpleNamespace(wallet_address=wallet) if wallet is not None or miner_id in self.miner_wallets else None
+        return _ScalarResult(row)
 
     def add(self, obj: Any) -> None:
         self.added.append(obj)

@@ -9,7 +9,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
@@ -79,10 +79,19 @@ class UsageSyncRequest(BaseModel):
 class UsageRecordRequest(BaseModel):
     tenant_id: str
     resource_type: str
-    quantity: Decimal
-    unit_price: Decimal | None = None
+    quantity: Decimal = Field(ge=0)
+    unit_price: Decimal | None = Field(default=None, ge=0)
     job_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("quantity", "unit_price")
+    @classmethod
+    def _finite_decimals(cls, v: Decimal | None) -> Decimal | None:
+        # Decimal("NaN")/Infinity survive pydantic's ge check path unreliably;
+        # billing must never see a non-finite amount (#1400).
+        if v is not None and not v.is_finite():
+            raise ValueError("must be a finite Decimal")
+        return v
 
 
 class InvoiceGenerationRequest(BaseModel):
@@ -305,7 +314,14 @@ async def record_usage(
             job_id=request.job_id,
             metadata=request.metadata,
         )
+        # record_usage reports send failures in-band as {"status": "failed"};
+        # returning that with HTTP 200 let callers count dropped billing
+        # events as recorded (#1400).
+        if result.get("status") == "failed":
+            raise HTTPException(status_code=502, detail=result.get("error", "billing event was not delivered"))
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error recording usage: %s", e)
         logger.exception("Unhandled exception")

@@ -158,3 +158,41 @@ class TestDistributionIsIdempotent:
         assert row.status == "paid"
         assert row.tx_hash == "tx-abc"
         assert row.paid_at is not None
+
+
+class TestRewardRecipientIsWalletAddress:
+    """#1401 — the signed tx's `to` must be the miner's wallet_address, not miner_id."""
+
+    @pytest.mark.asyncio
+    async def test_reward_is_paid_to_wallet_address_not_miner_id(self, client, payout_session):
+        client.record_contribution("miner-1", score=90.0, shares=5000)
+        session = payout_session
+
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(
+                client._rpc, "submit_transaction", new_callable=AsyncMock, return_value={"tx_hash": "tx-1"}
+            ) as submit,
+        ):
+            payouts = await client.distribute_rewards(block_height=100, session=session)
+
+        assert [p["status"] for p in payouts] == ["paid"]
+        tx_data = submit.call_args[0][0]
+        assert tx_data["to"] == session.default_wallet
+        assert tx_data["to"] != "miner-1"
+
+    @pytest.mark.asyncio
+    async def test_miner_without_wallet_address_is_skipped_without_claim(self, client, payout_session):
+        client.record_contribution("miner-1", score=90.0, shares=5000)
+        session = payout_session
+        session.miner_wallets["miner-1"] = None
+
+        with (
+            patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
+            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock) as submit,
+        ):
+            payouts = await client.distribute_rewards(block_height=100, session=session)
+
+        assert [p["status"] for p in payouts] == ["no_wallet_address"]
+        assert submit.await_count == 0
+        assert session.claimed == set(), "a miner with no wallet must not burn the epoch claim"

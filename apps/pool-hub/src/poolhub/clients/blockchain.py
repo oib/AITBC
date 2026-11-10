@@ -30,7 +30,7 @@ from aitbc.market import BlockchainRPCClient
 from aitbc.rewards import REWARD_PER_SHARE, RewardPolicy
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
-from ..models import RewardPayout
+from ..models import Miner, RewardPayout
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,32 @@ class PoolHubBlockchainClient:
             if not self._reward_policy.is_eligible_for_payout(contrib.miner_id):
                 continue
 
+            # #1401: contrib.miner_id is the pool-hub identifier, not a wallet
+            # address — resolve the registered wallet before claiming a payout.
+            # A miner without wallet_address is not payable yet; skipping
+            # without a claim lets a later epoch pay once it registers.
+            miner = (
+                await session.execute(
+                    select(Miner).where(Miner.miner_id == contrib.miner_id, Miner.chain_id == self._chain_id)
+                )
+            ).scalar_one_or_none()
+            wallet_address = miner.wallet_address if miner else None
+            if not wallet_address:
+                logger.warning(
+                    "Skipping reward for %s in epoch %s: miner has no wallet_address",
+                    contrib.miner_id,
+                    epoch.epoch_number,
+                )
+                payouts.append(
+                    {
+                        "miner_id": contrib.miner_id,
+                        "amount": contrib.reward_amount,
+                        "epoch": epoch.epoch_number,
+                        "status": "no_wallet_address",
+                    }
+                )
+                continue
+
             claim = await self._claim_payout(
                 session=session,
                 miner_id=contrib.miner_id,
@@ -202,7 +228,7 @@ class PoolHubBlockchainClient:
 
             try:
                 result = await self.submit_reward_transaction(
-                    miner_address=contrib.miner_id,
+                    miner_address=wallet_address,
                     amount=contrib.reward_amount,
                     job_id=f"epoch-{epoch.epoch_number}",
                 )
