@@ -136,7 +136,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/jobs": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/jobs/*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/gpu/purchase": AuthLevel.ADMIN_OR_CLIENT,
-    "/v1/market/gpu/quote": AuthLevel.NONE,
+    "/v1/market/gpu/quote": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/gpu/*/book": AuthLevel.ADMIN_OR_CLIENT,
     # D2: the bare collection path needs its own entry. get_auth_level() tries an
     # exact match and then fnmatch, and "/v1/payments" does not match

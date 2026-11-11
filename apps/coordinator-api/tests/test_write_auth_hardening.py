@@ -82,14 +82,11 @@ def _write_routes() -> dict[str, set[str]]:
     return routes
 
 
-# Public-by-design write endpoints: signup and login cannot require auth, and
-# the GPU quote route writes an unsigned quote + bound job before the buyer has
-# funded anything (purchase happens on a later, authenticated call).
+# Public-by-design write endpoints: signup and login cannot require auth.
 PUBLIC_WRITES: set[str] = {
     "/v1/register",
     "/v1/login",
     "/v1/auth/nonce",
-    "/v1/market/gpu/quote",
 }
 
 
