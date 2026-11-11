@@ -7,14 +7,12 @@ from .trading import (
     NegotiationStatus,
     SettlementType,
     TradeAgreement,
-    TradeFeedback,
     TradeMatch,
     TradeNegotiation,
     TradeRequest,
     TradeSettlement,
     TradeStatus,
     TradeType,
-    TradingAnalytics,
 )
 
 __all__ = [
@@ -27,7 +25,5 @@ __all__ = [
     "TradeNegotiation",
     "TradeAgreement",
     "TradeSettlement",
-    "TradeFeedback",
-    "TradingAnalytics",
     "ExchangePayment",
 ]

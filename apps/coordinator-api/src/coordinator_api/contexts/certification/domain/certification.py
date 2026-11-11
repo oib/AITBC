@@ -109,49 +109,6 @@ class AgentCertification(SQLModel, table=True):
     notes: str = Field(default="", max_length=1000)
 
 
-class CertificationRequirement(SQLModel, table=True):
-    """Certification requirements and criteria"""
-
-    __tablename__ = "certification_requirements"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"req_{uuid4().hex[:8]}", primary_key=True)
-
-    # Requirement details
-    certification_level: CertificationLevel
-    requirement_type: VerificationType
-    requirement_name: str = Field(max_length=100)
-    description: str = Field(default="", max_length=500)
-
-    # Criteria and thresholds
-    criteria: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    minimum_threshold: float | None = None
-    maximum_threshold: float | None = None
-    required_values: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Verification method
-    verification_method: str = Field(default="automated")  # automated, manual, hybrid
-    verification_frequency: str = Field(default="once")  # once, monthly, quarterly, annually
-
-    # Dependencies and prerequisites
-    prerequisites: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    depends_on: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Status and configuration
-    is_active: bool = Field(default=True)
-    is_mandatory: bool = Field(default=True)
-    weight: float = Field(default=1.0)  # Importance weight
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    effective_date: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    expiry_date: datetime | None = None
-
-    # Additional data
-    cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
 class VerificationRecord(SQLModel, table=True):
     """Agent verification records and results"""
 
@@ -401,72 +358,13 @@ class AgentBadge(SQLModel, table=True):
     notes: str = Field(default="", max_length=1000)
 
 
-class CertificationAudit(SQLModel, table=True):
-    """Certification audit and compliance records"""
-
-    __tablename__ = "certification_audits"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"audit_{uuid4().hex[:8]}", primary_key=True)
-    audit_id: str = Field(unique=True, index=True)
-
-    # Audit details
-    audit_type: str = Field(max_length=50)  # routine, investigation, compliance, security
-    audit_scope: str = Field(max_length=100)  # individual, program, system
-    target_entity_id: str = Field(index=True)  # agent_id, certification_id, etc.
-
-    # Audit scheduling
-    scheduled_by: str = Field(index=True)
-    scheduled_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-
-    # Audit execution
-    auditor_id: str = Field(index=True)
-    audit_methodology: str = Field(default="", max_length=500)
-    checklists: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Findings and results
-    overall_score: float | None = None
-    compliance_score: float | None = None
-    risk_score: float | None = None
-
-    findings: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    violations: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Actions and resolutions
-    corrective_actions: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    follow_up_required: bool = Field(default=False)
-    follow_up_date: datetime | None = None
-
-    # Status and outcome
-    status: str = Field(default="scheduled")  # scheduled, in_progress, completed, failed, cancelled
-    outcome: str = Field(default="pending")  # pass, fail, conditional, pending_review
-
-    # Reporting and documentation
-    report_generated: bool = Field(default=False)
-    report_url: str | None = None
-    evidence_documents: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    # Additional data
-    audit_cert_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    notes: str = Field(default="", max_length=2000)
-
-
 __all__ = [
     "AchievementBadge",
     "AgentBadge",
     "AgentCertification",
     "AgentPartnership",
     "BadgeType",
-    "CertificationAudit",
     "CertificationLevel",
-    "CertificationRequirement",
     "CertificationStatus",
     "PartnershipProgram",
     "PartnershipType",

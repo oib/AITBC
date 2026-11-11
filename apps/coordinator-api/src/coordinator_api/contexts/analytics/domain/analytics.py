@@ -143,57 +143,6 @@ class MarketInsight(SQLModel, table=True):
     visualization_config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
-class AnalyticsReport(SQLModel, table=True):
-    """Generated analytics reports"""
-
-    __tablename__ = "analytics_reports"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"report_{uuid4().hex[:8]}", primary_key=True)
-    report_id: str = Field(unique=True, index=True)
-
-    # Report details
-    report_type: ReportType
-    title: str = Field(max_length=200)
-    description: str = Field(default="", max_length=1000)
-
-    # Report parameters
-    period_type: AnalyticsPeriod
-    start_date: datetime
-    end_date: datetime
-    filters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Report content
-    summary: str = Field(default="", max_length=2000)
-    key_findings: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    recommendations: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Report data
-    data_sections: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    charts: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    tables: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Generation details
-    generated_by: str = Field(default="system")  # system, user, scheduled
-    generation_time: float = Field(default=0.0)  # seconds
-    data_points_analyzed: int = Field(default=0)
-
-    # Status and delivery
-    status: str = Field(default="generated", index=True)  # generating, generated, failed, delivered
-    delivery_method: str = Field(default="api")  # api, email, dashboard
-    recipients: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    delivered_at: datetime | None = None
-
-    # Additional data
-    report_metric_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    template_used: str | None = None
-
-
 class DashboardConfig(SQLModel, table=True):
     """Analytics dashboard configurations"""
 
@@ -237,56 +186,6 @@ class DashboardConfig(SQLModel, table=True):
     # Additional data
     dashboard_settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     theme_config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
-class DataCollectionJob(SQLModel, table=True):
-    """Data collection and processing jobs"""
-
-    __tablename__ = "data_collection_jobs"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"job_{uuid4().hex[:8]}", primary_key=True)
-    job_id: str = Field(unique=True, index=True)
-
-    # Job details
-    job_type: str = Field(max_length=50)  # metrics_collection, insight_generation, report_generation
-    job_name: str = Field(max_length=100)
-    description: str = Field(default="", max_length=500)
-
-    # Job parameters
-    parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    data_sources: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    target_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Schedule and execution
-    schedule_type: str = Field(default="manual")  # manual, scheduled, triggered
-    cron_expression: str | None = None
-    next_run: datetime | None = None
-
-    # Execution details
-    status: str = Field(default="pending", index=True)  # pending, running, completed, failed, cancelled
-    progress: float = Field(default=0.0, ge=0, le=100.0)
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-
-    # Results and output
-    records_processed: int = Field(default=0)
-    records_generated: int = Field(default=0)
-    errors: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    output_files: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Performance metrics
-    execution_time: float = Field(default=0.0)  # seconds
-    memory_usage: float = Field(default=0.0)  # MB
-    cpu_usage: float = Field(default=0.0)  # percentage
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    # Additional data
-    job_metric_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    execution_log: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class AlertRule(SQLModel, table=True):
@@ -392,68 +291,14 @@ class AnalyticsAlert(SQLModel, table=True):
     related_insights: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
-class UserPreference(SQLModel, table=True):
-    """User analytics preferences and settings"""
-
-    __tablename__ = "user_preferences"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"pref_{uuid4().hex[:8]}", primary_key=True)
-    user_id: str = Field(index=True)
-
-    # Notification preferences
-    email_notifications: bool = Field(default=True)
-    alert_notifications: bool = Field(default=True)
-    report_notifications: bool = Field(default=False)
-    notification_frequency: str = Field(default="daily")  # immediate, daily, weekly, monthly
-
-    # Dashboard preferences
-    default_dashboard: str | None = None
-    preferred_timezone: str = Field(default="UTC")
-    date_format: str = Field(default="YYYY-MM-DD")
-    time_format: str = Field(default="24h")
-
-    # Metric preferences
-    favorite_metrics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    metric_units: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
-    default_period: AnalyticsPeriod = Field(default=AnalyticsPeriod.DAILY)
-
-    # Alert preferences
-    alert_severity_threshold: str = Field(default="medium")  # low, medium, high, critical
-    quiet_hours: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    alert_channels: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Report preferences
-    auto_subscribe_reports: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    report_format: str = Field(default="json")  # json, csv, pdf, html
-    include_charts: bool = Field(default=True)
-
-    # Privacy and security
-    data_retention_days: int = Field(default=90)
-    share_analytics: bool = Field(default=False)
-    anonymous_usage: bool = Field(default=False)
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_login: datetime | None = None
-
-    # Additional preferences
-    custom_settings: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    ui_preferences: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
 __all__ = [
     "AlertRule",
     "AnalyticsAlert",
     "AnalyticsPeriod",
-    "AnalyticsReport",
     "DashboardConfig",
-    "DataCollectionJob",
     "InsightType",
     "MarketInsight",
     "MarketMetric",
     "MetricType",
     "ReportType",
-    "UserPreference",
 ]
