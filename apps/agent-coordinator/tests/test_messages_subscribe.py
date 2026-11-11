@@ -46,6 +46,10 @@ def fake_connection_manager():
 @pytest.fixture
 def client(monkeypatch, tmp_path, messaging_app, fake_storage, fake_connection_manager):
     """TestClient with messaging dependencies patched."""
+    from agent_app.config import settings
+
+    # #1846: these tests exercise subscription mechanics, not authz.
+    monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
     monkeypatch.setattr(messages_router, "state", MagicMock(message_storage=fake_storage))
     monkeypatch.setattr(messages_router, "get_connection_manager", lambda: fake_connection_manager)
     return TestClient(messaging_app)

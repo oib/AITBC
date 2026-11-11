@@ -132,8 +132,13 @@ class TestDeliveryGuarantees:
 class TestReadStatus:
     """Marking messages as read."""
 
-    def test_mark_message_read(self, client, fake_storage):
+    def test_mark_message_read(self, client, fake_storage, monkeypatch):
         """POST /id/{message_id}/read updates status to 'read'."""
+        # #1846: auth is mode-independent in advisory/enforce — this suite
+        # exercises delivery mechanics, so run it in the disabled escape mode.
+        from agent_app.config import settings
+
+        monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
         fake_storage.get_message.return_value = {
             "message_id": "msg-read-1",
             "sender": "agent-a",
