@@ -1107,13 +1107,37 @@ def _bond_burn_address() -> str:
 
 
 def ensure_bond_accounts(session: Session, chain_id: str) -> None:
-    """Create zero-balance bond escrow and burn accounts if missing."""
+    """Create zero-balance bond escrow and burn accounts on an EMPTY chain only (#1814).
 
+    The state root hashes every account row, zero-balance ones included, so a row
+    inserted here after genesis changes the accounts hash without any block carrying
+    it. On a chain that already has blocks the rows are part of the genesis
+    allocations; a missing one means this node's ``BOND_ESCROW_ADDRESS`` /
+    ``BOND_BURN_ADDRESS`` names an address the chain never had. Inserting it would
+    silently diverge the node from its own head and wedge it on the next import, so
+    it is reported loudly instead (``startup_bond_account_missing_total``) and left
+    alone.
+    """
+
+    from .metrics import metrics_registry
+
+    has_blocks = session.exec(select(Block.height).where(Block.chain_id == chain_id).limit(1)).first() is not None
     for address in (_bond_escrow_address(), _bond_burn_address()):
         ait_addr = _to_ait_address(address)
-        if not session.get(Account, (chain_id, ait_addr)):
-            session.add(Account(chain_id=chain_id, address=ait_addr, balance=0, nonce=0, updated_at=datetime.now(UTC)))
-            logger.info("Created bond account %s for chain %s", ait_addr, chain_id)
+        if session.get(Account, (chain_id, ait_addr)):
+            continue
+        if has_blocks:
+            metrics_registry.increment("startup_bond_account_missing_total")
+            logger.error(
+                "Bond account %s is not in chain %s's state but the chain already has blocks: the "
+                "BOND_ESCROW_ADDRESS/BOND_BURN_ADDRESS environment disagrees with the chain. Not creating "
+                "it (it would diverge the state root from the head); fix the environment.",
+                ait_addr,
+                chain_id,
+            )
+            continue
+        session.add(Account(chain_id=chain_id, address=ait_addr, balance=0, nonce=0, updated_at=datetime.now(UTC)))
+        logger.info("Created bond account %s for chain %s", ait_addr, chain_id)
     session.commit()
 
 
