@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Trading Service
-After=network.target postgresql.service
+After=network.target postgresql.service redis.service aitbc-blockchain-rpc.service
+Wants=postgresql.service redis.service aitbc-blockchain-rpc.service
 
 [Service]
 Type=simple

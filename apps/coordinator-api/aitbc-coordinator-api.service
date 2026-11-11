@@ -1,8 +1,7 @@
 [Unit]
 Description=AITBC Coordinator API
-After=network.target aitbc-blockchain-node.service
-Wants=aitbc-blockchain-node.service
-# Requires Redis for state management (training, agent, swarm routers) - add redis.service dependency when Redis is deployed
+After=network.target aitbc-blockchain-node.service postgresql.service redis.service
+Wants=aitbc-blockchain-node.service postgresql.service redis.service
 # A failing ExecStartPre migration must give up, not retry forever: each start
 # takes ~15s (migration + RestartSec), so the default burst of 5/10s never trips
 # and the unit would loop indefinitely. 3 attempts in 10 minutes, then `failed`.

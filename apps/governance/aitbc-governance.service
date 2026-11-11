@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Governance Service
-After=network.target postgresql.service
+After=network.target postgresql.service aitbc-blockchain-rpc.service
+Wants=postgresql.service aitbc-blockchain-rpc.service
 
 [Service]
 Type=simple
