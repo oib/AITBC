@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 
 from ..schemas.serve import ComputeRequest, ComputeResult
@@ -23,26 +24,35 @@ class ServeService:
     ) -> dict[str, Any]:
         """Submit compute request"""
         async with get_session() as session:
-            request_id = f"req_{uuid4().hex[:8]}"
-
-            request = ComputeRequest(
-                request_id=request_id,
-                gpu_id=gpu_id,
-                model_name=model_name,
-                input_data=input_data,
-                priority=priority,
-                status="queued",
-                owner_id=owner_id,
-            )
-            session.add(request)
-            await session.commit()
-
-            return {
-                "success": True,
-                "request_id": request_id,
-                "status": "queued",
-                "message": f"Compute request {request_id} submitted",
-            }
+            # request_id is the public lookup key and is unique-constrained
+            # (#1685): a collision surfaces as IntegrityError, so regenerate
+            # and retry a bounded number of times before giving up.
+            for attempt in range(3):
+                request_id = f"req_{uuid4().hex}"
+                request = ComputeRequest(
+                    request_id=request_id,
+                    gpu_id=gpu_id,
+                    model_name=model_name,
+                    input_data=input_data,
+                    priority=priority,
+                    status="queued",
+                    owner_id=owner_id,
+                )
+                session.add(request)
+                try:
+                    await session.commit()
+                except IntegrityError:
+                    await session.rollback()
+                    if attempt == 2:
+                        raise
+                else:
+                    return {
+                        "success": True,
+                        "request_id": request_id,
+                        "status": "queued",
+                        "message": f"Compute request {request_id} submitted",
+                    }
+            raise RuntimeError("unreachable")
 
     async def get_compute_request(self, request_id: str, owner_id: str | None = None) -> dict[str, Any] | None:
         """Get compute request details.
@@ -156,10 +166,15 @@ class ServeService:
             # the column is a naive DateTime storing UTC wall-clock, so the
             # aware bound param compares correctly on both sqlite and PG.
             result = await session.execute(
-                select(ComputeResult).where(
+                select(ComputeResult)
+                .where(
                     ComputeResult.request_id == request_id,
                     ComputeResult.expires_at > datetime.now(UTC),
                 )
+                # More than one fresh result can exist for a request (retries,
+                # pre-#1685 rows); newest wins instead of MultipleResultsFound.
+                .order_by(col(ComputeResult.created_at).desc())
+                .limit(1)
             )
             res = result.scalar_one_or_none()
 
