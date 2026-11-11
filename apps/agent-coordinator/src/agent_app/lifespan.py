@@ -102,12 +102,39 @@ async def sweep_stale_escrows() -> None:
     while True:
         try:
             if state.payment_escrow:
-                expired = state.payment_escrow.expire_stale(refund_submitter_for=_escrow_refund_submitter)
+                # #1750: refund submitters are synchronous httpx (up to 15s
+                # per escrow) — keep them off the event loop.
+                expired = await asyncio.to_thread(
+                    state.payment_escrow.expire_stale, refund_submitter_for=_escrow_refund_submitter
+                )
                 if expired:
                     logger.info("Expired %d stale escrow(s): %s", len(expired), [e.escrow_id for e in expired])
+                    # #1749: an expired escrow means the task never completed —
+                    # fail its load-balancer assignment too.
+                    if state.load_balancer is not None:
+                        for entry in expired:
+                            state.load_balancer.fail_task(entry.task_id, error_message="escrow_expired")
         except Exception as e:
             logger.error("Error sweeping stale escrows: %s", e)
         await asyncio.sleep(max(_settings.task_payment_sweep_seconds, 5.0))
+
+
+async def sweep_stale_assignments() -> None:
+    """Background task: fail load-balancer assignments that never reported (#1749).
+
+    Without a reaper, ``pending_tasks`` stayed elevated forever once an agent
+    stopped reporting — eventually every ``POST /tasks/submit`` failed with
+    'no suitable agent found'.
+    """
+    while True:
+        try:
+            if state.load_balancer is not None:
+                expired = state.load_balancer.expire_stale_assignments()
+                if expired:
+                    logger.info("Timed out %d stale task assignment(s): %s", len(expired), expired)
+        except Exception as e:
+            logger.error("Error sweeping stale task assignments: %s", e)
+        await asyncio.sleep(60)
 
 
 @asynccontextmanager
@@ -180,6 +207,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _task_registry.create_task(sweep_stale_escrows, name="escrow_expiry_sweeper")
     else:
         logger.info("Payment escrow disabled (task_payment_escrow_enabled=False)")
+
+    # #1749: assignment reaper runs regardless of escrow config — unpaid
+    # tasks have no escrow sweeper to fail them.
+    _task_registry.create_task(sweep_stale_assignments, name="stale_assignment_sweeper")
 
     # Initialize coin requests DB and start background expiration task (v0.5.9 §3)
     init_db()
