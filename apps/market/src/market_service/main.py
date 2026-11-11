@@ -348,6 +348,49 @@ def _job_party_addresses(job: dict[str, Any]) -> set[str]:
     return parties
 
 
+async def _job_party_signature_gate(
+    svc: MarketService,
+    job_id: str,
+    data: dict[str, Any],
+    route: str,
+    *,
+    action: str,
+) -> JSONResponse | None:
+    """#1784: settlement-route signature gate, same rule as cancel (#1634).
+
+    When any signature field is presented the wallet proof must verify AND
+    recover to a job party (buyer or provider); the unsigned API-key path
+    stays for the operator tier (sweeper, admin tooling). Returns a ready
+    error response, or None when the request may proceed — a rejected
+    signature never reaches the service, so escrow state is untouched.
+    """
+    if not any(
+        (
+            data.get("signer_address"),
+            data.get("chain_id"),
+            data.get("issued_at") is not None,
+            data.get("signature"),
+        )
+    ):
+        return None
+    job = await svc.get_market_job(job_id)
+    if not job:
+        return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+    error, signer = verify_jobs_request_signature(
+        signer_address=data.get("signer_address"),
+        chain_id=data.get("chain_id"),
+        issued_at=data.get("issued_at"),
+        route=route,
+        signature=data.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or f"invalid {action} signature"})
+    if canonical_address(signer) not in _job_party_addresses(job):
+        return JSONResponse(status_code=403, content={"error": "signer is not a party to this job"})
+    return None
+
+
 @app.get("/v1/market/offers")
 async def get_offers(
     svc: Annotated[MarketService, Depends(get_market_service)],
@@ -1265,10 +1308,20 @@ async def release_market_job_payment(
     release_data: dict[str, Any] | None = None,
     svc: Annotated[MarketService, Depends(get_market_service)] = None,  # type: ignore[assignment]
 ) -> Any:
-    """Release the escrow payment for a market job."""
+    """Release the escrow payment for a market job.
+
+    A presented wallet signature must verify and belong to a job party
+    (#1784); unsigned stays the operator API-key path.
+    """
     try:
+        release_data = release_data or {}
         logger.info("POST /v1/market/jobs/%s/release called", job_id)
-        result = await svc.release_market_job_payment(job_id, release_data=release_data or {})
+        gate = await _job_party_signature_gate(
+            svc, job_id, release_data, f"/v1/market/jobs/{job_id}/release", action="release"
+        )
+        if gate is not None:
+            return gate
+        result = await svc.release_market_job_payment(job_id, release_data=release_data)
         return result
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
@@ -1287,6 +1340,9 @@ async def refund_market_job_payment(
     try:
         refund_data = refund_data or {}
         logger.info("POST /v1/market/jobs/%s/refund called", job_id)
+        gate = await _job_party_signature_gate(svc, job_id, refund_data, f"/v1/market/jobs/{job_id}/refund", action="refund")
+        if gate is not None:
+            return gate
         result = await svc.refund_market_job_payment(job_id, reason=refund_data.get("reason", ""), refund_data=refund_data)
         return result
     except ValueError as e:

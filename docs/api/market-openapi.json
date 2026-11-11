@@ -2153,7 +2153,7 @@
     "/v1/market/jobs/{job_id}/release": {
       "post": {
         "summary": "Release Market Job Payment",
-        "description": "Release the escrow payment for a market job.",
+        "description": "Release the escrow payment for a market job.\n\nA presented wallet signature must verify and belong to a job party\n(#1784); unsigned stays the operator API-key path.",
         "operationId": "release_market_job_payment_v1_market_jobs__job_id__release_post",
         "parameters": [
           {
@@ -2207,6 +2207,36 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "signer is not a party to this job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found: {job_id}",
             "content": {
               "application/json": {
                 "schema": {
@@ -2280,6 +2310,36 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "signer is not a party to this job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found: {job_id}",
             "content": {
               "application/json": {
                 "schema": {
