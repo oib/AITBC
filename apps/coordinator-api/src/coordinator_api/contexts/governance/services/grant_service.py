@@ -37,6 +37,11 @@ def _as_naive(value: datetime | None) -> datetime | None:
 
 def _check_disburse_balance(grant: GrantProposal, disburse_amount: Decimal) -> None:
     """#1071: a disbursement can never exceed what the vote approved."""
+    # #1838: non-positive amounts used to pass — a negative disburse
+    # DECREASED disbursed_amount (growing headroom for later payouts) and a
+    # zero disburse stamped executed_at / flipped ACTIVE for free.
+    if disburse_amount <= 0:
+        raise ValueError("disbursement amount must be positive")
     if grant.approved_amount - grant.disbursed_amount < disburse_amount:
         raise ValueError("disbursement exceeds the approved balance")
 
@@ -184,7 +189,10 @@ class GrantService:
         grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")
-        if grant.status not in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE}:
+        # #1838: ACTIVE grants are already resolved and disbursing — letting
+        # process_grant re-resolve them regressed ACTIVE->APPROVED and
+        # rewrote approved_amount.
+        if grant.status not in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW}:
             raise ValueError("Grant is not in a processable state")
         self._check_resolution(grant, _utc_now())
         self.session.add(grant)
@@ -204,10 +212,14 @@ class GrantService:
         if for_against == 0:
             return
         if grant.votes_for / for_against >= grant.passing_threshold:
-            if grant.status != GrantStatus.APPROVED:
+            # #1838: only an unresolved grant may transition — an APPROVED or
+            # ACTIVE grant re-resolved here used to regress to APPROVED with
+            # approved_amount rewritten to requested_amount (or flip to
+            # REJECTED if votes shifted).
+            if grant.status in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW}:
                 grant.status = GrantStatus.APPROVED
                 grant.approved_amount = grant.requested_amount
-        else:
+        elif grant.status in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW}:
             grant.status = GrantStatus.REJECTED
 
     def disburse(
@@ -252,7 +264,12 @@ class GrantService:
             raise ValueError("Milestone already paid")
         if milestone.status != MilestoneStatus.APPROVED:
             raise ValueError("Milestone is not approved for disbursement")
-        disburse_amount = _to_decimal(amount) if amount is not None else milestone.amount
+        # #1838: the milestone's approved amount is authoritative — a
+        # caller-supplied override let one small milestone drain the whole
+        # grant in a single call.
+        if amount is not None and _to_decimal(amount) != milestone.amount:
+            raise ValueError("milestone disbursement amount is fixed by the milestone")
+        disburse_amount = milestone.amount
         _check_disburse_balance(grant, disburse_amount)
         now = _utc_now()
         claim = self.session.execute(
