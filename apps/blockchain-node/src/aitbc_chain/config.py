@@ -1456,6 +1456,17 @@ class ChainSettings(BaseSettings):
     # #1310: run the attest-listener v9 tx check in a worker thread instead of
     # on the event loop (default OFF; the check is timed either way).
     attest_v9_check_offload_enabled: bool = False
+    # #1295 ATTEST-LAG-WAIT-1 (optional hardening, default OFF): when the
+    # local tip sits 1..attest_lag_wait_max_blocks behind the attestation
+    # request's parent, the v9 check waits up to attest_lag_wait_seconds
+    # for the import to catch up before refusing not_at_parent — absorbs
+    # transient import stalls (e.g. sqlite lock windows) without weakening
+    # fork protection: a tip ahead of, or on a rival at, the parent height
+    # still refuses immediately. Enabling implies the check runs off the
+    # event loop (the wait sleeps).
+    attest_lag_wait_enabled: bool = False
+    attest_lag_wait_seconds: float = 10.0
+    attest_lag_wait_max_blocks: int = 2
     # #1306: unlock_justification waits inside the serial attest-request
     # listener are timed; waits at or above this many seconds increment
     # attest_listener_unlock_stall_total (instrumentation only, no behavior).
