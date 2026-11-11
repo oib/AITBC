@@ -271,6 +271,12 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
     # defaults when no allowlist is set.
     allowed_models = _HERMES_ALLOWED_MODELS or ([_HERMES_DEFAULT_MODEL] if _HERMES_DEFAULT_MODEL else [])
     allowed_providers = _HERMES_ALLOWED_PROVIDERS or ([_HERMES_DEFAULT_PROVIDER] if _HERMES_DEFAULT_PROVIDER else [])
+    # HERMES-ALLOWLIST-1 (#1804): an empty resolved allow set is not allow-all —
+    # omitting --model/--provider/--toolsets would fall through to Hermes defaults.
+    if not allowed_models:
+        raise HTTPException(status_code=503, detail="Models are not configured for this offer")
+    if not allowed_providers:
+        raise HTTPException(status_code=503, detail="Providers are not configured for this offer")
 
     model = request.model or _HERMES_DEFAULT_MODEL
     if model:
@@ -299,23 +305,17 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
     # toolsets as the allowed set — a non-empty request can never pass
     # toolsets the shop did not configure.
     allowed_toolsets = _HERMES_ALLOWED_TOOLSETS or [t.strip() for t in _HERMES_DEFAULT_TOOLSETS.split(",") if t.strip()]
-    if allowed_toolsets:
-        for t in requested:
-            if t not in allowed_toolsets:
-                raise HTTPException(status_code=400, detail=f"Toolset '{t}' is not allowed by this offer")
-        if not requested:
-            # Nothing requested and no default: never fall through to hermes'
-            # full profile — emit the conservative set bounded by the allowlist.
-            requested = [t for t in (x.strip() for x in _CONSERVATIVE_TOOLSETS.split(",")) if t in allowed_toolsets] or list(
-                allowed_toolsets
-            )
-    elif requested:
-        # No allowlist and no default configured: refuse buyer-chosen toolsets.
-        raise HTTPException(status_code=400, detail="Toolsets are not configurable on this offer")
-    else:
-        # Neither a request, a default, nor an allow-list configured: pass an explicit
-        # conservative set instead of falling through to the service profile's full list.
-        requested = [t.strip() for t in _CONSERVATIVE_TOOLSETS.split(",") if t.strip()]
+    if not allowed_toolsets:
+        raise HTTPException(status_code=503, detail="Toolsets are not configured for this offer")
+    for t in requested:
+        if t not in allowed_toolsets:
+            raise HTTPException(status_code=400, detail=f"Toolset '{t}' is not allowed by this offer")
+    if not requested:
+        # Nothing requested and no default: never fall through to hermes'
+        # full profile — emit the conservative set bounded by the allowlist.
+        requested = [t for t in (x.strip() for x in _CONSERVATIVE_TOOLSETS.split(",")) if t in allowed_toolsets] or list(
+            allowed_toolsets
+        )
     if requested:
         command.extend(["--toolsets", ",".join(requested)])
 
