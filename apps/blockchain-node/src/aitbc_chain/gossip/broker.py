@@ -221,7 +221,11 @@ def create_backend(
             if name in peers:
                 raise ValueError(f"Duplicate mesh peer URL: {url}")
             peers[name] = WebsocketGossipBackend(url, chain_id=settings.chain_id, peer_name=name)
-        return MeshGossipBackend(BroadcastGossipBackend(broadcast_url), peers)
+        return MeshGossipBackend(
+            BroadcastGossipBackend(broadcast_url),
+            peers,
+            per_subscription_dedup=bool(getattr(settings, "gossip_mesh_dedup_per_subscription", False)),
+        )
     raise ValueError(f"Unsupported gossip backend '{backend_type}'")
 
 

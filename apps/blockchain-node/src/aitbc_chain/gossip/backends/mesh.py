@@ -50,8 +50,14 @@ class MeshGossipBackend(GossipBackend):
         max_inflight_per_peer: int = 64,
         retry_min_delay: float = 1.0,
         retry_max_delay: float = 30.0,
+        per_subscription_dedup: bool = False,
     ) -> None:
         self._local = local
+        # #1701: the shared dedup table lets one subscription claim a message
+        # first so every other subscription on the same topic never sees it.
+        # When True each subscription dedups independently (still collapsing
+        # the same message arriving over several links into one delivery).
+        self._per_subscription_dedup = per_subscription_dedup
         self._peers = dict(peers)
         self._dedup_ttl = dedup_ttl
         self._dedup_max_size = dedup_max_size
@@ -282,6 +288,7 @@ class _MeshSubscription:
         self._closed = False
         self._pending_peers: set[str] = set()
         self._peers_ready = asyncio.Event()
+        self._seen: OrderedDict[str, float] = OrderedDict()
 
     def _peer_attached(self, name: str) -> None:
         self._pending_peers.discard(name)
@@ -307,6 +314,25 @@ class _MeshSubscription:
                 ", ".join(sorted(self._pending_peers)),
             )
         metrics_registry.observe("gossip_mesh_subscribe_peers_ready_seconds", time.monotonic() - started)
+
+    async def _already_seen(self, event_id: str) -> bool:
+        if not self._mesh._per_subscription_dedup:
+            return await self._mesh._remember(event_id)
+        # Single-threaded asyncio, no await between check and set: no lock needed.
+        now = time.monotonic()
+        seen = self._seen
+        ttl = self._mesh._dedup_ttl
+        while seen:
+            oldest_id, oldest_ts = next(iter(seen.items()))
+            if now - oldest_ts <= ttl:
+                break
+            seen.pop(oldest_id, None)
+        if event_id in seen:
+            return True
+        seen[event_id] = now
+        if len(seen) > self._mesh._dedup_max_size:
+            seen.popitem(last=False)
+        return False
 
     async def attach(self, name: str, backend: GossipBackend, *, retry: bool) -> None:
         try:
@@ -371,7 +397,7 @@ class _MeshSubscription:
         while not self._closed:
             message = await source.queue.get()
             event_id = _message_id(self._topic, message)
-            if await self._mesh._remember(event_id):
+            if await self._already_seen(event_id):
                 metrics_registry.increment("gossip_mesh_dedup_skipped_total")
                 continue
             # #1308: receiver-side attribution — which link delivered this
