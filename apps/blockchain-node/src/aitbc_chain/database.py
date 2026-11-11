@@ -1106,7 +1106,7 @@ def _bond_burn_address() -> str:
     return canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40])
 
 
-def ensure_bond_accounts(session: Session, chain_id: str) -> None:
+def ensure_bond_accounts(session: Session, chain_id: str) -> list[str]:
     """Create zero-balance bond escrow and burn accounts on an EMPTY chain only (#1814).
 
     The state root hashes every account row, zero-balance ones included, so a row
@@ -1116,11 +1116,12 @@ def ensure_bond_accounts(session: Session, chain_id: str) -> None:
     ``BOND_BURN_ADDRESS`` names an address the chain never had. Inserting it would
     silently diverge the node from its own head and wedge it on the next import, so
     it is reported loudly instead (``startup_bond_account_missing_total``) and left
-    alone.
+    alone. The missing addresses are returned so ``init_db`` can refuse to start.
     """
 
     from .metrics import metrics_registry
 
+    missing: list[str] = []
     has_blocks = session.exec(select(Block.height).where(Block.chain_id == chain_id).limit(1)).first() is not None
     for address in (_bond_escrow_address(), _bond_burn_address()):
         ait_addr = _to_ait_address(address)
@@ -1135,10 +1136,12 @@ def ensure_bond_accounts(session: Session, chain_id: str) -> None:
                 ait_addr,
                 chain_id,
             )
+            missing.append(ait_addr)
             continue
         session.add(Account(chain_id=chain_id, address=ait_addr, balance=0, nonce=0, updated_at=datetime.now(UTC)))
         logger.info("Created bond account %s for chain %s", ait_addr, chain_id)
     session.commit()
+    return missing
 
 
 _AUTHORITY_PARAMETERS = ("governance_executors", "escrow_settlement_authority", "bond_slash_authority")
@@ -1372,7 +1375,13 @@ def init_db(chain_id: str = "") -> None:
 
     # Ensure bond escrow and burn accounts exist for this chain.
     with session_scope(resolved_chain_id) as session:
-        ensure_bond_accounts(session, resolved_chain_id)
+        missing_bond = ensure_bond_accounts(session, resolved_chain_id)
+        if missing_bond and settings.startup_account_check_strict:
+            raise RuntimeError(
+                f"chain {resolved_chain_id} has blocks but lacks bond account(s) {', '.join(missing_bond)}: "
+                "BOND_ESCROW_ADDRESS/BOND_BURN_ADDRESS disagree with the chain. Refusing to start "
+                "(startup_account_check_strict); set them to the chain's addresses (or unset them)."
+            )
         _backfill_param_heights(session, resolved_chain_id)
         _warn_unset_authority_parameters(session, resolved_chain_id)
 
