@@ -737,7 +737,18 @@ def create_app() -> FastAPI:
 
 
 def _check_chain_db() -> None:
-    """The default chain's database answers a trivial query."""
+    """Served chains' databases answer a trivial query and none is quarantined.
+
+    #1740: a chain.db quarantined on an unrecoverable write error (disk
+    full, I/O error) kept answering ``SELECT 1`` while every real write
+    failed — /ready reported ready on a node that had silently exited
+    consensus. Quarantine is checked first so the probe fails closed.
+    """
+    from .database import is_chain_db_quarantined
+
+    for cid in get_supported_chains():
+        if is_chain_db_quarantined(cid):
+            raise RuntimeError(f"chain db quarantined: {cid}")
     from sqlalchemy import text
 
     with session_scope() as session:
