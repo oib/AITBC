@@ -122,3 +122,49 @@ def get_list_env_var(key: str, separator: str = ",", default: list | None = None
     if not value:
         return default
     return [item.strip() for item in value.split(separator) if item.strip()]
+
+
+# Variables a utility subprocess (ffmpeg, nvidia-smi, journalctl, systemctl,
+# systemd-creds, node, circom, ipfs, ...) legitimately needs: PATH lookup,
+# locale, temp dirs and shared-library/fontconfig hints. Everything else —
+# service secrets like PROPOSER_KEY, VALIDATOR_KEYS, JWT_SECRET — stays out of
+# the child's environment (Refs #1760).
+_SUBPROCESS_ENV_ALLOWLIST = (
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "LANG",
+    "LANGUAGE",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TMPDIR",
+    "TEMP",
+    "TMP",
+    "LD_LIBRARY_PATH",
+    "FONTCONFIG_PATH",
+    "FONTCONFIG_FILE",
+)
+
+
+def subprocess_env(
+    *,
+    include: tuple[str, ...] | list[str] = (),
+    include_prefixes: tuple[str, ...] | list[str] = (),
+) -> dict[str, str]:
+    """Minimal environment for a utility subprocess.
+
+    Returns only the allowlisted variables present in ``os.environ``, plus any
+    ``include`` names and variables matching ``include_prefixes``. Callers that
+    genuinely need service configuration pass it explicitly — e.g. the miner's
+    ``aitbc market offer`` child gets ``include_prefixes=("AITBC_", "SHOP_",
+    "MINER_")``. Do NOT use this for a child that *is* the workload (the
+    hermes agent runtime needs its provider keys).
+    """
+    env = {k: os.environ[k] for k in _SUBPROCESS_ENV_ALLOWLIST if k in os.environ}
+    for key in include:
+        if key in os.environ:
+            env[key] = os.environ[key]
+    for prefix in include_prefixes:
+        env.update({k: v for k, v in os.environ.items() if k.startswith(prefix)})
+    return env

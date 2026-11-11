@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.env import subprocess_env
 
 from ....schemas import JobResult, Receipt
 from .model_registry import compute_public_inputs, get_model, resolve_model_id
@@ -54,7 +55,7 @@ SNARKJS_NODE_PATH = Path(os.getenv("COORDINATOR_SNARKJS_NODE_PATH") or _DEFAULT_
 
 def _node_env() -> dict[str, str]:
     """Environment for a ``node`` subprocess that has to ``require('snarkjs')``."""
-    env = dict(os.environ)
+    env = subprocess_env()
     inherited = env.get("NODE_PATH", "")
     env["NODE_PATH"] = f"{SNARKJS_NODE_PATH}{os.pathsep}{inherited}" if inherited else str(SNARKJS_NODE_PATH)
     return env

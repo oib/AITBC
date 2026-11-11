@@ -23,6 +23,7 @@ from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.media_guard import ffmpeg_input_guard  # noqa: E402
 from aitbc.shop_gate import require_job_access  # noqa: E402
+from aitbc.utils.env import subprocess_env  # noqa: E402
 
 configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
 logger = get_logger(__name__)
@@ -134,6 +135,7 @@ async def _run_cmd(cmd: list[str], timeout: float) -> subprocess.CompletedProces
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=subprocess_env(),
     )
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)

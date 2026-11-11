@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.env import subprocess_env
 
 logger = get_logger(__name__)
 
@@ -27,7 +28,7 @@ _ZK_CIRCUITS_NODE_MODULES = Path(os.getenv("COORDINATOR_SNARKJS_NODE_PATH", str(
 
 def _node_env() -> dict[str, str]:
     """Environment for a ``node`` subprocess that can require poseidon-lite and snarkjs."""
-    env = dict(os.environ)
+    env = subprocess_env()
     inherited = env.get("NODE_PATH", "")
     env["NODE_PATH"] = f"{_ZK_CIRCUITS_NODE_MODULES}{os.pathsep}{inherited}" if inherited else str(_ZK_CIRCUITS_NODE_MODULES)
     return env

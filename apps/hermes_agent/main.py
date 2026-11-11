@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.shop_gate import require_job_access  # noqa: E402
+from aitbc.utils.env import subprocess_env  # noqa: E402
 
 configure_logging(level="INFO", service_name="hermes-agent", to_file=True)
 logger = get_logger(__name__)
@@ -109,6 +110,7 @@ async def _discover_version() -> str | None:
             "--version",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=subprocess_env(),
         )
         try:
             out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=10)

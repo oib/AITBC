@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.utils.env import subprocess_env
 from zk_cache import ZKCircuitCache
 
 logger = get_logger(__name__)
@@ -69,7 +70,7 @@ def compile_circuit_cached(circuit_file: str, output_dir: str | None = None, use
     # Execute compilation
     start_time = time.time()
     try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        subprocess.run(cmd, check=True, capture_output=True, text=True, env=subprocess_env())
         compilation_time = time.time() - start_time
 
         # Cache successful compilation

@@ -25,6 +25,7 @@ from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.media_guard import ffmpeg_input_guard
 from aitbc.network import AITBCHTTPClient
+from aitbc.utils.env import subprocess_env
 
 import ipfs_pinning_sweeper
 import agent_task_executor
@@ -195,7 +196,10 @@ def publish_default_offers(ollama_models: list[str]) -> None:
             # Ensure `aitbc market offer` uses the same address the coordinator expects
             # for provider payouts, because the default wallet may not exist or may
             # have insufficient balance to pay the listing fee.
-            env = os.environ.copy()
+            # `aitbc market offer` is a config-driven CLI child, not a leaf
+            # tool: it legitimately needs the service's AITBC_*/SHOP_*/MINER_*
+            # configuration — but not the blockchain-secrets.env secrets (#1760).
+            env = subprocess_env(include_prefixes=("AITBC_", "SHOP_", "MINER_"))
             if MINER_WALLET_ADDRESS:
                 env.setdefault("SHOP_WALLET_ADDRESS", MINER_WALLET_ADDRESS)
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
@@ -233,7 +237,11 @@ def classify_architecture(name: str) -> str:
 def detect_cuda_version() -> str | None:
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"], capture_output=True, text=True, timeout=5
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=subprocess_env(),
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -307,6 +315,7 @@ def get_gpu_info():
             capture_output=True,
             text=True,
             timeout=5,
+            env=subprocess_env(),
         )
         if result.returncode == 0:
             info = result.stdout.strip().split(", ")
@@ -754,6 +763,7 @@ def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = N
             text=True,
             timeout=300,
             check=True,
+            env=subprocess_env(),
         )
         size = os.path.getsize(output_path) if os.path.exists(output_path) else 0
         return {
@@ -949,6 +959,7 @@ def _gpu_snapshot() -> dict[str, Any]:
             capture_output=True,
             text=True,
             timeout=5,
+            env=subprocess_env(),
         )
         if result.returncode == 0:
             parts = [p.strip() for p in result.stdout.strip().split(",")]

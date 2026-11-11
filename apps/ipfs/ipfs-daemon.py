@@ -34,6 +34,7 @@ sys.path.insert(0, str(_HERE.parents[2]))
 sys.path.insert(0, str(_HERE.parent))
 
 from aitbc.aitbc_logging import configure_logging  # noqa: E402
+from aitbc.utils.env import subprocess_env  # noqa: E402
 from kubo_log import forward_line  # noqa: E402
 
 configure_logging(level="INFO", service_name="ipfs", to_file=True)
@@ -56,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         stderr=subprocess.STDOUT,
         bufsize=1,
         universal_newlines=True,
+        env=subprocess_env(include=("IPFS_PATH",)),
     )
 
     def _forward(signum: int, _frame: object) -> None:

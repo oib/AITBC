@@ -10,6 +10,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from aitbc.rate_limiting import rate_limit
+from aitbc.utils.env import subprocess_env
 
 router = APIRouter(prefix="/edge-gpu", tags=["edge-gpu"])
 
@@ -51,6 +52,7 @@ async def run_nvidia_smi(args: list[str]) -> str:
             *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=subprocess_env(),
         )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10.0)
         if proc.returncode == 0:
@@ -142,7 +144,7 @@ async def get_all_metrics(request: Request) -> dict[str, Any]:
 
 @router.post("/metrics")
 @rate_limit(rate=20, per=60)
-async def submit_metrics(request: Request, metrics: GPUMetrics) -> dict[str, Any]:
+def submit_metrics(request: Request, metrics: GPUMetrics) -> dict[str, Any]:
     """Submit GPU metrics"""
     # In a real implementation, this would store metrics in a database
     return {"status": "success", "gpu_id": metrics.gpu_id}
@@ -166,7 +168,7 @@ async def discover_edge_gpus(request: Request, miner_id: str) -> dict[str, Any]:
 
 @router.post("/optimize")
 @rate_limit(rate=20, per=60)
-async def optimize_inference(request: Request, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
+def optimize_inference(request: Request, gpu_id: str, model_name: str, request_data: dict[str, Any]) -> dict[str, Any]:
     """Optimize ML inference request for edge GPU"""
     # In a real implementation, this would apply optimization techniques
     return {

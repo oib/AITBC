@@ -19,6 +19,7 @@ from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
+from aitbc.utils.env import subprocess_env  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -163,6 +164,7 @@ def discover_gpu_specs() -> dict[str, Any]:
             capture_output=True,
             text=True,
             timeout=10,
+            env=subprocess_env(),
         )
         if result.returncode != 0:
             logger.warning("nvidia-smi failed: %s", result.stderr)

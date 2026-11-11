@@ -4,7 +4,15 @@ Provides validation, time utilities, JSON utilities, path utilities, and environ
 """
 
 from .chain_config import ChainConfigParser
-from .env import get_bool_env_var, get_env_var, get_float_env_var, get_int_env_var, get_list_env_var, get_required_env_var
+from .env import (
+    get_bool_env_var,
+    get_env_var,
+    get_float_env_var,
+    get_int_env_var,
+    get_list_env_var,
+    get_required_env_var,
+    subprocess_env,
+)
 from .json_utils import (
     flatten_json,
     get_nested_value,
@@ -106,6 +114,7 @@ __all__ = [
     "get_blockchain_data_path",
     "get_bool_env_var",
     "get_config_path",
+    "subprocess_env",
     # Paths
     "get_data_path",
     "get_deadline_remaining",
