@@ -44,10 +44,17 @@ NON_LIVE = ("legacy", "not-implemented", "without a listening port")
 HEADING_RE = re.compile(r"^##+\s*(.+?)\s*$")
 # A table row whose cells include a 4-digit port and a bind address.
 BIND_ROW_RE = re.compile(r"^\|\s*([A-Za-z][^|]*?)\s*\|(.+)$")
-# Bind-all spellings seen in SERVICE_PORTS.md: `0.0.0.0`, `::`, `[::]`, `*`.
-BIND_ALL_RE = re.compile(r"`(?:0\.0\.0\.0|\[::\]|::|\*)`")
+# A table CELL that is itself a bind-all spelling — `` `0.0.0.0` ``,
+# `` `0.0.0.0` / `[::]` ``, `` `*` (all) ``. The token must start the cell
+# (backticks stripped) so prose mentions like "the earlier `0.0.0.0` bind
+# was drift" or "(not `0.0.0.0`)" cannot flag the row — the same
+# free-text-cell bypass class as _table_ports (#1779).
+BIND_ALL_CELL_RE = re.compile(r"^\s*(?:0\.0\.0\.0|\[::\]|::|\*)(?=[\s/+&,)]|$)")
 # Port cells carry the real port number, not always four digits (25, 800, 18080).
 PORT_CELL_RE = re.compile(r"^\s*(\d{1,5})\s*$")
+# Header cell naming the column that carries the surface port. Word-boundary
+# matching so "transport"/"support" in prose columns cannot false-positive.
+PORT_HEADER_RE = re.compile(r"\bports?\b", re.IGNORECASE)
 
 
 def canon(name: str) -> str:
@@ -66,9 +73,11 @@ def bind_all_services(path: Path) -> dict[str, int]:
         if not live or "---|" in line:
             continue
         m = BIND_ROW_RE.match(line)
-        if not m or not BIND_ALL_RE.search(m.group(2)):
+        if not m:
             continue
-        cells = list(m.group(2).split("|"))
+        cells = m.group(2).split("|")
+        if not any(BIND_ALL_CELL_RE.match(c.replace("`", "")) for c in cells):
+            continue
         ports = [int(p.group(1)) for c in cells if (p := PORT_CELL_RE.match(c))]
         if ports:
             found[canon(m.group(1))] = ports[0]
@@ -76,18 +85,41 @@ def bind_all_services(path: Path) -> dict[str, int]:
 
 
 def _table_ports(path: Path, heading: str) -> set[int]:
-    """Ports named in the table under a given policy heading."""
+    """Ports named in the Port column of tables under a given policy heading.
+
+    Only the column whose header says "Port" is read. Free-text columns
+    (Why/Reason/Notes) routinely mention ``127.0.0.1:7070`` or dates, and
+    harvesting every number from them let prose authorize a port the surface
+    column never declared — a mutation-verified gate bypass
+    (CHECK-BIND-POLICY-1, #1779).
+    """
     ports: set[int] = set()
     inside = False
+    port_col: int | None = None
+    header_pending = True
     for line in path.read_text(encoding="utf-8").splitlines():
         h = HEADING_RE.match(line)
         if h:
             inside = heading in h.group(1).lower()
+            port_col = None
+            header_pending = True
             continue
-        if not inside or not line.startswith("|"):
+        if not inside:
             continue
-        for cell in line.split("|"):
-            ports.update(int(n) for n in re.findall(r"\b(\d{2,5})\b", cell))
+        if not line.lstrip().startswith("|"):
+            # Prose or a blank line ends the table; the next '|' row is a new header.
+            port_col = None
+            header_pending = True
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if all(set(c) <= set("-: ") for c in cells):
+            continue  # |---| separator row
+        if header_pending or port_col is None:
+            port_col = next((i for i, c in enumerate(cells) if PORT_HEADER_RE.search(c)), None)
+            header_pending = False
+            continue
+        if port_col < len(cells):
+            ports.update(int(n) for n in re.findall(r"\d{2,5}", cells[port_col]))
     return ports
 
 

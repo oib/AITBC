@@ -32,7 +32,7 @@ policy violation.
 |---------|------|-------|-----|
 | nginx (TLS) | 443, 80 | TLS terminator host | The entire customer-facing surface; proxies `/api/`, `/rpc/`, `/c/`, `/explorer-api/` |
 | Blockchain P2P / gossip | 443 via nginx | nginx host | The gossip relay (`aitbc_chain.gossip.relay`) binds `127.0.0.1:7070` on the hub — verified live 2026-11-11. Public followers and validators reach it through nginx locations `/rpc/subscribe/ws` and `/rpc/gossip/ws` on 443; there is no direct public 7070 listener |
-| IPFS Swarm | 4002 | Island hosts | Private-swarm IPFS needs inbound peer connections; TCP and UDP (QUIC) |
+| IPFS Swarm | 4002 | Island hosts | Private-swarm IPFS needs inbound peer connections; TCP only — Kubo drops QUIC transports on a private network, so nothing binds UDP 4002 (see SERVICE_PORTS.md) |
 | Kubo IPFS (public swarm) | 4001 | Customer/shop GPU nodes | The public-swarm Kubo daemon needs inbound peer connections (TCP and UDP); distinct from the repo-managed island daemon on 4002 |
 
 `80` is permitted only to redirect to `443`, never to serve an application.
