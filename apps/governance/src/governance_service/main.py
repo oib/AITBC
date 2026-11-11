@@ -3,6 +3,9 @@ Governance Service main application
 Manages governance operations
 """
 
+from __future__ import annotations
+
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -108,13 +111,42 @@ configure_logging(level="INFO", service_name="governance", to_file=True)
 logger = get_logger(__name__)
 
 
+async def _proposal_expiry_loop() -> None:
+    """Periodically mark window-ended ACTIVE proposals EXPIRED (#1646).
+
+    The sweep only relabels status — tallies were already frozen at
+    voting_ends and create_vote already refuses late votes — so a failed
+    pass is logged and retried next interval rather than crashing the app.
+    """
+    from .config import settings
+
+    interval = settings.proposal_expiry_sweep_interval_seconds
+    while True:
+        try:
+            async with get_session() as session:
+                await GovernanceService(session=session).expire_stale_proposals()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("proposal expiry sweep failed")
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Governance Service."""
     logger.info("Starting Governance Service")
     await init_db()
-    yield
-    logger.info("Shutting down Governance Service")
+    sweep_task = asyncio.create_task(_proposal_expiry_loop())
+    try:
+        yield
+    finally:
+        sweep_task.cancel()
+        try:
+            await sweep_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Shutting down Governance Service")
 
 
 app = FastAPI(
