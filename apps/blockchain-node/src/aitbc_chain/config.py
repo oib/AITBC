@@ -486,6 +486,9 @@ class ChainSettings(BaseSettings):
     sync_require_state_root_height: int | None = None
 
     # SyncManager settings (v0.11.0)
+    # #1814: refuse to start when a bond escrow/burn account the env names is missing from a chain that
+    # already has blocks (env disagrees with the chain). False = log + metric only.
+    startup_account_check_strict: bool = True
     sync_manager_enabled: bool = True  # master kill switch; when False no SyncManager is started
     sync_manager_use_gossip: bool = True
     sync_manager_use_subscription: bool = True
