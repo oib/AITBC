@@ -24,7 +24,46 @@ class BroadcastGossipBackend(GossipBackend):
 
     Uses redis-py directly instead of the broadcaster library for
     compatibility with redis-py 8.x.
+
+    Trust boundary (#1789 / #1538 residual): this bus is a *same-host*
+    transport — fleet deployments bind redis to loopback and put the
+    password in ``GOSSIP_BROADCAST_URL``. Remote, untrusted input enters
+    through the relay/websocket path, which carries the validator
+    challenge/response auth (``gossip_auth``) and restricted-topic rules.
+    Messages on this bus are still re-verified downstream — blocks and
+    attestations carry their own validator signatures — so a forged pub/sub
+    frame can waste queue/CPU but cannot mint valid consensus state.
+
+    What the bus MUST NOT become is a remote-unauthenticated channel:
+    ``start()`` refuses a non-loopback redis URL that carries no password,
+    so a misconfigured deployment fails closed instead of exposing raw
+    pub/sub to the network.
     """
+
+    _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+    @classmethod
+    def _check_url_auth(cls, url: str) -> None:
+        """Reject non-loopback redis URLs without credentials (#1789).
+
+        Loopback is allowed passwordless for dev/test; anything routable
+        must authenticate — redis AUTH is the only access control this
+        backend has, and every local service that can read the env file is
+        already inside the host trust boundary.
+        """
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.scheme not in ("redis", "rediss"):
+            return  # non-redis schemes are rejected by from_url itself
+        host = (parsed.hostname or "").lower()
+        if host in cls._LOOPBACK_HOSTS:
+            return
+        if not parsed.password:
+            raise ValueError(
+                f"GOSSIP broadcast redis URL for non-loopback host {host!r} has no password; "
+                "unauthenticated remote pub/sub would let any redis client forge gossip"
+            )
 
     def __init__(self, url: str) -> None:
         self._url = url
@@ -37,6 +76,7 @@ class BroadcastGossipBackend(GossipBackend):
         if not self._running:
             import redis.asyncio as aioredis
 
+            self._check_url_auth(self._url)
             self._redis = aioredis.Redis.from_url(self._url, socket_timeout=None, socket_connect_timeout=5)
             self._running = True
 
