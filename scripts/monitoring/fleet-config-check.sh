@@ -926,16 +926,30 @@ for var in BRIDGE_PAYOUT_ADDRESS AIT_USD_FIXED_PRICE BRIDGE_CONFIRMATIONS BRIDGE
 done
 
 echo "=== deprecated bridge contract references (superseded/dead; must not receive deposits) ==="
-# 0x24403CCf… is owned by 0x818018F3… whose key was declared unrecoverable
-# on 2026-08-31 — every onlyOwner path is frozen and the contract cannot
-# even be paused. 0xfbDd3Dc5… is the deprecated BR-1 instance replaced by
-# SEPOLIA-REDEPLOY-1/2. Any live config still naming either can strand
-# user funds.
-DEAD_BRIDGE_CONTRACTS="0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA 0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0"
+# The deprecated set is derived from deployments-bridge-sepolia.json so a
+# newly-deprecated instance is picked up automatically instead of drifting
+# out of this sweep (#1557 rework). 0x24403CCf… is owned by the unrecoverable
+# deployer key 0x818018F3…; 0xfbDd3Dc5… (BR-1) and 0xFBAF71e0…
+# (SEPOLIA-REDEPLOY-1) were superseded. Any live config still naming a
+# deprecated address can strand user funds.
+DEAD_BRIDGE_CONTRACTS=$(python3 - "$REPO_DIR/contracts/deployments-bridge-sepolia.json" <<'PYEOF' 2>/dev/null || true
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    print(" ".join(e["address"] for e in data if e.get("deprecated")))
+except Exception:
+    pass
+PYEOF
+)
+# Fallback if the JSON is unreadable: the three known-deprecated addresses.
+if [ -z "$DEAD_BRIDGE_CONTRACTS" ]; then
+    DEAD_BRIDGE_CONTRACTS="0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA 0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0 0xFBAF71e0Cfb4f691ffFa5c0c54428abD841E7076"
+fi
+DEAD_BRIDGE_PATTERN=$(echo "$DEAD_BRIDGE_CONTRACTS" | tr ' ' '|')
 for h in $HOSTS; do
     hits=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
         "for f in /etc/aitbc/*.env; do \
-             grep -v '^[[:space:]]*#' \"\$f\" 2>/dev/null | grep -qE '$(echo $DEAD_BRIDGE_CONTRACTS | tr ' ' '|')' && echo \"\$f\"; \
+             grep -v '^[[:space:]]*#' \"\$f\" 2>/dev/null | grep -qE '$DEAD_BRIDGE_PATTERN' && echo \"\$f\"; \
          done | tr '\n' ' '" \
         2>/dev/null || echo "UNREACHABLE")
     if [ "$hits" = "UNREACHABLE" ]; then

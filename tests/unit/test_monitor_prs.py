@@ -68,3 +68,20 @@ def test_no_ssh_reach_exits_nonzero():
     src = SCRIPT_FCC.read_text()
     assert "NOT EVALUABLE: env sections skipped" in src
     assert "exit 3" in src
+
+
+def test_deprecated_bridge_set_derives_from_deployments_json():
+    """#1557: the dead-contract sweep must read deployments-bridge-sepolia.json
+    so a newly-deprecated instance cannot drift out of the check."""
+    src = SCRIPT_FCC.read_text()
+    assert "deployments-bridge-sepolia.json" in src
+    assert "DEAD_BRIDGE_CONTRACTS=$(python3" in src
+    # every address the JSON marks deprecated must appear in the fallback list
+    import json
+
+    repo = SCRIPT_FCC.resolve().parents[2]
+    data = json.loads((repo / "contracts" / "deployments-bridge-sepolia.json").read_text())
+    deprecated = {e["address"] for e in data if e.get("deprecated")}
+    fallback = src.split('DEAD_BRIDGE_CONTRACTS="', 1)[1].split('"', 1)[0]
+    for addr in deprecated:
+        assert addr in fallback, f"{addr} missing from fleet-config-check fallback"
