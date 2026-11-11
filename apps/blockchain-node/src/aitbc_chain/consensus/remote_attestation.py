@@ -1173,20 +1173,80 @@ class RemoteAttestationService:
             )
             return
 
+    def _parent_lag_gap(self, header: dict[str, Any]) -> int | None:
+        """#1295: how many blocks the local tip is behind the request's parent.
+
+        Returns ``(height - 1) - tip_height`` — positive means the validator
+        is still importing blocks the attestation needs; zero/negative means
+        the tip is at or past the parent height (the not_at_parent verdict
+        is then a real rival/ahead refusal, not lag). None when the height
+        is unreadable or no session factory is configured.
+        """
+        try:
+            height = int(header.get("height", 0))
+        except (TypeError, ValueError):
+            return None
+        if self._session_factory is None or height <= 0:
+            return None
+        session_ctx = self._session_factory()
+        try:
+            with session_ctx as session:
+                from ..database import ensure_chain_db_healthy
+
+                db_ok, _ = ensure_chain_db_healthy(self._chain_id, session=session)
+                if not db_ok:
+                    return None
+                tip_row = session.exec(
+                    select(Block.height).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+                ).first()
+        except Exception:  # noqa: BLE001 - a probe failure must not mask the real verdict
+            return None
+        if tip_row is None:
+            return None
+        return (height - 1) - int(tip_row)
+
     async def _run_v9_check(self, header: dict[str, Any], txs: list[Any]) -> str | None:
         """#1310: run the v9 tx check, timed; optionally off the event loop.
 
-        With ``attest_v9_check_offload_enabled`` the (read-only, idempotent)
-        check runs in a worker thread -- ecrecover, sqlite reads and the lock
-        retry sleep no longer freeze the loop. The handler still awaits the
-        verdict before any signing decision, so serial ordering is unchanged.
+        With ``attest_v9_check_offload_enabled`` — or
+        ``attest_lag_wait_enabled``, whose bounded parent-import wait also
+        sleeps — the (read-only, idempotent) check runs in a worker thread --
+        ecrecover, sqlite reads and the retry/lag sleeps no longer freeze the
+        loop. The handler still awaits the verdict before any signing
+        decision, so serial ordering is unchanged.
         ``attest_v9_check_seconds`` records the cost either way.
+
+        #1295 ATTEST-LAG-WAIT-1: a ``not_at_parent`` verdict while the tip
+        is 1..``attest_lag_wait_max_blocks`` behind the request's parent is
+        retried until ``attest_lag_wait_seconds`` elapses — transient import
+        stalls get absorbed instead of instant refusal. The wait lives here,
+        outside the check's session, so each poll opens and closes its own
+        session (no connection pile-up) and fork protection is untouched:
+        rival/ahead tips produce gap <= 0 and refuse on the first verdict.
         """
         start = time.monotonic()
+        lag_wait = bool(getattr(settings, "attest_lag_wait_enabled", False))
+        offload = bool(getattr(settings, "attest_v9_check_offload_enabled", False)) or lag_wait
+        deadline: float | None = None
         try:
-            if getattr(settings, "attest_v9_check_offload_enabled", False):
-                return await asyncio.to_thread(self._v9_check_transactions, header, txs)
-            return self._v9_check_transactions(header, txs)
+            while True:
+                if offload:
+                    verdict = await asyncio.to_thread(self._v9_check_transactions, header, txs)
+                else:
+                    verdict = self._v9_check_transactions(header, txs)
+                if verdict != "not_at_parent" or not lag_wait:
+                    return verdict
+                gap = await asyncio.to_thread(self._parent_lag_gap, header)
+                max_blocks = int(getattr(settings, "attest_lag_wait_max_blocks", 2))
+                if gap is None or gap < 1 or gap > max_blocks:
+                    return verdict
+                now = time.monotonic()
+                if deadline is None:
+                    deadline = now + float(getattr(settings, "attest_lag_wait_seconds", 10.0))
+                remaining = deadline - now
+                if remaining <= 0:
+                    return verdict
+                await asyncio.sleep(min(V9_CHECK_RETRY_DELAY_S, remaining))
         finally:
             metrics_registry.observe("attest_v9_check_seconds", time.monotonic() - start)
 
