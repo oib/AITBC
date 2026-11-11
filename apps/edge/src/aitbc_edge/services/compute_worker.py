@@ -15,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
@@ -28,6 +28,9 @@ logger = get_logger(__name__)
 
 # Default result cache TTL; mirrors ComputeResult.cache_ttl default.
 DEFAULT_CACHE_TTL_SECONDS = 3600
+
+# Non-terminal request states — terminal rows must not be overwritten (#1811 / #1424).
+_REQUEST_ACTIVE_STATUSES = ("queued", "running")
 
 
 def _island_id() -> str:
@@ -118,22 +121,40 @@ async def _execute_request(
 
 async def _mark_request_status(
     request_id: str, status: str, started_at: datetime | None = None, error: str | None = None
-) -> None:
-    """Load and update the status of a compute request."""
-    async with get_session() as session:
-        result = await session.execute(select(ComputeRequest).where(ComputeRequest.request_id == request_id))
-        request = result.scalar_one_or_none()
-        if request is None:
-            logger.warning("Request %s not found while updating status", request_id)
-            return
+) -> bool:
+    """Conditionally update the status of a compute request (#1811 CAS)."""
+    values: dict[str, Any] = {"status": status, "updated_at": datetime.now(UTC)}
+    if started_at is not None:
+        values["started_at"] = started_at
+    if error is not None:
+        values["error"] = error
 
-        request.status = status
-        request.updated_at = datetime.now(UTC)
-        if started_at is not None:
-            request.started_at = started_at
-        if error is not None:
-            request.error = error
+    async with get_session() as session:
+        stmt = (
+            update(ComputeRequest)
+            .where(
+                col(ComputeRequest.request_id) == request_id,
+                col(ComputeRequest.status).in_(_REQUEST_ACTIVE_STATUSES),
+            )
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        result = await session.execute(stmt)
         await session.commit()
+        if getattr(result, "rowcount", 0) != 1:
+            existing = await session.execute(select(ComputeRequest).where(col(ComputeRequest.request_id) == request_id))
+            row = existing.scalar_one_or_none()
+            if row is None:
+                logger.warning("Request %s not found while updating status", request_id)
+            else:
+                logger.info(
+                    "Skipped stale compute request status update for %s (current=%s, attempted=%s)",
+                    request_id,
+                    row.status,
+                    status,
+                )
+            return False
+        return True
 
 
 async def _execute_and_store(request_id: str) -> None:
