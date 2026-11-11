@@ -16,6 +16,20 @@ from starlette.requests import Request
 from apps.exchange.simple_exchange.main import _dispatch
 
 
+def _market_module_globals() -> dict:
+    """Globals of the market mixin module *this file's _dispatch uses*.
+
+    test_http_contract's server fixture pops and re-imports the whole
+    ``apps.exchange.simple_exchange`` package — and that copy's lifespan
+    shutdown kills its handler pool — so ``sys.modules`` may hold a
+    different copy than the one bound at this module's import. Walk from
+    the bound ``_dispatch`` instead of resolving the module by name.
+    """
+    handler_cls = _dispatch.__globals__["ExchangeAPIHandler"]
+    mixin = next(c for c in handler_cls.__mro__ if c.__name__ == "MarketMixin")
+    return mixin.handle_market_book_offer.__globals__
+
+
 @pytest.fixture(autouse=True)
 def _legacy_unsigned_placement(monkeypatch):
     """Idempotency-Key semantics here belong to the pre-phase-2 unsigned path.
@@ -93,6 +107,12 @@ class TestPlaceOrderIdempotency:
 
 
 class TestMarketOfferIdempotency:
+    @pytest.fixture(autouse=True)
+    def _buyer_can_pay(self, monkeypatch):
+        """#1827: booking now verifies on-chain balance — this class tests
+        idempotent replay, not funds, so stub a deep balance."""
+        monkeypatch.setitem(_market_module_globals(), "_buyer_available_units", lambda wallet: 10**18)
+
     def test_book_offer_replays(self, exchange_db):
         conn = sqlite3.connect(exchange_db)
         conn.execute(
